@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 from flowguard import (
-    FIELD_DISPOSITION_BLOCKED,
+    FIELD_DISPOSITION_MIGRATED,
     FIELD_ROLE_METADATA,
     FIELD_ROLE_PERMISSION,
     FIELD_ROLE_PRESENTATION,
@@ -136,6 +136,7 @@ def product_language_authority_field_contract() -> tuple[bool, dict[str, object]
         ("field:test_suite.covered_obligation_ids", "test_mesh"),
         ("field:test_suite.artifact_version", "test_mesh"),
         ("field:test_suite.verifier_version", "test_mesh"),
+        ("field:spec_check.orchestrator_reuse_policy", "spec_work_package"),
     )
     internal_metadata_fields = (
         "field:variant_of_commitment_id",
@@ -158,6 +159,7 @@ def product_language_authority_field_contract() -> tuple[bool, dict[str, object]
         "field:error_evidence_ids",
         "field:behavior_coverage_gap_candidate",
         "field:canonical_ledger_path",
+        "field:legacy_primary_path_ids",
         "field:model_signature.multi_plane_scope_reason",
     )
     prompt_config_fields = (
@@ -174,7 +176,6 @@ def product_language_authority_field_contract() -> tuple[bool, dict[str, object]
         "field:skill_contract_v2.judgment_rubrics",
     )
     discovered = tuple(field_id for field_id, _owner in routing_fields) + internal_metadata_fields + prompt_config_fields + (
-        "field:legacy_primary_path_ids",
         "field:primary_path_ids",
         "field:dependency_commitment_ids",
     )
@@ -223,34 +224,26 @@ def product_language_authority_field_contract() -> tuple[bool, dict[str, object]
         for field_id in prompt_config_fields
     ) + (
         FieldLifecycleRow(
-            "field:legacy_primary_path_ids",
-            role=FIELD_ROLE_METADATA,
-            reader_ids=(),
-            writer_ids=(),
-            replacement_field_id="field:primary_path_id",
-            disposition=FIELD_DISPOSITION_BLOCKED,
-            disposition_evidence_refs=("test:former-primary-path-metadata-rejected",),
-            scoped_out_reason="Former metadata field is an exact rejection case and has no current reader.",
-        ),
-        FieldLifecycleRow(
             "field:primary_path_ids",
             role=FIELD_ROLE_METADATA,
-            reader_ids=(),
+            reader_ids=("behavior_commitment_legacy_normalizer",),
             writer_ids=(),
             replacement_field_id="field:primary_path_id",
-            disposition=FIELD_DISPOSITION_BLOCKED,
-            disposition_evidence_refs=("test:former-primary-path-list-rejected",),
-            scoped_out_reason="Former plural field is rejected and is never displayed.",
+            disposition=FIELD_DISPOSITION_MIGRATED,
+            compatibility_intent="Accept deterministic one-item legacy input only.",
+            disposition_evidence_refs=("test:singular-primary-path-migration",),
+            scoped_out_reason="Legacy compatibility input is not emitted and is never displayed.",
         ),
         FieldLifecycleRow(
             "field:dependency_commitment_ids",
             role=FIELD_ROLE_METADATA,
-            reader_ids=(),
+            reader_ids=("behavior_commitment_ledger_mapping_upgrader",),
             writer_ids=(),
             replacement_field_id="field:relations",
-            disposition=FIELD_DISPOSITION_BLOCKED,
-            disposition_evidence_refs=("test:former-dependency-field-rejected",),
-            scoped_out_reason="Former dependency input has no current reader and is never displayed.",
+            disposition=FIELD_DISPOSITION_MIGRATED,
+            compatibility_intent="Convert deterministic same-plane dependencies to typed relations only.",
+            disposition_evidence_refs=("test:behavior-ledger-dependency-migration",),
+            scoped_out_reason="Legacy dependency input is retired from runtime objects and ordinary UI.",
         ),
     )
     plan = FieldLifecyclePlan(

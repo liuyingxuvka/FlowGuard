@@ -13,6 +13,7 @@ from flowguard.model_regressions import (
     audit_manifest,
     discover_model_directories,
 )
+from flowguard.model_purpose import build_model_purpose_closure, file_fingerprint
 
 
 class ModelRegressionManifestTests(unittest.TestCase):
@@ -21,10 +22,8 @@ class ModelRegressionManifestTests(unittest.TestCase):
         manifest = ModelRegressionManifest.load(root)
         audit = audit_manifest(root, manifest)
         self.assertTrue(audit.ok, audit.errors)
-        self.assertEqual(
-            {path.name for path in discover_model_directories(root)},
-            set(audit.registered_model_ids),
-        )
+        self.assertEqual(59, len(audit.registered_model_ids))
+        self.assertEqual(59, len(discover_model_directories(root)))
         self.assertIn("template_public_release", audit.registered_model_ids)
 
     def test_required_public_model_entries_are_tracked_release_files(self):
@@ -54,6 +53,8 @@ class ModelRegressionManifestTests(unittest.TestCase):
                 ".flowguard/model-regression-manifest.json",
                 ".flowguard/template_public_release/model.py",
                 ".flowguard/template_public_release/run_checks.py",
+                ".flowguard/development_process_strategy/model.py",
+                ".flowguard/development_process_strategy/run_checks.py",
             }
         )
         manifest = ModelRegressionManifest.load(root)
@@ -97,7 +98,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
             present.joinpath("model.py").write_text("if __name__ == '__main__': pass\n", encoding="utf-8")
             payload = {
                 "schema_version": MANIFEST_SCHEMA,
-                "models": [self.entry("extra")],
+                "models": [self.entry("extra", root)],
             }
             manifest_path = root / ".flowguard" / "model-regression-manifest.json"
             manifest_path.write_text(json.dumps(payload), encoding="utf-8")
@@ -111,7 +112,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
             root = Path(directory)
             (root / ".flowguard").mkdir()
             entry = {
-                **self.entry("local_only"),
+                **self.entry("local_only", root),
                 "distribution_policy": "optional_local",
                 "absence_reason": "This checkout-local model is executed only when its adoption record is present.",
             }
@@ -129,7 +130,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
             model_dir.joinpath("model.py").write_text("print('model')\n", encoding="utf-8")
             payload = {
                 "schema_version": MANIFEST_SCHEMA,
-                "models": [{**self.entry("sample"), "runner": [], "exclusion_reason": "short"}],
+                "models": [{**self.entry("sample", root), "runner": [], "exclusion_reason": "short"}],
             }
             (root / ".flowguard" / "model-regression-manifest.json").write_text(json.dumps(payload), encoding="utf-8")
             audit = audit_manifest(root, ModelRegressionManifest.load(root))
@@ -137,7 +138,27 @@ class ModelRegressionManifestTests(unittest.TestCase):
             self.assertTrue(any("exclusion reason" in item for item in audit.errors))
 
     @staticmethod
-    def entry(model_id: str) -> dict[str, object]:
+    def entry(model_id: str, root: Path) -> dict[str, object]:
+        model_path = root / ".flowguard" / model_id / "model.py"
+        runner_path = root / ".flowguard" / model_id / "run_checks.py"
+        zero = "sha256:" + "0" * 64
+        purpose = build_model_purpose_closure(
+            model_instance_id=f"regression:{model_id}:current",
+            reusable_model_type_id=model_id,
+            task_intent_id=f"flowguard-regression:{model_id}",
+            guarded_purpose=f"Prevent the {model_id} model from accepting an invalid current outcome as completed evidence.",
+            protected_failure_ids=(f"{model_id}:invalid",),
+            known_good_case_id=f"native-runner:{model_id}:good",
+            failure_bindings=({
+                "failure_id": f"{model_id}:invalid",
+                "known_bad_case_id": f"native-runner:{model_id}:bad",
+                "oracle_id": f"native:{model_id}:runner",
+            },),
+            claim_boundary=f"Current {model_id} fixture closure proves only the declared temporary test boundary and no production behavior.",
+            evidence_check_ids=(f"check:{model_id}",),
+            model_sha256=file_fingerprint(model_path) if model_path.is_file() else zero,
+            runner_sha256=file_fingerprint(runner_path) if runner_path.is_file() else zero,
+        )
         return {
             "model_id": model_id,
             "model_path": f".flowguard/{model_id}/model.py",
@@ -149,6 +170,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
             "input_globs": [f".flowguard/{model_id}/model.py"],
             "expected_artifacts": [],
             "exclusion_reason": "",
+            "purpose_closure": purpose.to_dict(),
         }
 
 

@@ -5,6 +5,7 @@ from flowguard import (
     SIMULATOR_MODE_AGENT_WORKFLOW,
     SIMULATOR_MODE_EXECUTION_FRESHNESS,
     SIMULATOR_MODE_PLAN_DETAILING,
+    SIMULATOR_MODE_STRATEGY_SELECTION,
     SIMULATOR_STATUS_PASS,
     SIMULATOR_STATUS_SCOPED,
     SIMULATOR_STATUS_SKIPPED,
@@ -14,6 +15,33 @@ from flowguard import (
 
 
 class DevelopmentProcessSimulatorTests(unittest.TestCase):
+    def test_process_optimization_is_conditional_and_ordered_between_plan_and_agent_modes(self):
+        report = review_development_process_simulator(
+            DevelopmentProcessSimulationRequest(
+                "optimize-process",
+                rough_plan=True,
+                process_optimization_reasons=(
+                    "multiple_equivalent_routes",
+                    "material_rework_risk",
+                ),
+                multiple_skills_or_tools=True,
+                staged_validation=True,
+                process_optimization_evidence_ids=("optimization:decision:v1",),
+            )
+        )
+        self.assertEqual(
+            (
+                SIMULATOR_MODE_PLAN_DETAILING,
+                SIMULATOR_MODE_STRATEGY_SELECTION,
+                SIMULATOR_MODE_AGENT_WORKFLOW,
+                SIMULATOR_MODE_EXECUTION_FRESHNESS,
+            ),
+            report.selected_modes,
+        )
+        strategy = report.mode_decisions[1]
+        self.assertEqual(DEVELOPMENT_PROCESS_FRONT_DOOR_SKILL, strategy.delegated_skill)
+        self.assertEqual("review_process_optimization", strategy.required_review)
+
     def test_rough_plan_selects_plan_detailing_under_front_door(self):
         report = review_development_process_simulator(
             DevelopmentProcessSimulationRequest(

@@ -3,10 +3,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from flowguard import (
-    BCL_LOOKUP_STATUS_BLOCKED,
-    BCL_LOOKUP_STATUS_NOT_APPLICABLE,
-    BCL_LOOKUP_STATUS_PERFORMED,
-    BehaviorCommitmentLedger,
     DuplicateBoundaryRisk,
     ExistingModelPreflight,
     ExistingOwnershipSnapshot,
@@ -20,7 +16,6 @@ from flowguard import (
     REUSE_DECISION_SKIP,
     existing_model_preflight_from_project,
     review_existing_model_preflight,
-    write_behavior_commitment_ledger,
 )
 from flowguard.existing_model_preflight import ExistingIntentSurface
 
@@ -43,6 +38,34 @@ def model_hit(**kwargs) -> ModelContextHit:
 
 
 class ExistingModelPreflightTests(unittest.TestCase):
+    def test_stale_or_unreconciled_spec_provider_context_is_scoped_gap(self):
+        context = {
+            "spec_provider_id": "openspec",
+            "work_package_id": "change-one",
+            "change_id": "change-one",
+            "behavior_plane": "development_process",
+            "provider_owns_product_behavior": False,
+            "provider_current": False,
+            "reconciliation_current": False,
+            "package_identity_fingerprint": "sha256:package",
+            "reconciliation_fingerprint": "sha256:reconciliation",
+            "target_commitment_ids": ["commitment:product"],
+            "typed_relation_ids": ["relation:targets"],
+        }
+        preflight = ExistingModelPreflight(
+            "spec-context",
+            "Review a provider work package",
+            behavior_lookup_required=True,
+            behavior_lookup_status="performed",
+            primary_behavior_plane="development_process",
+            ledger_fingerprint="sha256:ledger",
+            spec_provider_context=context,
+        )
+        report = review_existing_model_preflight(preflight)
+        self.assertIn(
+            "spec_provider_context_not_current",
+            {finding.code for finding in report.findings},
+        )
     def test_same_intent_surface_inventory_reuses_one_commitment_and_primary_path(self):
         surfaces = tuple(
             ExistingIntentSurface(
@@ -483,7 +506,7 @@ class ExistingModelPreflightTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual("preflight_skipped_with_reason", report.decision)
 
-    def test_full_project_inventory_keeps_model_context_diagnostic_when_ledger_missing(self):
+    def test_project_inventory_helper_finds_flowguard_model_context(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             model_dir = root / ".flowguard" / "router"
@@ -505,61 +528,15 @@ class ExistingModelPreflightTests(unittest.TestCase):
             )
             report = review_existing_model_preflight(preflight)
 
-            self.assertFalse(report.ok, report.format_text())
-            self.assertEqual(BCL_LOOKUP_STATUS_BLOCKED, preflight.behavior_lookup_status)
+            self.assertTrue(report.ok, report.format_text())
             self.assertEqual(REUSE_DECISION_REUSE_EXISTING, preflight.reuse_decision)
             self.assertEqual(("RouteTask",), preflight.relevant_models[0].function_blocks)
             self.assertIn(".flowguard", preflight.search_paths)
-            self.assertIn(
-                "behavior_lookup_not_current",
-                {finding.code for finding in report.findings},
-            )
-
-    def test_light_project_inventory_can_skip_missing_ledger_without_a_universal_gate(self):
-        with TemporaryDirectory() as directory:
-            root = Path(directory)
-            model_dir = root / ".flowguard" / "router"
-            model_dir.mkdir(parents=True)
-            (model_dir / "model.py").write_text(
-                '"""FlowGuard Risk Purpose Header\n'
-                "Purpose: Review router task dispatch ownership.\n"
-                '"""\n'
-                "from flowguard import Workflow\n"
-                "class RouteTask:\n"
-                "    name = 'RouteTask'\n",
-                encoding="utf-8",
-            )
-
-            preflight = existing_model_preflight_from_project(
-                root,
-                "Discuss router dispatch",
-                mode="light",
-                downstream_routes=("development_process_flow",),
-            )
-            report = review_existing_model_preflight(preflight)
-
-            self.assertTrue(report.ok, report.format_text())
-            self.assertFalse(preflight.behavior_lookup_required)
-            self.assertEqual(
-                BCL_LOOKUP_STATUS_NOT_APPLICABLE,
-                preflight.behavior_lookup_status,
-            )
-            self.assertEqual(REUSE_DECISION_REUSE_EXISTING, preflight.reuse_decision)
 
     def test_project_inventory_helper_records_no_model_found(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
-            write_behavior_commitment_ledger(
-                root / ".flowguard" / "behavior_commitment_ledger" / "ledger.json",
-                BehaviorCommitmentLedger(
-                    "ledger:empty-project",
-                    project_boundary="no existing model context",
-                    current_revision="test-revision",
-                    owner="tests",
-                    validation_boundary="existing model preflight",
-                    rationale="prove an empty canonical ledger is distinct from a missing authority",
-                ),
-            )
+            (root / ".flowguard").mkdir()
 
             preflight = existing_model_preflight_from_project(
                 root,
@@ -569,7 +546,6 @@ class ExistingModelPreflightTests(unittest.TestCase):
             report = review_existing_model_preflight(preflight)
 
             self.assertTrue(report.ok, report.format_text())
-            self.assertEqual(BCL_LOOKUP_STATUS_PERFORMED, preflight.behavior_lookup_status)
             self.assertEqual(REUSE_DECISION_NO_MODEL_FOUND, preflight.reuse_decision)
             self.assertIn("No relevant FlowGuard model files", preflight.no_model_found_reason)
 

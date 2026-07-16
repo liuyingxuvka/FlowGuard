@@ -1,6 +1,28 @@
 # Changelog
 
-## v0.55.0 - 2026-07-14
+## v0.56.0 - 2026-07-15
+
+Guard-purpose closure and generic declared-check supervision release.
+
+- Added executable model-purpose contracts so every FlowGuard model declares
+  the concrete bad behavior it is intended to block for the current modeling
+  task, the accepted boundary, observable evidence, and the safe claim that a
+  passing model licenses.
+- Propagated purpose evidence through model review, model/test alignment,
+  TestMesh, development-process closure, and the complete seventeen-skill
+  agent suite without turning SkillGuard into a domain-semantics owner.
+- Replaced former SkillGuard authorities with the sole current generic
+  declared-check contract shape: exact target-owned checks, one execution
+  owner per check, current immutable receipts, fixed `enforced` closure, and no
+  selectable quality or integration mode.
+- Hardened multi-skill validation ownership, installation projection,
+  OpenSpec receipt reuse, stale-evidence rejection, interrupted-process
+  cleanup, and source/toolchain identity binding.
+- Updated models, contracts, templates, documentation, examples, fixtures,
+  OpenSpec work packages, and regression coverage for the direct-current
+  release boundary.
+
+## v0.55.0 - 2026-07-12
 
 FlowGuard product-language, behavior-plane, and validated-path reuse hardening.
 
@@ -36,25 +58,6 @@ FlowGuard product-language, behavior-plane, and validated-path reuse hardening.
   with existing-owner model projections, generated V2 contracts/manifests, and
   `contract_mapped` depth profiles. Static contract-depth certification remains
   distinct from actual execution-depth receipts and adds no parallel executor.
-- Added current-only cross-skill validation receipts, exact execution ownership,
-  immutable child aggregation, frozen-snapshot reuse, process-tree cleanup
-  evidence, and read-only OpenSpec consumption so equivalent checks execute once
-  and later skills verify the same receipt instead of nesting test runners.
-- Reduced freshness to declared functional components: reports, receipts,
-  progress files, task checkboxes, provider archive/spec lifecycle paths, and
-  provider-local adapter/schema metadata no longer invalidate cross-change
-  physical test owners. Ordering-only receipt dependencies no longer enter a
-  child execution key unless they are separately declared as functional
-  dependency inputs. Parent aggregation independently validates and binds each
-  child toolchain instead of requiring unrelated child tools to share one
-  fingerprint. Independently current scoped child receipts may come from
-  different whole-repository session snapshots; an unrelated component change
-  therefore does not poison their parent aggregation. Ambiguous or unmapped
-  inputs block instead of falling back to a repository-wide rerun.
-- Corrected project adoption so ordinary external projects without a local
-  FlowGuard suite pass without vendoring all seventeen skills, while any
-  explicit local suite marker activates strict complete-suite validation and a
-  partial suite blocks before adoption state is written.
 
 ## v0.54.1 - 2026-07-10
 

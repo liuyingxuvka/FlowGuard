@@ -8,6 +8,7 @@ __pycache__/
 .coverage
 htmlcov/
 tmp/
+/work/
 
 build/
 dist/
@@ -22,3 +23,10 @@ env/
 kb/
 docs/flowguard_adoption_log.md
 docs/adoption_review_*.md
+
+# Local verification evidence and machine-bound archived execution contracts
+openspec/**/run-artifacts/
+openspec/**/verification-receipts/
+openspec/**/verification-report.json
+openspec/**/verification-provenance.json
+openspec/changes/archive/**/verification-contract.yaml

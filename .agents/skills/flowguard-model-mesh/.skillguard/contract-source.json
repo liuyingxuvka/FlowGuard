@@ -3,13 +3,15 @@
   "checks": [
     {
       "check_id": "check:flowguard-model-mesh:plane-boundary",
+      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
         "obligation:flowguard-model-mesh:plane-boundary"
       ],
       "depends_on_check_ids": [],
       "evidence_class": "hard",
-      "evidence_domain_id": "flowguard-model-mesh:functional",
-      "execution_owner_id": "owner:flowguard-model-mesh:flowguard-model-mesh-plane-boundary",
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-mesh:plane-boundary",
+      "execution_owner_id": "owner:check:flowguard-model-mesh:plane-boundary",
       "input_selectors": [
         {
           "kind": "path",
@@ -17,6 +19,7 @@
         }
       ],
       "kind": "model_assertion",
+      "semantic_check_id": "semantic:check:flowguard-model-mesh:plane-boundary",
       "timeout_seconds": 30
     },
     {
@@ -28,14 +31,16 @@
       ],
       "check_id": "check:flowguard-model-mesh:native-authority",
       "command": "python",
+      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
         "obligation:flowguard-model-mesh:native-authority"
       ],
       "cwd_token": "repository_root",
       "depends_on_check_ids": [],
       "evidence_class": "hard",
-      "evidence_domain_id": "flowguard-model-mesh:functional",
-      "execution_owner_id": "owner:flowguard-model-mesh:flowguard-model-mesh-native-authority",
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-mesh:native-authority",
+      "execution_owner_id": "owner:check:flowguard-model-mesh:native-authority",
       "expected": {
         "exit_code": 0
       },
@@ -46,33 +51,36 @@
         },
         {
           "kind": "path",
-          "path": ".flowguard/hierarchical_model_mesh/run_checks.py"
-        },
-        {
-          "kind": "path",
-          "path": "flowguard/hierarchy.py"
-        },
-        {
-          "kind": "path",
-          "path": "flowguard/skill_contract_model.py"
-        },
-        {
-          "kind": "path",
           "path": "tests/test_hierarchical_mesh.py"
+        },
+        {
+          "kind": "role",
+          "role": "runtime_source"
+        },
+        {
+          "kind": "role",
+          "role": "documentation_model"
+        },
+        {
+          "kind": "role",
+          "role": "test_dev"
         }
       ],
       "kind": "command",
+      "semantic_check_id": "semantic:check:flowguard-model-mesh:native-authority",
       "timeout_seconds": 300
     },
     {
       "check_id": "check:flowguard-model-mesh:evidence-closure",
+      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
         "obligation:flowguard-model-mesh:evidence-closure"
       ],
       "depends_on_check_ids": [],
       "evidence_class": "hard",
-      "evidence_domain_id": "flowguard-model-mesh:functional",
-      "execution_owner_id": "owner:flowguard-model-mesh:flowguard-model-mesh-evidence-closure",
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-mesh:evidence-closure",
+      "execution_owner_id": "owner:check:flowguard-model-mesh:evidence-closure",
       "input_selectors": [
         {
           "kind": "path",
@@ -80,34 +88,14 @@
         }
       ],
       "kind": "model_assertion",
+      "semantic_check_id": "semantic:check:flowguard-model-mesh:evidence-closure",
       "timeout_seconds": 30
     }
   ],
   "claim_boundary": "Mesh confidence covers only registered parent/child boundaries and current consumed evidence; child-local green or background progress is not parent proof.",
   "closure_profiles": [
     {
-      "profile_id": "routine",
-      "required_obligation_ids": [
-        "obligation:flowguard-model-mesh:plane-boundary"
-      ]
-    },
-    {
-      "profile_id": "functional",
-      "required_obligation_ids": [
-        "obligation:flowguard-model-mesh:plane-boundary",
-        "obligation:flowguard-model-mesh:native-authority"
-      ]
-    },
-    {
-      "profile_id": "release",
-      "required_obligation_ids": [
-        "obligation:flowguard-model-mesh:plane-boundary",
-        "obligation:flowguard-model-mesh:native-authority",
-        "obligation:flowguard-model-mesh:evidence-closure"
-      ]
-    },
-    {
-      "profile_id": "highest_quality",
+      "profile_id": "enforced",
       "required_obligation_ids": [
         "obligation:flowguard-model-mesh:plane-boundary",
         "obligation:flowguard-model-mesh:native-authority",
@@ -116,57 +104,25 @@
     }
   ],
   "confirmed": true,
-  "implementation_paths": [
-    ".agents/skills/flowguard-model-mesh",
-    ".flowguard/hierarchical_model_mesh",
-    "flowguard/hierarchy.py",
-    "flowguard/skill_contract_model.py",
-    "tests/test_hierarchical_mesh.py"
-  ],
-  "judgment_rubrics": [],
-  "model_id": "flowguard.model_mesh_maintenance.skill_contract.v2",
-  "model_path": ".flowguard/hierarchical_model_mesh/model.py",
-  "release_eligible": false,
-  "schema_version": "skillguard.contract_source.v2",
-  "skill_id": "flowguard-model-mesh",
-  "step_bindings": [
-    {
-      "step_id": "step:flowguard-model-mesh:intake",
-      "action": {
-        "kind": "inventory",
-        "summary": "Name the parent claim, child set, target split or reattachment trigger, partitions, and requested claim scope."
-      },
-      "check_ids": [
-        "check:flowguard-model-mesh:plane-boundary"
-      ],
-      "output_artifact_ids": []
+  "content_impact_policy": {
+    "full_admission_reason_codes": [
+      "explicit_final_gate",
+      "explicit_release_gate",
+      "impact_policy_or_compiler_changed",
+      "shared_validation_runtime_changed",
+      "all_owner_component_changed"
+    ],
+    "owner_receipt_root_ref": {
+      "path_token": "owner_evidence_root",
+      "relative_path": "check-executions"
     },
-    {
-      "step_id": "step:flowguard-model-mesh:execute",
-      "action": {
-        "kind": "native",
-        "summary": "Run the existing model-mesh owner to review disjoint ownership, reattachment, receipt consumption, affected siblings, and liveness."
-      },
-      "check_ids": [
-        "check:flowguard-model-mesh:native-authority"
-      ],
-      "output_artifact_ids": []
-    },
-    {
-      "step_id": "step:flowguard-model-mesh:verify",
-      "action": {
-        "kind": "verifier",
-        "summary": "Reject overlap, missing owners, stale or unconsumed evidence, incomplete joins, or no-progress loops."
-      },
-      "check_ids": [
-        "check:flowguard-model-mesh:evidence-closure"
-      ],
-      "output_artifact_ids": []
-    }
-  ],
+    "policy_id": "skillguard.content_impact_policy.current",
+    "unknown_mapping_disposition": "block"
+  },
+  "default_route_id": "route:model_mesh_maintenance",
   "depth_profile": {
     "schema_version": "skillguard.depth_profile.v2",
-    "profile_id": "flowguard-model-mesh.current_contract_depth.v2",
+    "profile_id": "profile:flowguard-model-mesh:fixed-enforced-declared-check-supervision",
     "target_skill_id": "flowguard-model-mesh",
     "integration_mode": "native-integrated",
     "native_owner_id": "model_mesh_maintenance",
@@ -174,86 +130,97 @@
       "route:model_mesh_maintenance"
     ],
     "native_check_ids": [
-      "check:flowguard-model-mesh:native-authority"
+      "check:flowguard-model-mesh:plane-boundary",
+      "check:flowguard-model-mesh:native-authority",
+      "check:flowguard-model-mesh:evidence-closure"
     ],
     "skillguard_adds_domain_route": false,
-    "enforcement_level": "contract_mapped",
+    "enforcement_level": "enforced",
     "required_closure_profiles": [
-      "functional",
-      "release",
-      "highest_quality"
+      "enforced"
     ],
-    "coverage_universes": [],
-    "dimensions": [
-      {
-        "dimension_id": "scope",
-        "required": true,
-        "minimum_coverage": 1,
-        "obligation_ids": [
-          "obligation:flowguard-model-mesh:plane-boundary"
-        ],
-        "important_obligation_ids": [
-          "obligation:flowguard-model-mesh:plane-boundary"
-        ],
-        "accepted_evidence_classes": [
-          "hard"
-        ],
-        "allow_shared_evidence": true,
-        "claim_blocker": true,
-        "coverage_universe_ids": []
-      },
-      {
-        "dimension_id": "workflow",
-        "required": true,
-        "minimum_coverage": 1,
-        "obligation_ids": [
-          "obligation:flowguard-model-mesh:native-authority"
-        ],
-        "important_obligation_ids": [
-          "obligation:flowguard-model-mesh:native-authority"
-        ],
-        "accepted_evidence_classes": [
-          "hard"
-        ],
-        "allow_shared_evidence": true,
-        "claim_blocker": true,
-        "coverage_universe_ids": []
-      },
-      {
-        "dimension_id": "closure",
-        "required": true,
-        "minimum_coverage": 1,
-        "obligation_ids": [
-          "obligation:flowguard-model-mesh:evidence-closure"
-        ],
-        "important_obligation_ids": [
-          "obligation:flowguard-model-mesh:evidence-closure"
-        ],
-        "accepted_evidence_classes": [
-          "hard"
-        ],
-        "allow_shared_evidence": true,
-        "claim_blocker": true,
-        "coverage_universe_ids": []
-      }
-    ],
-    "calibration": {
-      "calibration_pair_id": "flowguard-model-mesh.contract-mapped.no-execution-calibration.v1",
-      "native_evaluator_id": "model_mesh_maintenance_native_contract_evaluator",
-      "native_evaluator_version": "57D688F4EEAE4E9E88EAEA8F7402DEB39F596EDA2AD772873CDCF233C66EE9E7",
-      "native_evaluator_check_id": "check:flowguard-model-mesh:native-authority",
-      "important_obligation_ids": [
-        "obligation:flowguard-model-mesh:plane-boundary",
-        "obligation:flowguard-model-mesh:native-authority",
-        "obligation:flowguard-model-mesh:evidence-closure"
-      ],
+    "provider_runtime": {
+      "provider_id": "skillguard-local-provider",
+      "required_runtime_contract_id": "skillguard-declared-check-supervision-current",
       "required_capability_ids": [
-        "flowguard-model-mesh.current_contract_mapping"
+        "declared-check-inventory.v1",
+        "declared-check-receipt-reconciliation.v1",
+        "installation-receipt-binding.v1",
+        "installation-currentness-replay.v1",
+        "provider-runtime-enrollment.v1",
+        "single-flight-check-execution.v1"
       ],
-      "positive_cases": [],
-      "shallow_cases": []
+      "required_enrollment_status": "enrolled",
+      "readiness_check_ids": [
+        "check:flowguard-model-mesh:native-authority"
+      ]
     },
-    "claim_boundary": "Contract-depth mapping only for flowguard-model-mesh. No coverage universe or portable positive/shallow calibration receipt is declared, so this profile cannot license EXECUTION_DEPTH_PASS or replace the target-owned native checks and closure evidence."
-  }
+    "claim_boundary": "flowguard-model-mesh owns every check's domain meaning; SkillGuard only reconciles the exact current declared-check inventory and terminal receipts in one fixed enforced closure."
+  },
+  "implementation_paths": [
+    ".agents/skills/flowguard-model-mesh",
+    ".flowguard/hierarchical_model_mesh",
+    "flowguard/hierarchy.py",
+    "flowguard/skill_contract_model.py",
+    "tests/test_hierarchical_mesh.py"
+  ],
+  "integration_mode": "native-integrated",
+  "judgment_rubrics": [],
+  "may_define_parallel_execution_route": false,
+  "may_define_skillguard_runtime_route": false,
+  "model_id": "flowguard.model_mesh_maintenance.skill_contract.v2",
+  "model_path": ".flowguard/hierarchical_model_mesh/model.py",
+  "native_check_bindings": [
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard-model-mesh:native-authority",
+      "owner_id": "model_mesh_maintenance"
+    }
+  ],
+  "native_route_bindings": [
+    {
+      "authority": "target-native",
+      "owner_id": "model_mesh_maintenance",
+      "route_id": "route:model_mesh_maintenance"
+    }
+  ],
+  "native_route_owner": "model_mesh_maintenance",
+  "release_eligible": false,
+  "schema_version": "skillguard.contract_source.v2",
+  "skill_id": "flowguard-model-mesh",
+  "step_bindings": [
+    {
+      "action": {
+        "kind": "inventory",
+        "summary": "Name the parent claim, child set, target split or reattachment trigger, partitions, and requested claim scope."
+      },
+      "check_ids": [
+        "check:flowguard-model-mesh:plane-boundary"
+      ],
+      "output_artifact_ids": [],
+      "step_id": "step:flowguard-model-mesh:intake"
+    },
+    {
+      "action": {
+        "kind": "native",
+        "summary": "Run the existing model-mesh owner to review disjoint ownership, reattachment, receipt consumption, affected siblings, and liveness."
+      },
+      "check_ids": [
+        "check:flowguard-model-mesh:native-authority"
+      ],
+      "output_artifact_ids": [],
+      "step_id": "step:flowguard-model-mesh:execute"
+    },
+    {
+      "action": {
+        "kind": "verifier",
+        "summary": "Reject overlap, missing owners, stale or unconsumed evidence, incomplete joins, or no-progress loops."
+      },
+      "check_ids": [
+        "check:flowguard-model-mesh:evidence-closure"
+      ],
+      "output_artifact_ids": [],
+      "step_id": "step:flowguard-model-mesh:verify"
+    }
+  ]
 }
-

@@ -30,6 +30,7 @@ Accept admission, UI state/task/control coverage, and current evidence; block le
 4. Bind claims to plan, inventory, content rows, screenshot/DOM/event/result evidence, click chains, blindspots, and tests.
 
 ## Hard Gates
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
 - Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Unclassified/internal content cannot render; do not add audience/role/persona categories.
 - On-demand stays hidden until an accessible task-owned reveal/return; hover has keyboard/focus parity.

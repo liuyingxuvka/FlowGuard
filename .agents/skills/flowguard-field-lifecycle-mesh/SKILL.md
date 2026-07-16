@@ -29,9 +29,9 @@ Accept a bounded field inventory; create leaf rows and behavior projections; blo
 3. Close replacement disposition and send owners, readers/writers, projections, cases, and gaps downstream.
 
 ## Hard Gates
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
-- For `skill_runtime`, default replacement is direct: delete, block, delegate, repair, or replace under the current contract; former shapes are rejection fixtures and never a compatibility reader or migration route.
-- For `ordinary_software`, a historical reader is allowed only when an explicit requirement names the historical input and one bounded owner; otherwise direct replacement applies.
+- Default replacement requires delete, block, migrate, delegate, repair, explicit preserve, or scoped reason; unknown disposition blocks full confidence.
 - Behavior claims still require current obligations, owner code contracts, tests, freshness, and template harvest closure where the model deepens.
 
 ## Output Requirements

@@ -1,0 +1,1007 @@
+{
+  "schema_version": "flowguard.validation_owner_plan.v1",
+  "task_id": "enforce-flowguard-model-purpose-closure",
+  "status": "frozen",
+  "source_state": "post-contract-compilation-pre-native-execution",
+  "declared_skill_count": 17,
+  "declared_check_count": 51,
+  "expected_native_command_count": 17,
+  "primary_orchestration_owner_id": "execution.flowguard.model-purpose-closure.affected-owners",
+  "native_execution_command": [
+    "python",
+    "scripts/run_flowguard_skill_native_checks.py",
+    "--root",
+    ".",
+    "--output-dir",
+    ".flowguard/evidence/skill-suite",
+    "--json"
+  ],
+  "static_projection_command": [
+    "python",
+    "scripts/check_flowguard_skill_suite.py",
+    "--scope",
+    "static",
+    "--root",
+    ".",
+    "--skillguard",
+    "all",
+    "--json"
+  ],
+  "final_full_execution_owner_id": "execution.flowguard.model-purpose-closure.final-full",
+  "final_full_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/final-full",
+  "unknown_or_ambiguous_owner_disposition": "block",
+  "duplicate_execution_owner_disposition": "block",
+  "checks": [
+    {
+      "skill_id": "model-first-function-flow",
+      "check_id": "check:model-first-function-flow:plane-boundary",
+      "semantic_check_id": "semantic:check:model-first-function-flow:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:model-first-function-flow:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:model-first-function-flow:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:model-first-function-flow:plane-boundary",
+      "owner_declaration_hash": "sha256:502cf911253f66c352c9cb8ab7be212212832b5a5674b6283c83f20c2ebaae3c",
+      "owner_input_projection_hash": "sha256:8d5aac285ebc3bed1fe6016f6b9a2f6592b53160c5b308638f290f7ef9c9bc52",
+      "projection_declaration_hash": "sha256:7a1ea0ff052a5025ec3f2f739fc3336db6bd088340e194e34c8a6abf3fc4e6e1",
+      "contract_hash": "906285F256C9DFAE9FB2AF26A89C785790517A9FB9E43F404C7980F1D2F15138",
+      "manifest_hash": "D2DF07AED4C1A63E1A8B3ECB4DE18CF027DD27B29A0FB29B2DBF773E8B48E707",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "model-first-function-flow",
+      "check_id": "check:model-first-function-flow:native-authority",
+      "semantic_check_id": "semantic:check:model-first-function-flow:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:model-first-function-flow:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:model-first-function-flow:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:model-first-function-flow:native-authority",
+      "owner_declaration_hash": "sha256:11006754b70263c4d175312491e11c6fa714d468fd8b260a44ad5270ec6e96a5",
+      "owner_input_projection_hash": "sha256:ddf2c54c662c196b96fa4a8e2204552c621668414ed4a791eb6d3dcdf132a545",
+      "projection_declaration_hash": "sha256:ffdbe16d3a72977623c05cd7ee07c1e6e45193a26e1b25125a87568ab7770a6e",
+      "contract_hash": "906285F256C9DFAE9FB2AF26A89C785790517A9FB9E43F404C7980F1D2F15138",
+      "manifest_hash": "D2DF07AED4C1A63E1A8B3ECB4DE18CF027DD27B29A0FB29B2DBF773E8B48E707",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "model-first-function-flow",
+      "check_id": "check:model-first-function-flow:evidence-closure",
+      "semantic_check_id": "semantic:check:model-first-function-flow:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:model-first-function-flow:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:model-first-function-flow:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:model-first-function-flow:evidence-closure",
+      "owner_declaration_hash": "sha256:ac0cd73402309f58e2a92b06e8cc5e892ebb04c25d28c29399008737d92c4351",
+      "owner_input_projection_hash": "sha256:8d5aac285ebc3bed1fe6016f6b9a2f6592b53160c5b308638f290f7ef9c9bc52",
+      "projection_declaration_hash": "sha256:590ea055b8d770a266212252959b0ef46e55662c6b8c5427745a11ac2cbf1733",
+      "contract_hash": "906285F256C9DFAE9FB2AF26A89C785790517A9FB9E43F404C7980F1D2F15138",
+      "manifest_hash": "D2DF07AED4C1A63E1A8B3ECB4DE18CF027DD27B29A0FB29B2DBF773E8B48E707",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-agent-workflow-rehearsal",
+      "check_id": "check:flowguard-agent-workflow-rehearsal:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-agent-workflow-rehearsal:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-agent-workflow-rehearsal:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-agent-workflow-rehearsal:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-agent-workflow-rehearsal:plane-boundary",
+      "owner_declaration_hash": "sha256:933af6d78031590bedd61e9ff697ce1d2cb99875069bc233f96df5d8fdbcd421",
+      "owner_input_projection_hash": "sha256:1bf730af59ffb2224072ce03120cfcb5bacb5b3c1185f8ed2690162b07970807",
+      "projection_declaration_hash": "sha256:9aabbdb6eafd42e730c160e900b5c86abf7e4af7f1733cf3fbcbfbef1e1110fe",
+      "contract_hash": "2AC39EF53E4CD75D1B5F96EFE9D507CF88EE63BE7E39E7440D6F3CBC047F20E4",
+      "manifest_hash": "DD3DF710D72A091126D553BC18610A8E3FEC3D7EECB84639A56F7B0145E81FDF",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-agent-workflow-rehearsal",
+      "check_id": "check:flowguard-agent-workflow-rehearsal:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-agent-workflow-rehearsal:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-agent-workflow-rehearsal:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-agent-workflow-rehearsal:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-agent-workflow-rehearsal:native-authority",
+      "owner_declaration_hash": "sha256:06da1919572213ff46810aedf23604ae25651f78b80072c36390426c13fd46f8",
+      "owner_input_projection_hash": "sha256:23185c3ad41f1cc021277ae81cc00b94eb06ddccfafc24b8bf6c97a8e849ea6f",
+      "projection_declaration_hash": "sha256:75956f0e18427f620148dde9fa3b2febb0e88c0be82a444c48ac4c232effcec3",
+      "contract_hash": "2AC39EF53E4CD75D1B5F96EFE9D507CF88EE63BE7E39E7440D6F3CBC047F20E4",
+      "manifest_hash": "DD3DF710D72A091126D553BC18610A8E3FEC3D7EECB84639A56F7B0145E81FDF",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-agent-workflow-rehearsal",
+      "check_id": "check:flowguard-agent-workflow-rehearsal:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-agent-workflow-rehearsal:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-agent-workflow-rehearsal:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-agent-workflow-rehearsal:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-agent-workflow-rehearsal:evidence-closure",
+      "owner_declaration_hash": "sha256:e5f34cf225b9fe65b651d6e6a74e42dff17f29331e263c1a4dd3653f37393237",
+      "owner_input_projection_hash": "sha256:1bf730af59ffb2224072ce03120cfcb5bacb5b3c1185f8ed2690162b07970807",
+      "projection_declaration_hash": "sha256:0f687e6591d8bd2ca2548e9f5f6d64bd41a3755b26f0ef3f9ac1e1ee06b2c692",
+      "contract_hash": "2AC39EF53E4CD75D1B5F96EFE9D507CF88EE63BE7E39E7440D6F3CBC047F20E4",
+      "manifest_hash": "DD3DF710D72A091126D553BC18610A8E3FEC3D7EECB84639A56F7B0145E81FDF",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-architecture-reduction",
+      "check_id": "check:flowguard-architecture-reduction:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-architecture-reduction:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-architecture-reduction:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-architecture-reduction:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-architecture-reduction:plane-boundary",
+      "owner_declaration_hash": "sha256:b2af3acca7d0c38e96c25508be72f29d5861a1f76c48af19a079ad8c3a72e334",
+      "owner_input_projection_hash": "sha256:0519fe7c0cd7111ae5d0d283c2d28dfc309c6b8e9c820f203153687ac435f151",
+      "projection_declaration_hash": "sha256:a4c8f7d60b5ca4c9e3caec19e3c337eefa6edf2507eb4431068f7a170ed4478a",
+      "contract_hash": "17A4CA6E2ECB97159093E2F47D57A5D9829AA4F25B6E9E15FFB68383684B282D",
+      "manifest_hash": "83390453AAE968B9648D36D9B6A566EA5A90298D6BE2714EAEE37207AD121B03",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-architecture-reduction",
+      "check_id": "check:flowguard-architecture-reduction:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-architecture-reduction:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-architecture-reduction:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-architecture-reduction:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-architecture-reduction:native-authority",
+      "owner_declaration_hash": "sha256:eb226f865b37b4f6ddd622206c8d7fce92e33d5346e96cf271071888178b5d21",
+      "owner_input_projection_hash": "sha256:3aa7717dfa04746dc7ae8ca371123ec649ece3553ad8c2bcddda5a94a21571f7",
+      "projection_declaration_hash": "sha256:a0bfc2218473720f41545225d416cf374acca1a7897a34a4566293155789f4b0",
+      "contract_hash": "17A4CA6E2ECB97159093E2F47D57A5D9829AA4F25B6E9E15FFB68383684B282D",
+      "manifest_hash": "83390453AAE968B9648D36D9B6A566EA5A90298D6BE2714EAEE37207AD121B03",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-architecture-reduction",
+      "check_id": "check:flowguard-architecture-reduction:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-architecture-reduction:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-architecture-reduction:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-architecture-reduction:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-architecture-reduction:evidence-closure",
+      "owner_declaration_hash": "sha256:60c2e0496f00d1cde8bab3e1b9cddf48492baa08abe449ef34abc905701b21fa",
+      "owner_input_projection_hash": "sha256:0519fe7c0cd7111ae5d0d283c2d28dfc309c6b8e9c820f203153687ac435f151",
+      "projection_declaration_hash": "sha256:c179ff4d8dd870d3811661c08f373b38e59b5d76cc6b2210727d016c7215afdd",
+      "contract_hash": "17A4CA6E2ECB97159093E2F47D57A5D9829AA4F25B6E9E15FFB68383684B282D",
+      "manifest_hash": "83390453AAE968B9648D36D9B6A566EA5A90298D6BE2714EAEE37207AD121B03",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-behavior-commitment-ledger",
+      "check_id": "check:flowguard-behavior-commitment-ledger:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-behavior-commitment-ledger:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-behavior-commitment-ledger:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-behavior-commitment-ledger:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-behavior-commitment-ledger:plane-boundary",
+      "owner_declaration_hash": "sha256:712d93aea5f03805147651907186d649f8a40197dba88daa50978806a7757fa6",
+      "owner_input_projection_hash": "sha256:6b00e0c8b846d8676f57949dbebb8acb660f89650d6866bfa1d676f7d5062829",
+      "projection_declaration_hash": "sha256:8d7674342b5830287178a43f8a711bc72e23dc0dd1912368fac223c451602d3f",
+      "contract_hash": "A5E211EE7199E4C29B9BEA5B7D150FB4C247CC46D6EA579E250D2C3E83B27BC7",
+      "manifest_hash": "6EEDCCDE25E5BD6442CE04B7C96580F481A965A9C3F8D20EBD74D2C1B4BFC563",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-behavior-commitment-ledger",
+      "check_id": "check:flowguard-behavior-commitment-ledger:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-behavior-commitment-ledger:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-behavior-commitment-ledger:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-behavior-commitment-ledger:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-behavior-commitment-ledger:native-authority",
+      "owner_declaration_hash": "sha256:3799d96995198662d3aad10442316d21f8c67ebc2a959b42c452e0b9430104fc",
+      "owner_input_projection_hash": "sha256:e263799a7741efd71facddf5b1ef1333d450ed62ce0f0498f1a4ea48fbcef2a2",
+      "projection_declaration_hash": "sha256:7bdd059d1d360e209d865c2562fcc8c8dd43d00b433b623b5b35175d47e4e7f6",
+      "contract_hash": "A5E211EE7199E4C29B9BEA5B7D150FB4C247CC46D6EA579E250D2C3E83B27BC7",
+      "manifest_hash": "6EEDCCDE25E5BD6442CE04B7C96580F481A965A9C3F8D20EBD74D2C1B4BFC563",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-behavior-commitment-ledger",
+      "check_id": "check:flowguard-behavior-commitment-ledger:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-behavior-commitment-ledger:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-behavior-commitment-ledger:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-behavior-commitment-ledger:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-behavior-commitment-ledger:evidence-closure",
+      "owner_declaration_hash": "sha256:e72111599a0f1fafd1ebb811dc8cee4e48fcba0327fa191392bff47bca39b370",
+      "owner_input_projection_hash": "sha256:6b00e0c8b846d8676f57949dbebb8acb660f89650d6866bfa1d676f7d5062829",
+      "projection_declaration_hash": "sha256:07067694efc835ac2c9b54a7ac2ae3280288cc8f4e9b17a8ce3cb8b7dbb5cfc5",
+      "contract_hash": "A5E211EE7199E4C29B9BEA5B7D150FB4C247CC46D6EA579E250D2C3E83B27BC7",
+      "manifest_hash": "6EEDCCDE25E5BD6442CE04B7C96580F481A965A9C3F8D20EBD74D2C1B4BFC563",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-code-structure-recommendation",
+      "check_id": "check:flowguard-code-structure-recommendation:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-code-structure-recommendation:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-code-structure-recommendation:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-code-structure-recommendation:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-code-structure-recommendation:plane-boundary",
+      "owner_declaration_hash": "sha256:45324ffe4e109fb2f17c4f97599dc79bec09db393a5018efe6d7ba73983062cb",
+      "owner_input_projection_hash": "sha256:0900882307cad6c0a224cbc195dd618f61f63b0526db9b785517cc7220dea791",
+      "projection_declaration_hash": "sha256:49f9b7f588a878f3d801001e9ef70d808018b1b0b0d5f02ebba48b3bff4dd73a",
+      "contract_hash": "0AD3B2B30E184AA7244A7C544AFCD4DF3491DD4EED3A93DFCE8C56D10E011139",
+      "manifest_hash": "C5A41623E5F282A68581CAF14B5127890861A0683F31EAC003A47714A79EE7BD",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-code-structure-recommendation",
+      "check_id": "check:flowguard-code-structure-recommendation:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-code-structure-recommendation:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-code-structure-recommendation:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-code-structure-recommendation:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-code-structure-recommendation:native-authority",
+      "owner_declaration_hash": "sha256:d7080deeebca64a5617bbe949be7935bc89394ca57d56064cd33dc77904d3b17",
+      "owner_input_projection_hash": "sha256:23686507fd4ad001829614d7d4f8e57e1c69cbb29e31a88695d9591169bc7dd4",
+      "projection_declaration_hash": "sha256:7b17bf1c2b9f674c42acb19d7dc8d94ef10998658cad497658661c717f133548",
+      "contract_hash": "0AD3B2B30E184AA7244A7C544AFCD4DF3491DD4EED3A93DFCE8C56D10E011139",
+      "manifest_hash": "C5A41623E5F282A68581CAF14B5127890861A0683F31EAC003A47714A79EE7BD",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-code-structure-recommendation",
+      "check_id": "check:flowguard-code-structure-recommendation:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-code-structure-recommendation:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-code-structure-recommendation:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-code-structure-recommendation:evidence-closure",
+      "owner_declaration_hash": "sha256:79bfbbb064869d8a2f8a990a76317c9703c455f068fbc6a87a1cffe4870ee71e",
+      "owner_input_projection_hash": "sha256:0900882307cad6c0a224cbc195dd618f61f63b0526db9b785517cc7220dea791",
+      "projection_declaration_hash": "sha256:3957db60534e14d60d0829184fe5db036c96950c4a2e1752d79cf88415c3e27a",
+      "contract_hash": "0AD3B2B30E184AA7244A7C544AFCD4DF3491DD4EED3A93DFCE8C56D10E011139",
+      "manifest_hash": "C5A41623E5F282A68581CAF14B5127890861A0683F31EAC003A47714A79EE7BD",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-contract-exhaustion-mesh",
+      "check_id": "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-contract-exhaustion-mesh:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-contract-exhaustion-mesh:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-contract-exhaustion-mesh:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-contract-exhaustion-mesh:plane-boundary",
+      "owner_declaration_hash": "sha256:ccc51c79635410e3fc2c3275ff45a3ec32161d63633285be8c3850cc158226ba",
+      "owner_input_projection_hash": "sha256:56c324a18c384606eb43273b990bd22e27e07e0ee5008ee33e1fde5464858d11",
+      "projection_declaration_hash": "sha256:5c6e21289e3b99b755bd1dc490a9af0be04cc0b65085ce8a1ea90d74142e7747",
+      "contract_hash": "E3C1B02C180CD177EE24424AE8F4FE572CF08AA636221717BB1757346F3B3BCA",
+      "manifest_hash": "1410DF75C67BB6DDE980A8EBBD3637355B0EFD227CFD1842EFF061FC151B6D43",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-contract-exhaustion-mesh",
+      "check_id": "check:flowguard-contract-exhaustion-mesh:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-contract-exhaustion-mesh:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-contract-exhaustion-mesh:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-contract-exhaustion-mesh:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-contract-exhaustion-mesh:native-authority",
+      "owner_declaration_hash": "sha256:c1e3d9b106833d8c3754525c7c4e3e009f787fd9399197fe41880852c295e272",
+      "owner_input_projection_hash": "sha256:2a22c001ec1dbc0c6e32e1e74df9e6e5b16155756b94102afc066d65d5fc3294",
+      "projection_declaration_hash": "sha256:5bda78847b203ffe6f85efcec6cfa5126ac6327ea5900e501a025ed9e2afc9ed",
+      "contract_hash": "E3C1B02C180CD177EE24424AE8F4FE572CF08AA636221717BB1757346F3B3BCA",
+      "manifest_hash": "1410DF75C67BB6DDE980A8EBBD3637355B0EFD227CFD1842EFF061FC151B6D43",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-contract-exhaustion-mesh",
+      "check_id": "check:flowguard-contract-exhaustion-mesh:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-contract-exhaustion-mesh:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-contract-exhaustion-mesh:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-contract-exhaustion-mesh:evidence-closure",
+      "owner_declaration_hash": "sha256:1e06f84380f0a65c550e6a20a3e359c5911c2b168ad5938a7b7acd05ab28b671",
+      "owner_input_projection_hash": "sha256:56c324a18c384606eb43273b990bd22e27e07e0ee5008ee33e1fde5464858d11",
+      "projection_declaration_hash": "sha256:a5a6d62a009a6191e264572d0ad8152f1cc438f41acb57469a9fa92ae7616f1d",
+      "contract_hash": "E3C1B02C180CD177EE24424AE8F4FE572CF08AA636221717BB1757346F3B3BCA",
+      "manifest_hash": "1410DF75C67BB6DDE980A8EBBD3637355B0EFD227CFD1842EFF061FC151B6D43",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-development-process-flow",
+      "check_id": "check:flowguard-development-process-flow:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-development-process-flow:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-development-process-flow:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-development-process-flow:plane-boundary",
+      "owner_declaration_hash": "sha256:020c6e1327788e3240e178338f858c2745122abf31c85b700bdd6c2373e4b33e",
+      "owner_input_projection_hash": "sha256:25e1c144b2f3a5f0ffca7a5d5c3fa501cffa712fb92dae76c2075bbed3cbaca7",
+      "projection_declaration_hash": "sha256:0c09da368d6f511cfb0bd7b99cfd27b9d2a2e5d0ac24af06d3352737d498d056",
+      "contract_hash": "F17235B70A4BEBBD8AF68537F8312768B5D25E3F97E49CAA6AC0104A7B746C75",
+      "manifest_hash": "B920CAC728FC6D58AC0B01877CC806A11E20A3C3E9D4E8F162A93E0D00F6B814",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-development-process-flow",
+      "check_id": "check:flowguard-development-process-flow:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-development-process-flow:native-authority",
+        "obligation:flowguard-development-process-flow:process-strategy-equivalence"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-development-process-flow:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-development-process-flow:native-authority",
+      "owner_declaration_hash": "sha256:ced9f38051c080d68f6d142c7a23082d05518d2baa3b28ade21e4d25416a18f2",
+      "owner_input_projection_hash": "sha256:79a7a8725eb9177c656021c1b37fbedc13a10dbc9dd7c3700b6273ab6f6c62e0",
+      "projection_declaration_hash": "sha256:f0f898fd114db37b5ecc3a0f61c3208e541dca5c3b5d1e7d506a2334c58622ae",
+      "contract_hash": "F17235B70A4BEBBD8AF68537F8312768B5D25E3F97E49CAA6AC0104A7B746C75",
+      "manifest_hash": "B920CAC728FC6D58AC0B01877CC806A11E20A3C3E9D4E8F162A93E0D00F6B814",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-development-process-flow",
+      "check_id": "check:flowguard-development-process-flow:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-development-process-flow:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-development-process-flow:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-development-process-flow:evidence-closure",
+      "owner_declaration_hash": "sha256:770929a2c738f1bded0afb1d7bb88fde0aff2e35da716d7b566c5c1a0df680e2",
+      "owner_input_projection_hash": "sha256:25e1c144b2f3a5f0ffca7a5d5c3fa501cffa712fb92dae76c2075bbed3cbaca7",
+      "projection_declaration_hash": "sha256:b1d8b7bef7b89cca012cf84d75cc43cf6fb158f6cfa624f311319235761b27fc",
+      "contract_hash": "F17235B70A4BEBBD8AF68537F8312768B5D25E3F97E49CAA6AC0104A7B746C75",
+      "manifest_hash": "B920CAC728FC6D58AC0B01877CC806A11E20A3C3E9D4E8F162A93E0D00F6B814",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-existing-model-preflight",
+      "check_id": "check:flowguard-existing-model-preflight:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-existing-model-preflight:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-existing-model-preflight:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-existing-model-preflight:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-existing-model-preflight:plane-boundary",
+      "owner_declaration_hash": "sha256:b4f0f2072e9ba403f738805a59204e342d47e83ec34e54cd1be3ada663adea33",
+      "owner_input_projection_hash": "sha256:ce42c608c76b08222f4ed2344cbb5a36175dac0e96fb09342a0c460bfc3a9fc6",
+      "projection_declaration_hash": "sha256:95f8b6b29c0d4c0406968ba6ac4b410182e9629bebb19bb53b3f66128a5c7a46",
+      "contract_hash": "35AC6F039B22823BA1E9864E5C3B54CB9AB6A2EAD2BADA24E29A0736ACF916FA",
+      "manifest_hash": "9C0D039640F1C70DACF69F389187E53819902A08B514DE58B442B26616C3346E",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-existing-model-preflight",
+      "check_id": "check:flowguard-existing-model-preflight:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-existing-model-preflight:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-existing-model-preflight:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-existing-model-preflight:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-existing-model-preflight:native-authority",
+      "owner_declaration_hash": "sha256:4f3aa6aabd66ef5ce6f07ed5ff77a696be33e612d5f749e6ae6a61a1e97ca455",
+      "owner_input_projection_hash": "sha256:40fe1da21d5d30c3a385af15d9b8fa0f56b0bafd9d5632f6f4e43f93cad331d6",
+      "projection_declaration_hash": "sha256:79d2cbd38040a67413af4f11166e2e255b7e7fd9c60ced34e8d3da22f8f0c3a9",
+      "contract_hash": "35AC6F039B22823BA1E9864E5C3B54CB9AB6A2EAD2BADA24E29A0736ACF916FA",
+      "manifest_hash": "9C0D039640F1C70DACF69F389187E53819902A08B514DE58B442B26616C3346E",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-existing-model-preflight",
+      "check_id": "check:flowguard-existing-model-preflight:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-existing-model-preflight:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-existing-model-preflight:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-existing-model-preflight:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-existing-model-preflight:evidence-closure",
+      "owner_declaration_hash": "sha256:b177ded01a4c87a3ed9524d6e4ae8fcb9281a1a29caf7ecb755c955c54a3c8a9",
+      "owner_input_projection_hash": "sha256:ce42c608c76b08222f4ed2344cbb5a36175dac0e96fb09342a0c460bfc3a9fc6",
+      "projection_declaration_hash": "sha256:cb3d4906ae0bda813346760008671b8ebac8a69faeba555f07c1dd72aa626da3",
+      "contract_hash": "35AC6F039B22823BA1E9864E5C3B54CB9AB6A2EAD2BADA24E29A0736ACF916FA",
+      "manifest_hash": "9C0D039640F1C70DACF69F389187E53819902A08B514DE58B442B26616C3346E",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-field-lifecycle-mesh",
+      "check_id": "check:flowguard-field-lifecycle-mesh:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-field-lifecycle-mesh:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-field-lifecycle-mesh:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-field-lifecycle-mesh:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-field-lifecycle-mesh:plane-boundary",
+      "owner_declaration_hash": "sha256:569ed1945f9584d2c432409dc54c9356c978ac6ec8551be0f83bd2b12f41e8c7",
+      "owner_input_projection_hash": "sha256:ea0d2a11fd3fa437c0204471bc50adbece6a32d2f1c3bfa7fe2c0bb9f20bcfa1",
+      "projection_declaration_hash": "sha256:4c1a9d7fb8f67e89483968afbaec5faaa7288030a0fd1e58ff7c7ba5e4ef7ee6",
+      "contract_hash": "3D5020B3FF7B914DB38AF0849E5BCC747F320DCB073E8BA53852F373B76AAD95",
+      "manifest_hash": "09578293CE878544291F31442B1ED6A93D9D4AFA024B63A018DDBAC3CF2F2FA2",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-field-lifecycle-mesh",
+      "check_id": "check:flowguard-field-lifecycle-mesh:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-field-lifecycle-mesh:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-field-lifecycle-mesh:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-field-lifecycle-mesh:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-field-lifecycle-mesh:native-authority",
+      "owner_declaration_hash": "sha256:7417dadd07b8c4847693966cef0ef3a67605958089a2fb310f63b79e3c8d1139",
+      "owner_input_projection_hash": "sha256:94c0a32e21d6cdf7658b164eaad94fd6ad08cd7cd2774fb2e6393e6c0bf906d9",
+      "projection_declaration_hash": "sha256:cadda7595f24bc74bab2b9d2b9ee3d9a523d8d0eb6e15be87456cc97e1688e63",
+      "contract_hash": "3D5020B3FF7B914DB38AF0849E5BCC747F320DCB073E8BA53852F373B76AAD95",
+      "manifest_hash": "09578293CE878544291F31442B1ED6A93D9D4AFA024B63A018DDBAC3CF2F2FA2",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-field-lifecycle-mesh",
+      "check_id": "check:flowguard-field-lifecycle-mesh:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-field-lifecycle-mesh:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-field-lifecycle-mesh:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-field-lifecycle-mesh:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-field-lifecycle-mesh:evidence-closure",
+      "owner_declaration_hash": "sha256:3dc580cf740f08af93b77ae9d04802e09c2f73b6c44f9e9d557903fc8b404054",
+      "owner_input_projection_hash": "sha256:ea0d2a11fd3fa437c0204471bc50adbece6a32d2f1c3bfa7fe2c0bb9f20bcfa1",
+      "projection_declaration_hash": "sha256:40ec553caeb651185a62aba63175cd015663c8046f2d52f3660c94f9b4128d55",
+      "contract_hash": "3D5020B3FF7B914DB38AF0849E5BCC747F320DCB073E8BA53852F373B76AAD95",
+      "manifest_hash": "09578293CE878544291F31442B1ED6A93D9D4AFA024B63A018DDBAC3CF2F2FA2",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-model-mesh",
+      "check_id": "check:flowguard-model-mesh:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-model-mesh:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-model-mesh:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-mesh:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-model-mesh:plane-boundary",
+      "owner_declaration_hash": "sha256:4f523ef512461e0a4529a877be25c865071ffb145904c6c978fb396ef9706758",
+      "owner_input_projection_hash": "sha256:b70b8d85e82ab4a3d85b9ef7f5d03d3981c67e95462f8acc0fc38eef849ec467",
+      "projection_declaration_hash": "sha256:7f4306652ca6e19db85f724c1d9f19b72258a1cc6c08f1263178ed6fbb7b622b",
+      "contract_hash": "23E5A3D8E2CF17077A4594566E3CD607C99FBE349CA9A240D1F18847871220AA",
+      "manifest_hash": "338097FD19092C78E4C8444E680CD19E86242262038A2B79B7AAB90D9A527961",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-model-mesh",
+      "check_id": "check:flowguard-model-mesh:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-model-mesh:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-model-mesh:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-mesh:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-model-mesh:native-authority",
+      "owner_declaration_hash": "sha256:926b999654e06ebeb798cff60240a8572cd1f106fc1da6a4a3e61a1c4e860bee",
+      "owner_input_projection_hash": "sha256:c48025ca2a51e47275ad0d32f933c0a8236b32294a64b5fd7f0cca4c43a3ec89",
+      "projection_declaration_hash": "sha256:fa981e9c08fa0e7a08cba538deacadcde86ce78adf9d42ecf4ebf41c72d49af6",
+      "contract_hash": "23E5A3D8E2CF17077A4594566E3CD607C99FBE349CA9A240D1F18847871220AA",
+      "manifest_hash": "338097FD19092C78E4C8444E680CD19E86242262038A2B79B7AAB90D9A527961",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-model-mesh",
+      "check_id": "check:flowguard-model-mesh:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-model-mesh:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-model-mesh:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-mesh:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-model-mesh:evidence-closure",
+      "owner_declaration_hash": "sha256:20eb22958489d87a56b7463f3c924ef230b8d387a3da21b11aa2c36b1809a806",
+      "owner_input_projection_hash": "sha256:b70b8d85e82ab4a3d85b9ef7f5d03d3981c67e95462f8acc0fc38eef849ec467",
+      "projection_declaration_hash": "sha256:b07100d0048a7eeb79e9fc6371a955c948c0984d098e0990e2bb4fdf26bc5b42",
+      "contract_hash": "23E5A3D8E2CF17077A4594566E3CD607C99FBE349CA9A240D1F18847871220AA",
+      "manifest_hash": "338097FD19092C78E4C8444E680CD19E86242262038A2B79B7AAB90D9A527961",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-model-miss-review",
+      "check_id": "check:flowguard-model-miss-review:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-model-miss-review:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-model-miss-review:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-miss-review:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-model-miss-review:plane-boundary",
+      "owner_declaration_hash": "sha256:fd66296888f6a27cb20fcf9eab03e93c58f731c91a4e1c8c5f1fcf88fe4e7029",
+      "owner_input_projection_hash": "sha256:d932fd25372001b5ca785ef3e7bc2a2df29bb87da2604ab8f8c0a848fcf89072",
+      "projection_declaration_hash": "sha256:b165d166859a5f929b233ea3494edc83098442092c00ba8805b87cbac4b8809d",
+      "contract_hash": "A50EE89EFFF61246A3885B07237DA90EE05BE9A6493CC1015FF997E2A6A8827C",
+      "manifest_hash": "00B6143A035A9957D4B4C08144E0174960AF31372D01748A2917A721A8EA96DA",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-model-miss-review",
+      "check_id": "check:flowguard-model-miss-review:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-model-miss-review:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-model-miss-review:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-miss-review:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-model-miss-review:native-authority",
+      "owner_declaration_hash": "sha256:dfe0976776f78ef97de08c072cdd4be8251748a96dfc5422cb465dc20978c434",
+      "owner_input_projection_hash": "sha256:8e2327c345a56830dcccb6c09333bf97d73d9dcc968e25e26c6a2ba90044b77c",
+      "projection_declaration_hash": "sha256:2696bd3922f218684e2ad8b9a817f3a34975b4475038990b533e527955c0d900",
+      "contract_hash": "A50EE89EFFF61246A3885B07237DA90EE05BE9A6493CC1015FF997E2A6A8827C",
+      "manifest_hash": "00B6143A035A9957D4B4C08144E0174960AF31372D01748A2917A721A8EA96DA",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-model-miss-review",
+      "check_id": "check:flowguard-model-miss-review:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-model-miss-review:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-model-miss-review:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-miss-review:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-model-miss-review:evidence-closure",
+      "owner_declaration_hash": "sha256:e3db2bab57a10cc08a04b31dbe85bbb47822072d01265ce15f57aa4a47a490f7",
+      "owner_input_projection_hash": "sha256:d932fd25372001b5ca785ef3e7bc2a2df29bb87da2604ab8f8c0a848fcf89072",
+      "projection_declaration_hash": "sha256:45ab43d104163d3fad8a51120ec35601995bb5d0cbba29e397c3454b33ffeea6",
+      "contract_hash": "A50EE89EFFF61246A3885B07237DA90EE05BE9A6493CC1015FF997E2A6A8827C",
+      "manifest_hash": "00B6143A035A9957D4B4C08144E0174960AF31372D01748A2917A721A8EA96DA",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-model-test-alignment",
+      "check_id": "check:flowguard-model-test-alignment:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-model-test-alignment:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-model-test-alignment:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-test-alignment:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-model-test-alignment:plane-boundary",
+      "owner_declaration_hash": "sha256:19aae07055bfa98d4406d6d768711a0de3e46f13f3d85f56d6bd0df8ac521a7e",
+      "owner_input_projection_hash": "sha256:ee017f1dfc02f9e104f10195a598f6e0cc5f4302c35561d1f76bb373edcefefa",
+      "projection_declaration_hash": "sha256:2c5ee527e41ee1a4543c2a048e869b7ce417c9f17a616e55e5c3c969b2c71432",
+      "contract_hash": "A71126C4D4264330D09E71903C7D6EC3D8B67F2A508713B4DF778BC03064E5FF",
+      "manifest_hash": "24B90714D7CD0FE37CE8B634676824F6F3B5D97EC78A9064252716F8E9B66793",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-model-test-alignment",
+      "check_id": "check:flowguard-model-test-alignment:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-model-test-alignment:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-model-test-alignment:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-test-alignment:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-model-test-alignment:native-authority",
+      "owner_declaration_hash": "sha256:901c49db9d797e5e38054ff4fe43fc05f705f453474799c6e385316893fc42ea",
+      "owner_input_projection_hash": "sha256:3a16231b79cd7e946d98209ccef38e0ce88f9632f692023d516382afd4e6d097",
+      "projection_declaration_hash": "sha256:350782e3f2bfb42f190fdd32e7828ee925b10ad0693b7bd21fe26585e0848d87",
+      "contract_hash": "A71126C4D4264330D09E71903C7D6EC3D8B67F2A508713B4DF778BC03064E5FF",
+      "manifest_hash": "24B90714D7CD0FE37CE8B634676824F6F3B5D97EC78A9064252716F8E9B66793",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-model-test-alignment",
+      "check_id": "check:flowguard-model-test-alignment:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-model-test-alignment:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-model-test-alignment:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-test-alignment:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-model-test-alignment:evidence-closure",
+      "owner_declaration_hash": "sha256:d06a65befb9724ff3c5ff9644a40a19b455dd5e66e840d2c563f11428fc3d1ca",
+      "owner_input_projection_hash": "sha256:ee017f1dfc02f9e104f10195a598f6e0cc5f4302c35561d1f76bb373edcefefa",
+      "projection_declaration_hash": "sha256:4968755138553bc0d787e36eaa964bab109f6ff5cb63aca21fd475f9fc329ef0",
+      "contract_hash": "A71126C4D4264330D09E71903C7D6EC3D8B67F2A508713B4DF778BC03064E5FF",
+      "manifest_hash": "24B90714D7CD0FE37CE8B634676824F6F3B5D97EC78A9064252716F8E9B66793",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-model-topology-hazard-review",
+      "check_id": "check:flowguard-model-topology-hazard-review:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-model-topology-hazard-review:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-model-topology-hazard-review:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-topology-hazard-review:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-model-topology-hazard-review:plane-boundary",
+      "owner_declaration_hash": "sha256:02cef55b3f0b9dd5b22d3f9b128314538ccd7e0d0628f083ffac73fcc1155d15",
+      "owner_input_projection_hash": "sha256:29937e0518ca159a72258456440a6a47dece7a4c98e4b1eaa9e7e021b089613f",
+      "projection_declaration_hash": "sha256:a0f22007131dcdbcb80be00d78a6ebb6f8ebfcf99da3a8fac4a9faa2eaed3676",
+      "contract_hash": "A258F955C4C02D5D8DC356EE383322A2937BF625A7CC2BBEF972CB21E9EC5EDC",
+      "manifest_hash": "22743FF8FF55C8E27861131C9D4A7092EA524B7966D2F5E6FFF66BAA345D3C5E",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-model-topology-hazard-review",
+      "check_id": "check:flowguard-model-topology-hazard-review:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-model-topology-hazard-review:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-model-topology-hazard-review:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-topology-hazard-review:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-model-topology-hazard-review:native-authority",
+      "owner_declaration_hash": "sha256:17c5c4da48ef1a39fe755fd857d4a13d9103d9868e89866834f026a1a15c15aa",
+      "owner_input_projection_hash": "sha256:45cb8b7383ea698f964222c2debeeee7fc1e1c14566ef71d6071236a774a4f62",
+      "projection_declaration_hash": "sha256:27a4023307c4599daf0ea0653c85f56269fcf1dfd67b3c1310f6155f273914fa",
+      "contract_hash": "A258F955C4C02D5D8DC356EE383322A2937BF625A7CC2BBEF972CB21E9EC5EDC",
+      "manifest_hash": "22743FF8FF55C8E27861131C9D4A7092EA524B7966D2F5E6FFF66BAA345D3C5E",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-model-topology-hazard-review",
+      "check_id": "check:flowguard-model-topology-hazard-review:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-model-topology-hazard-review:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-model-topology-hazard-review:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-model-topology-hazard-review:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-model-topology-hazard-review:evidence-closure",
+      "owner_declaration_hash": "sha256:1aae5448db29f2487f4ff3de105931852bdde605c12a4f1dbbad7b1136b9d584",
+      "owner_input_projection_hash": "sha256:29937e0518ca159a72258456440a6a47dece7a4c98e4b1eaa9e7e021b089613f",
+      "projection_declaration_hash": "sha256:c9cabcb67ca17ea064c080cb7f96a49603b297fe376665105eeb290d3617adb6",
+      "contract_hash": "A258F955C4C02D5D8DC356EE383322A2937BF625A7CC2BBEF972CB21E9EC5EDC",
+      "manifest_hash": "22743FF8FF55C8E27861131C9D4A7092EA524B7966D2F5E6FFF66BAA345D3C5E",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-plan-detailing-compiler",
+      "check_id": "check:flowguard-plan-detailing-compiler:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-plan-detailing-compiler:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-plan-detailing-compiler:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-plan-detailing-compiler:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-plan-detailing-compiler:plane-boundary",
+      "owner_declaration_hash": "sha256:caaa4fbbea99ab9f439423250fe8b54f7e8c5da4012801d03cfc754da51959d1",
+      "owner_input_projection_hash": "sha256:ebf9afbd8e776f1d03780017cb32adbbeac3f3b8bb2bca7809598f91dade83ee",
+      "projection_declaration_hash": "sha256:e994bd62c935be9bd8df78249c9ef6f441b611a5eecbc532484130d15a7ad0a8",
+      "contract_hash": "E41A20276066FD108FAFCE4901C2EE51079A2F4682953137A52B974B94E3F3FB",
+      "manifest_hash": "3EB4BE1468B24E164846ED814C0DE24A38DF05BFFD84827D5AEE3AE672EC308E",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-plan-detailing-compiler",
+      "check_id": "check:flowguard-plan-detailing-compiler:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-plan-detailing-compiler:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-plan-detailing-compiler:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-plan-detailing-compiler:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-plan-detailing-compiler:native-authority",
+      "owner_declaration_hash": "sha256:f515ed08afc344964e46a651914055b8bc8bf1526d33a915169e0b9fed9cb4a2",
+      "owner_input_projection_hash": "sha256:8e8857ea58167d2e56201ea63e80c31cf471a8235329ae5e4e0bee97fae70d58",
+      "projection_declaration_hash": "sha256:4141f83c7e676f404a1f19b15bd960fb35308ed04ae31ba9ea1517b1a2bbb715",
+      "contract_hash": "E41A20276066FD108FAFCE4901C2EE51079A2F4682953137A52B974B94E3F3FB",
+      "manifest_hash": "3EB4BE1468B24E164846ED814C0DE24A38DF05BFFD84827D5AEE3AE672EC308E",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-plan-detailing-compiler",
+      "check_id": "check:flowguard-plan-detailing-compiler:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-plan-detailing-compiler:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-plan-detailing-compiler:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-plan-detailing-compiler:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-plan-detailing-compiler:evidence-closure",
+      "owner_declaration_hash": "sha256:5bd8704f0f1b2d281d5e62739062fc1c2fa309cf87cc28b7b2563d9e33d78c44",
+      "owner_input_projection_hash": "sha256:ebf9afbd8e776f1d03780017cb32adbbeac3f3b8bb2bca7809598f91dade83ee",
+      "projection_declaration_hash": "sha256:15f319f5e1079534e10be2e43d2ea4df17c104cb6864de9bcf585cfcfb8cdea1",
+      "contract_hash": "E41A20276066FD108FAFCE4901C2EE51079A2F4682953137A52B974B94E3F3FB",
+      "manifest_hash": "3EB4BE1468B24E164846ED814C0DE24A38DF05BFFD84827D5AEE3AE672EC308E",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-structure-mesh",
+      "check_id": "check:flowguard-structure-mesh:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-structure-mesh:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-structure-mesh:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-structure-mesh:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-structure-mesh:plane-boundary",
+      "owner_declaration_hash": "sha256:c6c83d71668009d1d3e89dba1e569ee813d1df911f519a266b25f4d6a09fa63b",
+      "owner_input_projection_hash": "sha256:3aca2bd573b4039db8e4af27aa11d35176202af087767ea80e27f91f373e4aa2",
+      "projection_declaration_hash": "sha256:5dd303a3e4afd6a434e2884b7cb95dc17dcab630c808aa7505ec50062a86fd37",
+      "contract_hash": "F60B1FCEEF36E4C8F7539CF73D25877EE0329D4AA9965AACF4FCBB3DC5938630",
+      "manifest_hash": "3EEFD27122CD25153F7D764DF5E82A460D50DC82D151DA81EC402E8FCE0AA412",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-structure-mesh",
+      "check_id": "check:flowguard-structure-mesh:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-structure-mesh:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-structure-mesh:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-structure-mesh:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-structure-mesh:native-authority",
+      "owner_declaration_hash": "sha256:8777cc3340b3b39d49412cce3a325a04a8acb8725b8ba91f8d3a23901f93cca5",
+      "owner_input_projection_hash": "sha256:1fd731611ae67b64c290a712727fa24fb982b0d98cc6e24da8d162d5bb34c67e",
+      "projection_declaration_hash": "sha256:6b3a5f7156ff50ba1b00ac8e60ae5ba10a8209111f9b9e85687b5d35fb8e2cda",
+      "contract_hash": "F60B1FCEEF36E4C8F7539CF73D25877EE0329D4AA9965AACF4FCBB3DC5938630",
+      "manifest_hash": "3EEFD27122CD25153F7D764DF5E82A460D50DC82D151DA81EC402E8FCE0AA412",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-structure-mesh",
+      "check_id": "check:flowguard-structure-mesh:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-structure-mesh:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-structure-mesh:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-structure-mesh:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-structure-mesh:evidence-closure",
+      "owner_declaration_hash": "sha256:9218ba0cf878cdce71d0a01976436869b691f771962569f69d7385003be51306",
+      "owner_input_projection_hash": "sha256:3aca2bd573b4039db8e4af27aa11d35176202af087767ea80e27f91f373e4aa2",
+      "projection_declaration_hash": "sha256:a2576108394f3066f430f1511218b39da832b032a08cda82693742c1fffb80aa",
+      "contract_hash": "F60B1FCEEF36E4C8F7539CF73D25877EE0329D4AA9965AACF4FCBB3DC5938630",
+      "manifest_hash": "3EEFD27122CD25153F7D764DF5E82A460D50DC82D151DA81EC402E8FCE0AA412",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-test-mesh",
+      "check_id": "check:flowguard-test-mesh:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-test-mesh:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-test-mesh:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-test-mesh:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-test-mesh:plane-boundary",
+      "owner_declaration_hash": "sha256:149a0ea79ccd6aa9ac6b54890b277268fa4ca55ac4e8e24db11893f3696df8a6",
+      "owner_input_projection_hash": "sha256:479189f656bdc17a77b2a5998ca106938e78c1a53a8bd2c63a8649a3a1712120",
+      "projection_declaration_hash": "sha256:b71b9e19326f28c9e3f82ecea68acfe944529e7647de4f4f6388947938ce5a30",
+      "contract_hash": "828372DA1B5039220BD8B70378D25BFCAABEC45761C5443061A3FEE655855BDE",
+      "manifest_hash": "488A8A0EAAFD7C2AB5E9E193CB1A6C3F680649FC245F34A38D04015C9CB0C9AE",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-test-mesh",
+      "check_id": "check:flowguard-test-mesh:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-test-mesh:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-test-mesh:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-test-mesh:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-test-mesh:native-authority",
+      "owner_declaration_hash": "sha256:a016d30148314803be15cc2f2262295d9f21cbdf37342e0b786cd40df495b30a",
+      "owner_input_projection_hash": "sha256:f1d7208008141f56ae2de2d5b878abe9e06ccd16a8230bd2e00e333c33d4e106",
+      "projection_declaration_hash": "sha256:d1a3827fe10ffef12f900d26a914579f83fdfeeeb46534bcec3203b26133b805",
+      "contract_hash": "828372DA1B5039220BD8B70378D25BFCAABEC45761C5443061A3FEE655855BDE",
+      "manifest_hash": "488A8A0EAAFD7C2AB5E9E193CB1A6C3F680649FC245F34A38D04015C9CB0C9AE",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-test-mesh",
+      "check_id": "check:flowguard-test-mesh:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-test-mesh:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-test-mesh:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-test-mesh:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-test-mesh:evidence-closure",
+      "owner_declaration_hash": "sha256:856f3cdcf3fb7cdb8da5b7dc106336689bce1edc08ca341951517ad782b17c82",
+      "owner_input_projection_hash": "sha256:479189f656bdc17a77b2a5998ca106938e78c1a53a8bd2c63a8649a3a1712120",
+      "projection_declaration_hash": "sha256:a75f8001be256e0c5bed8559674b65339553cfced847700102aeef255172b24d",
+      "contract_hash": "828372DA1B5039220BD8B70378D25BFCAABEC45761C5443061A3FEE655855BDE",
+      "manifest_hash": "488A8A0EAAFD7C2AB5E9E193CB1A6C3F680649FC245F34A38D04015C9CB0C9AE",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-ui-flow-structure",
+      "check_id": "check:flowguard-ui-flow-structure:plane-boundary",
+      "semantic_check_id": "semantic:check:flowguard-ui-flow-structure:plane-boundary",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:plane-boundary"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-ui-flow-structure:plane-boundary",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-ui-flow-structure:plane-boundary",
+      "owner_declaration_hash": "sha256:d19d9522b67bd2b6172b3ac9d14dd067ba3901e71533ee2d52479dfb1015a66a",
+      "owner_input_projection_hash": "sha256:b93d4e75e9fcea5bced608ff62fd739354ed3dbc0cf00b53383a7f178fdc12bb",
+      "projection_declaration_hash": "sha256:f1540eafbab68ad1b55aeabe4a8e98ef2cbfcc0b2c79253a1f5927d6e26bc390",
+      "contract_hash": "CEA09828A0147A17623E19EF1A4F4A596387F0BC9322B5F2770A02BF9E9F58AB",
+      "manifest_hash": "68EA82B04017D34101B85BC2F204C6C32C20FBCE31FB74B9E3F2F0819FD9FDB0",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    },
+    {
+      "skill_id": "flowguard-ui-flow-structure",
+      "check_id": "check:flowguard-ui-flow-structure:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-ui-flow-structure:native-authority",
+      "check_kind": "command",
+      "covered_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:native-authority"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-ui-flow-structure:native-authority",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-ui-flow-structure:native-authority",
+      "owner_declaration_hash": "sha256:81f7e60c3629ce272b4f9fc6092e95054ee48d5aa7a84bee2751b3bf799a6b1c",
+      "owner_input_projection_hash": "sha256:c9f4ba33767ceecd4d8d1d8610bb54327ef89f764fd8139c330b5d679d494164",
+      "projection_declaration_hash": "sha256:3c599de54701d945b78a63b576fa0c562a5135a4fee0c06d3fc06fc082538bdd",
+      "contract_hash": "CEA09828A0147A17623E19EF1A4F4A596387F0BC9322B5F2770A02BF9E9F58AB",
+      "manifest_hash": "68EA82B04017D34101B85BC2F204C6C32C20FBCE31FB74B9E3F2F0819FD9FDB0",
+      "execution_stage": "native-owner-run",
+      "persistent_receipt_root": ".flowguard/evidence/skill-suite"
+    },
+    {
+      "skill_id": "flowguard-ui-flow-structure",
+      "check_id": "check:flowguard-ui-flow-structure:evidence-closure",
+      "semantic_check_id": "semantic:check:flowguard-ui-flow-structure:evidence-closure",
+      "check_kind": "model_assertion",
+      "covered_obligation_ids": [
+        "obligation:flowguard-ui-flow-structure:evidence-closure"
+      ],
+      "evidence_domain_id": "evidence-domain:check:flowguard-ui-flow-structure:evidence-closure",
+      "depends_on_check_ids": [],
+      "primary_execution_owner_id": "owner:check:flowguard-ui-flow-structure:evidence-closure",
+      "owner_declaration_hash": "sha256:ec256ea34164034f3f055ba6ce3d01245076e115ca16d9e75d543a21a5b2e58b",
+      "owner_input_projection_hash": "sha256:b93d4e75e9fcea5bced608ff62fd739354ed3dbc0cf00b53383a7f178fdc12bb",
+      "projection_declaration_hash": "sha256:9ecf62089064f8cd7f206d71bfa62a3a419880fd809d4dcd2a583eef8aa7912b",
+      "contract_hash": "CEA09828A0147A17623E19EF1A4F4A596387F0BC9322B5F2770A02BF9E9F58AB",
+      "manifest_hash": "68EA82B04017D34101B85BC2F204C6C32C20FBCE31FB74B9E3F2F0819FD9FDB0",
+      "execution_stage": "static-contract-projection",
+      "persistent_receipt_root": "openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/static"
+    }
+  ],
+  "claim_boundary": "This plan freezes exact declared check ownership and request identities. It does not itself execute a check or convert a missing receipt into success."
+}

@@ -141,6 +141,13 @@ class MaintenanceEvidence:
     covers_signal_ids: tuple[str, ...] = ()
     result_path: str = ""
     description: str = ""
+    spec_work_package_id: str = ""
+    spec_session_id: str = ""
+    spec_session_state: str = ""
+    spec_begin_fingerprint: str = ""
+    spec_post_fingerprint: str = ""
+    spec_close_record_path: str = ""
+    spec_receipt_ids: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -152,10 +159,29 @@ class MaintenanceEvidence:
         object.__setattr__(self, "covers_signal_ids", _as_tuple(self.covers_signal_ids))
         object.__setattr__(self, "result_path", str(self.result_path))
         object.__setattr__(self, "description", str(self.description))
+        object.__setattr__(self, "spec_work_package_id", str(self.spec_work_package_id))
+        object.__setattr__(self, "spec_session_id", str(self.spec_session_id))
+        object.__setattr__(self, "spec_session_state", str(self.spec_session_state))
+        object.__setattr__(self, "spec_begin_fingerprint", str(self.spec_begin_fingerprint))
+        object.__setattr__(self, "spec_post_fingerprint", str(self.spec_post_fingerprint))
+        object.__setattr__(self, "spec_close_record_path", str(self.spec_close_record_path))
+        object.__setattr__(self, "spec_receipt_ids", _as_tuple(self.spec_receipt_ids))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def is_current_pass(self) -> bool:
         return self.current and self.status in PASSING_EVIDENCE_GATE_STATUSES
+
+    def is_current_spec_close(self, work_package_id: str) -> bool:
+        return (
+            self.spec_work_package_id == work_package_id
+            and self.is_current_pass()
+            and bool(self.spec_session_id)
+            and self.spec_session_state == "closed"
+            and bool(self.spec_begin_fingerprint)
+            and self.spec_begin_fingerprint == self.spec_post_fingerprint
+            and bool(self.spec_close_record_path)
+            and bool(self.spec_receipt_ids)
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -167,6 +193,13 @@ class MaintenanceEvidence:
             "covers_signal_ids": list(self.covers_signal_ids),
             "result_path": self.result_path,
             "description": self.description,
+            "spec_work_package_id": self.spec_work_package_id,
+            "spec_session_id": self.spec_session_id,
+            "spec_session_state": self.spec_session_state,
+            "spec_begin_fingerprint": self.spec_begin_fingerprint,
+            "spec_post_fingerprint": self.spec_post_fingerprint,
+            "spec_close_record_path": self.spec_close_record_path,
+            "spec_receipt_ids": list(self.spec_receipt_ids),
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -321,6 +354,7 @@ class MaintenanceScanPlan:
     prior_obligations: tuple[MaintenanceObligation, ...] = ()
     claim_scope: str = "bounded"
     allow_scoped_confidence: bool = True
+    required_spec_work_package_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
@@ -335,6 +369,11 @@ class MaintenanceScanPlan:
         )
         object.__setattr__(self, "claim_scope", str(self.claim_scope))
         object.__setattr__(self, "allow_scoped_confidence", bool(self.allow_scoped_confidence))
+        object.__setattr__(
+            self,
+            "required_spec_work_package_ids",
+            _as_tuple(self.required_spec_work_package_ids),
+        )
 
     def broad_claim(self) -> bool:
         return self.claim_scope in _BROAD_CLAIMS
@@ -349,6 +388,7 @@ class MaintenanceScanPlan:
             "prior_obligations": [obligation.to_dict() for obligation in self.prior_obligations],
             "claim_scope": self.claim_scope,
             "allow_scoped_confidence": self.allow_scoped_confidence,
+            "required_spec_work_package_ids": list(self.required_spec_work_package_ids),
         }
 
 
@@ -575,6 +615,27 @@ def review_maintenance_scan(plan: MaintenanceScanPlan) -> MaintenanceScanReport:
         for artifacts in changed_by_kind.values()
         for artifact in artifacts
     )
+
+    for work_package_id in plan.required_spec_work_package_ids:
+        matching = [
+            item for item in plan.evidence if item.is_current_spec_close(work_package_id)
+        ]
+        actions.append(
+            _make_action(
+                route_id=MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW,
+                strength=MAINTENANCE_ACTION_REQUIRED,
+                reason_code=f"spec_work_package_evidence:{work_package_id}",
+                message=(
+                    f"Spec work package {work_package_id} requires a current same-session post/close record "
+                    "and terminal receipt coverage."
+                ),
+                signal_ids=(work_package_id,),
+                evidence_ids=tuple(item.evidence_id for item in matching),
+                required_input_kinds=("spec_work_package", "spec_session_close", "spec_receipt"),
+                proof_gap_codes=(() if matching else ("spec_work_package_evidence_missing_or_stale",)),
+                claim_effect="blocks done/release/archive while package evidence is missing or stale",
+            )
+        )
 
     model_artifacts = changed_by_kind.get(MAINTENANCE_ARTIFACT_MODEL, [])
     code_or_test_artifacts = changed_by_kind.get(MAINTENANCE_ARTIFACT_CODE, []) + changed_by_kind.get(

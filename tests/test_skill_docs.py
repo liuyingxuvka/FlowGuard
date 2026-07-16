@@ -93,7 +93,7 @@ class SkillDocsTests(unittest.TestCase):
             with self.subTest(skill=skill_name):
                 text = self.read(SKILLS_ROOT / skill_name / "SKILL.md")
                 self.assertLessEqual(len(text.splitlines()), 65)
-                self.assertLess(len(text), 3000)
+                self.assertLess(len(text), 3400)
 
     def test_active_openspec_specs_have_real_purpose_text(self):
         for path in sorted((ROOT / "openspec" / "specs").glob("*/spec.md")):
@@ -234,9 +234,11 @@ class SkillDocsTests(unittest.TestCase):
                 "agent_workflow",
                 "execution_freshness",
                 "artifact versions",
-                "minimum revalidation",
-                "review_auto_mesh_splits",
                 "payload schemas",
+                "conditional internal process optimization",
+                "diagnostic_boundary_choice",
+                "safe_parallel",
+                "affected obligations",
             ),
             "flowguard-existing-model-preflight": (
                 "existing model boundaries",
@@ -555,7 +557,7 @@ class SkillDocsTests(unittest.TestCase):
             "Input x State -> Set(Output x State)",
             "real FlowGuard check engine",
             "project-adopt",
-            "one current authority",
+            "project-upgrade",
             "Risk Evidence Ledger",
             "public/local risk template",
             "template harvest closure",

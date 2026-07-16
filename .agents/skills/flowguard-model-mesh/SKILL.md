@@ -29,6 +29,7 @@ Accept a parent and bounded children; derive/verify partitions and current recei
 3. Preserve scoped/stale gaps and project cases/receipts to Model-Test Alignment, TestMesh, and closure owners.
 
 ## Hard Gates
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Parent confidence requires complete partition ownership, legal overlap, current child evidence/receipts, and current parent consumption.
 - Background progress is liveness only; missing closure feedback/bounds or template harvest closure blocks broad mesh confidence.

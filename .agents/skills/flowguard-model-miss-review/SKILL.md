@@ -30,6 +30,7 @@ Accept concrete failure evidence and prior claim state; classify and generalize 
 4. Add observed and same-class owner-code evidence, rerun alignment/mesh/freshness/risk gates, and close or scope the class.
 
 ## Hard Gates
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - A later green command or point regression alone cannot close the class; target-aware replay and owner code binding remain required when applicable.
 - Unknown old-path/field disposition, stale parent reattachment, open same-family scan, or missing template harvest closure blocks broad repair confidence.

@@ -6,6 +6,8 @@ from dataclasses import replace
 import flowguard
 from examples.plan_detailing_compiler.model import (
     GOOD_PLAN,
+    SPEC_MAPPED_PLAN,
+    BROKEN_SPEC_MAPPING,
     HAPPY_PATH_ONLY_PLAN,
     MISSING_REWORK_PLAN,
     SCOPED_HUMAN_REVIEW_PLAN,
@@ -22,8 +24,8 @@ class PlanDetailingTests(unittest.TestCase):
 
     def test_plan_detailing_model_covers_good_and_broken_paths(self):
         self.assertTrue(self.report.ok, self.report.format_text(max_counterexamples=1))
-        self.assertEqual(6, self.report.total_scenarios)
-        self.assertEqual(6, self.report.passed)
+        self.assertEqual(8, self.report.total_scenarios)
+        self.assertEqual(8, self.report.passed)
         self.assertEqual(0, self.report.oracle_mismatches)
 
     def test_direct_review_statuses(self):
@@ -34,6 +36,8 @@ class PlanDetailingTests(unittest.TestCase):
             (MISSING_REWORK_PLAN, flowguard.PLAN_DETAIL_STATUS_BLOCKED),
             (UNGATED_SIDE_EFFECT_PLAN, flowguard.PLAN_DETAIL_STATUS_BLOCKED),
             (SCOPED_HUMAN_REVIEW_PLAN, flowguard.PLAN_DETAIL_STATUS_SCOPED),
+            (SPEC_MAPPED_PLAN, flowguard.PLAN_DETAIL_STATUS_PASS),
+            (BROKEN_SPEC_MAPPING, flowguard.PLAN_DETAIL_STATUS_BLOCKED),
         )
         for plan, expected_status in cases:
             with self.subTest(plan=plan.plan_id):
@@ -52,6 +56,29 @@ class PlanDetailingTests(unittest.TestCase):
             with self.subTest(plan=plan.plan_id):
                 found = {finding.code for finding in flowguard.review_plan_detail(plan).findings}
                 self.assertTrue(codes.issubset(found), found)
+
+    def test_process_optimization_projects_to_development_process_without_step_level_duplicates(self):
+        decision = flowguard.PlanDetailEvidence(
+            "evidence:process-optimization",
+            evidence_kind=flowguard.PROCESS_EVIDENCE_PROCESS_OPTIMIZATION,
+            status="passed",
+            produced_by_step_id=GOOD_PLAN.steps[0].step_id,
+        )
+        detailed = replace(
+            GOOD_PLAN,
+            evidence=GOOD_PLAN.evidence + (decision,),
+            process_optimization_reasons=("material_rework_risk",),
+            required_process_optimization_evidence_ids=(decision.evidence_id,),
+        )
+        report = flowguard.review_plan_detail(detailed)
+        self.assertEqual(flowguard.PLAN_DETAIL_STATUS_PASS, report.status, report.format_text())
+        process = flowguard.plan_detail_to_development_process(detailed)
+        self.assertEqual(("material_rework_risk",), process.process_optimization_reasons)
+        self.assertEqual(
+            (decision.evidence_id,),
+            process.required_process_optimization_evidence_ids,
+        )
+
 
     def ui_plan(self, *, evidence_kind="ui_runtime_click", evidence_status="passed", include_capability=True):
         step_evidence_ids = ("evidence:ui-click",)
@@ -252,7 +279,15 @@ class PlanDetailingTests(unittest.TestCase):
         )
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
         self.assertIn("flowguard scenario review", completed.stdout)
-        self.assertIn("total: 6", completed.stdout)
+        self.assertIn("total: 8", completed.stdout)
+
+    def test_spec_mapping_survives_development_process_projection(self):
+        process = flowguard.plan_detail_to_development_process(SPEC_MAPPED_PLAN)
+        self.assertIn("1.1", {task for action in process.actions for task in action.spec_task_ids})
+        self.assertIn(
+            "req.one",
+            {obligation for validation in process.validation_requirements for obligation in validation.spec_obligation_ids},
+        )
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 # project-adoption-version-gate Specification
 
 ## Purpose
-This capability defines how FlowGuard projects verify installed package version, schema version, managed project records, and direct current-replacement readiness before claiming FlowGuard confidence.
+This capability defines how FlowGuard projects verify installed package version, schema version, managed project records, and upgrade readiness before claiming FlowGuard confidence.
 ## Requirements
 ### Requirement: Project adoption writes durable local rules
 FlowGuard SHALL provide a project adoption helper that writes or updates a
@@ -47,25 +47,42 @@ or unknown version states.
 #### Scenario: Installed package is newer than project record
 - **WHEN** the installed FlowGuard package version is higher than the manifest's
   adopted package version
-- **THEN** the audit reports that the project record is non-current and recommends explicit `project-adopt`
+- **THEN** the audit reports a project upgrade finding
 - **AND** it does not silently update the manifest during read-only audit
 
-### Requirement: Project adoption directly writes the current record
-FlowGuard SHALL use `project-adopt` as the only writing project-record command. It SHALL accept the current project inputs, replace the managed AGENTS block and project manifest with the one current shape, and reject former project/runtime shapes rather than reading, converting, migrating, aliasing, or preserving them as a success path.
+### Requirement: Project upgrade is explicit
+FlowGuard SHALL provide a project upgrade helper that updates the managed
+AGENTS block and project manifest to the currently installed FlowGuard version
+only when the upgrade command is explicitly run. When the installed FlowGuard
+version is newer than the project-recorded version, the upgrade helper SHALL
+also scan existing FlowGuard artifacts, model evidence, tests, docs, and
+guidance for known old shapes, deterministically upgrade safe cases, and report
+blocked cases before broad confidence is claimed.
 
-#### Scenario: Adoption replaces a non-current project record
-- **WHEN** `project-adopt` runs with a current installed package and a non-current managed record
-- **THEN** it writes the current manifest package version and schema version directly
-- **AND** it records the exact minimum affected model/test revalidation without scanning or converting former runtime shapes
+#### Scenario: Upgrade updates project record
+- **WHEN** `project-upgrade` runs with an installed package version newer than
+  the manifest
+- **THEN** it updates the manifest package version and schema version
+- **AND** it records that model/test evidence may need rerun before broad
+  confidence
 
-#### Scenario: Former project shape cannot be a write input
-- **WHEN** only a former project/runtime shape is available
-- **THEN** adoption remains blocked until the caller supplies complete current inputs
-- **AND** no migration, upgrade, converter, records-only, or compatibility route is offered
+#### Scenario: Older adopted repository triggers upgrade scan
+- **WHEN** `project-upgrade` runs in a repository whose manifest records an
+  older FlowGuard package version than the installed package
+- **THEN** it scans known FlowGuard records, artifacts, model evidence, tests,
+  docs, and guidance for old schema or old API shapes
+- **AND** it upgrades deterministic cases or reports blocked/manual-review
+  cases without silently preserving old runtime compatibility
+
+#### Scenario: Records-only upgrade is explicit
+- **WHEN** `project-upgrade` runs in records-only mode
+- **THEN** it updates only the managed AGENTS block, manifest, and adoption
+  records
+- **AND** it reports that artifact/model/test upgrade scanning was scoped out
 
 #### Scenario: Manifest update does not replace validation
-- **WHEN** project adoption writes AGENTS and manifest files
-- **THEN** the report states that adoption records do not
+- **WHEN** project adoption or upgrade writes AGENTS and manifest files
+- **THEN** the report states that adoption records and artifact upgrades do not
   replace executable model checks, tests, replay, or closure evidence
 
 ### Requirement: Adoption helper is standard-library-only
@@ -107,7 +124,7 @@ check command setup.
 - **WHEN** a user or agent reads `docs/project_integration.md`
 - **THEN** it MUST first explain how the target agent can access the FlowGuard
   skill suite
-- **AND** project adoption, audit, import, and CLI commands MUST be
+- **AND** project adoption, audit, upgrade, import, and CLI commands MUST be
   described as project-record or check-execution commands, not as the skill
   install surface
 
@@ -128,55 +145,49 @@ Project audit SHALL compare the current managed `AGENTS.md` block with the block
 - **THEN** project audit fails with a rendered-version-mismatch finding
 
 #### Scenario: Current governance rule is missing
-- **WHEN** the rendered block omits a required BCL, PPA, path-sensitive, current-authority-only, or default-replacement rule
+- **WHEN** the rendered block omits a required BCL, PPA, path-sensitive, latest-schema-first, or default-replacement rule
 - **THEN** project audit fails with the missing stable rule identifiers
 
-### Requirement: Project audit is the non-mutating currentness preview
-Project audit SHALL compute manifest differences, managed-block semantic differences, suite findings, affected current components, and minimum revalidation without modifying any repository file or adoption log.
+### Requirement: Non-Mutating Upgrade Preview
+Project upgrade SHALL provide a dry-run mode that computes proposed manifest changes, managed-block semantic differences, suite findings, affected artifacts, and minimum revalidation without modifying any repository file or adoption log.
 
-#### Scenario: Audit previews stale adoption repair
-- **WHEN** project audit runs with `--json` against a stale managed block
-- **THEN** it reports the required direct current replacement and the repository tree remains byte-identical
+#### Scenario: Dry-run previews stale adoption repair
+- **WHEN** project upgrade runs with `--dry-run --json` against a stale managed block
+- **THEN** it reports the proposed semantic changes and the repository tree remains byte-identical
 
-### Requirement: Adoption Must Not Weaken Governance
-A writing project adoption MUST refuse to proceed when the proposed generated block loses a rule present in the current required rule set, when the installed engine is older than the project record, or when suite inventory validation is unresolved.
+### Requirement: Upgrade Must Not Weaken Governance
+A writing project upgrade MUST refuse to proceed when the proposed generated block loses a rule present in the current required rule set, when the installed engine is older than the project record, or when suite inventory validation is unresolved.
 
 #### Scenario: Generator would delete PPA rules
 - **WHEN** the proposed generated block lacks the current Primary Path Authority rule
-- **THEN** adoption exits nonzero before writing and reports a governance-regression blocker
+- **THEN** the upgrade exits nonzero before writing and reports a governance-regression blocker
 
 #### Scenario: Installed engine is older
 - **WHEN** the installed engine version is lower than the project manifest version
-- **THEN** adoption exits nonzero without changing the project
+- **THEN** the upgrade exits nonzero without changing the project
 
 ### Requirement: Adoption Decision Evidence
-Project audit and adoption results SHALL include canonical status, versions, inventory hash, managed-block semantic hash, findings, skipped steps, required revalidation, and claim boundary. A log entry MAY be written only for a real audit or writing adoption, and logging MUST NOT convert a failed check into pass.
+Project audit and upgrade results SHALL include canonical status, versions, inventory hash, managed-block semantic hash, findings, skipped steps, required revalidation, and claim boundary. A log entry MAY be written only for a real audit or writing upgrade, and logging MUST NOT convert a failed check into pass.
 
-#### Scenario: Successful writing adoption completes
-- **WHEN** an approved writing adoption finishes and post-write audit passes
+#### Scenario: Successful writing upgrade completes
+- **WHEN** an approved writing upgrade finishes and post-write audit passes
 - **THEN** adoption logs record the before/after hashes, versions, checks, and remaining claim boundary
 
 ### Requirement: Generated revalidation commands are project-relative
-FlowGuard SHALL generate project-adoption minimum and required executable revalidation commands that are owned by the installed FlowGuard package, run from the target project root, and do not require FlowGuard source-repository files. Generated commands persisted in human adoption logs MUST NOT embed the resolved absolute target path. A human-only revalidation instruction MAY remain as prose but MUST NOT be represented as a successfully validated executable command.
+FlowGuard SHALL generate project-adoption minimum and required revalidation commands relative to the target project root. Generated commands persisted in human adoption logs MUST NOT embed the resolved absolute target path.
 
-#### Scenario: Report recommends an executable portable command
-- **WHEN** project adoption or audit builds a report for a valid target repository that does not contain the FlowGuard source `scripts/` directory
-- **THEN** its generated executable revalidation command uses `python -m flowguard project-audit --root . --json`
-- **AND** the command succeeds when executed from that target project
-- **AND** the returned report contains passing current project-adoption and skill-suite status
-
-#### Scenario: Report excludes source-layout-only commands
-- **WHEN** project adoption or audit builds required revalidation guidance for an ordinary adopted target
-- **THEN** no generated executable command requires `python scripts/` or another FlowGuard source-repository-relative path
-- **AND** the existing package-owned project audit remains the single target-project audit authority
+#### Scenario: Report recommends portable commands
+- **WHEN** project adoption, audit, or upgrade builds a report for any target repository
+- **THEN** its generated audit and suite-verification commands use `--root .`
+- **AND** those generated commands do not contain the resolved absolute target root
 
 #### Scenario: Human adoption log preserves privacy
 - **WHEN** a writing project-adoption action records its next actions in `docs/flowguard_adoption_log.md`
-- **THEN** the Markdown log contains the package-owned project-relative revalidation command
+- **THEN** the Markdown log contains the project-relative revalidation commands
 - **AND** it does not contain the target repository's resolved absolute path through those next actions
 
 ### Requirement: Project adoption consumes strict mixed-root suite evidence
-Project audit and project adoption SHALL accept an ownership-backed mixed skill
+Project audit and project upgrade SHALL accept an ownership-backed mixed skill
 root when the canonical FlowGuard suite is complete, and SHALL continue to
 block when canonical membership or ownership evidence is unresolved.
 
@@ -187,17 +198,17 @@ block when canonical membership or ownership evidence is unresolved.
 - **THEN** project audit does not report
   `suite_inventory_unresolved` for those unrelated skills
 
-#### Scenario: Project adoption sees a valid mixed root
-- **WHEN** explicit project adoption runs against a valid ownership-backed mixed
+#### Scenario: Project upgrade sees a valid mixed root
+- **WHEN** explicit project upgrade runs against a valid ownership-backed mixed
   root
-- **AND** all other current adoption gates pass
-- **THEN** adoption may write the current project records
+- **AND** all other upgrade gates pass
+- **THEN** the upgrade may write the current project records
 - **AND** it preserves the unrelated skill directories
 
 #### Scenario: Mixed root contains a missing or fake FlowGuard member
 - **WHEN** a declared FlowGuard member is missing or an undeclared
   FlowGuard-reserved member is present
-- **THEN** project adoption remains blocked by
+- **THEN** project upgrade remains blocked by
   `suite_inventory_unresolved`
 - **AND** no project record is written merely because unrelated skills were
   classified separately

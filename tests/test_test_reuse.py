@@ -84,6 +84,23 @@ class TestResultReuseTicketTests(unittest.TestCase):
         self.assertIn("test_reuse_coverage_scope_stale", codes)
         self.assertIn("test_reuse_missing_obligation", codes)
 
+    def test_identity_fingerprints_are_required_not_inferred_from_boolean_flags(self):
+        ticket = reuse_ticket(
+            command_fingerprint="",
+            test_source_fingerprint="",
+            tested_artifact_fingerprint="",
+            dependency_fingerprints={},
+            environment_fingerprint="",
+        )
+
+        codes = {code for code, _ in reuse_gap_codes(ticket)}
+
+        self.assertIn("test_reuse_missing_command_fingerprint", codes)
+        self.assertIn("test_reuse_missing_source_fingerprint", codes)
+        self.assertIn("test_reuse_missing_tested_artifact_fingerprint", codes)
+        self.assertIn("test_reuse_missing_dependency_fingerprints", codes)
+        self.assertIn("test_reuse_missing_environment_fingerprint", codes)
+
 
 if __name__ == "__main__":
     unittest.main()

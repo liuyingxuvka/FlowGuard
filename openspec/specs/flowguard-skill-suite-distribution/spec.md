@@ -95,17 +95,28 @@ validated by the FlowGuard suite check.
 - **AND** its claim boundary states that unrelated skills are outside the
   FlowGuard suite validation claim
 
-### Requirement: Managed skills have one current runtime authority
-Every managed FlowGuard skill SHALL use exactly one current contract trio, and generated/installed artifacts SHALL preserve that single authority without a migration reader or fallback route.
+### Requirement: Strategy guidance remains current across maintained skill projections
+The skill-suite distribution SHALL synchronize and parity-check the current conditional DevelopmentProcessFlow skill, core protocol, conditional optimization and failure-triage references, OpenAI prompt, contract source, compiled contract, and check manifest after process-optimization maintenance under one SkillGuard validation plan. Every maintained member SHALL remain on the sole current contract/depth authority, and source, shadow, formal repository, and installed projections SHALL contain no current former-policy, fallback, alias, wrapper, or stale prompt success path before distribution currentness can pass.
 
-#### Scenario: Current trio is complete
-- **WHEN** a skill has the current source, compiled contract, and exact check manifest and no former runtime residual
-- **THEN** it SHALL resolve through that trio as its only runtime authority
+#### Scenario: Installed protocol is stale
+- **WHEN** the installed DPF material lacks the current activation gate, diagnostic-boundary/execution-mode contract, or inactive output boundary
+- **THEN** distribution parity fails rather than accepting older six-policy or fallback guidance
 
-#### Scenario: Former runtime surface remains
-- **WHEN** a former work contract, underscore check manifest, run record, lifecycle declaration, or compatibility reader remains
-- **THEN** runtime-authority, suite, and install validation SHALL block without a fallback route
+#### Scenario: Retired policy survives in another current projection
+- **WHEN** a maintained prompt, generated AGENTS block, template, contract, or installed skill still authorizes the former six-policy/Pareto path
+- **THEN** suite distribution is blocked even if the source DPF skill itself is current
 
-#### Scenario: Execution depth is claimed
-- **WHEN** a maintained skill claims that native checks passed
-- **THEN** it SHALL cite current content-addressed owner receipts; contract compilation or former lifecycle evidence SHALL NOT substitute for execution
+### Requirement: Managed skills declare V1 authority lifecycle
+Every managed FlowGuard V2 contract source SHALL declare whether former V1 runtime surfaces are migration evidence or formally retired, and generated/installed artifacts SHALL preserve that decision.
+
+#### Scenario: V2 exists but retirement evidence is incomplete
+- **WHEN** a skill has a V2 contract trio and former V1 migration surfaces but lacks official calibration and retirement receipts
+- **THEN** it SHALL resolve as `v2-migration`, V2 SHALL be the only runtime authority, and V1 SHALL NOT provide closure or release success
+
+#### Scenario: Retired V1 surface remains
+- **WHEN** a skill claims `v2-only` but a former V1 work contract, underscore check manifest, or V1 run record remains
+- **THEN** runtime-authority, suite, and install validation SHALL block
+
+#### Scenario: Formal retirement is attempted
+- **WHEN** current content-addressed positive/shallow calibration, eligibility, completion, rollback, and residual-absence evidence all pass
+- **THEN** the official atomic retirement workflow MAY remove only the exact former V1 runtime surfaces and prove `v2-only`

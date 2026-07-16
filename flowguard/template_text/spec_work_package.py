@@ -12,8 +12,7 @@ bidirectional obligation/check mappings.
 Guards against:
 - copying OpenSpec or Spec Kit task authority into FlowGuard;
 - unmapped tasks or obligations;
-- treating provider checkboxes as terminal evidence;
-- letting the provider execute a canonical FlowGuard owner a second time.
+- treating provider checkboxes as terminal evidence.
 
 Use before editing:
 specification-provider adapters, verification contracts, or archive gates.
@@ -37,7 +36,7 @@ from flowguard import (
 
 def build_package():
     return SpecWorkPackage(
-        provider=SpecProviderRef("openspec", "openspec", schema_version="3"),
+        provider=SpecProviderRef("openspec", "openspec"),
         work_package_id="replace-with-change-id",
         change_id="replace-with-change-id",
         tasks=(SpecTask("1.1", "Replace with provider task", completed=False),),
@@ -45,22 +44,9 @@ def build_package():
         checks=(
             SpecCheckDefinition(
                 "check.example",
-                (),
+                ("python", "-m", "pytest", "-q"),
                 obligation_ids=("req.example",),
                 validation_obligation_ids=("validation:example",),
-                semantic_check_id="flowguard.owner.example",
-                declared_execution_id="flowguard.owner.example.v1",
-                kind="receipt",
-                external_receipt_ref={
-                    "provider_id": "openspec",
-                    "work_package_id": "replace-with-change-id",
-                    "adapter": "portable-receipt.v1",
-                    "ref_path": (
-                        "<SPEC_EVIDENCE>/portable-refs/openspec/"
-                        "replace-with-change-id/check.example.json"
-                    ),
-                },
-                consumer_ids=("openspec",),
             ),
         ),
         bindings=(
@@ -71,10 +57,6 @@ def build_package():
                 check_ids=("check.example",),
             ),
         ),
-        metadata={
-            "canonical_check_ids": ["check.example"],
-            "canonical_check_semantics": {"check.example": "flowguard.owner.example"},
-        },
     )
 
 
@@ -85,10 +67,7 @@ def run_model_checks():
         "ok": review.ok,
         "status": review.status,
         "findings": list(review.finding_codes),
-        "claim_boundary": (
-            "Mapping proof only; FlowGuard executes the canonical owner and publishes a portable receipt; "
-            "the provider is a read-only consumer and retains native report/archive authority."
-        ),
+        "claim_boundary": "Mapping proof only; provider verification and terminal receipts remain separate.",
     }
 '''
 

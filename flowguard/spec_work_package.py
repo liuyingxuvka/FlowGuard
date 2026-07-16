@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
@@ -42,21 +41,27 @@ SPEC_BINDING_KINDS = (
 SPEC_REVIEW_READY = "ready"
 SPEC_REVIEW_BLOCKED = "blocked"
 
-SPEC_SNAPSHOT_LIVE_SCOPED = "live-scoped"
-SPEC_SNAPSHOT_FROZEN_REQUIRED = "frozen-required"
-SPEC_SNAPSHOT_POLICIES = (
-    SPEC_SNAPSHOT_LIVE_SCOPED,
-    SPEC_SNAPSHOT_FROZEN_REQUIRED,
+SPEC_ORCHESTRATOR_REUSE_EXACT = "exact"
+SPEC_ORCHESTRATOR_REUSE_NEVER = "never"
+SPEC_ORCHESTRATOR_REUSE_POLICIES = (
+    SPEC_ORCHESTRATOR_REUSE_EXACT,
+    SPEC_ORCHESTRATOR_REUSE_NEVER,
 )
 
-SPEC_EXECUTION_DIRECT = "direct"
-SPEC_EXECUTION_AGGREGATE_CHILD_RECEIPTS = "aggregate-child-receipts"
-SPEC_EXECUTION_UNCOVERED_REMAINDER = "uncovered-remainder"
-SPEC_EXECUTION_MODES = (
-    SPEC_EXECUTION_DIRECT,
-    SPEC_EXECUTION_AGGREGATE_CHILD_RECEIPTS,
-    SPEC_EXECUTION_UNCOVERED_REMAINDER,
+SPEC_CHECK_KIND_COMMAND = "command"
+SPEC_CHECK_KIND_MANUAL = "manual"
+SPEC_CHECK_KIND_RECEIPT = "receipt"
+SPEC_CHECK_KINDS = (
+    SPEC_CHECK_KIND_COMMAND,
+    SPEC_CHECK_KIND_MANUAL,
+    SPEC_CHECK_KIND_RECEIPT,
 )
+SPEC_VALIDATION_SCOPE_FOCUSED = "focused"
+SPEC_VALIDATION_SCOPE_FULL = "full"
+SPEC_VALIDATION_SCOPES = (SPEC_VALIDATION_SCOPE_FOCUSED, SPEC_VALIDATION_SCOPE_FULL)
+SPEC_SNAPSHOT_POLICY_LIVE = "live"
+SPEC_SNAPSHOT_POLICY_FROZEN = "frozen"
+SPEC_SNAPSHOT_POLICIES = (SPEC_SNAPSHOT_POLICY_LIVE, SPEC_SNAPSHOT_POLICY_FROZEN)
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -98,7 +103,7 @@ class SpecProviderRef:
         object.__setattr__(self, "mode", str(self.mode))
         object.__setattr__(self, "adapter_version", str(self.adapter_version))
         object.__setattr__(self, "provider_version", str(self.provider_version))
-        default_schema = "artifact-v1" if self.provider_id == SPEC_PROVIDER_SPEC_KIT else ""
+        default_schema = "artifact-v1" if self.provider_id == SPEC_PROVIDER_SPEC_KIT else "1.0"
         object.__setattr__(self, "schema_version", str(self.schema_version or default_schema))
         object.__setattr__(self, "available", bool(self.available))
         object.__setattr__(self, "current", bool(self.current))
@@ -193,27 +198,11 @@ class SpecTask:
             "task_id": self.task_id,
             "title": self.title,
             "completed": self.completed,
-            "task_definition_fingerprint": self.task_definition_fingerprint,
-            "progress_state": "checked" if self.completed else "unchecked",
             "source_ref": self.source_ref,
             "in_scope": self.in_scope,
             "scoped_out_reason": self.scoped_out_reason,
             "metadata": to_jsonable(dict(self.metadata)),
         }
-
-    @property
-    def task_definition_fingerprint(self) -> str:
-        """Fingerprint the task definition without treating checkbox progress as definition."""
-
-        payload = {
-            "task_id": self.task_id,
-            "title": self.title,
-            "source_ref": self.source_ref,
-            "in_scope": self.in_scope,
-            "scoped_out_reason": self.scoped_out_reason,
-        }
-        canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-        return f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
 
 
 @dataclass(frozen=True)
@@ -255,32 +244,28 @@ class SpecCheckDefinition:
 
     check_id: str
     command: tuple[str, ...] = ()
+    check_kind: str = SPEC_CHECK_KIND_COMMAND
     required: bool = True
     obligation_ids: tuple[str, ...] = ()
     validation_obligation_ids: tuple[str, ...] = ()
     depends_on: tuple[str, ...] = ()
+    semantic_check_id: str = ""
+    execution_id: str = ""
+    execution_owner: str = ""
+    consumer: str = ""
+    input_selectors: tuple[str, ...] = ()
+    validation_scope: str = SPEC_VALIDATION_SCOPE_FULL
+    snapshot_policy: str = SPEC_SNAPSHOT_POLICY_FROZEN
+    toolchain_identity: str = ""
+    external_receipt_ref: tuple[tuple[str, str], ...] = ()
     timeout_seconds: int = 600
     cross_change_safe: bool = False
+    orchestrator_reuse_policy: str = SPEC_ORCHESTRATOR_REUSE_EXACT
     expected_exit_code: int = 0
-    semantic_check_id: str = ""
-    execution_owner_id: str = "flowguard.spec_check_cache"
-    input_paths: tuple[str, ...] = ()
-    dependency_input_ids: tuple[str, ...] = ()
-    snapshot_policy: str = SPEC_SNAPSHOT_LIVE_SCOPED
-    execution_mode: str = SPEC_EXECUTION_DIRECT
-    parent_check_id: str = ""
-    child_check_ids: tuple[str, ...] = ()
-    coverage_ids: tuple[str, ...] = ()
-    kind: str = "command"
-    declared_execution_id: str = ""
-    receipt_owner_check_id: str = ""
-    external_receipt_ref: Mapping[str, str] = field(default_factory=dict)
-    consumer_ids: tuple[str, ...] = ()
-    validation_scope: str = "full"
-    toolchain_identity: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "check_id", str(self.check_id))
+        object.__setattr__(self, "check_kind", str(self.check_kind))
         object.__setattr__(self, "command", _as_tuple(self.command))
         object.__setattr__(self, "obligation_ids", _unique(_as_tuple(self.obligation_ids)))
         object.__setattr__(
@@ -289,110 +274,45 @@ class SpecCheckDefinition:
             _unique(_as_tuple(self.validation_obligation_ids)),
         )
         object.__setattr__(self, "depends_on", _unique(_as_tuple(self.depends_on)))
-        object.__setattr__(self, "timeout_seconds", int(self.timeout_seconds))
-        object.__setattr__(self, "expected_exit_code", int(self.expected_exit_code))
-        object.__setattr__(self, "semantic_check_id", str(self.semantic_check_id or self.check_id))
-        object.__setattr__(self, "execution_owner_id", str(self.execution_owner_id))
-        object.__setattr__(
-            self,
-            "input_paths",
-            _unique(tuple(str(value).replace("\\", "/") for value in _as_tuple(self.input_paths))),
-        )
-        object.__setattr__(self, "dependency_input_ids", _unique(_as_tuple(self.dependency_input_ids)))
-        snapshot_aliases = {
-            "live": SPEC_SNAPSHOT_LIVE_SCOPED,
-            "frozen": SPEC_SNAPSHOT_FROZEN_REQUIRED,
-        }
-        object.__setattr__(
-            self,
-            "snapshot_policy",
-            snapshot_aliases.get(str(self.snapshot_policy), str(self.snapshot_policy)),
-        )
-        object.__setattr__(self, "execution_mode", str(self.execution_mode))
-        object.__setattr__(self, "parent_check_id", str(self.parent_check_id))
-        object.__setattr__(self, "child_check_ids", _unique(_as_tuple(self.child_check_ids)))
-        object.__setattr__(self, "coverage_ids", _unique(_as_tuple(self.coverage_ids)))
-        object.__setattr__(self, "kind", str(self.kind))
-        object.__setattr__(self, "declared_execution_id", str(self.declared_execution_id))
-        object.__setattr__(self, "receipt_owner_check_id", str(self.receipt_owner_check_id))
+        object.__setattr__(self, "semantic_check_id", str(self.semantic_check_id))
+        object.__setattr__(self, "execution_id", str(self.execution_id))
+        object.__setattr__(self, "execution_owner", str(self.execution_owner))
+        object.__setattr__(self, "consumer", str(self.consumer))
+        object.__setattr__(self, "input_selectors", _unique(_as_tuple(self.input_selectors)))
+        object.__setattr__(self, "validation_scope", str(self.validation_scope))
+        object.__setattr__(self, "snapshot_policy", str(self.snapshot_policy))
+        object.__setattr__(self, "toolchain_identity", str(self.toolchain_identity))
         object.__setattr__(
             self,
             "external_receipt_ref",
-            dict(sorted((str(k), str(v)) for k, v in self.external_receipt_ref.items())),
+            tuple(sorted((str(key), str(value)) for key, value in self.external_receipt_ref)),
         )
-        object.__setattr__(self, "consumer_ids", _unique(_as_tuple(self.consumer_ids)))
-        object.__setattr__(self, "validation_scope", str(self.validation_scope))
-        object.__setattr__(self, "toolchain_identity", str(self.toolchain_identity))
-
-    def execution_definition_dict(self) -> dict[str, Any]:
-        """Canonical semantic execution definition, excluding provider-local consumers."""
-
-        return {
-            "semantic_check_id": self.semantic_check_id,
-            "execution_owner_id": self.execution_owner_id,
-            "command": list(self.command),
-            "validation_obligation_ids": sorted(self.validation_obligation_ids),
-            "depends_on": sorted(self.depends_on),
-            "dependency_input_ids": sorted(self.dependency_input_ids),
-            "input_paths": sorted(self.input_paths),
-            "snapshot_policy": self.snapshot_policy,
-            "execution_mode": self.execution_mode,
-            "parent_check_id": self.parent_check_id,
-            "child_check_ids": sorted(self.child_check_ids),
-            "coverage_ids": sorted(self.coverage_ids),
-            "kind": self.kind,
-            "receipt_owner_check_id": self.receipt_owner_check_id,
-            "external_receipt_ref": dict(self.external_receipt_ref),
-            "consumer_ids": sorted(self.consumer_ids),
-            "validation_scope": self.validation_scope,
-            "toolchain_identity": self.toolchain_identity,
-            "timeout_seconds": self.timeout_seconds,
-            "cross_change_safe": self.cross_change_safe,
-            "expected_exit_code": self.expected_exit_code,
-        }
-
-    @property
-    def execution_definition_id(self) -> str:
-        canonical = json.dumps(
-            self.execution_definition_dict(), ensure_ascii=False, separators=(",", ":"), sort_keys=True
-        )
-        return f"execution-definition:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
-
-    @property
-    def execution_id(self) -> str:
-        """Stable local declaration identity; distinct from the input-bound execution key."""
-
-        return self.declared_execution_id or self.execution_definition_id
+        object.__setattr__(self, "timeout_seconds", int(self.timeout_seconds))
+        object.__setattr__(self, "orchestrator_reuse_policy", str(self.orchestrator_reuse_policy))
+        object.__setattr__(self, "expected_exit_code", int(self.expected_exit_code))
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "check_id": self.check_id,
+            "check_kind": self.check_kind,
             "command": list(self.command),
             "required": self.required,
             "obligation_ids": list(self.obligation_ids),
             "validation_obligation_ids": list(self.validation_obligation_ids),
             "depends_on": list(self.depends_on),
+            "semantic_check_id": self.semantic_check_id,
+            "execution_id": self.execution_id,
+            "execution_owner": self.execution_owner,
+            "consumer": self.consumer,
+            "input_selectors": list(self.input_selectors),
+            "validation_scope": self.validation_scope,
+            "snapshot_policy": self.snapshot_policy,
+            "toolchain_identity": self.toolchain_identity,
+            "external_receipt_ref": dict(self.external_receipt_ref),
             "timeout_seconds": self.timeout_seconds,
             "cross_change_safe": self.cross_change_safe,
+            "orchestrator_reuse_policy": self.orchestrator_reuse_policy,
             "expected_exit_code": self.expected_exit_code,
-            "semantic_check_id": self.semantic_check_id,
-            "execution_owner_id": self.execution_owner_id,
-            "execution_definition_id": self.execution_definition_id,
-            "execution_id": self.execution_id,
-            "input_paths": list(self.input_paths),
-            "dependency_input_ids": list(self.dependency_input_ids),
-            "snapshot_policy": self.snapshot_policy,
-            "execution_mode": self.execution_mode,
-            "parent_check_id": self.parent_check_id,
-            "child_check_ids": list(self.child_check_ids),
-            "coverage_ids": list(self.coverage_ids),
-            "kind": self.kind,
-            "declared_execution_id": self.declared_execution_id,
-            "receipt_owner_check_id": self.receipt_owner_check_id,
-            "external_receipt_ref": dict(self.external_receipt_ref),
-            "consumer_ids": list(self.consumer_ids),
-            "validation_scope": self.validation_scope,
-            "toolchain_identity": self.toolchain_identity,
         }
 
 
@@ -507,10 +427,23 @@ class SpecWorkPackage:
             "check_definitions": [
                 {
                     "check_id": check.check_id,
-                    **check.execution_definition_dict(),
+                    "check_kind": check.check_kind,
+                    "command": list(check.command),
                     "obligation_ids": sorted(check.obligation_ids),
-                    "execution_definition_id": check.execution_definition_id,
+                    "validation_obligation_ids": sorted(check.validation_obligation_ids),
+                    "depends_on": sorted(check.depends_on),
+                    "semantic_check_id": check.semantic_check_id,
                     "execution_id": check.execution_id,
+                    "execution_owner": check.execution_owner,
+                    "consumer": check.consumer,
+                    "input_selectors": sorted(check.input_selectors),
+                    "validation_scope": check.validation_scope,
+                    "snapshot_policy": check.snapshot_policy,
+                    "toolchain_identity": check.toolchain_identity,
+                    "external_receipt_ref": dict(check.external_receipt_ref),
+                    "timeout_seconds": check.timeout_seconds,
+                    "cross_change_safe": check.cross_change_safe,
+                    "expected_exit_code": check.expected_exit_code,
                 }
                 for check in sorted(self.checks, key=lambda item: item.check_id)
             ],
@@ -688,18 +621,12 @@ def review_spec_work_package(package: SpecWorkPackage) -> SpecWorkPackageReview:
                 (package.provider.adapter_version,),
             )
         )
-    schema_supported = (
-        bool(re.fullmatch(r"[1-9][0-9]*", package.provider.schema_version))
-        if package.provider.provider_id == SPEC_PROVIDER_OPEN_SPEC
-        else package.provider.schema_version == "artifact-v1"
-        if package.provider.provider_id == SPEC_PROVIDER_SPEC_KIT
-        else False
-    )
-    if not schema_supported:
+    supported_schemas = {SPEC_PROVIDER_OPEN_SPEC: {"1", "1.0"}, SPEC_PROVIDER_SPEC_KIT: {"artifact-v1"}}
+    if package.provider.schema_version not in supported_schemas.get(package.provider.provider_id, set()):
         findings.append(
             SpecWorkPackageFinding(
                 "provider_schema_unsupported",
-                "the provider artifact schema identity is missing or malformed",
+                "the provider artifact schema is unsupported",
                 (package.provider.schema_version or "missing",),
             )
         )
@@ -743,34 +670,6 @@ def review_spec_work_package(package: SpecWorkPackage) -> SpecWorkPackageReview:
     task_set = set(task_ids)
     obligation_set = set(obligation_ids)
     check_set = set(check_ids)
-    semantic_owners: dict[str, set[str]] = {}
-    semantic_definitions: dict[str, set[str]] = {}
-    for check in package.checks:
-        if check.kind == "receipt":
-            continue
-        semantic_owners.setdefault(check.semantic_check_id, set()).add(check.execution_owner_id)
-        semantic_definitions.setdefault(check.semantic_check_id, set()).add(check.execution_definition_id)
-    for semantic_check_id in sorted(semantic_owners):
-        if not semantic_check_id:
-            findings.append(
-                SpecWorkPackageFinding("semantic_check_id_missing", "every check needs a semantic execution identity")
-            )
-        if "" in semantic_owners[semantic_check_id] or len(semantic_owners[semantic_check_id]) != 1:
-            findings.append(
-                SpecWorkPackageFinding(
-                    "semantic_check_execution_owner_conflict",
-                    "one semantic check must have exactly one execution owner",
-                    (semantic_check_id,),
-                )
-            )
-        if len(semantic_definitions[semantic_check_id]) != 1:
-            findings.append(
-                SpecWorkPackageFinding(
-                    "semantic_check_definition_conflict",
-                    "one semantic check cannot name several execution definitions",
-                    (semantic_check_id,),
-                )
-            )
     mapped_tasks: set[str] = set()
     mapped_obligations: set[str] = set()
     mapped_checks: set[str] = set()
@@ -847,7 +746,6 @@ def review_spec_work_package(package: SpecWorkPackage) -> SpecWorkPackageReview:
     for check in package.checks:
         unknown_obligations = tuple(sorted(set(check.obligation_ids) - obligation_set))
         unknown_dependencies = tuple(sorted(set(check.depends_on) - check_set))
-        unknown_children = tuple(sorted(set(check.child_check_ids) - check_set))
         if unknown_obligations:
             findings.append(
                 SpecWorkPackageFinding(
@@ -864,119 +762,85 @@ def review_spec_work_package(package: SpecWorkPackage) -> SpecWorkPackageReview:
                     unknown_dependencies,
                 )
             )
-        if unknown_children or (check.parent_check_id and check.parent_check_id not in check_set):
-            findings.append(
-                SpecWorkPackageFinding(
-                    "check_receipt_topology_missing",
-                    f"check {check.check_id} references undeclared parent/child checks",
-                    unknown_children + ((check.parent_check_id,) if check.parent_check_id not in check_set else ()),
-                )
-            )
-        if check.snapshot_policy not in SPEC_SNAPSHOT_POLICIES:
-            findings.append(
-                SpecWorkPackageFinding(
-                    "check_snapshot_policy_invalid",
-                    f"check {check.check_id} has an unsupported snapshot policy",
-                    (check.check_id,),
-                )
-            )
-        if check.execution_mode not in SPEC_EXECUTION_MODES:
-            findings.append(
-                SpecWorkPackageFinding(
-                    "check_execution_mode_invalid",
-                    f"check {check.check_id} has an unsupported execution mode",
-                    (check.check_id,),
-                )
-            )
-        if check.kind not in {"command", "manual", "receipt"}:
-            findings.append(
-                SpecWorkPackageFinding(
-                    "check_kind_invalid", f"check {check.check_id} has an unsupported kind", (check.check_id,)
-                )
-            )
-        internal_receipt_consumer = bool(
-            check.receipt_owner_check_id
-            and check.receipt_owner_check_id in check_set
-            and check.consumer_ids
-        )
-        external_receipt_consumer = set(check.external_receipt_ref) == {
-            "provider_id", "work_package_id", "adapter", "ref_path"
-        }
-        if check.kind == "receipt" and (
-            check.command
-            or internal_receipt_consumer == external_receipt_consumer
-        ):
-            findings.append(
-                SpecWorkPackageFinding(
-                    "receipt_consumer_contract_invalid",
-                    f"receipt check {check.check_id} must use exactly one internal owner or external receipt ref and cannot execute a command",
-                    (check.check_id,),
-                )
-            )
-        if external_receipt_consumer:
-            canonical_semantics = package.metadata.get("canonical_check_semantics", {})
-            canonical_check_ids = set(package.metadata.get("canonical_check_ids", ()))
-            ref_path = str(check.external_receipt_ref.get("ref_path", ""))
-            external_ref_shape_ok = bool(
-                str(check.external_receipt_ref.get("provider_id", ""))
-                and check.external_receipt_ref.get("work_package_id") == package.work_package_id
-                and check.external_receipt_ref.get("adapter") == "portable-receipt.v1"
-                and re.fullmatch(r"<[A-Z][A-Z0-9_]*_EVIDENCE>/[A-Za-z0-9._/-]+", ref_path)
-                and ".." not in ref_path.split("/")
-                and check.semantic_check_id
-            )
-            if check.check_id in canonical_check_ids:
-                expected_path = (
-                    f"<SPEC_EVIDENCE>/portable-refs/{package.provider.provider_id}/"
-                    f"{package.work_package_id}/{check.check_id}.json"
-                )
-                external_ref_shape_ok = bool(
-                    external_ref_shape_ok
-                    and check.external_receipt_ref.get("provider_id") == package.provider.provider_id
-                    and ref_path == expected_path
-                    and isinstance(canonical_semantics, Mapping)
-                    and canonical_semantics.get(check.check_id) == check.semantic_check_id
-                )
-            elif canonical_check_ids:
-                external_ref_shape_ok = False
-            if not external_ref_shape_ok:
-                findings.append(
-                    SpecWorkPackageFinding(
-                        "external_receipt_ref_identity_mismatch",
-                        f"external receipt {check.check_id} must name one safe, exact owner receipt identity",
-                        (check.check_id,),
-                    )
-                )
-        if check.execution_mode == SPEC_EXECUTION_AGGREGATE_CHILD_RECEIPTS and not check.child_check_ids:
-            findings.append(
-                SpecWorkPackageFinding(
-                    "aggregate_check_children_missing",
-                    f"aggregate check {check.check_id} must consume child receipt owners",
-                    (check.check_id,),
-                )
-            )
-        forbidden_provider_commands = {
-            "spec-check-run": "provider_reexecutes_flowguard_owner",
-            "spec-receipt-consume": "provider_reexecutes_flowguard_owner",
-            "spec-session-begin": "provider_execution_lifecycle_cycle",
-            "spec-session-close": "provider_execution_lifecycle_cycle",
-            "spec-provider-close-review": "provider_execution_lifecycle_cycle",
-        }
-        if package.provider.provider_id == SPEC_PROVIDER_OPEN_SPEC and check.command:
-            for command_token, finding_code in forbidden_provider_commands.items():
-                if command_token in check.command:
-                    findings.append(
-                        SpecWorkPackageFinding(
-                            finding_code,
-                            f"OpenSpec check {check.check_id} cannot invoke FlowGuard owner or close lifecycle commands",
-                            (check.check_id,),
-                        )
-                    )
         if check.timeout_seconds <= 0:
             findings.append(
                 SpecWorkPackageFinding(
                     "check_timeout_missing",
                     f"check {check.check_id} requires a positive timeout",
+                    (check.check_id,),
+                )
+            )
+        if check.check_kind not in SPEC_CHECK_KINDS:
+            findings.append(
+                SpecWorkPackageFinding(
+                    "unknown_spec_check_kind",
+                    f"check {check.check_id} has an unknown provider check kind",
+                    (check.check_id,),
+                )
+            )
+        if check.check_kind == SPEC_CHECK_KIND_COMMAND and not check.command:
+            findings.append(
+                SpecWorkPackageFinding(
+                    "spec_command_check_missing_command",
+                    f"command check {check.check_id} requires one provider command",
+                    (check.check_id,),
+                )
+            )
+        if check.validation_scope not in SPEC_VALIDATION_SCOPES:
+            findings.append(
+                SpecWorkPackageFinding(
+                    "unknown_spec_validation_scope",
+                    f"check {check.check_id} has an unknown validation scope",
+                    (check.check_id,),
+                )
+            )
+        if check.snapshot_policy not in SPEC_SNAPSHOT_POLICIES:
+            findings.append(
+                SpecWorkPackageFinding(
+                    "unknown_spec_snapshot_policy",
+                    f"check {check.check_id} has an unknown snapshot policy",
+                    (check.check_id,),
+                )
+            )
+        if check.check_kind == SPEC_CHECK_KIND_RECEIPT:
+            has_internal_owner = bool(check.execution_owner)
+            has_external_receipt = bool(check.external_receipt_ref)
+            if has_internal_owner == has_external_receipt:
+                findings.append(
+                    SpecWorkPackageFinding(
+                        "spec_receipt_owner_ambiguous",
+                        f"receipt check {check.check_id} requires exactly one internal owner or external receipt",
+                        (check.check_id,),
+                    )
+                )
+            if has_internal_owner and check.execution_owner not in check_set:
+                findings.append(
+                    SpecWorkPackageFinding(
+                        "spec_receipt_owner_missing",
+                        f"receipt check {check.check_id} references an undeclared execution owner",
+                        (check.execution_owner,),
+                    )
+                )
+        if check.orchestrator_reuse_policy not in SPEC_ORCHESTRATOR_REUSE_POLICIES:
+            findings.append(
+                SpecWorkPackageFinding(
+                    "unknown_orchestrator_reuse_policy",
+                    f"check {check.check_id} has an unknown outer orchestrator reuse policy",
+                    (check.check_id,),
+                )
+            )
+        stateful_wrapper = any(
+            token in {"spec-session-begin", "spec-check-run", "spec-session-close"}
+            for token in check.command
+        )
+        if stateful_wrapper and check.orchestrator_reuse_policy != SPEC_ORCHESTRATOR_REUSE_NEVER:
+            findings.append(
+                SpecWorkPackageFinding(
+                    "stateful_wrapper_outer_reuse_not_disabled",
+                    (
+                        f"check {check.check_id} must execute its lightweight provider wrapper on every attempt; "
+                        "only the inner immutable FlowGuard receipt may be reused"
+                    ),
                     (check.check_id,),
                 )
             )
@@ -1241,13 +1105,16 @@ def spec_work_package_to_development_process(package: SpecWorkPackage):
     ):
         actions.append(ProcessAction(action_id, action_type=action_type, order_after=(prior,) if prior else (), **common))
         prior = action_id
+    session_begin_action_id = prior
+    check_action_ids: list[str] = []
     for check in package.checks:
         action_id = f"spec-check:{check.check_id}"
+        dependency_actions = tuple(f"spec-check:{dependency_id}" for dependency_id in check.depends_on)
         actions.append(
             ProcessAction(
                 action_id,
                 action_type="spec_check",
-                order_after=(prior,),
+                order_after=dependency_actions or (session_begin_action_id,),
                 spec_check_ids=(check.check_id,),
                 spec_obligation_ids=check.obligation_ids,
                 behavior_plane=BCL_PLANE_DEVELOPMENT_PROCESS,
@@ -1261,15 +1128,17 @@ def spec_work_package_to_development_process(package: SpecWorkPackage):
                 ),
             )
         )
-        prior = action_id
+        check_action_ids.append(action_id)
+    prior_dependencies = tuple(check_action_ids) or (session_begin_action_id,)
     for action_id, action_type in (
         ("spec-post-snapshot", "spec_post_snapshot"),
         ("spec-provider-verify", "spec_provider_verify"),
         ("spec-sync", "spec_sync"),
         ("spec-archive-ready", "spec_archive_ready"),
     ):
-        actions.append(ProcessAction(action_id, action_type=action_type, order_after=(prior,), **common))
+        actions.append(ProcessAction(action_id, action_type=action_type, order_after=prior_dependencies, **common))
         prior = action_id
+        prior_dependencies = (prior,)
     return replace(
         projected,
         actions=tuple(actions),
@@ -1327,14 +1196,6 @@ def spec_work_package_to_test_mesh(package: SpecWorkPackage):
             spec_work_package_id=package.work_package_id,
             spec_check_id=check.check_id,
             spec_provider_cross_change_authorized=check.cross_change_safe,
-            semantic_check_id=check.semantic_check_id,
-            execution_id=check.execution_id,
-            execution_owner_id=check.execution_owner_id,
-            input_scope_ids=check.input_paths,
-            snapshot_policy=check.snapshot_policy,
-            execution_mode=check.execution_mode,
-            parent_check_id=check.parent_check_id,
-            uncovered_coverage_ids=check.coverage_ids,
         )
         for check in package.checks
     )
@@ -1348,21 +1209,20 @@ def spec_work_package_to_test_mesh(package: SpecWorkPackage):
         require_complete_inventory=True,
         require_final_receipts=True,
         required_spec_consumer_ids=tuple(consumer.consumer_id for consumer in package.consumer_refs()),
-        parent_execution_mode=(
-            SPEC_EXECUTION_AGGREGATE_CHILD_RECEIPTS
-            if any(check.execution_mode == SPEC_EXECUTION_AGGREGATE_CHILD_RECEIPTS for check in package.checks)
-            else ""
-        ),
-        parent_uncovered_coverage_ids=tuple(
-            item
-            for check in package.checks
-            if check.execution_mode == SPEC_EXECUTION_AGGREGATE_CHILD_RECEIPTS
-            for item in check.coverage_ids
-        ),
     )
 
 
 __all__ = [
+    "SPEC_CHECK_KIND_COMMAND",
+    "SPEC_CHECK_KIND_MANUAL",
+    "SPEC_CHECK_KIND_RECEIPT",
+    "SPEC_CHECK_KINDS",
+    "SPEC_SNAPSHOT_POLICIES",
+    "SPEC_SNAPSHOT_POLICY_FROZEN",
+    "SPEC_SNAPSHOT_POLICY_LIVE",
+    "SPEC_VALIDATION_SCOPES",
+    "SPEC_VALIDATION_SCOPE_FOCUSED",
+    "SPEC_VALIDATION_SCOPE_FULL",
     "SPEC_BINDING_DIRECT",
     "SPEC_BINDING_INFRASTRUCTURE",
     "SPEC_BINDING_KINDS",
@@ -1374,15 +1234,11 @@ __all__ = [
     "SPEC_PROVIDER_MODES",
     "SPEC_PROVIDER_OPEN_SPEC",
     "SPEC_PROVIDER_SPEC_KIT",
+    "SPEC_ORCHESTRATOR_REUSE_EXACT",
+    "SPEC_ORCHESTRATOR_REUSE_NEVER",
+    "SPEC_ORCHESTRATOR_REUSE_POLICIES",
     "SPEC_REVIEW_BLOCKED",
     "SPEC_REVIEW_READY",
-    "SPEC_EXECUTION_AGGREGATE_CHILD_RECEIPTS",
-    "SPEC_EXECUTION_DIRECT",
-    "SPEC_EXECUTION_MODES",
-    "SPEC_EXECUTION_UNCOVERED_REMAINDER",
-    "SPEC_SNAPSHOT_FROZEN_REQUIRED",
-    "SPEC_SNAPSHOT_LIVE_SCOPED",
-    "SPEC_SNAPSHOT_POLICIES",
     "SpecCheckDefinition",
     "SpecConsumerRef",
     "SpecObligation",

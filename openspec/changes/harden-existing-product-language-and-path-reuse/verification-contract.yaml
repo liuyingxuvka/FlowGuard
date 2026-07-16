@@ -1,0 +1,333 @@
+contract_version: 1
+change: harden-existing-product-language-and-path-reuse
+obligations:
+  - id: req.preflight.surface-family
+    source: "specs/existing-model-preflight/spec.md#Requirement: Preflight inventories the affected same-intent surface family"
+    claim: "Preflight inventories every affected UI, API, CLI, alias, adapter, wrapper, helper, and compatibility surface and preserves the existing commitment/path reuse handoff."
+    required: true
+    evidence: [check.integration.identity, check.core.discovery, check.model.preflight, check.models.full]
+  - id: req.similarity.materialized-handoff
+    source: "specs/model-similarity-consolidation/spec.md#Requirement: Similarity handoffs materialize downstream obligations"
+    claim: "Similarity compares stable authority identities and materializes affected surfaces, test/code obligations, differences, and inventory gaps without selecting runtime authority."
+    required: true
+    evidence: [check.integration.identity, check.core.discovery, check.model.similarity, check.models.full]
+  - id: req.behavior.one-commitment
+    source: "specs/behavior-commitment-ledger/spec.md#Requirement: Each exact business intent has one active commitment"
+    claim: "Every exact external business intent has one active commitment, delegating surfaces share it, and path-sensitive bindings emit one unambiguous green primary_path_id."
+    required: true
+    evidence: [check.integration.identity, check.core.behavior, check.matrix.behavior, check.model.ledger, check.models.full]
+  - id: req.path.one-authority
+    source: "specs/primary-path-authority/spec.md#Requirement: Each exact business intent has one primary runtime path"
+    claim: "PPA keys uniqueness by business_intent_id, accounts the complete candidate inventory, reuses current equivalent paths, and requires material runtime/proof evidence."
+    required: true
+    evidence: [check.integration.identity, check.core.behavior, check.matrix.path, check.model.path, check.models.full]
+  - id: req.ui.product-language
+    source: "specs/flowguard-ui-flow-structure/spec.md#Requirement: Product-scope UI language is reviewed by the existing UI route"
+    claim: "The existing UI route compares typography, component, navigation, interaction, feedback, recovery, and transition semantics across declared surfaces while retaining exactly three visibility classes."
+    required: true
+    evidence: [check.integration.identity, check.ui.language, check.ui.visibility, check.model.ui, check.templates.docs, check.models.full]
+  - id: req.runtime.identity-inventory
+    source: "specs/runtime-path-evidence/spec.md#Requirement: Runtime path evidence preserves stable behavior authority identity"
+    claim: "Runtime contracts, observations, and runs preserve intent/commitment/path identity, complete surface/candidate accounting, and facade delegation to the selected path."
+    required: true
+    evidence: [check.integration.identity, check.closure.evidence, check.model.runtime, check.models.full]
+  - id: req.family.complete-obligations
+    source: "specs/obligation-family-parity-provenance/spec.md#Requirement: Family evidence binds the actual obligations owned by each member"
+    claim: "Expected family members are complete and evidence covered_obligations resolves to every obligation owned by the same member and mechanism."
+    required: true
+    evidence: [check.integration.identity, check.closure.evidence, check.models.full]
+  - id: req.alignment.materialized-authority
+    source: "specs/model-test-alignment/spec.md#Requirement: Alignment preserves one exact behavior authority identity"
+    claim: "MTA materializes similarity obligations and aligns model obligations, owner/delegate code contracts, family evidence, runtime evidence, tests, and one stable authority identity."
+    required: true
+    evidence: [check.integration.identity, check.closure.evidence, check.model.alignment, check.models.full]
+  - id: req.reduction.complete-candidates
+    source: "specs/architecture-reduction/spec.md#Requirement: Architecture Reduction accounts the complete same-intent candidate inventory"
+    claim: "Architecture Reduction consumes every expected similarity/surface candidate and retains public facades only as currently evidenced delegates."
+    required: true
+    evidence: [check.integration.identity, check.closure.reduction, check.model.reduction, check.models.full]
+  - id: req.exhaustion.canonical-faults
+    source: "specs/contract-exhaustion-mesh/spec.md#Requirement: ContractExhaustionMesh generates stable behavior-authority identity faults"
+    claim: "Finite matrices include missing identity, wrong path, parallel success, stale proof, omitted member/candidate, unmaterialized similarity, facade, and invalid UI-exception faults."
+    required: true
+    evidence: [check.matrix.behavior, check.matrix.path, check.matrix.integration, check.models.full]
+  - id: req.testmesh.current-complete
+    source: "specs/test-evidence-mesh/spec.md#Requirement: Background regressions provide liveness until a final receipt passes"
+    claim: "TestMesh requires complete current inventory receipts and never promotes a running/progress-only background run to passing evidence."
+    required: true
+    evidence: [check.closure.testmesh, check.model.testmesh, check.models.full]
+  - id: req.process.sync-peer-safety
+    source: "specs/development-process-flow/spec.md#Requirement: Synchronization domains have independent freshness gates"
+    claim: "Post-change scanning, package/skill installation, shadow/formal parity, local Git closure, and peer-write freshness are independently evidenced without rollback."
+    required: true
+    evidence: [check.process.tests, check.model.process, check.project.audit, check.distribution.parity]
+  - id: req.api.existing-owner
+    source: "specs/flowguard-api-registry/spec.md#Requirement: UI consistency helpers extend the existing UI Flow Structure API group"
+    claim: "New public helpers remain in ui_flow_structure and flat exports, existing constructors/imports remain valid, and no new route or CLI command is introduced."
+    required: true
+    evidence: [check.api.surface, check.templates.docs, check.skill.contract, check.openspec.strict]
+checks:
+  - id: check.session.begin
+    kind: command
+    command: python
+    args: [-m, flowguard, spec-session-begin, --root, ., --provider, openspec, --work-package, harden-existing-product-language-and-path-reuse, --json]
+    required: true
+    covers: [req.process.sync-peer-safety]
+    expected: {exit_code: 0}
+  - id: check.integration.identity
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_product_language_path_reuse.py, -q, --junitxml=.flowguard/evidence/product-language-path-reuse/integration.junit.xml]
+    required: true
+    covers: [req.preflight.surface-family, req.similarity.materialized-handoff, req.behavior.one-commitment, req.path.one-authority, req.ui.product-language, req.runtime.identity-inventory, req.family.complete-obligations, req.alignment.materialized-authority, req.reduction.complete-candidates]
+    expected: {exit_code: 0}
+  - id: check.core.discovery
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_existing_model_preflight.py, tests/test_model_similarity.py, -q, --junitxml=.flowguard/evidence/product-language-path-reuse/discovery.junit.xml]
+    required: true
+    covers: [req.preflight.surface-family, req.similarity.materialized-handoff]
+    expected: {exit_code: 0}
+  - id: check.core.behavior
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_behavior_commitment_ledger.py, tests/test_behavior_commitment_primary_path.py, tests/test_primary_path_authority.py, tests/test_primary_path_authority_release_gate_matrix.py, -q, --junitxml=.flowguard/evidence/product-language-path-reuse/behavior-path.junit.xml]
+    required: true
+    covers: [req.behavior.one-commitment, req.path.one-authority]
+    expected: {exit_code: 0}
+  - id: check.ui.language
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_ui_structure.py, -q, --junitxml=.flowguard/evidence/product-language-path-reuse/ui-language.junit.xml]
+    required: true
+    covers: [req.ui.product-language]
+    expected: {exit_code: 0}
+  - id: check.ui.visibility
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_ui_structure.py::UIContentVisibilityTests, -q, --junitxml=.flowguard/evidence/product-language-path-reuse/ui-visibility.junit.xml]
+    required: true
+    covers: [req.ui.product-language]
+    expected: {exit_code: 0}
+  - id: check.closure.evidence
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_runtime_path_evidence.py, tests/test_obligation_family.py, tests/test_model_test_alignment.py, tests/test_transition_coverage.py, -q, --junitxml=.flowguard/evidence/product-language-path-reuse/evidence-alignment.junit.xml]
+    required: true
+    covers: [req.runtime.identity-inventory, req.family.complete-obligations, req.alignment.materialized-authority]
+    expected: {exit_code: 0}
+  - id: check.closure.reduction
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_architecture_reduction.py, -q, --junitxml=.flowguard/evidence/product-language-path-reuse/reduction.junit.xml]
+    required: true
+    covers: [req.reduction.complete-candidates]
+    expected: {exit_code: 0}
+  - id: check.closure.testmesh
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_test_mesh.py, -q, --junitxml=.flowguard/evidence/product-language-path-reuse/testmesh.junit.xml]
+    required: true
+    covers: [req.testmesh.current-complete]
+    expected: {exit_code: 0}
+  - id: check.matrix.behavior
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_behavior_commitment_contract_exhaustion.py, -q]
+    required: true
+    covers: [req.behavior.one-commitment, req.exhaustion.canonical-faults]
+    expected: {exit_code: 0}
+  - id: check.matrix.path
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_primary_path_authority_contract_exhaustion.py, -q]
+    required: true
+    covers: [req.path.one-authority, req.exhaustion.canonical-faults]
+    expected: {exit_code: 0}
+  - id: check.matrix.integration
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_contract_exhaustion.py, tests/test_product_language_path_reuse.py, -q, -k, exhaustion]
+    required: true
+    covers: [req.exhaustion.canonical-faults]
+    expected: {exit_code: 0}
+  - id: check.api.surface
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_api_surface.py, tests/test_route_profiles.py, -q]
+    required: true
+    covers: [req.api.existing-owner]
+    expected: {exit_code: 0}
+  - id: check.templates.docs
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_public_templates.py, tests/test_skill_docs.py, tests/test_skill_suite_inventory.py, -q]
+    required: true
+    covers: [req.ui.product-language, req.api.existing-owner]
+    expected: {exit_code: 0}
+  - id: check.process.tests
+    kind: command
+    command: python
+    args: [-m, pytest, tests/test_development_process_flow.py, tests/test_project_adoption.py, tests/test_release_verification.py, -q]
+    required: true
+    covers: [req.process.sync-peer-safety]
+    expected: {exit_code: 0}
+  - id: check.model.preflight
+    kind: command
+    command: python
+    args: [.flowguard/existing_model_preflight/run_checks.py]
+    required: true
+    covers: [req.preflight.surface-family]
+    expected: {exit_code: 0}
+  - id: check.model.similarity
+    kind: command
+    command: python
+    args: [.flowguard/model_similarity_consolidation/run_checks.py]
+    required: true
+    covers: [req.similarity.materialized-handoff]
+    expected: {exit_code: 0}
+  - id: check.model.ledger
+    kind: command
+    command: python
+    args: [.flowguard/behavior_commitment_ledger/run_checks.py]
+    required: true
+    covers: [req.behavior.one-commitment]
+    expected: {exit_code: 0}
+  - id: check.model.path
+    kind: command
+    command: python
+    args: [.flowguard/primary_path_authority/run_checks.py]
+    required: true
+    covers: [req.path.one-authority]
+    expected: {exit_code: 0}
+  - id: check.model.ui
+    kind: command
+    command: python
+    args: [.flowguard/ui_flow_structure_skill/run_checks.py]
+    required: true
+    covers: [req.ui.product-language]
+    expected: {exit_code: 0}
+  - id: check.model.runtime
+    kind: command
+    command: python
+    args: [.flowguard/runtime_path_evidence/run_checks.py]
+    required: true
+    covers: [req.runtime.identity-inventory]
+    expected: {exit_code: 0}
+  - id: check.model.alignment
+    kind: command
+    command: python
+    args: [.flowguard/model_test_code_alignment/run_checks.py]
+    required: true
+    covers: [req.alignment.materialized-authority]
+    expected: {exit_code: 0}
+  - id: check.model.reduction
+    kind: command
+    command: python
+    args: [.flowguard/architecture_reduction/run_checks.py]
+    required: true
+    covers: [req.reduction.complete-candidates]
+    expected: {exit_code: 0}
+  - id: check.model.testmesh
+    kind: command
+    command: python
+    args: [.flowguard/test_evidence_mesh/run_checks.py]
+    required: true
+    covers: [req.testmesh.current-complete]
+    expected: {exit_code: 0}
+  - id: check.model.process
+    kind: command
+    command: python
+    args: [.flowguard/development_process_flow/run_checks.py]
+    required: true
+    covers: [req.process.sync-peer-safety]
+    expected: {exit_code: 0}
+  - id: check.models.full
+    kind: command
+    command: python
+    args: [-m, flowguard, spec-check-run, --root, ., --provider, openspec, --work-package, harden-existing-product-language-and-path-reuse, --check-id, check.models.full, --semantic-id, flowguard.models.full, --cross-change-safe, --coverage, all-registered-models, --, python, scripts/run_flowguard_model_regressions.py, --root, ., --tier, full, --jobs, "1", --json]
+    required: true
+    covers: [req.preflight.surface-family, req.similarity.materialized-handoff, req.behavior.one-commitment, req.path.one-authority, req.ui.product-language, req.runtime.identity-inventory, req.family.complete-obligations, req.alignment.materialized-authority, req.reduction.complete-candidates, req.exhaustion.canonical-faults, req.testmesh.current-complete]
+    expected: {exit_code: 0}
+  - id: check.skill.contract
+    kind: command
+    command: python
+    args: [scripts/compile_flowguard_skill_contracts.py, --root, ., --check, --json]
+    required: true
+    covers: [req.api.existing-owner]
+    expected: {exit_code: 0}
+  - id: check.project.audit
+    kind: command
+    command: python
+    args: [-m, flowguard, project-audit, --root, ., --json]
+    required: true
+    covers: [req.process.sync-peer-safety]
+    expected: {exit_code: 0}
+  - id: check.distribution.parity
+    kind: command
+    command: python
+    args: [scripts/install_flowguard_skills.py, parity, --formal, ../FlowGuard/.agents/skills, --shadow, .agents/skills, --installed, ../../.codex/skills, --json]
+    required: true
+    covers: [req.process.sync-peer-safety]
+    expected: {exit_code: 0}
+  - id: check.openspec.strict
+    kind: command
+    command: openspec
+    args: [validate, harden-existing-product-language-and-path-reuse, --type, change, --strict, --no-interactive]
+    required: true
+    covers: [req.preflight.surface-family, req.similarity.materialized-handoff, req.behavior.one-commitment, req.path.one-authority, req.ui.product-language, req.runtime.identity-inventory, req.family.complete-obligations, req.alignment.materialized-authority, req.reduction.complete-candidates, req.exhaustion.canonical-faults, req.testmesh.current-complete, req.process.sync-peer-safety, req.api.existing-owner]
+    expected: {exit_code: 0}
+freshness:
+  watch:
+    - openspec/changes/harden-existing-product-language-and-path-reuse/**/*.md
+    - openspec/changes/harden-existing-product-language-and-path-reuse/verification-contract.yaml
+    - flowguard/existing_model_preflight.py
+    - flowguard/model_similarity.py
+    - flowguard/behavior_commitment.py
+    - flowguard/primary_path_authority.py
+    - flowguard/runtime_path.py
+    - flowguard/ui_structure.py
+    - flowguard/transition_coverage.py
+    - flowguard/obligation_family.py
+    - flowguard/model_test_alignment.py
+    - flowguard/architecture_reduction.py
+    - flowguard/testmesh.py
+    - flowguard/development_process_flow.py
+    - flowguard/development_process_simulator.py
+    - flowguard/__init__.py
+    - flowguard/template_text/**/*.py
+    - .flowguard/existing_model_preflight/**/*.py
+    - .flowguard/model_similarity_consolidation/**/*.py
+    - .flowguard/behavior_commitment_ledger/**/*.py
+    - .flowguard/primary_path_authority/**/*.py
+    - .flowguard/ui_flow_structure_skill/**/*.py
+    - .flowguard/runtime_path_evidence/**/*.py
+    - .flowguard/model_test_code_alignment/**/*.py
+    - .flowguard/architecture_reduction/**/*.py
+    - .flowguard/test_evidence_mesh/**/*.py
+    - .flowguard/development_process_flow/**/*.py
+    - .agents/skills/*/SKILL.md
+    - .agents/skills/*/agents/openai.yaml
+    - .agents/skills/*/references/**/*.md
+    - .agents/skills/*/.skillguard/contract-source.json
+    - .agents/skills/*/.skillguard/compiled-contract.json
+    - .agents/skills/*/.skillguard/check-manifest.json
+    - docs/**/*.md
+    - README.md
+    - tests/test_product_language_path_reuse.py
+    - tests/test_existing_model_preflight.py
+    - tests/test_model_similarity.py
+    - tests/test_behavior_commitment_ledger.py
+    - tests/test_behavior_commitment_primary_path.py
+    - tests/test_primary_path_authority.py
+    - tests/test_ui_structure.py
+    - tests/test_runtime_path_evidence.py
+    - tests/test_obligation_family.py
+    - tests/test_model_test_alignment.py
+    - tests/test_transition_coverage.py
+    - tests/test_architecture_reduction.py
+    - tests/test_contract_exhaustion.py
+    - tests/test_test_mesh.py
+    - tests/test_api_surface.py
+    - pyproject.toml
+    - .flowguard/project.toml

@@ -137,9 +137,9 @@ checks:
 These APIs should stay small and semantically stable. New helpers should not
 change the meaning of `FunctionBlock` or `Workflow`, and obsolete
 compatibility-only aliases should not remain in the first-read surface.
-FlowGuard skill/runtime artifacts have one current authority. Former skill,
-model, check, receipt, and project-control shapes are rejected rather than read,
-converted, upgraded, aliased, renewed, or used as a fallback route.
+FlowGuard is latest-schema-first: old artifacts may be detected and upgraded at
+project/tool boundaries, but normal route logic should consume current-schema
+artifacts and current route-first APIs only.
 
 Formal runs emit minimal progress visibility by default through the internal
 finite runner: a start line and bounded progress lines on `stderr`, counted by
@@ -582,13 +582,20 @@ inventory.
   `ProcessAction`, `ProcessEvidence`, `ValidationRequirement`,
   `DevelopmentProcessPlan`, `review_development_process_flow()`, and
   `derive_revalidation_plan()` for letting `development_process_flow` select
-  `plan_detailing`, `agent_workflow`, and `execution_freshness` modes, then
+  `plan_detailing`, internal `strategy_selection`, `agent_workflow`, and
+  `execution_freshness` modes, then
   reviewing lifecycle ordering, artifact overwrite, post-change owner scan
   signals, evidence freshness, and minimum revalidation without supervising
   ModelMesh, TestMesh, StructureMesh, or Model-Test Alignment. Field lifecycle
   artifacts, field projections, replacement disposition records, and
   bug-repair closure records have route-specific freshness codes so later
   writes cannot reuse stale field evidence.
+  Conditional process optimization uses only
+  `ProcessOptimizationContract`, `ProcessOptimizationCandidate`,
+  `ProcessRepairGroup`, `ProcessOptimizationDecision`,
+  `ProcessOptimizationReport`, and `review_process_optimization()` through
+  this existing route group. There is intentionally no separate optimizer
+  route, and ordinary work does not create these records.
   `ProcessAction.behavior_plane` stays `development_process`; its
   `target_behavior_planes`, `target_commitment_ids`, and
   `typed_commitment_relation_refs` identify product/agent targets without
@@ -671,12 +678,18 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - adoption logging and `audit_flowguard_adoption`
 - thin adoption logging commands such as `adoption-start` and
   `adoption-finish`
+- artifact/project upgrade helpers such as `ArtifactUpgradeReport`,
+  `review_artifact_upgrades()`, and `artifact-upgrade` for detecting old
+  FlowGuard artifacts, applying deterministic current-schema upgrades, and
+  reporting blocked/manual-review cases without adding runtime compatibility
+  branches
 - project adoption/version helpers such as `audit_project_adoption()`,
-  and `adopt_project()` for directly writing the current managed
+  `adopt_project()`, and `upgrade_project()` for writing the managed
   FlowGuard `AGENTS.md` block, `.flowguard/project.toml`, and adoption records
-  in target repositories. These helpers do not read or convert former FlowGuard
-  shapes. They record FlowGuard's GitHub repository and package/schema versions;
-  they do not replace executable model checks.
+  in target repositories. Project upgrade scans older adopted repositories for
+  deterministic artifact/model/test/guidance upgrades unless records-only mode
+  is explicitly requested. These helpers record FlowGuard's GitHub repository
+  and package/schema versions; they do not replace executable model checks.
 - schema, JSON artifact helpers, and explicit Mermaid source exporters for
   user-facing model explanations when a compact diagram helps clarify major
   states, branches, gates, evidence, and claim boundaries
@@ -850,3 +863,11 @@ When repeated issues or broad completion claims depend on upstream plan
 construction, first run the plan-intake, adapter-conformance,
 false-negative-backpropagation, mutation, and typed claim-chain helpers so
 omitted surfaces or narrow reports cannot be silently upgraded.
+## Specification work-package API
+
+`SPEC_WORK_PACKAGE_API` is the single public projection for provider-neutral
+work packages, bounded provider adapters, session snapshots, exact check
+receipts, safe reuse, and the four CLI commands documented in
+[`spec_provider_work_packages.md`](spec_provider_work_packages.md). The API is
+development-process governance and is intentionally absent from product UI
+content projection.

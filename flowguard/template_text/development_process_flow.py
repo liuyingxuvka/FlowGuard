@@ -217,10 +217,19 @@ Use this scaffold to model a development lifecycle as a stateful process.
   package installation, installed skill suite, and local Git version;
 - peer-write observations and post-write revalidation so synchronization
   preserves concurrent work instead of overwriting or rolling it back;
-- the minimum revalidation needed when evidence is stale or missing.
+- the coverage-complete revalidation needed when evidence is stale or missing.
   Revalidation recommendations include the route that produced prior evidence,
   proof-artifact requirement, freshness gap codes, and claim scopes blocked
-  until rerun.
+  until rerun. A measured finite candidate set may support a minimum claim;
+  estimated inputs support only a preferred set.
+- a conditional internal process optimization only when explicitly requested,
+  several equivalent routes exist, rework risk is material, or a diagnostic
+  boundary choice matters;
+- a diagnostic boundary (`targeted`, `declared_complete`, or `budgeted`) and
+  execution mode (`sequential` or `safe_parallel`) without prescribing one
+  universal order;
+- stable Finding Ledger references, relation-backed root-cause repair groups,
+  visible hard blockers, and current affected-obligation revalidation.
 
 For field-bearing work, add `PROCESS_ARTIFACT_FIELD_LIFECYCLE`,
 `PROCESS_ARTIFACT_FIELD_PROJECTION`, `PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION`,
@@ -247,6 +256,12 @@ those routes. If route-owner evidence is failed, stale, skipped, missing, or
 progress-only, this route keeps that lifecycle gap visible for the current
 process claim.
 
+The internal mode order is `plan_detailing` -> `strategy_selection` ->
+`agent_workflow` -> `execution_freshness`. The optimization mode stays inactive
+for ordinary work. When active, it first proves hard equivalence, then chooses
+one diagnostic boundary and one execution mode. Hard blockers always stop
+invalid downstream work, and material evidence always stales the decision.
+
 When direct model/test evidence is large, incomplete, slow, broad,
 progress-only, or release-only, run AutoSplit, ModelMesh, or TestMesh as its own
 route and consume that route's evidence id or proof artifact here. Do not copy
@@ -257,8 +272,32 @@ freshness, or release readiness is the risk. It is not mandatory for every
 small edit and it does not make FlowGuard a task orchestrator.
 """
 
+DEVELOPMENT_PROCESS_STRATEGY_NOTES_TEMPLATE = """# FlowGuard Development-Process Strategy Notes
+
+This is an internal capability of `development_process_flow`, not another
+public route. Ordinary single-route work needs no optimization records.
+
+Activate only for `explicit_request`, `multiple_equivalent_routes`,
+`material_rework_risk`, or `diagnostic_boundary_choice`. Compare candidates
+only after proving the same required outcome, evidence, safety, side effects,
+dependency authority, and execution-owner authority.
+
+Choose `targeted`, `declared_complete`, or `budgeted` diagnosis, then
+`sequential` or isolation-proven `safe_parallel` execution. Keep diagnostic
+counts in TestMesh, raw findings in the Finding Ledger, dependency graphs in
+SpecWorkPackage, and model/code/test ownership in ordinary Model-Test
+Alignment. Group findings only with relation evidence, repair the root cause,
+and revalidate every affected obligation.
+
+Hard blockers stop invalid downstream work. Material evidence stales the old
+decision. Estimated evidence may support a preferred route; only measured
+costs over an exhausted finite set may support a minimum claim, never a global
+optimum.
+"""
+
 __all__ = [
     'DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE',
     'DEVELOPMENT_PROCESS_FLOW_RUN_CHECKS_TEMPLATE',
     'DEVELOPMENT_PROCESS_FLOW_NOTES_TEMPLATE',
+    'DEVELOPMENT_PROCESS_STRATEGY_NOTES_TEMPLATE',
 ]

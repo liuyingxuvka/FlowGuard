@@ -1,8 +1,7 @@
 # spec-provider-work-packages Specification
 
 ## Purpose
-Define how FlowGuard reconciles OpenSpec, Spec Kit, and other provider-owned tasks with FlowGuard obligations and current receipts without replacing the provider's native authority or rerunning shared checks unnecessarily.
-
+Define how FlowGuard consumes OpenSpec, Spec Kit, and other declared specification work packages while preserving provider authority, stable identities, bidirectional task/obligation reconciliation, exact receipt ownership, frozen-input freshness, and provider-native archive gates.
 ## Requirements
 ### Requirement: Specification providers retain native authority
 FlowGuard SHALL read declared specification providers without replacing their requirement, task, strict-verification, implementation, or archive authority.
@@ -94,20 +93,20 @@ FlowGuard SHALL execute an identical current check key once and MAY reuse its im
 - **THEN** FlowGuard SHALL execute or block within that change rather than reuse implicitly
 
 #### Scenario: Cross-change reuse is declared and exact
-- **WHEN** an explicitly cross-change-safe check has identical current physical execution identity and each consumer ref declares its own exact coverage set
-- **THEN** several changes MAY reference the one owner receipt id through consumer-local portable refs, without copying the immutable receipt or reexecuting its owner
-
-#### Scenario: Only consumer coverage changes
-- **WHEN** the owner receipt remains current but one consumer changes its projected coverage declaration
-- **THEN** only that consumer projection SHALL become stale and the owner command SHALL NOT rerun
-
-#### Scenario: Close response is lost after the immutable record is written
-- **WHEN** a caller repeats close for an already closed or blocked session
-- **THEN** FlowGuard SHALL return the same immutable close record without rescanning inputs, changing observation time, or executing any check
+- **WHEN** an explicitly cross-change-safe check has identical current execution identity and complete coverage
+- **THEN** several changes MAY reference the one receipt id
 
 #### Scenario: One reuse-key field changes
 - **WHEN** the check definition, inputs, tools, environment, coverage, or terminal receipt identity differs
 - **THEN** the previous receipt SHALL be stale and the check SHALL rerun or remain blocked
+
+#### Scenario: Provider resume encounters a stateful FlowGuard wrapper
+- **WHEN** a provider attempts to resume a session-begin, cached-check, or session-close wrapper whose execution hydrates current-session state
+- **THEN** the provider wrapper SHALL execute again with `orchestrator_reuse_policy=never`, while the inner immutable FlowGuard check receipt MAY still report `reused-current`
+
+#### Scenario: Provider reuses the outer wrapper receipt directly
+- **WHEN** the provider skips a stateful wrapper because an older outer receipt is current
+- **THEN** FlowGuard SHALL block the session projection rather than treating the missing current-session state as completed work
 
 ### Requirement: Provider reports distinguish execution states
 Canonical JSON output SHALL distinguish `executed`, `reused-current`, `stale`, `not-run`, and `blocked` with explicit reasons and SHALL remain language-neutral.

@@ -139,6 +139,14 @@ For each child suite or child test script, record grouped evidence:
 - payload ownership summary when applicable: payload contract ids, required
   case ids, result artifact path, and downstream Model-Test Alignment owner.
 
+For a diagnostic child, also record `diagnostic_boundary` as `targeted`,
+`declared_complete`, or `budgeted`; planned, executed, failed, and not-run
+counts; campaign id; not-run reason; and stable Finding Ledger ids. Require
+`planned = executed + not_run` and `failed <= executed`.
+`declared_complete` cannot contain not-run work. Other boundaries may leave a
+remainder only with a visible reason. TestMesh reports this evidence; it does
+not choose DPF process optimization or group findings into root causes.
+
 Progress output is liveness evidence only. It is not completion evidence.
 An old `passed` result is not reusable parent evidence unless
 `TestResultReuseTicket` and `ProofArtifactRef` are both current for the command,
@@ -233,3 +241,18 @@ A TestMesh review can support the parent only when:
   evidence status and parent consumption;
 - release-only obligations are either current or explicitly deferred only under
   routine scope.
+## Specification-check receipt children
+
+Provider checks are ordinary TestMesh children with extra consumer bindings.
+Record the provider session id, all consumer ids, canonical execution state,
+immutable receipt id/fingerprint, stable validation-obligation coverage, and
+explicit cross-change scope. `executed` and `reused-current` may support a pass
+only when the underlying `EvidenceReceipt` is independently current and exact.
+`stale`, `not-run`, `blocked`, timeout, running, skipped, or progress-only rows
+remain non-passing.
+
+One receipt with several consumers is one execution, not duplicated evidence.
+Changing a provider-local obligation does not necessarily change a neutral
+execution receipt; consumer bindings attach provider task/check ids afterward.
+Never split a broad combined command into unsupported child claims without an
+independent node/coverage inventory.

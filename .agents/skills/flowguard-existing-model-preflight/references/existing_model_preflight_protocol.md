@@ -52,13 +52,10 @@ ambiguity, match explanations, owner models, and `ledger_fingerprint`.
 
 Primary hits come from one selected plane. A related product/process/AI row may
 explain context only through a typed relation and cannot become the primary
-owner through shared wording. In full preflight for an adopted/modeled project,
-a missing or stale canonical ledger keeps lookup blocked; the existing
-path/model scan may still be shown as diagnostic context but is not an alternate
-successful commitment authority. Light discussion or explicitly trivial work
-may keep lookup `not_applicable`. If several planes remain plausible, keep their
-candidates separate and block full-confidence downstream selection until caller
-context selects one.
+owner through shared wording. If the ledger is missing or stale, fall back to
+the existing path/model scan and say so. If several planes remain plausible,
+keep their candidates separate and block full-confidence downstream selection
+until caller context selects one.
 
 ## Light Mode
 
@@ -94,10 +91,6 @@ possible. A full report should include:
 - `field_lifecycle_mesh` as a downstream route when behavior-bearing fields or
   old/replaced fields are in scope;
 - rationale and stale evidence notes.
-- subject class (`skill_runtime` or `ordinary_software`) and compatibility
-  admission decision. A skill former shape is recorded only as rejected
-  evidence. An ordinary-software compatibility surface must cite the explicit
-  historical document/data/interface requirement and bounded reader owner.
 
 When an external business intent is affected, full mode also declares the
 expected surface inventory independently from the supplied candidate list. Add
@@ -128,12 +121,6 @@ Known-bad variants should fail or be reported:
 - a wrong-plane text match promoted over the selected plane;
 - a related-plane hit treated as an executable instruction or merged owner;
 - missing/stale ledger lookup silently treated as current commitment evidence;
-- a former skill shape promoted into a live reader, migration, fallback, alias,
-  converter, command, or parallel authority;
-- an ordinary-software compatibility surface admitted without an explicit
-  historical-input requirement and bounded reader owner;
-- a validation receipt, report, log, cache, timestamp, or generated status
-  misclassified as historical business input;
 - parent model found but parent coverage, child disjointness, child
   reattachment, or leaf boundary-matrix status is unknown when the downstream
   work needs parent/child confidence.
@@ -181,3 +168,12 @@ existing parent model, child models, leaf models, current evidence ids, and any
 duplicate-boundary risks before a new model or test boundary is added. A model
 reference plus ordinary test mention is not the same as complete finite leaf
 boundary proof.
+## Specification-provider context
+
+Attach OpenSpec, Spec Kit, or compatible provider context only after canonical
+plane-first commitment lookup. The context must preserve provider,
+work-package, and change identities and must declare `development_process`.
+Provider tasks can point to target commitments through typed relations, but
+`provider_owns_product_behavior` must remain false. Missing lookup, wrong-plane
+primary ownership, missing provider identities, or provider takeover of a
+product commitment blocks full preflight.

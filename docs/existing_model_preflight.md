@@ -192,3 +192,9 @@ migration, replay, side effects, or external contracts, record
 a downstream route before code changes. Presentation-only or metadata fields
 can be scoped out, but the scoped-out reason belongs in FieldLifecycleMesh, not
 in a hidden assumption.
+## Provider context after plane lookup
+
+Specification-provider context is attached only after canonical plane-first
+commitment lookup. It remains `development_process`, preserves provider,
+work-package, and change identity, and cannot own a product-runtime
+commitment. See [`spec_provider_work_packages.md`](spec_provider_work_packages.md).

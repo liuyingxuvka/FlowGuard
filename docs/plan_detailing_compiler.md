@@ -56,3 +56,10 @@ The template writes:
 
 The generated model includes one complete plan and broken variants for missing
 failure branches, missing rework gates, and missing validation.
+## Specification-provider sources
+
+PlanDetail source rows preserve provider, work-package, change, task,
+obligation, check, and binding ids. These rows project lifecycle freshness to
+DevelopmentProcessFlow and receipt children to TestMesh; they do not copy the
+provider task state or absorb product behavior ownership. See
+[`spec_provider_work_packages.md`](spec_provider_work_packages.md).

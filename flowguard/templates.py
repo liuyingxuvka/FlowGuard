@@ -28,6 +28,7 @@ from .template_text.development_process_flow import (
     DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE,
     DEVELOPMENT_PROCESS_FLOW_RUN_CHECKS_TEMPLATE,
     DEVELOPMENT_PROCESS_FLOW_NOTES_TEMPLATE,
+    DEVELOPMENT_PROCESS_STRATEGY_NOTES_TEMPLATE,
 )
 from .template_text.existing_model_preflight import (
     EXISTING_MODEL_PREFLIGHT_MODEL_TEMPLATE,
@@ -160,45 +161,19 @@ SPEC_WORK_PACKAGE_BINDINGS_TEMPLATE = """{
       "provider_id": "openspec",
       "work_package_id": "replace-with-change-id",
       "change_id": "replace-with-change-id",
-      "canonical_checks": [
-        {
-          "check_id": "owner.example.focused",
-          "semantic_check_id": "flowguard.owner.example.focused",
-          "execution_id": "flowguard.owner.example.focused.v1",
-          "command": ["python", "-m", "pytest", "-q", "tests/test_example.py"],
-          "input_paths": ["flowguard/example.py", "tests/test_example.py"],
-          "validation_obligation_ids": ["validation:example:focused"],
-          "snapshot_policy": "frozen-required",
-          "validation_scope": "focused",
-          "toolchain_identity": "flowguard-python-pytest-v1",
-          "timeout_seconds": 600
-        },
-        {
-          "check_id": "owner.change.aggregate",
-          "semantic_check_id": "flowguard.owner.example.aggregate",
-          "execution_id": "flowguard.owner.example.aggregate.v1",
-          "execution_mode": "aggregate-child-receipts",
-          "child_check_ids": ["owner.example.focused"],
-          "input_paths": ["openspec/changes/replace-with-change-id/**"],
-          "validation_obligation_ids": ["validation:example:aggregate"],
-          "snapshot_policy": "frozen-required",
-          "validation_scope": "focused",
-          "toolchain_identity": "flowguard-receipt-aggregate-v1"
-        }
-      ],
-      "infrastructure_bindings": [
-        {
-          "binding_id": "infrastructure:canonical-flowguard-owner-receipts",
-          "check_ids": ["owner.example.focused", "owner.change.aggregate"],
-          "binding_kind": "infrastructure",
-          "owner_id": "flowguard.spec_check_cache",
-          "reason": "FlowGuard executes each physical check once; OpenSpec consumes portable receipts."
-        }
-      ],
       "task_binding_rules": [
         {
           "task_prefix": "1.",
           "obligation_ids": ["req.example"]
+        }
+      ],
+      "check_policies": [
+        {
+          "check_id": "check.example",
+          "validation_obligation_ids": ["validation:example"],
+          "depends_on": [],
+          "timeout_seconds": 600,
+          "cross_change_safe": false
         }
       ]
     }
@@ -209,28 +184,15 @@ SPEC_WORK_PACKAGE_BINDINGS_TEMPLATE = """{
 
 SPEC_WORK_PACKAGE_NOTES_TEMPLATE = """# FlowGuard specification work package
 
-Keep provider, work-package, change, task, obligation, semantic-check,
-execution, receipt, and consumer identities distinct. `canonical_checks` is
-the only physical execution declaration; `infrastructure_bindings` names
-`flowguard.spec_check_cache` as its owner.
+Keep provider, work-package, change, task, obligation, check, session, receipt,
+and consumer identities distinct. Every task and required obligation/check
+needs a bidirectional owner mapping. OpenSpec or Spec Kit retains native task,
+verification, and archive authority.
 
-Set `FLOWGUARD_SPEC_EVIDENCE_ROOT` to a persistent evidence directory. Start a
-frozen session with `spec-session-begin`; FlowGuard runs each child owner once
-with `spec-check-run`, aggregates exact child receipts, and closes the frozen
-owner session with `spec-session-close`. This produces stable
-`portable-receipt.v1` refs below `<SPEC_EVIDENCE>/portable-refs/...`.
-
-The OpenSpec verification contract contains only `kind: receipt` checks. It
-does not execute the FlowGuard owner, call FlowGuard session lifecycle
-commands, or copy commands/input selectors into the provider contract. Its
-native verifier reads the stable refs and writes the version-3 provider report.
-Only after that report exists may `spec-provider-close-review` perform the
-read-only reconciliation of frozen owner receipts against provider rows.
-That review never runs a check and never replaces OpenSpec archive authority.
-
-Derived reports, logs, caches, refs, envelopes, and receipts are outputs, not
-governed source inputs. Do not expose these development-process fields as
-product UI content.
+Use `spec-session-begin`, wrap checks with `spec-check-run`, and finish with
+`spec-session-close`. Derived reports, logs, caches, and receipts are outputs,
+not governed source inputs. Do not expose these internal development-process
+fields as product UI content.
 """
 
 
@@ -367,6 +329,10 @@ def development_process_flow_template_files() -> tuple[TemplateFile, ...]:
         TemplateFile(".flowguard/development_process_flow/model.py", DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE),
         TemplateFile(".flowguard/development_process_flow/run_checks.py", DEVELOPMENT_PROCESS_FLOW_RUN_CHECKS_TEMPLATE),
         TemplateFile("docs/flowguard_development_process_flow.md", DEVELOPMENT_PROCESS_FLOW_NOTES_TEMPLATE),
+        TemplateFile(
+            "docs/flowguard_development_process_strategy_selection.md",
+            DEVELOPMENT_PROCESS_STRATEGY_NOTES_TEMPLATE,
+        ),
     )
 
 

@@ -21,6 +21,13 @@ jobs. Project adapters run those commands and pass structured evidence into
 FlowGuard. FlowGuard then checks coverage, ownership, freshness, skipped tests,
 background completion, and routine-vs-release confidence.
 
+For a specification work package, one check execution is one TestMesh child.
+All mapped tasks and obligations remain consumer references on that child; they
+do not create copied receipts or pretend that one command ran several times.
+`reused-current` needs the native reuse ticket and exact command/input/tool/
+environment/coverage identity. Cross-change reuse also needs provider-declared
+`cross_change_safe`; caller preference alone cannot widen the boundary.
+
 For a same-intent product-language/path-reuse claim, the parent boundary also
 declares the required inventory revision and every required surface,
 materialized obligation, family member, transition cell, ContractExhaustion
@@ -122,6 +129,12 @@ Each child suite or child test script reports a `TestSuiteEvidence` summary:
 
 - command and layer;
 - result status such as `passed`, `failed`, `timeout`, `running`, or `not_run`;
+- diagnostic boundary (`targeted`, `declared_complete`, or `budgeted`) plus
+  planned, executed, failed, and not-run counts;
+- the diagnostic campaign id and a not-run reason whenever valid planned work
+  remains outside the executed boundary;
+- stable Finding Ledger ids for failures, so later grouping cannot erase or
+  replace the source findings;
 - evidence tier and freshness;
 - selected, total, and skipped test counts;
 - whether skipped tests are visible;
@@ -143,20 +156,25 @@ Each child suite or child test script reports a `TestSuiteEvidence` summary:
   a generated Cartesian shard for downstream model coverage receipts;
 - not-run and stale reasons.
 
+These fields describe what actually ran; they do not prescribe one universal
+order. Counts must satisfy `planned = executed + not_run` and
+`failed <= executed`. A `declared_complete` boundary cannot hide not-run work;
+`targeted` and `budgeted` boundaries may leave work outside the run only when
+the reason remains visible. Parallel execution is a separate DPF choice and
+requires current isolation evidence.
+
 Progress output is not completion evidence. A background suite is complete only
 when all final-receipt fields above exist, terminal status is `passed`, exit
 code is 0, the required ids are covered, final artifacts exist, and the run is
 not progress-only. PID disappearance, heartbeat, logs, or a parent command that
 ended without its canonical result file remain incomplete.
 
-For a Spec Work Package, keep the declared physical owners explicit and let one
-light parent receipt consume their exact terminal receipts. A full registered
-model run or full Python test run may be reused across changes only when its
-execution definition, governed inputs, toolchain, dependencies, coverage, and
-cross-change authorization are identical. Reuse publishes a consumer-local
-portable reference; it does not copy a receipt or execute the owner again.
-OpenSpec consumes those references read-only, and a green self-maintenance
-model cannot substitute for missing provider-session or owner-receipt evidence.
+For the behavior-plane upgrade, keep at least these child partitions explicit:
+focused lookup/behavior/contracts/API/skill checks, static skill governance,
+isolated skill installation/parity, focused project models, full registered
+models, full Python tests, project audit, and strict OpenSpec validation. Each
+partition needs its own terminal receipt; a green self-maintenance model cannot
+substitute for any missing child.
 If a child suite reuses a previous result, TestMesh requires a current reuse
 ticket and a current proof artifact before the child can support parent
 confidence. A `passed` status string alone is not enough for reused evidence.

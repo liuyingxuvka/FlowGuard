@@ -285,3 +285,11 @@ Before a public GitHub release, run the product-boundary review, the Skill
 trigger review, and the skill-orchestrator collaboration review again. If any
 report changes from expected outcomes, fix the architecture or update the model
 with an explicit reason before publishing.
+## Specification tooling is not product UI
+
+Provider task ids, work-package state, session snapshots, receipt hashes,
+cache keys, audit findings, and verification orchestration stay in the
+`development_process` plane. They must not be admitted as ordinary product UI
+labels or status text. UI Flow Structure continues to own product content,
+typography, navigation, interaction, feedback, recovery, and transition
+semantics.

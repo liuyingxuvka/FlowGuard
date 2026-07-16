@@ -11,7 +11,7 @@ python examples/plan_detailing_compiler/run_review.py
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterable, Sequence
 
 from flowguard import (
@@ -174,6 +174,51 @@ GOOD_PLAN = PlanDetail(
     final_evidence_ids=("detail-model-pass",),
 )
 
+SPEC_MAPPED_PLAN = replace(
+    GOOD_PLAN,
+    plan_id="spec-mapped-plan-detail",
+    sources=(
+        PlanDetailSource(
+            "source:openspec:change-one",
+            "spec_work_package",
+            supports_surface_ids=("rough-plan-detail",),
+            spec_provider_id="openspec",
+            work_package_id="change-one",
+            change_id="change-one",
+            spec_task_ids=("1.1",),
+            spec_obligation_ids=("req.one",),
+            spec_check_ids=("check.one",),
+            spec_binding_ids=("binding:1.1",),
+        ),
+    ),
+    steps=(
+        replace(
+            GOOD_PLAN.steps[0],
+            spec_provider_id="openspec",
+            work_package_id="change-one",
+            change_id="change-one",
+            spec_task_ids=("1.1",),
+            spec_obligation_ids=("req.one",),
+            spec_check_ids=("check.one",),
+            spec_binding_ids=("binding:1.1",),
+        ),
+    )
+    + GOOD_PLAN.steps[1:],
+    validations=(
+        replace(
+            GOOD_PLAN.validations[0],
+            spec_provider_id="openspec",
+            work_package_id="change-one",
+            change_id="change-one",
+            spec_task_ids=("1.1",),
+            spec_obligation_ids=("req.one",),
+            spec_check_ids=("check.one",),
+            spec_binding_ids=("binding:1.1",),
+        ),
+    ),
+)
+BROKEN_SPEC_MAPPING = replace(SPEC_MAPPED_PLAN, plan_id="broken-spec-mapping", steps=GOOD_PLAN.steps)
+
 VAGUE_PLAN = PlanDetail(
     "vague-plan",
     task_summary="Make this better.",
@@ -288,6 +333,8 @@ def plan_detailing_scenarios() -> tuple[Scenario, ...]:
         scenario("PDC04_missing_rework_blocks", "missing rework blocks full claim", MISSING_REWORK_PLAN, "plan_detail_blocked"),
         scenario("PDC05_ungated_side_effect_blocks", "ungated side effect blocks", UNGATED_SIDE_EFFECT_PLAN, "plan_detail_blocked"),
         scenario("PDC06_human_review_scopes", "unresolved human question scopes exploratory plan", SCOPED_HUMAN_REVIEW_PLAN, "plan_detail_scoped"),
+        scenario("PDC07_spec_mapping_passes", "provider task mappings survive steps and validations", SPEC_MAPPED_PLAN, "plan_detail_pass"),
+        scenario("PDC08_spec_mapping_gap_blocks", "provider task mapping loss blocks", BROKEN_SPEC_MAPPING, "plan_detail_blocked"),
     )
 
 
@@ -313,6 +360,8 @@ def export_contract_model():
 
 __all__ = [
     "GOOD_PLAN",
+    "SPEC_MAPPED_PLAN",
+    "BROKEN_SPEC_MAPPING",
     "HAPPY_PATH_ONLY_PLAN",
     "MISSING_REWORK_PLAN",
     "SCOPED_HUMAN_REVIEW_PLAN",

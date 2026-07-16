@@ -7,6 +7,8 @@ import hashlib
 import importlib
 import importlib.metadata
 import json
+import shlex
+import subprocess
 import sys
 from pathlib import Path
 
@@ -42,6 +44,17 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest().upper()
 
 
+def _run(args: list[str], cwd: Path, *, root: Path, installed_root: Path) -> dict[str, object]:
+    completed = subprocess.run(args, cwd=cwd, text=True, capture_output=True)
+    return {
+        "args": ["python", *args[1:]] if args and Path(args[0]).name.startswith("python") else args,
+        "cwd": _display_path(cwd, root, installed_root),
+        "exit_code": completed.returncode,
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
+    }
+
+
 def _check_version(root: Path, installed_root: Path) -> dict[str, object]:
     module = importlib.import_module("flowguard")
     module_path = Path(module.__file__).resolve()
@@ -62,40 +75,45 @@ def _skill_dirs(root: Path, report: SkillSuiteReport) -> tuple[Path, ...]:
 
 
 def _check_skillguard(root: Path, installed_root: Path, report: SkillSuiteReport) -> dict[str, object]:
-    rows: list[dict[str, object]] = []
+    runs: list[dict[str, object]] = []
     for skill_dir in _skill_dirs(root, report):
-        control = skill_dir / ".skillguard"
-        source_path = control / "contract-source.json"
-        compiled_path = control / "compiled-contract.json"
-        manifest_path = control / "check-manifest.json"
-        try:
-            source = json.loads(source_path.read_text(encoding="utf-8"))
-            compiled = json.loads(compiled_path.read_text(encoding="utf-8"))
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            rows.append({"skill_id": skill_dir.name, "ok": False, "error": str(exc)})
+        manifest_path = skill_dir / ".skillguard" / "check-manifest.json"
+        if not manifest_path.is_file():
+            runs.append(
+                {
+                    "args": ["python", ".skillguard/check.py"],
+                    "cwd": _display_path(skill_dir, root, installed_root),
+                    "exit_code": None,
+                    "stdout": "",
+                    "stderr": "required generated check manifest is missing",
+                }
+            )
             continue
-        rows.append(
-            {
-                "skill_id": skill_dir.name,
-                "ok": (
-                    source.get("schema_version") == "skillguard.contract_source.v2"
-                    and compiled.get("schema_version") == "skillguard.compiled_contract.v2"
-                    and manifest.get("schema_version") == "skillguard.check_manifest.v2"
-                    and source.get("model_id") == compiled.get("model_id") == manifest.get("model_id")
-                ),
-                "source_path": _display_path(source_path, root, installed_root),
-                "compiled_path": _display_path(compiled_path, root, installed_root),
-                "manifest_path": _display_path(manifest_path, root, installed_root),
-            }
-        )
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for declared in manifest.get("checks", []):
+            command = shlex.split(str(declared.get("command") or ""), posix=False)
+            if not command or Path(command[0]).name.lower() not in {"python", "python.exe"}:
+                runs.append(
+                    {
+                        "check_id": declared.get("check_id"),
+                        "args": command,
+                        "cwd": _display_path(skill_dir, root, installed_root),
+                        "exit_code": None,
+                        "stdout": "",
+                        "stderr": "generated check command is missing or does not use python",
+                    }
+                )
+                continue
+            run = _run([sys.executable, *command[1:]], skill_dir, root=root, installed_root=installed_root)
+            run["check_id"] = declared.get("check_id")
+            runs.append(run)
     return {
-        "check": "source_skillguard_current_authority",
-        "ok": report.ok and bool(rows) and all(row["ok"] for row in rows),
+        "check": "source_skillguard",
+        "ok": report.ok and all(run["exit_code"] == 0 for run in runs),
         "inventory_hash": report.inventory_hash,
         "member_ids": list(report.declared_member_ids),
         "inventory_findings": [finding.to_dict() for finding in report.findings],
-        "rows": rows,
+        "runs": runs,
     }
 
 
@@ -149,7 +167,7 @@ def main() -> int:
         "inventory_hash": suite_report.inventory_hash,
         "member_ids": list(suite_report.declared_member_ids),
         "checks": checks,
-        "claim_boundary": "Readiness checks current suite controls and installed-file parity without executing native tests or issuing receipts; SkillGuard owns execution and aggregation.",
+        "claim_boundary": "Readiness requires current suite controls and installed-file parity; this command does not prove release publication or future AI behavior.",
     }
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))

@@ -1111,7 +1111,7 @@ def derive_topology_hazard_candidates(digest: TopologyDigest) -> tuple[TopologyH
                 TopologyHazardCandidate(
                     f"hazard:compatibility:{landmark.landmark_id}",
                     "Old-shape or compatibility topology needs an explicit disposition.",
-                    rationale="FlowGuard skill/runtime history must be blocked or deleted; ordinary-software history may be preserved only by an explicit bounded compatibility owner.",
+                    rationale="A model with old/new or historical surfaces must decide whether history is preserved, migrated, blocked, deleted, or latest-schema-first cleaned.",
                     future_failure_mode="Future users, old data, old config, or old artifacts reach a path the model silently removed or still accepts.",
                     topology_anchor_ids=landmark.anchor_ids,
                     source_landmark_ids=(landmark.landmark_id,),

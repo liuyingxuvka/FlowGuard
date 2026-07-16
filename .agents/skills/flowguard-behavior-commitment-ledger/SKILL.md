@@ -31,6 +31,7 @@ Accept a bounded inventory/mode; register one owner per commitment; block covera
 5. Bind one current-green `primary_path_id`; run `review_behavior_commitment_ledger()` and project DCAR/TestMesh/risk evidence.
 
 ## Hard Gates
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
 - Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework or second success path.
 - Duplicate exact promises, owner overlap, source/freshness/PPA/shard gaps, unknown or disallowed relations, and missing cross-plane rationale block broad confidence.
 - Cross-plane language never merges owners. `unclassified`, legacy dependencies, and ambiguous plural paths are upgrade-only blockers.

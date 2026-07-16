@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from flowguard.model_regressions import MANIFEST_SCHEMA, run_manifest_regressions
+from flowguard.model_purpose import build_model_purpose_closure, file_fingerprint
 
 
 class ModelRegressionOrchestratorTests(unittest.TestCase):
@@ -19,6 +20,23 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
             model_dir.mkdir(parents=True)
             model_dir.joinpath("model.py").write_text("VALUE = 1\n", encoding="utf-8")
             model_dir.joinpath("run_checks.py").write_text(str(spec["script"]), encoding="utf-8")
+            purpose = build_model_purpose_closure(
+                model_instance_id=f"regression:{model_id}:current",
+                reusable_model_type_id=model_id,
+                task_intent_id=f"flowguard-regression:{model_id}",
+                guarded_purpose=f"Prevent the {model_id} model from accepting an invalid current outcome as completed evidence.",
+                protected_failure_ids=(f"{model_id}:invalid",),
+                known_good_case_id=f"native-runner:{model_id}:good",
+                failure_bindings=({
+                    "failure_id": f"{model_id}:invalid",
+                    "known_bad_case_id": f"native-runner:{model_id}:bad",
+                    "oracle_id": f"native:{model_id}:runner",
+                },),
+                claim_boundary=f"Current {model_id} fixture closure proves only the declared temporary test boundary and no production behavior.",
+                evidence_check_ids=(f"check:{model_id}",),
+                model_sha256=file_fingerprint(model_dir / "model.py"),
+                runner_sha256=file_fingerprint(model_dir / "run_checks.py"),
+            )
             models.append(
                 {
                     "model_id": model_id,
@@ -31,6 +49,7 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
                     "input_globs": [f".flowguard/{model_id}/model.py", f".flowguard/{model_id}/run_checks.py"],
                     "expected_artifacts": spec.get("expected_artifacts", []),
                     "exclusion_reason": "",
+                    "purpose_closure": purpose.to_dict(),
                 }
             )
         (root / ".flowguard" / "model-regression-manifest.json").write_text(
@@ -53,6 +72,9 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
         receipt = json.loads(Path(report.results[0].receipt_path).read_text(encoding="utf-8"))
         self.assertTrue(receipt["terminal"])
         self.assertEqual("timeout", receipt["status"])
+        self.assertEqual("regression:slow:current", receipt["model_instance_id"])
+        self.assertTrue(receipt["purpose_closure_fingerprint"].startswith("sha256:"))
+        self.assertEqual(["slow:invalid"], receipt["protected_failure_ids"])
 
     def test_cancellation_is_propagated_to_child_receipt(self):
         root = self.make_repo([{"model_id": "slow", "script": "import time\ntime.sleep(10)\n"}])
@@ -104,6 +126,50 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
         report = run_manifest_regressions(root, tier="full", output_dir=root.parent / "out-artifact")
         self.assertTrue(report.ok, report.to_dict())
         self.assertTrue(Path(report.results[0].artifact_paths[0]).is_file())
+
+    def test_parent_logs_survive_child_replacing_isolated_output_directory(self):
+        script = textwrap.dedent(
+            """
+            import os
+            import shutil
+            from pathlib import Path
+            target = Path(os.environ['FLOWGUARD_OUTPUT_DIR'])
+            shutil.rmtree(target)
+            target.mkdir(parents=True)
+            print('child replaced output directory')
+            """
+        )
+        root = self.make_repo([{"model_id": "replacer", "script": script}])
+        report = run_manifest_regressions(root, tier="full", output_dir=root.parent / "out-replacer")
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertIn(
+            "child replaced output directory",
+            Path(report.results[0].stdout_path).read_text(encoding="utf-8"),
+        )
+        self.assertTrue(Path(report.results[0].receipt_path).is_file())
+
+    def test_child_imports_the_selected_repository_before_an_external_installation(self):
+        root = self.make_repo(
+            [
+                {
+                    "model_id": "source-identity",
+                    "script": "import selected_repository_module\n"
+                    "print(selected_repository_module.IDENTITY)\n",
+                }
+            ]
+        )
+        root.joinpath("selected_repository_module.py").write_text(
+            "IDENTITY = 'selected repository'\n", encoding="utf-8"
+        )
+        with patch.dict("os.environ", {"PYTHONPATH": str(root.parent / "unrelated-install")}, clear=False):
+            report = run_manifest_regressions(
+                root, tier="full", output_dir=root.parent / "out-source-identity"
+            )
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertIn(
+            "selected repository",
+            Path(report.results[0].stdout_path).read_text(encoding="utf-8"),
+        )
 
     def test_tracked_mutation_blocks_success(self):
         script = "from pathlib import Path\nPath('tracked.txt').write_text('changed', encoding='utf-8')\n"

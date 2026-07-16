@@ -50,10 +50,27 @@ Only terminal success with exit code, complete coverage, exact result files,
 unchanged inputs, and an independently verifiable immutable receipt is
 reusable. Cross-change reuse is disabled unless explicitly declared safe and
 the neutral execution identity is identical. Several provider checks may
-consume one receipt; each work package receives a consumer-local portable
-reference to the original immutable envelope instead of copying or rerunning
-the receipt. A light package-local aggregate can then bind that shared child
-evidence to the package's own obligations.
+consume one receipt; they reference it instead of copying it.
+
+There are two reuse layers. Ordinary provider checks may use
+`orchestrator_reuse_policy=exact`. A wrapper that begins a FlowGuard session,
+projects a cached check into the current session, or closes the session uses
+`orchestrator_reuse_policy=never`: the provider reruns that lightweight
+wrapper on resume, and the wrapper decides whether the expensive inner check
+can reuse an exact immutable FlowGuard receipt. Reusing the outer wrapper
+would lose current-session state in a new frozen provider workspace.
+
+OpenSpec 1.6 and later already own frozen snapshots, command-owner receipts,
+receipt consumers, dependency receipts, and resume accounting for their native
+verification contract. Current OpenSpec contracts therefore declare pure
+commands directly with `semantic_check_id`, `execution_id`, precise
+`input_selectors`, `depends_on_receipts`, `validation_scope`,
+`snapshot_policy`, and `toolchain_identity`; they do not nest the three
+stateful FlowGuard session commands as ordinary OpenSpec checks. FlowGuard's
+read-only adapter preserves those native fields. On resume, only unchanged
+independent owners may be reused; changed owners rerun in the new frozen
+snapshot. A stateful wrapper remains `never`-reuse and is not converted into a
+portable receipt consumer.
 
 `spec-session-close` captures the same-session post manifest and blocks when
 inputs changed, mappings are incomplete, required checks are missing/non-pass,

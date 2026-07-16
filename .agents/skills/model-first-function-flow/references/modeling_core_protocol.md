@@ -6,7 +6,9 @@ Use this protocol before non-trivial behavior changes involving workflow order, 
 
 Verify `python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"` and the target project's AGENTS.md managed adoption record. If the real package is unavailable, connect it or report blocked/partial; never create a replacement mini-framework.
 
-Write a minimum valuable Risk Intent that names protected error classes/harms, model-critical state and side effects, completion evidence, business path identity, adversarial/repeated inputs, hard invariants, representative known-bad path, public/local template reuse or no-match, template harvest disposition, and residual blindspots.
+Before constructing or materially changing a concrete model candidate, freeze a current model-instance purpose declaration: stable task and instance ids, a reviewable guarded purpose, one-or-many finite protected failure ids, and the claim boundary. The declaration belongs to this task-specific instance; a reusable model type, template, or skill is never permanently assigned one failure class.
+
+Write a minimum valuable Risk Intent that names those protected error classes/harms, model-critical state and side effects, completion evidence, business path identity, adversarial/repeated inputs, hard invariants, representative known-bad paths, public/local template reuse or no-match, template harvest disposition, and residual blindspots. After candidate construction, bind the exact candidate fingerprint, one native known-good case, exactly one native known-bad case per declared failure, native oracle ids, and current evidence checks into the instance closure. Missing, duplicate, disconnected, post-hoc, or stale closure blocks the protection claim; there is one fixed workflow and no weaker mode or fallback.
 
 ## Finite model
 
@@ -25,7 +27,7 @@ Bind `RiskIntent`, `MinimumModelContract`, current `KnownBadProof`, template reu
 
 The formal runner may emit progress on stderr. Progress is liveness only. Inspect the final summary, finding ledger, counterexamples, skipped/not-run sections, and exit/result evidence.
 
-Make at least one representative broken implementation/trace fail for the protected reason. Give counterexamples and known-bad proofs stable target ids when they will drive owner-code regression evidence.
+Make one representative broken implementation/trace fail for every protected failure id, and make the declared native known-good case pass. Give counterexamples and known-bad proofs stable target ids and keep them bound to the current model-instance closure when they drive owner-code regression evidence.
 
 Minimize failing sequences only to aid review; preserve the original trace. When a counterexample exposes a design bug, revise model and intended architecture. When it exposes model infidelity, revise the model/oracle/replay adapter. Rerun after any relevant input changes.
 

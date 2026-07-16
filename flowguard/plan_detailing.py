@@ -25,6 +25,7 @@ from .agent_workflow_rehearsal import (
     SkillInventorySnapshot,
 )
 from .development_process_flow import (
+    PROCESS_EVIDENCE_PROCESS_OPTIMIZATION,
     DevelopmentProcessPlan,
     FreshnessRule,
     ProcessAction,
@@ -53,6 +54,13 @@ PLAN_DETAIL_STATUSES = (
     PLAN_DETAIL_STATUS_SCOPED,
     PLAN_DETAIL_STATUS_BLOCKED,
 )
+
+_PROCESS_OPTIMIZATION_REASONS = {
+    "explicit_request",
+    "multiple_equivalent_routes",
+    "material_rework_risk",
+    "diagnostic_boundary_choice",
+}
 
 PLAN_DETAIL_SEVERITY_INFO = "info"
 PLAN_DETAIL_SEVERITY_NEEDS_REVISION = "needs_revision"
@@ -652,6 +660,8 @@ class PlanDetail:
     final_claim: str = PLAN_DETAIL_CLAIM_SCOPED
     final_evidence_ids: tuple[str, ...] = ()
     claim_labels: tuple[str, ...] = ("done_claimed",)
+    process_optimization_reasons: tuple[str, ...] = ()
+    required_process_optimization_evidence_ids: tuple[str, ...] = ()
     non_trivial: bool = True
     exploratory: bool = False
     allow_scoped_confidence: bool = True
@@ -677,6 +687,16 @@ class PlanDetail:
         object.__setattr__(self, "final_claim", _claim_scope(self.final_claim))
         object.__setattr__(self, "final_evidence_ids", _as_tuple(self.final_evidence_ids))
         object.__setattr__(self, "claim_labels", _as_tuple(self.claim_labels))
+        object.__setattr__(
+            self,
+            "process_optimization_reasons",
+            _as_tuple(self.process_optimization_reasons),
+        )
+        object.__setattr__(
+            self,
+            "required_process_optimization_evidence_ids",
+            _as_tuple(self.required_process_optimization_evidence_ids),
+        )
         object.__setattr__(
             self,
             "require_behavior_plane_boundary",
@@ -716,6 +736,10 @@ class PlanDetail:
             "final_claim": self.final_claim,
             "final_evidence_ids": list(self.final_evidence_ids),
             "claim_labels": list(self.claim_labels),
+            "process_optimization_reasons": list(self.process_optimization_reasons),
+            "required_process_optimization_evidence_ids": list(
+                self.required_process_optimization_evidence_ids
+            ),
             "non_trivial": self.non_trivial,
             "exploratory": self.exploratory,
             "allow_scoped_confidence": self.allow_scoped_confidence,
@@ -823,6 +847,62 @@ def review_plan_detail(plan: PlanDetail) -> PlanDetailReviewReport:
     artifact_ids = {artifact.artifact_id for artifact in plan.artifacts}
     receipt_ids = {receipt for step in plan.steps for receipt in step.completion_receipts()}
     receipt_ids.update(receipt for step in plan.steps for receipt in step.requires_receipts)
+
+    optimization_reasons = plan.process_optimization_reasons
+    optimization_evidence_ids = plan.required_process_optimization_evidence_ids
+    invalid_optimization_reasons = sorted(
+        set(optimization_reasons) - _PROCESS_OPTIMIZATION_REASONS
+    )
+    if invalid_optimization_reasons or len(set(optimization_reasons)) != len(
+        optimization_reasons
+    ):
+        findings.append(
+            _finding(
+                "process_optimization_reason_invalid",
+                "process optimization reasons must be unique stable reason ids",
+                severity=PLAN_DETAIL_SEVERITY_BLOCKED,
+                metadata={"invalid_reasons": invalid_optimization_reasons},
+            )
+        )
+    if optimization_reasons and len(optimization_evidence_ids) != 1:
+        findings.append(
+            _finding(
+                "process_optimization_evidence_cardinality_invalid",
+                "active process optimization needs exactly one decision evidence id",
+                severity=PLAN_DETAIL_SEVERITY_BLOCKED,
+            )
+        )
+    if not optimization_reasons and optimization_evidence_ids:
+        findings.append(
+            _finding(
+                "process_optimization_unneeded_evidence",
+                "ordinary work without an optimization reason must not carry optimizer evidence",
+                severity=PLAN_DETAIL_SEVERITY_BLOCKED,
+            )
+        )
+    for evidence_id in optimization_evidence_ids:
+        evidence = evidence_by_id.get(evidence_id)
+        if evidence is None:
+            findings.append(
+                _finding(
+                    "process_optimization_evidence_unknown",
+                    "process optimization references unknown evidence",
+                    severity=PLAN_DETAIL_SEVERITY_BLOCKED,
+                    metadata={"evidence_id": evidence_id},
+                )
+            )
+        elif evidence.evidence_kind != PROCESS_EVIDENCE_PROCESS_OPTIMIZATION:
+            findings.append(
+                _finding(
+                    "process_optimization_evidence_kind_invalid",
+                    "process optimization evidence uses the wrong evidence kind",
+                    severity=PLAN_DETAIL_SEVERITY_BLOCKED,
+                    metadata={
+                        "evidence_id": evidence_id,
+                        "evidence_kind": evidence.evidence_kind,
+                    },
+                )
+            )
 
     if not plan.task_summary.strip() and not plan.goal.strip():
         findings.append(_finding("missing_goal", "plan detail needs a task summary or goal", severity=PLAN_DETAIL_SEVERITY_BLOCKED))
@@ -1413,6 +1493,10 @@ def plan_detail_to_development_process(plan: PlanDetail) -> DevelopmentProcessPl
             else ""
         ),
         require_behavior_plane_boundary=plan.require_behavior_plane_boundary,
+        process_optimization_reasons=plan.process_optimization_reasons,
+        required_process_optimization_evidence_ids=(
+            plan.required_process_optimization_evidence_ids
+        ),
     )
 
 

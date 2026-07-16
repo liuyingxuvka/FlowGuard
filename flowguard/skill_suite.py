@@ -3,8 +3,7 @@
 Canonical membership comes from the suite map and is reconciled against every
 ``SKILL.md`` directory.  A valid installer ownership manifest may identify
 unrelated skills that merely share the root; undeclared FlowGuard-reserved
-names, missing canonical members, and the one current SkillGuard contract trio
-remain strict. Former control files are rejection evidence only.
+names, missing canonical members, and member control files remain strict.
 """
 
 from __future__ import annotations
@@ -27,27 +26,25 @@ FLOWGUARD_KERNEL_ROLE = "kernel_router"
 FLOWGUARD_SATELLITE_ROLE = "public_satellite"
 FLOWGUARD_EXPECTED_MEMBER_COUNT = 17
 FLOWGUARD_EXPECTED_SATELLITE_COUNT = 16
+MODEL_PURPOSE_SKILL_MARKERS = (
+    "Model-purpose gate",
+    "task-specific failure(s)",
+    "native good/bad-per-failure/oracle/current evidence",
+    "Reusable types are not fixed-purpose",
+    "no mode/fallback",
+    "SkillGuard only supervises FlowGuard-declared checks",
+)
+MODEL_PURPOSE_PROMPT_MARKERS = (
+    "one-or-many protected failures",
+    "reusable model types are not permanently single-purpose",
+    "SkillGuard only supervises declared checks",
+)
 FLOWGUARD_REQUIRED_MEMBER_FILES = (
     "SKILL.md",
     "agents/openai.yaml",
     ".skillguard/contract-source.json",
     ".skillguard/compiled-contract.json",
     ".skillguard/check-manifest.json",
-)
-FLOWGUARD_FORMER_MEMBER_PATHS = (
-    ".skillguard/check_manifest.json",
-    ".skillguard/check.py",
-    ".skillguard/work-contract.json",
-    ".skillguard/skillguard_closure_policy.json",
-    ".skillguard/skillguard_evidence_rules.json",
-    ".skillguard/skillguard_manifest.json",
-    ".skillguard/skillguard_profile.json",
-    ".skillguard/skillguard_progress_ledger.jsonl",
-    ".skillguard/skillguard_skill_contract.json",
-    ".skillguard/ai_judgments",
-    ".skillguard/checks",
-    ".skillguard/evidence",
-    ".skillguard/reports",
 )
 FLOWGUARD_CONTROL_ROOT = ".skillguard"
 
@@ -258,6 +255,13 @@ def _member_source_hash(skill_dir: Path) -> str:
     return hashlib.sha256(skill_file.read_bytes()).hexdigest().upper() if skill_file.is_file() else ""
 
 
+def _member_required_files(skill_dir: Path) -> tuple[str, ...]:
+    """Return the one current required member surface."""
+
+    del skill_dir
+    return FLOWGUARD_REQUIRED_MEMBER_FILES
+
+
 def _semantic_inventory(map_data: Mapping[str, Any]) -> dict[str, Any]:
     members = []
     for raw in map_data.get("included_skills", ()):
@@ -421,7 +425,7 @@ def validate_skill_suite(
         skill_id = str(raw.get("name", ""))
         declared_path = str(raw.get("path", f"{FLOWGUARD_SKILL_ROOT}/{skill_id}"))
         skill_dir = skills_path / skill_id if external_skill_root else root_path / declared_path
-        required_files = {relative: (skill_dir / relative).is_file() for relative in FLOWGUARD_REQUIRED_MEMBER_FILES}
+        required_files = {relative: (skill_dir / relative).is_file() for relative in _member_required_files(skill_dir)}
         control_root_present = (skill_dir / FLOWGUARD_CONTROL_ROOT).is_dir()
         member_reports.append(
             SkillSuiteMemberReport(
@@ -440,16 +444,40 @@ def validate_skill_suite(
         for relative, present in required_files.items():
             if not present:
                 findings.append(SkillSuiteFinding("missing_required_file", "declared suite member is missing a required entry or control file", member_id=skill_id, file_path=f"{declared_path}/{relative}", metadata={"required_file": relative}))
-        for relative in FLOWGUARD_FORMER_MEMBER_PATHS:
-            if (skill_dir / relative).exists():
-                findings.append(
-                    SkillSuiteFinding(
-                        "former_skillguard_authority_present",
-                        "former SkillGuard control or run-output path must be removed; only the current contract trio is authoritative",
-                        member_id=skill_id,
-                        file_path=f"{declared_path}/{relative}",
-                    )
-                )
+        skill_file = skill_dir / "SKILL.md"
+        prompt_file = skill_dir / "agents/openai.yaml"
+        if skill_file.is_file():
+            skill_text = skill_file.read_text(encoding="utf-8")
+            missing = tuple(marker for marker in MODEL_PURPOSE_SKILL_MARKERS if marker not in skill_text)
+            if missing:
+                findings.append(SkillSuiteFinding(
+                    "model_purpose_gate_missing",
+                    "FlowGuard skill is missing the current mandatory instance-purpose gate",
+                    member_id=skill_id,
+                    file_path=f"{declared_path}/SKILL.md",
+                    metadata={"missing_markers": missing},
+                ))
+            lowered = skill_text.casefold()
+            forbidden = tuple(value for value in ("optional purpose mode", "skip purpose declaration", "skillguard owns purpose semantics") if value in lowered)
+            if forbidden:
+                findings.append(SkillSuiteFinding(
+                    "model_purpose_gate_weakened",
+                    "FlowGuard skill exposes a weaker or wrongly owned purpose route",
+                    member_id=skill_id,
+                    file_path=f"{declared_path}/SKILL.md",
+                    metadata={"forbidden_markers": forbidden},
+                ))
+        if prompt_file.is_file():
+            prompt_text = prompt_file.read_text(encoding="utf-8")
+            missing = tuple(marker for marker in MODEL_PURPOSE_PROMPT_MARKERS if marker not in prompt_text)
+            if missing:
+                findings.append(SkillSuiteFinding(
+                    "model_purpose_prompt_missing",
+                    "FlowGuard installed prompt projection is missing current instance-purpose guidance",
+                    member_id=skill_id,
+                    file_path=f"{declared_path}/agents/openai.yaml",
+                    metadata={"missing_markers": missing},
+                ))
 
     inventory_hash = _sha256_text(_canonical_json(map_data))
     semantic_hash = _sha256_text(_canonical_json(_semantic_inventory(map_data)))
@@ -481,7 +509,8 @@ __all__ = [
     "FLOWGUARD_EXPECTED_MEMBER_COUNT",
     "FLOWGUARD_EXPECTED_SATELLITE_COUNT",
     "FLOWGUARD_KERNEL_ROLE",
-    "FLOWGUARD_FORMER_MEMBER_PATHS",
+    "MODEL_PURPOSE_PROMPT_MARKERS",
+    "MODEL_PURPOSE_SKILL_MARKERS",
     "FLOWGUARD_REQUIRED_MEMBER_FILES",
     "FLOWGUARD_SATELLITE_ROLE",
     "FLOWGUARD_SKILL_ROOT",

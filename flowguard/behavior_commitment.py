@@ -121,10 +121,12 @@ BCL_RELATION_TYPES = (
 
 BCL_LOOKUP_STATUS_PERFORMED = "performed"
 BCL_LOOKUP_STATUS_NOT_APPLICABLE = "not_applicable"
+BCL_LOOKUP_STATUS_FALLBACK = "fallback"
 BCL_LOOKUP_STATUS_BLOCKED = "blocked"
 BCL_LOOKUP_STATUSES = (
     BCL_LOOKUP_STATUS_PERFORMED,
     BCL_LOOKUP_STATUS_NOT_APPLICABLE,
+    BCL_LOOKUP_STATUS_FALLBACK,
     BCL_LOOKUP_STATUS_BLOCKED,
 )
 
@@ -316,21 +318,16 @@ def _coerce_path_binding(value: "BehaviorPathAuthorityBinding | Mapping[str, Any
     if isinstance(value, BehaviorPathAuthorityBinding):
         return value
     data = dict(value)
-    former_fields = {
-        "legacy_primary_path_ids",
-        "primary_path_ids",
-        "legacy_plural_migrated",
-        "primary_path_migration_ambiguous",
-    }
-    present = sorted(former_fields.intersection(data))
+    legacy_primary_path_ids = data.pop("legacy_primary_path_ids", ())
     metadata = data.get("metadata")
-    if isinstance(metadata, Mapping) and metadata.get("legacy_primary_path_ids"):
-        present.append("metadata.legacy_primary_path_ids")
-    if present:
-        raise ValueError(
-            "former path-authority fields are not accepted; author primary_path_id directly: "
-            + ", ".join(present)
-        )
+    if (
+        not legacy_primary_path_ids
+        and isinstance(metadata, Mapping)
+        and metadata.get("legacy_primary_path_ids")
+    ):
+        legacy_primary_path_ids = metadata.get("legacy_primary_path_ids", ())
+    if legacy_primary_path_ids and not data.get("primary_path_ids"):
+        data["primary_path_ids"] = legacy_primary_path_ids
     return BehaviorPathAuthorityBinding(**data)
 
 
@@ -633,6 +630,9 @@ class BehaviorPathAuthorityBinding:
     ppa_confidence: str = ""
     ppa_ok: bool | None = None
     primary_path_id: str = ""
+    primary_path_ids: tuple[str, ...] = ()
+    legacy_plural_migrated: bool = False
+    primary_path_migration_ambiguous: bool = False
     fallback_candidate_ids: tuple[str, ...] = ()
     ppa_coverage_receipt_ids: tuple[str, ...] = ()
     ppa_coverage_shard_ids: tuple[str, ...] = ()
@@ -652,7 +652,25 @@ class BehaviorPathAuthorityBinding:
         object.__setattr__(self, "ppa_report_id", str(self.ppa_report_id))
         object.__setattr__(self, "ppa_decision", str(self.ppa_decision))
         object.__setattr__(self, "ppa_confidence", str(self.ppa_confidence))
-        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        primary_path_id = str(self.primary_path_id)
+        primary_path_ids = _as_tuple(self.primary_path_ids)
+        legacy_plural_migrated = bool(
+            self.legacy_plural_migrated
+            or (not primary_path_id and len(primary_path_ids) == 1)
+        )
+        migration_ambiguous = bool(
+            self.primary_path_migration_ambiguous
+            or len(primary_path_ids) > 1
+            or (primary_path_id and primary_path_ids and primary_path_ids != (primary_path_id,))
+        )
+        if legacy_plural_migrated:
+            primary_path_id = primary_path_ids[0]
+        if primary_path_id and not primary_path_ids:
+            primary_path_ids = (primary_path_id,)
+        object.__setattr__(self, "primary_path_id", primary_path_id)
+        object.__setattr__(self, "primary_path_ids", primary_path_ids)
+        object.__setattr__(self, "legacy_plural_migrated", legacy_plural_migrated)
+        object.__setattr__(self, "primary_path_migration_ambiguous", migration_ambiguous)
         object.__setattr__(self, "fallback_candidate_ids", _as_tuple(self.fallback_candidate_ids))
         object.__setattr__(self, "ppa_coverage_receipt_ids", _as_tuple(self.ppa_coverage_receipt_ids))
         object.__setattr__(self, "ppa_coverage_shard_ids", _as_tuple(self.ppa_coverage_shard_ids))
@@ -677,6 +695,8 @@ class BehaviorPathAuthorityBinding:
 
     def ppa_blocked(self) -> bool:
         return (
+            self.primary_path_migration_ambiguous
+            or
             self.ppa_ok is False
             or self.ppa_decision == PPA_DECISION_BLOCKED
             or self.ppa_confidence == PPA_CONFIDENCE_BLOCKED
@@ -688,6 +708,7 @@ class BehaviorPathAuthorityBinding:
             and self.ppa_decision == PPA_DECISION_GREEN
             and self.ppa_confidence == PPA_CONFIDENCE_FULL
             and self.primary_path_id
+            and not self.primary_path_migration_ambiguous
             and self.business_intent_id
             and self.behavior_commitment_id
             and self.runtime_observation_ids
@@ -707,6 +728,9 @@ class BehaviorPathAuthorityBinding:
         return BCL_PPA_BLOCKED
 
     def to_dict(self) -> dict[str, Any]:
+        metadata = dict(self.metadata)
+        if self.primary_path_migration_ambiguous and self.primary_path_ids:
+            metadata.setdefault("legacy_primary_path_ids", list(self.primary_path_ids))
         return {
             "path_sensitive": self.path_sensitive,
             "business_intent": self.business_intent,
@@ -717,6 +741,8 @@ class BehaviorPathAuthorityBinding:
             "ppa_confidence": self.ppa_confidence,
             "ppa_ok": self.ppa_ok,
             "primary_path_id": self.primary_path_id,
+            "legacy_plural_migrated": self.legacy_plural_migrated,
+            "primary_path_migration_ambiguous": self.primary_path_migration_ambiguous,
             "fallback_candidate_ids": list(self.fallback_candidate_ids),
             "ppa_coverage_receipt_ids": list(self.ppa_coverage_receipt_ids),
             "ppa_coverage_shard_ids": list(self.ppa_coverage_shard_ids),
@@ -726,7 +752,7 @@ class BehaviorPathAuthorityBinding:
             "runtime_observation_ids": list(self.runtime_observation_ids),
             "proof_artifact_ids": list(self.proof_artifact_ids),
             "evidence_current": self.evidence_current,
-            "metadata": to_jsonable(dict(self.metadata)),
+            "metadata": to_jsonable(metadata),
         }
 
 
@@ -1912,6 +1938,16 @@ def _review_path_binding(
     if not binding.path_sensitive:
         return
     path_sensitive_commitment_ids.append(commitment.commitment_id)
+    if binding.primary_path_migration_ambiguous:
+        ppa_blocked_commitment_ids.append(commitment.commitment_id)
+        findings.append(
+            _finding(
+                "commitment_primary_path_migration_ambiguous",
+                "legacy plural primary-path input is ambiguous or conflicts with the singular binding",
+                commitment_id=commitment.commitment_id,
+                metadata={"path_authority": binding.to_dict()},
+            )
+        )
     if binding.business_intent_id != commitment.business_intent_id:
         findings.append(
             _finding(
@@ -2023,9 +2059,9 @@ def default_behavior_commitment_axes(
             source_route=BEHAVIOR_COMMITMENT_ROUTE_ID,
         ),
         ContractAxis(
-            "authority_shape_state",
+            "migration_state",
             model_id=model_id,
-            values=("current_shape", "former_dependency_rejected", "former_python_rejected", "former_json_rejected", "dual_authority_blocked"),
+            values=("current_shape", "legacy_same_plane", "legacy_ambiguous", "custom_python_blocked", "dual_authority_blocked"),
             source_route=BEHAVIOR_COMMITMENT_ROUTE_ID,
         ),
         ContractAxis(
@@ -2067,7 +2103,7 @@ def default_behavior_commitment_axes(
         ContractAxis(
             "primary_path_binding_shape",
             model_id=model_id,
-            values=("singular", "former_plural_rejected", "missing"),
+            values=("singular", "legacy_plural_one", "legacy_plural_many", "singular_plural_conflict"),
             source_route=PRIMARY_PATH_ROUTE_ID,
         ),
         ContractAxis(
@@ -2129,9 +2165,9 @@ def default_behavior_commitment_interaction_groups(
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
         ),
         ContractInteractionGroup(
-            "lookup_authority_shape",
+            "lookup_migration_state",
             model_id=model_id,
-            axis_ids=("behavior_plane", "lookup_binding_state", "authority_shape_state"),
+            axis_ids=("behavior_plane", "lookup_binding_state", "migration_state"),
             required_routes=routes + ("existing_model_preflight", "development_process_flow"),
             max_combinations=max_combinations,
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
@@ -2185,7 +2221,7 @@ def default_behavior_commitment_interaction_groups(
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
         ),
         ContractInteractionGroup(
-            "singular_primary_path_current_shape",
+            "singular_primary_path_migration",
             model_id=model_id,
             axis_ids=("exact_intent_identity_state", "primary_path_binding_shape", "ppa_result"),
             required_routes=routes + (PRIMARY_PATH_ROUTE_ID,),
@@ -2347,6 +2383,7 @@ __all__ = [
     "BCL_LEDGER_FORMAT_VERSION",
     "BCL_LOOKUP_STATUSES",
     "BCL_LOOKUP_STATUS_BLOCKED",
+    "BCL_LOOKUP_STATUS_FALLBACK",
     "BCL_LOOKUP_STATUS_NOT_APPLICABLE",
     "BCL_LOOKUP_STATUS_PERFORMED",
     "BCL_MISS_ORIGIN_NONE",

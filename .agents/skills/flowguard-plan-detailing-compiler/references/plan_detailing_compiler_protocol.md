@@ -52,6 +52,11 @@ generic first entry for all rough plans.
 - `PlanDetailFailureBranch`: failure, retry, blocked, or rework branch.
 - `PlanDetailHumanQuestion`: unresolved decisions that block or scope claims.
 - `PlanDetailFreshnessRule`: upstream changes that stale artifacts or evidence.
+- Optional DPF process optimization: store only top-level
+  `process_optimization_reasons` and exactly one current
+  `required_process_optimization_evidence_ids` reference when active. Do not
+  duplicate candidate, diagnostic, repair, or freshness state on each step or
+  validation; ordinary plans leave both fields empty.
 
 ## Findings To Expect
 
@@ -99,3 +104,16 @@ A product target never becomes an AI/process owner through projection. Missing
 target commitment ids or typed cross-plane relations blocks plane-aware detail;
 legacy/trivial plans remain opt-in so this does not become a universal action
 gate.
+## Specification-provider sources
+
+A provider work package enters PlanDetail as a current source row with explicit
+`spec_provider_id`, `work_package_id`, `change_id`, task ids, obligation ids,
+check ids, and binding ids. Keep those identities distinct: a task is not an
+obligation, a provider obligation is not a stable validation obligation, and a
+check label is not a terminal receipt. Missing task binding ids or a missing
+reverse obligation/check owner is a plan-detail blocker.
+
+Projection sends lifecycle order/freshness to DevelopmentProcessFlow and check
+children/consumer fan-out to TestMesh. It never makes the planning compiler the
+provider authority and never transfers product-runtime ownership to a provider
+task.

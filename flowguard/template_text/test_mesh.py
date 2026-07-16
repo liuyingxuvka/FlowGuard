@@ -219,6 +219,9 @@ Use this scaffold to keep a project's validation hierarchy explicit.
   partition;
 - whether child suite/script evidence is current and strong enough for the
   parent;
+- whether execution policy, planned/executed/failed/not-run counts,
+  enumeration status, early-stop reason, diagnostic campaign id, and raw
+  observation/cluster links are internally consistent and complete;
 - whether transition coverage matrix cells have current child evidence when
   the matrix is too large or slow for direct Model-Test Alignment rows;
 - whether ModelMesh closure projection cells have current child evidence when
@@ -238,6 +241,11 @@ A PID, periodic liveness signal, running flag, log line, or partial progress cou
 that work is alive. It must never be promoted to a passing final receipt;
 parent confidence waits for a terminal status, exit code, result artifact, and
 complete required-id accounting.
+
+TestMesh records what ran; DevelopmentProcessFlow chooses the process policy.
+Fail-fast, collect-all, focused-first, bounded-collect, safe parallel shards,
+and adaptive runs are all conditional. A complete campaign cannot hide not-run
+work, while an early-stopped campaign must keep its stop reason visible.
 
 TestMesh is parallel to ModelMesh and StructureMesh: the object being split is
 the test structure. The parent should consume child ownership and evidence

@@ -182,7 +182,7 @@ class BehaviorLookupReport:
     candidate_hits: tuple[BehaviorCommitmentHit, ...] = ()
     plane_ambiguity: bool = False
     ledger_fingerprint: str = ""
-    status_reason: str = ""
+    fallback_reason: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -192,7 +192,7 @@ class BehaviorLookupReport:
         object.__setattr__(self, "primary_hits", tuple(self.primary_hits))
         object.__setattr__(self, "related_hits", tuple(self.related_hits))
         object.__setattr__(self, "candidate_hits", tuple(self.candidate_hits))
-        object.__setattr__(self, "status_reason", str(self.status_reason))
+        object.__setattr__(self, "fallback_reason", str(self.fallback_reason))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     @property
@@ -210,7 +210,7 @@ class BehaviorLookupReport:
             "candidate_hits": [hit.to_dict() for hit in self.candidate_hits],
             "plane_ambiguity": self.plane_ambiguity,
             "ledger_fingerprint": self.ledger_fingerprint,
-            "status_reason": self.status_reason,
+            "fallback_reason": self.fallback_reason,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -222,8 +222,8 @@ class BehaviorLookupReport:
             f"plane_ambiguity: {self.plane_ambiguity}",
             f"ledger_fingerprint: {self.ledger_fingerprint or '(none)'}",
         ]
-        if self.status_reason:
-            lines.append(f"status_reason: {self.status_reason}")
+        if self.fallback_reason:
+            lines.append(f"fallback_reason: {self.fallback_reason}")
         for heading, hits in (
             ("primary_hits", self.primary_hits),
             ("related_hits", self.related_hits),
@@ -453,7 +453,7 @@ def query_behavior_commitments(
             candidate_hits=candidate_hits,
             plane_ambiguity=True,
             ledger_fingerprint=fingerprint,
-            status_reason="primary behavior plane is ambiguous",
+            fallback_reason="primary behavior plane is ambiguous",
         )
     primary_hits = tuple(
         hit for hit in ranked if not selected_plane or hit.behavior_plane == selected_plane
@@ -481,7 +481,7 @@ def query_behavior_commitments_from_path(
     except (OSError, ValueError, TypeError, KeyError) as exc:
         return BehaviorLookupReport(
             BCL_LOOKUP_STATUS_BLOCKED,
-            status_reason=f"canonical behavior ledger unavailable: {type(exc).__name__}: {exc}",
+            fallback_reason=f"canonical behavior ledger unavailable: {type(exc).__name__}: {exc}",
             metadata={"ledger_path": str(path)},
         )
 

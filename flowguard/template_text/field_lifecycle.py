@@ -14,7 +14,7 @@ Run: python .flowguard/field_lifecycle/run_checks.py
 from __future__ import annotations
 
 from flowguard import (
-    FIELD_DISPOSITION_BLOCKED,
+    FIELD_DISPOSITION_MIGRATED,
     FIELD_IMPACT_ROUTING,
     FIELD_LIFECYCLE_REPLACED,
     FIELD_ROLE_METADATA,
@@ -110,16 +110,16 @@ def complete_field_lifecycle() -> FieldLifecyclePlan:
                 group_id="checkout-payload:leaf",
                 behavior_impacts=(FIELD_IMPACT_ROUTING,),
                 replacement_field_id="field:checkout_mode",
-                disposition=FIELD_DISPOSITION_BLOCKED,
-                disposition_evidence_refs=("test_old_mode_is_rejected",),
+                disposition=FIELD_DISPOSITION_MIGRATED,
+                disposition_evidence_refs=("test_old_mode_migrates_to_checkout_mode",),
                 projection=route_projection(
                     "field:old_mode",
-                    "obligation:old_mode_is_rejected",
-                    "contract:old_mode_rejection",
+                    "obligation:old_mode_migrates_to_checkout_mode",
+                    "contract:old_mode_migration",
                 ),
             ),
         ),
-        notes="Default replacement policy: old skill/runtime fields are deleted, blocked, delegated, repaired, or directly replaced. Historical readers exist only for explicit ordinary-software requirements with one bounded owner.",
+        notes="Default replacement policy: old fields are deleted, blocked, migrated, delegated, or explicitly preserved only with compatibility intent and evidence.",
     )
 
 
@@ -189,7 +189,7 @@ if __name__ == "__main__":
 FIELD_LIFECYCLE_NOTES_TEMPLATE = """# FlowGuard FieldLifecycleMesh Notes
 
 Use this scaffold when a change touches fields, schema keys, config flags,
-prompt/config fields, payload columns, persisted attributes, or replacement keys.
+prompt/config fields, payload columns, persisted attributes, or migration keys.
 
 ## What This Route Owns
 
@@ -209,11 +209,11 @@ prompt/config fields, payload columns, persisted attributes, or replacement keys
 
 ## Default Replacement Policy
 
-For skill/runtime work, the default is one current path. Old fields are
-deleted, blocked, delegated to the current field, repaired, or directly
-replaced; they are not read by a migration or compatibility path. For ordinary
-software only, a historical reader is allowed when an explicit requirement
-names the historical input and one bounded reader owner, with current evidence.
+When the user has not explicitly requested compatibility preservation, the
+default is cleanup. Old fields should be deleted, blocked, migrated, delegated
+to the replacement field, or repaired under the same contract. Explicit
+preservation is allowed only when the row records compatibility intent and
+current evidence.
 
 ## Handoffs
 

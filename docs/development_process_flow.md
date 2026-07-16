@@ -13,6 +13,18 @@ produced by ContractExhaustionMesh, ModelMesh, TestMesh, StructureMesh,
 Model-Test Alignment, Model Topology Hazard Review, LongCheck, or Conformance
 Adoption, but it does not inspect or supervise those route internals.
 
+DevelopmentProcessFlow also owns one conditional internal `strategy_selection`
+mode. Ordinary single-route work does not activate it. When an explicit
+request, several equivalent routes, material rework risk, or a meaningful
+diagnostic-boundary choice exists, it first rejects candidates that would
+change the required outcome, evidence, safety, side effects, dependencies, or
+authority. It then chooses a diagnostic boundary (`targeted`,
+`declared_complete`, or `budgeted`) and an execution mode (`sequential` or
+`safe_parallel`). See
+[`development_process_strategy_selection.md`](development_process_strategy_selection.md)
+for activation, root-cause repair grouping, hard blockers, and the bounded
+claim rule.
+
 For product-language and validated-path changes, repository source, shadow
 workspace, formal repository, editable package, installed skills, and local Git
 are separate freshness domains. A passing receipt from one cannot stand in for
@@ -52,6 +64,10 @@ when explicitly requested). `plan_detail_to_development_process(...)` converts
 shape below, including proof artifact references when a result path exists.
 DevelopmentProcessFlow owns lifecycle order and evidence freshness; the
 delegated plan-detail pass only proves that enough rows exist to continue.
+The simulator orders its internal modes as `plan_detailing` ->
+`strategy_selection` -> `agent_workflow` -> `execution_freshness`. Strategy
+selection may change how the steps are grouped or scheduled, but not what
+outcome or evidence the process owes.
 
 ## Public API
 
@@ -162,7 +178,13 @@ while the current artifact is `code.checkout@4`.
   freshness decision for existing `.flowguard` models;
 - missing V-style validation pairs;
 - release-required evidence under routine and release scopes;
-- minimum revalidation recommendations.
+- coverage-complete revalidation recommendations, with `minimum` wording only
+  for measured costs over a named finite candidate set;
+- zero optimization ceremony for ordinary work and conditional,
+  equivalence-first optimization when a stable activation reason exists;
+- TestMesh-owned diagnostic accounting, stable Finding Ledger ids,
+  relation-backed root-cause repair groups, visible hard blockers, material
+  evidence freshness, and affected-obligation revalidation.
 
 ## Template
 
@@ -284,3 +306,11 @@ results can be reused only when a `TestResultReuseTicket` and matching
 dependencies, environment, result fingerprint, and covered obligation scope are
 current. Later writes that touch any of those fields stale the reuse proof and
 force a rerun or refreshed ticket before done confidence.
+## Specification-provider evidence
+
+OpenSpec and Spec Kit changes enter this route as bounded
+`SpecWorkPackage` sources. DevelopmentProcessFlow preserves provider authority,
+requires bidirectional task/obligation/check owners, orders fast dependency
+gates before heavy checks, and closes only with unchanged begin/post manifests
+plus exact terminal receipt consumers. See
+[`spec_provider_work_packages.md`](spec_provider_work_packages.md).

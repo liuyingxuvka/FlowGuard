@@ -1,428 +1,168 @@
 # DevelopmentProcessFlow Protocol
 
-Use `development_process_flow` as the FlowGuard development-process simulator
-front door. It decides whether the current request needs `plan_detailing`,
-`agent_workflow`, `execution_freshness`, or an ordered combination of those
-internal modes before an agent implements, validates, installs, syncs, releases,
-archives, publishes, or claims done.
+Use `development_process_flow` as the public development-process simulator for
+non-trivial planning, multi-skill work, staged execution, freshness, sync,
+release/archive/publish, and final process claims. It owns lifecycle order and
+evidence freshness; it consumes specialist evidence without taking over the
+specialist's judgment.
 
-This is the single hot-path process entry for non-trivial rough-plan
-discussion, multi-skill workflow planning, and lifecycle evidence freshness.
-The `flowguard-plan-detailing-compiler` and
-`flowguard-agent-workflow-rehearsal` skills remain available as explicit or
-delegated mode owners, not as competing generic first stops.
+## Modes
 
-It can reference evidence produced by ModelMesh, TestMesh, StructureMesh,
-ContractExhaustionMesh, Model-Test Alignment, Model Topology Hazard Review, LongCheck, Conformance
-Adoption, PlanDetailing, or AgentWorkflowRehearsal through ids and freshness
-metadata, and it should consume a Risk Evidence Ledger decision before final
-done/release/archive/publish claims. It does not inspect, replace, or repair
-those route internals.
+Record applicable modes in this order:
 
-## Simulator Modes
+1. `plan_detailing`: delegate rough or underspecified plans to
+   `flowguard-plan-detailing-compiler` when structured rows are needed.
+2. `strategy_selection`: an internal, conditional process-optimization mode.
+3. `agent_workflow`: delegate multi-skill/tool or external-side-effect
+   rehearsal to `flowguard-agent-workflow-rehearsal`.
+4. `execution_freshness`: review artifact versions, evidence, sync, and final
+   claim closure here.
 
-- `plan_detailing`: rough idea, vague request, short plan, or AI-generated
-  outline must become explicit rows with scope, artifacts, steps, receipts,
-  validation, failures, human questions, and claim boundaries. Delegate to
-  PlanDetailing when detailed row construction is needed.
-- `agent_workflow`: selected/skipped skills, tools, plugins, external actions,
-  side effects, inventory freshness, continue/rework gates, or cross-route
-  evidence claims must be rehearsed. Delegate to AgentWorkflowRehearsal when
-  a full skill/tool workflow plan is needed.
-- `execution_freshness`: staged edits, validation, install/sync, shadow sync,
-  git/version work, release/archive/publish, peer writes, or final claims need
-  artifact-version and evidence-freshness review. This protocol owns that mode.
+The internal mode id remains `strategy_selection`; it is not a public route or
+a mandatory choice for every task.
 
-For a full plan-to-release path, record all applicable modes in order:
-`plan_detailing` -> `agent_workflow` -> `execution_freshness`.
+## Conditional Local Material
 
-## Current-Authority And Compatibility Admission
+- Read `process_optimization_protocol.md` only when `explicit_request`,
+  `multiple_equivalent_routes`, `material_rework_risk`, or
+  `diagnostic_boundary_choice` applies.
+- Read `failure_triage_protocol.md` only after failed, stale, skipped,
+  timeout, not-run, progress-only, ambiguous, or materially surprising
+  evidence needs classification or root-cause grouping.
 
-Classify the subject before design or implementation:
+With no optimization reason, record `not_needed` and add no candidates, cost
+records, repair groups, or optimization evidence gate.
 
-- `skill_runtime`: the maintained Codex skill, its prompt, contract, command,
-  router, or validation workflow;
-- `ordinary_software`: a product that may have an externally required
-  historical document, stored-data, protocol, or public-interface obligation.
+## Ownership
 
-For `skill_runtime`, direct current replacement is the only normal path. The
-current source, generated contract, installed projection, and router projection
-must converge on one authority. Former shapes may exist only as exact rejection
-fixtures. Do not create or preserve a compatibility reader, fallback success,
-migration or upgrade command, converter, alias, renewal path, dual manifest, or
-parallel authority. An AI encountering a former shape rewrites it to the current
-shape; it does not run a live migration route.
+- DevelopmentProcessFlow owns process order, artifact versions, invalidation,
+  current decision references, peer-write handling, and process claims.
+- PlanDetail owns structured plan rows, not execution proof.
+- AgentWorkflowRehearsal owns AI-operation skill/tool order.
+- TestMesh owns diagnostic boundaries, actual execution accounting, findings,
+  skips, and terminal test receipts.
+- Finding Ledger owns stable raw finding ids.
+- SpecWorkPackage owns provider tasks, dependency graphs, sessions, receipts,
+  and consumer fan-out.
+- Model-Test Alignment owns ordinary obligation, primary CodeContract owner,
+  and TestEvidence closure.
+- Product models retain product-runtime behavior; process references are typed
+  targets, not ownership transfers.
 
-For `ordinary_software`, a compatibility branch is allowed only when an
-explicit requirement identifies the historical document/data/interface that
-must remain readable. Record the requirement id, historical artifact/interface
-identity, bounded reader owner, accepted and rejected inputs, output semantics,
-sunset or claim boundary, and dedicated good/bad cases. Without those fields,
-use direct current replacement. A vague wish to be safe, an existing old file,
-or a test that happens to mention an old shape is not compatibility authority.
+## Intake
 
-Validation receipts, reports, logs, caches, timestamps, generated status, and
-other execution outputs are never historical business inputs. They remain
-outside governed source identity and cannot justify a compatibility branch or
-invalidate their own owner receipt.
+Capture grouped rows for:
 
-## Plane Ownership During Projection
+- Changed artifacts: id, type, current version/fingerprint, path/owner, upstream ids;
+- Process steps: id/type, status, reads, writes, invalidations, order, actor plane,
+  typed target planes/commitments/relations, required and produced evidence;
+- simulator modes: reason, delegate, required evidence, scoped gaps;
+- validations: obligation id, required artifacts/evidence kinds, scope,
+  command, V-style pair where relevant;
+- Validation evidence: id, kind, owner route, status, covered and verifier versions,
+  command/result, skip/background/release caveats, and proof artifact;
+- Freshness rules: upstream change, affected artifacts/evidence, and rationale;
+- synchronization domains: source, shadow, formal repository, package,
+  installed skills, and Git revision/receipt;
+- final claim: routine versus release/archive/publish scope and consuming Risk
+  Evidence Ledger evidence.
 
-DevelopmentProcessFlow owns `development_process` order, artifact versions,
-peer-write invalidation, background liveness, and terminal evidence freshness.
-AgentWorkflowRehearsal owns `agent_operation` step selection/order. Product
-runtime commitments remain owned by their product models. A process or AI step
-may name target behavior planes, commitment ids, evidence ids, and typed BCL
-relations, but it must not copy the target promise into its own ownership row.
+Keep provider, work-package, change, task, obligation, check, validation,
+session, receipt, and consumer ids distinct.
 
-PlanDetail receipts, continue gates, rework targets, and invalidations survive
-projection. A running child is liveness-only until its final exit/result/receipt
-is consumed. Peer or unknown-writer changes preserve the write, stale affected
-evidence, and derive minimum revalidation; they never justify rollback.
+## Execution Shape
 
-Treat repository source, shadow workspace, formal repository, editable or
-installed package, installed skill tree, and local Git as separate freshness
-domains. Each in-scope domain needs its own current receipt for the same
-intended revision; install success is not repository parity and shadow tests
-are not Git closure. Peer or unknown-writer changes stale affected evidence.
-Re-read and merge the current state, and never restore/overwrite peer work to
-recover an earlier green receipt. After non-trivial changes, consume the
-post-change owner scan as routing input and run every derived owner-specific
-minimum revalidation; a quiet scan is not pass evidence by itself.
+Use a staged plan, but do not make every diagnostic depend on the previous
+diagnostic's success. Independent focused diagnostics should all report their
+findings within the chosen boundary so one ordinary failure does not hide the
+rest of the issue surface. A hard blocker stops descendants whose results
+would be invalid, unsafe, or unauthorized; those descendants stay visible as
+not run with a reason.
 
-## Trigger
+After the diagnostic boundary closes, relate findings, repair the primary
+owner/root cause, and rerun only affected obligations. Repeat diagnosis only
+when the repair or new material evidence changes the remaining boundary.
 
-Create or update a DevelopmentProcessFlow review when:
+Reserve broad full verification for a stable frozen integration snapshot.
+Freeze source, toolchain, check inventory, dependencies, and exactly one owner
+per heavy check. Run one all-model owner and one full-test owner; receipt
+consumers project their immutable success and do not rerun them.
 
-- a user asks to discuss, refine, detail, or accept a non-trivial plan;
-- a task may require several Codex skills, tools, plugins, external actions,
-  install/sync, release/publish, or cross-route evidence claims;
-- non-trivial development, modification, refactor, prompt, skill, documentation,
-  repository, install, or release work has multiple meaningful stages and
-  requires validation;
-- the work naturally follows staged actions such as plan, edit, test, fix, and
-  verify before the agent can claim done;
-- development step ordering matters, such as requirements, design, model, code,
-  test, docs, release package, and archive actions;
-- a later step might overwrite or invalidate an earlier step's evidence;
-- tests, model files, validation adapters, review checklists, or other verifier
-  artifacts changed after evidence was produced;
-- a model or UI transition changed after transition coverage matrices, MTA
-  obligations, or TestMesh required cell evidence were produced;
-- a visible UI action map, click-through run, pure-UI classification, or manual
-  UI boundary changed after implementation evidence was produced;
-- a payload schema, fixture, real import/export/save/load/generate behavior,
-  generated artifact, or AI work-package format changed after synthetic payload
-  evidence was produced;
-- a field lifecycle mesh, field projection, replacement disposition, or
-  bug-repair closure artifact changed after alignment, process, or closure
-  evidence was produced;
-- a non-trivial bug repair changed root-cause evidence, model obligations,
-  owner code contracts, observed/contract-exhaustion case tests, compatibility disposition,
-  or ledger rows after earlier validation;
-- a real-code alignment claim changed source-audit reports, binding-row gap
-  codes, counterexample/known-bad target ids, or writer-inventory evidence after
-  earlier validation;
-- a done, release, archive, or publish claim depends on validation evidence;
-- peer-agent or unknown-writer changes could make earlier evidence stale;
-- a changed artifact touches a remembered open maintenance obligation and the
-  owner route must be rerun or the final claim kept scoped;
-- V-style requirement/design/model/code-to-validation pairs need explicit
-  freshness checks;
-- routine confidence may proceed while release-required evidence remains
-  visible as deferred.
+If a launcher times out or is interrupted, confirm that its descendant process
+tree is gone before accepting evidence or starting another owner.
 
-Do not trigger this route merely because tests are large or source structure is
-being split. Use TestMesh for validation hierarchy and StructureMesh for code
-structure decomposition. Use Model-Test Alignment for direct model/code/test
-obligation coverage. Use core modeling for the product workflow itself.
+## Freshness And Sync
 
-Do not trigger PlanDetailing or AgentWorkflowRehearsal directly for generic
-rough-plan or multi-skill setup unless the user explicitly names that skill or
-DevelopmentProcessFlow has selected and delegated the corresponding simulator
-mode.
+Repository source, shadow workspace, formal repository, editable/installed
+package, installed skills, and local Git are separate evidence domains. A pass
+in one cannot stand in for another.
 
-Skip only for truly single-step work with no meaningful validation or artifact
-freshness risk, such as a tiny typo fix, pure explanation, or formatting-only
-change.
+Peer or unknown-writer changes are preserved. Re-read and merge them, stale
+only affected evidence, and derive affected revalidation; never roll back peer
+work to recover an older green snapshot.
 
-## Input Checklist
+Progress logs, PIDs, heartbeats, and running states prove liveness only. Final
+evidence requires terminal status, exit code, concrete result artifact and
+fingerprint, covered ids, inventory revision, and current artifact/verifier
+versions.
 
-Use grouped process rows instead of separate blanks for every lifecycle field.
+## Specification Work Packages
 
-- changed artifacts: id/type, current version or fingerprint, path/owner, and
-  upstream artifact ids when they affect freshness;
-- process steps: action id/type, actor, status, decision scope, read/write
-  artifacts, invalidations, ordering dependencies, process plane, and any
-  separately typed target commitment/plane/relation references;
-- compatibility admission: subject class, decision (`direct_current_replacement`
-  or `explicit_software_compatibility`), explicit requirement id when admitted,
-  bounded reader owner, historical input identity, rejection boundary, and
-  sunset/claim boundary;
-- simulator mode decisions: selected modes, reason, delegated skill if any,
-  required mode evidence, and scoped gaps;
-- validation evidence: evidence id, kind, producer route, status, command or
-  result path, covered artifact versions, verifier artifacts, and validation
-  requirement ids;
-- UI/payload evidence when relevant: action-map revision, clicked control ids,
-  real payload surface ids, payload contract ids, synthetic case ids,
-  execution proof refs, work-package fixture ids, and manual/native-dialog
-  boundaries;
-- UI task completion evidence type when relevant: `ui_model_coverage`,
-  `ui_static_test`, `ui_runtime_click`, `ui_browser_dom_geometry`,
-  `ui_desktop_manual_observation`, `ui_native_dialog_blindspot`,
-  `ui_work_mode`, `ui_source_baseline`, `ui_source_target_mapping`,
-  `ui_source_interaction`, `ui_observed_source_alignment`,
-  `ui_observed_inventory`, `ui_functional_chain`,
-  `ui_human_operability`, `ui_implementation_validation`, or `ui_done_claim_review`;
-- UI lifecycle artifacts when relevant: observed real-surface inventory,
-  enabled-control functional chain, human-operability, source-baseline
-  interaction gate, and UI done-claim review;
-- evidence caveats: skipped visibility, background final artifacts,
-  release-required flags, stale reasons, and proof artifact when a final claim
-  depends on the row;
-- final claim boundary: routine vs release/archive/publish scope and the Risk
-  Evidence Ledger row that consumes the lifecycle evidence.
-- synchronization domains: source/shadow/formal/install/skills/Git revision,
-  receipt, peer-write baseline, invalidation, and independent pass/scoped state.
+For an active OpenSpec, Spec Kit, or supported provider, consume one bounded
+`SpecWorkPackage`. Reconcile provider tasks with FlowGuard obligations/checks
+in both directions. Canonical input snapshots exclude reports, logs, caches,
+and receipts. One exact terminal receipt may serve several consumers without
+being copied or counted as several executions. Cross-change reuse requires an
+explicit safe scope and identical execution identity.
 
-## Validation Failure Triage
+A failed dependency creates visible not-run descendants instead of launching
+them. Archive remains blocked while mappings, frozen/post-run input stability,
+provider-native verification, or receipt freshness is missing.
 
-After any failed, stale, skipped, timeout, running, progress-only, oversized, or
-ambiguous validation result, DevelopmentProcessFlow must classify the failure
-before the agent continues implementation, reruns toward green, or claims done.
-The classification is part of the development evidence.
+## Failure Routing
 
-Use these triage classes:
+Classify non-pass evidence before editing or rerunning. Ordinary defects may
+use the ordinary repair path. Route oversized models to ModelMesh; layered,
+slow, hidden, or release-only validation to TestMesh; obligation/code/test
+mismatch to Model-Test Alignment; new post-green behavior misses to Model Miss
+Review; anchored future-use hazards to Model Topology Hazard Review; UI or
+payload evidence changes to their native owners.
 
-- `ordinary_implementation_defect`: the failure points to a normal code,
-  prompt, doc, or adapter defect. Continue through the ordinary fix path, then
-  rerun the affected validation.
-- `model_too_thick`: a FlowGuard model is oversized, mixes unrelated
-  responsibilities, or is being used as direct parent evidence when a
-  parent/child split is needed. Hand off to ModelMesh.
-- `test_too_thick`: a test/check command is slow, broad, layered, skipped,
-  stale, release-only, or hides child evidence status. Hand off to TestMesh.
-- `auto_split_required`: `review_auto_mesh_splits(...)` found direct model or
-  validation evidence that is oversized, incomplete, slow, broad,
-  progress-only, or release-only. Hand off to the reported ModelMesh or
-  TestMesh split gate and keep lifecycle confidence blocked or scoped until
-  current mesh evidence is consumed.
-- `model_test_mismatch`: model obligations, owner code contracts, and ordinary
-  test evidence do not bind the same behavior. Hand off to Model-Test
-  Alignment.
-- `transition_coverage_stale`: modeled transitions changed after the transition
-  coverage matrix, Model-Test Alignment obligations, or TestMesh required cell
-  ids were generated. Regenerate the matrix and rerun the owning evidence
-  route.
-- `contract_exhaustion_matrix_stale`: a field/schema boundary, same-class
-  family seed, payload contract, transition matrix, parent/child closure,
-  interaction group, coverage shard, coverage receipt, or no-delta loop changed
-  after canonical bad-case ids were generated. Regenerate ContractExhaustionMesh
-  cases and rerun affected MTA/TestMesh/ModelMesh/Risk Ledger evidence.
-- `ui_action_evidence_stale`: reachable controls, modeled UI events,
-  pure-UI classifications, or native/manual boundaries changed after UI
-  implementation validation. Rerun UI Flow Structure implementation evidence.
-- `ui_real_surface_evidence_stale`: observed visible items, enabled controls,
-  status text, tables, displayed fields, human-operability, source-baseline
-  mapping, or native dialog boundaries changed after observed-inventory,
-  functional-chain, source-interaction, or done-claim evidence. Rerun the UI
-  Flow Structure hard gates before completion.
-- `artifact_payload_evidence_stale`: a payload schema, fixture, real payload
-  surface, generated artifact, or AI work-package shape changed after payload
-  validation. Rebuild synthetic payload cases, rerun the real surface, and
-  rerun Model-Test Alignment or TestMesh.
-- `topology_hazard_gap`: a locally green model topology still has anchored
-  future-use hazards. Hand off to Model Topology Hazard Review and keep the
-  lifecycle claim scoped or blocked until current route evidence is consumed.
-- `stale_evidence`: the artifact or verifier version changed after evidence
-  was produced. Rerun or replace the owning evidence before it can support the
-  lifecycle claim.
-- `three_way_binding_stale`: a model obligation, owner code contract, code
-  source, source-audit report, test row, transition cell, bad-case closure
-  target, or proof artifact changed after a model-code-test binding row was
-  produced. Regenerate the affected row and rerun Model-Test Alignment before
-  claiming done or release confidence.
-- `bug_repair_closure_stale`: a root-cause backpropagation record,
-  contract-exhaustion case, generated combination case, coverage receipt, owner
-  code contract, legacy path disposition, or Risk Evidence Ledger row changed
-  after the repair was validated. Rerun the owning route evidence before
-  claiming done or release confidence.
-- `field_lifecycle_changed_after_field_evidence`: FieldLifecycleMesh rows
-  changed after field lifecycle evidence was produced. Rerun FieldLifecycleMesh
-  and consume the new report before broad claims.
-- `field_projection_changed_after_alignment_pass`: a behavior-bearing field
-  projection changed after Model-Test Alignment passed. Regenerate field
-  obligations/contracts and rerun alignment.
-- `runtime_writer_inventory_stale`: a runtime-gateway claim changed critical
-  state surfaces, gateway contracts, discovered writers, scoped-out writer
-  reasons, or inventory proof artifacts after adoption evidence passed. Rerun
-  Runtime Gateway Adoption before claiming runtime protection.
-- `replacement_disposition_changed_after_closure_pass`: old-path or old-field
-  disposition changed after closure evidence. Rerun the owning disposition and
-  closure routes.
-- `bug_repair_closure_changed_after_review_pass`: observed/same-class/root
-  cause closure rows changed after review. Rerun Model-Miss Review and consume
-  the new evidence.
-- `parent_child_evidence_not_reattached`: a child model, child validation
-  suite, or sibling route is locally green, but the parent has not consumed the
-  current evidence id and contract. Return to the owning parent evidence gate.
+A later green command does not close a specialist handoff by itself. The
+specialist must produce current evidence and the parent process must consume
+its id.
 
-Do not treat a later green command as closing a triage finding by itself. If
-the classification was `model_too_thick`, `test_too_thick`, or
-`model_test_mismatch`, the owning satellite route must produce current
-evidence and the parent lifecycle review must consume that evidence id before a
-done, release, archive, or publish claim is supported.
+## Hard Gates
 
-When sibling evidence says the model is too coarse, stale, disconnected, or
-missing an obligation, include a `review_model_maturation_loop(...)` row in the
-minimum revalidation plan. A broad lifecycle claim must either consume the
-current model-upgrade evidence or explicitly report scoped confidence.
+- Use the real FlowGuard check engine and managed project record; never create
+  a substitute mini-framework.
+- Keep sibling semantics, provider authority, product behavior, and test
+  execution with their native owners.
+- Failed, skipped, timeout, not-run, running, stale, progress-only, or hidden
+  evidence cannot satisfy a current requirement.
+- A cheaper route is eligible only after outcome, obligation/evidence, safety,
+  protected side effect, dependency authority, and execution-owner authority
+  are equal.
+- Estimated comparison may support a preferred route; `minimum` requires
+  measured costs over an exhausted named finite set. Never claim a global
+  optimum.
+- Material new evidence stales the decision. A repair stays open until every
+  affected obligation has current revalidation.
+- Broad done/release/archive/publish claims require current proof artifacts,
+  current Risk Evidence Ledger closure, and all required freshness domains.
 
-Capture validation requirements as one grouped row per requirement: id,
-required artifacts, evidence kinds or explicit evidence ids, routine/release
-scope, V-style pair when relevant, and rerun command.
+## Output
 
-Capture freshness as one grouped rule: upstream artifact, invalidated
-downstream artifacts or evidence kinds, and rationale for the propagation.
+Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`,
+`claim_boundary`, `typed_next_actions`, selected modes, freshness status, and
+required affected revalidation. Include process-optimization details only when
+the mode is active. A diagram should show order, invalidation, hard stops, and
+required revalidation rather than decorative detail.
 
-## Required Findings
+## Completion
 
-Keep these findings visible:
-
-- `unknown_artifact_reference`;
-- `out_of_order_process_step`;
-- `stale_evidence_after_artifact_change`;
-- `test_changed_after_test_pass`;
-- `model_changed_after_alignment_pass`;
-- `transition_matrix_changed_after_test_pass`;
-- `requirement_change_without_downstream_revalidation`;
-- `unknown_writer_invalidates_evidence`;
-- `ambiguous_freshness_policy`;
-- `progress_only_validation_claimed_complete`;
-- `hidden_skipped_validation_claimed_pass`;
-- `failed_validation_claimed_current`;
-- `validation_evidence_not_current`;
-- `missing_v_model_validation_pair`;
-- `missing_required_revalidation`;
-- `release_claim_with_stale_evidence`;
-- `release_evidence_not_current`;
-- `model_maturation_required_before_final_claim`;
-- `final_claim_missing_risk_evidence_ledger`;
-- `final_claim_uses_blocked_risk_evidence`;
-- `open_maintenance_obligation_claimed_done`.
-- `post_change_owner_scan_missing`;
-- `synchronization_domain_receipt_missing`;
-- `peer_write_rollback_attempted`.
-- `skill_runtime_compatibility_surface_present`;
-- `software_compatibility_requirement_missing`;
-- `software_compatibility_reader_unbounded`;
-- `runtime_output_misclassified_as_historical_input`.
-
-## Prompt Template
-
-```text
-Build a FlowGuard DevelopmentProcessFlow review for this repository.
-
-Treat the development lifecycle itself as the modeled process. Do not supervise
-or inspect sibling routes. If evidence came from TestMesh, StructureMesh,
-ModelMesh, Model-Test Alignment, Model Topology Hazard Review, LongCheck, or
-Conformance Adoption, reference only its evidence id, producer route, status,
-covered artifact versions, and freshness metadata.
-
-Use these groups:
-
-- Changed artifacts: identity, version, and upstream links.
-- Process steps: action/status/scope, reads/writes/invalidates, and produced or
-  required evidence.
-- Validation evidence: identity/status/freshness, covered and verifier
-  artifacts, plus skipped/background/release caveats.
-- Validation requirements: requirement/scope, required artifacts or evidence,
-  and V-style pair or rerun command.
-- Freshness rules: upstream, downstream, and rationale.
-
-Known hazards that must fail:
-- stale evidence after code, test, model, or requirement changes;
-- stale transition coverage after model/UI transition changes;
-- done/release/archive/publish claim using stale evidence;
-- failed validation pushed through without failure triage;
-- oversized model evidence treated as an ordinary failure instead of ModelMesh
-  handoff;
-- oversized, skipped, stale, or release-only validation treated as an ordinary
-  failure instead of TestMesh handoff;
-- model/test obligation mismatch treated as an ordinary failure instead of
-  Model-Test Alignment handoff;
-- topology-anchored future-use hazard treated as generic prose instead of
-  Model Topology Hazard Review evidence;
-- child-local green evidence counted as parent confidence before parent
-  reattachment;
-- progress-only background evidence counted as complete;
-- hidden skipped validation counted as passed;
-- failed, timeout, skipped, not-run, or running evidence counted as current;
-- missing V-style validation pair;
-- peer or unknown writer changing covered artifacts after evidence;
-- ambiguous freshness policy for declared upstream/downstream artifacts.
-```
-
-## Completion Standard
-
-A DevelopmentProcessFlow review can support a lifecycle claim only when:
-
-- every referenced artifact, evidence id, validation id, and ordering
-  dependency is registered;
-- evidence is current for the artifact versions and verifier versions it
-  claims to cover;
-- upstream changes have explicit freshness rules or are reported as ambiguous;
-- skipped, failed, timeout, not-run, running, stale, and progress-only evidence
-  remain visible and do not satisfy current validation;
-- OpenSpec or task-list checkboxes for UI work carry a current evidence type;
-  artifact completion, planned evidence, background liveness, or a checked box
-  is not release completion by itself;
-- done, release, archive, and publish claims have current passing evidence for
-  the requested scope;
-- UI done/release claims consume current observed-inventory, functional-chain,
-  source-baseline interaction semantics when applicable,
-  `UIImplementationValidation`, and UI done-claim review evidence;
-- broad done, release, archive, publish, framework-sync, or final-confidence
-  claims use proof-artifact-bound evidence: each consumed validation row has a
-  current `ProofArtifactRef` with result path, fingerprint, passing status,
-  covered validation obligation, and no route gaps;
-- release-required evidence is current for release scope, or visibly deferred
-  only for routine scope;
-- remembered maintenance obligations touched by changed artifacts have current
-  owner-route evidence or are carried as scoped confidence;
-- bug-repair claims consume current root-cause backpropagation,
-  model-code-test alignment, the current-authority/compatibility-admission
-  decision, and
-  Risk Evidence Ledger evidence instead of only a later green test command;
-- any validation failure has a visible triage class, and non-ordinary triage
-  classes have current evidence from the owning satellite or parent evidence
-  gate;
-- the report includes minimum revalidation recommendations for unsupported
-  requirements.
-
-## Layered Boundary Proof Freshness
-
-When a done, release, archive, or publish claim depends on layered model
-confidence, treat `review_layered_boundary_proof(...)` output as a sibling
-evidence id. DevelopmentProcessFlow does not inspect the four proof tables, but
-it must keep their freshness rules visible:
-
-- parent coverage edits stale the parent proof decision;
-- child ownership, state, side-effect, invariant, or contract edits stale
-  disjointness and reattachment;
-- child evidence id changes stale parent reattachment until the parent consumes
-  the new id;
-- code, test, adapter, or observation edits under a leaf stale the affected
-  leaf boundary-matrix cells.
-- model/UI transition edits stale generated transition coverage cells, MTA
-  transition obligations, and TestMesh required cell ids derived from them.
-- ModelMesh closure edits stale generated transition coverage cells, MTA
-  transition obligations, and TestMesh required cell ids derived from closure
-  transitions, especially retry/rejection repeat-input cells.
-- test command, source, tested artifact, dependency, environment, result
-  fingerprint, or coverage-scope edits stale any `TestResultReuseTicket` that
-  reused old test output.
-
-Progress-only background regressions can show liveness, but they do not satisfy
-layered proof freshness until final artifacts and exit status exist.
+The process claim is supported only when references and owners resolve,
+evidence covers current artifact/verifier versions, specialist handoffs are
+reattached, skipped/not-run work remains visible, peer changes are preserved,
+required synchronization domains are current, and the requested claim scope
+has terminal proof. Otherwise return blocked or explicitly scoped confidence.

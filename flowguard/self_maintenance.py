@@ -276,7 +276,7 @@ class SelfMaintenanceChildReport:
 
     This object is deliberately not evidence authority.  ``current`` and
     ``closure_status`` are read-only projections of the verifier result, while
-    the single SkillGuard parent consumer re-verifies the underlying ``EvidenceReceipt``.
+    full self-governance re-verifies the underlying ``EvidenceReceipt``.
     """
 
     child_id: str
@@ -511,6 +511,9 @@ class SelfMaintenancePlan:
     child_reports: tuple[SelfMaintenanceChildReport, ...] = ()
     broad_claim: bool = False
     allow_scoped_confidence: bool = True
+    required_spec_work_package_ids: tuple[str, ...] = ()
+    spec_work_package_session_close_evidence: Mapping[str, str] = field(default_factory=dict)
+    spec_work_package_receipt_evidence: Mapping[str, Sequence[str]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
@@ -525,6 +528,21 @@ class SelfMaintenancePlan:
         )
         object.__setattr__(self, "broad_claim", bool(self.broad_claim))
         object.__setattr__(self, "allow_scoped_confidence", bool(self.allow_scoped_confidence))
+        object.__setattr__(
+            self,
+            "required_spec_work_package_ids",
+            _as_tuple(self.required_spec_work_package_ids),
+        )
+        object.__setattr__(
+            self,
+            "spec_work_package_session_close_evidence",
+            {str(key): str(value) for key, value in dict(self.spec_work_package_session_close_evidence).items()},
+        )
+        object.__setattr__(
+            self,
+            "spec_work_package_receipt_evidence",
+            {str(key): _as_tuple(value) for key, value in dict(self.spec_work_package_receipt_evidence).items()},
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -536,6 +554,13 @@ class SelfMaintenancePlan:
             "child_reports": [report.to_dict() for report in self.child_reports],
             "broad_claim": self.broad_claim,
             "allow_scoped_confidence": self.allow_scoped_confidence,
+            "required_spec_work_package_ids": list(self.required_spec_work_package_ids),
+            "spec_work_package_session_close_evidence": dict(
+                self.spec_work_package_session_close_evidence
+            ),
+            "spec_work_package_receipt_evidence": {
+                key: list(value) for key, value in self.spec_work_package_receipt_evidence.items()
+            },
         }
 
 
@@ -1284,6 +1309,26 @@ def review_flowguard_self_maintenance(plan: SelfMaintenancePlan) -> SelfMaintena
     """Review the parent FlowGuard self-maintenance mesh."""
 
     findings = list(route_graph_completeness_findings(plan.route_profiles, plan.api_route_group_ids))
+
+    for work_package_id in plan.required_spec_work_package_ids:
+        close_evidence = plan.spec_work_package_session_close_evidence.get(work_package_id, "")
+        receipt_evidence = tuple(plan.spec_work_package_receipt_evidence.get(work_package_id, ()))
+        if close_evidence and receipt_evidence:
+            continue
+        findings.append(
+            SelfMaintenanceFinding(
+                "spec_work_package_evidence_missing_or_stale",
+                "self-maintenance requires package-specific immutable session-close and terminal receipt evidence",
+                SELF_MAINTENANCE_FINDING_BLOCKER,
+                owner_route="development_process_flow",
+                child_id=work_package_id,
+                next_action="close a current spec session and attach its exact terminal receipts",
+                metadata={
+                    "session_close_evidence": close_evidence,
+                    "receipt_evidence": list(receipt_evidence),
+                },
+            )
+        )
 
     if not plan.ai_profiles:
         findings.append(

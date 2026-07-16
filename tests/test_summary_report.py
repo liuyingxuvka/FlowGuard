@@ -29,6 +29,14 @@ class Violation:
 
 
 @dataclass(frozen=True)
+class StructuredFinding:
+    code: str
+    message: str
+    suite_id: str
+    evidence_id: str
+
+
+@dataclass(frozen=True)
 class GenericReport:
     ok: bool
     summary: str
@@ -36,6 +44,21 @@ class GenericReport:
 
 
 class SummaryReportTests(unittest.TestCase):
+    def test_finding_ledger_preserves_stable_raw_finding_links(self):
+        finding = StructuredFinding(
+            "diagnostic_false_completeness",
+            "not every planned test ran",
+            "suite:diagnostic",
+            "receipt:diagnostic",
+        )
+        section = FlowGuardSection("test_mesh", "failed", findings=(finding,))
+        first = build_finding_ledger((section,)).entries[0]
+        second = build_finding_ledger((section,)).entries[0]
+        self.assertEqual(first.finding_id, second.finding_id)
+        self.assertEqual("diagnostic_false_completeness", first.source_finding_code)
+        self.assertEqual(("suite:diagnostic",), first.source_subject_ids)
+        self.assertEqual(("receipt:diagnostic",), first.evidence_ids)
+
     def test_not_run_section_creates_pass_with_gaps_not_failure(self):
         report = FlowGuardSummaryReport.from_sections(
             (

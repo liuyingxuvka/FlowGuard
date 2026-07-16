@@ -29,6 +29,7 @@ Accept declared finite dimensions/seeds; generate reviewable cases with oracles;
 3. Project stable case ids to Model-Test Alignment, TestMesh, ModelMesh, DevelopmentProcessFlow, and Risk Evidence Ledger.
 
 ## Hard Gates
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Broad/full claims require a complete `ContractCoverageUniverse`; reject/block/repair cases require actionable oracle feedback.
 - Matrix ready is not whole-chain ready; current composite handoff acceptance and template harvest closure remain required where applicable.

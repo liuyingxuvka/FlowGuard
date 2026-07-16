@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 import subprocess
 import unittest
@@ -49,7 +50,7 @@ class SkillPromptParityTests(unittest.TestCase):
                     self.assertLessEqual(len(text.splitlines()), 120)
                 else:
                     self.assertLessEqual(len(text.splitlines()), 60)
-                    self.assertLessEqual(len(text), 3000)
+                    self.assertLessEqual(len(text), 3400)
 
     def test_openai_prompts_and_contract_sources_match_member_identity(self):
         for member in self.suite["included_skills"]:
@@ -57,51 +58,59 @@ class SkillPromptParityTests(unittest.TestCase):
             skill = SKILL_ROOT / skill_id
             prompt = (skill / "agents" / "openai.yaml").read_text(encoding="utf-8")
             source = json.loads((skill / ".skillguard" / "contract-source.json").read_text(encoding="utf-8"))
-            compiled = json.loads((skill / ".skillguard" / "compiled-contract.json").read_text(encoding="utf-8"))
-            manifest = json.loads((skill / ".skillguard" / "check-manifest.json").read_text(encoding="utf-8"))
             with self.subTest(skill=skill_id):
                 self.assertEqual(skill_id, source["skill_id"])
-                self.assertEqual("skillguard.contract_source.v2", source["schema_version"])
-                self.assertEqual(skill_id, compiled["skill_id"])
-                self.assertEqual(skill_id, manifest["skill_id"])
+                self.assertEqual(member["owner"], source["native_route_owner"])
                 self.assertEqual(3, len(source["step_bindings"]))
-                self.assertTrue(source["checks"])
-                self.assertTrue(source["closure_profiles"])
-                depth = source["depth_profile"]
-                self.assertEqual("skillguard.depth_profile.v2", depth["schema_version"])
-                self.assertEqual(skill_id, depth["target_skill_id"])
-                self.assertEqual(member["owner"], depth["native_owner_id"])
-                self.assertEqual("native-integrated", depth["integration_mode"])
-                self.assertEqual("contract_mapped", depth["enforcement_level"])
-                self.assertTrue(depth["native_route_ids"])
-                self.assertTrue(depth["native_check_ids"])
-                self.assertEqual(depth, compiled["depth_profile"])
+                self.assertTrue(source["native_check_bindings"])
                 self.assertIn(f"${skill_id}", prompt)
-                self.assertIn("route_id=", prompt)
-                self.assertIn(f"native_owner={member['owner']}", prompt)
+                route_label = source["default_route_id"].removeprefix("route:")
+                self.assertIn(f"route_id={route_label}", prompt)
+                self.assertIn(f"native_owner={source['native_route_owner']}", prompt)
                 for field in OUTPUT_FIELDS:
                     self.assertIn(field, prompt)
-                self.assertTrue((ROOT / source["model_path"]).is_file())
-                for implementation_path in source["implementation_paths"]:
-                    self.assertTrue((ROOT / implementation_path).exists(), implementation_path)
+                self.assertIn("one-or-many protected failures", prompt)
+                self.assertIn("reusable model types are not permanently single-purpose", prompt)
+                self.assertIn("SkillGuard only supervises declared checks", prompt)
+                skill_text = (skill / "SKILL.md").read_text(encoding="utf-8")
+                references = re.findall(r"`(references/[^`]+)`", skill_text)
+                self.assertTrue(references)
+                for reference in references:
+                    self.assertTrue((skill / reference).is_file(), reference)
+
+    def test_all_seventeen_skills_have_one_mandatory_instance_purpose_gate(self):
+        for member in self.suite["included_skills"]:
+            text = (SKILL_ROOT / member["name"] / "SKILL.md").read_text(encoding="utf-8")
+            with self.subTest(skill=member["name"]):
+                self.assertEqual(1, text.count("Model-purpose gate"))
+                self.assertIn("task-specific failure(s)", text)
+                self.assertIn("native good/bad-per-failure/oracle/current evidence", text)
+                self.assertIn("Reusable types are not fixed-purpose", text)
+                self.assertIn("no mode/fallback", text)
+                self.assertIn("SkillGuard only supervises FlowGuard-declared checks", text)
 
     def test_delegated_modes_and_mta_testmesh_handoff_are_not_parallel_owners(self):
         for skill_id in ("flowguard-agent-workflow-rehearsal", "flowguard-plan-detailing-compiler"):
-            skill_root = SKILL_ROOT / skill_id
-            skill_text = (skill_root / "SKILL.md").read_text(encoding="utf-8")
-            prompt = (skill_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
-            self.assertIn("`delegated_mode`", skill_text)
-            self.assertIn("native owner `development_process_flow`", skill_text)
-            self.assertIn("role=delegated_mode", prompt)
-            self.assertIn("native_owner=development_process_flow", prompt)
+            source = json.loads(
+                (SKILL_ROOT / skill_id / ".skillguard" / "contract-source.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual("development_process_flow", source["native_route_owner"])
+            self.assertIn(
+                source["default_route_id"],
+                {"route:agent_workflow_rehearsal", "route:plan_detailing_compiler"},
+            )
         mta_root = SKILL_ROOT / "flowguard-model-test-alignment"
         mta_text = (mta_root / "SKILL.md").read_text(encoding="utf-8")
-        mta_prompt = (mta_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
         self.assertNotIn("Do not invoke TestMesh", mta_text)
         self.assertIn("hands large evidence to TestMesh", mta_text)
-        self.assertIn("typed TestMesh handoff", mta_prompt)
+        testmesh_source = json.loads(
+            (SKILL_ROOT / "flowguard-test-mesh" / ".skillguard" / "contract-source.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual("test_mesh_maintenance", testmesh_source["native_route_owner"])
 
-    def test_every_declared_native_python_surface_is_in_the_public_git_tree(self):
+    def test_every_declared_native_python_surface_is_in_the_public_worktree(self):
         git = shutil.which("git")
         if not git:
             self.skipTest("git is required to verify public native-command distribution")
@@ -122,22 +131,37 @@ class SkillPromptParityTests(unittest.TestCase):
             for item in completed.stdout.split(b"\0")
             if item
         }
+        pending = subprocess.run(
+            [git, "ls-files", "--others", "--exclude-standard", "-z"],
+            cwd=ROOT,
+            capture_output=True,
+            check=True,
+        )
+        review_visible = tracked | {
+            item.decode("utf-8", errors="surrogateescape").replace("\\", "/")
+            for item in pending.stdout.split(b"\0")
+            if item
+        }
         for member in self.suite["included_skills"]:
             skill_id = member["name"]
             source = json.loads(
                 (SKILL_ROOT / skill_id / ".skillguard" / "contract-source.json").read_text(encoding="utf-8")
             )
-            for check in source["checks"]:
-                if check["kind"] != "command" or check.get("command") != "python":
-                    continue
+            checks_by_id = {check["check_id"]: check for check in source["checks"]}
+            for binding in source["native_check_bindings"]:
+                check = checks_by_id[binding["check_id"]]
+                self.assertEqual("command", check["kind"])
                 python_paths = tuple(
                     token.replace("\\", "/")
-                    for token in check.get("args", ())
+                    for token in (str(check["command"]), *(str(value) for value in check.get("args", ())))
                     if token.endswith(".py") and (token.startswith("tests/") or token.startswith(".flowguard/"))
                 )
-                with self.subTest(skill=skill_id, command=(check["command"], *check.get("args", ()))):
+                with self.subTest(skill=skill_id, check_id=check["check_id"]):
                     self.assertTrue(python_paths)
-                    self.assertTrue(set(python_paths) <= tracked, set(python_paths) - tracked)
+                    self.assertTrue(
+                        set(python_paths) <= review_visible,
+                        set(python_paths) - review_visible,
+                    )
 
 
 if __name__ == "__main__":

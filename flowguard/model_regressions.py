@@ -22,6 +22,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from .model_purpose import ModelPurposeClosure, ModelPurposeError, validate_unique_model_instances
+
 from .validation_results import (
     VALIDATION_STATUS_BLOCKED,
     VALIDATION_STATUS_CANCELLED,
@@ -35,8 +37,8 @@ from .validation_results import (
 )
 
 
-MANIFEST_SCHEMA = "flowguard.model_regression_manifest.v1"
-RECEIPT_SCHEMA = "flowguard.model_regression_receipt.v1"
+MANIFEST_SCHEMA = "flowguard.model_regression_manifest.v2"
+RECEIPT_SCHEMA = "flowguard.model_regression_receipt.v2"
 TIER_RANK = {"fast": 0, "focused": 1, "full": 2}
 TERMINAL_STATUSES = {
     VALIDATION_STATUS_PASS,
@@ -66,12 +68,15 @@ class ModelRegressionEntry:
     exclusion_reason: str = ""
     distribution_policy: str = "required_public"
     absence_reason: str = ""
+    purpose_closure: ModelPurposeClosure | None = None
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "ModelRegressionEntry":
         runner = payload.get("runner", ())
         if isinstance(runner, str):
             runner = (runner,)
+        raw_purpose = payload.get("purpose_closure")
+        purpose = ModelPurposeClosure.from_dict(raw_purpose) if isinstance(raw_purpose, Mapping) else None
         return cls(
             model_id=str(payload.get("model_id", "")),
             model_path=str(payload.get("model_path", "")),
@@ -85,6 +90,7 @@ class ModelRegressionEntry:
             exclusion_reason=str(payload.get("exclusion_reason", "")),
             distribution_policy=str(payload.get("distribution_policy", "required_public")),
             absence_reason=str(payload.get("absence_reason", "")),
+            purpose_closure=purpose,
         )
 
     @property
@@ -146,6 +152,9 @@ class ModelRunResult:
     artifact_paths: tuple[str, ...] = ()
     finding_codes: tuple[str, ...] = ()
     message: str = ""
+    model_instance_id: str = ""
+    purpose_closure_fingerprint: str = ""
+    purpose_claim_boundary: str = ""
 
     @property
     def ok(self) -> bool:
@@ -165,6 +174,9 @@ class ModelRunResult:
             "artifact_paths": list(self.artifact_paths),
             "finding_codes": list(self.finding_codes),
             "message": self.message,
+            "model_instance_id": self.model_instance_id,
+            "purpose_closure_fingerprint": self.purpose_closure_fingerprint,
+            "purpose_claim_boundary": self.purpose_claim_boundary,
         }
 
 
@@ -303,6 +315,11 @@ def audit_manifest(root: str | Path, manifest: ModelRegressionManifest) -> Manif
     errors: list[str] = []
     duplicates = sorted({item for item in registered if registered.count(item) > 1})
     errors.extend(f"duplicate model_id: {item}" for item in duplicates)
+    closures = tuple(item.purpose_closure for item in manifest.entries if item.purpose_closure is not None)
+    try:
+        validate_unique_model_instances(closures)
+    except ModelPurposeError as exc:
+        errors.append(str(exc))
     errors.extend(f"unregistered model directory: {item}" for item in sorted(set(discovered) - set(registered)))
     by_id = {item.model_id: item for item in manifest.entries}
     errors.extend(
@@ -311,6 +328,13 @@ def audit_manifest(root: str | Path, manifest: ModelRegressionManifest) -> Manif
         if by_id[item].distribution_policy == "required_public"
     )
     for entry in manifest.entries:
+        purpose = entry.purpose_closure
+        if purpose is None:
+            errors.append(f"{entry.model_id}: missing purpose_closure")
+        elif purpose.reusable_model_type_id != entry.model_id:
+            errors.append(f"{entry.model_id}: purpose reusable_model_type_id does not match model_id")
+        elif purpose.model_instance_id != f"regression:{entry.model_id}:current":
+            errors.append(f"{entry.model_id}: purpose model_instance_id is not the canonical current regression instance")
         if not entry.model_id or entry.model_path != f".flowguard/{entry.model_id}/model.py":
             errors.append(f"{entry.model_id or '<empty>'}: model_path must match model_id")
         elif not (root_path / entry.model_path).is_file() and entry.distribution_policy == "required_public":
@@ -341,6 +365,11 @@ def audit_manifest(root: str | Path, manifest: ModelRegressionManifest) -> Manif
                 runner_path = root_path / entry.runner[1]
                 if not runner_path.is_file() and entry.distribution_policy == "required_public":
                     errors.append(f"{entry.model_id}: runner does not exist: {entry.runner[1]}")
+                elif purpose is not None and (root_path / entry.model_path).is_file() and runner_path.is_file():
+                    try:
+                        purpose.validate_current_files(root_path, model_path=entry.model_path, runner_path=entry.runner[1])
+                    except ModelPurposeError as exc:
+                        errors.append(f"{entry.model_id}: {exc}")
     return ManifestAudit(not errors, discovered, registered, tuple(errors))
 
 
@@ -433,10 +462,18 @@ def _run_entry(
     if progress:
         progress({"event": "started", "model_id": entry.model_id, "timeout_seconds": timeout})
     env = dict(os.environ)
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    source_pythonpath = str(root)
+    if existing_pythonpath:
+        source_pythonpath = source_pythonpath + os.pathsep + existing_pythonpath
     env.update(
         {
             "FLOWGUARD_OUTPUT_DIR": str(artifact_dir),
             "FLOWGUARD_MODEL_ID": entry.model_id,
+            # Model runners validate the selected repository snapshot, not an
+            # unrelated editable/wheel installation that happens to be active
+            # in the launching Python environment.
+            "PYTHONPATH": source_pythonpath,
             "PYTHONUTF8": "1",
             "PYTHONIOENCODING": "utf-8",
         }
@@ -494,6 +531,10 @@ def _run_entry(
         finding_codes = ("model.launch_error",)
         message = str(exc)
         stderr = repr(exc)
+    # The orchestrator owns its stdout/stderr/receipt directory. A child may
+    # legitimately replace its isolated FLOWGUARD_OUTPUT_DIR while producing
+    # artifacts, so restore the parent-owned directory before retaining logs.
+    artifact_dir.mkdir(parents=True, exist_ok=True)
     stdout_path.write_text(stdout, encoding="utf-8")
     stderr_path.write_text(stderr, encoding="utf-8")
     expected_paths = tuple(str((artifact_dir / item).resolve()) for item in entry.expected_artifacts)
@@ -515,6 +556,9 @@ def _run_entry(
         artifact_paths=expected_paths,
         finding_codes=finding_codes,
         message=message,
+        model_instance_id=entry.purpose_closure.model_instance_id if entry.purpose_closure else "",
+        purpose_closure_fingerprint=(entry.purpose_closure.closure_fingerprint if entry.purpose_closure else ""),
+        purpose_claim_boundary=entry.purpose_closure.claim_boundary if entry.purpose_closure else "",
     )
     receipt = {
         "schema_version": RECEIPT_SCHEMA,
@@ -527,12 +571,20 @@ def _run_entry(
         "model_id": entry.model_id,
         "status": status,
         "terminal": status in TERMINAL_STATUSES,
+        "repository_root": str(root),
+        "source_precedence": "repository_root_before_existing_pythonpath",
         "exit_code": exit_code,
         "seconds": elapsed_seconds,
         "finding_codes": list(finding_codes),
         "input_globs": list(entry.input_globs),
+        "model_instance_id": result.model_instance_id,
+        "purpose_closure_fingerprint": result.purpose_closure_fingerprint,
+        "protected_failure_ids": list(entry.purpose_closure.protected_failure_ids) if entry.purpose_closure else [],
+        "known_good_case_id": entry.purpose_closure.known_good_case_id if entry.purpose_closure else "",
+        "known_bad_case_ids": [item.known_bad_case_id for item in entry.purpose_closure.failure_bindings] if entry.purpose_closure else [],
+        "native_oracle_ids": [item.oracle_id for item in entry.purpose_closure.failure_bindings] if entry.purpose_closure else [],
         "artifact_paths": [str(stdout_path), str(stderr_path), *expected_paths],
-        "claim_boundary": "Current invocation of one manifest-owned model runner only.",
+        "claim_boundary": result.purpose_claim_boundary or "Current invocation of one manifest-owned model runner only.",
     }
     _write_json(receipt_path, receipt)
     if progress:

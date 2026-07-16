@@ -17,22 +17,26 @@ DEVELOPMENT_PROCESS_SIMULATOR_ROUTE = "development_process_simulator"
 DEVELOPMENT_PROCESS_FRONT_DOOR_SKILL = "flowguard-development-process-flow"
 
 SIMULATOR_MODE_PLAN_DETAILING = "plan_detailing"
+SIMULATOR_MODE_STRATEGY_SELECTION = "strategy_selection"
 SIMULATOR_MODE_AGENT_WORKFLOW = "agent_workflow"
 SIMULATOR_MODE_EXECUTION_FRESHNESS = "execution_freshness"
 SIMULATOR_MODES = (
     SIMULATOR_MODE_PLAN_DETAILING,
+    SIMULATOR_MODE_STRATEGY_SELECTION,
     SIMULATOR_MODE_AGENT_WORKFLOW,
     SIMULATOR_MODE_EXECUTION_FRESHNESS,
 )
 
 SIMULATOR_MODE_TO_REVIEW = {
     SIMULATOR_MODE_PLAN_DETAILING: "review_plan_detail",
+    SIMULATOR_MODE_STRATEGY_SELECTION: "review_process_optimization",
     SIMULATOR_MODE_AGENT_WORKFLOW: "review_agent_workflow_rehearsal",
     SIMULATOR_MODE_EXECUTION_FRESHNESS: "review_development_process_flow",
 }
 
 SIMULATOR_MODE_TO_DELEGATED_SKILL = {
     SIMULATOR_MODE_PLAN_DETAILING: "flowguard-plan-detailing-compiler",
+    SIMULATOR_MODE_STRATEGY_SELECTION: DEVELOPMENT_PROCESS_FRONT_DOOR_SKILL,
     SIMULATOR_MODE_AGENT_WORKFLOW: "flowguard-agent-workflow-rehearsal",
     SIMULATOR_MODE_EXECUTION_FRESHNESS: DEVELOPMENT_PROCESS_FRONT_DOOR_SKILL,
 }
@@ -55,6 +59,13 @@ SIMULATOR_FINDING_SCOPED = "scoped"
 SIMULATOR_FINDING_NEEDS_REVISION = "needs_revision"
 SIMULATOR_FINDING_BLOCKED = "blocked"
 
+_PROCESS_OPTIMIZATION_REASONS = {
+    "explicit_request",
+    "multiple_equivalent_routes",
+    "material_rework_risk",
+    "diagnostic_boundary_choice",
+}
+
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
     if values is None:
@@ -76,6 +87,7 @@ class DevelopmentProcessSimulationRequest:
     plan_discussion: bool = False
     plan_detail_requested: bool = False
     multiple_skills_or_tools: bool = False
+    process_optimization_reasons: tuple[str, ...] = ()
     external_side_effects: bool = False
     staged_validation: bool = False
     implementation_work: bool = False
@@ -90,6 +102,7 @@ class DevelopmentProcessSimulationRequest:
     explicit_agent_workflow_skill: bool = False
     explicit_development_process_skill: bool = False
     plan_detail_evidence_ids: tuple[str, ...] = ()
+    process_optimization_evidence_ids: tuple[str, ...] = ()
     agent_workflow_evidence_ids: tuple[str, ...] = ()
     execution_freshness_evidence_ids: tuple[str, ...] = ()
     accepted_scope: str = ""
@@ -98,7 +111,17 @@ class DevelopmentProcessSimulationRequest:
     def __post_init__(self) -> None:
         object.__setattr__(self, "request_id", str(self.request_id))
         object.__setattr__(self, "task_summary", str(self.task_summary))
+        object.__setattr__(
+            self,
+            "process_optimization_reasons",
+            _as_tuple(self.process_optimization_reasons),
+        )
         object.__setattr__(self, "plan_detail_evidence_ids", _as_tuple(self.plan_detail_evidence_ids))
+        object.__setattr__(
+            self,
+            "process_optimization_evidence_ids",
+            _as_tuple(self.process_optimization_evidence_ids),
+        )
         object.__setattr__(
             self,
             "agent_workflow_evidence_ids",
@@ -124,6 +147,7 @@ class DevelopmentProcessSimulationRequest:
             "plan_discussion": self.plan_discussion,
             "plan_detail_requested": self.plan_detail_requested,
             "multiple_skills_or_tools": self.multiple_skills_or_tools,
+            "process_optimization_reasons": list(self.process_optimization_reasons),
             "external_side_effects": self.external_side_effects,
             "staged_validation": self.staged_validation,
             "implementation_work": self.implementation_work,
@@ -138,6 +162,7 @@ class DevelopmentProcessSimulationRequest:
             "explicit_agent_workflow_skill": self.explicit_agent_workflow_skill,
             "explicit_development_process_skill": self.explicit_development_process_skill,
             "plan_detail_evidence_ids": list(self.plan_detail_evidence_ids),
+            "process_optimization_evidence_ids": list(self.process_optimization_evidence_ids),
             "agent_workflow_evidence_ids": list(self.agent_workflow_evidence_ids),
             "execution_freshness_evidence_ids": list(self.execution_freshness_evidence_ids),
             "accepted_scope": self.accepted_scope,
@@ -264,6 +289,17 @@ def _select_modes(request: DevelopmentProcessSimulationRequest) -> list[Developm
             )
         )
 
+    if request.process_optimization_reasons:
+        decisions.append(
+            DevelopmentProcessModeDecision(
+                SIMULATOR_MODE_STRATEGY_SELECTION,
+                SIMULATOR_MODE_TO_DELEGATED_SKILL[SIMULATOR_MODE_STRATEGY_SELECTION],
+                SIMULATOR_MODE_TO_REVIEW[SIMULATOR_MODE_STRATEGY_SELECTION],
+                "several outcome-equivalent process sequences or material repeated-work/information tradeoffs need comparison",
+                request.process_optimization_evidence_ids,
+            )
+        )
+
     if request.multiple_skills_or_tools or request.external_side_effects:
         decisions.append(
             DevelopmentProcessModeDecision(
@@ -325,6 +361,21 @@ def review_development_process_simulator(
     selected_modes = tuple(decision.mode for decision in decisions)
     required_reviews = _dedupe(tuple(decision.required_review for decision in decisions))
     findings: list[DevelopmentProcessSimulatorFinding] = []
+
+    invalid_optimization_reasons = sorted(
+        set(request.process_optimization_reasons) - _PROCESS_OPTIMIZATION_REASONS
+    )
+    if invalid_optimization_reasons or len(set(request.process_optimization_reasons)) != len(
+        request.process_optimization_reasons
+    ):
+        findings.append(
+            DevelopmentProcessSimulatorFinding(
+                "process_optimization_reason_invalid",
+                "process optimization reasons must be unique stable reason ids",
+                SIMULATOR_FINDING_BLOCKED,
+                SIMULATOR_MODE_STRATEGY_SELECTION,
+            )
+        )
 
     if not decisions and not request.task_trivial:
         findings.append(
@@ -430,6 +481,7 @@ __all__ = [
     "SIMULATOR_MODE_AGENT_WORKFLOW",
     "SIMULATOR_MODE_EXECUTION_FRESHNESS",
     "SIMULATOR_MODE_PLAN_DETAILING",
+    "SIMULATOR_MODE_STRATEGY_SELECTION",
     "SIMULATOR_MODES",
     "SIMULATOR_MODE_TO_DELEGATED_SKILL",
     "SIMULATOR_MODE_TO_REVIEW",

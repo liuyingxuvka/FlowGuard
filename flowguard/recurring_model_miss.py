@@ -692,11 +692,11 @@ def backfeed_model_miss_to_behavior_ledger(
     candidates = tuple(ModelMissBehaviorContext.from_hit(hit) for hit in report.candidate_hits)
     if report.status != BCL_LOOKUP_STATUS_PERFORMED:
         disposition = MODEL_MISS_BACKFEED_BLOCKED
-        reason = report.status_reason or "behavior ledger lookup did not run"
+        reason = report.fallback_reason or "behavior ledger lookup did not run"
         primary = None
     elif report.plane_ambiguity:
         disposition = MODEL_MISS_BACKFEED_AMBIGUOUS
-        reason = report.status_reason or "behavior plane or commitment is ambiguous"
+        reason = report.fallback_reason or "behavior plane or commitment is ambiguous"
         primary = None
     elif report.primary_hits:
         disposition = MODEL_MISS_BACKFEED_REUSE_EXISTING

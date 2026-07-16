@@ -30,6 +30,19 @@ def artifact(**kwargs):
 
 
 class ProofArtifactTests(unittest.TestCase):
+    def test_required_obligations_use_all_coverage_not_any_coverage(self):
+        proof = artifact(covered_obligation_ids=("one",))
+
+        codes = {
+            code
+            for code, _ in proof_artifact_gap_codes(
+                proof,
+                required_obligation_ids=("one", "two"),
+            )
+        }
+
+        self.assertIn("proof_artifact_missing_obligation", codes)
+
     def test_current_passing_artifact_has_no_gaps(self):
         self.assertEqual(
             (),

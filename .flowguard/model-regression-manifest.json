@@ -19,7 +19,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:adversarial_scenario_synthesis:current",
+        "reusable_model_type_id": "adversarial_scenario_synthesis",
+        "task_intent_id": "flowguard-regression:adversarial_scenario_synthesis",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the adversarial scenario synthesis model from accepting an invalid, bypassed, stale, or incomplete adversarial scenario synthesis outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "adversarial_scenario_synthesis:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in adversarial_scenario_synthesis candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:adversarial_scenario_synthesis:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "adversarial_scenario_synthesis:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:adversarial_scenario_synthesis:declared-negative-suite",
+            "oracle_id": "native:adversarial_scenario_synthesis:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:adversarial_scenario_synthesis"
+        ],
+        "model_sha256": "sha256:2f3541f764aa2059cd6c5dd8a599a5e904fb15689325132fafb76545281b5f56",
+        "runner_sha256": "sha256:ff3a0bb4c1d2cbecfafec730f423198f0cf0850e890fc0eda6b3e7a3f37dafde",
+        "declaration_fingerprint": "sha256:104476a92d767e88edb69e7757ca3a463eac16a9514cfd5750826877f1fc664b",
+        "closure_fingerprint": "sha256:0c7268ff5f3f1337357dbf2b1d80e8e5ff1e365ac9a7cc7408de2ad9a8f8b3d4"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -39,7 +67,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:ai_entry_surface_reduction:current",
+        "reusable_model_type_id": "ai_entry_surface_reduction",
+        "task_intent_id": "flowguard-regression:ai_entry_surface_reduction",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the ai entry surface reduction model from accepting an invalid, bypassed, stale, or incomplete ai entry surface reduction outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "ai_entry_surface_reduction:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in ai_entry_surface_reduction candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:ai_entry_surface_reduction:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "ai_entry_surface_reduction:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:ai_entry_surface_reduction:declared-negative-suite",
+            "oracle_id": "native:ai_entry_surface_reduction:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:ai_entry_surface_reduction"
+        ],
+        "model_sha256": "sha256:76426ce97aae89fd9018be857fb8c5162a5abbba32972073e66af32ef68c4652",
+        "runner_sha256": "sha256:cdea7fdef5e7d425ebef5e7f3ab837bd9511dec2fe26a4475b1c94ba97c39c3e",
+        "declaration_fingerprint": "sha256:56ad0b1d6a79d2008d5be7df5ffd703fd850a78e257e35518027506e98c9d998",
+        "closure_fingerprint": "sha256:4301c56661a0517d2061cf3062bf1292ae44d22ff40e8cc15b6e96e6ca0c4a0e"
+      }
     },
     {
       "absence_reason": "",
@@ -59,7 +115,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:ai_route_handoffs:current",
+        "reusable_model_type_id": "ai_route_handoffs",
+        "task_intent_id": "flowguard-regression:ai_route_handoffs",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the ai route handoffs model from accepting the native route handoff gap failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "route_handoff_gap"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in ai_route_handoffs candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:ai_route_handoffs:correct_ai_route_handoff",
+        "failure_bindings": [
+          {
+            "failure_id": "route_handoff_gap",
+            "known_bad_case_id": "native-runner:ai_route_handoffs:declared-negative-suite",
+            "oracle_id": "native:ai_route_handoffs:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:ai_route_handoffs"
+        ],
+        "model_sha256": "sha256:fb388cd1a66e6bc5489740b642273cc5bfac8798f6c79366565211a829f710de",
+        "runner_sha256": "sha256:75bf5ca055197fc3caf1c93fb8874a3cd451cab8ec479f8669cc1c36f11af894",
+        "declaration_fingerprint": "sha256:b425cdcbc59b2d89a2860e0e87ad273cc2452fa26911a71096cbd917b7517013",
+        "closure_fingerprint": "sha256:fa5e4ac037d3516d85f2fe372d9657f73bd697d87363e4388f628b9c22aa3312"
+      }
     },
     {
       "absence_reason": "",
@@ -81,7 +165,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:ai_surface_streamlining:current",
+        "reusable_model_type_id": "ai_surface_streamlining",
+        "task_intent_id": "flowguard-regression:ai_surface_streamlining",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the ai surface streamlining model from accepting an invalid, bypassed, stale, or incomplete ai surface streamlining outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "ai_surface_streamlining:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in ai_surface_streamlining candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:ai_surface_streamlining:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "ai_surface_streamlining:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:ai_surface_streamlining:declared-negative-suite",
+            "oracle_id": "native:ai_surface_streamlining:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:ai_surface_streamlining"
+        ],
+        "model_sha256": "sha256:af88efc31a43e64497a803a09f2a3724bb74a78a0083ec41069519d0574b52e9",
+        "runner_sha256": "sha256:4521e1ef13ab294f4f287b223792d27a4e37c42820a123963e0ec4f5bd95f337",
+        "declaration_fingerprint": "sha256:80ca095ff13ee3dedb4912b86dcf7ba6403521beb59216eab833390195355c91",
+        "closure_fingerprint": "sha256:66f584f3cc90b0bbb6ce9ee9d38c0c5055fbe71badba0de5aa0f0a34f6016dc9"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -101,7 +213,35 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:architecture_reduction:current",
+        "reusable_model_type_id": "architecture_reduction",
+        "task_intent_id": "flowguard-regression:architecture_reduction",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the architecture reduction model from accepting an invalid, bypassed, stale, or incomplete architecture reduction outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "architecture_reduction:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in architecture_reduction candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:architecture_reduction:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "architecture_reduction:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:architecture_reduction:declared-negative-suite",
+            "oracle_id": "native:architecture_reduction:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:architecture_reduction"
+        ],
+        "model_sha256": "sha256:816e0786a8709ac0641c0a7bc0ac1bc9c08458c9b551702ae377877928ff0099",
+        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "declaration_fingerprint": "sha256:95632d5126d398955b32a368114d8f3cf2a7e67c700fb0f88a6b542af29fc146",
+        "closure_fingerprint": "sha256:3a8868dbf4334ee530e2be8680df23ed5ad8dd2d4c5a8f44aea1173ddcba3a66"
+      }
     },
     {
       "absence_reason": "",
@@ -110,7 +250,8 @@
       "expected_artifacts": [],
       "input_globs": [
         ".flowguard/behavior_commitment_ledger/model.py",
-        ".flowguard/behavior_commitment_ledger/run_checks.py"
+        ".flowguard/behavior_commitment_ledger/run_checks.py",
+        ".flowguard/behavior_commitment_ledger/ledger.json"
       ],
       "model_id": "behavior_commitment_ledger",
       "model_path": ".flowguard/behavior_commitment_ledger/model.py",
@@ -121,7 +262,35 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:behavior_commitment_ledger:current",
+        "reusable_model_type_id": "behavior_commitment_ledger",
+        "task_intent_id": "flowguard-regression:behavior_commitment_ledger",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the behavior commitment ledger model from accepting an invalid, bypassed, stale, or incomplete behavior commitment ledger outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "behavior_commitment_ledger:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in behavior_commitment_ledger candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:behavior_commitment_ledger:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "behavior_commitment_ledger:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:behavior_commitment_ledger:declared-negative-suite",
+            "oracle_id": "native:behavior_commitment_ledger:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:behavior_commitment_ledger"
+        ],
+        "model_sha256": "sha256:4c57d4ce8ae680987e862f96d656d97a02a9a572c570632aaad459c57c1e3f53",
+        "runner_sha256": "sha256:4cf1db0f442a550996fb8093eb3c188b735a89dd527b7f3ed7f296bba935dc52",
+        "declaration_fingerprint": "sha256:e7e90231c75312bbb77ff176e04fd670c1edaa38c3bedfa1bf2f9ed25c0642b8",
+        "closure_fingerprint": "sha256:7f0442531e0011952b96322eaed34844d7e2c9c4308e83232a3cf7a0f2ce4516"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -141,7 +310,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:code_boundary_conformance:current",
+        "reusable_model_type_id": "code_boundary_conformance",
+        "task_intent_id": "flowguard-regression:code_boundary_conformance",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the code boundary conformance model from accepting an invalid, bypassed, stale, or incomplete code boundary conformance outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "code_boundary_conformance:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in code_boundary_conformance candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:code_boundary_conformance:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "code_boundary_conformance:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:code_boundary_conformance:declared-negative-suite",
+            "oracle_id": "native:code_boundary_conformance:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:code_boundary_conformance"
+        ],
+        "model_sha256": "sha256:013af70f15bb581d8c44df702f9b7e570b45e5415634c71111109e3fbe4c1119",
+        "runner_sha256": "sha256:f1128dd4966078a0f481a1b942576465d9a4a92a1f9402c8bbceca6ca51ed9e9",
+        "declaration_fingerprint": "sha256:37cfd25d0a5905ac024beaa8eb1e367ee7ceab7a1693e8bbee51d763082e0e87",
+        "closure_fingerprint": "sha256:b3469028162ee15caf543f3779d0e011dff60219f9f9238fdc2261d01908ba4a"
+      }
     },
     {
       "absence_reason": "",
@@ -161,7 +358,35 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:codex_skill_satellites:current",
+        "reusable_model_type_id": "codex_skill_satellites",
+        "task_intent_id": "flowguard-regression:codex_skill_satellites",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the codex skill satellites model from accepting the native premature skill release failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "premature_skill_release"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in codex_skill_satellites candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:codex_skill_satellites:correct_skill_satellite_release",
+        "failure_bindings": [
+          {
+            "failure_id": "premature_skill_release",
+            "known_bad_case_id": "native-runner:codex_skill_satellites:broken_early_release",
+            "oracle_id": "native:codex_skill_satellites:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:codex_skill_satellites"
+        ],
+        "model_sha256": "sha256:11fff616d7e2f1a5fe519f3e52d8b477c045a03b559808e407964d272e7c60a7",
+        "runner_sha256": "sha256:e27f5b3f3adfd9860e4c389312d87b969f9ea69cd2e793f91eea3207ded34bc1",
+        "declaration_fingerprint": "sha256:ad6175482e11e5e9d467c7f5e72e1702e024afe77b258b04db89b8b00da742a3",
+        "closure_fingerprint": "sha256:fb6e74bb0827c2c7ed056a7f8fec26c76352e05cde3d6a950ef78eeb0c56822c"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -181,7 +406,35 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:contract_source_audit:current",
+        "reusable_model_type_id": "contract_source_audit",
+        "task_intent_id": "flowguard-regression:contract_source_audit",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the contract source audit model from accepting an invalid, bypassed, stale, or incomplete contract source audit outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "contract_source_audit:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in contract_source_audit candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:contract_source_audit:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "contract_source_audit:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:contract_source_audit:declared-negative-suite",
+            "oracle_id": "native:contract_source_audit:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:contract_source_audit"
+        ],
+        "model_sha256": "sha256:8da4f8ea565c71f7318e7efcad5134692d3d338fa95b009405874709afb22199",
+        "runner_sha256": "sha256:ba985b916212baad69f6bd9c40915e875b772aad8d8cd3526c739a363ced0c47",
+        "declaration_fingerprint": "sha256:0fff23a7a2a80b754da95c21f2664b313545c2263ea6620778ff39a921b08e9a",
+        "closure_fingerprint": "sha256:4a19d4e7c3c21428a2307cb7d35d54b6a96a8b4163074aad52024148ce9b3d98"
+      }
     },
     {
       "absence_reason": "",
@@ -201,7 +454,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:default_replacement_field_lifecycle:current",
+        "reusable_model_type_id": "default_replacement_field_lifecycle",
+        "task_intent_id": "flowguard-regression:default_replacement_field_lifecycle",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the default replacement field lifecycle model from accepting the native old field disposition gap failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "old_field_disposition_gap"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in default_replacement_field_lifecycle candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:default_replacement_field_lifecycle:correct_default_replacement_field_lifecycle",
+        "failure_bindings": [
+          {
+            "failure_id": "old_field_disposition_gap",
+            "known_bad_case_id": "native-runner:default_replacement_field_lifecycle:declared-negative-suite",
+            "oracle_id": "native:default_replacement_field_lifecycle:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:default_replacement_field_lifecycle"
+        ],
+        "model_sha256": "sha256:4e56cd45dea83722e621eccaff8b1deb76c96dd80eb1007121fcb6d97cbd43db",
+        "runner_sha256": "sha256:15525e8a5d56ba195a0f5fb385ec531885b4257986461379bf2770452c42b768",
+        "declaration_fingerprint": "sha256:adaf01ea05ac8c79b3b3414fcb0b7463140d3b292a8580c44cbcc0b9ec697c4b",
+        "closure_fingerprint": "sha256:f24fc1df6ab6e7062ef918ce9fd6b25aa0c9fb6ac4d4cdb8a08634c28004a805"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -221,7 +502,86 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:development_process_flow:current",
+        "reusable_model_type_id": "development_process_flow",
+        "task_intent_id": "flowguard-regression:development_process_flow",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the development process flow model from accepting the native stale process evidence failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "stale_process_evidence"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in development_process_flow candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:development_process_flow:correct_development_process_flow",
+        "failure_bindings": [
+          {
+            "failure_id": "stale_process_evidence",
+            "known_bad_case_id": "native-runner:development_process_flow:broken_reuses_stale_or_progress_evidence",
+            "oracle_id": "native:development_process_flow:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:development_process_flow"
+        ],
+        "model_sha256": "sha256:37941928086371cf615ebe59ab663a8cd6502c79e7e6f47c2f3e7160538ef7c4",
+        "runner_sha256": "sha256:e59ecc22ce95cdf19d863d8b28d6b34e3a88b3c021ed48449df82bacfb9706dc",
+        "declaration_fingerprint": "sha256:4f3f6bafc400c2425d790c449512969ad34382c6e8ea366fc31e9a528acca629",
+        "closure_fingerprint": "sha256:d07af9e634935b783866670d5e2e2757e6c70542d1b9602de4758ef838e12bf9"
+      }
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/development_process_strategy/model.py",
+        ".flowguard/development_process_strategy/run_checks.py",
+        ".flowguard/development_process_strategy/contract_exhaustion.py",
+        ".flowguard/development_process_strategy/field_lifecycle.py",
+        ".flowguard/development_process_strategy/architecture_reduction.py"
+      ],
+      "model_id": "development_process_strategy",
+      "model_path": ".flowguard/development_process_strategy/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/development_process_strategy/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:development_process_strategy:current",
+        "reusable_model_type_id": "development_process_strategy",
+        "task_intent_id": "flowguard-regression:development_process_strategy",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the development process strategy model from accepting an invalid, bypassed, stale, or incomplete development process strategy outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "development_process_strategy:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in development_process_strategy candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:development_process_strategy:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "development_process_strategy:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:development_process_strategy:declared-negative-suite",
+            "oracle_id": "native:development_process_strategy:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:development_process_strategy"
+        ],
+        "model_sha256": "sha256:86ce40244be7b7c4c1fb19605629552223925082664cbc14cc1dbd96ca5574ab",
+        "runner_sha256": "sha256:2392f4ef0a48bc5f8011b4671ec00907b17d14e592d480a0cba084dc63ec4315",
+        "declaration_fingerprint": "sha256:5408944518435c6f14007539c99ae96f54a8b1b92d5f351c5893e2a23bea0bfb",
+        "closure_fingerprint": "sha256:d41edf3267b2af411c067201ea66449edaa1ee29e22eb4e29278a3971e1fd619"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -241,7 +601,35 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:existing_model_preflight:current",
+        "reusable_model_type_id": "existing_model_preflight",
+        "task_intent_id": "flowguard-regression:existing_model_preflight",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the existing model preflight model from accepting the native existing model preflight bypassed failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "existing_model_preflight_bypassed"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in existing_model_preflight candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:existing_model_preflight:correct_existing_model_preflight",
+        "failure_bindings": [
+          {
+            "failure_id": "existing_model_preflight_bypassed",
+            "known_bad_case_id": "native-runner:existing_model_preflight:broken_bypasses_existing_model_search",
+            "oracle_id": "native:existing_model_preflight:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:existing_model_preflight"
+        ],
+        "model_sha256": "sha256:d06b239ad09ba7856ac6fecd1e16a138222e5e65d25cee06f8434d8e98c87440",
+        "runner_sha256": "sha256:ca9908cc2c0b6c0afb3083bb8aceaee2ff306f4e0e3bbe1a2f097108eba17879",
+        "declaration_fingerprint": "sha256:2d43b2f5745416c9249d0a1837514fe2632ac900721eec67543473871b2bbd7e",
+        "closure_fingerprint": "sha256:91ff1006e562569d6998e4c59752063af10482786ed8e9ee3b98953ec5c58e71"
+      }
     },
     {
       "absence_reason": "",
@@ -261,7 +649,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:field_prompt_reduction:current",
+        "reusable_model_type_id": "field_prompt_reduction",
+        "task_intent_id": "flowguard-regression:field_prompt_reduction",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the field prompt reduction model from accepting the native prompt only completion failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "prompt_only_completion"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in field_prompt_reduction candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:field_prompt_reduction:correct_field_prompt_reduction",
+        "failure_bindings": [
+          {
+            "failure_id": "prompt_only_completion",
+            "known_bad_case_id": "native-runner:field_prompt_reduction:broken_drops_required_evidence",
+            "oracle_id": "native:field_prompt_reduction:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:field_prompt_reduction"
+        ],
+        "model_sha256": "sha256:308cc59e6b4b3ffca2d95834956013d640067ab750c01b092a757404c77ead77",
+        "runner_sha256": "sha256:be4e4529df9011f4c88dc08a2a543c162455bc76279f0c138a8e0cc2d97bd923",
+        "declaration_fingerprint": "sha256:4effc680c5b18079d8868cd13294346eede4b8e1699ea76f648de1519edcc920",
+        "closure_fingerprint": "sha256:cf4fe0d21e5fa4b6568beb57227556529bca1b55715b371ca63e38a942ec1fc3"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -281,7 +697,35 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:flowguard_closure_contract:current",
+        "reusable_model_type_id": "flowguard_closure_contract",
+        "task_intent_id": "flowguard-regression:flowguard_closure_contract",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the flowguard closure contract model from accepting an invalid, bypassed, stale, or incomplete flowguard closure contract outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "flowguard_closure_contract:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in flowguard_closure_contract candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:flowguard_closure_contract:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "flowguard_closure_contract:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:flowguard_closure_contract:declared-negative-suite",
+            "oracle_id": "native:flowguard_closure_contract:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:flowguard_closure_contract"
+        ],
+        "model_sha256": "sha256:7340e34f911d56634557ef11a947142e184e2192e7b7539f5a917377d6dc74bd",
+        "runner_sha256": "sha256:4da9b2da3716b813e6a812b0c2f2f0d94eba262e6ac4ee3346b4ee1da1d1af2a",
+        "declaration_fingerprint": "sha256:f8bc43cd09d584705cfc7536beb42a45a5d5baa9a2e1a8cd6341a83c06517d9d",
+        "closure_fingerprint": "sha256:e3bde8121a014fca8bb1fa17223f7fa9807d8dd4b375f807482f2faf8b634b42"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -301,7 +745,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:guard_closure_contract:current",
+        "reusable_model_type_id": "guard_closure_contract",
+        "task_intent_id": "flowguard-regression:guard_closure_contract",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the guard closure contract model from accepting the native unclean guard closure claim failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "unclean_guard_closure_claim"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in guard_closure_contract candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:guard_closure_contract:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "unclean_guard_closure_claim",
+            "known_bad_case_id": "native-runner:guard_closure_contract:guard_closure_stale_is_obligation",
+            "oracle_id": "native:guard_closure_contract:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:guard_closure_contract"
+        ],
+        "model_sha256": "sha256:94a5b2fa58ac448b14ce0974492311f6c3bc3ddfef7c871af6497516dd8dc6aa",
+        "runner_sha256": "sha256:38ede397582626d5a9a4cd02988c8398b44004f3d5760adbe63a6f734f33a06c",
+        "declaration_fingerprint": "sha256:7701b2bdba422947c4a28b05827f36f48c00175cf6a4ba5ebeeb7e7d57eedb45",
+        "closure_fingerprint": "sha256:ac5f0640f98a75eebb1545edb806ffde30216317b7afa74cc3553331b2b80ab2"
+      }
     },
     {
       "absence_reason": "",
@@ -321,7 +793,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:guidance_compression:current",
+        "reusable_model_type_id": "guidance_compression",
+        "task_intent_id": "flowguard-regression:guidance_compression",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the guidance compression model from accepting the native guidance prompt only completion failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "guidance_prompt_only_completion"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in guidance_compression candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:guidance_compression:correct_guidance_compression",
+        "failure_bindings": [
+          {
+            "failure_id": "guidance_prompt_only_completion",
+            "known_bad_case_id": "native-runner:guidance_compression:broken_prompt_only_completion",
+            "oracle_id": "native:guidance_compression:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:guidance_compression"
+        ],
+        "model_sha256": "sha256:426f0f1fe1b850e77e12b26ed36df35dde1b076801932a124924782b686dc440",
+        "runner_sha256": "sha256:c22be2d2a9afc3bde07cf6892b0b381d2c40e513c3a9fbfa4668f93055c9f5bf",
+        "declaration_fingerprint": "sha256:2b6f94fe2f0de2880dfbfdc15f43251ccd46f711f2f55b64b31b005bff02677e",
+        "closure_fingerprint": "sha256:8f108f4830284bd006861baf414aeabe0507274ad63847b206b91a76a0b2f993"
+      }
     },
     {
       "absence_reason": "",
@@ -357,7 +857,35 @@
       ],
       "shard_safe": false,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:harden_ui_content_visibility_validation:current",
+        "reusable_model_type_id": "harden_ui_content_visibility_validation",
+        "task_intent_id": "flowguard-regression:harden_ui_content_visibility_validation",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the harden ui content visibility validation model from accepting an invalid, bypassed, stale, or incomplete harden ui content visibility validation outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "harden_ui_content_visibility_validation:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in harden_ui_content_visibility_validation candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:harden_ui_content_visibility_validation:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "harden_ui_content_visibility_validation:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:harden_ui_content_visibility_validation:declared-negative-suite",
+            "oracle_id": "native:harden_ui_content_visibility_validation:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:harden_ui_content_visibility_validation"
+        ],
+        "model_sha256": "sha256:253698dc5b11139409ea90c9ec61b1b5006ee12bdaf4f8bf298a8ba0c43f753b",
+        "runner_sha256": "sha256:1955cda7d0a5676bbd1855a6f7eace7fd0703e2b0d9218a7ad23143ed3ed395b",
+        "declaration_fingerprint": "sha256:a49722186374e391d00db8e3d29c37f5481be3e582d743389024a2812eebe132",
+        "closure_fingerprint": "sha256:dc9419d95464b6b684c44145e194fccdd23c854f61d8357e1ffa3b030ea1ca0b"
+      }
     },
     {
       "absence_reason": "",
@@ -379,7 +907,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:harden_ui_real_surface_validation:current",
+        "reusable_model_type_id": "harden_ui_real_surface_validation",
+        "task_intent_id": "flowguard-regression:harden_ui_real_surface_validation",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the harden ui real surface validation model from accepting an invalid, bypassed, stale, or incomplete harden ui real surface validation outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "harden_ui_real_surface_validation:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in harden_ui_real_surface_validation candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:harden_ui_real_surface_validation:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "harden_ui_real_surface_validation:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:harden_ui_real_surface_validation:declared-negative-suite",
+            "oracle_id": "native:harden_ui_real_surface_validation:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:harden_ui_real_surface_validation"
+        ],
+        "model_sha256": "sha256:af3160aa1a867a7d90dc68b7031464b44dde0398ff654ceb94e0d63ec2bced2f",
+        "runner_sha256": "sha256:8fa2b7655cd46a91b82b59715a29edf59dc289de3cc94ad55cab694bfcbfce60",
+        "declaration_fingerprint": "sha256:92c2b13ae6b906af845ef6236fac080beaff891cbf9cc99253be5c9977f9f1fb",
+        "closure_fingerprint": "sha256:b27eb548c172179797a1bb6f5bd007ff707ec4b2c4df9eaea88c310fa0f7c777"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -399,7 +955,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:hierarchical_model_mesh:current",
+        "reusable_model_type_id": "hierarchical_model_mesh",
+        "task_intent_id": "flowguard-regression:hierarchical_model_mesh",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the hierarchical model mesh model from accepting an invalid, bypassed, stale, or incomplete hierarchical model mesh outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "hierarchical_model_mesh:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in hierarchical_model_mesh candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:hierarchical_model_mesh:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "hierarchical_model_mesh:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:hierarchical_model_mesh:declared-negative-suite",
+            "oracle_id": "native:hierarchical_model_mesh:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:hierarchical_model_mesh"
+        ],
+        "model_sha256": "sha256:ab84882a2191d1ee8c9a232c33cf5a4523a5e939e8e4f0ef50c5a738908119f2",
+        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "declaration_fingerprint": "sha256:4e6f110c8486b879c76b7790ed2c498bb00af248bca08d1485376664fb25010f",
+        "closure_fingerprint": "sha256:faaf9165db04f16f582dd72832a4d22d547008ded8f833ff1bf5597e13f35f26"
+      }
     },
     {
       "absence_reason": "",
@@ -419,7 +1003,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:legacy_compatibility_cleanup:current",
+        "reusable_model_type_id": "legacy_compatibility_cleanup",
+        "task_intent_id": "flowguard-regression:legacy_compatibility_cleanup",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the legacy compatibility cleanup model from accepting the native legacy compatibility cleanup gap failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "legacy_compatibility_cleanup_gap"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in legacy_compatibility_cleanup candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:legacy_compatibility_cleanup:correct_legacy_compatibility_cleanup",
+        "failure_bindings": [
+          {
+            "failure_id": "legacy_compatibility_cleanup_gap",
+            "known_bad_case_id": "native-runner:legacy_compatibility_cleanup:broken_deletes_safety_classifier",
+            "oracle_id": "native:legacy_compatibility_cleanup:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:legacy_compatibility_cleanup"
+        ],
+        "model_sha256": "sha256:c31256ac95abfc5190c7da954046265a8cd083b56b79412a97b2c99d84589e0d",
+        "runner_sha256": "sha256:ba03914e3b8b2688b9dc9d24909033366a4b2043875878ba6da35d59efd18124",
+        "declaration_fingerprint": "sha256:d13e6ec20ff9702fa766a58179bed4df0001e01790d0c8fd01651cfc44daa54d",
+        "closure_fingerprint": "sha256:d9092cc81f40e2c760686cdff764d8b3a32696c139faa639f60dffabd22873b8"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -439,7 +1051,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:lightweight_model_miss_review:current",
+        "reusable_model_type_id": "lightweight_model_miss_review",
+        "task_intent_id": "flowguard-regression:lightweight_model_miss_review",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the lightweight model miss review model from accepting an invalid, bypassed, stale, or incomplete lightweight model miss review outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "lightweight_model_miss_review:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in lightweight_model_miss_review candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:lightweight_model_miss_review:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "lightweight_model_miss_review:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:lightweight_model_miss_review:declared-negative-suite",
+            "oracle_id": "native:lightweight_model_miss_review:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:lightweight_model_miss_review"
+        ],
+        "model_sha256": "sha256:0cc126f816ea086b0f61a016cca1cc5c1c301c4a07fe25670171489f4daffae3",
+        "runner_sha256": "sha256:4392dbb40f0eba299559f010554cfb41b7c57355a98d148737e009379c085243",
+        "declaration_fingerprint": "sha256:b18d34d6f66323b172ad8346ee1786483c7cf9c8a72c5190d23fca3279cf70fa",
+        "closure_fingerprint": "sha256:633d4b4578c139d427f9d3949c7023e808b08547d043b134bd2612f194273a47"
+      }
     },
     {
       "absence_reason": "",
@@ -459,7 +1099,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:maintenance_obligation_memory:current",
+        "reusable_model_type_id": "maintenance_obligation_memory",
+        "task_intent_id": "flowguard-regression:maintenance_obligation_memory",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the maintenance obligation memory model from accepting the native maintenance obligation not remembered failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "maintenance_obligation_not_remembered"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in maintenance_obligation_memory candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:maintenance_obligation_memory:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "maintenance_obligation_not_remembered",
+            "known_bad_case_id": "native-runner:maintenance_obligation_memory:declared-negative-suite",
+            "oracle_id": "native:maintenance_obligation_memory:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:maintenance_obligation_memory"
+        ],
+        "model_sha256": "sha256:0767612805f2d057e201c8a31b977b06acc3aecf4cbc42ea8d08d2d383b5ed27",
+        "runner_sha256": "sha256:290aac7ff7d1511cc5266fa61c3bc94f98389a64805aaec45d0d262c73f05f74",
+        "declaration_fingerprint": "sha256:e5c7a33d19ed9f88bc638dde0b12a12bfc18a7730c0c3f19f879c6c56ae322cb",
+        "closure_fingerprint": "sha256:c372ae49039ca248088d39966812728e22b9cae30d48576aa21ae9e5fb44c837"
+      }
     },
     {
       "absence_reason": "",
@@ -479,7 +1147,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:maintenance_scan_router:current",
+        "reusable_model_type_id": "maintenance_scan_router",
+        "task_intent_id": "flowguard-regression:maintenance_scan_router",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the maintenance scan router model from accepting the native maintenance scan route missing failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "maintenance_scan_route_missing"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in maintenance_scan_router candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:maintenance_scan_router:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "maintenance_scan_route_missing",
+            "known_bad_case_id": "native-runner:maintenance_scan_router:declared-negative-suite",
+            "oracle_id": "native:maintenance_scan_router:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:maintenance_scan_router"
+        ],
+        "model_sha256": "sha256:df32fd277cfc219d40936333a154bd4c204164093c180f1f204838aa667e098a",
+        "runner_sha256": "sha256:b3b77a68fe743ff4ed60e27434e9e2f574f6e7f94ac9059549ba7f3fabdf9ee3",
+        "declaration_fingerprint": "sha256:e149c9c4d8b689591924491eea0ac842803c3873ffed10c6c0fc5427d795e53b",
+        "closure_fingerprint": "sha256:79c38c76a9fa6a93e4c72fbd9b973be018760485e0f5cf03d2776de8db427c37"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -499,7 +1195,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:mesh_target_split_derivation:current",
+        "reusable_model_type_id": "mesh_target_split_derivation",
+        "task_intent_id": "flowguard-regression:mesh_target_split_derivation",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the mesh target split derivation model from accepting an invalid, bypassed, stale, or incomplete mesh target split derivation outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "mesh_target_split_derivation:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in mesh_target_split_derivation candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:mesh_target_split_derivation:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "mesh_target_split_derivation:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:mesh_target_split_derivation:declared-negative-suite",
+            "oracle_id": "native:mesh_target_split_derivation:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:mesh_target_split_derivation"
+        ],
+        "model_sha256": "sha256:46b969454621a934627aa4719b335ac49a8106088bb6088c06f15c59f267e23e",
+        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "declaration_fingerprint": "sha256:ee0e0340e169a8332105dcd7b904b1f77de1791c408ba05bd2a27bcb04d35b48",
+        "closure_fingerprint": "sha256:ab1d457cebf470445815dad61e2f7c415b0ca5207f2c8197be17ebe64008ecee"
+      }
     },
     {
       "absence_reason": "",
@@ -519,7 +1243,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:minimum_valuable_model_entry:current",
+        "reusable_model_type_id": "minimum_valuable_model_entry",
+        "task_intent_id": "flowguard-regression:minimum_valuable_model_entry",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the minimum valuable model entry model from accepting the native minimum valuable model missing evidence failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "minimum_valuable_model_missing_evidence"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in minimum_valuable_model_entry candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:minimum_valuable_model_entry:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "minimum_valuable_model_missing_evidence",
+            "known_bad_case_id": "native-runner:minimum_valuable_model_entry:broken_without_evidence",
+            "oracle_id": "native:minimum_valuable_model_entry:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:minimum_valuable_model_entry"
+        ],
+        "model_sha256": "sha256:8cffb0ac18d96401504a66dc2cafb5aa54ac88f188d2e1d9e00136cb3c9c5ae7",
+        "runner_sha256": "sha256:041ec928815dea9bdccdb14ea194b877f5279848729ad427b79a6f1f6a63b736",
+        "declaration_fingerprint": "sha256:b45a00eb181a6e7546b6e2c5090cd71580956a16c48b8b760fc6daa513400cc0",
+        "closure_fingerprint": "sha256:62cbbed8efd210d99774d0c991c4b8f2b6b04c30b6402930298c7967e8bd9105"
+      }
     },
     {
       "absence_reason": "",
@@ -539,7 +1291,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:model_angle_deliberation:current",
+        "reusable_model_type_id": "model_angle_deliberation",
+        "task_intent_id": "flowguard-regression:model_angle_deliberation",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the model angle deliberation model from accepting an invalid, bypassed, stale, or incomplete model angle deliberation outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "model_angle_deliberation:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in model_angle_deliberation candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:model_angle_deliberation:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "model_angle_deliberation:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:model_angle_deliberation:declared-negative-suite",
+            "oracle_id": "native:model_angle_deliberation:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:model_angle_deliberation"
+        ],
+        "model_sha256": "sha256:b0398961921751bb851056c63c4690582d8cf29b57508fdb5d8f25970f1068ab",
+        "runner_sha256": "sha256:f8975182fe6d346668c53fd8ee182e2adbf9782e3f947f602a472ce4e1b99126",
+        "declaration_fingerprint": "sha256:c707bd4459c93985cdd906e8b68b529c72fb03348a46da8f06ad83d0671a6d86",
+        "closure_fingerprint": "sha256:386b2199ba7c8c408b17af781b45e4a433d73cb1eb129d149c3dbf5b1b1ae26f"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -559,7 +1339,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:model_impact_freshness_gate:current",
+        "reusable_model_type_id": "model_impact_freshness_gate",
+        "task_intent_id": "flowguard-regression:model_impact_freshness_gate",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the model impact freshness gate model from accepting the native stale model evidence reuse failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "stale_model_evidence_reuse"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in model_impact_freshness_gate candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:model_impact_freshness_gate:correct_model_impact_freshness_gate",
+        "failure_bindings": [
+          {
+            "failure_id": "stale_model_evidence_reuse",
+            "known_bad_case_id": "native-runner:model_impact_freshness_gate:broken_reuses_old_evidence_without_classification",
+            "oracle_id": "native:model_impact_freshness_gate:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:model_impact_freshness_gate"
+        ],
+        "model_sha256": "sha256:cf2bc70f9e53baf39ff5e187412b580084bcfb238e24a736231a2c604c5d3b0e",
+        "runner_sha256": "sha256:c7e6a544f74116ffd3ec5392b682c42350289ce4db0566b4608f55dfeadd8f17",
+        "declaration_fingerprint": "sha256:74db004c002e7fde7f178857ab46522012ddce0a1279dd94f064a4d4ae743f68",
+        "closure_fingerprint": "sha256:35ea4a9485a3509c81be1c1a62f664a934b9425b5c989dac05644c679dcf6cd4"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -579,7 +1387,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:model_mesh_closure_model:current",
+        "reusable_model_type_id": "model_mesh_closure_model",
+        "task_intent_id": "flowguard-regression:model_mesh_closure_model",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the model mesh closure model model from accepting the native model mesh missing join failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "model_mesh_missing_join"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in model_mesh_closure_model candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:model_mesh_closure_model:correct_model_mesh_closure",
+        "failure_bindings": [
+          {
+            "failure_id": "model_mesh_missing_join",
+            "known_bad_case_id": "native-runner:model_mesh_closure_model:broken_missing_join",
+            "oracle_id": "native:model_mesh_closure_model:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:model_mesh_closure_model"
+        ],
+        "model_sha256": "sha256:568de0b38d45814a62cca2930783685b36f786d00dac8f64b6ef2447531ee4eb",
+        "runner_sha256": "sha256:ae8d0aadcb476b12f3175bee5742beeae80f817c6fb6a1efb436446ce9d0dad5",
+        "declaration_fingerprint": "sha256:fbe5444bd67aa202909e7563f607a4152350df061830134d33ff90f9065dd822",
+        "closure_fingerprint": "sha256:91447ebc10634aa0e264b5fb60d96f98f7d196ffe2340a6c272731e50aa6b99c"
+      }
     },
     {
       "absence_reason": "",
@@ -599,7 +1435,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:model_miss_review:current",
+        "reusable_model_type_id": "model_miss_review",
+        "task_intent_id": "flowguard-regression:model_miss_review",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the model miss review model from accepting an invalid, bypassed, stale, or incomplete model miss review outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "model_miss_review:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in model_miss_review candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:model_miss_review:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "model_miss_review:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:model_miss_review:declared-negative-suite",
+            "oracle_id": "native:model_miss_review:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:model_miss_review"
+        ],
+        "model_sha256": "sha256:895e9f79b25bfb99d23cf62eb8265b9efa7be9c11e2797baa8ffe0e0faf8130c",
+        "runner_sha256": "sha256:0e5eb01382343af4866ffb3e571c05802c121199062bf361fa050d361ace927c",
+        "declaration_fingerprint": "sha256:590e8d8b319d73492619a6f5e2ae27f2e559bbce4255d0f67191c1edb1637dde",
+        "closure_fingerprint": "sha256:77494e9aad1aa9d80850cbcf292f4edbc5182f8f4e465329db46bf7e55e462f4"
+      }
     },
     {
       "absence_reason": "",
@@ -621,7 +1485,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:model_similarity_consolidation:current",
+        "reusable_model_type_id": "model_similarity_consolidation",
+        "task_intent_id": "flowguard-regression:model_similarity_consolidation",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the model similarity consolidation model from accepting an invalid, bypassed, stale, or incomplete model similarity consolidation outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "model_similarity_consolidation:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in model_similarity_consolidation candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:model_similarity_consolidation:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "model_similarity_consolidation:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:model_similarity_consolidation:declared-negative-suite",
+            "oracle_id": "native:model_similarity_consolidation:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:model_similarity_consolidation"
+        ],
+        "model_sha256": "sha256:a0f27e2c2d3c2fdbc2e2b226ff526512d9c9a6809b7bc794fdba7dcdeeb6d262",
+        "runner_sha256": "sha256:65472140036cf187683a87ba9a0b0b6f0014de04d81008368cf488e5d90a96b0",
+        "declaration_fingerprint": "sha256:7b6dd7c46556ad833e3768328bce1417a811cbbd651b30deec435ef63dff156b",
+        "closure_fingerprint": "sha256:d92fd7cb45a94c5774ef843fd565c721fb3c89b8f18b3921f8f265f7451a8adf"
+      }
     },
     {
       "absence_reason": "",
@@ -641,7 +1533,35 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:model_test_code_alignment:current",
+        "reusable_model_type_id": "model_test_code_alignment",
+        "task_intent_id": "flowguard-regression:model_test_code_alignment",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the model test code alignment model from accepting an invalid, bypassed, stale, or incomplete model test code alignment outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "model_test_code_alignment:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in model_test_code_alignment candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:model_test_code_alignment:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "model_test_code_alignment:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:model_test_code_alignment:declared-negative-suite",
+            "oracle_id": "native:model_test_code_alignment:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:model_test_code_alignment"
+        ],
+        "model_sha256": "sha256:22df1af17baab75fd0c0232a9798d00394269e4f99d9ccbac0f1647366b3e741",
+        "runner_sha256": "sha256:15343d1ddeb7595625fc291481f9effd290394c2f88f429635c5e9734038c406",
+        "declaration_fingerprint": "sha256:e8d158d39a09786a2b1f509f6a642c8236e1df29b4cf918f0be44f54cbd058d2",
+        "closure_fingerprint": "sha256:42aecfb5ef83b90903bfbe6d054e03ca56dac0dea065450e15dc86684b09e13f"
+      }
     },
     {
       "absence_reason": "",
@@ -661,7 +1581,35 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:model_topology_hazard_review:current",
+        "reusable_model_type_id": "model_topology_hazard_review",
+        "task_intent_id": "flowguard-regression:model_topology_hazard_review",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the model topology hazard review model from accepting the native topology hazard not handled failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "topology_hazard_not_handled"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in model_topology_hazard_review candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:model_topology_hazard_review:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "topology_hazard_not_handled",
+            "known_bad_case_id": "native-runner:model_topology_hazard_review:declared-negative-suite",
+            "oracle_id": "native:model_topology_hazard_review:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:model_topology_hazard_review"
+        ],
+        "model_sha256": "sha256:021d8baaa8645b8f0b01397ae69a88540da2c4d80da489d7838181968c3c6044",
+        "runner_sha256": "sha256:694ab88357d8470920860e766ed8f0f78934170b0d45211f7d5e51a7ee13fda8",
+        "declaration_fingerprint": "sha256:4f6635a01a81b41a6c2ca4c28924caf5c791526fc1342761aafaab5266e00704",
+        "closure_fingerprint": "sha256:cfdfda9b29064c5c23ebfdd6f134237e0259abd2ee3e14c3fdc4e401fe289c6b"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -681,7 +1629,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:model_visibility:current",
+        "reusable_model_type_id": "model_visibility",
+        "task_intent_id": "flowguard-regression:model_visibility",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the model visibility model from accepting the native model visibility prompt gap failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "model_visibility_prompt_gap"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in model_visibility candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:model_visibility:correct_visibility_prompt",
+        "failure_bindings": [
+          {
+            "failure_id": "model_visibility_prompt_gap",
+            "known_bad_case_id": "native-runner:model_visibility:broken_optional_only_prompt",
+            "oracle_id": "native:model_visibility:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:model_visibility"
+        ],
+        "model_sha256": "sha256:d235d588017bb1a5bc86639285182fe4d6fb3e5f4089bfb0f607ab9355f6acd3",
+        "runner_sha256": "sha256:19a4333c4d575e8d509c1613bd9ec1c7f1c7c22ea0a136f97f681bb29ad65007",
+        "declaration_fingerprint": "sha256:ad0f07666c79dcccbd2344276a6287448298d55d6ee4053984840a05e37ff365",
+        "closure_fingerprint": "sha256:166b0b7298f2fb803a5a8fa846611d78804e492365eefac542045daa0e54d122"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -701,7 +1677,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:openspec_archive_cleanup:current",
+        "reusable_model_type_id": "openspec_archive_cleanup",
+        "task_intent_id": "flowguard-regression:openspec_archive_cleanup",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the openspec archive cleanup model from accepting an invalid, bypassed, stale, or incomplete openspec archive cleanup outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "openspec_archive_cleanup:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in openspec_archive_cleanup candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:openspec_archive_cleanup:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "openspec_archive_cleanup:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:openspec_archive_cleanup:declared-negative-suite",
+            "oracle_id": "native:openspec_archive_cleanup:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:openspec_archive_cleanup"
+        ],
+        "model_sha256": "sha256:acee1abf66b78a67192cb2348f1a49d9928f34c167148a116d9012aa71fd06ac",
+        "runner_sha256": "sha256:4ed7462dfe4c6576f266b6c97faf6cc28702791e07554c58c938faaa07825224",
+        "declaration_fingerprint": "sha256:eb0d2473be7acbbcac701b7c7428922efcf93f031f8e339a363634d2aad9512b",
+        "closure_fingerprint": "sha256:abcbb6cb7ea88c91e48a09a4e174bcbed70709cce7d91165d5e0854cb9cd05a5"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -721,7 +1725,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:plan_detailing_compiler:current",
+        "reusable_model_type_id": "plan_detailing_compiler",
+        "task_intent_id": "flowguard-regression:plan_detailing_compiler",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the plan detailing compiler model from accepting an invalid, bypassed, stale, or incomplete plan detailing compiler outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "plan_detailing_compiler:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in plan_detailing_compiler candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:plan_detailing_compiler:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "plan_detailing_compiler:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:plan_detailing_compiler:declared-negative-suite",
+            "oracle_id": "native:plan_detailing_compiler:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:plan_detailing_compiler"
+        ],
+        "model_sha256": "sha256:72d45645ebf9efc33ef34a26e8cf1be19af59e27b8f7700e4579713b51360d5b",
+        "runner_sha256": "sha256:985d6aed10c165d6de2fdbe04d5ff584af93bd4ef928ba5e4f2fe2ba3a2ed451",
+        "declaration_fingerprint": "sha256:0f9916ab6146543d5c6a2463b6be8b587567e8fe17e5b548195605c4f05066ee",
+        "closure_fingerprint": "sha256:fdbab1399a86966e663c550bef74c6508a48d169e049f65eac5e2f00b8e71823"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -741,7 +1773,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:primary_path_authority:current",
+        "reusable_model_type_id": "primary_path_authority",
+        "task_intent_id": "flowguard-regression:primary_path_authority",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the primary path authority model from accepting an invalid, bypassed, stale, or incomplete primary path authority outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "primary_path_authority:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in primary_path_authority candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:primary_path_authority:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "primary_path_authority:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:primary_path_authority:declared-negative-suite",
+            "oracle_id": "native:primary_path_authority:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:primary_path_authority"
+        ],
+        "model_sha256": "sha256:c8a732b389620e0de9794547aa8b395c76a078d8a8875c4402fb344aa03ec185",
+        "runner_sha256": "sha256:f8cdb7386719508f926d65ee0f5c8753aa66d100db4223ceaaeb849e31a4d2ee",
+        "declaration_fingerprint": "sha256:8bc140793dc187eaa0c1d53ec7050f2af35589650402d54750b40dddc57428fc",
+        "closure_fingerprint": "sha256:6a519d22bc986d9801dc3601a4959b0202e199b5743eff14703f99a1eefcba40"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -761,7 +1821,35 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:project_adoption_version_gate:current",
+        "reusable_model_type_id": "project_adoption_version_gate",
+        "task_intent_id": "flowguard-regression:project_adoption_version_gate",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the project adoption version gate model from accepting the native project adoption gate bypassed failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "project_adoption_gate_bypassed"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in project_adoption_version_gate candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:project_adoption_version_gate:correct_project_adoption_gate",
+        "failure_bindings": [
+          {
+            "failure_id": "project_adoption_gate_bypassed",
+            "known_bad_case_id": "native-runner:project_adoption_version_gate:broken_claim_without_agents",
+            "oracle_id": "native:project_adoption_version_gate:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:project_adoption_version_gate"
+        ],
+        "model_sha256": "sha256:198e9b3185cb289a67a4bc2e7bb83a9edc804085c6cba9b7292cd09ab66455a6",
+        "runner_sha256": "sha256:84b48dd70293a21783511cf07f8f851f8431ac8a7baac2959794a96583a08eae",
+        "declaration_fingerprint": "sha256:dd93782e2b1c1e03aeccffa5e4845fd0f29c56ffc4757b40645e5955e4ad99a1",
+        "closure_fingerprint": "sha256:30f8a1f4d2049aefcc655e280626cec0e789f8beed1342b4b00707c4c9bc3bca"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -781,7 +1869,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:readme_positioning_20260602:current",
+        "reusable_model_type_id": "readme_positioning_20260602",
+        "task_intent_id": "flowguard-regression:readme_positioning_20260602",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the readme positioning 20260602 model from accepting the native readme positioning without validation failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "readme_positioning_without_validation"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in readme_positioning_20260602 candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:readme_positioning_20260602:correct_readme_positioning",
+        "failure_bindings": [
+          {
+            "failure_id": "readme_positioning_without_validation",
+            "known_bad_case_id": "native-runner:readme_positioning_20260602:broken_readme_positioning",
+            "oracle_id": "native:readme_positioning_20260602:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:readme_positioning_20260602"
+        ],
+        "model_sha256": "sha256:75f4482485eeb1eda68caeaac8a82e8724e58f07559708e4083ff712da2adbbb",
+        "runner_sha256": "sha256:12245142a6623c551a5c286ed6e6b23613f00a51655ca6a612f7a4235ce7bf07",
+        "declaration_fingerprint": "sha256:aa71e49eb462dcc3403ccb92b3633b4af6ba5225769d5d22635f3b34a6d2a1a7",
+        "closure_fingerprint": "sha256:882e73bc0a763b92c93ea720d9473f06e4fb707674d400bf6b7cc21ac3899532"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -801,7 +1917,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:reduce_architecture_surface:current",
+        "reusable_model_type_id": "reduce_architecture_surface",
+        "task_intent_id": "flowguard-regression:reduce_architecture_surface",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the reduce architecture surface model from accepting an invalid, bypassed, stale, or incomplete reduce architecture surface outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "reduce_architecture_surface:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in reduce_architecture_surface candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:reduce_architecture_surface:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "reduce_architecture_surface:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:reduce_architecture_surface:declared-negative-suite",
+            "oracle_id": "native:reduce_architecture_surface:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:reduce_architecture_surface"
+        ],
+        "model_sha256": "sha256:25e4460ef5198b7dd19a450f3d25b8879f3382704261d5fde974b826a97cb73f",
+        "runner_sha256": "sha256:d8c9879ba143a02d8c58dc7da5efa6f84dbac5b6c5db6caf551ba61fe46efd0e",
+        "declaration_fingerprint": "sha256:d7f7c7681f039aedb6595f7a95175aafb8398b902a1f9fc51bbe9de8ddfdff54",
+        "closure_fingerprint": "sha256:3b51180851d1f2a03b984ba920c48e9e11a907ff75eab740547518bcd4a7057f"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -821,7 +1965,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:release_visibility_process:current",
+        "reusable_model_type_id": "release_visibility_process",
+        "task_intent_id": "flowguard-regression:release_visibility_process",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the release visibility process model from accepting an invalid, bypassed, stale, or incomplete release visibility process outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "release_visibility_process:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in release_visibility_process candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:release_visibility_process:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "release_visibility_process:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:release_visibility_process:declared-negative-suite",
+            "oracle_id": "native:release_visibility_process:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:release_visibility_process"
+        ],
+        "model_sha256": "sha256:94e9ba9e5f4c3c1b5c63fbbd83055f995f2897f39c706b5d21e6e72d8c460b13",
+        "runner_sha256": "sha256:b9b2b780365e5da1be5115aa1aa020acdce5375f90a70a6aae6494569e54f264",
+        "declaration_fingerprint": "sha256:df3e9382693fb2ffe2b61e6cbcf08339cabf1d9fb93fe845f2c4cf6e8007fc1f",
+        "closure_fingerprint": "sha256:ed28c2ae8b586bdd0643e4a3a3ada5fbc2168007f827c85c17231ca94787d552"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -841,7 +2013,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:risk_purpose_header:current",
+        "reusable_model_type_id": "risk_purpose_header",
+        "task_intent_id": "flowguard-regression:risk_purpose_header",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the risk purpose header model from accepting an invalid, bypassed, stale, or incomplete risk purpose header outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "risk_purpose_header:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in risk_purpose_header candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:risk_purpose_header:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "risk_purpose_header:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:risk_purpose_header:declared-negative-suite",
+            "oracle_id": "native:risk_purpose_header:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:risk_purpose_header"
+        ],
+        "model_sha256": "sha256:6c4a2904f89725701d1e59ede4ab919df8e8a41a2eef987fecfc787e897e8e84",
+        "runner_sha256": "sha256:ddd52e1a14cd7fd99bc54a0320fd9256c6d74fa1f2a060c63af99916810681e0",
+        "declaration_fingerprint": "sha256:9c8fd25835fb1677a5b2958b891f8fb90c71864cbe957c826946739029ccfd65",
+        "closure_fingerprint": "sha256:4a92ff520ba33a1c8954846e4cda01ba4e0e22bd4544538441b3ea7624c1369d"
+      }
     },
     {
       "absence_reason": "",
@@ -861,7 +2061,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:runtime_gateway_adoption:current",
+        "reusable_model_type_id": "runtime_gateway_adoption",
+        "task_intent_id": "flowguard-regression:runtime_gateway_adoption",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the runtime gateway adoption model from accepting an invalid, bypassed, stale, or incomplete runtime gateway adoption outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "runtime_gateway_adoption:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in runtime_gateway_adoption candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:runtime_gateway_adoption:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "runtime_gateway_adoption:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:runtime_gateway_adoption:declared-negative-suite",
+            "oracle_id": "native:runtime_gateway_adoption:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:runtime_gateway_adoption"
+        ],
+        "model_sha256": "sha256:a8ca74e658f8fa2c1ee7d0bf8758f5fcd552dd47e2f28b528a84ad98fbd45466",
+        "runner_sha256": "sha256:cd67bb44174d3735faf148ce3376478ce5d6cd3c5bf968238d3d6e3ff0214d76",
+        "declaration_fingerprint": "sha256:38f3431f5bfe2996600b0864dca3ee108475481a9c9f311bf6c55455bf8feb85",
+        "closure_fingerprint": "sha256:24715b43b0439928084f8a74cbd40ab7c34cf64d358def75eaaa67b20a8e6dd6"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -881,7 +2109,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:runtime_path_evidence:current",
+        "reusable_model_type_id": "runtime_path_evidence",
+        "task_intent_id": "flowguard-regression:runtime_path_evidence",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the runtime path evidence model from accepting the native runtime path evidence missing failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "runtime_path_evidence_missing"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in runtime_path_evidence candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:runtime_path_evidence:correct_runtime_path_evidence_flow",
+        "failure_bindings": [
+          {
+            "failure_id": "runtime_path_evidence_missing",
+            "known_bad_case_id": "native-runner:runtime_path_evidence:broken_runtime_path_evidence_flow",
+            "oracle_id": "native:runtime_path_evidence:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:runtime_path_evidence"
+        ],
+        "model_sha256": "sha256:24851092e2c11f5d5d27a85f92e3d1e3d24b8f8665489d216bd7b65eaf541f0e",
+        "runner_sha256": "sha256:912c38a03b8e9a608490f88ee0e4cbe2ebf1f5d29e1b286b8be5461abd1c4220",
+        "declaration_fingerprint": "sha256:26d613658f0e39d0b0cfd25e8f3d749bce07b5e0b3688b46a46b6ab83651ef9b",
+        "closure_fingerprint": "sha256:c5d5993b14af802cb5268268f9df6047fa20bb156b6c4d56f7db9c07434ce588"
+      }
     },
     {
       "absence_reason": "",
@@ -901,7 +2157,35 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:self_maintenance_mesh:current",
+        "reusable_model_type_id": "self_maintenance_mesh",
+        "task_intent_id": "flowguard-regression:self_maintenance_mesh",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the self maintenance mesh model from accepting the native self maintenance incomplete failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "self_maintenance_incomplete"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in self_maintenance_mesh candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:self_maintenance_mesh:receipt-bound-correct-model",
+        "failure_bindings": [
+          {
+            "failure_id": "self_maintenance_incomplete",
+            "known_bad_case_id": "native-runner:self_maintenance_mesh:broken_synthetic_all_flags",
+            "oracle_id": "native:self_maintenance_mesh:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:self_maintenance_mesh"
+        ],
+        "model_sha256": "sha256:56707f88d97b5f682ed402344af7a700cb190aa4eef22553a8f2f049e23e7281",
+        "runner_sha256": "sha256:82520f4e555c5b0f115ad66fe6010b86e6f94f2d4b112944de035389bdb4721f",
+        "declaration_fingerprint": "sha256:a02cbef5dff567145b77d292b750ecc6d2ed5276609b5b3c61a9f39bbffc9545",
+        "closure_fingerprint": "sha256:05a11139f5f763d49789b66bd2f9de39e07d35a33db1cc97f09006b27a405e61"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -921,7 +2205,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:simplify_field_schema:current",
+        "reusable_model_type_id": "simplify_field_schema",
+        "task_intent_id": "flowguard-regression:simplify_field_schema",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the simplify field schema model from accepting the native field schema fallback retained failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "field_schema_fallback_retained"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in simplify_field_schema candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:simplify_field_schema:correct_field_schema_cleanup",
+        "failure_bindings": [
+          {
+            "failure_id": "field_schema_fallback_retained",
+            "known_bad_case_id": "native-runner:simplify_field_schema:broken_keeps_fallback_surface",
+            "oracle_id": "native:simplify_field_schema:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:simplify_field_schema"
+        ],
+        "model_sha256": "sha256:2d9eb001d21796c33544839f29536c178d81f7996206ad8a3901ff7e4ad59616",
+        "runner_sha256": "sha256:87168c7fc14617029dd491bab2abf8a8da070d24dc9b4e165d4a877dc4aee340",
+        "declaration_fingerprint": "sha256:de6da0b94e416136b73215487446f1a3b26b4fcaf6698abd002d1d34ea377fc0",
+        "closure_fingerprint": "sha256:d5b33287f1990c921974b350680297065087770d003dbf0f81ced117afe72d39"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -941,7 +2253,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:simplify_flowguard_structure:current",
+        "reusable_model_type_id": "simplify_flowguard_structure",
+        "task_intent_id": "flowguard-regression:simplify_flowguard_structure",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the simplify flowguard structure model from accepting an invalid, bypassed, stale, or incomplete simplify flowguard structure outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "simplify_flowguard_structure:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in simplify_flowguard_structure candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:simplify_flowguard_structure:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "simplify_flowguard_structure:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:simplify_flowguard_structure:declared-negative-suite",
+            "oracle_id": "native:simplify_flowguard_structure:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:simplify_flowguard_structure"
+        ],
+        "model_sha256": "sha256:505fc3df1cf7169526ce48cd7c6da31749ef17aacf5f36f36cdcbf89ef518c44",
+        "runner_sha256": "sha256:91ee7cddb5623f8634c56a7e072d9de1f8f742101f27f7926a541a27d0d2b9ed",
+        "declaration_fingerprint": "sha256:8af974902d3bd703a7cb7fab55b2b4e19a85fe8c90fd7427628a2e0d36ac06f2",
+        "closure_fingerprint": "sha256:f94b3cbde532ac04a15a976c2c68bb046e31664a48c8f03639e4a8309451990b"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -961,7 +2301,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:skill_kernel_modularization:current",
+        "reusable_model_type_id": "skill_kernel_modularization",
+        "task_intent_id": "flowguard-regression:skill_kernel_modularization",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the skill kernel modularization model from accepting an invalid, bypassed, stale, or incomplete skill kernel modularization outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "skill_kernel_modularization:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in skill_kernel_modularization candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:skill_kernel_modularization:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "skill_kernel_modularization:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:skill_kernel_modularization:declared-negative-suite",
+            "oracle_id": "native:skill_kernel_modularization:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:skill_kernel_modularization"
+        ],
+        "model_sha256": "sha256:15d1b58ef3c686e46d920b1154fcfa467a13670dbda03348bfcc3b2b1362599f",
+        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "declaration_fingerprint": "sha256:67bb15edd41edf3f90db51a5816f6b4e990e868bb116ce03f387003188f2e848",
+        "closure_fingerprint": "sha256:686ad4abae0cf54486c18b2017706d02b398eebf9d792fc1871d9574c0e1fc80"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local OpenSpec reconciliation record and is run when present but is not required in a clean public distribution.",
@@ -982,7 +2350,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:spec_provider_work_packages:current",
+        "reusable_model_type_id": "spec_provider_work_packages",
+        "task_intent_id": "flowguard-regression:spec_provider_work_packages",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the spec provider work packages model from accepting an invalid, bypassed, stale, or incomplete spec provider work packages outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "spec_provider_work_packages:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in spec_provider_work_packages candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:spec_provider_work_packages:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "spec_provider_work_packages:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:spec_provider_work_packages:declared-negative-suite",
+            "oracle_id": "native:spec_provider_work_packages:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:spec_provider_work_packages"
+        ],
+        "model_sha256": "sha256:74ca56149690008a1aa5ceef2d05aa5d0b656ba474c1e2aef7ab0759455d690e",
+        "runner_sha256": "sha256:5ae45c27ee64f4404a670fc31565ba21c7508cf35787e131630f82e871e17061",
+        "declaration_fingerprint": "sha256:b0cfc343287170cdc2af664ef04c0aa949c89ad10105098ee955accecee2e43f",
+        "closure_fingerprint": "sha256:e9549addfa4098f6971da97e3ead926457a98fdc31aa8698335dc21c9f1669ec"
+      }
     },
     {
       "absence_reason": "",
@@ -1002,7 +2398,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:state_closure_gate:current",
+        "reusable_model_type_id": "state_closure_gate",
+        "task_intent_id": "flowguard-regression:state_closure_gate",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the state closure gate model from accepting the native unknown state not safely closed failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "unknown_state_not_safely_closed"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in state_closure_gate candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:state_closure_gate:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "unknown_state_not_safely_closed",
+            "known_bad_case_id": "native-runner:state_closure_gate:declared-negative-suite",
+            "oracle_id": "native:state_closure_gate:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:state_closure_gate"
+        ],
+        "model_sha256": "sha256:0b552a47f2492a9ccd87c1409bb577a72c576ff211398107863d5758c3a727df",
+        "runner_sha256": "sha256:8f3e53dd30b5617e75bcd1242636b433b1ad4568fc0c4b5dd914fffdcbc4dd06",
+        "declaration_fingerprint": "sha256:b9b2b8107f20742c77e2b5af95071e2c0c1b71811fdb5e214be18cc40ef60902",
+        "closure_fingerprint": "sha256:b59827607ef5565436713f93038ddaab1c24d0d2c3ebab47e90f43fd8d002aff"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -1022,7 +2446,35 @@
       ],
       "shard_safe": true,
       "tier": "focused",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:structure_refactor_mesh:current",
+        "reusable_model_type_id": "structure_refactor_mesh",
+        "task_intent_id": "flowguard-regression:structure_refactor_mesh",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the structure refactor mesh model from accepting an invalid, bypassed, stale, or incomplete structure refactor mesh outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "structure_refactor_mesh:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in structure_refactor_mesh candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:structure_refactor_mesh:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "structure_refactor_mesh:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:structure_refactor_mesh:declared-negative-suite",
+            "oracle_id": "native:structure_refactor_mesh:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:structure_refactor_mesh"
+        ],
+        "model_sha256": "sha256:fd0e888bbadb68945d59991386f987b83e3b700db4f51f9c021673104ae4e950",
+        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "declaration_fingerprint": "sha256:f39622bedc3be7c073e0f4a1826ed870e5ad35b98749a65296bb44df89ee7f1b",
+        "closure_fingerprint": "sha256:8b74b830844d4139152553f797abb802b91af748fa14bf26ec75a23802f5e3df"
+      }
     },
     {
       "absence_reason": "",
@@ -1044,7 +2496,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:structure_surface_simplification:current",
+        "reusable_model_type_id": "structure_surface_simplification",
+        "task_intent_id": "flowguard-regression:structure_surface_simplification",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the structure surface simplification model from accepting an invalid, bypassed, stale, or incomplete structure surface simplification outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "structure_surface_simplification:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in structure_surface_simplification candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:structure_surface_simplification:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "structure_surface_simplification:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:structure_surface_simplification:declared-negative-suite",
+            "oracle_id": "native:structure_surface_simplification:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:structure_surface_simplification"
+        ],
+        "model_sha256": "sha256:833d5ba953fb900f68c8e6d71f38f11665b022e7a5d6d925c7a28ab92f0ca7c8",
+        "runner_sha256": "sha256:67ba8ae035cc9482bb9e7ee787ac5bded886b4bacf8136ed422a9e50e96656a5",
+        "declaration_fingerprint": "sha256:3c8845c739a3340eb538efb218eb58e6cf0993f2427d6f40e2a1de097d552a1f",
+        "closure_fingerprint": "sha256:64a04a2ef90b8c1661278c5e86e983a4b22fbab1a4cc8d1bb38ba8f69a7b3044"
+      }
     },
     {
       "absence_reason": "",
@@ -1064,7 +2544,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:template_harvest_closure:current",
+        "reusable_model_type_id": "template_harvest_closure",
+        "task_intent_id": "flowguard-regression:template_harvest_closure",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the template harvest closure model from accepting the native template harvest not closed failure as a valid completed outcome.",
+        "protected_failure_ids": [
+          "template_harvest_not_closed"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in template_harvest_closure candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:template_harvest_closure:correct_template_harvest_closure",
+        "failure_bindings": [
+          {
+            "failure_id": "template_harvest_not_closed",
+            "known_bad_case_id": "native-runner:template_harvest_closure:broken_without_harvest",
+            "oracle_id": "native:template_harvest_closure:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:template_harvest_closure"
+        ],
+        "model_sha256": "sha256:7fa8273f36985eddcf8976df86196b4123850921f053a6012a1150e6a6ccc787",
+        "runner_sha256": "sha256:cf62effc7041c7ee1468a9b65627b1f992da04caf1ea8ea4d6f41f1f85d6812c",
+        "declaration_fingerprint": "sha256:f8576fad21afcd6fa224e4cfbf5aac4ed1c19eca3a0be4fc511ea8cc2e89c18f",
+        "closure_fingerprint": "sha256:b2a208b084f452b64e8f4211ba4b36a13dfee792971341c6de20bbf2a4de27b4"
+      }
     },
     {
       "absence_reason": "",
@@ -1084,7 +2592,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:template_public_release:current",
+        "reusable_model_type_id": "template_public_release",
+        "task_intent_id": "flowguard-regression:template_public_release",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the template public release model from accepting an invalid, bypassed, stale, or incomplete template public release outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "template_public_release:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in template_public_release candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:template_public_release:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "template_public_release:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:template_public_release:declared-negative-suite",
+            "oracle_id": "native:template_public_release:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:template_public_release"
+        ],
+        "model_sha256": "sha256:f4e073bcfbf6d22b4e9fff7d76c6196089ba7921fa5e91176f5122869d90e1a1",
+        "runner_sha256": "sha256:d10ffba9f91383afbf2d05220b782c82811f2768241cccbc5986c04c6592cbdc",
+        "declaration_fingerprint": "sha256:1a7d59214188942e5bf7f92930ecdd309a124e80f39383647de0727be69f3ec7",
+        "closure_fingerprint": "sha256:0b387b89283c3ce7cca85d8afc8c32a0b0ca7f6912e9ed3212a39208d11198e8"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -1104,7 +2640,35 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:test_evidence_mesh:current",
+        "reusable_model_type_id": "test_evidence_mesh",
+        "task_intent_id": "flowguard-regression:test_evidence_mesh",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the test evidence mesh model from accepting an invalid, bypassed, stale, or incomplete test evidence mesh outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "test_evidence_mesh:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in test_evidence_mesh candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:test_evidence_mesh:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "test_evidence_mesh:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:test_evidence_mesh:declared-negative-suite",
+            "oracle_id": "native:test_evidence_mesh:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:test_evidence_mesh"
+        ],
+        "model_sha256": "sha256:4351f66c2ba2fd2ab63caf5b8e7bf871c8653db328d163e10196e076d6805127",
+        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "declaration_fingerprint": "sha256:bb6882342199234e456eadd9a1b276a71c4a9d158a914013ac686c0eef9e374b",
+        "closure_fingerprint": "sha256:21a389ddd0baca22e00aaee9a877125fa0d75dba9ceac21ae0e106c523810929"
+      }
     },
     {
       "absence_reason": "",
@@ -1124,7 +2688,35 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:ui_flow_structure_skill:current",
+        "reusable_model_type_id": "ui_flow_structure_skill",
+        "task_intent_id": "flowguard-regression:ui_flow_structure_skill",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the ui flow structure skill model from accepting an invalid, bypassed, stale, or incomplete ui flow structure skill outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "ui_flow_structure_skill:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in ui_flow_structure_skill candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:ui_flow_structure_skill:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "ui_flow_structure_skill:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:ui_flow_structure_skill:declared-negative-suite",
+            "oracle_id": "native:ui_flow_structure_skill:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:ui_flow_structure_skill"
+        ],
+        "model_sha256": "sha256:95f5fc219f3ff3f8d7d3fa930b7cac19ed1453ae135f318619920e5b22d73a0a",
+        "runner_sha256": "sha256:c23526ec84ae28a82a6b9a8951124a9716b5ad984369b39e095764347433dab0",
+        "declaration_fingerprint": "sha256:2fe78f37bfa49014d0fd8753269c5dd546293ed339a9eb9e4867ae02ced9e210",
+        "closure_fingerprint": "sha256:2b9cdd41f2da8e6881618b68294c9c17cc9f52c2e5bd187d72396ae0b72a87e9"
+      }
     },
     {
       "absence_reason": "",
@@ -1146,7 +2738,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:ui_human_operability_gate:current",
+        "reusable_model_type_id": "ui_human_operability_gate",
+        "task_intent_id": "flowguard-regression:ui_human_operability_gate",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the ui human operability gate model from accepting an invalid, bypassed, stale, or incomplete ui human operability gate outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "ui_human_operability_gate:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in ui_human_operability_gate candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:ui_human_operability_gate:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "ui_human_operability_gate:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:ui_human_operability_gate:declared-negative-suite",
+            "oracle_id": "native:ui_human_operability_gate:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:ui_human_operability_gate"
+        ],
+        "model_sha256": "sha256:8ed2befb699b5d4c151505ed1d7f27571a658ba83e0c4c6863759f7a3c69dcc4",
+        "runner_sha256": "sha256:a94d01a33a8c188dd0eacc82e95bfd2d61c7c9131bccb08567af5d3b50770d46",
+        "declaration_fingerprint": "sha256:1ab7beba16da341e77529ec0ca7216902f6ead01ae41cef727be31919a2e3284",
+        "closure_fingerprint": "sha256:8ae0aa78c80e0b1d0f01b3b8f994ebb2da2aa2cd11c2289b0031b426852790d9"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -1166,7 +2786,35 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:user_facing_model_diagrams:current",
+        "reusable_model_type_id": "user_facing_model_diagrams",
+        "task_intent_id": "flowguard-regression:user_facing_model_diagrams",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the user facing model diagrams model from accepting an invalid, bypassed, stale, or incomplete user facing model diagrams outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "user_facing_model_diagrams:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in user_facing_model_diagrams candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:user_facing_model_diagrams:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "user_facing_model_diagrams:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:user_facing_model_diagrams:declared-negative-suite",
+            "oracle_id": "native:user_facing_model_diagrams:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:user_facing_model_diagrams"
+        ],
+        "model_sha256": "sha256:7825089fd6886ea800ae88ab6effc5ecf0d2a643254740e760fce3d1c7c7eca5",
+        "runner_sha256": "sha256:b7987828daad93eae9d4b4272db3f3b79110379f2792049fd8be01eb964f8832",
+        "declaration_fingerprint": "sha256:6f5cabce42b7096044bfac7508cdc889797746a0eb512c1b80ac8de1f798f09c",
+        "closure_fingerprint": "sha256:69bc6e1fa152972f735de527e19ed418a297094f63dd2285bc7bdd88ad5bffc3"
+      }
     },
     {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
@@ -1188,10 +2836,38 @@
       ],
       "shard_safe": true,
       "tier": "full",
-      "timeout_seconds": 300
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:validation_evidence_gates:current",
+        "reusable_model_type_id": "validation_evidence_gates",
+        "task_intent_id": "flowguard-regression:validation_evidence_gates",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent the validation evidence gates model from accepting an invalid, bypassed, stale, or incomplete validation evidence gates outcome as current FlowGuard evidence.",
+        "protected_failure_ids": [
+          "validation_evidence_gates:invalid-or-incomplete-outcome"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in validation_evidence_gates candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:validation_evidence_gates:declared-positive-suite",
+        "failure_bindings": [
+          {
+            "failure_id": "validation_evidence_gates:invalid-or-incomplete-outcome",
+            "known_bad_case_id": "native-runner:validation_evidence_gates:declared-negative-suite",
+            "oracle_id": "native:validation_evidence_gates:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:validation_evidence_gates"
+        ],
+        "model_sha256": "sha256:07756e071c92a31c4bc8eca91ed9ef763443cc41a1320084929f417dffc56e1f",
+        "runner_sha256": "sha256:5ed9554e15bbeb66080768f8295b7d45a5e5a7b593ff9126d1156c37bc861b13",
+        "declaration_fingerprint": "sha256:75506b7c3f06cdf53ad527db2ce65bd4e001f7449ce3b5624418c890ae471082",
+        "closure_fingerprint": "sha256:3d4980ed5adf9f40ff617f7b1b26117014f654bc183f87fa632f7d70da8b3e9a"
+      }
     }
   ],
-  "schema_version": "flowguard.model_regression_manifest.v1",
+  "schema_version": "flowguard.model_regression_manifest.v2",
   "tier_semantics": {
     "fast": "fast entries only",
     "focused": "fast plus focused entries",

@@ -29,6 +29,7 @@ Accept obligations/contracts/evidence; compare bindings/freshness; block missing
 3. Classify gaps and hand them to TestMesh, maturation, risk, or closure owners.
 
 ## Hard Gates
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
 - Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework. Full confidence requires each obligation to bind one owner contract and current same-plane test.
 - One intent cannot align to two primary paths; facades delegate with current no-independent-success evidence.
 - Opaque family/similarity ids and missing/stale/skipped/audit/payload/target evidence do not count; delegate large evidence explicitly.

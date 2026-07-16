@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import replace
 
 from flowguard import (
     PROCESS_ARTIFACT_CODE,
@@ -19,6 +20,7 @@ from flowguard import (
     PROCESS_EVIDENCE_FIELD_LIFECYCLE,
     PROCESS_EVIDENCE_FIELD_PROJECTION,
     PROCESS_EVIDENCE_FAILED,
+    PROCESS_EVIDENCE_PROCESS_OPTIMIZATION,
     PROCESS_EVIDENCE_UI_SOURCE_BASELINE_GATE,
     PROCESS_EVIDENCE_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
     PROCESS_EVIDENCE_MODEL_MISS_REVIEW,
@@ -67,6 +69,161 @@ def proof_artifact(artifact_id="artifact:unit", *covered):
 
 
 class DevelopmentProcessFlowTests(unittest.TestCase):
+    def test_active_process_optimization_requires_current_typed_evidence(self):
+        current = ProcessEvidence(
+            "optimization:decision:v1",
+            evidence_kind=PROCESS_EVIDENCE_PROCESS_OPTIMIZATION,
+            status=PROCESS_EVIDENCE_PASSED,
+            result_path="tmp/process-optimization.json",
+        )
+        plan = DevelopmentProcessPlan(
+            "optimization-aware-process",
+            evidence=(current,),
+            process_optimization_reasons=("material_rework_risk",),
+            required_process_optimization_evidence_ids=(current.evidence_id,),
+        )
+        current_report = review_development_process_flow(plan)
+        self.assertTrue(current_report.ok)
+        self.assertEqual("selected", current_report.process_optimization_status)
+
+        stale = replace(current, status=PROCESS_EVIDENCE_FAILED)
+        report = review_development_process_flow(replace(plan, evidence=(stale,)))
+        self.assertIn(
+            "process_optimization_evidence_not_current",
+            {finding.code for finding in report.findings},
+        )
+
+        ordinary = review_development_process_flow(DevelopmentProcessPlan("ordinary-process"))
+        self.assertTrue(ordinary.ok)
+        self.assertEqual("not_needed", ordinary.process_optimization_status)
+
+    def test_revalidation_selection_covers_all_requirements_before_cost_tie_breaking(self):
+        evidence = (
+            ProcessEvidence(
+                "unit:a",
+                evidence_kind="unit",
+                status=PROCESS_EVIDENCE_FAILED,
+                validation_requirement_ids=("req:a",),
+                command="pytest a",
+                revalidation_cost=0.75,
+                revalidation_cost_basis="measured",
+            ),
+            ProcessEvidence(
+                "unit:b",
+                evidence_kind="unit",
+                status=PROCESS_EVIDENCE_FAILED,
+                validation_requirement_ids=("req:b",),
+                command="pytest b",
+                revalidation_cost=0.75,
+                revalidation_cost_basis="measured",
+            ),
+            ProcessEvidence(
+                "unit:combined",
+                evidence_kind="unit",
+                status=PROCESS_EVIDENCE_FAILED,
+                validation_requirement_ids=("req:a", "req:b"),
+                command="pytest a b",
+                revalidation_cost=1.0,
+                revalidation_cost_basis="measured",
+            ),
+        )
+        requirements = (
+            ValidationRequirement("req:a", required_evidence_kinds=("unit",)),
+            ValidationRequirement("req:b", required_evidence_kinds=("unit",)),
+        )
+        report = review_development_process_flow(
+            DevelopmentProcessPlan(
+                "coverage-aware-revalidation",
+                evidence=evidence,
+                validation_requirements=requirements,
+            )
+        )
+        self.assertEqual(1, len(report.revalidation_recommendations))
+        recommendation = report.revalidation_recommendations[0]
+        self.assertEqual("unit:combined", recommendation.evidence_id)
+        self.assertEqual(("req:a", "req:b"), recommendation.covered_requirement_ids)
+        self.assertIn("minimum measured-cost set cover", report.revalidation_optimality_boundary)
+
+    def test_estimated_revalidation_cost_does_not_claim_a_minimum(self):
+        evidence = (
+            ProcessEvidence(
+                "unit:focused",
+                evidence_kind="unit",
+                status=PROCESS_EVIDENCE_FAILED,
+                validation_requirement_ids=("req:a",),
+                command="pytest a",
+                revalidation_cost=0.25,
+                revalidation_cost_basis="estimated",
+            ),
+        )
+        report = review_development_process_flow(
+            DevelopmentProcessPlan(
+                "estimated-revalidation",
+                evidence=evidence,
+                validation_requirements=(
+                    ValidationRequirement("req:a", required_evidence_kinds=("unit",)),
+                ),
+            )
+        )
+        self.assertIn("coverage-complete preferred set", report.revalidation_optimality_boundary)
+        self.assertNotIn("measured-cost", report.revalidation_optimality_boundary)
+
+    def spec_process_plan(self):
+        lifecycle = (
+            "spec_provider_read",
+            "spec_reconcile",
+            "spec_session_begin",
+            "spec_check",
+            "spec_post_snapshot",
+            "spec_provider_verify",
+            "spec_sync",
+            "spec_archive_ready",
+        )
+        actions = tuple(
+            ProcessAction(
+                f"spec:{index}:{action_type}",
+                action_type=action_type,
+                order_after=((f"spec:{index - 1}:{lifecycle[index - 1]}",) if index else ()),
+            )
+            for index, action_type in enumerate(lifecycle)
+        )
+        evidence = ProcessEvidence(
+            "evidence:spec-check",
+            status=PROCESS_EVIDENCE_PASSED,
+            spec_work_package_id="change-one",
+            spec_check_id="check.one",
+            spec_session_id="session:one",
+            spec_session_state="closed",
+            spec_begin_fingerprint="sha256:inputs",
+            spec_post_fingerprint="sha256:inputs",
+            spec_close_record_path=".flowguard/evidence/spec-work-packages/sessions/history/one/close.json",
+            spec_consumer_ids=("consumer:one",),
+            spec_execution_state="executed",
+            spec_receipt_id="receipt:one",
+            spec_receipt_fingerprint="sha256:receipt",
+            spec_provider_verified=True,
+            spec_provider_archive_ready=True,
+        )
+        return DevelopmentProcessPlan(
+            "spec-process",
+            actions=actions,
+            evidence=(evidence,),
+            spec_work_package_ids=("openspec:change-one",),
+            required_spec_session_ids=("session:one",),
+            required_spec_receipt_ids=("receipt:one",),
+            require_spec_session_close=True,
+            require_spec_provider_close=True,
+        )
+
+    def test_spec_process_requires_same_session_close_and_terminal_receipt(self):
+        plan = self.spec_process_plan()
+        self.assertTrue(review_development_process_flow(plan).ok)
+
+        stale_evidence = replace(plan.evidence[0], spec_post_fingerprint="sha256:peer-write")
+        report = review_development_process_flow(replace(plan, evidence=(stale_evidence,)))
+        codes = {finding.code for finding in report.findings}
+        self.assertIn("required_spec_session_not_closed", codes)
+        self.assertIn("spec_receipt_binding_incomplete", codes)
     def test_current_v_model_plan_is_green(self):
         plan = DevelopmentProcessPlan(
             "search-lifecycle",

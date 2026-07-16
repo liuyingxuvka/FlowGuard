@@ -1,0 +1,347 @@
+contract_version: 1
+change: reconcile-spec-provider-work-packages-with-flowguard-evidence
+obligations:
+  - id: req.spec.provider-authority
+    source: "specs/spec-provider-work-packages/spec.md#Requirement: Specification providers retain native authority"
+    claim: "OpenSpec and Spec Kit adapters are bounded, read-only, and preserve provider-native task, verification, and archive authority."
+    required: true
+    evidence: [check.spec.focused, check.spec.model, check.spec.provider-audit]
+  - id: req.spec.stable-identities
+    source: "specs/spec-provider-work-packages/spec.md#Requirement: Work-package identities are stable and plane-safe"
+    claim: "Provider/change/task/obligation/check identities stay distinct and the bridge remains in development_process."
+    required: true
+    evidence: [check.spec.focused, check.spec.model]
+  - id: req.spec.bidirectional-reconciliation
+    source: "specs/spec-provider-work-packages/spec.md#Requirement: Task and obligation reconciliation is bidirectionally complete"
+    claim: "In-scope tasks and obligations/checks are mapped in both directions or carry typed scope/owner reasons."
+    required: true
+    evidence: [check.spec.focused, check.spec.model, check.spec.provider-audit]
+  - id: req.spec.input-output-boundary
+    source: "specs/spec-provider-work-packages/spec.md#Requirement: Canonical inputs and derived results are disjoint"
+    claim: "Receipts, reports, results, caches, logs, and temporary artifacts cannot enter the same session input fingerprint."
+    required: true
+    evidence: [check.spec.focused, check.spec.model, check.process.focused, check.openspec.resume]
+  - id: req.spec.session-snapshots
+    source: "specs/spec-provider-work-packages/spec.md#Requirement: Verification uses same-session begin and post snapshots"
+    claim: "FlowGuard sessions bind begin/post inputs, while OpenSpec 1.6 native full verification owns one frozen snapshot and current receipts without nested stateful wrappers."
+    required: true
+    evidence: [check.spec.focused, check.spec.model, check.openspec.resume, check.tests.full]
+  - id: req.spec.immutable-receipts
+    source: "specs/spec-provider-work-packages/spec.md#Requirement: Check receipts are immutable and exact"
+    claim: "Only complete terminal receipts bind exact command/input/tool/environment/coverage identities."
+    required: true
+    evidence: [check.spec.focused, check.process.focused, check.openspec.resume, check.tests.full]
+  - id: req.spec.safe-reuse
+    source: "specs/spec-provider-work-packages/spec.md#Requirement: Reuse and deduplication are fail-closed"
+    claim: "Exact checks execute once, fan out one receipt, and resume reuses only current independent owners while changed owners rerun."
+    required: true
+    evidence: [check.spec.focused, check.spec.model, check.openspec.resume, check.models.full, check.models.full.consumer, check.tests.full]
+  - id: req.spec.states
+    source: "specs/spec-provider-work-packages/spec.md#Requirement: Provider reports distinguish execution states"
+    claim: "Canonical JSON distinguishes executed, reused-current, stale, not-run, and blocked without localized identities."
+    required: true
+    evidence: [check.spec.focused, check.api.cli, check.openspec.resume]
+  - id: req.spec.archive
+    source: "specs/spec-provider-work-packages/spec.md#Requirement: Provider archive readiness is evidence-bound"
+    claim: "Unmapped rows, stale/missing receipts, peer writes, incomplete native verification, or missing frozen evidence block archive readiness."
+    required: true
+    evidence: [check.spec.model, check.process.focused, check.project.audit, check.openspec.strict]
+  - id: req.process.work-packages
+    source: "specs/development-process-flow/spec.md#Requirement: DevelopmentProcessFlow consumes spec work packages"
+    claim: "DevelopmentProcessFlow owns work-package lifecycle order, peer invalidation, and minimum revalidation."
+    required: true
+    evidence: [check.process.focused, check.project.models]
+  - id: req.testmesh.spec-receipts
+    source: "specs/test-evidence-mesh/spec.md#Requirement: TestMesh governs spec-check receipt children"
+    claim: "TestMesh validates one receipt with several consumers and rejects unsafe, stale, incomplete, or implicit reuse."
+    required: true
+    evidence: [check.process.focused, check.project.models, check.models.full.consumer]
+  - id: req.plan.provider-mapping
+    source: "specs/plan-detailing-compiler/spec.md#Requirement: PlanDetail preserves provider task identity and mappings"
+    claim: "PlanDetail projections preserve provider identities and bidirectional mappings."
+    required: true
+    evidence: [check.process.focused, check.project.models]
+  - id: req.preflight.provider-context
+    source: "specs/existing-model-preflight/spec.md#Requirement: ExistingModelPreflight consumes provider context after plane lookup"
+    claim: "Provider context follows plane-first lookup and cannot merge product/process owners."
+    required: true
+    evidence: [check.process.focused, check.project.models]
+  - id: req.proof.session-identity
+    source: "specs/proof-artifact-bound-evidence/spec.md#Requirement: Spec-check proof artifacts bind exact session identity"
+    claim: "Receipt proof and reuse tickets bind the exact immutable session and result."
+    required: true
+    evidence: [check.spec.focused, check.process.focused, check.openspec.resume]
+  - id: req.api.spec-work-package
+    source: "specs/flowguard-api-registry/spec.md#Requirement: Spec work-package APIs have one public owner"
+    claim: "One public module and CLI expose canonical spec work-package models and reports."
+    required: true
+    evidence: [check.api.cli, check.models.full.consumer]
+  - id: req.skills.native-routing
+    source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Native skills route spec reconciliation through existing owners"
+    claim: "Maintained skills preserve native owners and do not project tool-internal fields into product UI rules."
+    required: true
+    evidence: [check.skills.focused, check.skills.static]
+  - id: req.skills.v1-lifecycle
+    source: "specs/flowguard-skill-suite-distribution/spec.md#Requirement: Managed skills declare V1 authority lifecycle"
+    claim: "All seventeen skills resolve honestly as V2-migration until official retirement evidence supports v2-only."
+    required: true
+    evidence: [check.skills.focused, check.skills.static, check.skillguard.project]
+
+checks:
+  - id: check.spec.focused
+    kind: command
+    semantic_check_id: flowguard.spec-work-package.focused
+    execution_id: reconcile-spec-work-package.focused.v2
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: pytest-python-3.12-flowguard-0.55.0
+    input_selectors: [flowguard/spec_work_package.py, flowguard/spec_providers.py, flowguard/spec_check_cache.py, tests/test_spec_work_package.py, tests/test_spec_check_receipts.py]
+    depends_on_receipts: []
+    command: python
+    args: [-m, pytest, -q, tests/test_spec_work_package.py, tests/test_spec_check_receipts.py]
+    timeout_seconds: 600
+    required: true
+    covers: [req.spec.provider-authority, req.spec.stable-identities, req.spec.bidirectional-reconciliation, req.spec.input-output-boundary, req.spec.session-snapshots, req.spec.immutable-receipts, req.spec.safe-reuse, req.spec.states, req.proof.session-identity]
+    expected: {exit_code: 0}
+  - id: check.spec.model
+    kind: command
+    semantic_check_id: flowguard.spec-work-package.model
+    execution_id: reconcile-spec-work-package.model.v2
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: flowguard-model-python-3.12
+    input_selectors: [.flowguard/spec_provider_work_packages/**/*.py, flowguard/spec_work_package.py, flowguard/spec_providers.py, flowguard/model_regressions.py, scripts/run_flowguard_model_regressions.py]
+    depends_on_receipts: [check.spec.focused]
+    command: python
+    args: [scripts/run_flowguard_model_regressions.py, --root, ., --tier, full, --model, spec_provider_work_packages, --jobs, "1", --json]
+    timeout_seconds: 600
+    required: true
+    covers: [req.spec.provider-authority, req.spec.stable-identities, req.spec.bidirectional-reconciliation, req.spec.input-output-boundary, req.spec.session-snapshots, req.spec.safe-reuse, req.spec.archive]
+    expected: {exit_code: 0}
+  - id: check.spec.provider-audit
+    kind: command
+    semantic_check_id: flowguard.spec-work-package.provider-audit
+    execution_id: reconcile-spec-work-package.provider-audit.v2
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: flowguard-0.55.0-openspec-1.6.0
+    input_selectors: [flowguard/spec_work_package.py, flowguard/spec_providers.py, .flowguard/spec_provider_work_packages/bindings.json, openspec/changes/reconcile-spec-provider-work-packages-with-flowguard-evidence/**]
+    depends_on_receipts: [check.spec.focused]
+    command: python
+    args: [-m, flowguard, spec-work-package-audit, --root, ., --provider, openspec, --change, reconcile-spec-provider-work-packages-with-flowguard-evidence, --json]
+    timeout_seconds: 300
+    required: true
+    covers: [req.spec.provider-authority, req.spec.bidirectional-reconciliation]
+    expected: {exit_code: 0}
+  - id: check.process.focused
+    kind: command
+    semantic_check_id: flowguard.spec-owner-process.focused
+    execution_id: reconcile-spec-work-package.process-focused.v2
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: pytest-python-3.12
+    input_selectors: [flowguard/development_process_flow.py, flowguard/testmesh.py, flowguard/plan_detailing.py, flowguard/existing_model_preflight.py, flowguard/test_reuse.py, flowguard/proof_artifact.py, tests/test_development_process_flow.py, tests/test_test_mesh.py, tests/test_plan_detailing.py, tests/test_existing_model_preflight.py, tests/test_test_reuse.py, tests/test_proof_artifact.py]
+    depends_on_receipts: [check.spec.focused]
+    command: python
+    args: [-m, pytest, -q, tests/test_development_process_flow.py, tests/test_test_mesh.py, tests/test_plan_detailing.py, tests/test_existing_model_preflight.py, tests/test_test_reuse.py, tests/test_proof_artifact.py]
+    timeout_seconds: 1200
+    required: true
+    covers: [req.spec.input-output-boundary, req.spec.immutable-receipts, req.spec.archive, req.process.work-packages, req.testmesh.spec-receipts, req.plan.provider-mapping, req.preflight.provider-context, req.proof.session-identity]
+    expected: {exit_code: 0}
+  - id: check.api.cli
+    kind: command
+    semantic_check_id: flowguard.spec-work-package.api-cli
+    execution_id: reconcile-spec-work-package.api-cli.v2
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: pytest-python-3.12
+    input_selectors: [flowguard/__init__.py, flowguard/cli.py, flowguard/spec_work_package.py, flowguard/spec_providers.py, tests/test_api_surface.py, tests/test_spec_work_package_cli.py, tests/test_public_templates.py]
+    depends_on_receipts: [check.spec.focused]
+    command: python
+    args: [-m, pytest, -q, tests/test_api_surface.py, tests/test_spec_work_package_cli.py, tests/test_public_templates.py]
+    timeout_seconds: 900
+    required: true
+    covers: [req.spec.states, req.api.spec-work-package]
+    expected: {exit_code: 0}
+  - id: check.skills.focused
+    kind: command
+    semantic_check_id: flowguard.skills.focused
+    execution_id: reconcile-spec-work-package.skills-focused.v2
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: pytest-python-3.12-skillguard-v2
+    input_selectors: [.agents/skills/**, flowguard/skill_contracts.py, tests/test_skill_contract_v2_projection.py, tests/test_skill_contract_compiler.py, tests/test_skill_prompt_parity.py, tests/test_skill_installed_layout.py, tests/test_skill_suite_inventory.py, tests/test_skill_docs.py]
+    depends_on_receipts: [check.spec.focused]
+    command: python
+    args: [-m, pytest, -q, tests/test_skill_contract_v2_projection.py, tests/test_skill_contract_compiler.py, tests/test_skill_prompt_parity.py, tests/test_skill_installed_layout.py, tests/test_skill_suite_inventory.py, tests/test_skill_docs.py]
+    timeout_seconds: 1800
+    required: true
+    covers: [req.skills.native-routing, req.skills.v1-lifecycle]
+    expected: {exit_code: 0}
+  - id: check.skills.static
+    kind: command
+    semantic_check_id: flowguard.skills.static
+    execution_id: reconcile-spec-work-package.skills-static.v2
+    validation_scope: full
+    snapshot_policy: frozen
+    toolchain_identity: flowguard-skill-suite-static
+    input_selectors: [.agents/skills/**, scripts/check_flowguard_skill_suite.py, scripts/compile_flowguard_skill_contracts.py, flowguard/skill_contracts.py]
+    depends_on_receipts: [check.skills.focused]
+    command: python
+    args: [scripts/check_flowguard_skill_suite.py, --scope, static, --root, ., --json]
+    timeout_seconds: 1800
+    required: true
+    covers: [req.skills.native-routing, req.skills.v1-lifecycle]
+    expected: {exit_code: 0}
+  - id: check.skillguard.project
+    kind: command
+    semantic_check_id: skillguard.project-adoption
+    execution_id: reconcile-spec-work-package.skillguard-project.v2
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: skillguard-project-adoption
+    input_selectors: [.agents/skills/**, .skillguard/**, scripts/check_skillguard_project_adoption.py]
+    depends_on_receipts: [check.skills.focused]
+    command: python
+    args: [scripts/check_skillguard_project_adoption.py, --root, ., --json]
+    timeout_seconds: 1200
+    required: true
+    covers: [req.skills.v1-lifecycle]
+    expected: {exit_code: 0}
+  - id: check.openspec.resume
+    kind: command
+    semantic_check_id: openspec.frozen-resume.independent-owners
+    execution_id: reconcile-spec-work-package.openspec-resume.v2
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: openspec-1.6.0-node-python-3.12
+    input_selectors: [tests/test_openspec_frozen_resume.py, flowguard/spec_providers.py, flowguard/spec_work_package.py]
+    depends_on_receipts: [check.spec.focused]
+    command: python
+    args: [-m, pytest, -q, tests/test_openspec_frozen_resume.py]
+    timeout_seconds: 300
+    required: true
+    covers: [req.spec.input-output-boundary, req.spec.session-snapshots, req.spec.immutable-receipts, req.spec.safe-reuse, req.spec.states, req.proof.session-identity]
+    expected: {exit_code: 0}
+  - id: check.project.models
+    kind: command
+    semantic_check_id: flowguard.spec-owner-models
+    execution_id: reconcile-spec-work-package.owner-models.v2
+    validation_scope: full
+    snapshot_policy: frozen
+    toolchain_identity: flowguard-model-runner-0.55.0
+    input_selectors: [.flowguard/spec_provider_work_packages/**, .flowguard/development_process_flow/**, .flowguard/test_evidence_mesh/**, .flowguard/self_maintenance_mesh/**, .flowguard/existing_model_preflight/**, .flowguard/plan_detailing_compiler/**, scripts/run_flowguard_model_regressions.py]
+    depends_on_receipts: [check.spec.model, check.process.focused, check.skills.static]
+    command: python
+    args: [scripts/run_flowguard_model_regressions.py, --root, ., --tier, full, --model, spec_provider_work_packages, --model, development_process_flow, --model, test_evidence_mesh, --model, self_maintenance_mesh, --model, existing_model_preflight, --model, plan_detailing_compiler, --jobs, "1", --json]
+    timeout_seconds: 2400
+    required: true
+    covers: [req.process.work-packages, req.testmesh.spec-receipts, req.plan.provider-mapping, req.preflight.provider-context]
+    expected: {exit_code: 0}
+  - id: check.models.full
+    kind: command
+    semantic_check_id: flowguard.models.full
+    execution_id: reconcile-spec-work-package.models-full.v2
+    validation_scope: full
+    snapshot_policy: frozen
+    toolchain_identity: flowguard-model-runner-0.55.0
+    input_selectors: [.flowguard/**/*.py, flowguard/**/*.py, scripts/run_flowguard_model_regressions.py]
+    depends_on_receipts: [check.project.models, check.skillguard.project, check.openspec.resume]
+    command: python
+    args: [scripts/run_flowguard_model_regressions.py, --root, ., --tier, full, --jobs, "1", --json]
+    timeout_seconds: 7200
+    required: true
+    covers: [req.spec.safe-reuse]
+    expected: {exit_code: 0}
+  - id: check.models.full.consumer
+    kind: receipt
+    semantic_check_id: flowguard.models.full.consumer.spec-work-package
+    execution_id: reconcile-spec-work-package.models-full-consumer.v2
+    execution_owner: check.models.full
+    consumer: spec-work-package-api-and-testmesh
+    validation_scope: full
+    snapshot_policy: frozen
+    required: true
+    covers: [req.spec.safe-reuse, req.testmesh.spec-receipts, req.api.spec-work-package]
+    expected: {exit_code: 0}
+  - id: check.tests.full
+    kind: command
+    semantic_check_id: flowguard.pytest.full
+    execution_id: reconcile-spec-work-package.pytest-full.v2
+    validation_scope: full
+    snapshot_policy: frozen
+    toolchain_identity: pytest-python-3.12
+    input_selectors: [flowguard/**/*.py, tests/**/*.py, scripts/**/*.py, .agents/skills/**, assets/**, docs/**]
+    depends_on_receipts: [check.models.full]
+    command: python
+    args: [-m, pytest, -q]
+    timeout_seconds: 10800
+    required: true
+    covers: [req.spec.immutable-receipts, req.spec.safe-reuse, req.spec.session-snapshots]
+    expected: {exit_code: 0}
+  - id: check.project.audit
+    kind: command
+    semantic_check_id: flowguard.project-audit
+    execution_id: reconcile-spec-work-package.project-audit.v2
+    validation_scope: full
+    snapshot_policy: frozen
+    toolchain_identity: flowguard-0.55.0-python-3.12
+    input_selectors: [.flowguard/project.toml, AGENTS.md, flowguard/**/*.py, .flowguard/**/*.py]
+    depends_on_receipts: [check.tests.full, check.skillguard.project]
+    command: python
+    args: [-m, flowguard, project-audit, --root, ., --json]
+    timeout_seconds: 600
+    required: true
+    covers: [req.spec.archive, req.process.work-packages, req.skills.v1-lifecycle]
+    expected: {exit_code: 0}
+  - id: check.openspec.strict
+    kind: command
+    semantic_check_id: openspec.change.strict
+    execution_id: reconcile-spec-work-package.openspec-strict.v2
+    validation_scope: full
+    snapshot_policy: frozen
+    toolchain_identity: openspec-1.6.0-node-22
+    input_selectors: [openspec/changes/reconcile-spec-provider-work-packages-with-flowguard-evidence/**, openspec/specs/**]
+    depends_on_receipts: [check.project.audit]
+    command: openspec
+    args: [validate, reconcile-spec-provider-work-packages-with-flowguard-evidence, --type, change, --strict, --no-interactive]
+    timeout_seconds: 600
+    required: true
+    covers: [req.spec.archive]
+    expected: {exit_code: 0}
+
+freshness:
+  watch:
+    - openspec/changes/reconcile-spec-provider-work-packages-with-flowguard-evidence/proposal.md
+    - openspec/changes/reconcile-spec-provider-work-packages-with-flowguard-evidence/design.md
+    - openspec/changes/reconcile-spec-provider-work-packages-with-flowguard-evidence/tasks.md
+    - openspec/changes/reconcile-spec-provider-work-packages-with-flowguard-evidence/specs/**/*.md
+    - openspec/changes/reconcile-spec-provider-work-packages-with-flowguard-evidence/verification-contract.yaml
+    - openspec/specs/**/*.md
+    - flowguard/**/*.py
+    - .flowguard/**/*.py
+    - .flowguard/project.toml
+    - .agents/skills/*/SKILL.md
+    - .agents/skills/*/agents/openai.yaml
+    - .agents/skills/*/references/**/*.md
+    - .agents/skills/*/.skillguard/contract-source.json
+    - .agents/skills/*/.skillguard/compiled-contract.json
+    - .agents/skills/*/.skillguard/check-manifest.json
+    - docs/**/*.md
+    - scripts/**/*.py
+    - tests/**/*.py
+    - AGENTS.md
+    - README.md
+    - CHANGELOG.md
+    - pyproject.toml
+  exclude:
+    - "**/verification-report.json"
+    - "**/verification-receipts/**"
+    - "**/.skillguard/runs/**"
+    - "**/.skillguard/reports/**"
+    - "**/.skillguard/evidence/**"
+    - "**/.flowguard/evidence/**"
+    - "**/run-artifacts/**"
+    - "**/run_artifacts/**"
+    - "**/__pycache__/**"
+    - "**/.pytest_cache/**"

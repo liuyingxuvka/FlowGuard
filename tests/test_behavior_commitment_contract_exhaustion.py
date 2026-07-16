@@ -44,7 +44,7 @@ class BehaviorCommitmentContractExhaustionTests(unittest.TestCase):
         self.assertIn("relation_target_plane", axis_ids)
         self.assertIn("relation_state", axis_ids)
         self.assertIn("lookup_binding_state", axis_ids)
-        self.assertIn("authority_shape_state", axis_ids)
+        self.assertIn("migration_state", axis_ids)
 
     def test_dcar_groups_include_change_freshness_replacement_and_model_miss_backfeed(self):
         group_ids = {group.group_id for group in default_behavior_commitment_interaction_groups()}
@@ -52,11 +52,11 @@ class BehaviorCommitmentContractExhaustionTests(unittest.TestCase):
         self.assertIn("replacement_model_sync", group_ids)
         self.assertIn("model_miss_backfeed", group_ids)
         self.assertIn("exact_intent_semantic_uniqueness", group_ids)
-        self.assertIn("singular_primary_path_current_shape", group_ids)
+        self.assertIn("singular_primary_path_migration", group_ids)
         self.assertIn("delegate_surface_not_commitment", group_ids)
         self.assertIn("plane_kind_actor", group_ids)
         self.assertIn("cross_plane_relation", group_ids)
-        self.assertIn("lookup_authority_shape", group_ids)
+        self.assertIn("lookup_migration_state", group_ids)
         self.assertIn("model_miss_plane_backfeed", group_ids)
 
     def test_plane_relation_lookup_and_miss_cases_have_stable_downstream_evidence(self):
@@ -68,7 +68,7 @@ class BehaviorCommitmentContractExhaustionTests(unittest.TestCase):
         for group_id in (
             "plane_kind_actor",
             "cross_plane_relation",
-            "lookup_authority_shape",
+            "lookup_migration_state",
             "model_miss_plane_backfeed",
         ):
             self.assertTrue(

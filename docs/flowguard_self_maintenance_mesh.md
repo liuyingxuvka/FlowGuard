@@ -78,25 +78,23 @@ profiles, field layers, child reports, install/shadow sync, and git boundary
 are current enough for the self-maintenance claim. It does not replace the
 specialist route checks or full release evidence.
 
-The model uses the exact 17 canonical skill identities when rehearsing its own
-child-report gate, but it does not execute SkillGuard or copy a provider's
-verification contract. The SkillGuard parent owner verifies real skill
-receipts, while DevelopmentProcessFlow and the Spec Work Package own provider
-session, receipt freshness, and archive closure. Unrelated child identities or
-wrong-plane completion authority cannot satisfy the self-maintenance gate.
+For the behavior-plane upgrade, the model additionally rejects evidence unless
+it sees the exact 17 canonical skill receipt identities and the exact 12 check
+identities declared by that change's verification contract, with terminal
+status and the current contract fingerprint. Unrelated local-green receipts,
+progress-only full tests, V2 contract declarations presented as installation
+proof, or wrong-plane completion authority cannot satisfy the gate.
 
 This is a gate-semantics check, not the child evidence itself:
 
 ```text
 self-maintenance model green
-!= SkillGuard, Spec Work Package, or release evidence is current
+!= all behavior-plane upgrade evidence is current
 ```
 
-The final DevelopmentProcessFlow/TestMesh claim consumes the real terminal
-owner receipts through the Spec Work Package. A cross-change-safe full check
-runs once for one frozen execution identity; each downstream change receives a
-consumer-local portable reference and a light aggregate receipt, not a copied
-receipt or a second execution. In a shadow workspace without `.git`, an empty
-mutation list is not proof that files stayed unchanged; use an explicit
-before/after source hash manifest and rerun only a child made stale by a later
-functional input change.
+The final DevelopmentProcessFlow/TestMesh claim must consume the real terminal
+receipts for those 12 checks, including run id, status, exit code, result path
+and fingerprint, covered ids, inventory revision, and artifact/verifier
+versions. In a shadow workspace without `.git`, an empty mutation list is not
+proof that files stayed unchanged; use an explicit before/after source hash
+manifest and rerun any child made stale by later writes.

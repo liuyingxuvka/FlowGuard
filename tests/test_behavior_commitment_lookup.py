@@ -230,7 +230,7 @@ class BehaviorCommitmentLookupTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertLessEqual(len(first["primary_hits"]), 1)
 
-    def test_missing_ledger_is_a_blocked_lookup_with_status_reason(self):
+    def test_missing_ledger_is_a_blocked_lookup_with_fallback_reason(self):
         report = query_behavior_commitments_from_path(
             Path("missing") / "ledger.json",
             BehaviorLookupQuery(task_summary="download"),
@@ -238,8 +238,7 @@ class BehaviorCommitmentLookupTests(unittest.TestCase):
 
         self.assertEqual(BCL_LOOKUP_STATUS_BLOCKED, report.status)
         self.assertFalse(report.ok)
-        self.assertIn("ledger", report.status_reason.lower())
-        self.assertNotIn("fallback_reason", report.to_dict())
+        self.assertIn("ledger", report.fallback_reason.lower())
 
     def test_fingerprint_and_canonical_json_are_stable_and_content_bound(self):
         ledger = three_plane_ledger()

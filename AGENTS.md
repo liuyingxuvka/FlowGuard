@@ -5,7 +5,7 @@
 ## FlowGuard Project Rules
 
 This project uses FlowGuard for non-trivial maintenance, feature work, bug
-fixes, refactors, tests, release work, direct current replacement, and evidence-sensitive
+fixes, refactors, tests, release work, project upgrades, and evidence-sensitive
 process changes.
 
 <!-- flowguard-rule:project.repository -->
@@ -33,7 +33,7 @@ Project FlowGuard record:
 <!-- flowguard-rule:project.rendered_versions -->
 
 Current adoption record:
-- FlowGuard check-engine version: `0.55.0`
+- FlowGuard check-engine version: `0.56.0`
 - FlowGuard schema version: `1.0`
 
 <!-- flowguard-rule:project.preflight_version_gate -->
@@ -47,27 +47,25 @@ Before non-trivial work:
    `python -m flowguard project-audit --root .`
 4. Compare the installed version with `.flowguard/project.toml`.
 5. If the installed version is newer, run:
-   `python -m flowguard project-adopt --root .`
-   This directly replaces the managed project record with the one current
-   FlowGuard shape. It does not read, convert, migrate, alias, or preserve an
-   older FlowGuard skill/runtime shape. Then rerun only affected models/tests.
+   `python -m flowguard project-upgrade --root .`
+   This updates the project record and scans existing FlowGuard artifacts,
+   model evidence, tests, docs, and guidance for deterministic upgrades into
+   the current FlowGuard shape. Use `--records-only` only when intentionally
+   scoping out artifact/model/test upgrade scanning.
+   Then rerun affected models/tests before broad confidence and record the result.
 6. If the installed version is older than the project record, stop and connect
    a current FlowGuard check engine before claiming FlowGuard confidence.
 
-<!-- flowguard-rule:runtime.current_authority_only -->
+<!-- flowguard-rule:runtime.latest_schema_first -->
 
-FlowGuard skill and runtime guidance has one current authority only.
-Former FlowGuard skill, model, check, receipt, and project-control shapes are
-blocked and may appear only as exact rejection fixtures. There is no normal
-compatibility reader, migration command, upgrade route, converter, alias,
-renewal route, or fallback success path. Ordinary software may read historical
-documents, data, or interfaces only when an explicit requirement assigns a
-bounded FlowGuard owner, accepted and rejected cases, and a claim boundary.
+FlowGuard runtime guidance is latest-schema-first: old artifacts may be
+detected and upgraded at project/tool boundaries, but normal route logic should
+not keep long-lived old branches for obsolete fields, aliases, or wrappers.
 
 <!-- flowguard-rule:lifecycle.default_replacement -->
 
 Default replacement means dispose the old path, old field, alias, wrapper, or
-alternate success path. Delete, block, delegate, repair, replace, or
+alternate success path. Delete, block, migrate, delegate, repair, replace, or
 scope it out with a concrete reason; do not leave it as a second successful
 route.
 
@@ -156,12 +154,23 @@ default.
 Non-trivial rough-plan discussion, multi-skill/tool workflow setup, staged
 execution, install/sync, release/archive/publish, post-change owner scans, and
 final process claims enter `flowguard-development-process-flow` first as the
-development-process simulator. Record `plan_detailing`, `agent_workflow`, and
-`execution_freshness` modes; delegate to PlanDetailing or
+development-process simulator. Record `plan_detailing`, internal
+`strategy_selection`, `agent_workflow`, and `execution_freshness` modes in that
+order; delegate to PlanDetailing or
 AgentWorkflowRehearsal only when explicit or simulator-selected.
 DevelopmentProcessFlow owns lifecycle order/freshness; AgentWorkflowRehearsal
 owns AI-operation planning. Both may reference product commitments and their
-evidence without copying product behavior into their own steps.
+evidence without copying product behavior into their own steps. Internal
+`strategy_selection` stays inactive unless `explicit_request`,
+`multiple_equivalent_routes`, `material_rework_risk`, or
+`diagnostic_boundary_choice` applies. When active, first prove
+outcome/obligation-evidence/safety/protected-side-effect/dependency-authority/
+execution-owner equivalence, then choose `targeted`, `declared_complete`, or
+`budgeted` diagnosis plus `sequential` or isolation-proven `safe_parallel`
+execution. Hard blockers stop invalid descendants and material evidence stales
+the decision. TestMesh owns diagnostic accounting; relation-backed repair
+groups use ordinary primary-owner evidence and affected revalidation.
+Estimated comparison may support a preference, never a global optimum.
 
 <!-- flowguard-rule:process.spec_work_package_reconciliation -->
 
@@ -181,20 +190,6 @@ open obligations, or split/reduction pressure. The scan output routes each gap
 to the owning specialist, such as Model-Test Alignment, Architecture
 Reduction, StructureMesh, ModelMesh, TestMesh, or AgentWorkflowRehearsal.
 
-<!-- flowguard-rule:validation.native_owner_receipts -->
-
-Keep every native test with exactly one existing owner. Before validation,
-list the affected native checks, owner, exact functional input components, and
-receipt order. SkillGuard/TestMesh may request a missing owner receipt and
-aggregate current receipts, but a consumer must not copy, wrap, or carry the
-owner command. Only a declared functional input change invalidates that owner;
-reports, receipts, logs, timestamps, task checkmarks, and install bookkeeping
-are outputs and must not trigger native retesting. Run one final full gate only
-after source and tool identities freeze, under one explicit owner, never through
-`--resume`, a scheduled task, a background retry, or an unattended helper. If
-a launcher times out or is interrupted, confirm the whole descendant process
-tree is absent before accepting evidence or starting another validation.
-
 <!-- flowguard-rule:claim.no_fake_adoption -->
 
 Do not create a fake local FlowGuard replacement. Do not claim full FlowGuard
@@ -211,34 +206,32 @@ This repository contains skills maintained with SkillGuard. For non-trivial skil
 Canonical SkillGuard repository: https://github.com/liuyingxuvka/SkillGuard
 
 Managed skills:
-- `.agents/skills/flowguard-agent-workflow-rehearsal` — integration=`native-integrated`, native owner=`development_process_flow`, route evidence=`.agents/skills/flowguard-agent-workflow-rehearsal/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-architecture-reduction` — integration=`native-integrated`, native owner=`architecture_reduction`, route evidence=`.agents/skills/flowguard-architecture-reduction/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-behavior-commitment-ledger` — integration=`native-integrated`, native owner=`behavior_commitment_ledger`, route evidence=`.agents/skills/flowguard-behavior-commitment-ledger/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-code-structure-recommendation` — integration=`native-integrated`, native owner=`code_structure_recommendation`, route evidence=`.agents/skills/flowguard-code-structure-recommendation/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-contract-exhaustion-mesh` — integration=`native-integrated`, native owner=`contract_exhaustion_mesh`, route evidence=`.agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-development-process-flow` — integration=`native-integrated`, native owner=`development_process_flow`, route evidence=`.agents/skills/flowguard-development-process-flow/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-existing-model-preflight` — integration=`native-integrated`, native owner=`existing_model_preflight`, route evidence=`.agents/skills/flowguard-existing-model-preflight/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-field-lifecycle-mesh` — integration=`native-integrated`, native owner=`field_lifecycle_mesh`, route evidence=`.agents/skills/flowguard-field-lifecycle-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-model-mesh` — integration=`native-integrated`, native owner=`model_mesh_maintenance`, route evidence=`.agents/skills/flowguard-model-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-model-miss-review` — integration=`native-integrated`, native owner=`model_miss_review`, route evidence=`.agents/skills/flowguard-model-miss-review/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-model-test-alignment` — integration=`native-integrated`, native owner=`model_test_alignment`, route evidence=`.agents/skills/flowguard-model-test-alignment/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-model-topology-hazard-review` — integration=`native-integrated`, native owner=`model_topology_hazard_review`, route evidence=`.agents/skills/flowguard-model-topology-hazard-review/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-plan-detailing-compiler` — integration=`native-integrated`, native owner=`development_process_flow`, route evidence=`.agents/skills/flowguard-plan-detailing-compiler/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-structure-mesh` — integration=`native-integrated`, native owner=`structure_mesh_maintenance`, route evidence=`.agents/skills/flowguard-structure-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-test-mesh` — integration=`native-integrated`, native owner=`test_mesh_maintenance`, route evidence=`.agents/skills/flowguard-test-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-ui-flow-structure` — integration=`native-integrated`, native owner=`ui_flow_structure`, route evidence=`.agents/skills/flowguard-ui-flow-structure/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/model-first-function-flow` — integration=`native-integrated`, native owner=`model_first_function_flow`, route evidence=`.agents/skills/model-first-function-flow/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-agent-workflow-rehearsal` — native owner=`development_process_flow`, route evidence=`.agents/skills/flowguard-agent-workflow-rehearsal/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-architecture-reduction` — native owner=`architecture_reduction`, route evidence=`.agents/skills/flowguard-architecture-reduction/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-behavior-commitment-ledger` — native owner=`behavior_commitment_ledger`, route evidence=`.agents/skills/flowguard-behavior-commitment-ledger/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-code-structure-recommendation` — native owner=`code_structure_recommendation`, route evidence=`.agents/skills/flowguard-code-structure-recommendation/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-contract-exhaustion-mesh` — native owner=`contract_exhaustion_mesh`, route evidence=`.agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-development-process-flow` — native owner=`development_process_flow`, route evidence=`.agents/skills/flowguard-development-process-flow/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-existing-model-preflight` — native owner=`existing_model_preflight`, route evidence=`.agents/skills/flowguard-existing-model-preflight/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-field-lifecycle-mesh` — native owner=`field_lifecycle_mesh`, route evidence=`.agents/skills/flowguard-field-lifecycle-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-model-mesh` — native owner=`model_mesh_maintenance`, route evidence=`.agents/skills/flowguard-model-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-model-miss-review` — native owner=`model_miss_review`, route evidence=`.agents/skills/flowguard-model-miss-review/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-model-test-alignment` — native owner=`model_test_alignment`, route evidence=`.agents/skills/flowguard-model-test-alignment/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-model-topology-hazard-review` — native owner=`model_topology_hazard_review`, route evidence=`.agents/skills/flowguard-model-topology-hazard-review/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-plan-detailing-compiler` — native owner=`development_process_flow`, route evidence=`.agents/skills/flowguard-plan-detailing-compiler/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-structure-mesh` — native owner=`structure_mesh_maintenance`, route evidence=`.agents/skills/flowguard-structure-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-test-mesh` — native owner=`test_mesh_maintenance`, route evidence=`.agents/skills/flowguard-test-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-ui-flow-structure` — native owner=`ui_flow_structure`, route evidence=`.agents/skills/flowguard-ui-flow-structure/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/model-first-function-flow` — native owner=`model_first_function_flow`, route evidence=`.agents/skills/model-first-function-flow/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
 
 Required maintenance handoff:
 
 1. Read the target skill's `SKILL.md` and its native route/check contracts before editing.
-2. Use SkillGuard to inventory, validate, calibrate, and close non-trivial skill changes.
-3. If the target already has a complete native route, preserve and strengthen that sole current route (`native-integrated`).
-4. If the target route is partial, preserve it and fill only missing gates (`hybrid-extension`).
-5. Add a SkillGuard runtime route only after reviewed evidence proves no native runtime route exists.
-6. Never let SkillGuard replace target-owned domain judgment, simulation, search, modeling, actions, or checks.
-7. Do not claim deep use from contract presence alone; require a current target execution-depth receipt.
-8. If SkillGuard is unavailable or this block/manifest is missing, stale, duplicated, or invalid, report the maintenance result as blocked instead of silently bypassing it.
+2. Use SkillGuard to inventory, run every target-declared check, reconcile exact receipts, and close non-trivial skill changes.
+3. Preserve the target's sole current native route and exact declared checks; SkillGuard never supplies a target-domain route.
+4. Never let SkillGuard replace target-owned domain judgment, simulation, search, modeling, actions, or checks.
+5. Do not claim complete use from contract presence alone; require a current declared-check execution receipt.
+6. If SkillGuard is unavailable or this block/manifest is missing, stale, duplicated, or invalid, report the maintenance result as blocked instead of silently bypassing it.
 
 Validation execution ownership:
 

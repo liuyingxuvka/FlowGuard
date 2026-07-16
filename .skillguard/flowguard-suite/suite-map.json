@@ -194,23 +194,28 @@
   ],
   "evidence_expectations": [
     "Every required member provides SKILL.md and agents/openai.yaml.",
-    "Every required member provides exactly one current SkillGuard contract trio: .skillguard/contract-source.json, compiled-contract.json, and check-manifest.json.",
+    "Every required member provides the current .skillguard/contract-source.json authority plus generated compiled-contract.json and check-manifest.json under a visible .skillguard control root.",
     "Suite membership is reconciled bidirectionally from every directory containing SKILL.md; missing controls remain failures rather than disappearing from discovery.",
-    "A checked suite claim additionally requires the one SkillGuard execution owner, current native receipts, one parent TestMesh receipt, and distribution parity evidence."
+    "A checked suite claim additionally requires current member checks, native command receipts, suite closure, and distribution parity evidence."
   ],
   "maintenance_ownership": [
     "flowguard_self_maintenance owns canonical membership and inventory reconciliation.",
-    "Each satellite owner maintains its prompt, native route binding, and functional tests.",
-    "SkillGuard exclusively owns current contract compilation, validation execution receipts, TestMesh aggregation, and installed authority.",
-    "development_process_flow owns process ordering and distribution synchronization without re-running SkillGuard-owned checks."
+    "Each satellite owner maintains its prompt, native route binding, tests, and current evidence.",
+    "development_process_flow owns validation freshness, distribution synchronization, and release claim boundaries."
   ],
+  "compatibility": {
+    "version_boundary": "FlowGuard >=0.54.0 with skillguard.local_cli_dispatch.v1",
+    "known_incompatibilities": [
+      "The generic SkillGuard compile-contract default creates a parallel skillguard-runtime route for native-integrated FlowGuard skills and must not be used as the canonical compiler."
+    ]
+  },
   "evidence": [
     "Canonical inventory reconciles seventeen declared and discovered members.",
-    "All seventeen current contract trios pass the current SkillGuard static, contract, and depth audit.",
-    "Native receipts and the parent TestMesh receipt are issued once by SkillGuard and consumed read-only by downstream tools."
+    "All seventeen generated contracts pass current SkillGuard static, contract, and depth checks.",
+    "Native receipts and parent self-governance remain separate current-run evidence."
   ],
   "residual_risk": [
     "The map declares membership; it does not by itself execute member-native commands or prove future agent behavior."
   ],
-  "claim_boundary": "This canonical map proves only declared FlowGuard skill-suite membership and ownership metadata. A healthy suite claim additionally requires bidirectional filesystem reconciliation, current contract checks, one-owner native receipts, one parent TestMesh receipt, and source/install parity."
+  "claim_boundary": "This canonical map proves only declared FlowGuard skill-suite membership and ownership metadata. A healthy suite claim additionally requires bidirectional filesystem reconciliation, deep contract checks, current native command receipts, parent closure, and source/install parity."
 }

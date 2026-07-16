@@ -3,12 +3,13 @@
 FlowGuard Risk Purpose Header
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: make FlowGuard's own route graph, field layering, AI entry profiles,
-child route evidence, install sync, shadow sync, and repository boundary visible
-before claiming self-maintenance completion.
+child route evidence, exact change-contract checks, install sync, shadow sync,
+and repository boundary visible before claiming self-maintenance completion.
 Guards against: adding more helpers while leaving routes unconnected, hiding
 required field/evidence expansion, or claiming completion before validation and
-sync evidence is current; unrelated child identities and wrong-plane completion
-authority cannot stand in for the declared self-maintenance evidence.
+sync evidence is current; unrelated local-green receipts, progress-only
+background runs, and wrong-plane completion authority cannot stand in for the
+declared plane-upgrade checks.
 Use before editing: public route API, AI entry guidance, installed skills,
 field lifecycle prompts, structure split plans, and release/sync records.
 Run: python .flowguard/self_maintenance_mesh/run_checks.py
@@ -29,6 +30,17 @@ class SelfMaintenanceAction:
     behavior_plane: str = "development_process"
     verified_child_receipt_ids: tuple[str, ...] = ()
     verification_set_fingerprint: str = ""
+    verified_plane_upgrade_receipt_ids: tuple[str, ...] = ()
+    terminal_plane_upgrade_receipt_ids: tuple[str, ...] = ()
+    progress_only_plane_upgrade_receipt_ids: tuple[str, ...] = ()
+    verification_contract_fingerprint: str = ""
+    verified_spec_work_package_ids: tuple[str, ...] = ()
+    spec_session_id: str = ""
+    spec_session_state: str = ""
+    spec_begin_fingerprint: str = ""
+    spec_post_fingerprint: str = ""
+    spec_close_record_path: str = ""
+    spec_receipt_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -45,6 +57,7 @@ class SelfMaintenanceState:
     ai_profiles_declared: bool = False
     field_layers_declared: bool = False
     child_reports_current: bool = False
+    plane_upgrade_reports_current: bool = False
     behavior_ledger_current: bool = False
     dcar_coverage_current: bool = False
     test_mesh_shards_current: bool = False
@@ -54,8 +67,14 @@ class SelfMaintenanceState:
     install_sync_verified: bool = False
     shadow_sync_checked: bool = False
     git_status_checked: bool = False
+    spec_work_package_evidence_current: bool = False
+    consumed_spec_work_package_ids: tuple[str, ...] = ()
+    consumed_spec_receipt_ids: tuple[str, ...] = ()
     consumed_child_receipt_ids: tuple[str, ...] = ()
     receipt_set_fingerprint: str = ""
+    consumed_plane_upgrade_receipt_ids: tuple[str, ...] = ()
+    terminal_plane_upgrade_receipt_ids: tuple[str, ...] = ()
+    verification_contract_fingerprint: str = ""
     completion_authority_plane: str = ""
     done_claim: str = "none"
 
@@ -68,6 +87,7 @@ class SelfMaintenanceState:
             and self.ai_profiles_declared
             and self.field_layers_declared
             and self.child_reports_current
+            and self.plane_upgrade_reports_current
             and self.behavior_ledger_current
             and self.dcar_coverage_current
             and self.test_mesh_shards_current
@@ -77,16 +97,39 @@ class SelfMaintenanceState:
             and self.install_sync_verified
             and self.shadow_sync_checked
             and self.git_status_checked
+            and self.spec_work_package_evidence_current
         )
 
 
-def _receipt_set_current(input_obj: SelfMaintenanceAction) -> bool:
+def _receipt_sets_current(input_obj: SelfMaintenanceAction) -> tuple[bool, bool, bool]:
     skill_receipt_ids = tuple(input_obj.verified_child_receipt_ids)
-    return (
+    skill_set_current = (
         len(skill_receipt_ids) == len(REQUIRED_SKILL_RECEIPT_IDS)
         and set(skill_receipt_ids) == set(REQUIRED_SKILL_RECEIPT_IDS)
         and bool(input_obj.verification_set_fingerprint)
     )
+
+    plane_receipt_ids = tuple(input_obj.verified_plane_upgrade_receipt_ids)
+    terminal_receipt_ids = tuple(input_obj.terminal_plane_upgrade_receipt_ids)
+    plane_set_current = (
+        len(plane_receipt_ids) == len(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        and set(plane_receipt_ids) == set(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        and len(terminal_receipt_ids) == len(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        and set(terminal_receipt_ids) == set(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        and not input_obj.progress_only_plane_upgrade_receipt_ids
+        and input_obj.verification_contract_fingerprint
+        == PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+    )
+    spec_set_current = (
+        set(input_obj.verified_spec_work_package_ids) == set(REQUIRED_SPEC_WORK_PACKAGE_IDS)
+        and bool(input_obj.spec_session_id)
+        and input_obj.spec_session_state == "closed"
+        and bool(input_obj.spec_begin_fingerprint)
+        and input_obj.spec_begin_fingerprint == input_obj.spec_post_fingerprint
+        and bool(input_obj.spec_close_record_path)
+        and set(input_obj.spec_receipt_ids) == set(REQUIRED_SPEC_RECEIPT_IDS)
+    )
+    return skill_set_current, plane_set_current, spec_set_current
 
 
 class CorrectSelfMaintenance:
@@ -99,6 +142,7 @@ class CorrectSelfMaintenance:
         "ai_profiles_declared",
         "field_layers_declared",
         "child_reports_current",
+        "plane_upgrade_reports_current",
         "behavior_ledger_current",
         "dcar_coverage_current",
         "test_mesh_shards_current",
@@ -108,8 +152,14 @@ class CorrectSelfMaintenance:
         "install_sync_verified",
         "shadow_sync_checked",
         "git_status_checked",
+        "spec_work_package_evidence_current",
+        "consumed_spec_work_package_ids",
+        "consumed_spec_receipt_ids",
         "consumed_child_receipt_ids",
         "receipt_set_fingerprint",
+        "consumed_plane_upgrade_receipt_ids",
+        "terminal_plane_upgrade_receipt_ids",
+        "verification_contract_fingerprint",
         "completion_authority_plane",
         "done_claim",
     )
@@ -119,7 +169,7 @@ class CorrectSelfMaintenance:
     output_description = "self-maintenance state or claim decision"
     idempotency = (
         "Done claims require route graph, profiles, behavior ledger, DCAR, TestMesh, "
-        "model-miss backfeed, exact skill receipts, validation, install, shadow, and repository gates."
+        "model-miss backfeed, exact plane-upgrade receipts, validation, install, shadow, and repository gates."
     )
 
     def apply(self, input_obj: SelfMaintenanceAction, state: SelfMaintenanceState) -> Iterable[FunctionResult]:
@@ -151,23 +201,41 @@ class CorrectSelfMaintenance:
                     replace(state, field_layers_declared=True),
                     label="field_layers_declared",
                 )
-            elif not state.child_reports_current:
+            elif not (
+                state.child_reports_current
+                and state.plane_upgrade_reports_current
+                and state.spec_work_package_evidence_current
+            ):
                 receipt_ids = tuple(input_obj.verified_child_receipt_ids)
-                exact_set = _receipt_set_current(input_obj)
+                plane_receipt_ids = tuple(input_obj.verified_plane_upgrade_receipt_ids)
+                terminal_receipt_ids = tuple(input_obj.terminal_plane_upgrade_receipt_ids)
+                exact_set, plane_exact_set, spec_exact_set = _receipt_sets_current(input_obj)
+                all_current = exact_set and plane_exact_set and spec_exact_set
                 yield FunctionResult(
-                    SelfMaintenanceOutput("receipt_set_consumed" if exact_set else "receipt_set_rejected"),
+                    SelfMaintenanceOutput("receipt_set_consumed" if all_current else "receipt_set_rejected"),
                     replace(
                         state,
                         child_reports_current=exact_set,
-                        behavior_ledger_current=exact_set,
-                        dcar_coverage_current=exact_set,
-                        test_mesh_shards_current=exact_set,
-                        model_miss_backfeed_current=exact_set,
-                        route_api_tested=exact_set,
+                        plane_upgrade_reports_current=plane_exact_set,
+                        behavior_ledger_current=plane_exact_set,
+                        dcar_coverage_current=plane_exact_set,
+                        test_mesh_shards_current=plane_exact_set,
+                        model_miss_backfeed_current=plane_exact_set,
+                        route_api_tested=plane_exact_set,
                         consumed_child_receipt_ids=receipt_ids if exact_set else (),
                         receipt_set_fingerprint=input_obj.verification_set_fingerprint if exact_set else "",
+                        consumed_plane_upgrade_receipt_ids=plane_receipt_ids if plane_exact_set else (),
+                        terminal_plane_upgrade_receipt_ids=terminal_receipt_ids if plane_exact_set else (),
+                        verification_contract_fingerprint=(
+                            input_obj.verification_contract_fingerprint if plane_exact_set else ""
+                        ),
+                        spec_work_package_evidence_current=spec_exact_set,
+                        consumed_spec_work_package_ids=(
+                            tuple(input_obj.verified_spec_work_package_ids) if spec_exact_set else ()
+                        ),
+                        consumed_spec_receipt_ids=(tuple(input_obj.spec_receipt_ids) if spec_exact_set else ()),
                     ),
-                    label="receipt_set_consumed" if exact_set else "receipt_set_rejected",
+                    label="receipt_set_consumed" if all_current else "receipt_set_rejected",
                 )
             elif not state.focused_validation_passed:
                 yield FunctionResult(
@@ -217,21 +285,35 @@ class CorrectSelfMaintenance:
             )
         elif action == "consume_verified_receipt_set":
             receipt_ids = tuple(input_obj.verified_child_receipt_ids)
-            exact_set = _receipt_set_current(input_obj)
+            plane_receipt_ids = tuple(input_obj.verified_plane_upgrade_receipt_ids)
+            terminal_receipt_ids = tuple(input_obj.terminal_plane_upgrade_receipt_ids)
+            exact_set, plane_exact_set, spec_exact_set = _receipt_sets_current(input_obj)
+            all_current = exact_set and plane_exact_set and spec_exact_set
             yield FunctionResult(
-                SelfMaintenanceOutput("receipt_set_consumed" if exact_set else "receipt_set_rejected"),
+                SelfMaintenanceOutput("receipt_set_consumed" if all_current else "receipt_set_rejected"),
                 replace(
                     state,
                     child_reports_current=exact_set,
-                    behavior_ledger_current=exact_set,
-                    dcar_coverage_current=exact_set,
-                    test_mesh_shards_current=exact_set,
-                    model_miss_backfeed_current=exact_set,
-                    route_api_tested=exact_set,
+                    plane_upgrade_reports_current=plane_exact_set,
+                    behavior_ledger_current=plane_exact_set,
+                    dcar_coverage_current=plane_exact_set,
+                    test_mesh_shards_current=plane_exact_set,
+                    model_miss_backfeed_current=plane_exact_set,
+                    route_api_tested=plane_exact_set,
                     consumed_child_receipt_ids=receipt_ids if exact_set else (),
                     receipt_set_fingerprint=input_obj.verification_set_fingerprint if exact_set else "",
+                    consumed_plane_upgrade_receipt_ids=plane_receipt_ids if plane_exact_set else (),
+                    terminal_plane_upgrade_receipt_ids=terminal_receipt_ids if plane_exact_set else (),
+                    verification_contract_fingerprint=(
+                        input_obj.verification_contract_fingerprint if plane_exact_set else ""
+                    ),
+                    spec_work_package_evidence_current=spec_exact_set,
+                    consumed_spec_work_package_ids=(
+                        tuple(input_obj.verified_spec_work_package_ids) if spec_exact_set else ()
+                    ),
+                    consumed_spec_receipt_ids=(tuple(input_obj.spec_receipt_ids) if spec_exact_set else ()),
                 ),
-                label="receipt_set_consumed" if exact_set else "receipt_set_rejected",
+                label="receipt_set_consumed" if all_current else "receipt_set_rejected",
             )
         elif action == "run_focused_validation":
             yield FunctionResult(
@@ -316,6 +398,7 @@ class BrokenSyntheticAllFlags(CorrectSelfMaintenance):
                     state,
                     field_layers_declared=True,
                     child_reports_current=True,
+                    plane_upgrade_reports_current=True,
                     behavior_ledger_current=True,
                     dcar_coverage_current=True,
                     test_mesh_shards_current=True,
@@ -323,6 +406,39 @@ class BrokenSyntheticAllFlags(CorrectSelfMaintenance):
                     route_api_tested=True,
                 ),
                 label="synthetic_all_flags",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
+class BrokenAcceptsUnverifiedPlaneReceipts(CorrectSelfMaintenance):
+    name = "BrokenAcceptsUnverifiedPlaneReceipts"
+    idempotency = "Broken variant trusts caller-supplied receipt identities, progress, and fingerprints."
+
+    def apply(self, input_obj: SelfMaintenanceAction, state: SelfMaintenanceState) -> Iterable[FunctionResult]:
+        if input_obj.action_type == "consume_verified_receipt_set":
+            yield FunctionResult(
+                SelfMaintenanceOutput("receipt_set_consumed"),
+                replace(
+                    state,
+                    child_reports_current=True,
+                    plane_upgrade_reports_current=True,
+                    behavior_ledger_current=True,
+                    dcar_coverage_current=True,
+                    test_mesh_shards_current=True,
+                    model_miss_backfeed_current=True,
+                    route_api_tested=True,
+                    consumed_child_receipt_ids=tuple(input_obj.verified_child_receipt_ids),
+                    receipt_set_fingerprint=input_obj.verification_set_fingerprint,
+                    consumed_plane_upgrade_receipt_ids=tuple(
+                        input_obj.verified_plane_upgrade_receipt_ids
+                    ),
+                    terminal_plane_upgrade_receipt_ids=tuple(
+                        input_obj.terminal_plane_upgrade_receipt_ids
+                    ),
+                    verification_contract_fingerprint=input_obj.verification_contract_fingerprint,
+                ),
+                label="unverified_receipts_consumed",
             )
             return
         yield from super().apply(input_obj, state)
@@ -338,6 +454,7 @@ class BrokenMissingCoverageGate(CorrectSelfMaintenance):
             updates = {
                 "field_layers_declared": True,
                 "child_reports_current": True,
+                "plane_upgrade_reports_current": True,
                 "behavior_ledger_current": True,
                 "dcar_coverage_current": True,
                 "test_mesh_shards_current": True,
@@ -361,6 +478,7 @@ class BrokenMissingCoverageGate(CorrectSelfMaintenance):
                 "ai_profiles_declared": state.ai_profiles_declared,
                 "field_layers_declared": state.field_layers_declared,
                 "child_reports_current": state.child_reports_current,
+                "plane_upgrade_reports_current": state.plane_upgrade_reports_current,
                 "behavior_ledger_current": state.behavior_ledger_current,
                 "dcar_coverage_current": state.dcar_coverage_current,
                 "test_mesh_shards_current": state.test_mesh_shards_current,
@@ -403,6 +521,11 @@ class BrokenMissingModelMissBackfeed(BrokenMissingCoverageGate):
     omitted_gate = "model_miss_backfeed_current"
 
 
+class BrokenMissingPlaneUpgradeReports(BrokenMissingCoverageGate):
+    name = "BrokenMissingPlaneUpgradeReports"
+    omitted_gate = "plane_upgrade_reports_current"
+
+
 class BrokenWrongPlaneCompletionAuthority(CorrectSelfMaintenance):
     name = "BrokenWrongPlaneCompletionAuthority"
     idempotency = "Broken variant lets an agent-operation action own development-process completion."
@@ -422,6 +545,23 @@ class BrokenWrongPlaneCompletionAuthority(CorrectSelfMaintenance):
         yield from super().apply(input_obj, state)
 
 
+class BrokenMissingSpecWorkPackage(CorrectSelfMaintenance):
+    name = "BrokenMissingSpecWorkPackage"
+    idempotency = "Broken variant accepts done after ordinary checks pass but without a closed spec session."
+
+    def apply(self, input_obj: SelfMaintenanceAction, state: SelfMaintenanceState) -> Iterable[FunctionResult]:
+        if input_obj.action_type == "claim_done":
+            ordinary_ready = replace(state, spec_work_package_evidence_current=True).ready_for_done()
+            claim = "accepted" if ordinary_ready else "rejected"
+            yield FunctionResult(
+                SelfMaintenanceOutput(f"done_{claim}"),
+                replace(state, done_claim=claim, completion_authority_plane="development_process"),
+                label=f"done_{claim}",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
 def terminal_predicate(current_output, state, trace) -> bool:
     del state, trace
     return isinstance(current_output, SelfMaintenanceOutput) and current_output.status.startswith("done_")
@@ -431,7 +571,7 @@ def no_done_without_full_route_and_sync(state: SelfMaintenanceState, trace) -> I
     del trace
     if state.done_claim == "accepted" and not state.ready_for_done():
         return InvariantResult.fail(
-            "self-maintenance done accepted before typed route handoffs, unique owners, bounded cycles, profiles, field layers, exact skill child reports, behavior ledger, DCAR, TestMesh, model-miss backfeed, tests, install, shadow, and repository gates"
+            "self-maintenance done accepted before typed route handoffs, unique owners, bounded cycles, profiles, field layers, exact skill and plane-upgrade child reports, behavior ledger, DCAR, TestMesh, model-miss backfeed, tests, install, shadow, and repository gates"
         )
     return InvariantResult.pass_()
 
@@ -447,20 +587,35 @@ def no_evidence_flags_without_exact_receipt_set(state: SelfMaintenanceState, tra
             "skill-suite evidence became current without the exact required child identities"
         )
 
-    evidence_flags = (
+    plane_evidence_flags = (
+        state.plane_upgrade_reports_current,
         state.behavior_ledger_current,
         state.dcar_coverage_current,
         state.test_mesh_shards_current,
         state.model_miss_backfeed_current,
         state.route_api_tested,
     )
-    if any(evidence_flags) and not (
-        len(state.consumed_child_receipt_ids) == len(REQUIRED_SKILL_RECEIPT_IDS)
-        and set(state.consumed_child_receipt_ids) == set(REQUIRED_SKILL_RECEIPT_IDS)
-        and bool(state.receipt_set_fingerprint)
+    if any(plane_evidence_flags) and not (
+        len(state.consumed_plane_upgrade_receipt_ids)
+        == len(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        and set(state.consumed_plane_upgrade_receipt_ids)
+        == set(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        and len(state.terminal_plane_upgrade_receipt_ids)
+        == len(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        and set(state.terminal_plane_upgrade_receipt_ids)
+        == set(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        and state.verification_contract_fingerprint
+        == PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
     ):
         return InvariantResult.fail(
-            "self-maintenance evidence became current without the exact required child identities"
+            "plane-upgrade evidence became current without exact terminal check identities and the current verification-contract fingerprint"
+        )
+    if state.spec_work_package_evidence_current and not (
+        set(state.consumed_spec_work_package_ids) == set(REQUIRED_SPEC_WORK_PACKAGE_IDS)
+        and set(state.consumed_spec_receipt_ids) == set(REQUIRED_SPEC_RECEIPT_IDS)
+    ):
+        return InvariantResult.fail(
+            "spec work-package evidence became current without the required package and terminal receipt identities"
         )
     return InvariantResult.pass_()
 
@@ -525,11 +680,47 @@ REQUIRED_SKILL_RECEIPT_IDS = (
 )
 REQUIRED_RECEIPT_COUNT = len(REQUIRED_SKILL_RECEIPT_IDS)
 ABSTRACT_RECEIPT_IDS = REQUIRED_SKILL_RECEIPT_IDS
+REQUIRED_PLANE_UPGRADE_RECEIPT_IDS = (
+    "check.session.begin",
+    "check.lookup.focused",
+    "check.behavior.focused",
+    "check.contracts.focused",
+    "check.api.templates",
+    "check.skills.focused",
+    "check.skills.static",
+    "check.skills.install",
+    "check.project.models",
+    "check.models.full",
+    "check.tests.full",
+    "check.flowguard.audit",
+    "check.openspec.strict",
+)
+PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT = (
+    "sha256:01BC478660999AE0B19A3DF6EFFC2A55368E54D28B5B9043B447E3BC25C7A86A"
+)
+REQUIRED_SPEC_WORK_PACKAGE_IDS = (
+    "openspec:reconcile-spec-provider-work-packages-with-flowguard-evidence",
+)
+REQUIRED_SPEC_RECEIPT_IDS = (
+    "receipt:spec-models-full",
+    "receipt:spec-tests-full",
+)
+
 EXTERNAL_INPUTS = (
     SelfMaintenanceAction(
         "advance_receipt_bound_workflow",
         verified_child_receipt_ids=ABSTRACT_RECEIPT_IDS,
         verification_set_fingerprint="sha256:abstract-current-receipt-set",
+        verified_plane_upgrade_receipt_ids=REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
+        terminal_plane_upgrade_receipt_ids=REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
+        verification_contract_fingerprint=PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT,
+        verified_spec_work_package_ids=REQUIRED_SPEC_WORK_PACKAGE_IDS,
+        spec_session_id="session:spec-work-package:abstract-current",
+        spec_session_state="closed",
+        spec_begin_fingerprint="sha256:abstract-spec-inputs",
+        spec_post_fingerprint="sha256:abstract-spec-inputs",
+        spec_close_record_path=".flowguard/evidence/spec-work-packages/sessions/history/abstract/close.json",
+        spec_receipt_ids=REQUIRED_SPEC_RECEIPT_IDS,
     ),
 )
 
@@ -556,6 +747,13 @@ def build_broken_synthetic_all_flags_workflow() -> Workflow:
     return Workflow((BrokenSyntheticAllFlags(),), name="self_maintenance_broken_synthetic_all_flags")
 
 
+def build_broken_unverified_plane_receipts_workflow() -> Workflow:
+    return Workflow(
+        (BrokenAcceptsUnverifiedPlaneReceipts(),),
+        name="self_maintenance_broken_unverified_plane_receipts",
+    )
+
+
 def build_broken_missing_behavior_ledger_workflow() -> Workflow:
     return Workflow((BrokenMissingBehaviorLedger(),), name="self_maintenance_broken_missing_behavior_ledger")
 
@@ -572,8 +770,16 @@ def build_broken_missing_model_miss_backfeed_workflow() -> Workflow:
     return Workflow((BrokenMissingModelMissBackfeed(),), name="self_maintenance_broken_missing_model_miss_backfeed")
 
 
+def build_broken_missing_plane_upgrade_reports_workflow() -> Workflow:
+    return Workflow((BrokenMissingPlaneUpgradeReports(),), name="self_maintenance_broken_missing_plane_upgrade_reports")
+
+
 def build_broken_wrong_plane_completion_workflow() -> Workflow:
     return Workflow((BrokenWrongPlaneCompletionAuthority(),), name="self_maintenance_broken_wrong_plane_completion")
+
+
+def build_broken_missing_spec_work_package_workflow() -> Workflow:
+    return Workflow((BrokenMissingSpecWorkPackage(),), name="self_maintenance_broken_missing_spec_work_package")
 
 
 __all__ = [
@@ -586,8 +792,10 @@ __all__ = [
     "build_broken_missing_behavior_ledger_workflow",
     "build_broken_missing_dcar_coverage_workflow",
     "build_broken_missing_model_miss_backfeed_workflow",
+    "build_broken_missing_plane_upgrade_reports_workflow",
     "build_broken_missing_sync_workflow",
     "build_broken_synthetic_all_flags_workflow",
+    "build_broken_unverified_plane_receipts_workflow",
     "build_broken_missing_test_mesh_shards_workflow",
     "build_broken_route_graph_only_workflow",
     "build_broken_wrong_plane_completion_workflow",

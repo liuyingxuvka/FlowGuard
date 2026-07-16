@@ -29,6 +29,7 @@ Accept a source model and named responsibilities; produce FunctionBlock-to-modul
 3. Record rationale plus StructureMesh, Model-Test Alignment, or FieldLifecycleMesh handoffs.
 
 ## Hard Gates
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Do not invent modules before responsibilities; require one owner per state/field write, explicit public facade, and validation boundaries.
 - A too-large leaf must split or remain scoped; new/deepened models require template harvest closure.

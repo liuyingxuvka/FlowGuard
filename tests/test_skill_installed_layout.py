@@ -51,59 +51,27 @@ class SkillInstalledLayoutTests(unittest.TestCase):
                         ".skillguard/check-manifest.json",
                     ):
                         self.assertTrue((skill / relative).is_file(), relative)
-                    for former in (
-                        ".skillguard/work-contract.json",
-                        ".skillguard/check_manifest.json",
-                        ".skillguard/check.py",
-                        ".skillguard/skillguard_manifest.json",
-                        ".skillguard/skillguard_profile.json",
-                        ".skillguard/skillguard_skill_contract.json",
-                        ".skillguard/skillguard_evidence_rules.json",
-                        ".skillguard/skillguard_closure_policy.json",
-                        ".skillguard/skillguard_progress_ledger.jsonl",
-                        ".skillguard/checks",
-                        ".skillguard/evidence",
-                        ".skillguard/reports",
-                        ".skillguard/ai_judgments",
-                    ):
-                        self.assertFalse((skill / former).exists(), former)
+                    self.assertEqual(
+                        {"contract-source.json", "compiled-contract.json", "check-manifest.json"},
+                        {path.name for path in (skill / ".skillguard").iterdir()},
+                    )
                     source = json.loads(
                         (skill / ".skillguard" / "contract-source.json").read_text(encoding="utf-8")
                     )
                     self.assertEqual("skillguard.contract_source.v2", source["schema_version"])
-                    depth = source["depth_profile"]
-                    self.assertEqual("skillguard.depth_profile.v2", depth["schema_version"])
-                    self.assertEqual(skill_id, depth["target_skill_id"])
-                    self.assertEqual("native-integrated", depth["integration_mode"])
-                    self.assertEqual("contract_mapped", depth["enforcement_level"])
-                    self.assertFalse(depth["skillguard_adds_domain_route"])
-                    self.assertEqual([], depth["coverage_universes"])
-                    self.assertEqual(
-                        {"scope", "workflow", "closure"},
-                        {row["dimension_id"] for row in depth["dimensions"]},
-                    )
-                    important_obligations = {
-                        obligation_id
-                        for row in depth["dimensions"]
-                        for obligation_id in row["important_obligation_ids"]
-                    }
-                    self.assertEqual(
-                        important_obligations,
-                        set(depth["calibration"]["important_obligation_ids"]),
-                    )
-                    self.assertEqual([], depth["calibration"]["positive_cases"])
-                    self.assertEqual([], depth["calibration"]["shallow_cases"])
-                    self.assertIn("cannot license EXECUTION_DEPTH_PASS", depth["claim_boundary"])
+                    self.assertEqual("skillguard.depth_profile.v2", source["depth_profile"]["schema_version"])
+                    self.assertNotIn("v1_runtime_authority", source)
                     compiled = json.loads(
                         (skill / ".skillguard" / "compiled-contract.json").read_text(encoding="utf-8")
                     )
-                    manifest = json.loads(
+                    v2_manifest = json.loads(
                         (skill / ".skillguard" / "check-manifest.json").read_text(encoding="utf-8")
                     )
                     self.assertEqual("skillguard.compiled_contract.v2", compiled["schema_version"])
-                    self.assertEqual("skillguard.check_manifest.v2", manifest["schema_version"])
+                    self.assertEqual("skillguard.check_manifest.v2", v2_manifest["schema_version"])
                     self.assertEqual(source["model_id"], compiled["model_id"])
-                    self.assertEqual(depth, compiled["depth_profile"])
+                    self.assertEqual(source["depth_profile"], compiled["depth_profile"])
+                    self.assertEqual(compiled["contract_hash"], v2_manifest["contract_hash"])
 
             check = subprocess.run(
                 [

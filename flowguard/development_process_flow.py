@@ -11,6 +11,7 @@ Conformance Adoption, but it does not inspect or replace those route internals.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from itertools import combinations
 from typing import Any, Mapping, Sequence
 
 from .behavior_plane import (
@@ -19,8 +20,6 @@ from .behavior_plane import (
 )
 from .export import to_jsonable
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
-
-
 PROCESS_SCOPE_ROUTINE = "routine"
 PROCESS_SCOPE_RELEASE = "release"
 
@@ -62,6 +61,7 @@ PROCESS_ARTIFACT_UI_FUNCTIONAL_CAPABILITY_COVERAGE = "ui_functional_capability_c
 PROCESS_ARTIFACT_UI_SOURCE_BASELINE_GATE = "ui_source_baseline_gate"
 PROCESS_ARTIFACT_UI_DONE_CLAIM = "ui_done_claim"
 PROCESS_ARTIFACT_UI_HUMAN_OPERABILITY = "ui_human_operability"
+PROCESS_ARTIFACT_PROCESS_OPTIMIZATION = "process_optimization"
 
 PROCESS_EVIDENCE_FIELD_LIFECYCLE = "field_lifecycle_mesh"
 PROCESS_EVIDENCE_BEHAVIOR_COMMITMENT_LEDGER = "behavior_commitment_ledger"
@@ -81,6 +81,14 @@ PROCESS_EVIDENCE_UI_ACTION_GRAMMAR = "ui_action_grammar"
 PROCESS_EVIDENCE_UI_DIALOG_RETURN = "ui_dialog_return"
 PROCESS_EVIDENCE_UI_KEYBOARD_FOCUS = "ui_keyboard_focus"
 PROCESS_EVIDENCE_UI_HUMAN_WALKTHROUGH = "ui_human_walkthrough"
+PROCESS_EVIDENCE_PROCESS_OPTIMIZATION = "process_optimization"
+
+_PROCESS_OPTIMIZATION_REASONS = {
+    "explicit_request",
+    "multiple_equivalent_routes",
+    "material_rework_risk",
+    "diagnostic_boundary_choice",
+}
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -294,6 +302,8 @@ class ProcessEvidence:
     skipped_count: int = 0
     skipped_visible: bool = True
     release_required: bool = False
+    revalidation_cost: float = 1.0
+    revalidation_cost_basis: str = "estimated"
     stale_reasons: tuple[str, ...] = ()
     spec_session_id: str = ""
     spec_consumer_ids: tuple[str, ...] = ()
@@ -311,15 +321,6 @@ class ProcessEvidence:
     spec_provider_archive_ready: bool = False
     spec_cross_change_reuse: bool = False
     spec_provider_cross_change_authorized: bool = False
-    semantic_check_id: str = ""
-    execution_id: str = ""
-    execution_key: str = ""
-    spec_input_scope_ids: tuple[str, ...] = ()
-    spec_changed_input_ids: tuple[str, ...] = ()
-    spec_minimum_revalidation_ids: tuple[str, ...] = ()
-    spec_snapshot_policy: str = ""
-    spec_toolchain_fingerprint: str = ""
-    spec_child_receipt_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "evidence_id", str(self.evidence_id))
@@ -335,6 +336,14 @@ class ProcessEvidence:
         object.__setattr__(self, "result_path", str(self.result_path))
         object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "skipped_count", int(self.skipped_count))
+        revalidation_cost = float(self.revalidation_cost)
+        if revalidation_cost < 0:
+            raise ValueError("revalidation_cost must be non-negative")
+        object.__setattr__(self, "revalidation_cost", revalidation_cost)
+        cost_basis = str(self.revalidation_cost_basis)
+        if cost_basis not in {"estimated", "measured"}:
+            raise ValueError("revalidation_cost_basis must be estimated or measured")
+        object.__setattr__(self, "revalidation_cost_basis", cost_basis)
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
         object.__setattr__(self, "spec_session_id", str(self.spec_session_id))
         object.__setattr__(self, "spec_consumer_ids", _as_tuple(self.spec_consumer_ids))
@@ -356,19 +365,6 @@ class ProcessEvidence:
             "spec_provider_cross_change_authorized",
             bool(self.spec_provider_cross_change_authorized),
         )
-        object.__setattr__(self, "semantic_check_id", str(self.semantic_check_id))
-        object.__setattr__(self, "execution_id", str(self.execution_id))
-        object.__setattr__(self, "execution_key", str(self.execution_key))
-        object.__setattr__(self, "spec_input_scope_ids", _as_tuple(self.spec_input_scope_ids))
-        object.__setattr__(self, "spec_changed_input_ids", _as_tuple(self.spec_changed_input_ids))
-        object.__setattr__(
-            self,
-            "spec_minimum_revalidation_ids",
-            _as_tuple(self.spec_minimum_revalidation_ids),
-        )
-        object.__setattr__(self, "spec_snapshot_policy", str(self.spec_snapshot_policy))
-        object.__setattr__(self, "spec_toolchain_fingerprint", str(self.spec_toolchain_fingerprint))
-        object.__setattr__(self, "spec_child_receipt_ids", _as_tuple(self.spec_child_receipt_ids))
 
     def background_complete(self) -> bool:
         if not self.background:
@@ -399,6 +395,8 @@ class ProcessEvidence:
             "skipped_count": self.skipped_count,
             "skipped_visible": self.skipped_visible,
             "release_required": self.release_required,
+            "revalidation_cost": self.revalidation_cost,
+            "revalidation_cost_basis": self.revalidation_cost_basis,
             "stale_reasons": list(self.stale_reasons),
             "spec_session_id": self.spec_session_id,
             "spec_consumer_ids": list(self.spec_consumer_ids),
@@ -416,15 +414,6 @@ class ProcessEvidence:
             "spec_provider_archive_ready": self.spec_provider_archive_ready,
             "spec_cross_change_reuse": self.spec_cross_change_reuse,
             "spec_provider_cross_change_authorized": self.spec_provider_cross_change_authorized,
-            "semantic_check_id": self.semantic_check_id,
-            "execution_id": self.execution_id,
-            "execution_key": self.execution_key,
-            "spec_input_scope_ids": list(self.spec_input_scope_ids),
-            "spec_changed_input_ids": list(self.spec_changed_input_ids),
-            "spec_minimum_revalidation_ids": list(self.spec_minimum_revalidation_ids),
-            "spec_snapshot_policy": self.spec_snapshot_policy,
-            "spec_toolchain_fingerprint": self.spec_toolchain_fingerprint,
-            "spec_child_receipt_ids": list(self.spec_child_receipt_ids),
         }
 
 
@@ -533,6 +522,8 @@ class DevelopmentProcessPlan:
     required_spec_receipt_ids: tuple[str, ...] = ()
     require_spec_session_close: bool = False
     require_spec_provider_close: bool = False
+    process_optimization_reasons: tuple[str, ...] = ()
+    required_process_optimization_evidence_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "process_id", str(self.process_id))
@@ -553,6 +544,12 @@ class DevelopmentProcessPlan:
         object.__setattr__(self, "required_spec_receipt_ids", _as_tuple(self.required_spec_receipt_ids))
         object.__setattr__(self, "require_spec_session_close", bool(self.require_spec_session_close))
         object.__setattr__(self, "require_spec_provider_close", bool(self.require_spec_provider_close))
+        object.__setattr__(self, "process_optimization_reasons", _as_tuple(self.process_optimization_reasons))
+        object.__setattr__(
+            self,
+            "required_process_optimization_evidence_ids",
+            _as_tuple(self.required_process_optimization_evidence_ids),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -574,6 +571,10 @@ class DevelopmentProcessPlan:
             "required_spec_receipt_ids": list(self.required_spec_receipt_ids),
             "require_spec_session_close": self.require_spec_session_close,
             "require_spec_provider_close": self.require_spec_provider_close,
+            "process_optimization_reasons": list(self.process_optimization_reasons),
+            "required_process_optimization_evidence_ids": list(
+                self.required_process_optimization_evidence_ids
+            ),
         }
 
 
@@ -591,6 +592,10 @@ class RevalidationRecommendation:
     proof_artifact_required: bool = False
     freshness_gap_codes: tuple[str, ...] = ()
     blocks_claim_scopes: tuple[str, ...] = ()
+    covered_requirement_ids: tuple[str, ...] = ()
+    revalidation_cost: float = 0.0
+    revalidation_cost_basis: str = "estimated"
+    selection_boundary: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "requirement_id", str(self.requirement_id))
@@ -603,6 +608,10 @@ class RevalidationRecommendation:
         object.__setattr__(self, "proof_artifact_required", bool(self.proof_artifact_required))
         object.__setattr__(self, "freshness_gap_codes", _as_tuple(self.freshness_gap_codes))
         object.__setattr__(self, "blocks_claim_scopes", _as_tuple(self.blocks_claim_scopes))
+        object.__setattr__(self, "covered_requirement_ids", _as_tuple(self.covered_requirement_ids))
+        object.__setattr__(self, "revalidation_cost", float(self.revalidation_cost))
+        object.__setattr__(self, "revalidation_cost_basis", str(self.revalidation_cost_basis))
+        object.__setattr__(self, "selection_boundary", str(self.selection_boundary))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -616,6 +625,10 @@ class RevalidationRecommendation:
             "proof_artifact_required": self.proof_artifact_required,
             "freshness_gap_codes": list(self.freshness_gap_codes),
             "blocks_claim_scopes": list(self.blocks_claim_scopes),
+            "covered_requirement_ids": list(self.covered_requirement_ids),
+            "revalidation_cost": self.revalidation_cost,
+            "revalidation_cost_basis": self.revalidation_cost_basis,
+            "selection_boundary": self.selection_boundary,
         }
 
 
@@ -663,15 +676,22 @@ class DevelopmentProcessFlowReport:
     process_id: str
     decision: str
     decision_scope: str
+    process_optimization_status: str = "not_needed"
     findings: tuple[ProcessFlowFinding, ...] = ()
     release_obligations: tuple[str, ...] = ()
     revalidation_recommendations: tuple[RevalidationRecommendation, ...] = ()
+    revalidation_optimality_boundary: str = ""
     summary: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "process_id", str(self.process_id))
         object.__setattr__(self, "decision", str(self.decision))
         object.__setattr__(self, "decision_scope", str(self.decision_scope))
+        object.__setattr__(
+            self,
+            "process_optimization_status",
+            str(self.process_optimization_status),
+        )
         object.__setattr__(self, "findings", tuple(self.findings))
         object.__setattr__(self, "release_obligations", _as_tuple(self.release_obligations))
         object.__setattr__(
@@ -679,6 +699,7 @@ class DevelopmentProcessFlowReport:
             "revalidation_recommendations",
             tuple(self.revalidation_recommendations),
         )
+        object.__setattr__(self, "revalidation_optimality_boundary", str(self.revalidation_optimality_boundary))
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -697,6 +718,7 @@ class DevelopmentProcessFlowReport:
             f"process: {self.process_id}",
             f"scope: {self.decision_scope}",
             f"decision: {self.decision}",
+            f"process_optimization: {self.process_optimization_status}",
             f"findings: {len(self.findings)}",
         ]
         if self.release_obligations:
@@ -722,6 +744,8 @@ class DevelopmentProcessFlowReport:
                     )
                 suffix = f" ({'; '.join(suffix_parts)})" if suffix_parts else ""
                 lines.append(f"  - {detail}: {recommendation.reason}{suffix}")
+        if self.revalidation_optimality_boundary:
+            lines.append(f"revalidation_boundary: {self.revalidation_optimality_boundary}")
         for finding in self.findings[:max_findings]:
             lines.extend(
                 [
@@ -743,12 +767,14 @@ class DevelopmentProcessFlowReport:
             "process_id": self.process_id,
             "decision": self.decision,
             "decision_scope": self.decision_scope,
+            "process_optimization_status": self.process_optimization_status,
             "findings": [finding.to_dict() for finding in self.findings],
             "release_obligations": list(self.release_obligations),
             "revalidation_recommendations": [
                 recommendation.to_dict()
                 for recommendation in self.revalidation_recommendations
             ],
+            "revalidation_optimality_boundary": self.revalidation_optimality_boundary,
             "summary": self.summary,
         }
 
@@ -786,6 +812,11 @@ def _decision_for_findings(findings: Sequence[ProcessFlowFinding]) -> str:
         ("failed_validation_claimed_current", "validation_failed"),
         ("validation_evidence_not_current", "validation_not_current"),
         ("release_evidence_not_current", "missing_release_evidence"),
+        ("process_optimization_evidence_missing", "process_optimization_required"),
+        ("process_optimization_evidence_not_current", "process_optimization_required"),
+        ("process_optimization_evidence_kind_invalid", "process_optimization_required"),
+        ("process_optimization_evidence_cardinality_invalid", "process_optimization_required"),
+        ("process_optimization_reason_invalid", "process_optimization_required"),
     ]
     codes = {finding.code for finding in blockers}
     for code, decision in priority:
@@ -849,7 +880,11 @@ def _validate_references(
                 )
         for ref in action.reads_artifacts + action.writes_artifacts + action.invalidates_artifacts:
             unknown_artifact(ref, action_id=action.action_id)
-        for evidence_id in action.invalidates_evidence + action.produced_evidence_ids + action.required_evidence_ids:
+        for evidence_id in (
+            action.invalidates_evidence
+            + action.produced_evidence_ids
+            + action.required_evidence_ids
+        ):
             if evidence_id not in evidence_ids:
                 findings.append(
                     ProcessFlowFinding(
@@ -993,18 +1028,16 @@ def _evidence_stale_reasons(
         written = set(action.all_written_artifacts())
         if not written:
             continue
-        effective_scope = set(evidence.spec_input_scope_ids or evidence.covered_artifact_ids())
-        intersecting_writes = effective_scope & written
-        if intersecting_writes:
-            artifact_id = sorted(intersecting_writes)[0]
+        if set(evidence.covered_artifact_ids()) & written:
+            artifact_id = sorted(set(evidence.covered_artifact_ids()) & written)[0]
             artifact = artifacts.get(artifact_id)
             code = _stale_code_for_artifact(artifact, evidence)
             reasons[f"write:{action.action_id}:{artifact_id}"] = (
                 code,
                 f"action {action.action_id} changed {artifact_id} after evidence {evidence.evidence_id}",
             )
-        if action.actor in {"", "unknown", "peer", "peer_agent", "peer-agent"} and intersecting_writes:
-            artifact_id = sorted(intersecting_writes)[0]
+        if action.actor in {"", "unknown", "peer", "peer_agent", "peer-agent"} and set(evidence.covered_artifact_ids()) & written:
+            artifact_id = sorted(set(evidence.covered_artifact_ids()) & written)[0]
             reasons[f"peer:{action.action_id}:{artifact_id}"] = (
                 "unknown_writer_invalidates_evidence",
                 f"unknown or peer writer {action.action_id} changed {artifact_id} after evidence {evidence.evidence_id}",
@@ -1095,9 +1128,6 @@ def _evidence_quality_findings(evidence: ProcessEvidence, *, require_proof_artif
         or evidence.spec_work_package_id
         or evidence.spec_session_state
         or evidence.spec_close_record_path
-        or evidence.semantic_check_id
-        or evidence.execution_id
-        or evidence.execution_key
     )
     if spec_bound:
         allowed_states = {"executed", "reused-current", "stale", "not-run", "blocked"}
@@ -1118,9 +1148,6 @@ def _evidence_quality_findings(evidence: ProcessEvidence, *, require_proof_artif
             or not evidence.spec_receipt_fingerprint
             or not evidence.spec_work_package_id
             or not evidence.spec_check_id
-            or not evidence.semantic_check_id
-            or not evidence.execution_id
-            or not evidence.execution_key
             or evidence.spec_session_state != "closed"
             or not evidence.spec_begin_fingerprint
             or evidence.spec_begin_fingerprint != evidence.spec_post_fingerprint
@@ -1132,18 +1159,6 @@ def _evidence_quality_findings(evidence: ProcessEvidence, *, require_proof_artif
                     "passing spec evidence needs exact package/check/session, matching begin/post, close record, consumers, and receipt identity",
                     evidence_id=evidence.evidence_id,
                     metadata=evidence.to_dict(),
-                )
-            )
-        intersecting_changes = sorted(
-            set(evidence.spec_input_scope_ids) & set(evidence.spec_changed_input_ids)
-        )
-        if intersecting_changes and not evidence.spec_minimum_revalidation_ids:
-            findings.append(
-                ProcessFlowFinding(
-                    "spec_minimum_revalidation_missing",
-                    "intersecting peer writes must stale only the owning scope and name minimum revalidation",
-                    evidence_id=evidence.evidence_id,
-                    metadata={"intersecting_input_ids": intersecting_changes},
                 )
             )
         if evidence.spec_cross_change_reuse and not (
@@ -1258,6 +1273,70 @@ def _evidence_is_current(
     )
 
 
+def _process_optimization_findings(
+    plan: DevelopmentProcessPlan,
+    stale_by_evidence: Mapping[str, Mapping[str, tuple[str, str]]],
+) -> list[ProcessFlowFinding]:
+    findings: list[ProcessFlowFinding] = []
+    reasons = plan.process_optimization_reasons
+    evidence_ids = plan.required_process_optimization_evidence_ids
+    if not reasons:
+        if evidence_ids:
+            findings.append(
+                ProcessFlowFinding(
+                    "process_optimization_unneeded_evidence",
+                    "ordinary work without an optimization reason must not carry optimizer evidence",
+                )
+            )
+        return findings
+    invalid_reasons = sorted(set(reasons) - _PROCESS_OPTIMIZATION_REASONS)
+    if invalid_reasons or len(set(reasons)) != len(reasons):
+        findings.append(
+            ProcessFlowFinding(
+                "process_optimization_reason_invalid",
+                "process optimization reasons must be unique stable reason ids",
+                metadata={"invalid_reasons": invalid_reasons},
+            )
+        )
+    if len(evidence_ids) != 1:
+        findings.append(
+            ProcessFlowFinding(
+                "process_optimization_evidence_cardinality_invalid",
+                "active process optimization needs exactly one current decision evidence id",
+                metadata={"evidence_ids": list(evidence_ids)},
+            )
+        )
+    evidence_by_id = {item.evidence_id: item for item in plan.evidence}
+    for evidence_id in evidence_ids:
+        evidence = evidence_by_id.get(evidence_id)
+        if evidence is None:
+            findings.append(
+                ProcessFlowFinding(
+                    "process_optimization_evidence_missing",
+                    f"required process-optimization evidence {evidence_id} is not registered",
+                    evidence_id=evidence_id,
+                )
+            )
+            continue
+        if evidence.evidence_kind != PROCESS_EVIDENCE_PROCESS_OPTIMIZATION:
+            findings.append(
+                ProcessFlowFinding(
+                    "process_optimization_evidence_kind_invalid",
+                    f"evidence {evidence_id} is not a process-optimization decision",
+                    evidence_id=evidence_id,
+                )
+            )
+        if not _evidence_is_current(evidence, stale_by_evidence.get(evidence_id, {})):
+            findings.append(
+                ProcessFlowFinding(
+                    "process_optimization_evidence_not_current",
+                    f"process-optimization evidence {evidence_id} is not current passing terminal evidence",
+                    evidence_id=evidence_id,
+                )
+            )
+    return findings
+
+
 def _requirement_candidate_evidence(
     requirement: ValidationRequirement,
     evidence_rows: Sequence[ProcessEvidence],
@@ -1281,10 +1360,11 @@ def _requirement_candidate_evidence(
 def _requirement_findings(
     plan: DevelopmentProcessPlan,
     stale_by_evidence: Mapping[str, Mapping[str, tuple[str, str]]],
-) -> tuple[list[ProcessFlowFinding], list[str], list[RevalidationRecommendation]]:
+) -> tuple[list[ProcessFlowFinding], list[str], list[RevalidationRecommendation], str]:
     findings: list[ProcessFlowFinding] = []
     release_obligations: list[str] = []
     recommendations: list[RevalidationRecommendation] = []
+    missing: dict[str, tuple[ValidationRequirement, tuple[ProcessEvidence, ...]]] = {}
 
     for requirement in plan.validation_requirements:
         release_only = requirement.is_release_only()
@@ -1331,30 +1411,139 @@ def _requirement_findings(
                 },
             )
         )
-        evidence_id = candidates[0].evidence_id if candidates else ""
-        candidate = candidates[0] if candidates else None
-        stale_reasons = stale_by_evidence.get(evidence_id, {}) if evidence_id else {}
-        reason = "missing current evidence"
+        missing[requirement.requirement_id] = (requirement, candidates)
+
+    candidate_by_id: dict[str, ProcessEvidence] = {}
+    coverage_by_id: dict[str, set[str]] = {}
+    for requirement_id, (_requirement, candidates) in missing.items():
+        for candidate in candidates:
+            candidate_by_id[candidate.evidence_id] = candidate
+            coverage_by_id.setdefault(candidate.evidence_id, set()).add(requirement_id)
+
+    coverable = set().union(*coverage_by_id.values()) if coverage_by_id else set()
+    selected_ids: tuple[str, ...] = ()
+    boundary = "no revalidation is required"
+    candidate_ids = tuple(sorted(candidate_by_id))
+    if coverable and len(candidate_ids) <= 20:
+        all_measured = all(
+            candidate_by_id[item_id].revalidation_cost_basis == "measured"
+            for item_id in candidate_ids
+        )
+        viable: list[tuple[float, int, tuple[str, ...]]] = []
+        for size in range(1, len(candidate_ids) + 1):
+            for selected in combinations(candidate_ids, size):
+                covered = set().union(*(coverage_by_id[item_id] for item_id in selected))
+                if coverable.issubset(covered):
+                    viable.append(
+                        (
+                            sum(candidate_by_id[item_id].revalidation_cost for item_id in selected),
+                            len(selected),
+                            selected,
+                        )
+                    )
+        if viable:
+            selected_ids = min(viable)[2] if all_measured else min(
+                viable,
+                key=lambda row: (row[1], row[0], row[2]),
+            )[2]
+        if all_measured:
+            boundary = (
+                f"minimum measured-cost set cover within {len(candidate_ids)} declared evidence candidate(s) "
+                f"and {len(coverable)} coverable missing requirement(s); no global workflow optimum is claimed"
+            )
+        else:
+            boundary = (
+                f"coverage-complete preferred set across {len(candidate_ids)} declared evidence candidate(s) "
+                "using estimated inputs; no measured-minimum or global-optimum claim is made"
+            )
+    elif coverable:
+        uncovered = set(coverable)
+        selected: list[str] = []
+        while uncovered:
+            choices = [
+                item_id for item_id in candidate_ids if coverage_by_id[item_id] & uncovered
+            ]
+            if not choices:
+                break
+            item_id = min(
+                choices,
+                key=lambda value: (
+                    candidate_by_id[value].revalidation_cost
+                    / len(coverage_by_id[value] & uncovered),
+                    candidate_by_id[value].revalidation_cost,
+                    value,
+                ),
+            )
+            selected.append(item_id)
+            uncovered -= coverage_by_id[item_id]
+        selected_ids = tuple(selected)
+        boundary = (
+            f"deterministic coverage-aware greedy set across {len(candidate_ids)} declared evidence candidate(s); "
+            "candidate count exceeded the exact finite-search boundary of 20 and no minimum claim is made"
+        )
+
+    for evidence_id in selected_ids:
+        candidate = candidate_by_id[evidence_id]
+        covered_ids = tuple(sorted(coverage_by_id[evidence_id]))
+        covered_requirements = [missing[item_id][0] for item_id in covered_ids]
+        stale_reasons = stale_by_evidence.get(evidence_id, {})
+        reason = f"evidence status is {candidate.status}"
         if stale_reasons:
             reason = next(iter(stale_reasons.values()))[1]
+        scopes = tuple(dict.fromkeys(requirement.scope for requirement in covered_requirements))
+        blocks_claim_scopes = list(scopes)
+        if plan.decision_scope not in blocks_claim_scopes:
+            blocks_claim_scopes.append(plan.decision_scope)
+        artifact_ids = tuple(
+            dict.fromkeys(
+                artifact_id
+                for requirement in covered_requirements
+                for artifact_id in requirement.required_artifact_ids
+            )
+        )
+        command = candidate.command or next(
+            (requirement.command for requirement in covered_requirements if requirement.command),
+            "",
+        )
+        scope = PROCESS_SCOPE_RELEASE if PROCESS_SCOPE_RELEASE in scopes else PROCESS_SCOPE_ROUTINE
+        recommendations.append(
+            RevalidationRecommendation(
+                covered_ids[0],
+                evidence_id=evidence_id,
+                command=command,
+                scope=scope,
+                artifact_ids=artifact_ids,
+                reason=reason,
+                producer_route=candidate.producer_route,
+                proof_artifact_required=plan.require_proof_artifacts,
+                freshness_gap_codes=tuple(code for code, _message in stale_reasons.values()),
+                blocks_claim_scopes=tuple(blocks_claim_scopes),
+                covered_requirement_ids=covered_ids,
+                revalidation_cost=candidate.revalidation_cost,
+                revalidation_cost_basis=candidate.revalidation_cost_basis,
+                selection_boundary=boundary,
+            )
+        )
+
+    for requirement_id in sorted(set(missing) - coverable):
+        requirement = missing[requirement_id][0]
         blocks_claim_scopes = [requirement.scope]
         if plan.decision_scope not in blocks_claim_scopes:
             blocks_claim_scopes.append(plan.decision_scope)
         recommendations.append(
             RevalidationRecommendation(
-                requirement.requirement_id,
-                evidence_id=evidence_id,
-                command=requirement.command or (candidate.command if candidate else ""),
+                requirement_id,
+                command=requirement.command,
                 scope=requirement.scope,
                 artifact_ids=requirement.required_artifact_ids,
-                reason=reason,
-                producer_route=candidate.producer_route if candidate else "",
+                reason="no declared evidence candidate can cover this requirement",
                 proof_artifact_required=plan.require_proof_artifacts,
-                freshness_gap_codes=tuple(code for code, _message in stale_reasons.values()),
                 blocks_claim_scopes=tuple(blocks_claim_scopes),
+                covered_requirement_ids=(requirement_id,),
+                selection_boundary="uncovered requirement; no optimization claim is possible",
             )
         )
-    return findings, release_obligations, recommendations
+    return findings, release_obligations, recommendations, boundary
 
 
 def _claim_findings(
@@ -1553,20 +1742,27 @@ def review_development_process_flow(plan: DevelopmentProcessPlan) -> Development
             )
         findings.extend(_evidence_quality_findings(evidence, require_proof_artifacts=plan.require_proof_artifacts))
 
+    optimization_findings = _process_optimization_findings(plan, stale_by_evidence)
+    findings.extend(optimization_findings)
     findings.extend(_ambiguous_policy_findings(plan, artifacts))
-    requirement_findings, release_obligations, recommendations = _requirement_findings(plan, stale_by_evidence)
+    requirement_findings, release_obligations, recommendations, revalidation_boundary = _requirement_findings(plan, stale_by_evidence)
     findings.extend(requirement_findings)
     findings.extend(_claim_findings(plan, stale_by_evidence))
 
     blockers = _blocker_findings(findings)
+    process_optimization_status = "not_needed"
+    if plan.process_optimization_reasons:
+        process_optimization_status = "blocked" if _blocker_findings(optimization_findings) else "selected"
     return DevelopmentProcessFlowReport(
         ok=not blockers,
         process_id=plan.process_id,
         decision=_decision_for_findings(findings),
         decision_scope=plan.decision_scope,
+        process_optimization_status=process_optimization_status,
         findings=tuple(findings),
         release_obligations=tuple(release_obligations),
         revalidation_recommendations=tuple(recommendations),
+        revalidation_optimality_boundary=revalidation_boundary,
     )
 
 
@@ -1578,6 +1774,7 @@ def derive_revalidation_plan(plan: DevelopmentProcessPlan) -> tuple[Revalidation
 
 __all__ = [
     "PROCESS_ARTIFACT_ADAPTER",
+    "PROCESS_ARTIFACT_PROCESS_OPTIMIZATION",
     "PROCESS_ARTIFACT_CODE",
     "PROCESS_ARTIFACT_DESIGN",
     "PROCESS_ARTIFACT_DOC",
@@ -1600,6 +1797,7 @@ __all__ = [
     "PROCESS_CLAIM_ACTIONS",
     "PROCESS_EVIDENCE_ERROR",
     "PROCESS_EVIDENCE_FAILED",
+    "PROCESS_EVIDENCE_PROCESS_OPTIMIZATION",
     "PROCESS_EVIDENCE_BEHAVIOR_COMMITMENT_LEDGER",
     "PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE",
     "PROCESS_EVIDENCE_FIELD_LIFECYCLE",

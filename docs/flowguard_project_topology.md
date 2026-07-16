@@ -68,9 +68,13 @@ Current role shape:
   field lifecycle, ContractExhaustionMesh, risk template library, UI flow
   structure, ModelMesh, TestMesh, StructureMesh, DevelopmentProcessFlow,
   model-miss review, RiskEvidenceLedger, and topology hazard review.
-- Delegated DevelopmentProcessFlow modes: PlanDetailing and
-  AgentWorkflowRehearsal. They can be invoked explicitly, but ordinary rough
-  plan and multi-skill workflow routing enters DevelopmentProcessFlow first.
+- DevelopmentProcessFlow modes: delegated PlanDetailing, conditionally active
+  DPF-owned process optimization (with the stable internal id
+  `strategy_selection`), delegated AgentWorkflowRehearsal, and DPF-owned
+  execution freshness. The internal order is plan detailing -> conditional
+  optimization -> agent workflow -> execution freshness. Ordinary one-route
+  work keeps optimization inactive; rough-plan and multi-skill routing still
+  enters DevelopmentProcessFlow first, and no competing public route is added.
 - ExistingModelPreflight feeders: model-angle deliberation and model-similarity
   consolidation. They preserve candidate viewpoint and sibling-workflow
   evidence, then hand ownership back to ExistingModelPreflight or the selected
@@ -84,7 +88,7 @@ Current role shape:
   seeds. They declare finite boundaries; canonical bad-case ids are generated
   by ContractExhaustionMesh.
 
-The maintenance rule is one current authority. A helper-first public route,
-obsolete alias, fallback prompt, wrapper, or compatibility-like skill surface
-must be deleted, absorbed into the owner route, or blocked. Ordinary software
-history requires an explicit bounded compatibility contract.
+The maintenance rule is latest-schema-first. A helper-first public route,
+obsolete alias, fallback prompt, wrapper, or compatibility-like surface must be
+deleted, absorbed into the owner route, converted to an internal helper, or
+kept only as an explicitly proven public facade.

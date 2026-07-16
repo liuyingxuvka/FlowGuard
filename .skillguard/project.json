@@ -1,7 +1,7 @@
 {
   "claim_boundary": "Project adoption makes SkillGuard maintenance instructions portable and auditable. It does not prove that target-owned domain routes or depth checks have run.",
   "maintenance_default": "skillguard-required-for-nontrivial-skill-work",
-  "managed_block_hash": "540660A6A73BABEDABEF985267187027910D6F11E7B76A31D44631538AF14C47",
+  "managed_block_hash": "DB928DB9B03422902E5419CD41978E7FE316673792B3BC87920AF0D1E6F8EB2E",
   "managed_skills": [
     {
       "integration_mode": "native-integrated",
@@ -140,10 +140,10 @@
       "skill_path": ".agents/skills/model-first-function-flow"
     }
   ],
-  "manifest_hash": "2512FEEAECE472EA5996EDBD812EE1F78A96BF4A39CE538731ABAC0B8C64EF39",
+  "manifest_hash": "3C28244BFF11A20137487EE9CF4097E624CC3CA0B62E48AB1A6B56FFE77B3B8D",
   "project_id": "FlowGuard",
   "project_prompt_path": "AGENTS.md",
   "schema_version": "skillguard.project_adoption.v1",
   "skillguard_repository": "https://github.com/liuyingxuvka/SkillGuard",
-  "skillguard_version": "0.1.0"
+  "skillguard_version": "0.3.0"
 }

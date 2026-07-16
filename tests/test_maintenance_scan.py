@@ -39,9 +39,11 @@ from flowguard import (
     MaintenanceScanPlan,
     MaintenanceSignal,
     MaintenanceSkippedRoute,
+    SelfMaintenancePlan,
     maintenance_scan_plan_from_summary_report,
     maintenance_scan_template_files,
     review_maintenance_scan,
+    review_flowguard_self_maintenance,
 )
 from flowguard.templates import write_template_files
 
@@ -54,6 +56,56 @@ def routes(report):
 
 
 class MaintenanceScanTests(unittest.TestCase):
+    def test_self_maintenance_requires_package_specific_close_and_receipts(self):
+        report = review_flowguard_self_maintenance(
+            SelfMaintenancePlan(
+                "spec-self-maintenance",
+                required_spec_work_package_ids=("change-one",),
+            )
+        )
+        self.assertIn(
+            "spec_work_package_evidence_missing_or_stale",
+            {finding.code for finding in report.findings},
+        )
+    def test_required_spec_work_package_cannot_hide_behind_generic_green_evidence(self):
+        generic = MaintenanceEvidence(
+            "generic-green",
+            MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW,
+            status="passed",
+            current=True,
+        )
+        blocked = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "spec-missing-close",
+                evidence=(generic,),
+                required_spec_work_package_ids=("change-one",),
+            )
+        )
+        self.assertFalse(blocked.ok)
+        self.assertTrue(blocked.unresolved_required_action_ids)
+
+        exact = MaintenanceEvidence(
+            "spec-close",
+            MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW,
+            status="passed",
+            current=True,
+            spec_work_package_id="change-one",
+            spec_session_id="session:one",
+            spec_session_state="closed",
+            spec_begin_fingerprint="sha256:inputs",
+            spec_post_fingerprint="sha256:inputs",
+            spec_close_record_path=".flowguard/evidence/spec-work-packages/sessions/history/one/close.json",
+            spec_receipt_ids=("receipt:one",),
+        )
+        current = review_maintenance_scan(
+            MaintenanceScanPlan(
+                "spec-current",
+                evidence=(generic, exact),
+                required_spec_work_package_ids=("change-one",),
+            )
+        )
+        self.assertTrue(current.ok)
+        self.assertFalse(current.unresolved_required_action_ids)
     def test_clear_scan_is_not_validation(self):
         report = review_maintenance_scan(MaintenanceScanPlan("clear"))
 

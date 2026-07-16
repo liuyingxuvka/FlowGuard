@@ -19,6 +19,7 @@ from .behavior_commitment import (
     BCL_HIT_ROLE_PRIMARY,
     BCL_LOOKUP_STATUSES,
     BCL_LOOKUP_STATUS_BLOCKED,
+    BCL_LOOKUP_STATUS_FALLBACK,
     BCL_LOOKUP_STATUS_NOT_APPLICABLE,
     BCL_LOOKUP_STATUS_PERFORMED,
 )
@@ -839,20 +840,7 @@ def existing_model_preflight_from_project(
     canonical_ledger_path = Path(ledger_path) if ledger_path else root_path / ".flowguard" / "behavior_commitment_ledger" / "ledger.json"
     if not canonical_ledger_path.is_absolute():
         canonical_ledger_path = root_path / canonical_ledger_path
-    # A full preflight in an adopted/modeled FlowGuard project must attempt the
-    # canonical ledger even when the ledger directory itself is missing.  The
-    # resulting blocked lookup keeps later path discovery diagnostic-only
-    # instead of silently turning it into an alternate commitment authority.
-    # Light mode remains optional unless the caller names a ledger or the
-    # canonical ledger surface is already present.
-    behavior_lookup_required = bool(
-        ledger_path
-        or canonical_ledger_path.parent.exists()
-        or (
-            mode == PREFLIGHT_MODE_FULL
-            and (root_path / ".flowguard").exists()
-        )
-    )
+    behavior_lookup_required = bool(ledger_path) or canonical_ledger_path.parent.exists()
     lookup_report = None
     if behavior_lookup_required:
         lookup_report = query_behavior_commitments_from_path(
@@ -945,7 +933,9 @@ def existing_model_preflight_from_project(
     lookup_status = (
         lookup_report.status if lookup_report else BCL_LOOKUP_STATUS_NOT_APPLICABLE
     )
-    lookup_reason = lookup_report.status_reason if lookup_report else ""
+    lookup_reason = lookup_report.fallback_reason if lookup_report else ""
+    if lookup_status == BCL_LOOKUP_STATUS_BLOCKED and hits:
+        lookup_status = BCL_LOOKUP_STATUS_FALLBACK
     reuse_decision = REUSE_DECISION_REUSE_EXISTING if hits else REUSE_DECISION_NO_MODEL_FOUND
     no_model_found_reason = "" if hits else "No relevant FlowGuard model files were found in project inventory."
     rationale = (
@@ -1125,12 +1115,13 @@ def review_existing_model_preflight(
             )
     if preflight.behavior_lookup_required and preflight.behavior_lookup_status in {
         BCL_LOOKUP_STATUS_BLOCKED,
+        BCL_LOOKUP_STATUS_FALLBACK,
         BCL_LOOKUP_STATUS_NOT_APPLICABLE,
     }:
         findings.append(
             ExistingModelPreflightFinding(
                 "behavior_lookup_not_current",
-                "required canonical behavior lookup did not complete; path inventory is diagnostic context only",
+                "required canonical behavior lookup did not complete; path inventory is fallback evidence only",
                 severity="blocker" if preflight.mode == PREFLIGHT_MODE_FULL else "warning",
                 metadata={
                     "behavior_lookup_status": preflight.behavior_lookup_status,

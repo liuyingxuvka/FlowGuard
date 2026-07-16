@@ -1,0 +1,16 @@
+{
+  "schema_version": "skillguard.visual_privacy_review.v1",
+  "asset_path": "assets/readme-hero/flowguard-icon.png",
+  "asset_sha256": "3942E0EA41841C0545ED957D4C27810FA92C3AAE69F28507C297454EECFD0A86",
+  "reviewed_at": "2026-07-16T00:20:19Z",
+  "status": "passed",
+  "checks": {
+    "local_paths_visible": false,
+    "personal_accounts_visible": false,
+    "real_user_or_customer_data_visible": false,
+    "credentials_or_tokens_visible": false
+  },
+  "limitations": [
+    "This review covers the current static raster only; any replacement image requires a new hash-bound visual review."
+  ]
+}

@@ -1,0 +1,374 @@
+contract_version: 1
+change: partition-behavior-commitments-by-execution-plane
+obligations:
+  - id: req.bcl.plane-actor-relations
+    source: "specs/behavior-commitment-ledger/spec.md#Requirement: Commitments declare one behavior plane"
+    claim: "Commitments require a production plane and actor kind, validate typed relation targets/directions/rationales, and reject migration-only values at runtime."
+    required: true
+    evidence:
+      - check.behavior.focused
+      - check.contracts.focused
+  - id: req.bcl.canonical-migration
+    source: "specs/behavior-commitment-ledger/spec.md#Requirement: Canonical project ledger is machine-readable"
+    claim: "One canonical JSON ledger is loaded by the project adapter; dry-run/apply migration is safe and the old embedded inventory is retired."
+    required: true
+    evidence:
+      - check.behavior.focused
+      - check.project.models
+  - id: req.lookup.plane-first
+    source: "specs/behavior-commitment-lookup/spec.md#Requirement: Lookup filters by behavior plane before similarity"
+    claim: "Lookup selects/filter planes before scoring and cannot promote typed related context into primary instructions."
+    required: true
+    evidence:
+      - check.lookup.focused
+  - id: req.lookup.explainable-cli
+    source: "specs/behavior-commitment-lookup/spec.md#Requirement: Lookup results are explainable and freshness-bound"
+    claim: "API and read-only CLI return deterministic explainable hits, relation roles, lookup status, and ledger fingerprint."
+    required: true
+    evidence:
+      - check.lookup.focused
+      - check.api.templates
+  - id: req.preflight.commitment-first
+    source: "specs/existing-model-preflight/spec.md#Requirement: Project preflight queries commitments before path discovery"
+    claim: "Existing Model Preflight queries the ledger before path discovery and separates primary and related planes with explicit fallback."
+    required: true
+    evidence:
+      - check.lookup.focused
+      - check.project.models
+  - id: req.similarity.plane-quarantine
+    source: "specs/model-similarity-consolidation/spec.md#Requirement: Cross-plane language is false-friend evidence"
+    claim: "Cross-plane shared words cannot cause same-workflow/merge recommendations and typed relations preserve separate owners."
+    required: true
+    evidence:
+      - check.behavior.focused
+      - check.project.models
+  - id: req.miss.same-plane-backfeed
+    source: "specs/model-miss-review/spec.md#Requirement: Miss backfeed searches the same plane first"
+    claim: "Model Miss records whose promise failed, reuses same-plane commitments first, and keeps multi-plane incidents typed."
+    required: true
+    evidence:
+      - check.behavior.focused
+      - check.contracts.focused
+      - check.project.models
+  - id: req.fields.lifecycle
+    source: "specs/field-lifecycle-mesh/spec.md#Requirement: Behavior-plane upgrade fields are fully accounted"
+    claim: "All new fields and the removed legacy dependency field have owner/reader/writer/projection/lifecycle/disposition evidence."
+    required: true
+    evidence:
+      - check.contracts.focused
+      - check.project.models
+  - id: req.contracts.finite-cases
+    source: "specs/contract-exhaustion-mesh/spec.md#Requirement: Behavior-plane boundary projects finite coverage axes"
+    claim: "Finite plane/actor/relation/lookup/migration cases have stable ids, actionable oracles, and downstream projections."
+    required: true
+    evidence:
+      - check.contracts.focused
+      - check.project.models
+  - id: req.alignment.owner-contracts
+    source: "specs/model-test-alignment/spec.md#Requirement: Plane-aware obligations bind model, owner code, and tests"
+    claim: "Required plane-aware obligations bind one public owner contract and current external-contract tests, including migration and miss closure."
+    required: true
+    evidence:
+      - check.contracts.focused
+      - check.project.models
+  - id: req.testmesh.background-freshness
+    source: "specs/test-evidence-mesh/spec.md#Requirement: Background model regressions expose liveness and final receipts separately"
+    claim: "Focused, model, installation, and full-suite partitions remain visible; background progress is never completion evidence."
+    required: true
+    evidence:
+      - check.models.full
+      - check.tests.full
+      - check.skills.install
+  - id: req.process.order-peer-writes
+    source: "specs/development-process-flow/spec.md#Requirement: Plane upgrade lifecycle is explicitly ordered"
+    claim: "The lifecycle orders specification through verification, preserves peer writes, and invalidates stale evidence."
+    required: true
+    evidence:
+      - check.project.models
+      - check.flowguard.audit
+  - id: req.api.existing-owners
+    source: "specs/flowguard-api-registry/spec.md#Requirement: Plane-aware BCL APIs stay in existing route groups"
+    claim: "New public types/helpers and CLI are owned by existing API groups and add no route id."
+    required: true
+    evidence:
+      - check.api.templates
+      - check.skills.static
+  - id: req.skills.guidance-parity
+    source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Existing skills teach behavior-plane ownership"
+    claim: "Existing skill guidance preserves plane ownership and source/generated/shadow/installed parity without a parallel route."
+    required: true
+    evidence:
+      - check.skills.focused
+      - check.skills.static
+      - check.skills.install
+  - id: req.change.strict-valid
+    source: "proposal.md"
+    claim: "The OpenSpec change remains structurally strict-valid and all required implementation evidence is current."
+    required: true
+    evidence:
+      - check.openspec.strict
+      - check.flowguard.audit
+      - check.tests.full
+      - check.models.full
+checks:
+  - id: check.session.begin
+    kind: command
+    command: python
+    args: [-m, flowguard, spec-session-begin, --root, ., --provider, openspec, --work-package, partition-behavior-commitments-by-execution-plane, --json]
+    required: true
+    covers: [req.process.order-peer-writes]
+    expected: {exit_code: 0}
+  - id: check.lookup.focused
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - -q
+      - tests/test_behavior_commitment_lookup.py
+      - tests/test_existing_model_preflight.py
+      - tests/test_behavior_plane_upgrade.py
+    required: true
+    covers:
+      - req.lookup.plane-first
+      - req.lookup.explainable-cli
+      - req.preflight.commitment-first
+    expected:
+      exit_code: 0
+  - id: check.behavior.focused
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - -q
+      - tests/test_behavior_commitment_ledger.py
+      - tests/test_behavior_commitment_primary_path.py
+      - tests/test_model_similarity.py
+      - tests/test_model_similarity_integrations.py
+      - tests/test_recurring_model_miss.py
+      - tests/test_artifact_upgrade.py
+    required: true
+    covers:
+      - req.bcl.plane-actor-relations
+      - req.bcl.canonical-migration
+      - req.similarity.plane-quarantine
+      - req.miss.same-plane-backfeed
+    expected:
+      exit_code: 0
+  - id: check.contracts.focused
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - -q
+      - tests/test_field_lifecycle.py
+      - tests/test_behavior_commitment_contract_exhaustion.py
+      - tests/test_contract_exhaustion.py
+      - tests/test_model_test_alignment.py
+      - tests/test_development_process_flow.py
+      - tests/test_flowguard_agent_workflow_rehearsal.py
+      - tests/test_plan_detailing.py
+    required: true
+    covers:
+      - req.bcl.plane-actor-relations
+      - req.miss.same-plane-backfeed
+      - req.fields.lifecycle
+      - req.contracts.finite-cases
+      - req.alignment.owner-contracts
+    expected:
+      exit_code: 0
+  - id: check.api.templates
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - -q
+      - tests/test_api_surface.py
+      - tests/test_public_templates.py
+      - tests/test_documentation_commands.py
+      - tests/test_maintenance_template.py
+    required: true
+    covers:
+      - req.lookup.explainable-cli
+      - req.api.existing-owners
+    expected:
+      exit_code: 0
+  - id: check.skills.focused
+    kind: command
+    command: python
+    args:
+      - -m
+      - pytest
+      - -q
+      - tests/test_flowguard_skill_trigger.py
+      - tests/test_flowguard_skill_collaboration.py
+      - tests/test_skill_prompt_parity.py
+      - tests/test_skill_contract_compiler.py
+      - tests/test_skill_contract_v2_projection.py
+      - tests/test_skill_installed_layout.py
+      - tests/test_skill_suite_inventory.py
+      - tests/test_skill_docs.py
+    required: true
+    covers:
+      - req.skills.guidance-parity
+    expected:
+      exit_code: 0
+  - id: check.skills.static
+    kind: command
+    command: python
+    args:
+      - scripts/check_flowguard_skill_suite.py
+      - --scope
+      - static
+      - --root
+      - .
+      - --json
+    required: true
+    covers:
+      - req.api.existing-owners
+      - req.skills.guidance-parity
+    expected:
+      exit_code: 0
+  - id: check.skills.install
+    kind: command
+    command: python
+    args:
+      - scripts/install_flowguard_skills.py
+      - install
+      - --source
+      - .
+      - --target
+      - tmp/behavior-plane-skill-shadow
+      - --json
+    required: true
+    covers:
+      - req.testmesh.background-freshness
+      - req.skills.guidance-parity
+    expected:
+      exit_code: 0
+  - id: check.project.models
+    kind: command
+    command: python
+    args:
+      - scripts/run_flowguard_model_regressions.py
+      - --root
+      - .
+      - --tier
+      - full
+      - --model
+      - behavior_commitment_ledger
+      - --model
+      - existing_model_preflight
+      - --model
+      - model_similarity_consolidation
+      - --model
+      - model_miss_review
+      - --model
+      - lightweight_model_miss_review
+      - --model
+      - development_process_flow
+      - --model
+      - self_maintenance_mesh
+      - --model
+      - default_replacement_field_lifecycle
+      - --model
+      - model_test_code_alignment
+      - --jobs
+      - "1"
+      - --json
+    required: true
+    covers:
+      - req.bcl.canonical-migration
+      - req.preflight.commitment-first
+      - req.similarity.plane-quarantine
+      - req.miss.same-plane-backfeed
+      - req.fields.lifecycle
+      - req.contracts.finite-cases
+      - req.alignment.owner-contracts
+      - req.process.order-peer-writes
+    expected:
+      exit_code: 0
+  - id: check.models.full
+    kind: command
+    command: python
+    args: [-m, flowguard, spec-check-run, --root, ., --provider, openspec, --work-package, partition-behavior-commitments-by-execution-plane, --check-id, check.models.full, --semantic-id, flowguard.models.full, --cross-change-safe, --coverage, all-registered-models, --, python, scripts/run_flowguard_model_regressions.py, --root, ., --tier, full, --jobs, "1", --json]
+    required: true
+    covers:
+      - req.testmesh.background-freshness
+      - req.change.strict-valid
+    expected:
+      exit_code: 0
+  - id: check.tests.full
+    kind: command
+    command: python
+    args: [-m, flowguard, spec-check-run, --root, ., --provider, openspec, --work-package, partition-behavior-commitments-by-execution-plane, --check-id, check.tests.full, --semantic-id, flowguard.pytest.full, --cross-change-safe, --coverage, all-python-tests, --depends-on, check.models.full, --, python, -m, pytest, -q]
+    required: true
+    covers:
+      - req.testmesh.background-freshness
+      - req.change.strict-valid
+    expected:
+      exit_code: 0
+  - id: check.flowguard.audit
+    kind: command
+    command: python
+    args:
+      - -m
+      - flowguard
+      - project-audit
+      - --root
+      - .
+    required: true
+    covers:
+      - req.process.order-peer-writes
+      - req.change.strict-valid
+    expected:
+      exit_code: 0
+  - id: check.openspec.strict
+    kind: command
+    command: openspec
+    args:
+      - validate
+      - partition-behavior-commitments-by-execution-plane
+      - --strict
+    required: true
+    covers:
+      - req.change.strict-valid
+    expected:
+      exit_code: 0
+freshness:
+  watch:
+    - openspec/changes/partition-behavior-commitments-by-execution-plane/proposal.md
+    - openspec/changes/partition-behavior-commitments-by-execution-plane/design.md
+    - openspec/changes/partition-behavior-commitments-by-execution-plane/tasks.md
+    - openspec/changes/partition-behavior-commitments-by-execution-plane/specs/**/*.md
+    - openspec/changes/partition-behavior-commitments-by-execution-plane/verification-contract.yaml
+    - openspec/specs/**/*.md
+    - flowguard/**/*.py
+    - flowguard/template_text/**/*.py
+    - .flowguard/behavior_commitment_ledger/ledger.json
+    - .flowguard/behavior_commitment_ledger/**/*.py
+    - .flowguard/existing_model_preflight/**/*.py
+    - .flowguard/model_similarity_consolidation/**/*.py
+    - .flowguard/model_miss_review/**/*.py
+    - .flowguard/lightweight_model_miss_review/**/*.py
+    - .flowguard/development_process_flow/**/*.py
+    - .flowguard/self_maintenance_mesh/**/*.py
+    - .flowguard/default_replacement_field_lifecycle/**/*.py
+    - .flowguard/model_test_code_alignment/**/*.py
+    - .flowguard/project.toml
+    - .agents/skills/*/SKILL.md
+    - .agents/skills/*/agents/openai.yaml
+    - .agents/skills/*/references/**/*.md
+    - .agents/skills/*/.skillguard/contract-source.json
+    - .agents/skills/*/.skillguard/compiled-contract.json
+    - .agents/skills/*/.skillguard/check-manifest.json
+    - AGENTS.md
+    - README.md
+    - CHANGELOG.md
+    - docs/**/*.md
+    - scripts/**/*.py
+    - tests/**/*.py
+    - pyproject.toml

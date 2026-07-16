@@ -12,11 +12,12 @@ from flowguard.distribution_sync import OWNERSHIP_MANIFEST_NAME, OWNERSHIP_SCHEM
 from flowguard.skill_suite import (
     FLOWGUARD_EXPECTED_MEMBER_COUNT,
     FLOWGUARD_EXPECTED_SATELLITE_COUNT,
-    FLOWGUARD_FORMER_MEMBER_PATHS,
     FLOWGUARD_KERNEL_ROLE,
     FLOWGUARD_REQUIRED_MEMBER_FILES,
     FLOWGUARD_SATELLITE_ROLE,
     FLOWGUARD_SUITE_MAP,
+    MODEL_PURPOSE_PROMPT_MARKERS,
+    MODEL_PURPOSE_SKILL_MARKERS,
     validate_skill_suite,
 )
 
@@ -47,7 +48,13 @@ class SkillSuiteInventoryTests(unittest.TestCase):
             for relative in FLOWGUARD_REQUIRED_MEMBER_FILES:
                 path = skill_dir / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(f"fixture for {member['name']} {relative}\n", encoding="utf-8")
+                if relative == "SKILL.md":
+                    content = "\n".join((f"---\nname: {member['name']}\n---", *MODEL_PURPOSE_SKILL_MARKERS))
+                elif relative == "agents/openai.yaml":
+                    content = "\n".join(MODEL_PURPOSE_PROMPT_MARKERS)
+                else:
+                    content = f"fixture for {member['name']} {relative}"
+                path.write_text(content + "\n", encoding="utf-8")
 
     def _write_ownership_manifest(
         self,
@@ -205,19 +212,6 @@ class SkillSuiteInventoryTests(unittest.TestCase):
             {(finding.code, finding.member_id) for finding in report.findings},
         )
 
-    def test_former_skillguard_control_is_rejected_without_fallback(self) -> None:
-        skill_id = "flowguard-behavior-commitment-ledger"
-        former = self.root / ".agents" / "skills" / skill_id / FLOWGUARD_FORMER_MEMBER_PATHS[0]
-        former.parent.mkdir(parents=True, exist_ok=True)
-        former.write_text("{}\n", encoding="utf-8")
-
-        report = validate_skill_suite(self.root)
-
-        self.assertIn(
-            ("former_skillguard_authority_present", skill_id),
-            {(finding.code, finding.member_id) for finding in report.findings},
-        )
-
     def test_second_private_literal_inventory_is_rejected(self) -> None:
         private = self.root / "scripts" / "private_inventory.py"
         private.parent.mkdir(parents=True)
@@ -232,7 +226,7 @@ class SkillSuiteInventoryTests(unittest.TestCase):
         self.assertEqual(set(report.declared_member_ids), set(report.discovered_member_ids))
         self.assertIn("flowguard-behavior-commitment-ledger", report.declared_member_ids)
 
-    def test_read_only_projection_scripts_use_the_same_inventory(self) -> None:
+    def test_compatibility_scripts_project_the_same_inventory(self) -> None:
         suite = subprocess.run(
             [sys.executable, "scripts/verify_skill_suite_markers.py", "--root", ".", "--json"],
             cwd=REPOSITORY_ROOT,

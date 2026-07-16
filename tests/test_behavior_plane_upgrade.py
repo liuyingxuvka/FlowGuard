@@ -33,20 +33,6 @@ from flowguard import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def openspec_change_artifact(change_id: str, artifact_name: str) -> Path:
-    active_path = ROOT / "openspec" / "changes" / change_id / artifact_name
-    if active_path.exists():
-        return active_path
-    archived_paths = sorted(
-        (ROOT / "openspec" / "changes" / "archive").glob(
-            f"*-{change_id}/{artifact_name}"
-        )
-    )
-    if archived_paths:
-        return archived_paths[-1]
-    return active_path
-
-
 def row(
     commitment_id: str,
     *,
@@ -115,31 +101,35 @@ class BehaviorPlaneUpgradeTests(unittest.TestCase):
         self.assertIn("cannot guarantee", combined)
         self.assertNotIn("evidence engine, or\n  CLI command", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
 
-    def test_verification_contract_uses_receipt_authority_without_self_maintenance_hash_coupling(self):
-        contract_path = openspec_change_artifact(
-            "partition-behavior-commitments-by-execution-plane",
-            "verification-contract.yaml",
+    def test_verification_contract_covers_declared_models_skills_and_fingerprint(self):
+        contract_path = (
+            ROOT
+            / "openspec"
+            / "changes"
+            / "partition-behavior-commitments-by-execution-plane"
+            / "verification-contract.yaml"
         )
         contract = contract_path.read_text(encoding="utf-8")
 
         for value in (
             "default_replacement_field_lifecycle",
             "model_test_code_alignment",
-            "owner.models.full",
-            "owner.tests.full",
-            "owner.change.aggregate",
-            "portable-receipt.v1",
+            "tests/test_skill_contract_v2_projection.py",
+            "tests/test_skill_installed_layout.py",
+            "tests/test_skill_suite_inventory.py",
             ".flowguard/default_replacement_field_lifecycle/**/*.py",
             ".flowguard/model_test_code_alignment/**/*.py",
             "README.md",
             "CHANGELOG.md",
         ):
             self.assertIn(value, contract)
-        self_maintenance_model = (
-            ROOT / ".flowguard" / "self_maintenance_mesh" / "model.py"
-        ).read_text(encoding="utf-8")
-        self.assertNotIn("verification_contract_sha256", self_maintenance_model)
-        self.assertNotIn("required_verification_check_ids", self_maintenance_model)
+        expected = "sha256:" + hashlib.sha256(contract_path.read_bytes()).hexdigest().upper()
+        self.assertIn(
+            expected,
+            (ROOT / ".flowguard" / "self_maintenance_mesh" / "model.py").read_text(
+                encoding="utf-8"
+            ),
+        )
 
     def test_relation_matrix_preserves_directional_layer_ownership(self):
         self.assertTrue(

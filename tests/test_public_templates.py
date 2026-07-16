@@ -58,7 +58,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
     model_similarity_consolidation_template_files,
     risk_evidence_ledger_template_files,
     runtime_path_evidence_template_files,
-    spec_work_package_template_files,
     layered_boundary_proof_template_files,
     closure_contract_template_files,
     ui_flow_structure_template_files,
@@ -67,11 +66,13 @@ PUBLIC_TEMPLATE_FACTORIES = (
     mesh_template_files_factory,
     structure_mesh_template_files,
     topology_hazard_template_files,
+    spec_work_package_template_files,
 )
 
 TEMPLATE_CLI_COMMANDS = {
     "project-template": "project",
     "project-adoption-template": "project_adoption",
+    "spec-work-package-template": "spec_work_package",
     "risk-intent-template": "risk_intent_check_plan",
     "risk-template-library-template": "risk_template_library",
     "plan-detailing-template": "plan_detailing",
@@ -108,31 +109,6 @@ def _template_env():
 
 
 class PublicTemplateTests(unittest.TestCase):
-    def test_spec_work_package_template_locks_portable_receipt_owner_flow(self):
-        files = spec_work_package_template_files()
-        self.assertEqual(
-            [item.path for item in files],
-            [
-                ".flowguard/spec_provider_work_packages/model.py",
-                ".flowguard/spec_provider_work_packages/run_checks.py",
-                ".flowguard/spec_provider_work_packages/bindings.json",
-                "docs/flowguard_spec_work_package.md",
-            ],
-        )
-        combined = "\n".join(item.content for item in files)
-        for required in (
-            '"canonical_checks"',
-            '"infrastructure_bindings"',
-            '"execution_mode": "aggregate-child-receipts"',
-            "kind: receipt",
-            "portable-receipt.v1",
-            "FLOWGUARD_SPEC_EVIDENCE_ROOT",
-            "spec-provider-close-review",
-            "read-only",
-            "does not execute the FlowGuard owner",
-        ):
-            self.assertIn(required, combined)
-
     def assert_risk_purpose_header(self, text):
         self.assertIn("FlowGuard Risk Purpose Header", text)
         self.assertIn("Created with FlowGuard:", text)
@@ -597,6 +573,10 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("UI observed inventory, functional capability coverage", combined)
         self.assertIn("Do not copy\nAutoSplit metrics onto `ProcessEvidence`", combined)
         self.assertIn("producer_route=\"test_mesh_maintenance\"", combined)
+        self.assertIn("strategy_selection", combined)
+        self.assertIn("safe_parallel", combined)
+        self.assertIn("Ordinary single-route work needs no optimization records", combined)
+        self.assertIn("never a global\noptimum", combined)
         self.assertIn("FlowGuard Risk Purpose Header", combined)
 
     def test_workflow_step_contracts_template_executes(self):
@@ -656,10 +636,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("FieldLifecycleMesh", combined)
         self.assertIn("Default replacement policy", combined)
         self.assertIn("old fields", combined)
-        self.assertIn("default is one current path", combined)
-        self.assertIn("explicit requirement", combined)
-        self.assertIn("one bounded reader owner", combined)
-        self.assertNotIn("test_old_mode_migrates_to_checkout_mode", combined)
+        self.assertIn("compatibility intent", combined)
         self.assertIn("field_lifecycle_to_model_obligations", combined)
         self.assertIn("field_lifecycle_to_code_contracts", combined)
         self.assertIn("Model-Test Alignment", combined)
@@ -756,10 +733,9 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("docs/flowguard_adoption_log.md", paths)
         self.assertIn("https://github.com/liuyingxuvka/FlowGuard", combined)
         self.assertIn("project-audit", combined)
-        self.assertIn("project-adopt", combined)
-        self.assertIn("one current authority", combined)
-        self.assertNotIn("project-upgrade", combined)
-        self.assertNotIn("artifact-upgrade", combined)
+        self.assertIn("project-upgrade", combined)
+        self.assertIn("latest-schema-first", combined)
+        self.assertIn("artifact/model/test upgrade scanning", combined)
         self.assertIn("adopted_package_version", combined)
         self.assertIn("schema_version", combined)
 

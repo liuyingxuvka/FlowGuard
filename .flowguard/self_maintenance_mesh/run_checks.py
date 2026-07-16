@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
+import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,6 +17,7 @@ from flowguard import (
     validate_default_route_topology,
 )
 from flowguard.formal_runner import FormalWorkflowCase, run_exact_workflow_case, run_formal_workflow_suite
+from flowguard.skill_self_governance import load_verification_contexts, run_skill_self_governance
 import model
 
 
@@ -46,6 +49,84 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                 False,
                 required_labels=("synthetic_all_flags",),
                 external_inputs=(model.SelfMaintenanceAction("declare_field_layers"),),
+                max_sequence_length=1,
+            ),
+            FormalWorkflowCase(
+                "broken_unrelated_receipt_substitution",
+                model.build_broken_unverified_plane_receipts_workflow(),
+                False,
+                required_labels=("unverified_receipts_consumed",),
+                external_inputs=(
+                    model.SelfMaintenanceAction(
+                        "consume_verified_receipt_set",
+                        verified_child_receipt_ids=model.REQUIRED_SKILL_RECEIPT_IDS,
+                        verification_set_fingerprint="sha256:current-skill-set",
+                        verified_plane_upgrade_receipt_ids=tuple(
+                            f"unrelated-check-{index:02d}"
+                            for index in range(len(model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS))
+                        ),
+                        terminal_plane_upgrade_receipt_ids=tuple(
+                            f"unrelated-check-{index:02d}"
+                            for index in range(len(model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS))
+                        ),
+                        verification_contract_fingerprint=(
+                            model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+                        ),
+                    ),
+                ),
+                max_sequence_length=1,
+            ),
+            FormalWorkflowCase(
+                "broken_progress_only_full_test_receipt",
+                model.build_broken_unverified_plane_receipts_workflow(),
+                False,
+                required_labels=("unverified_receipts_consumed",),
+                external_inputs=(
+                    model.SelfMaintenanceAction(
+                        "consume_verified_receipt_set",
+                        verified_child_receipt_ids=model.REQUIRED_SKILL_RECEIPT_IDS,
+                        verification_set_fingerprint="sha256:current-skill-set",
+                        verified_plane_upgrade_receipt_ids=model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
+                        terminal_plane_upgrade_receipt_ids=tuple(
+                            check_id
+                            for check_id in model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS
+                            if check_id != "check.tests.full"
+                        ),
+                        progress_only_plane_upgrade_receipt_ids=("check.tests.full",),
+                        verification_contract_fingerprint=(
+                            model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+                        ),
+                    ),
+                ),
+                max_sequence_length=1,
+            ),
+            FormalWorkflowCase(
+                "broken_v2_parity_receipt_replaced",
+                model.build_broken_unverified_plane_receipts_workflow(),
+                False,
+                required_labels=("unverified_receipts_consumed",),
+                external_inputs=(
+                    model.SelfMaintenanceAction(
+                        "consume_verified_receipt_set",
+                        verified_child_receipt_ids=model.REQUIRED_SKILL_RECEIPT_IDS,
+                        verification_set_fingerprint="sha256:current-skill-set",
+                        verified_plane_upgrade_receipt_ids=tuple(
+                            "check.skills.v2-declaration-only"
+                            if check_id == "check.skills.install"
+                            else check_id
+                            for check_id in model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS
+                        ),
+                        terminal_plane_upgrade_receipt_ids=tuple(
+                            "check.skills.v2-declaration-only"
+                            if check_id == "check.skills.install"
+                            else check_id
+                            for check_id in model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS
+                        ),
+                        verification_contract_fingerprint=(
+                            model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+                        ),
+                    ),
+                ),
                 max_sequence_length=1,
             ),
             FormalWorkflowCase(
@@ -92,6 +173,14 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                 max_sequence_length=1,
             ),
             FormalWorkflowCase(
+                "broken_missing_plane_upgrade_reports",
+                model.build_broken_missing_plane_upgrade_reports_workflow(),
+                False,
+                required_labels=("field_layers_declared",),
+                external_inputs=(model.SelfMaintenanceAction("declare_field_layers"),),
+                max_sequence_length=1,
+            ),
+            FormalWorkflowCase(
                 "broken_wrong_plane_completion_authority",
                 model.build_broken_wrong_plane_completion_workflow(),
                 False,
@@ -116,11 +205,38 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                         "consume_verified_receipt_set",
                         verified_child_receipt_ids=model.ABSTRACT_RECEIPT_IDS,
                         verification_set_fingerprint="sha256:abstract-current-receipt-set",
+                        verified_plane_upgrade_receipt_ids=model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
+                        terminal_plane_upgrade_receipt_ids=model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
+                        verification_contract_fingerprint=(
+                            model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+                        ),
                     ),
                     model.SelfMaintenanceAction("run_focused_validation"),
                     model.SelfMaintenanceAction("claim_done"),
                 ),
                 max_sequence_length=5,
+            ),
+            FormalWorkflowCase(
+                "broken_missing_spec_work_package_close",
+                model.build_broken_missing_spec_work_package_workflow(),
+                False,
+                required_labels=("done_accepted",),
+                external_inputs=(
+                    model.SelfMaintenanceAction("connect_route_graph"),
+                    model.SelfMaintenanceAction("declare_field_layers"),
+                    model.SelfMaintenanceAction(
+                        "consume_verified_receipt_set",
+                        verified_child_receipt_ids=model.ABSTRACT_RECEIPT_IDS,
+                        verification_set_fingerprint="sha256:abstract-current-receipt-set",
+                        verified_plane_upgrade_receipt_ids=model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
+                        terminal_plane_upgrade_receipt_ids=model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
+                        verification_contract_fingerprint=model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT,
+                    ),
+                    model.SelfMaintenanceAction("run_focused_validation"),
+                    model.SelfMaintenanceAction("sync_local_surfaces"),
+                    model.SelfMaintenanceAction("claim_done"),
+                ),
+                max_sequence_length=6,
             ),
         ),
         initial_states=(model.initial_state(),),
@@ -145,6 +261,30 @@ def run_route_profile_review() -> bool:
     print(report.format_text())
     print()
     return report.ok and not report.findings
+
+
+def run_receipt_parent_review() -> bool:
+    context_path = ROOT / ".flowguard/evidence/skill-suite-contexts.json"
+    contexts = load_verification_contexts(context_path) if context_path.exists() else {}
+    report = run_skill_self_governance(
+        ROOT,
+        verification_contexts=contexts,
+        save_parent_receipt=True,
+    )
+    print(report.format_text())
+    print()
+    if report.ok:
+        parent = report.self_governance_receipt
+        return bool(
+            parent
+            and len(parent.required_child_receipts) == 17
+            and len(parent.consumed_child_receipts) == 17
+            and report.self_governance_receipt_hash == parent.fingerprint
+        )
+    # Environment-local evidence is intentionally not committed. A model
+    # regression still succeeds only if absence/staleness is rejected without
+    # manufacturing a parent green receipt.
+    return bool(report.blockers and report.self_governance_receipt is None)
 
 
 def run_route_topology_review() -> bool:
@@ -174,12 +314,47 @@ def run_route_topology_review() -> bool:
     )
 
 
+def run_plane_upgrade_contract_binding() -> bool:
+    contract_path = (
+        ROOT
+        / "openspec"
+        / "changes"
+        / "partition-behavior-commitments-by-execution-plane"
+        / "verification-contract.yaml"
+    )
+    payload = contract_path.read_bytes()
+    actual_fingerprint = f"sha256:{hashlib.sha256(payload).hexdigest().upper()}"
+    check_ids = tuple(
+        re.findall(
+            r"^  - id: (check\.[^\s]+)\s*$",
+            payload.decode("utf-8"),
+            flags=re.MULTILINE,
+        )
+    )
+    ok = (
+        actual_fingerprint == model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+        and len(check_ids) == len(model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        and set(check_ids) == set(model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+    )
+    print(
+        "plane-upgrade verification contract binding: "
+        f"{'pass' if ok else 'fail'}; checks={len(check_ids)}; fingerprint={actual_fingerprint}"
+    )
+    print()
+    return ok
+
+
 def main() -> int:
     typed_topology_ok = run_route_topology_review()
+    plane_upgrade_contract_ok = run_plane_upgrade_contract_binding()
     checks = (
-        run_workflow_suite(typed_topology_ok=typed_topology_ok),
+        run_workflow_suite(
+            typed_topology_ok=typed_topology_ok and plane_upgrade_contract_ok
+        ),
         run_route_profile_review(),
+        run_receipt_parent_review(),
         typed_topology_ok,
+        plane_upgrade_contract_ok,
     )
     if all(checks):
         print("self_maintenance_mesh checks passed")

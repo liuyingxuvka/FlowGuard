@@ -81,10 +81,10 @@ class DocumentationCommandTests(unittest.TestCase):
         for phrase in (
             "Prompt and contract structure",
             "Native evidence receipt",
-            "SkillGuard parent TestMesh receipt",
+            "Self-governance parent closure",
             "提示词与合同结构",
             "原生证据回执",
-            "SkillGuard 父级 TestMesh 回执",
+            "自治理父闭环",
         ):
             self.assertIn(phrase, self.guide)
 

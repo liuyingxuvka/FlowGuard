@@ -147,6 +147,23 @@ def source_audit_finding_codes(report):
 
 
 class ModelTestAlignmentTests(unittest.TestCase):
+    def test_repair_closure_uses_ordinary_obligation_code_and_test_owners(self):
+        model_obligation = obligation("obligation:strategy-repair")
+        owner = code_contract("contract:strategy-owner", model_obligation.obligation_id)
+        test = evidence(
+            "evidence:strategy-repair",
+            model_obligation.obligation_id,
+            covered_code_contracts=(owner.code_contract_id,),
+        )
+        plan = ModelTestAlignmentPlan(
+            "repair-alignment",
+            obligations=(model_obligation,),
+            code_contracts=(owner,),
+            test_evidence=(test,),
+        )
+        self.assertTrue(review_model_test_alignment(plan).ok)
+        self.assertFalse(hasattr(flowguard, "ProcessStrategyAlignmentBinding"))
+
     def test_field_lifecycle_projection_feeds_model_code_test_alignment(self):
         field_report = field_report_with_projection()
         self.assertTrue(field_report.ok, field_report.format_text())

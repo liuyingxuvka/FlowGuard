@@ -71,7 +71,7 @@ The final closure runner regenerates focused core/template/matrix JUnit artifact
 
 ### 10. Repository and installation sync is evidence-gated
 
-The no-`.git` shadow workspace is the implementation workspace. After OpenSpec verification and regressions pass, only the owned changed paths are merged into the Git checkout at `C:/Users/liu_y/Documents/FlowGuard`, preserving unrelated dirty files. The repository-managed `.agents/skills` tree remains canonical for skill installation; installation and formal/shadow/installed parity are checked after the Git merge. No remote push or tag is part of this change.
+The no-`.git` shadow workspace is the implementation workspace. After OpenSpec verification and regressions pass, only the owned changed paths are merged into the repository checkout, preserving unrelated dirty files. The repository-managed `.agents/skills` tree remains canonical for skill installation; installation and formal/shadow/installed parity are checked after the Git merge. No remote push or tag is part of this change.
 
 ## Risks / Trade-offs
 

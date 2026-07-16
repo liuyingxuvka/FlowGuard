@@ -29,6 +29,7 @@ Accept a named source model and existing parent surface; derive child ownership;
 3. Attach current routine/release parity evidence and export gaps/obligations downstream.
 
 ## Hard Gates
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Missing model-derived target structure, public facade, owner, compatibility, or current parity blocks the matching scope.
 - Dependency/config drift and release-only gaps remain visible; new/deepened models require template harvest closure.

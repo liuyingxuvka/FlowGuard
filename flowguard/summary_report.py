@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
@@ -75,6 +76,10 @@ class FlowGuardFindingLedgerEntry:
     category: str
     message: str
     finding_index: int | None = None
+    finding_id: str = ""
+    source_finding_code: str = ""
+    source_subject_ids: tuple[str, ...] = ()
+    evidence_ids: tuple[str, ...] = ()
     section_summary: str = ""
     next_step: str = ""
     owner_route: str = ""
@@ -97,6 +102,18 @@ class FlowGuardFindingLedgerEntry:
         object.__setattr__(self, "severity", severity)
         object.__setattr__(self, "category", str(self.category))
         object.__setattr__(self, "message", str(self.message))
+        object.__setattr__(self, "finding_id", str(self.finding_id))
+        object.__setattr__(self, "source_finding_code", str(self.source_finding_code))
+        object.__setattr__(
+            self,
+            "source_subject_ids",
+            tuple(str(value) for value in self.source_subject_ids if str(value)),
+        )
+        object.__setattr__(
+            self,
+            "evidence_ids",
+            tuple(str(value) for value in self.evidence_ids if str(value)),
+        )
         object.__setattr__(self, "section_summary", str(self.section_summary or ""))
         object.__setattr__(self, "next_step", str(self.next_step or ""))
         object.__setattr__(self, "owner_route", str(self.owner_route or ""))
@@ -127,6 +144,10 @@ class FlowGuardFindingLedgerEntry:
             "category": self.category,
             "message": self.message,
             "finding_index": self.finding_index,
+            "finding_id": self.finding_id,
+            "source_finding_code": self.source_finding_code,
+            "source_subject_ids": list(self.source_subject_ids),
+            "evidence_ids": list(self.evidence_ids),
             "section_summary": self.section_summary,
             "next_step": self.next_step,
             "owner_route": self.owner_route,
@@ -451,12 +472,76 @@ def _format_ledger_message(finding: Any) -> str:
     return repr(finding)
 
 
+def _finding_value(finding: Any, name: str, default: Any = "") -> Any:
+    if isinstance(finding, dict):
+        return finding.get(name, default)
+    return getattr(finding, name, default)
+
+
+def _ledger_source_fields(finding: Any) -> tuple[str, tuple[str, ...], tuple[str, ...]]:
+    code = str(
+        _finding_value(finding, "code")
+        or _finding_value(finding, "category")
+        or type(finding).__name__
+    )
+    subject_fields = (
+        "action_id",
+        "artifact_id",
+        "requirement_id",
+        "suite_id",
+        "item_id",
+        "candidate_id",
+        "campaign_id",
+        "observation_id",
+        "cluster_id",
+        "hypothesis_id",
+        "batch_id",
+    )
+    subjects = tuple(
+        dict.fromkeys(
+            str(_finding_value(finding, field_name))
+            for field_name in subject_fields
+            if _finding_value(finding, field_name)
+        )
+    )
+    evidence_values: list[str] = []
+    direct_evidence = _finding_value(finding, "evidence_id")
+    if direct_evidence:
+        evidence_values.append(str(direct_evidence))
+    metadata = _finding_value(finding, "metadata", {})
+    if isinstance(metadata, dict):
+        for name in ("evidence_id", "receipt_id"):
+            if metadata.get(name):
+                evidence_values.append(str(metadata[name]))
+        for name in ("evidence_ids", "receipt_ids"):
+            values = metadata.get(name, ())
+            if isinstance(values, (list, tuple, set)):
+                evidence_values.extend(str(value) for value in values if value)
+    return code, subjects, tuple(dict.fromkeys(evidence_values))
+
+
 def _ledger_entry(
     section: FlowGuardSection,
-    message: str,
+    finding: Any,
     finding_index: int | None,
 ) -> FlowGuardFindingLedgerEntry:
+    message = _format_ledger_message(finding)
     category = _ledger_category(section, message)
+    source_code, subject_ids, evidence_ids = _ledger_source_fields(finding)
+    identity_payload = json.dumps(
+        {
+            "section": section.name,
+            "status": section.status,
+            "source_finding_code": source_code,
+            "source_subject_ids": subject_ids,
+            "evidence_ids": evidence_ids,
+            "message": message,
+        },
+        sort_keys=True,
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
+    finding_id = "finding:" + hashlib.sha256(identity_payload.encode("utf-8")).hexdigest()[:24]
     return FlowGuardFindingLedgerEntry(
         section_name=section.name,
         section_status=section.status,
@@ -464,6 +549,10 @@ def _ledger_entry(
         category=category,
         message=message,
         finding_index=finding_index,
+        finding_id=finding_id,
+        source_finding_code=source_code,
+        source_subject_ids=subject_ids,
+        evidence_ids=evidence_ids,
         section_summary=section.summary,
         next_step=_ledger_next_step(section, category),
         owner_route=_ledger_owner_route(section, category),
@@ -484,7 +573,7 @@ def build_finding_ledger(
     for section in tuple(sections):
         if section.findings:
             for index, finding in enumerate(section.findings, start=1):
-                entries.append(_ledger_entry(section, _format_ledger_message(finding), index))
+                entries.append(_ledger_entry(section, finding, index))
         elif section.status != "pass":
             message = section.summary or f"{section.name} reported {section.status}"
             entries.append(_ledger_entry(section, message, None))

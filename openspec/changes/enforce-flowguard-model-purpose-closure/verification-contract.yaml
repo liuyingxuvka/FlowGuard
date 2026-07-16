@@ -1,0 +1,134 @@
+contract_version: 1
+change: enforce-flowguard-model-purpose-closure
+obligations:
+  - id: req.purpose.declare-before-build
+    source: "specs/flowguard-model-purpose-closure/spec.md#Requirement: Concrete model instances declare purpose before construction"
+    claim: "Every concrete model instance freezes one task-specific one-or-many failure declaration before candidate construction or current re-adoption."
+    required: true
+    evidence: [check.final.full-suite-evidence, check.openspec.strict]
+  - id: req.purpose.native-proof
+    source: "specs/flowguard-model-purpose-closure/spec.md#Requirement: Every protected failure has native good and bad proof coverage"
+    claim: "Every protected failure maps to a current native known-bad proof and every instance has a current native known-good proof."
+    required: true
+    evidence: [check.final.full-suite-evidence, check.openspec.strict]
+  - id: req.purpose.current-binding
+    source: "specs/flowguard-model-purpose-closure/spec.md#Requirement: Current manifest entries bind purpose to exact candidate and runner identities"
+    claim: "The current 59-entry manifest rejects missing, duplicate, placeholder, stale, or disconnected purpose closures before execution."
+    required: true
+    evidence: [check.final.full-suite-evidence, check.openspec.strict]
+  - id: req.purpose.single-route
+    source: "specs/flowguard-model-purpose-closure/spec.md#Requirement: Purpose closure has one non-optional lifecycle"
+    claim: "The implementation has one fail-closed lifecycle and no selectable mode or fallback authority."
+    required: true
+    evidence: [check.final.full-suite-evidence, check.openspec.strict]
+  - id: req.skills.native-loop
+    source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Every model-changing FlowGuard skill invokes the native purpose loop"
+    claim: "All seventeen FlowGuard skills invoke the same native task-specific loop for model-changing work."
+    required: true
+    evidence: [check.final.full-suite-evidence, check.openspec.strict]
+  - id: req.skills.instance-specific
+    source: "specs/flowguard-codex-skill-satellites/spec.md#Requirement: Skill wording preserves instance-specific purpose"
+    claim: "Source and installed prompts do not assign one permanent failure class to a reusable model type."
+    required: true
+    evidence: [check.final.full-suite-evidence, check.openspec.strict]
+  - id: req.skillguard.generic
+    source: "specs/flowguard-skill-contract-governance/spec.md#Requirement: SkillGuard supervises only FlowGuard-declared purpose checks"
+    claim: "SkillGuard only supervises the exact FlowGuard-declared native inventory and does not own domain semantics."
+    required: true
+    evidence: [check.final.full-suite-evidence, check.openspec.strict]
+  - id: req.skills.installation
+    source: "specs/flowguard-skill-contract-governance/spec.md#Requirement: Installed FlowGuard projection consumes current purpose contracts"
+    claim: "The installed FlowGuard skill suite is content-current after native checks close."
+    required: true
+    evidence: [check.final.full-suite-evidence, check.openspec.strict]
+checks:
+  - id: check.final.full-suite-evidence
+    kind: command
+    semantic_check_id: semantic.flowguard.final-full-suite-evidence
+    execution_id: execution.flowguard.final-full-suite-evidence-consumer
+    validation_scope: full
+    snapshot_policy: frozen
+    toolchain_identity: python-json-evidence-consumer
+    input_selectors:
+      - pyproject.toml
+      - flowguard/**/*.py
+      - scripts/**/*.py
+      - tests/**/*.py
+      - .flowguard/model-regression-manifest.json
+      - .flowguard/**/model.py
+      - .flowguard/**/run_checks.py
+      - .agents/skills/**
+      - .skillguard/flowguard-suite/suite-map.json
+      - openspec/changes/enforce-flowguard-model-purpose-closure/validation-owner-plan.json
+      - openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/final-source-freeze.json
+      - openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/final-full/result.json
+      - openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts/final-full/**/result.json
+    depends_on_receipts: []
+    command: python
+    args:
+      - -c
+      - "import json,os,pathlib,sys; evidence_root=os.environ.get('FLOWGUARD_RELEASE_EVIDENCE_ROOT',''); root=pathlib.Path(evidence_root)/'openspec/changes/enforce-flowguard-model-purpose-closure/run-artifacts'; result=json.loads((root/'final-full/result.json').read_text(encoding='utf-8')); freeze=json.loads((root/'final-source-freeze.json').read_text(encoding='utf-8')); required={'project_audit','skill_suite_static','skill_self_governance','model_regressions_full','pytest','openspec_strict','distribution_check','distribution_parity'}; children={c.get('child_id'):c for c in result.get('children',[])}; artifacts=[pathlib.Path(p) for c in children.values() for p in c.get('artifact_paths',[])]; ok=bool(evidence_root) and result.get('status')=='pass' and result.get('ok') is True and result.get('broad_success') is True and not result.get('blockers') and not result.get('failures') and set(children)==required and all(c.get('status')=='pass' for c in children.values()) and all(p.exists() for p in artifacts) and freeze.get('status')=='frozen'; print(json.dumps({'status':'pass' if ok else 'fail','consumed_owner':'final-full','children':sorted(children),'artifacts_present':all(p.exists() for p in artifacts),'source_freeze':freeze.get('status')},sort_keys=True)); sys.exit(0 if ok else 1)"
+    timeout_seconds: 300
+    required: true
+    covers:
+      - req.purpose.declare-before-build
+      - req.purpose.native-proof
+      - req.purpose.current-binding
+      - req.purpose.single-route
+      - req.skills.native-loop
+      - req.skills.instance-specific
+      - req.skillguard.generic
+      - req.skills.installation
+    expected:
+      exit_code: 0
+  - id: check.openspec.strict
+    kind: command
+    semantic_check_id: semantic.openspec.strict
+    execution_id: execution.openspec.strict
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: openspec-cli
+    input_selectors:
+      - openspec/changes/enforce-flowguard-model-purpose-closure/**
+    depends_on_receipts: []
+    command: openspec
+    args:
+      - validate
+      - enforce-flowguard-model-purpose-closure
+      - --strict
+    timeout_seconds: 300
+    required: true
+    covers:
+      - req.purpose.declare-before-build
+      - req.purpose.native-proof
+      - req.purpose.current-binding
+      - req.purpose.single-route
+      - req.skills.native-loop
+      - req.skills.instance-specific
+      - req.skillguard.generic
+      - req.skills.installation
+    expected:
+      exit_code: 0
+freshness:
+  watch:
+    - openspec/changes/enforce-flowguard-model-purpose-closure/proposal.md
+    - openspec/changes/enforce-flowguard-model-purpose-closure/design.md
+    - openspec/changes/enforce-flowguard-model-purpose-closure/tasks.md
+    - openspec/changes/enforce-flowguard-model-purpose-closure/specs/**/*.md
+    - openspec/changes/enforce-flowguard-model-purpose-closure/verification-contract.yaml
+    - pyproject.toml
+    - flowguard/**/*.py
+    - scripts/**/*.py
+    - tests/**/*.py
+    - .flowguard/model-regression-manifest.json
+    - .flowguard/**/model.py
+    - .flowguard/**/run_checks.py
+    - .agents/skills/**
+    - .skillguard/flowguard-suite/suite-map.json
+  exclude:
+    - "**/verification-report.json"
+    - "**/verification-receipts/**"
+    - "**/.skillguard/runs/**"
+    - "**/.flowguard/evidence/**"
+    - "**/run-artifacts/**"
+    - "**/run_artifacts/**"

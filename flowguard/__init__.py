@@ -11,6 +11,20 @@ from .adoption import (
     utc_now_text,
 )
 from .adoption_audit import AdoptionAuditFinding, AdoptionAuditReport, audit_flowguard_adoption
+from .artifact_upgrade import (
+    ARTIFACT_UPGRADE_STATUS_BLOCKED,
+    ARTIFACT_UPGRADE_STATUS_SKIPPED,
+    ARTIFACT_UPGRADE_STATUS_UNCHANGED,
+    ARTIFACT_UPGRADE_STATUS_UPGRADED,
+    ARTIFACT_UPGRADE_STATUSES,
+    ARTIFACT_UPGRADE_TEXT_REPLACEMENTS,
+    ArtifactUpgradeItem,
+    ArtifactUpgradeReport,
+    BehaviorLedgerMigrationFinding,
+    BehaviorLedgerMigrationResult,
+    review_artifact_upgrades,
+    upgrade_behavior_commitment_ledger_mapping,
+)
 from .project_adoption import (
     FLOWGUARD_AGENTS_BEGIN,
     FLOWGUARD_AGENTS_END,
@@ -22,6 +36,7 @@ from .project_adoption import (
     FLOWGUARD_REQUIRED_RULE_IDS,
     PROJECT_ADOPTION_ACTION_ADOPT,
     PROJECT_ADOPTION_ACTION_AUDIT,
+    PROJECT_ADOPTION_ACTION_UPGRADE,
     PROJECT_ADOPTION_CLAIM_BOUNDARY,
     PROJECT_ADOPTION_STATUS_BLOCKED,
     PROJECT_ADOPTION_STATUS_PASS,
@@ -40,6 +55,7 @@ from .project_adoption import (
     managed_rule_ids_in_block,
     normalize_managed_agents_block,
     update_agents_text,
+    upgrade_project,
 )
 from .architecture_reduction import (
     ARCHITECTURE_REDUCTION_CANDIDATE_DISPOSITIONS,
@@ -802,6 +818,7 @@ from . import agent_workflow_rehearsal as _agent_workflow_rehearsal
 from . import closure_contract as _closure_contract
 from . import contract_exhaustion as _contract_exhaustion
 from . import development_process_flow as _development_process_flow
+from . import development_process_strategy as _development_process_strategy
 from . import development_process_simulator as _development_process_simulator
 from . import existing_model_preflight as _existing_model_preflight
 from . import field_lifecycle as _field_lifecycle
@@ -828,10 +845,14 @@ from . import model_maturation as _model_maturation
 from . import distribution_sync as _distribution_sync
 from . import evidence_receipts as _evidence_receipts
 from . import model_regressions as _model_regressions
+from . import model_purpose as _model_purpose
 from . import release_verification as _release_verification
 from . import spec_check_cache as _spec_check_cache
 from . import spec_providers as _spec_providers
 from . import spec_work_package as _spec_work_package
+from . import skill_contracts as _skill_contracts
+from . import skill_native_checks as _skill_native_checks
+from . import skill_self_governance as _skill_self_governance
 from . import skill_suite as _skill_suite
 from . import validation_results as _validation_results
 from .self_maintenance import *  # noqa: F403
@@ -848,11 +869,13 @@ from .model_freshness import *  # noqa: F403
 from .model_maturation import *  # noqa: F403
 from .route_topology import *  # noqa: F403
 from .development_process_simulator import *  # noqa: F403
+from .development_process_strategy import *  # noqa: F403
 from .development_process_flow import (
     PROCESS_ARTIFACT_ADAPTER,
     PROCESS_ARTIFACT_BEHAVIOR_COMMITMENT_LEDGER,
     PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE,
     PROCESS_ARTIFACT_CODE,
+    PROCESS_ARTIFACT_PROCESS_OPTIMIZATION,
     PROCESS_ARTIFACT_DESIGN,
     PROCESS_ARTIFACT_DOC,
     PROCESS_ARTIFACT_FIELD_LIFECYCLE,
@@ -874,6 +897,7 @@ from .development_process_flow import (
     PROCESS_EVIDENCE_BUG_REPAIR_CLOSURE,
     PROCESS_EVIDENCE_ERROR,
     PROCESS_EVIDENCE_FAILED,
+    PROCESS_EVIDENCE_PROCESS_OPTIMIZATION,
     PROCESS_EVIDENCE_FIELD_LIFECYCLE,
     PROCESS_EVIDENCE_FIELD_PROJECTION,
     PROCESS_EVIDENCE_UI_SOURCE_BASELINE_GATE,
@@ -1237,9 +1261,13 @@ from .workflow import Workflow, WorkflowPath, WorkflowRun
 
 _GOVERNANCE_MODULES = (
     _evidence_receipts,
+    _skill_self_governance,
+    _skill_native_checks,
     _skill_suite,
+    _skill_contracts,
     _validation_results,
     _model_regressions,
+    _model_purpose,
     _distribution_sync,
     _release_verification,
     _spec_work_package,
@@ -1286,7 +1314,15 @@ PLAN_INTAKE_ADVANCED_API = PLAN_INTAKE_CLAIM_API
 AGENT_WORKFLOW_REHEARSAL_ROUTE_API = tuple(name for name in _agent_workflow_rehearsal.__all__ if name in globals())
 FLOWGUARD_CLOSURE_CONTRACT_API = tuple(_closure_contract.__all__)
 CONTRACT_EXHAUSTION_MESH_API = tuple(_contract_exhaustion.__all__)
-DEVELOPMENT_PROCESS_FLOW_ROUTE_API = tuple(name for name in _development_process_flow.__all__ if name in globals())
+_PROCESS_OPTIMIZATION_API = tuple(
+    name for name in _development_process_strategy.__all__ if name in globals()
+)
+DEVELOPMENT_PROCESS_FLOW_ROUTE_API = tuple(
+    dict.fromkeys(
+        tuple(name for name in _development_process_flow.__all__ if name in globals())
+        + _PROCESS_OPTIMIZATION_API
+    )
+)
 DEVELOPMENT_PROCESS_SIMULATOR_ROUTE_API = tuple(_development_process_simulator.__all__)
 BEHAVIOR_COMMITMENT_LOOKUP_API = tuple(
     name for name in _behavior_commitment_lookup.__all__ if name in globals()
@@ -2208,6 +2244,12 @@ REPORTING_HELPER_API = (
     "field_rows_to_legacy_path_dispositions",
     "legacy_path_disposition_from_field_row",
     "review_legacy_path_dispositions",
+    "ArtifactUpgradeItem",
+    "ArtifactUpgradeReport",
+    "BehaviorLedgerMigrationFinding",
+    "BehaviorLedgerMigrationResult",
+    "review_artifact_upgrades",
+    "upgrade_behavior_commitment_ledger_mapping",
     "AutoSplitCandidate",
     "AutoSplitFinding",
     "AutoSplitPlan",
@@ -2356,6 +2398,7 @@ REPORTING_HELPER_API = (
     "managed_rule_ids_in_block",
     "normalize_managed_agents_block",
     "update_agents_text",
+    "upgrade_project",
     "FLOWGUARD_AGENTS_BEGIN",
     "FLOWGUARD_AGENTS_END",
     "FLOWGUARD_MANAGED_RULES",
@@ -2366,6 +2409,7 @@ REPORTING_HELPER_API = (
     "FLOWGUARD_REQUIRED_RULE_IDS",
     "PROJECT_ADOPTION_ACTION_ADOPT",
     "PROJECT_ADOPTION_ACTION_AUDIT",
+    "PROJECT_ADOPTION_ACTION_UPGRADE",
     "PROJECT_ADOPTION_CLAIM_BOUNDARY",
     "PROJECT_ADOPTION_STATUS_BLOCKED",
     "PROJECT_ADOPTION_STATUS_PASS",
@@ -2836,6 +2880,10 @@ _ROUTE_STARTER_API_GROUPS = {
         "DevelopmentProcessPlan",
         "ProcessEvidence",
         "ProcessAction",
+        "ProcessOptimizationContract",
+        "ProcessOptimizationCandidate",
+        "ProcessOptimizationDecision",
+        "review_process_optimization",
         "review_development_process_flow",
         "development_process_flow_template_files",
     ),
@@ -3015,6 +3063,12 @@ _PUBLIC_API_SUPPLEMENT = (
     "LEGACY_PATH_SAME_CONTRACT_REPAIRED",
     "LEGACY_PATH_OUT_OF_SCOPE",
     "LEGACY_PATH_UNKNOWN",
+    "ARTIFACT_UPGRADE_STATUS_BLOCKED",
+    "ARTIFACT_UPGRADE_STATUS_SKIPPED",
+    "ARTIFACT_UPGRADE_STATUS_UNCHANGED",
+    "ARTIFACT_UPGRADE_STATUS_UPGRADED",
+    "ARTIFACT_UPGRADE_STATUSES",
+    "ARTIFACT_UPGRADE_TEXT_REPLACEMENTS",
 )
 
 
@@ -3032,6 +3086,7 @@ def _dedupe_public_names(*groups: tuple[str, ...]) -> list[str]:
 __all__ = _dedupe_public_names(
     CORE_API,
     CONTRACT_EXHAUSTION_MESH_API,
+    DEVELOPMENT_PROCESS_FLOW_ROUTE_API,
     MODELING_HELPER_API,
     REPORTING_HELPER_API,
     EVIDENCE_API,

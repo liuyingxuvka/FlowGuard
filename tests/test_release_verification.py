@@ -4,7 +4,6 @@ from pathlib import Path
 import subprocess
 import tarfile
 import tempfile
-from types import SimpleNamespace
 import unittest
 from unittest import mock
 import zipfile
@@ -40,14 +39,7 @@ class ReleaseVerificationTests(unittest.TestCase):
                     "broad_success": True,
                     "blockers": [],
                     "skipped_checks": [],
-                    "children": [
-                        {
-                            "child_id": child,
-                            "status": "pass",
-                            "receipt_id": "receipt:skillguard-parent",
-                        }
-                        for child in REQUIRED_UNIFIED_CHILDREN
-                    ],
+                    "children": [{"child_id": child, "status": "pass"} for child in REQUIRED_UNIFIED_CHILDREN],
                 }
             ),
             encoding="utf-8",
@@ -58,7 +50,6 @@ class ReleaseVerificationTests(unittest.TestCase):
         sdist = self.root / "dist" / "flowguard-1.2.3.tar.gz"
         with tarfile.open(sdist, "w:gz"):
             pass
-        self.parent_receipt_current = True
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
@@ -69,11 +60,6 @@ class ReleaseVerificationTests(unittest.TestCase):
             installed_version="1.2.3",
             schema_version="1.0",
             source_path=self.root / "flowguard" / "__init__.py",
-            receipt_consumer=lambda _root, _receipt_id: SimpleNamespace(
-                ok=self.parent_receipt_current,
-                findings=() if self.parent_receipt_current else ("portable_source_manifest_not_current",),
-                minimum_revalidation=() if self.parent_receipt_current else ("owner.full",),
-            ),
         )
 
     def test_local_release_requires_all_exact_children_and_built_artifacts(self) -> None:
@@ -97,8 +83,12 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("release.built_artifacts", report.to_dict()["blockers"])
 
-    def test_stale_parent_receipt_blocks_release(self) -> None:
-        self.parent_receipt_current = False
+    def test_source_change_after_unified_result_blocks_release(self) -> None:
+        source = self.root / "flowguard" / "changed.py"
+        source.write_text("changed = True\n", encoding="utf-8")
+        evidence_time = self.evidence.stat().st_mtime_ns
+        os.utime(source, ns=(evidence_time + 1_000_000_000, evidence_time + 1_000_000_000))
+        self.assertGreater(source.stat().st_mtime_ns, evidence_time)
         report = self._verify()
         self.assertFalse(report.ok)
         self.assertIn("release.evidence_freshness", report.to_dict()["blockers"])
@@ -120,7 +110,6 @@ class ReleaseVerificationTests(unittest.TestCase):
         spec.write_text("# changed contract\n", encoding="utf-8")
         evidence_time = self.evidence.stat().st_mtime_ns
         os.utime(spec, ns=(evidence_time + 1_000_000_000, evidence_time + 1_000_000_000))
-        self.parent_receipt_current = False
         report = self._verify()
         self.assertFalse(report.ok)
         self.assertIn("release.evidence_freshness", report.to_dict()["blockers"])

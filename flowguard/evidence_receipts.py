@@ -73,10 +73,7 @@ SAFE_ENVIRONMENT_KEYS = frozenset(
 )
 
 _WINDOWS_ABSOLUTE_PATH = re.compile(r"(?i)(?<![A-Za-z0-9_])(?:[A-Z]:[\\/]|\\\\)[^\s\"']+")
-# Relative glob patterns such as ``flowguard/**/*.py`` contain a slash after a
-# wildcard.  Wildcard and character-class tokens are valid relative-path
-# predecessors and must not be mistaken for an embedded POSIX absolute path.
-_POSIX_ABSOLUTE_PATH = re.compile(r"(?<![A-Za-z0-9_:.>/\*\?\]])/(?:[^\s\"']+)")
+_POSIX_ABSOLUTE_PATH = re.compile(r"(?<![A-Za-z0-9_:.>/])/(?:[^\s\"']+)")
 _SAFE_TOKEN = re.compile(r"^<[A-Z_]+(?::[0-9a-f]{12,64})?>(?:/[^\\]*)?$")
 _SAFE_FILE_COMPONENT = re.compile(r"[^A-Za-z0-9_.-]+")
 

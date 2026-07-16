@@ -52,9 +52,8 @@ Classify dispositions:
 - Risk Evidence Ledger when broad user-risk confidence depends on the hazard;
 - DevelopmentProcessFlow when local evidence is being overclaimed as release or
   process confidence;
-- Architecture Reduction plus ledger when a FlowGuard skill/runtime old path
-  must be blocked or deleted, or when an explicitly required ordinary-software
-  history reader needs a bounded owner and claim boundary;
+- Architecture Reduction plus ledger when old/new compatibility paths need a
+  preserve, migrate, block, delete, or latest-schema-first decision;
 - Architecture Reduction plus Model Similarity when two business paths do the
   same useful job;
 - Model Maturation plus Model-Test Alignment when business paths conflict or

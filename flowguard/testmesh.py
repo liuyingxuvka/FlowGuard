@@ -69,6 +69,8 @@ TEST_EVIDENCE_ORDER = {
 TEST_SCOPE_ROUTINE = "routine"
 TEST_SCOPE_RELEASE = "release"
 
+_DIAGNOSTIC_BOUNDARIES = {"targeted", "declared_complete", "budgeted"}
+
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
     if values is None:
@@ -126,6 +128,13 @@ class TestSuiteEvidence:
     test_count: int = 0
     selected_count: int = 0
     skipped_count: int = 0
+    planned_count: int = 0
+    executed_count: int = 0
+    failed_count: int = 0
+    not_run_count: int = 0
+    diagnostic_campaign_id: str = ""
+    diagnostic_boundary: str = ""
+    finding_ids: tuple[str, ...] = ()
     skipped_visible: bool = True
     timeout_seconds: float | None = None
     duration_seconds: float | None = None
@@ -164,18 +173,6 @@ class TestSuiteEvidence:
     spec_check_id: str = ""
     spec_cross_change_reuse: bool = False
     spec_provider_cross_change_authorized: bool = False
-    semantic_check_id: str = ""
-    execution_id: str = ""
-    execution_key: str = ""
-    execution_owner_id: str = ""
-    input_scope_ids: tuple[str, ...] = ()
-    source_snapshot_fingerprint: str = ""
-    toolchain_fingerprint: str = ""
-    snapshot_policy: str = ""
-    execution_mode: str = ""
-    parent_check_id: str = ""
-    child_receipt_ids: tuple[str, ...] = ()
-    uncovered_coverage_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "suite_id", str(self.suite_id))
@@ -186,6 +183,13 @@ class TestSuiteEvidence:
         object.__setattr__(self, "test_count", int(self.test_count))
         object.__setattr__(self, "selected_count", int(self.selected_count))
         object.__setattr__(self, "skipped_count", int(self.skipped_count))
+        object.__setattr__(self, "planned_count", int(self.planned_count))
+        object.__setattr__(self, "executed_count", int(self.executed_count))
+        object.__setattr__(self, "failed_count", int(self.failed_count))
+        object.__setattr__(self, "not_run_count", int(self.not_run_count))
+        object.__setattr__(self, "diagnostic_campaign_id", str(self.diagnostic_campaign_id))
+        object.__setattr__(self, "diagnostic_boundary", str(self.diagnostic_boundary))
+        object.__setattr__(self, "finding_ids", _as_tuple(self.finding_ids))
         object.__setattr__(self, "result_path", str(self.result_path))
         object.__setattr__(self, "log_root", str(self.log_root))
         object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
@@ -219,18 +223,6 @@ class TestSuiteEvidence:
             "spec_provider_cross_change_authorized",
             bool(self.spec_provider_cross_change_authorized),
         )
-        object.__setattr__(self, "semantic_check_id", str(self.semantic_check_id))
-        object.__setattr__(self, "execution_id", str(self.execution_id))
-        object.__setattr__(self, "execution_key", str(self.execution_key))
-        object.__setattr__(self, "execution_owner_id", str(self.execution_owner_id))
-        object.__setattr__(self, "input_scope_ids", _as_tuple(self.input_scope_ids))
-        object.__setattr__(self, "source_snapshot_fingerprint", str(self.source_snapshot_fingerprint))
-        object.__setattr__(self, "toolchain_fingerprint", str(self.toolchain_fingerprint))
-        object.__setattr__(self, "snapshot_policy", str(self.snapshot_policy))
-        object.__setattr__(self, "execution_mode", str(self.execution_mode))
-        object.__setattr__(self, "parent_check_id", str(self.parent_check_id))
-        object.__setattr__(self, "child_receipt_ids", _as_tuple(self.child_receipt_ids))
-        object.__setattr__(self, "uncovered_coverage_ids", _as_tuple(self.uncovered_coverage_ids))
 
     def is_release_only(self) -> bool:
         return self.release_required or self.layer == TEST_LAYER_RELEASE
@@ -285,6 +277,13 @@ class TestSuiteEvidence:
             "test_count": self.test_count,
             "selected_count": self.selected_count,
             "skipped_count": self.skipped_count,
+            "planned_count": self.planned_count,
+            "executed_count": self.executed_count,
+            "failed_count": self.failed_count,
+            "not_run_count": self.not_run_count,
+            "diagnostic_campaign_id": self.diagnostic_campaign_id,
+            "diagnostic_boundary": self.diagnostic_boundary,
+            "finding_ids": list(self.finding_ids),
             "skipped_visible": self.skipped_visible,
             "timeout_seconds": self.timeout_seconds,
             "duration_seconds": self.duration_seconds,
@@ -323,18 +322,6 @@ class TestSuiteEvidence:
             "spec_check_id": self.spec_check_id,
             "spec_cross_change_reuse": self.spec_cross_change_reuse,
             "spec_provider_cross_change_authorized": self.spec_provider_cross_change_authorized,
-            "semantic_check_id": self.semantic_check_id,
-            "execution_id": self.execution_id,
-            "execution_key": self.execution_key,
-            "execution_owner_id": self.execution_owner_id,
-            "input_scope_ids": list(self.input_scope_ids),
-            "source_snapshot_fingerprint": self.source_snapshot_fingerprint,
-            "toolchain_fingerprint": self.toolchain_fingerprint,
-            "snapshot_policy": self.snapshot_policy,
-            "execution_mode": self.execution_mode,
-            "parent_check_id": self.parent_check_id,
-            "child_receipt_ids": list(self.child_receipt_ids),
-            "uncovered_coverage_ids": list(self.uncovered_coverage_ids),
         }
 
 
@@ -399,12 +386,6 @@ class TestMeshPlan:
     require_complete_inventory: bool = False
     require_final_receipts: bool = False
     required_spec_consumer_ids: tuple[str, ...] = ()
-    parent_execution_mode: str = ""
-    parent_consumed_child_receipt_ids: tuple[str, ...] = ()
-    parent_uncovered_coverage_ids: tuple[str, ...] = ()
-    required_snapshot_policy: str = ""
-    required_source_snapshot_fingerprint: str = ""
-    required_toolchain_fingerprint: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_suite_id", str(self.parent_suite_id))
@@ -427,22 +408,6 @@ class TestMeshPlan:
         object.__setattr__(self, "require_complete_inventory", bool(self.require_complete_inventory))
         object.__setattr__(self, "require_final_receipts", bool(self.require_final_receipts))
         object.__setattr__(self, "required_spec_consumer_ids", _as_tuple(self.required_spec_consumer_ids))
-        object.__setattr__(self, "parent_execution_mode", str(self.parent_execution_mode))
-        object.__setattr__(
-            self,
-            "parent_consumed_child_receipt_ids",
-            _as_tuple(self.parent_consumed_child_receipt_ids),
-        )
-        object.__setattr__(
-            self, "parent_uncovered_coverage_ids", _as_tuple(self.parent_uncovered_coverage_ids)
-        )
-        object.__setattr__(self, "required_snapshot_policy", str(self.required_snapshot_policy))
-        object.__setattr__(
-            self,
-            "required_source_snapshot_fingerprint",
-            str(self.required_source_snapshot_fingerprint),
-        )
-        object.__setattr__(self, "required_toolchain_fingerprint", str(self.required_toolchain_fingerprint))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -468,12 +433,6 @@ class TestMeshPlan:
             "require_complete_inventory": self.require_complete_inventory,
             "require_final_receipts": self.require_final_receipts,
             "required_spec_consumer_ids": list(self.required_spec_consumer_ids),
-            "parent_execution_mode": self.parent_execution_mode,
-            "parent_consumed_child_receipt_ids": list(self.parent_consumed_child_receipt_ids),
-            "parent_uncovered_coverage_ids": list(self.parent_uncovered_coverage_ids),
-            "required_snapshot_policy": self.required_snapshot_policy,
-            "required_source_snapshot_fingerprint": self.required_source_snapshot_fingerprint,
-            "required_toolchain_fingerprint": self.required_toolchain_fingerprint,
         }
 
 
@@ -982,6 +941,94 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
     release_obligations: list[str] = []
     required_tier = _tier_value(plan.required_evidence_tier)
     for suite in plan.child_suites:
+        campaign_active = bool(
+            suite.planned_count
+            or suite.executed_count
+            or suite.failed_count
+            or suite.not_run_count
+            or suite.diagnostic_campaign_id
+            or suite.diagnostic_boundary
+            or suite.finding_ids
+        )
+        if campaign_active:
+            if not suite.diagnostic_campaign_id:
+                findings.append(
+                    TestMeshFinding(
+                        "diagnostic_campaign_id_missing",
+                        f"suite {suite.suite_id} has diagnostic accounting without a stable campaign id",
+                        suite_id=suite.suite_id,
+                        metadata=suite.to_dict(),
+                    )
+                )
+            if suite.diagnostic_boundary not in _DIAGNOSTIC_BOUNDARIES:
+                findings.append(
+                    TestMeshFinding(
+                        "diagnostic_boundary_invalid",
+                        f"suite {suite.suite_id} lacks a recognized diagnostic boundary",
+                        suite_id=suite.suite_id,
+                        metadata=suite.to_dict(),
+                    )
+                )
+            counts = (
+                suite.planned_count,
+                suite.executed_count,
+                suite.failed_count,
+                suite.not_run_count,
+            )
+            if any(value < 0 for value in counts):
+                findings.append(
+                    TestMeshFinding(
+                        "diagnostic_campaign_count_negative",
+                        f"suite {suite.suite_id} has a negative diagnostic count",
+                        suite_id=suite.suite_id,
+                        metadata=suite.to_dict(),
+                    )
+                )
+            if suite.planned_count != suite.executed_count + suite.not_run_count:
+                findings.append(
+                    TestMeshFinding(
+                        "diagnostic_campaign_count_inconsistent",
+                        f"suite {suite.suite_id} does not account every planned diagnostic as executed or not run",
+                        suite_id=suite.suite_id,
+                        metadata=suite.to_dict(),
+                    )
+                )
+            if suite.failed_count > suite.executed_count:
+                findings.append(
+                    TestMeshFinding(
+                        "diagnostic_failed_count_exceeds_executed",
+                        f"suite {suite.suite_id} reports more failures than executed diagnostics",
+                        suite_id=suite.suite_id,
+                        metadata=suite.to_dict(),
+                    )
+                )
+            if suite.not_run_count and not suite.not_run_reason:
+                findings.append(
+                    TestMeshFinding(
+                        "diagnostic_not_run_reason_missing",
+                        f"suite {suite.suite_id} hides why planned diagnostics were not run",
+                        suite_id=suite.suite_id,
+                        metadata=suite.to_dict(),
+                    )
+                )
+            if suite.diagnostic_boundary == "declared_complete" and suite.not_run_count:
+                findings.append(
+                    TestMeshFinding(
+                        "diagnostic_false_completeness",
+                        f"suite {suite.suite_id} claims declared completeness with not-run diagnostics",
+                        suite_id=suite.suite_id,
+                        metadata=suite.to_dict(),
+                    )
+                )
+            if suite.failed_count and not suite.finding_ids:
+                findings.append(
+                    TestMeshFinding(
+                        "diagnostic_finding_missing",
+                        f"suite {suite.suite_id} failures are not linked to stable raw findings",
+                        suite_id=suite.suite_id,
+                        metadata=suite.to_dict(),
+                    )
+                )
         release_only = suite.is_release_only()
         deferred_release = (
             plan.decision_scope == TEST_SCOPE_ROUTINE
@@ -1088,9 +1135,6 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
             or suite.spec_receipt_fingerprint
             or suite.spec_work_package_id
             or suite.spec_check_id
-            or suite.semantic_check_id
-            or suite.execution_id
-            or suite.execution_key
         )
         if spec_bound and suite.spec_execution_state not in {"executed", "reused-current", "stale", "not-run", "blocked"}:
             findings.append(
@@ -1109,10 +1153,6 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
             or not suite.spec_receipt_fingerprint
             or not suite.spec_work_package_id
             or not suite.spec_check_id
-            or not suite.semantic_check_id
-            or not suite.execution_id
-            or not suite.execution_key
-            or not suite.execution_owner_id
         ):
             findings.append(
                 TestMeshFinding(
@@ -1138,17 +1178,6 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
                 TestMeshFinding(
                     "spec_cross_change_reuse_unauthorized",
                     f"suite {suite.suite_id} lacks provider-authorized cross-change reuse",
-                    suite_id=suite.suite_id,
-                    metadata=suite.to_dict(),
-                )
-            )
-        if suite.result_status == TEST_STATUS_PASSED and suite.execution_mode == "aggregate-child-receipts" and (
-            not suite.child_receipt_ids or suite.uncovered_coverage_ids
-        ):
-            findings.append(
-                TestMeshFinding(
-                    "spec_parent_receipt_aggregation_incomplete",
-                    f"suite {suite.suite_id} must consume child receipts and leave no uncovered coverage before pass",
                     suite_id=suite.suite_id,
                     metadata=suite.to_dict(),
                 )
@@ -1321,59 +1350,6 @@ def _spec_receipt_topology_findings(plan: TestMeshPlan) -> list[TestMeshFinding]
                     metadata={"receipt_id": receipt_id, "suite_ids": sorted(set(suite_ids))},
                 )
             )
-    if plan.parent_execution_mode == "aggregate-child-receipts":
-        required_child_receipts = {
-            suite.spec_receipt_id
-            for suite in plan.child_suites
-            if suite.spec_receipt_id and suite.result_status == TEST_STATUS_PASSED
-        }
-        missing_child_receipts = sorted(
-            required_child_receipts - set(plan.parent_consumed_child_receipt_ids)
-        )
-        if missing_child_receipts:
-            findings.append(
-                TestMeshFinding(
-                    "spec_parent_child_receipt_missing",
-                    "parent gate must consume current child receipts instead of reexecuting covered children",
-                    suite_id=plan.parent_suite_id,
-                    metadata={"missing_child_receipt_ids": missing_child_receipts},
-                )
-            )
-        if plan.parent_uncovered_coverage_ids:
-            owned_remainder = {
-                item
-                for suite in plan.child_suites
-                if suite.execution_mode == "uncovered-remainder"
-                and suite.has_current_pass()
-                for item in suite.owned_inventory_item_ids
-            }
-            missing_remainder = sorted(set(plan.parent_uncovered_coverage_ids) - owned_remainder)
-            if missing_remainder:
-                findings.append(
-                    TestMeshFinding(
-                        "spec_parent_uncovered_remainder_missing",
-                        "parent may execute only the uncovered remainder and must consume its child receipt",
-                        suite_id=plan.parent_suite_id,
-                        metadata={"missing_uncovered_coverage_ids": missing_remainder},
-                    )
-                )
-    if plan.required_snapshot_policy == "frozen-required":
-        for suite in plan.child_suites:
-            if not suite.has_current_pass():
-                continue
-            if (
-                suite.snapshot_policy != "frozen-required"
-                or suite.source_snapshot_fingerprint != plan.required_source_snapshot_fingerprint
-                or suite.toolchain_fingerprint != plan.required_toolchain_fingerprint
-            ):
-                findings.append(
-                    TestMeshFinding(
-                        "spec_frozen_snapshot_mixed",
-                        "full/release parent cannot mix live or different source/toolchain child receipts",
-                        suite_id=suite.suite_id,
-                        metadata=suite.to_dict(),
-                    )
-                )
     return findings
 
 

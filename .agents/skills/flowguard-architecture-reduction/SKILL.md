@@ -29,6 +29,7 @@ Accept existing-model ownership plus code mapping; classify contraction candidat
 3. Record stable intent/commitment/selected-path binding, proof status, target action, compatibility disposition, risks, and required next route.
 
 ## Hard Gates
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Only equivalence or current facade proof can make a contraction ready; risky, scoped, stale, and property-only candidates remain visible.
 - An empty/smaller candidate list cannot pass after Preflight or Similarity found duplicates. Retained facades require current evidence that they delegate to the selected primary path and cannot succeed independently.
