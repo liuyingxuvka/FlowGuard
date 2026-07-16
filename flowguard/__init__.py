@@ -997,6 +997,36 @@ from .progress import (
     ProgressFinding,
     check_progress,
 )
+from .portable_model import (
+    PORTABLE_MODEL_SCHEMA_VERSION,
+    PORTABLE_REFINEMENT_SCHEMA_VERSION,
+    PORTABLE_TEMPORAL_KINDS,
+    PortableInvariant,
+    PortableModel,
+    PortableModelError,
+    PortableState,
+    PortableTemporalObligation,
+    PortableTransition,
+    RefinementBinding,
+    canonical_identity,
+    canonical_json_bytes,
+    load_portable_model,
+    load_refinement_binding,
+    validate_portable_model,
+    write_portable_model,
+)
+from .portable_checker import (
+    PORTABLE_CHECK_STATUSES,
+    PortableCheckReport,
+    PortableExecutionReport,
+    PortableFinding,
+    PortableTrace,
+    PortableTraceStep,
+    check_composition,
+    check_portable_model,
+    check_refinement,
+    execute_portable_model,
+)
 from .minimize import (
     MinimizedCounterexample,
     ReductionStep,
@@ -2991,7 +3021,21 @@ API_SURFACE = {
     "evidence": EVIDENCE_API,
     "governance_and_distribution": FLOWGUARD_GOVERNANCE_API,
     "spec_work_packages": SPEC_WORK_PACKAGE_API,
+    "portable_verification": (
+        "PORTABLE_MODEL_SCHEMA_VERSION",
+        "PORTABLE_REFINEMENT_SCHEMA_VERSION",
+        "PortableModel",
+        "RefinementBinding",
+        "load_portable_model",
+        "validate_portable_model",
+        "execute_portable_model",
+        "check_portable_model",
+        "check_refinement",
+        "check_composition",
+    ),
 }
+
+PORTABLE_VERIFICATION_API = API_SURFACE["portable_verification"]
 
 _PUBLIC_API_SUPPLEMENT = (
     "AGENT_WORKFLOW_REHEARSAL_ROUTE_API",
@@ -3033,6 +3077,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "ROUTE_ADVANCED_API",
     "ROUTE_STARTER_API",
     "PLAN_INTAKE_STARTER_API",
+    "PORTABLE_VERIFICATION_API",
     "STATE_CLOSURE_ROUTE_API",
     "SPEC_WORK_PACKAGE_API",
     "STRUCTURE_MESH_ROUTE_API",
@@ -3091,5 +3136,6 @@ __all__ = _dedupe_public_names(
     REPORTING_HELPER_API,
     EVIDENCE_API,
     FLOWGUARD_GOVERNANCE_API,
+    PORTABLE_VERIFICATION_API,
     _PUBLIC_API_SUPPLEMENT,
 )

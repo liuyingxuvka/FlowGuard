@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.57.0 - 2026-07-16
+
+Portable compositional-verification kernel release.
+
+- Added a strict, versioned, JSON-serializable finite model IR with canonical
+  identities, explicit invariants and temporal obligations, and fail-closed
+  rejection of unknown or dangling schema content.
+- Added a code-independent reference checker for nondeterministic traces,
+  safety, terminal progress, universal and bounded eventuality, weak fairness,
+  visible truncation, and smallest counterexample preservation.
+- Added explicit child-to-parent refinement and assume/guarantee composition
+  checks, including state/transition mappings, stutter declarations,
+  assumption weakening, guarantee strengthening, provider closure, and
+  conflict detection.
+- Exposed one narrow Python API and CLI cohort, registered the kernel in the
+  model-regression manifest, and updated ModelMesh, topology-hazard, and
+  model-first skill contracts without adding a duplicate public route.
+- Revalidated the project artifacts with official OpenSpec 1.6.0. This local
+  release deliberately excludes GitHub push, remote tag, and GitHub Release
+  evidence.
+
 ## v0.56.0 - 2026-07-15
 
 Guard-purpose closure and generic declared-check supervision release.

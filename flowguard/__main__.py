@@ -611,6 +611,66 @@ def _run_spec_check_command(args: argparse.Namespace) -> int:
     return 0 if result.ok else 1
 
 
+def _portable_invalid_report(path: str, exc: Exception):
+    from .portable_checker import PortableCheckReport, PortableFinding
+
+    return PortableCheckReport(
+        status="invalid",
+        model_id=path,
+        model_fingerprint="",
+        findings=(PortableFinding("portable_artifact_invalid", str(exc)),),
+    )
+
+
+def _print_portable_report(report, *, as_json: bool) -> int:
+    print(report.to_json_text() if as_json else report.format_text())
+    return 0 if report.ok else 1
+
+
+def _run_portable_model_validate_command(args: argparse.Namespace) -> int:
+    from .portable_checker import PortableCheckReport
+    from .portable_model import load_portable_model
+
+    try:
+        model = load_portable_model(args.model)
+        report = PortableCheckReport(
+            status="pass",
+            model_id=model.model_id,
+            model_fingerprint=model.fingerprint,
+            checked_obligation_ids=("portable_model.structure.current",),
+            claim_boundary="Validation proves the current portable artifact shape and identity only.",
+        )
+    except Exception as exc:
+        report = _portable_invalid_report(args.model, exc)
+    return _print_portable_report(report, as_json=args.json)
+
+
+def _run_portable_model_check_command(args: argparse.Namespace) -> int:
+    from .portable_checker import check_portable_model
+    from .portable_model import load_portable_model
+
+    try:
+        report = check_portable_model(load_portable_model(args.model), max_states=args.max_states)
+    except Exception as exc:
+        report = _portable_invalid_report(args.model, exc)
+    return _print_portable_report(report, as_json=args.json)
+
+
+def _run_portable_model_refinement_command(args: argparse.Namespace) -> int:
+    from .portable_checker import check_refinement
+    from .portable_model import load_portable_model, load_refinement_binding
+
+    try:
+        report = check_refinement(
+            load_portable_model(args.parent),
+            load_portable_model(args.child),
+            load_refinement_binding(args.binding),
+        )
+    except Exception as exc:
+        report = _portable_invalid_report(args.child, exc)
+    return _print_portable_report(report, as_json=args.json)
+
+
 COMMANDS: dict[str, Callable[[], int]] = {
     "adoption-template": _run_adoption_template,
     "benchmark": _run_benchmark,
@@ -861,6 +921,37 @@ def _add_spec_work_package_parsers(
     run.set_defaults(handler=_run_spec_check_command)
 
 
+def _add_portable_model_parsers(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    validate = subparsers.add_parser(
+        "portable-model-validate",
+        help="Validate one current-schema portable finite model artifact.",
+    )
+    validate.add_argument("model", help="Portable model JSON path.")
+    validate.add_argument("--json", action="store_true", help="Print canonical JSON output.")
+    validate.set_defaults(handler=_run_portable_model_validate_command)
+
+    check = subparsers.add_parser(
+        "portable-model-check",
+        help="Run safety and temporal checks over one portable model.",
+    )
+    check.add_argument("model", help="Portable model JSON path.")
+    check.add_argument("--max-states", type=int, default=10000)
+    check.add_argument("--json", action="store_true", help="Print canonical JSON output.")
+    check.set_defaults(handler=_run_portable_model_check_command)
+
+    refinement = subparsers.add_parser(
+        "portable-model-refinement",
+        help="Check an explicit child-to-parent portable refinement binding.",
+    )
+    refinement.add_argument("--parent", required=True, help="Parent portable model JSON path.")
+    refinement.add_argument("--child", required=True, help="Child portable model JSON path.")
+    refinement.add_argument("--binding", required=True, help="Refinement binding JSON path.")
+    refinement.add_argument("--json", action="store_true", help="Print canonical JSON output.")
+    refinement.set_defaults(handler=_run_portable_model_refinement_command)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m flowguard",
@@ -876,6 +967,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_risk_template_harvest_parser(subparsers)
     _add_risk_template_harvest_review_parser(subparsers)
     _add_spec_work_package_parsers(subparsers)
+    _add_portable_model_parsers(subparsers)
     _add_project_adoption_parser(
         subparsers,
         "project-audit",

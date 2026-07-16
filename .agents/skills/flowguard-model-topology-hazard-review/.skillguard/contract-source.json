@@ -51,6 +51,10 @@
           "path": ".flowguard/model_topology_hazard_review/run_checks.py"
         },
         {
+          "kind": "path",
+          "path": "flowguard/portable_checker.py"
+        },
+        {
           "kind": "role",
           "role": "runtime_source"
         },
@@ -158,6 +162,8 @@
     ".agents/skills/flowguard-model-topology-hazard-review",
     ".flowguard/model_topology_hazard_review",
     "flowguard/topology_hazard.py",
+    "flowguard/portable_model.py",
+    "flowguard/portable_checker.py",
     "flowguard/skill_contract_model.py",
     "tests/test_topology_hazard.py"
   ],
@@ -200,7 +206,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Run the existing topology-hazard owner to classify anchored hazards, observations, dispositions, and confidence effects."
+        "summary": "Run the existing topology-hazard owner to classify anchored hazards, observations, dispositions, and confidence effects; portable liveness/fairness consumes the canonical checker report for the same graph identity."
       },
       "check_ids": [
         "check:flowguard-model-topology-hazard-review:native-authority"

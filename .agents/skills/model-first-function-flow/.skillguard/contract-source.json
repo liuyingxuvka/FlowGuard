@@ -51,6 +51,14 @@
           "path": ".flowguard/minimum_valuable_model_entry/run_checks.py"
         },
         {
+          "kind": "path",
+          "path": "flowguard/portable_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/portable_checker.py"
+        },
+        {
           "kind": "role",
           "role": "runtime_source"
         },
@@ -159,6 +167,9 @@
     ".flowguard/minimum_valuable_model_entry",
     "flowguard/skill_contract_model.py",
     "flowguard/behavior_commitment_lookup.py",
+    "flowguard/portable_model.py",
+    "flowguard/portable_checker.py",
+    ".flowguard/compositional_verification_kernel",
     "tests/test_flowguard_skill_trigger.py",
     "tests/test_flowguard_skill_collaboration.py"
   ],
@@ -201,7 +212,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Select the existing owner or build the minimum useful executable model without creating a duplicate route."
+        "summary": "Select the existing owner or build the minimum useful executable model; when interchange is required, project the explicit finite relation to the current portable schema and consume the canonical checker without creating a duplicate route."
       },
       "check_ids": [
         "check:model-first-function-flow:native-authority"

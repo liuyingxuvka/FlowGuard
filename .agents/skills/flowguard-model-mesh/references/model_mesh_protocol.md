@@ -366,3 +366,15 @@ The mesh is sufficient for the current decision only when:
 - oversized new or legacy models have a split-review decision;
 - the final decision distinguishes model classification from permission to
   continue the real workflow.
+
+## Portable semantic reattachment
+
+When a parent claim crosses a process or tooling boundary, add the current
+portable parent and child fingerprints plus one explicit
+`flowguard.portable_refinement.v1` binding. The binding accounts every
+reachable child state, maps every reachable child transition to one parent
+transition or a declared state-preserving stutter, maps initial and terminal
+states, and checks that the child does not strengthen assumptions or weaken
+guarantees. A descriptive edge, matching label, child-local green receipt, or
+prompt assertion is not semantic reattachment evidence. Consume the exact
+canonical refinement report; do not build a second mesh-owned interpreter.

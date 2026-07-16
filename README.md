@@ -16,13 +16,13 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.56.0` | `1.0` | Python standard library only | MIT |
+| `v0.57.0` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
 ## What FlowGuard Is
 
-An AI-agent skill suite with executable check scripts, FlowGuard checks the risky part of a software change before an agent writes more code. The suite is powered by an executable check engine. Its primary agent surface is `.agents/skills/`: `SKILL.md` files, references, assets, and check scripts that tell an AI when and how to use FlowGuard.
+An AI-agent skill suite with executable check scripts, FlowGuard checks the risky part of a software change before an agent writes more code. The suite is powered by an executable check engine. Its primary agent surface is `.agents/skills/`: start with `.agents/skills/model-first-function-flow/SKILL.md`, then use its sibling `SKILL.md` files, references, assets, and check scripts to select the right route.
 
 It asks the agent to turn the danger zone into a finite state model, run that model, and inspect counterexample traces. That makes problems such as duplicate side effects, stale test evidence, broken UI recovery paths, or unsupported "done" claims visible before they become maintenance debt.
 
@@ -57,6 +57,21 @@ In plain language:
 - `Output` is what the step says happened.
 - The new `State` is what the system remembers after the step.
 - `Set(...)` means one input may have several legal branches, and the model must say what they are.
+
+When that finite meaning must cross a process, tool, or repository boundary,
+FlowGuard can project it into the current `flowguard.portable_model.v1` JSON
+IR. The portable checker validates the exact schema and content identity,
+executes the explicit nondeterministic transition relation, checks safety and
+temporal obligations, and verifies explicit parent/child refinement plus
+assume/guarantee composition. It does not serialize arbitrary Python or act as
+an application's database, UI, deletion, people, relationship, or project
+workflow layer.
+
+```powershell
+python -m flowguard portable-model-validate path/to/model.json --json
+python -m flowguard portable-model-check path/to/model.json --json
+python -m flowguard portable-model-refinement --parent parent.json --child child.json --binding binding.json --json
+```
 
 The practical loop is:
 
@@ -444,6 +459,19 @@ Input x State -> Set(Output x State)
 - `Output` 是这一步说自己做了什么。
 - 新的 `State` 是这一步之后系统记住的东西。
 - `Set(...)` 表示同一个输入可能有多个合法分支，不能只写 happy path。
+
+当这套有限状态语义需要跨进程、工具或仓库传递时，FlowGuard 可以把它
+投影成当前唯一的 `flowguard.portable_model.v1` JSON IR。便携检查器会校验
+严格 schema 与内容身份、执行显式的非确定性 transition、检查 safety 与
+temporal obligation，并通过显式映射检查 parent/child refinement 和
+assume/guarantee composition。它不会序列化任意 Python，也不承担未来软件的
+数据库、UI、删除、人员关系或项目事务功能。
+
+```powershell
+python -m flowguard portable-model-validate path/to/model.json --json
+python -m flowguard portable-model-check path/to/model.json --json
+python -m flowguard portable-model-refinement --parent parent.json --child child.json --binding binding.json --json
+```
 
 实际工作循环是：
 

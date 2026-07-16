@@ -85,3 +85,14 @@ A topology hazard review can support broad confidence only when:
   model-test, process, or risk-ledger evidence when broad usage is possible;
 - scoped confidence is carried into the final Risk Evidence Ledger instead of
   being described as a clean pass.
+
+## Portable temporal topology
+
+For `flowguard.portable_model.v1`, use portable state and transition ids as the
+topology anchors. Universal eventuality is blocked by a reachable
+target-avoiding dead end or cycle. Bounded eventuality also retains an
+over-bound path. Weak fairness may exclude a cyclic schedule only when the
+declared fair transition group is continuously enabled across that component
+and taking any declared fair transition leaves it. The review consumes the
+canonical checker report for the exact model fingerprint; it never converts
+descriptive route metadata into an executable fairness pass.

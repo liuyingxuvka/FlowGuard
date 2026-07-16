@@ -79,6 +79,7 @@ class ApiSurfaceTests(unittest.TestCase):
                 "evidence",
                 "governance_and_distribution",
                 "spec_work_packages",
+                "portable_verification",
             },
         )
 
@@ -925,6 +926,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "ROUTE_ADVANCED_API",
             "ROUTE_STARTER_API",
             "PLAN_INTAKE_STARTER_API",
+            "PORTABLE_VERIFICATION_API",
             "STATE_CLOSURE_ROUTE_API",
             "SPEC_WORK_PACKAGE_API",
             "STRUCTURE_MESH_ROUTE_API",

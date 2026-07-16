@@ -54,6 +54,10 @@
           "path": "tests/test_hierarchical_mesh.py"
         },
         {
+          "kind": "path",
+          "path": "flowguard/portable_checker.py"
+        },
+        {
           "kind": "role",
           "role": "runtime_source"
         },
@@ -161,6 +165,8 @@
     ".agents/skills/flowguard-model-mesh",
     ".flowguard/hierarchical_model_mesh",
     "flowguard/hierarchy.py",
+    "flowguard/portable_model.py",
+    "flowguard/portable_checker.py",
     "flowguard/skill_contract_model.py",
     "tests/test_hierarchical_mesh.py"
   ],
@@ -203,7 +209,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Run the existing model-mesh owner to review disjoint ownership, reattachment, receipt consumption, affected siblings, and liveness."
+        "summary": "Run the existing model-mesh owner to review disjoint ownership, reattachment, receipt consumption, affected siblings, and liveness; portable claims additionally consume complete current parent/child fingerprints and explicit refinement bindings."
       },
       "check_ids": [
         "check:flowguard-model-mesh:native-authority"

@@ -22,8 +22,8 @@ class ModelRegressionManifestTests(unittest.TestCase):
         manifest = ModelRegressionManifest.load(root)
         audit = audit_manifest(root, manifest)
         self.assertTrue(audit.ok, audit.errors)
-        self.assertEqual(59, len(audit.registered_model_ids))
-        self.assertEqual(59, len(discover_model_directories(root)))
+        self.assertEqual(60, len(audit.registered_model_ids))
+        self.assertEqual(60, len(discover_model_directories(root)))
         self.assertIn("template_public_release", audit.registered_model_ids)
 
     def test_required_public_model_entries_are_tracked_release_files(self):
@@ -55,6 +55,8 @@ class ModelRegressionManifestTests(unittest.TestCase):
                 ".flowguard/template_public_release/run_checks.py",
                 ".flowguard/development_process_strategy/model.py",
                 ".flowguard/development_process_strategy/run_checks.py",
+                ".flowguard/compositional_verification_kernel/model.py",
+                ".flowguard/compositional_verification_kernel/run_checks.py",
             }
         )
         manifest = ModelRegressionManifest.load(root)

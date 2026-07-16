@@ -24,7 +24,7 @@ Accept a current topology digest, usage intent, and evidence boundary; promote o
 - Do not use for generic risk lists, unmodeled systems, or as a replacement for maturation, alignment, Risk Evidence Ledger, or Architecture Reduction; return unclear topology to `model-first-function-flow`.
 
 ## Required Workflow
-1. Record usage intent, claim scope, topology landmarks, business paths, current evidence, and stale/skipped gaps.
+1. Record usage, scope, topology, business paths, evidence, and gaps. Portable temporal claims bind the digest to the exact `flowguard.portable_model.v1` fingerprint and executable obligations.
 2. For each candidate, name the topology anchor, real-use failure, affected element, confidence effect, and disposition.
 3. Resolve, scope with rationale, or issue typed owner-route handoffs and maintenance obligations.
 
@@ -33,6 +33,7 @@ Accept a current topology digest, usage intent, and evidence boundary; promote o
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Unanchored concerns cannot block confidence; anchored hazards need current evidence, owner route, or explicit scoped disposition.
 - Important path conflicts, loop liveness, compatibility/history, and template harvest closure must remain visible before broad confidence.
+- Portable liveness/fairness requires canonical checker evidence for the same graph; prose/metadata and stale or truncated reports cannot pass.
 
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus anchored candidates and confidence effects.

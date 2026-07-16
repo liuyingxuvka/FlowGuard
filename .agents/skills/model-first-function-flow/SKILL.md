@@ -15,7 +15,7 @@ Route id: `model_first_function_flow`; role: `kernel`; native owner: `model_firs
 Read `references/route_index.md` for the parity-checked route map and `references/modeling_protocol.md` as the core index; load `references/modeling_core_protocol.md`, `references/modeling_evidence_protocol.md`, `references/skill_kernel_protocol.md`, adoption, conformance, long-check, framework-upgrade, or invariant references only when that boundary is active.
 
 ## Entrypoint Acceptance Map
-- Accept ordinary modeling, unclear ownership, cross-route coordination, or kernel-owned `flowguard_self_maintenance`, `model_maturation_loop`, `risk_template_library`, `risk_evidence_ledger`, and closure work.
+- Accept ordinary modeling, unclear ownership, cross-route coordination, portable finite-model interchange, or kernel-owned `flowguard_self_maintenance`, `model_maturation_loop`, `risk_template_library`, `risk_evidence_ledger`, and closure work.
 - Route clear ownership directly to `flowguard-existing-model-preflight`, `flowguard-behavior-commitment-ledger`, `flowguard-architecture-reduction`, `flowguard-code-structure-recommendation`, `flowguard-contract-exhaustion-mesh`, `flowguard-development-process-flow`, `flowguard-field-lifecycle-mesh`, `flowguard-model-mesh`, `flowguard-model-miss-review`, `flowguard-model-test-alignment`, `flowguard-model-topology-hazard-review`, `flowguard-structure-mesh`, `flowguard-test-mesh`, or `flowguard-ui-flow-structure`.
 - Keep `flowguard-plan-detailing-compiler` and `flowguard-agent-workflow-rehearsal` explicit/delegated modes owned by DevelopmentProcessFlow.
 
@@ -27,7 +27,7 @@ Read `references/route_index.md` for the parity-checked route map and `reference
 
 ## Required Workflow
 1. Decide applicability/lens, verify adoption, run the lightweight commitment/model lookup for non-trivial existing-system work, select or report the primary behavior plane, and name the protected error class and claim boundary.
-2. Build/update the smallest faithful finite model with state, side effects, completion evidence, invariants, and a representative known-bad path.
+2. Build/update the smallest faithful finite model with state, side effects, completion evidence, invariants, and a representative known-bad path. When the claim crosses a process/tool boundary, project the exact finite relation into `flowguard.portable_model.v1`; do not serialize arbitrary Python or invent an ad hoc JSON model.
 3. Run the formal check plan, inspect counterexamples, revise the model/architecture, and record template harvest closure.
 4. Route finite bad cases, commitments, fields, alignment, meshes, topology, UI, process freshness, conformance, and risk evidence only where triggered. Specification-provider task/evidence reconciliation belongs inside DevelopmentProcessFlow; do not invent another task engine or project provider fields into product UI rules.
 5. Preserve checked/unchecked/blocked/scoped evidence and close only at the requested current scope.
@@ -36,6 +36,7 @@ Read `references/route_index.md` for the parity-checked route map and `reference
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; if import fails, connect the real toolchain or report blocked/partial and never create a fake mini-framework.
 - Represent every modeled block as `Input x State -> Set(Output x State)`; do not replace executable modeling with prose or weaken hard invariants to pass.
+- A portable-model, compositional, refinement, liveness, or fairness claim requires the current portable artifact identity plus the canonical reference-checker receipt. Python-only execution, prompt prose, descriptive mesh edges, or topology metadata cannot substitute for that evidence.
 - Default replacement disposes old fields/wrappers/aliases/alternate success paths; broad behavior needs a current Behavior Commitment Ledger and PPA for path-sensitive rows.
 - The shared ledger has three owner planes (`product_runtime`, `agent_operation`, `development_process`). Same-plane hits may guide the owning route; cross-plane rows remain typed context and never silently become instructions or merged owners.
 - Do not impose a universal model execution gate on trivial actions. Escalate lightweight recall to route-native modeling when a non-trivial match, concrete Model Miss, recurring/high-risk operation, or broad claim makes it relevant.

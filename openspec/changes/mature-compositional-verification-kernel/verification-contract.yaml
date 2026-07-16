@@ -1,0 +1,234 @@
+contract_version: 1
+change: mature-compositional-verification-kernel
+obligations:
+  - id: req.ir.schema
+    source: "specs/flowguard-portable-model-ir/spec.md#Requirement: Canonical Portable Model Schema"
+    claim: "Only the current finite portable schema is accepted and it represents the complete declared relation."
+    required: true
+    evidence: [check.portable.ir]
+  - id: req.ir.identity
+    source: "specs/flowguard-portable-model-ir/spec.md#Requirement: Stable Canonical Identity"
+    claim: "Canonical JSON and semantic identities are deterministic and stale on semantic change."
+    required: true
+    evidence: [check.portable.ir]
+  - id: req.ir.fail_closed
+    source: "specs/flowguard-portable-model-ir/spec.md#Requirement: Fail-Closed Structural Validation"
+    claim: "Malformed, dangling, unknown, or non-current artifacts fail closed."
+    required: true
+    evidence: [check.portable.ir]
+  - id: req.checker.execution
+    source: "specs/flowguard-portable-checker/spec.md#Requirement: Code-Independent Reference Execution"
+    claim: "The interpreter explores the explicit finite relation without project imports and exposes truncation."
+    required: true
+    evidence: [check.portable.checker]
+  - id: req.checker.temporal
+    source: "specs/flowguard-portable-checker/spec.md#Requirement: Safety And Temporal Verification"
+    claim: "Safety, eventuality, bounded eventuality, terminal progress, and weak fairness have executable good and bad cases."
+    required: true
+    evidence: [check.portable.checker, check.flowguard.model]
+  - id: req.checker.report
+    source: "specs/flowguard-portable-checker/spec.md#Requirement: Canonical Checker Reports"
+    claim: "Python and CLI projections preserve one canonical result."
+    required: true
+    evidence: [check.portable.cli_api]
+  - id: req.composition.refinement
+    source: "specs/flowguard-compositional-verification/spec.md#Requirement: Explicit Parent Child Refinement"
+    claim: "Complete state/transition mappings prove or refute concrete step refinement."
+    required: true
+    evidence: [check.portable.composition, check.flowguard.model]
+  - id: req.composition.contracts
+    source: "specs/flowguard-compositional-verification/spec.md#Requirement: Contract Substitutability"
+    claim: "Stronger assumptions and missing guarantees are rejected."
+    required: true
+    evidence: [check.portable.composition]
+  - id: req.composition.closed
+    source: "specs/flowguard-compositional-verification/spec.md#Requirement: Assume Guarantee Composition"
+    claim: "Every component assumption has an exact provider and declared conflicts are absent."
+    required: true
+    evidence: [check.portable.composition]
+  - id: req.mesh.binding
+    source: "specs/hierarchical-model-mesh/spec.md#Requirement: Portable Mesh Semantic Binding"
+    claim: "Portable mesh claims require current model identities and executable refinement edges."
+    required: true
+    evidence: [check.portable.skills]
+  - id: req.topology.temporal
+    source: "specs/flowguard-route-topology-governance/spec.md#Requirement: Portable Temporal Topology Evidence"
+    claim: "Portable liveness and fairness claims consume current executable obligations."
+    required: true
+    evidence: [check.portable.skills]
+  - id: req.api.cohort
+    source: "specs/flowguard-api-registry/spec.md#Requirement: Portable Verification API Cohort"
+    claim: "The public import facade, CLI, registry, and docs expose the same narrow cohort."
+    required: true
+    evidence: [check.portable.cli_api, check.portable.skills]
+checks:
+  - id: check.portable.ir
+    kind: command
+    semantic_check_id: semantic.flowguard.portable_ir
+    execution_id: execution.flowguard.portable_ir.focused
+    execution_owner: owner.root.flowguard.portable_ir
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: python-pytest
+    input_selectors:
+      - flowguard/portable_model.py
+      - tests/test_portable_model.py
+    depends_on_receipts: []
+    command: python
+    args: [-m, pytest, tests/test_portable_model.py, -q]
+    timeout_seconds: 300
+    required: true
+    covers: [req.ir.schema, req.ir.identity, req.ir.fail_closed]
+    expected: {exit_code: 0}
+  - id: check.portable.checker
+    kind: command
+    semantic_check_id: semantic.flowguard.portable_checker
+    execution_id: execution.flowguard.portable_checker.focused
+    execution_owner: owner.root.flowguard.portable_checker
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: python-pytest
+    input_selectors:
+      - flowguard/portable_model.py
+      - flowguard/portable_checker.py
+      - tests/test_portable_checker.py
+    depends_on_receipts: [check.portable.ir]
+    command: python
+    args: [-m, pytest, tests/test_portable_checker.py, -q]
+    timeout_seconds: 300
+    required: true
+    covers: [req.checker.execution, req.checker.temporal]
+    expected: {exit_code: 0}
+  - id: check.portable.composition
+    kind: command
+    semantic_check_id: semantic.flowguard.portable_composition
+    execution_id: execution.flowguard.portable_composition.focused
+    execution_owner: owner.root.flowguard.portable_composition
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: python-pytest
+    input_selectors:
+      - flowguard/portable_model.py
+      - flowguard/portable_checker.py
+      - tests/test_compositional_verification.py
+    depends_on_receipts: [check.portable.ir]
+    command: python
+    args: [-m, pytest, tests/test_compositional_verification.py, -q]
+    timeout_seconds: 300
+    required: true
+    covers: [req.composition.refinement, req.composition.contracts, req.composition.closed]
+    expected: {exit_code: 0}
+  - id: check.portable.cli_api
+    kind: command
+    semantic_check_id: semantic.flowguard.portable_cli_api
+    execution_id: execution.flowguard.portable_cli_api.focused
+    execution_owner: owner.root.flowguard.portable_cli_api
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: python-pytest
+    input_selectors:
+      - flowguard/__init__.py
+      - flowguard/__main__.py
+      - flowguard/portable_model.py
+      - flowguard/portable_checker.py
+      - tests/test_portable_model_cli.py
+    depends_on_receipts: [check.portable.ir, check.portable.checker, check.portable.composition]
+    command: python
+    args: [-m, pytest, tests/test_portable_model_cli.py, tests/test_public_api_surface.py, -q]
+    timeout_seconds: 300
+    required: true
+    covers: [req.checker.report, req.api.cohort]
+    expected: {exit_code: 0}
+  - id: check.flowguard.model
+    kind: command
+    semantic_check_id: semantic.flowguard.compositional_kernel_model
+    execution_id: execution.flowguard.compositional_kernel_model.focused
+    execution_owner: owner.root.flowguard.compositional_kernel_model
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: flowguard-native-model
+    input_selectors:
+      - .flowguard/compositional_verification_kernel/model.py
+      - .flowguard/compositional_verification_kernel/run_checks.py
+      - .flowguard/model-regression-manifest.json
+    depends_on_receipts: [check.portable.checker, check.portable.composition]
+    command: python
+    args: [.flowguard/compositional_verification_kernel/run_checks.py]
+    timeout_seconds: 300
+    required: true
+    covers: [req.checker.temporal, req.composition.refinement]
+    expected: {exit_code: 0}
+  - id: check.portable.skills
+    kind: command
+    semantic_check_id: semantic.flowguard.portable_skill_contracts
+    execution_id: execution.flowguard.portable_skill_contracts.focused
+    execution_owner: owner.root.flowguard.portable_skill_contracts
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: flowguard-skill-contract-compiler
+    input_selectors:
+      - .agents/skills/model-first-function-flow/**/*
+      - .agents/skills/flowguard-model-mesh/**/*
+      - .agents/skills/flowguard-model-topology-hazard-review/**/*
+      - flowguard/skill_contracts.py
+      - scripts/compile_flowguard_skill_contracts.py
+      - tests/test_portable_skill_guidance.py
+    depends_on_receipts: [check.flowguard.model]
+    command: python
+    args: [-m, pytest, tests/test_portable_skill_guidance.py, -q]
+    timeout_seconds: 300
+    required: true
+    covers: [req.mesh.binding, req.topology.temporal, req.api.cohort]
+    expected: {exit_code: 0}
+  - id: check.openspec.strict
+    kind: command
+    semantic_check_id: semantic.openspec.mature_compositional_verification_kernel
+    execution_id: execution.openspec.mature_compositional_verification_kernel.focused
+    execution_owner: owner.root.openspec.portable_kernel
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: openspec-cli-cross-platform-bridge
+    input_selectors:
+      - openspec/changes/mature-compositional-verification-kernel/proposal.md
+      - openspec/changes/mature-compositional-verification-kernel/design.md
+      - openspec/changes/mature-compositional-verification-kernel/specs/**/*.md
+      - openspec/changes/mature-compositional-verification-kernel/verification-contract.yaml
+      - scripts/check_openspec_change.py
+    depends_on_receipts: []
+    command: python
+    args: [scripts/check_openspec_change.py, --change, mature-compositional-verification-kernel, --strict]
+    timeout_seconds: 300
+    required: true
+    covers: [req.ir.schema, req.ir.identity, req.ir.fail_closed, req.checker.execution, req.checker.temporal, req.checker.report, req.composition.refinement, req.composition.contracts, req.composition.closed, req.mesh.binding, req.topology.temporal, req.api.cohort]
+    expected: {exit_code: 0}
+freshness:
+  watch:
+    - openspec/changes/mature-compositional-verification-kernel/proposal.md
+    - openspec/changes/mature-compositional-verification-kernel/design.md
+    - openspec/changes/mature-compositional-verification-kernel/specs/**/*.md
+    - openspec/changes/mature-compositional-verification-kernel/verification-contract.yaml
+    - flowguard/portable_model.py
+    - flowguard/portable_checker.py
+    - flowguard/__init__.py
+    - flowguard/__main__.py
+    - flowguard/skill_contracts.py
+    - .flowguard/compositional_verification_kernel/**/*
+    - .flowguard/model-regression-manifest.json
+    - .agents/skills/model-first-function-flow/**/*
+    - .agents/skills/flowguard-model-mesh/**/*
+    - .agents/skills/flowguard-model-topology-hazard-review/**/*
+    - tests/test_portable_model.py
+    - tests/test_portable_checker.py
+    - tests/test_compositional_verification.py
+    - tests/test_portable_model_cli.py
+    - tests/test_public_api_surface.py
+    - tests/test_portable_skill_guidance.py
+    - scripts/check_openspec_change.py
+    - README.md
+    - docs/concept.md
+  exclude:
+    - "**/verification-report.json"
+    - "**/.skillguard/runs/**"
+    - "**/.flowguard/evidence/**"
+    - "**/run-artifacts/**"
+    - "**/run_artifacts/**"

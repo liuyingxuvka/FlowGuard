@@ -2,6 +2,74 @@
   "default_mutation_policy": "none",
   "models": [
     {
+      "absence_reason": "This executable product-runtime owner is required in the public distribution.",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/compositional_verification_kernel/model.py",
+        ".flowguard/compositional_verification_kernel/run_checks.py",
+        "flowguard/portable_model.py",
+        "flowguard/portable_checker.py"
+      ],
+      "model_id": "compositional_verification_kernel",
+      "model_path": ".flowguard/compositional_verification_kernel/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/compositional_verification_kernel/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:compositional_verification_kernel:current",
+        "reusable_model_type_id": "compositional_verification_kernel",
+        "task_intent_id": "flowguard-regression:compositional_verification_kernel",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent portable verification from accepting non-current schemas, unsafe or non-progressing models, unmapped refinements, or open/conflicting compositions.",
+        "protected_failure_ids": [
+          "portable-model:non-current-or-ambiguous-schema-accepted",
+          "portable-checker:unsafe-or-nonterminating-model-passes",
+          "portable-refinement:unmapped-or-contract-incompatible-child-passes",
+          "portable-composition:unprovided-assumption-or-conflict-passes"
+        ],
+        "claim_boundary": "Current closure proves only that the checked-in portable compositional verification candidate and native runner reject the four declared failure families; it does not prove domain truth, infinite-state software, or any future application behavior.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native:compositional-verification-kernel:complete-portable-refinement",
+        "failure_bindings": [
+          {
+            "failure_id": "portable-model:non-current-or-ambiguous-schema-accepted",
+            "known_bad_case_id": "native:compositional-verification-kernel:bad-schema",
+            "oracle_id": "native:compositional-verification-kernel:run-checks"
+          },
+          {
+            "failure_id": "portable-checker:unsafe-or-nonterminating-model-passes",
+            "known_bad_case_id": "native:compositional-verification-kernel:closed-non-target-cycle",
+            "oracle_id": "native:compositional-verification-kernel:run-checks"
+          },
+          {
+            "failure_id": "portable-refinement:unmapped-or-contract-incompatible-child-passes",
+            "known_bad_case_id": "native:compositional-verification-kernel:unmapped-child-transition",
+            "oracle_id": "native:compositional-verification-kernel:run-checks"
+          },
+          {
+            "failure_id": "portable-composition:unprovided-assumption-or-conflict-passes",
+            "known_bad_case_id": "native:compositional-verification-kernel:missing-assumption-provider",
+            "oracle_id": "native:compositional-verification-kernel:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:compositional_verification_kernel"
+        ],
+        "model_sha256": "sha256:2554b42b86f4343990f9e817aee122985b83f91e9f6d5b86ebf7450871a5f2bf",
+        "runner_sha256": "sha256:b73bbb542310fbafa5d756194ad471b542704e25e809b41dca475f1ac141df03",
+        "declaration_fingerprint": "sha256:81fb2cd670f97581a31b8431ff2340372fa74b138fdec8e8ebdd1a70a88ae81f",
+        "closure_fingerprint": "sha256:d8d83122de1f97dbed93d93c2ef6d0a82c8e8a1c251450f7ae335070bb055996"
+      }
+    },
+    {
       "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
       "distribution_policy": "optional_local",
       "exclusion_reason": "",

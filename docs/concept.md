@@ -44,6 +44,28 @@ Workflow = F_C o F_B o F_A
 
 Because each block may produce multiple results, workflow execution forms a tree of traces. FlowGuard exhaustively explores that tree up to finite bounds and checks invariants on the reachable paths.
 
+## Portable And Compositional Semantics
+
+Python `FunctionBlock` models remain the authoring surface. When an exact
+finite model must be consumed outside that Python model, the current
+`flowguard.portable_model.v1` IR records states, input/output symbols,
+transitions, initial and terminal states, invariants, temporal obligations,
+assumptions, guarantees, and conflicts as canonical JSON.
+
+The reference checker is deliberately narrower than a theorem prover. It
+executes only the explicit finite relation, fails closed on unknown schemas or
+truncated exploration, checks reachable safety violations and universal or
+bounded eventuality, and preserves fairness assumptions and counterexamples.
+Parent/child claims require explicit state and transition mappings; component
+composition requires every assumption to have an environment or peer provider
+and rejects declared conflicts. Descriptive mesh edges, prompt prose, or a
+Python-only pass are not portable semantic evidence.
+
+This is an intrinsic FlowGuard verification capability. It is not a storage
+model or workflow engine for an unrelated application, and it makes no claim
+about arbitrary Python, unbounded software, or domain truth outside the
+declared finite artifact.
+
 ## No Probability
 
 FlowGuard is non-probabilistic. It does not estimate probabilities, sample random paths, or run Monte Carlo. If a block can produce three possible outputs, the model returns all three. This is important because rare paths often contain the bug: repeated scoring, duplicate records, contradictory decisions, or a stale cache branch.

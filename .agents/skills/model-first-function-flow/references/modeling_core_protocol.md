@@ -48,3 +48,22 @@ Reuse an old abstract result only when model, scenarios, oracle, invariants, ris
 ## Core completion
 
 Core modeling is complete only when the real engine ran, the model is faithful enough for the declared risk, the known-bad path fails, correct paths pass, counterexamples were resolved/scoped, required scenarios/liveness checks ran, template harvest closed, and missing production/conformance evidence remains visible in the claim boundary.
+
+## Portable finite model boundary
+
+Use the portable boundary only when a finite model must cross a Python process,
+tool, repository, or evidence-consumer boundary. Keep Python `FunctionBlock`
+models as the ordinary authoring surface and explicitly project the finite
+relation into `flowguard.portable_model.v1`; never attempt to serialize an
+arbitrary callable, side effect, or domain predicate.
+
+The portable artifact must name states, inputs, outputs, transitions, initial
+and terminal states, invariants, temporal obligations, assumptions,
+guarantees, and conflicts. Its canonical UTF-8 JSON identity and the reference
+checker report travel together. Unknown schemas, unknown fields, dangling
+references, truncated exploration, or a stale identity are visible non-pass
+states. There is no alternate reader or prose fallback.
+
+Route explicit parent/child mappings to ModelMesh and topology-anchored
+liveness/fairness interpretation to Model Topology Hazard Review. Both consume
+the same portable checker receipts; neither reimplements the interpreter.

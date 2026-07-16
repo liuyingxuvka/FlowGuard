@@ -1,0 +1,115 @@
+contract_version: 1
+change: add-validated-template-pack-registry
+obligations:
+  - id: req.template_pack.manifest
+    source: "specs/validated-template-pack-registry/spec.md#Requirement: Canonical validated template-pack manifest"
+    claim: "Only a structurally valid current manifest with its canonical digest can produce a selectable result."
+    required: true
+    evidence: [check.template_pack.tests, check.template_pack.model]
+  - id: req.template_pack.entries
+    source: "specs/validated-template-pack-registry/spec.md#Requirement: Structurally closed template entries"
+    claim: "Template identities, base ownership, fields, and parameters are structurally closed."
+    required: true
+    evidence: [check.template_pack.tests]
+  - id: req.template_pack.predicates
+    source: "specs/validated-template-pack-registry/spec.md#Requirement: Bounded hard-predicate matching"
+    claim: "Selection uses only the finite declarative predicate language with strict JSON semantics."
+    required: true
+    evidence: [check.template_pack.tests]
+  - id: req.template_pack.zero
+    source: "specs/validated-template-pack-registry/spec.md#Requirement: Explicit zero-match and base-template behavior"
+    claim: "Zero matches select the sole declared base or remain explicitly no-match."
+    required: true
+    evidence: [check.template_pack.tests, check.template_pack.model]
+  - id: req.template_pack.one
+    source: "specs/validated-template-pack-registry/spec.md#Requirement: Deterministic one-match selection"
+    claim: "Exactly one specialized match is selected with stable identity."
+    required: true
+    evidence: [check.template_pack.tests, check.template_pack.model]
+  - id: req.template_pack.many
+    source: "specs/validated-template-pack-registry/spec.md#Requirement: Fail-closed multi-match composition"
+    claim: "Multiple matches compose only when all opt in and field owners are disjoint."
+    required: true
+    evidence: [check.template_pack.tests, check.template_pack.model]
+  - id: req.template_pack.selection_receipt
+    source: "specs/validated-template-pack-registry/spec.md#Requirement: Canonical selection receipts"
+    claim: "Every valid or invalid manifest selection is captured in a deterministic digest-bound receipt."
+    required: true
+    evidence: [check.template_pack.tests, check.template_pack.model]
+  - id: req.template_pack.instance
+    source: "specs/validated-template-pack-registry/spec.md#Requirement: Strict deterministic template instantiation"
+    claim: "Only current selectable receipts with the exact declared parameters produce instances."
+    required: true
+    evidence: [check.template_pack.tests, check.template_pack.model]
+  - id: req.template_pack.stale
+    source: "specs/validated-template-pack-registry/spec.md#Requirement: Chained instance receipts and stale validation"
+    claim: "Selection and instance receipt validation detects every modeled identity change without renewing old evidence."
+    required: true
+    evidence: [check.template_pack.tests, check.template_pack.model]
+checks:
+  - id: check.template_pack.model
+    kind: command
+    semantic_check_id: semantic.flowguard.template_pack_registry_model
+    execution_id: execution.flowguard.template_pack_registry_model.focused
+    execution_owner: owner.template_pack_registry.model
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: flowguard-native-model-0.57.0
+    input_selectors:
+      - openspec/changes/add-validated-template-pack-registry/model/model.py
+      - openspec/changes/add-validated-template-pack-registry/model/run_checks.py
+    depends_on_receipts: []
+    command: python
+    args: [openspec/changes/add-validated-template-pack-registry/model/run_checks.py]
+    timeout_seconds: 300
+    required: true
+    covers:
+      - req.template_pack.manifest
+      - req.template_pack.zero
+      - req.template_pack.one
+      - req.template_pack.many
+      - req.template_pack.selection_receipt
+      - req.template_pack.instance
+      - req.template_pack.stale
+    expected: {exit_code: 0}
+  - id: check.template_pack.tests
+    kind: command
+    semantic_check_id: semantic.flowguard.template_pack_registry_tests
+    execution_id: execution.flowguard.template_pack_registry_tests.focused
+    execution_owner: owner.template_pack_registry.tests
+    validation_scope: focused
+    snapshot_policy: live
+    toolchain_identity: python-pytest
+    input_selectors:
+      - flowguard/template_packs.py
+      - tests/test_template_packs.py
+    depends_on_receipts: [check.template_pack.model]
+    command: python
+    args: [-m, pytest, tests/test_template_packs.py, -q]
+    timeout_seconds: 300
+    required: true
+    covers:
+      - req.template_pack.manifest
+      - req.template_pack.entries
+      - req.template_pack.predicates
+      - req.template_pack.zero
+      - req.template_pack.one
+      - req.template_pack.many
+      - req.template_pack.selection_receipt
+      - req.template_pack.instance
+      - req.template_pack.stale
+    expected: {exit_code: 0}
+freshness:
+  watch:
+    - openspec/changes/add-validated-template-pack-registry/proposal.md
+    - openspec/changes/add-validated-template-pack-registry/design.md
+    - openspec/changes/add-validated-template-pack-registry/specs/**/*.md
+    - openspec/changes/add-validated-template-pack-registry/verification-contract.yaml
+    - openspec/changes/add-validated-template-pack-registry/model/**/*
+    - flowguard/template_packs.py
+    - tests/test_template_packs.py
+  exclude:
+    - "**/verification-report.json"
+    - "**/verification-receipts/**"
+    - "**/run-artifacts/**"
+    - "**/run_artifacts/**"
