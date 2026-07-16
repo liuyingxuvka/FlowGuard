@@ -40,5 +40,5 @@
 ## 7. Portfolio Release Handoff
 
 - [x] 7.1 Hand the frozen source identity and affected-only results to the single final portfolio validation owner; do not launch a second equivalent full run.
-- [ ] 7.2 After final validation, synchronize the installation projection, version/changelog/docs, local editable package, and local Git commit. Do not push, create a remote tag, or publish a GitHub Release.
-- [ ] 7.3 Archive this OpenSpec change only after current implementation, verification, installation, and local-release evidence all pass.
+- [x] 7.2 After final validation, synchronize the installation projection, version/changelog/docs, local editable package, and local Git commit. Do not push, create a remote tag, or publish a GitHub Release.
+- [x] 7.3 Archive this OpenSpec change only after current implementation, verification, installation, and local-release evidence all pass.

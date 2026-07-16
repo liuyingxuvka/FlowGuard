@@ -3,7 +3,6 @@
 ## Purpose
 
 Define the typed ownership and liveness rules for FlowGuard route handoffs so every target resolves to one authority, every allowed cycle has bounded progress, and routing hazards produce deterministic blocking diagnostics.
-
 ## Requirements
 ### Requirement: Typed Route Handoffs
 Every route handoff SHALL declare a `target_kind`, `target_id`, activation condition, and claim scope. Allowed target kinds MUST be `skill`, `internal_route`, `helper_api`, or `external_action`, and the target MUST resolve under the rules for its declared kind.
@@ -52,3 +51,14 @@ Topology validation SHALL produce deterministic machine-readable findings for da
 #### Scenario: Multiple hazards exist
 - **WHEN** a graph contains both a dangling target and an unbounded cycle
 - **THEN** the result reports both hazards in stable order and returns a failing status
+
+### Requirement: Portable Temporal Topology Evidence
+When a topology review makes a portable liveness or fairness claim, the system SHALL consume current executable temporal obligations and checker findings for the same portable model identity.
+
+#### Scenario: Current temporal receipt supports topology claim
+- **WHEN** the topology and portable checker consume the same graph identity and all required temporal obligations pass
+- **THEN** the portable liveness or fairness claim may pass within the declared bound
+
+#### Scenario: Metadata-only fairness is rejected
+- **WHEN** fairness is described in route metadata without a current executable obligation and receipt
+- **THEN** the portable fairness claim remains unverified
