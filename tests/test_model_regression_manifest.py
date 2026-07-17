@@ -23,7 +23,17 @@ class ModelRegressionManifestTests(unittest.TestCase):
         audit = audit_manifest(root, manifest)
         self.assertTrue(audit.ok, audit.errors)
         self.assertEqual(60, len(audit.registered_model_ids))
-        self.assertEqual(60, len(discover_model_directories(root)))
+        discovered = {
+            path.relative_to(root / ".flowguard").as_posix()
+            for path in discover_model_directories(root)
+        }
+        required_public = {
+            entry.model_id
+            for entry in manifest.entries
+            if entry.distribution_policy == "required_public"
+        }
+        self.assertTrue(required_public.issubset(discovered))
+        self.assertTrue(discovered.issubset(set(audit.registered_model_ids)))
         self.assertIn("template_public_release", audit.registered_model_ids)
 
     def test_required_public_model_entries_are_tracked_release_files(self):

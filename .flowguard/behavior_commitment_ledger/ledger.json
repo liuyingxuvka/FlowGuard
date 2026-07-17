@@ -1,0 +1,2588 @@
+{
+  "artifact_type": "flowguard_behavior_commitment_ledger",
+  "format_version": "1",
+  "ledger": {
+    "change_mode": "change_behavior",
+    "claim_scope": "full",
+    "commitments": [
+      {
+        "actor": "FlowGuard maintainer AI",
+        "actor_kind": "ai_agent",
+        "behavior_plane": "development_process",
+        "business_intent_id": "intent:behavior-ledger-current",
+        "child_model_ids": [],
+        "commitment_id": "commitment:behavior-ledger-current",
+        "commitment_kind": "process",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:behavior-ledger-current"
+          ],
+          "coverage_case_ids": [
+            "bcl.full_inventory_mapping.source.current",
+            "bcl.full_inventory_mapping.owner.current"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:behavior_commitment_ledger:self_maintenance"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:behavior_commitment_ledger:self-current"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "obligation:.flowguard/behavior_commitment_ledger/model.py:behavior-ledger-current"
+          ],
+          "proof_artifact_ids": [
+            "proof:self-maintenance:behavior-ledger-current"
+          ],
+          "risk_gate_ids": [
+            "risk_gate:flowguard_self_maintenance:behavior-ledger-current"
+          ],
+          "test_evidence_ids": [
+            "tests.test_behavior_commitment_ledger",
+            "tests.test_behavior_commitment_primary_path",
+            ".flowguard/behavior_commitment_ledger/run_checks.py"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "the agent classifies the ledger mode, checks current source surfaces, maps every external commitment to exactly one owner model, and blocks stale evidence",
+        "expected_terminal": "the agent classifies the ledger mode, checks current source surfaces, maps every external commitment to exactly one owner model, and blocks stale evidence",
+        "external_differences": [],
+        "failure_boundary": "broad confidence is blocked until the ledger is repaired",
+        "in_scope": true,
+        "label": "broad behavior claims use a current behavior commitment ledger",
+        "lookup_binding": {
+          "error_signatures": [],
+          "metadata": {},
+          "path_patterns": [
+            ".flowguard/behavior_commitment_ledger",
+            "flowguard/behavior_commitment.py"
+          ],
+          "task_terms": [
+            "behavior commitment ledger",
+            "broad behavior claim",
+            "registered behavior"
+          ],
+          "tool_ids": [
+            "behavior-commitment-query"
+          ],
+          "workflow_families": [
+            "behavior_registration",
+            "self_maintenance"
+          ]
+        },
+        "metadata": {
+          "behavior_plane_classification": "explicit_project_owner_review"
+        },
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "",
+          "business_intent": "",
+          "business_intent_id": "",
+          "evidence_current": false,
+          "evidence_refs": [],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": false,
+          "ppa_confidence": "",
+          "ppa_coverage_receipt_ids": [],
+          "ppa_coverage_shard_ids": [],
+          "ppa_decision": "",
+          "ppa_ok": null,
+          "ppa_report_id": "",
+          "ppa_risk_gate_ids": [],
+          "primary_path_id": "",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [],
+          "runtime_observation_ids": [],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [],
+        "primary_owner_model_id": ".flowguard/behavior_commitment_ledger/model.py",
+        "rationale": "external FlowGuard maintenance behavior, not a private helper detail",
+        "relations": [
+          {
+            "metadata": {},
+            "rationale": "The development-process ledger governs the product-runtime UI promise without becoming its runtime owner.",
+            "relation_type": "governs",
+            "target_commitment_id": "commitment:ordinary-ui-content-admission"
+          },
+          {
+            "metadata": {},
+            "rationale": "The development-process ledger governs the AI operation that recalls and backfeeds commitments.",
+            "relation_type": "governs",
+            "target_commitment_id": "commitment:model-miss-backfeeds-existing-commitment"
+          },
+          {
+            "metadata": {},
+            "rationale": "The development-process ledger registers the agent-operation guidance promise without owning its route execution.",
+            "relation_type": "governs",
+            "target_commitment_id": "commitment:flowguard-agent-guidance-route"
+          },
+          {
+            "metadata": {},
+            "rationale": "The development-process ledger registers the product-runtime import promise without becoming its API owner.",
+            "relation_type": "governs",
+            "target_commitment_id": "commitment:flowguard-public-api-surface"
+          },
+          {
+            "metadata": {},
+            "rationale": "The development-process ledger registers the product-runtime CLI promise without becoming its command owner.",
+            "relation_type": "governs",
+            "target_commitment_id": "commitment:flowguard-template-cli-dispatch"
+          }
+        ],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:project-rules",
+          "surface:bcl-skill",
+          "surface:bcl-open-spec",
+          "surface:bcl-code",
+          "surface:bcl-tests"
+        ],
+        "state_writes": [],
+        "supporting_model_ids": [
+          ".flowguard/self_maintenance_mesh/model.py"
+        ],
+        "surface_delegation_only": false,
+        "trigger": "an agent claims broad FlowGuard behavior, done, release, archive, or publish confidence",
+        "validation_boundary": "model, code contract, tests, and self-maintenance child evidence stay aligned",
+        "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "ordinary UI user",
+        "actor_kind": "end_user",
+        "behavior_plane": "product_runtime",
+        "business_intent_id": "intent:ordinary-ui-content-admission",
+        "child_model_ids": [],
+        "commitment_id": "commitment:ordinary-ui-content-admission",
+        "commitment_kind": "ui",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:review-ui-content-visibility"
+          ],
+          "coverage_case_ids": [
+            "cartesian:ui_flow_structure_skill:content-admission:1",
+            "cartesian:ui_flow_structure_skill:content-admission:2",
+            "cartesian:ui_flow_structure_skill:content-admission:3",
+            "cartesian:ui_flow_structure_skill:content-admission:4",
+            "cartesian:ui_flow_structure_skill:content-admission:5",
+            "cartesian:ui_flow_structure_skill:content-admission:6",
+            "cartesian:ui_flow_structure_skill:content-admission:7",
+            "cartesian:ui_flow_structure_skill:content-admission:8",
+            "cartesian:ui_flow_structure_skill:content-admission:9",
+            "cartesian:ui_flow_structure_skill:content-admission:10",
+            "cartesian:ui_flow_structure_skill:content-admission:11",
+            "cartesian:ui_flow_structure_skill:content-admission:12",
+            "cartesian:ui_flow_structure_skill:content-admission:13",
+            "cartesian:ui_flow_structure_skill:content-admission:14",
+            "cartesian:ui_flow_structure_skill:content-admission:15",
+            "cartesian:ui_flow_structure_skill:content-admission:16",
+            "cartesian:ui_flow_structure_skill:content-admission:17",
+            "cartesian:ui_flow_structure_skill:content-admission:18",
+            "cartesian:ui_flow_structure_skill:content-admission:19",
+            "cartesian:ui_flow_structure_skill:content-admission:20",
+            "cartesian:ui_flow_structure_skill:content-admission:21",
+            "cartesian:ui_flow_structure_skill:content-admission:22",
+            "cartesian:ui_flow_structure_skill:content-admission:23",
+            "cartesian:ui_flow_structure_skill:content-admission:24",
+            "cartesian:ui_flow_structure_skill:content-admission:25",
+            "cartesian:ui_flow_structure_skill:content-admission:26",
+            "cartesian:ui_flow_structure_skill:content-admission:27",
+            "cartesian:ui_flow_structure_skill:content-admission:28",
+            "cartesian:ui_flow_structure_skill:content-admission:29",
+            "cartesian:ui_flow_structure_skill:content-admission:30",
+            "cartesian:ui_flow_structure_skill:content-admission:31",
+            "cartesian:ui_flow_structure_skill:content-admission:32",
+            "cartesian:ui_flow_structure_skill:content-admission:33",
+            "cartesian:ui_flow_structure_skill:content-admission:34",
+            "cartesian:ui_flow_structure_skill:content-admission:35",
+            "cartesian:ui_flow_structure_skill:content-admission:36",
+            "cartesian:ui_flow_structure_skill:content-admission:37",
+            "cartesian:ui_flow_structure_skill:content-admission:38",
+            "cartesian:ui_flow_structure_skill:content-admission:39",
+            "cartesian:ui_flow_structure_skill:content-admission:40",
+            "cartesian:ui_flow_structure_skill:content-admission:41",
+            "cartesian:ui_flow_structure_skill:content-admission:42",
+            "cartesian:ui_flow_structure_skill:content-admission:43",
+            "cartesian:ui_flow_structure_skill:content-admission:44",
+            "cartesian:ui_flow_structure_skill:content-admission:45",
+            "cartesian:ui_flow_structure_skill:content-admission:46",
+            "cartesian:ui_flow_structure_skill:content-admission:47",
+            "cartesian:ui_flow_structure_skill:content-admission:48",
+            "cartesian:ui_flow_structure_skill:content-admission:49",
+            "cartesian:ui_flow_structure_skill:content-admission:50",
+            "cartesian:ui_flow_structure_skill:content-admission:51",
+            "cartesian:ui_flow_structure_skill:content-admission:52",
+            "cartesian:ui_flow_structure_skill:content-admission:53",
+            "cartesian:ui_flow_structure_skill:content-admission:54",
+            "cartesian:ui_flow_structure_skill:content-admission:55",
+            "cartesian:ui_flow_structure_skill:content-admission:56",
+            "cartesian:ui_flow_structure_skill:content-admission:57",
+            "cartesian:ui_flow_structure_skill:content-admission:58",
+            "cartesian:ui_flow_structure_skill:content-admission:59",
+            "cartesian:ui_flow_structure_skill:content-admission:60",
+            "cartesian:ui_flow_structure_skill:content-admission:61",
+            "cartesian:ui_flow_structure_skill:content-admission:62",
+            "cartesian:ui_flow_structure_skill:content-admission:63",
+            "cartesian:ui_flow_structure_skill:content-admission:64",
+            "cartesian:ui_flow_structure_skill:content-admission:65",
+            "cartesian:ui_flow_structure_skill:content-admission:66",
+            "cartesian:ui_flow_structure_skill:content-admission:67",
+            "cartesian:ui_flow_structure_skill:content-admission:68",
+            "cartesian:ui_flow_structure_skill:content-admission:69",
+            "cartesian:ui_flow_structure_skill:content-admission:70",
+            "cartesian:ui_flow_structure_skill:content-admission:71",
+            "cartesian:ui_flow_structure_skill:content-admission:72",
+            "cartesian:ui_flow_structure_skill:content-admission:73",
+            "cartesian:ui_flow_structure_skill:content-admission:74",
+            "cartesian:ui_flow_structure_skill:content-admission:75",
+            "cartesian:ui_flow_structure_skill:content-admission:76",
+            "cartesian:ui_flow_structure_skill:content-admission:77",
+            "cartesian:ui_flow_structure_skill:content-admission:78",
+            "cartesian:ui_flow_structure_skill:content-admission:79",
+            "cartesian:ui_flow_structure_skill:content-admission:80"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:ui_flow_structure_skill"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:ui_flow_structure_skill:content-admission"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "commitment:ordinary-ui-content-admission"
+          ],
+          "proof_artifact_ids": [
+            "proof:self-maintenance:ordinary-ui-content-admission"
+          ],
+          "risk_gate_ids": [
+            "risk_gate:flowguard_self_maintenance:ordinary-ui-content-admission"
+          ],
+          "test_evidence_ids": [
+            "test:ui-content-admission:happy",
+            "test:ui-content-admission:failure"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "every in-scope candidate has exactly one supported visibility class; internal content never maps to ordinary UI; user-on-demand content is hidden before an explicit reveal and can return to the hidden state; actual visible content is compared with the allowed content set",
+        "expected_terminal": "every in-scope candidate has exactly one supported visibility class; internal content never maps to ordinary UI; user-on-demand content is hidden before an explicit reveal and can return to the hidden state; actual visible content is compared with the allowed content set",
+        "external_differences": [],
+        "failure_boundary": "unclassified or internal mappings, premature on-demand visibility, missing reveal or return paths, and observed mapping bypass block broad UI claims",
+        "in_scope": true,
+        "label": "ordinary UI admits only classified user-facing content",
+        "lookup_binding": {
+          "error_signatures": [],
+          "metadata": {},
+          "path_patterns": [
+            ".flowguard/ui_flow_structure_skill",
+            "flowguard/ui_structure.py"
+          ],
+          "task_terms": [
+            "ordinary UI",
+            "user-facing content",
+            "internal metadata",
+            "content admission"
+          ],
+          "tool_ids": [],
+          "workflow_families": [
+            "ui_design",
+            "ui_validation"
+          ]
+        },
+        "metadata": {
+          "behavior_plane_classification": "explicit_project_owner_review"
+        },
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "",
+          "business_intent": "",
+          "business_intent_id": "",
+          "evidence_current": false,
+          "evidence_refs": [],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": false,
+          "ppa_confidence": "",
+          "ppa_coverage_receipt_ids": [],
+          "ppa_coverage_shard_ids": [],
+          "ppa_decision": "",
+          "ppa_ok": null,
+          "ppa_report_id": "",
+          "ppa_risk_gate_ids": [],
+          "primary_path_id": "",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [],
+          "runtime_observation_ids": [],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [],
+        "primary_owner_model_id": ".flowguard/ui_flow_structure_skill/model.py",
+        "rationale": "external FlowGuard maintenance behavior, not a private helper detail",
+        "relations": [],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:ui-content-visibility-openspec",
+          "surface:ui-flow-structure-skill",
+          "surface:ui-content-visibility-models",
+          "surface:ui-content-visibility-tests"
+        ],
+        "state_writes": [],
+        "supporting_model_ids": [
+          ".flowguard/harden_ui_real_surface_validation/model.py"
+        ],
+        "surface_delegation_only": false,
+        "trigger": "an ordinary user views displayed values, status, helper content, labels, or optional details",
+        "validation_boundary": "model, code contract, tests, and self-maintenance child evidence stay aligned",
+        "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "FlowGuard validation automation",
+        "actor_kind": "automation",
+        "behavior_plane": "development_process",
+        "business_intent_id": "intent:behavior-dcar-full-axis",
+        "child_model_ids": [],
+        "commitment_id": "commitment:behavior-dcar-full-axis",
+        "commitment_kind": "process",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:behavior-dcar-full-axis"
+          ],
+          "coverage_case_ids": [
+            "bcl.behavior_plane.behavior-dcar-full-axis.current"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:behavior_commitment_ledger:behavior-dcar-full-axis"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:behavior_commitment_ledger:behavior-dcar-full-axis"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "obligation:behavior-dcar-full-axis"
+          ],
+          "proof_artifact_ids": [],
+          "risk_gate_ids": [
+            "risk_gate:behavior_commitment_coverage:behavior-dcar-full-axis"
+          ],
+          "test_evidence_ids": [
+            "test:behavior-dcar-full-axis"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "ContractExhaustionMesh exposes plane, actor, relation, lookup, migration, change-mode, freshness, replacement, TestMesh, and miss axes plus interaction groups",
+        "expected_terminal": "all declared finite behavior axes and interaction groups have actionable cases and receipts",
+        "external_differences": [],
+        "failure_boundary": "missing finite axes, cases, shards, or receipts block broad behavior confidence",
+        "in_scope": true,
+        "label": "behavior ledger coverage has DCAR axes and interaction groups",
+        "lookup_binding": {
+          "error_signatures": [],
+          "metadata": {},
+          "path_patterns": [
+            "flowguard/contract_exhaustion.py",
+            "tests/test_behavior_commitment_contract_exhaustion.py"
+          ],
+          "task_terms": [
+            "behavior DCAR",
+            "contract exhaustion",
+            "finite coverage axes"
+          ],
+          "tool_ids": [],
+          "workflow_families": [
+            "contract_exhaustion",
+            "behavior_validation"
+          ]
+        },
+        "metadata": {
+          "behavior_plane_classification": "explicit_project_owner_review"
+        },
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "",
+          "business_intent": "",
+          "business_intent_id": "",
+          "evidence_current": false,
+          "evidence_refs": [],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": false,
+          "ppa_confidence": "",
+          "ppa_coverage_receipt_ids": [],
+          "ppa_coverage_shard_ids": [],
+          "ppa_decision": "",
+          "ppa_ok": null,
+          "ppa_report_id": "",
+          "ppa_risk_gate_ids": [],
+          "primary_path_id": "",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [],
+          "runtime_observation_ids": [],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [
+          "full behavior coverage is requested"
+        ],
+        "primary_owner_model_id": "flowguard.behavior_commitment.default_behavior_commitment_coverage_universe",
+        "rationale": "FlowGuard self-maintenance external behavior promise",
+        "relations": [
+          {
+            "metadata": {},
+            "rationale": "Finite DCAR cases validate the development-process ledger boundary.",
+            "relation_type": "validates",
+            "target_commitment_id": "commitment:behavior-ledger-current"
+          }
+        ],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [
+          "generate_behavior_contract_cases"
+        ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:contract-exhaustion-skill",
+          "surface:bcl-open-spec",
+          "surface:bcl-code",
+          "surface:bcl-tests"
+        ],
+        "state_writes": [
+          "contract_coverage_universe"
+        ],
+        "supporting_model_ids": [
+          ".flowguard/behavior_commitment_ledger/model.py"
+        ],
+        "surface_delegation_only": false,
+        "trigger": "the behavior ledger claims full source-to-commitment coverage",
+        "validation_boundary": "owner model, contract-exhaustion cases, current TestMesh receipts, and project model checks",
+        "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "FlowGuard test automation",
+        "actor_kind": "automation",
+        "behavior_plane": "development_process",
+        "business_intent_id": "intent:test-mesh-current-for-bcl",
+        "child_model_ids": [],
+        "commitment_id": "commitment:test-mesh-current-for-bcl",
+        "commitment_kind": "process",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:test-mesh-current-for-bcl"
+          ],
+          "coverage_case_ids": [
+            "bcl.behavior_plane.test-mesh-current-for-bcl.current"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:behavior_commitment_ledger:test-mesh-current-for-bcl"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:behavior_commitment_ledger:test-mesh-current-for-bcl"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "obligation:test-mesh-current-for-bcl"
+          ],
+          "proof_artifact_ids": [],
+          "risk_gate_ids": [
+            "risk_gate:behavior_commitment_coverage:test-mesh-current-for-bcl"
+          ],
+          "test_evidence_ids": [
+            "test:test-mesh-current-for-bcl"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "missing, stale, progress-only, or release-only shard states block the claim",
+        "expected_terminal": "every required TestMesh child has a current final passing receipt",
+        "external_differences": [],
+        "failure_boundary": "background liveness or stale receipts never count as final passing evidence",
+        "in_scope": true,
+        "label": "behavior ledger broad claims require current TestMesh shard evidence",
+        "lookup_binding": {
+          "error_signatures": [],
+          "metadata": {},
+          "path_patterns": [
+            "flowguard/testmesh.py",
+            "tests/"
+          ],
+          "task_terms": [
+            "TestMesh",
+            "background regression",
+            "stale evidence",
+            "progress only"
+          ],
+          "tool_ids": [],
+          "workflow_families": [
+            "test_mesh",
+            "background_validation"
+          ]
+        },
+        "metadata": {
+          "behavior_plane_classification": "explicit_project_owner_review"
+        },
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "",
+          "business_intent": "",
+          "business_intent_id": "",
+          "evidence_current": false,
+          "evidence_refs": [],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": false,
+          "ppa_confidence": "",
+          "ppa_coverage_receipt_ids": [],
+          "ppa_coverage_shard_ids": [],
+          "ppa_decision": "",
+          "ppa_ok": null,
+          "ppa_report_id": "",
+          "ppa_risk_gate_ids": [],
+          "primary_path_id": "",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [],
+          "runtime_observation_ids": [],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [
+          "a broad behavior claim is requested"
+        ],
+        "primary_owner_model_id": "flowguard.behavior_commitment._review_change_lifecycle",
+        "rationale": "FlowGuard self-maintenance external behavior promise",
+        "relations": [
+          {
+            "metadata": {},
+            "rationale": "Current TestMesh receipts validate broad ledger claims.",
+            "relation_type": "validates",
+            "target_commitment_id": "commitment:behavior-ledger-current"
+          }
+        ],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [
+          "block_stale_or_progress_only_claims"
+        ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:test-mesh-skill",
+          "surface:bcl-code",
+          "surface:bcl-tests"
+        ],
+        "state_writes": [
+          "test_mesh_evidence_state"
+        ],
+        "supporting_model_ids": [],
+        "surface_delegation_only": false,
+        "trigger": "a behavior commitment is used in a broad or full FlowGuard claim",
+        "validation_boundary": "owner model, contract-exhaustion cases, current TestMesh receipts, and project model checks",
+        "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "FlowGuard maintainer AI",
+        "actor_kind": "ai_agent",
+        "behavior_plane": "agent_operation",
+        "business_intent_id": "intent:model-miss-backfeeds-existing-commitment",
+        "child_model_ids": [],
+        "commitment_id": "commitment:model-miss-backfeeds-existing-commitment",
+        "commitment_kind": "process",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:model-miss-backfeeds-existing-commitment"
+          ],
+          "coverage_case_ids": [
+            "bcl.behavior_plane.model-miss-backfeeds-existing-commitment.current"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:behavior_commitment_ledger:model-miss-backfeeds-existing-commitment"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:behavior_commitment_ledger:model-miss-backfeeds-existing-commitment"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "obligation:model-miss-backfeeds-existing-commitment"
+          ],
+          "proof_artifact_ids": [],
+          "risk_gate_ids": [
+            "risk_gate:behavior_commitment_coverage:model-miss-backfeeds-existing-commitment"
+          ],
+          "test_evidence_ids": [
+            "test:model-miss-backfeeds-existing-commitment"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "the miss is classified by plane, mapped to an existing same-plane commitment and owner model first, and backfilled only when no registered promise exists",
+        "expected_terminal": "existing same-plane commitment is reused or one explicit coverage-gap candidate is registered",
+        "external_differences": [],
+        "failure_boundary": "ambiguous planes, guessed owners, or cross-plane false friends remain visible and cannot silently create instructions",
+        "in_scope": true,
+        "label": "model miss review backfeeds existing commitments before adding new behavior",
+        "lookup_binding": {
+          "error_signatures": [
+            "after FlowGuard passed",
+            "operation step forgotten"
+          ],
+          "metadata": {},
+          "path_patterns": [
+            "flowguard/recurring_model_miss.py",
+            ".flowguard/model_miss_review"
+          ],
+          "task_terms": [
+            "model miss",
+            "failed after green",
+            "reuse existing commitment",
+            "operation forgotten"
+          ],
+          "tool_ids": [
+            "behavior-commitment-query"
+          ],
+          "workflow_families": [
+            "model_miss_review",
+            "runtime_repair"
+          ]
+        },
+        "metadata": {
+          "behavior_plane_classification": "explicit_project_owner_review"
+        },
+        "miss_origin_state": "observed_model_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "",
+          "business_intent": "",
+          "business_intent_id": "",
+          "evidence_current": false,
+          "evidence_refs": [],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": false,
+          "ppa_confidence": "",
+          "ppa_coverage_receipt_ids": [],
+          "ppa_coverage_shard_ids": [],
+          "ppa_decision": "",
+          "ppa_ok": null,
+          "ppa_report_id": "",
+          "ppa_risk_gate_ids": [],
+          "primary_path_id": "",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [],
+          "runtime_observation_ids": [],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [
+          "observed failure evidence is available"
+        ],
+        "primary_owner_model_id": "flowguard.behavior_commitment._review_change_lifecycle",
+        "rationale": "FlowGuard self-maintenance external behavior promise",
+        "relations": [
+          {
+            "metadata": {},
+            "rationale": "An AI model-miss operation may validate the related product-runtime UI promise while preserving separate ownership.",
+            "relation_type": "validates",
+            "target_commitment_id": "commitment:ordinary-ui-content-admission"
+          }
+        ],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [
+          "query_behavior_commitments",
+          "backfeed_owner_model_and_tests"
+        ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:model-miss-skill",
+          "surface:existing-model-preflight-skill",
+          "surface:bcl-open-spec",
+          "surface:bcl-code",
+          "surface:bcl-tests"
+        ],
+        "state_writes": [
+          "miss_origin_state",
+          "affected_commitment_id",
+          "primary_owner_model_id"
+        ],
+        "supporting_model_ids": [
+          ".flowguard/model_miss_review/model.py"
+        ],
+        "surface_delegation_only": false,
+        "trigger": "runtime, test, replay, log, or manual validation finds a miss after FlowGuard passed",
+        "validation_boundary": "owner model, contract-exhaustion cases, current TestMesh receipts, and project model checks",
+        "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "FlowGuard maintainer AI",
+        "actor_kind": "ai_agent",
+        "behavior_plane": "development_process",
+        "business_intent_id": "intent:self-maintenance-child-gates",
+        "child_model_ids": [],
+        "commitment_id": "commitment:self-maintenance-child-gates",
+        "commitment_kind": "workflow",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:self-maintenance-child-gates"
+          ],
+          "coverage_case_ids": [
+            "bcl.behavior_plane.self-maintenance-child-gates.current"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:behavior_commitment_ledger:self-maintenance-child-gates"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:behavior_commitment_ledger:self-maintenance-child-gates"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "obligation:self-maintenance-child-gates"
+          ],
+          "proof_artifact_ids": [],
+          "risk_gate_ids": [
+            "risk_gate:behavior_commitment_coverage:self-maintenance-child-gates"
+          ],
+          "test_evidence_ids": [
+            "test:self-maintenance-child-gates"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "route graph, field layers, behavior ledger, DCAR, TestMesh, model-miss backfeed, validation, install, shadow, and git gates are all current",
+        "expected_terminal": "all required child gates have current final receipts",
+        "external_differences": [],
+        "failure_boundary": "any missing, stale, skipped, progress-only, or peer-invalidated child blocks broad completion",
+        "in_scope": true,
+        "label": "FlowGuard self-maintenance cannot finish without BCL, DCAR, TestMesh, and model-miss child gates",
+        "lookup_binding": {
+          "error_signatures": [],
+          "metadata": {},
+          "path_patterns": [
+            ".flowguard/self_maintenance_mesh",
+            "flowguard/self_maintenance.py"
+          ],
+          "task_terms": [
+            "FlowGuard self maintenance",
+            "done gate",
+            "install shadow sync"
+          ],
+          "tool_ids": [],
+          "workflow_families": [
+            "self_maintenance",
+            "release_validation"
+          ]
+        },
+        "metadata": {
+          "behavior_plane_classification": "explicit_project_owner_review"
+        },
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "",
+          "business_intent": "",
+          "business_intent_id": "",
+          "evidence_current": false,
+          "evidence_refs": [],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": false,
+          "ppa_confidence": "",
+          "ppa_coverage_receipt_ids": [],
+          "ppa_coverage_shard_ids": [],
+          "ppa_decision": "",
+          "ppa_ok": null,
+          "ppa_report_id": "",
+          "ppa_risk_gate_ids": [],
+          "primary_path_id": "",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [],
+          "runtime_observation_ids": [],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [
+          "non-trivial FlowGuard self-maintenance work is in scope"
+        ],
+        "primary_owner_model_id": ".flowguard/self_maintenance_mesh/model.py",
+        "rationale": "FlowGuard self-maintenance external behavior promise",
+        "relations": [
+          {
+            "metadata": {},
+            "rationale": "Self-maintenance completion depends on current finite behavior coverage.",
+            "relation_type": "depends_on",
+            "target_commitment_id": "commitment:behavior-dcar-full-axis"
+          },
+          {
+            "metadata": {},
+            "rationale": "Self-maintenance completion depends on current TestMesh receipts.",
+            "relation_type": "depends_on",
+            "target_commitment_id": "commitment:test-mesh-current-for-bcl"
+          },
+          {
+            "metadata": {},
+            "rationale": "Self-maintenance completion depends on explicit old-path disposition.",
+            "relation_type": "depends_on",
+            "target_commitment_id": "commitment:single-path-replacement-disposition"
+          },
+          {
+            "metadata": {},
+            "rationale": "The development process consumes the AI-operation model-miss backfeed receipt.",
+            "relation_type": "requires_evidence_from",
+            "target_commitment_id": "commitment:model-miss-backfeeds-existing-commitment"
+          },
+          {
+            "metadata": {},
+            "rationale": "The development process consumes product-runtime UI admission evidence.",
+            "relation_type": "requires_evidence_from",
+            "target_commitment_id": "commitment:ordinary-ui-content-admission"
+          },
+          {
+            "metadata": {},
+            "rationale": "Self-maintenance closure consumes current provider work-package reconciliation and exact check receipts.",
+            "relation_type": "depends_on",
+            "target_commitment_id": "commitment:spec-work-package-reconciliation"
+          }
+        ],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [
+          "block_incomplete_done_claim"
+        ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:bcl-open-spec",
+          "surface:self-maintenance-code",
+          "surface:self-maintenance-model",
+          "surface:self-maintenance-tests"
+        ],
+        "state_writes": [
+          "self_maintenance_closure_state"
+        ],
+        "supporting_model_ids": [
+          "flowguard.review_flowguard_self_maintenance"
+        ],
+        "surface_delegation_only": false,
+        "trigger": "FlowGuard self-maintenance claims broad done confidence",
+        "validation_boundary": "owner model, contract-exhaustion cases, current TestMesh receipts, and project model checks",
+        "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "FlowGuard maintainer AI",
+        "actor_kind": "ai_agent",
+        "behavior_plane": "development_process",
+        "business_intent_id": "intent:spec-work-package-reconciliation",
+        "child_model_ids": [],
+        "commitment_id": "commitment:spec-work-package-reconciliation",
+        "commitment_kind": "workflow",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:spec-work-package-reconciliation"
+          ],
+          "coverage_case_ids": [
+            "bcl.behavior_plane.spec-work-package-reconciliation.current"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:behavior_commitment_ledger:spec-work-package-reconciliation"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:behavior_commitment_ledger:spec-work-package-reconciliation"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "obligation:spec-work-package-reconciliation"
+          ],
+          "proof_artifact_ids": [],
+          "risk_gate_ids": [
+            "risk_gate:behavior_commitment_coverage:spec-work-package-reconciliation"
+          ],
+          "test_evidence_ids": [
+            "test:spec-work-package-reconciliation"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "provider-native tasks reconcile bidirectionally with FlowGuard obligations and checks, heavy checks short-circuit behind fast gates, and exact terminal receipts are safely reused",
+        "expected_terminal": "one same-session post snapshot and complete current receipt consumer bindings support provider-native close readiness",
+        "external_differences": [],
+        "failure_boundary": "unmapped tasks or obligations, missing post snapshots, changed inputs, non-terminal evidence, unsafe cross-change reuse, or failed dependencies remain visible and block closure",
+        "in_scope": true,
+        "label": "specification providers retain authority while FlowGuard reconciles development-process obligations and exact evidence",
+        "lookup_binding": {
+          "error_signatures": [
+            "verification stale",
+            "duplicate full regression",
+            "not_run_due_to_dependency"
+          ],
+          "metadata": {},
+          "path_patterns": [
+            "flowguard/spec_work_package.py",
+            "flowguard/spec_providers.py",
+            "flowguard/spec_check_cache.py",
+            ".flowguard/spec_provider_work_packages"
+          ],
+          "task_terms": [
+            "OpenSpec FlowGuard reconciliation",
+            "spec work package",
+            "immutable check receipt",
+            "safe cross-change reuse",
+            "verification fail fast"
+          ],
+          "tool_ids": [
+            "spec-work-package-audit",
+            "spec-session-begin",
+            "spec-check-run",
+            "spec-session-close"
+          ],
+          "workflow_families": [
+            "development_process_flow",
+            "spec_provider_verification",
+            "self_maintenance"
+          ]
+        },
+        "metadata": {
+          "behavior_plane_classification": "explicit_project_owner_review",
+          "provider_authority_boundary": "read_only_adapter"
+        },
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "",
+          "business_intent": "",
+          "business_intent_id": "",
+          "evidence_current": false,
+          "evidence_refs": [],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": false,
+          "ppa_confidence": "",
+          "ppa_coverage_receipt_ids": [],
+          "ppa_coverage_shard_ids": [],
+          "ppa_decision": "",
+          "ppa_ok": null,
+          "ppa_report_id": "",
+          "ppa_risk_gate_ids": [],
+          "primary_path_id": "",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [],
+          "runtime_observation_ids": [],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [
+          "one active provider change or feature is selected under the current project root"
+        ],
+        "primary_owner_model_id": ".flowguard/spec_provider_work_packages/model.py",
+        "rationale": "FlowGuard development-process evidence orchestration promise",
+        "relations": [
+          {
+            "metadata": {},
+            "rationale": "Provider reconciliation relies on the current canonical behavior inventory and same-plane owner lookup.",
+            "relation_type": "depends_on",
+            "target_commitment_id": "commitment:behavior-ledger-current"
+          },
+          {
+            "metadata": {},
+            "rationale": "Exact check receipts and consumer fan-out remain governed by current TestMesh evidence.",
+            "relation_type": "depends_on",
+            "target_commitment_id": "commitment:test-mesh-current-for-bcl"
+          }
+        ],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [
+          "capture_governed_input_snapshots",
+          "execute_or_reuse_exact_checks",
+          "bind_receipts_to_provider_consumers"
+        ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:spec-work-package-model",
+          "surface:spec-work-package-code",
+          "surface:spec-work-package-tests"
+        ],
+        "state_writes": [
+          "spec_session_state",
+          "receipt_consumer_bindings",
+          "minimum_revalidation_set"
+        ],
+        "supporting_model_ids": [
+          ".flowguard/development_process_flow/model.py",
+          ".flowguard/test_evidence_mesh/model.py"
+        ],
+        "surface_delegation_only": false,
+        "trigger": "a non-trivial OpenSpec or Spec Kit work package needs FlowGuard-governed validation, freshness, or closure evidence",
+        "validation_boundary": "provider artifacts, bidirectional bindings, same-session snapshots, exact EvidenceReceipt verification, TestMesh fan-out, and provider-native final verification",
+        "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "FlowGuard maintainer AI",
+        "actor_kind": "ai_agent",
+        "behavior_plane": "development_process",
+        "business_intent_id": "intent:development-process-strategy-selection",
+        "child_model_ids": [],
+        "commitment_id": "commitment:development-process-strategy-selection",
+        "commitment_kind": "process",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:development-process-strategy-selection"
+          ],
+          "coverage_case_ids": [
+            "optimization:ordinary-inactive",
+            "optimization:hard-equivalence-before-comparison",
+            "optimization:related-root-cause-repair",
+            "optimization:visible-hard-blocker",
+            "optimization:bounded-claim"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:development-process-strategy-selection"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:development-process-strategy-selection"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {
+            "activation": "conditional_only",
+            "ordinary_path": "no_optimizer_ceremony"
+          },
+          "model_obligation_ids": [
+            "obligation:development-process-strategy-selection"
+          ],
+          "proof_artifact_ids": [
+            "proof:development-process-strategy-model-focused"
+          ],
+          "risk_gate_ids": [
+            "risk_gate:development-process-strategy-selection"
+          ],
+          "test_evidence_ids": [
+            "tests/test_development_process_strategy.py",
+            "tests/test_development_process_strategy_benchmark.py",
+            "tests/test_development_process_flow.py"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [
+          "product_runtime_behavior",
+          "agent_tool_execution",
+          "global_optimum_claim"
+        ],
+        "expected_result": "ordinary single-route work remains lightweight; when optimization is justified, only outcome-equivalent candidates are compared and the evidence-supported lower-rework route is selected within a named boundary",
+        "expected_terminal": "one current process-optimization decision references TestMesh diagnostic evidence, relation-backed root-cause repair groups, ordinary primary owners, and current affected-obligation revalidation",
+        "external_differences": [],
+        "failure_boundary": "unnecessary optimizer ceremony, non-equivalent candidates, unaccounted diagnostic boundaries, unsafe parallelism, unrelated grouping, unowned repair, incomplete revalidation, stale decisions, and unsupported minimum/global claims remain visible and block use",
+        "in_scope": true,
+        "label": "DevelopmentProcessFlow conditionally chooses a lower-rework process without weakening outcome or evidence",
+        "lookup_binding": {
+          "error_signatures": [
+            "repeated test repair loop",
+            "false diagnostic completeness",
+            "unnecessary process optimizer ceremony",
+            "stale process optimization decision"
+          ],
+          "metadata": {},
+          "path_patterns": [
+            "flowguard/development_process_strategy.py",
+            "flowguard/development_process_flow.py",
+            ".flowguard/development_process_strategy"
+          ],
+          "task_terms": [
+            "process optimization",
+            "minimum effort same outcome",
+            "collect failures before repair",
+            "diagnostic boundary before repair",
+            "lower rework development workflow"
+          ],
+          "tool_ids": [],
+          "workflow_families": [
+            "development_process_flow",
+            "development_process_strategy_selection"
+          ]
+        },
+        "metadata": {
+          "behavior_plane_classification": "explicit_project_owner_review",
+          "public_route_owner": "development_process_flow",
+          "strategy_child_is_internal": true,
+          "optimizer_activation": "conditional"
+        },
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "",
+          "business_intent": "",
+          "business_intent_id": "",
+          "evidence_current": false,
+          "evidence_refs": [],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": false,
+          "ppa_confidence": "",
+          "ppa_coverage_receipt_ids": [],
+          "ppa_coverage_shard_ids": [],
+          "ppa_decision": "",
+          "ppa_ok": null,
+          "ppa_report_id": "",
+          "ppa_risk_gate_ids": [],
+          "primary_path_id": "",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [],
+          "runtime_observation_ids": [],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [
+          "explicit_request, multiple_equivalent_routes, material_rework_risk, or diagnostic_boundary_choice is present"
+        ],
+        "primary_owner_model_id": ".flowguard/development_process_strategy/model.py",
+        "rationale": "Reuse the DPF-owned internal strategy child as a small conditional process-quality decision, without a new route or ordinary-task ceremony",
+        "relations": [
+          {
+            "metadata": {},
+            "rationale": "Strategy selection preserves provider-native check dependencies and obligation authority.",
+            "relation_type": "depends_on",
+            "target_commitment_id": "commitment:spec-work-package-reconciliation"
+          },
+          {
+            "metadata": {},
+            "rationale": "Diagnostic completeness and execution evidence remain owned by TestMesh.",
+            "relation_type": "depends_on",
+            "target_commitment_id": "commitment:test-mesh-current-for-bcl"
+          }
+        ],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [
+          "record_process_optimization_decision",
+          "record_repair_group_references"
+        ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:development-process-strategy-model",
+          "surface:development-process-strategy-code",
+          "surface:development-process-strategy-tests"
+        ],
+        "state_writes": [
+          "process_optimization_decision",
+          "repair_group_references"
+        ],
+        "supporting_model_ids": [
+          ".flowguard/development_process_flow/model.py",
+          ".flowguard/test_evidence_mesh/model.py"
+        ],
+        "surface_delegation_only": false,
+        "trigger": "explicit_request, multiple_equivalent_routes, material_rework_risk, or diagnostic_boundary_choice justifies comparing process shapes",
+        "validation_boundary": "inactive ordinary path, six hard equivalence dimensions, TestMesh diagnostic evidence, relation-backed repair groups, DPF freshness, ordinary Model-Test Alignment ownership, affected revalidation, and focused integration tests",
+        "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "FlowGuard maintainer AI",
+        "actor_kind": "ai_agent",
+        "behavior_plane": "development_process",
+        "business_intent_id": "intent:single-path-replacement-disposition",
+        "child_model_ids": [],
+        "commitment_id": "commitment:single-path-replacement-disposition",
+        "commitment_kind": "process",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:single-path-replacement-disposition"
+          ],
+          "coverage_case_ids": [
+            "bcl.behavior_plane.single-path-replacement-disposition.current"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:behavior_commitment_ledger:single-path-replacement-disposition"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:behavior_commitment_ledger:single-path-replacement-disposition"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "obligation:single-path-replacement-disposition"
+          ],
+          "proof_artifact_ids": [],
+          "risk_gate_ids": [
+            "risk_gate:behavior_commitment_coverage:single-path-replacement-disposition"
+          ],
+          "test_evidence_ids": [
+            "test:single-path-replacement-disposition"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "the old surface is deleted, blocked, migrated, delegated, repaired, or scoped out with evidence",
+        "expected_terminal": "every old surface has one explicit non-success disposition or delegates to the singular primary path",
+        "external_differences": [],
+        "failure_boundary": "an old or alternate route cannot remain a second successful authority",
+        "in_scope": true,
+        "label": "old fields, aliases, wrappers, or alternate paths are disposed instead of kept as success paths",
+        "lookup_binding": {
+          "error_signatures": [],
+          "metadata": {},
+          "path_patterns": [
+            "flowguard/legacy_path_disposition.py",
+            "flowguard/primary_path_authority.py"
+          ],
+          "task_terms": [
+            "old path disposition",
+            "single primary path",
+            "alias wrapper replacement"
+          ],
+          "tool_ids": [],
+          "workflow_families": [
+            "default_replacement",
+            "architecture_reduction"
+          ]
+        },
+        "metadata": {
+          "behavior_plane_classification": "explicit_project_owner_review"
+        },
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "",
+          "business_intent": "",
+          "business_intent_id": "",
+          "evidence_current": false,
+          "evidence_refs": [],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": false,
+          "ppa_confidence": "",
+          "ppa_coverage_receipt_ids": [],
+          "ppa_coverage_shard_ids": [],
+          "ppa_decision": "",
+          "ppa_ok": null,
+          "ppa_report_id": "",
+          "ppa_risk_gate_ids": [],
+          "primary_path_id": "",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [],
+          "runtime_observation_ids": [],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [
+          "an old path, alias, wrapper, field, or alternate success route is discovered"
+        ],
+        "primary_owner_model_id": "flowguard.self_maintenance.default_field_layer_profiles",
+        "rationale": "FlowGuard self-maintenance external behavior promise",
+        "relations": [
+          {
+            "metadata": {},
+            "rationale": "Old-path disposition validates that the ledger has no alternate successful authority.",
+            "relation_type": "validates",
+            "target_commitment_id": "commitment:behavior-ledger-current"
+          }
+        ],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [
+          "delete_block_migrate_delegate_or_scope_old_path"
+        ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:project-rules",
+          "surface:agents-snippet",
+          "surface:bcl-open-spec",
+          "surface:self-maintenance-code",
+          "surface:self-maintenance-tests"
+        ],
+        "state_writes": [
+          "replacement_disposition"
+        ],
+        "supporting_model_ids": [
+          "flowguard.primary_path_authority"
+        ],
+        "surface_delegation_only": false,
+        "trigger": "a FlowGuard change removes, replaces, or finds an old path or field",
+        "validation_boundary": "owner model, contract-exhaustion cases, current TestMesh receipts, and project model checks",
+        "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "FlowGuard AI agent",
+        "actor_kind": "ai_agent",
+        "behavior_plane": "agent_operation",
+        "business_intent_id": "intent:flowguard-agent-guidance-route",
+        "child_model_ids": [],
+        "commitment_id": "commitment:flowguard-agent-guidance-route",
+        "commitment_kind": "skill",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:model-first-function-flow:route-guidance"
+          ],
+          "coverage_case_ids": [
+            "bcl.agent_operation.flowguard-agent-guidance-route.current"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:flowguard-agent-guidance-route"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:flowguard-agent-guidance-route"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "obligation:flowguard-agent-guidance-route"
+          ],
+          "proof_artifact_ids": [
+            "proof:flowguard-agent-guidance-current"
+          ],
+          "risk_gate_ids": [
+            "risk_gate:flowguard-agent-guidance-route"
+          ],
+          "test_evidence_ids": [
+            "tests/test_skill_docs.py",
+            "tests/test_skill_contract_v2_projection.py"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "the agent recalls same-plane commitments, selects the existing owner route, and loads detailed protocols only when needed",
+        "expected_terminal": "one existing FlowGuard owner route is selected or one explicit no-match model boundary is recorded",
+        "external_differences": [],
+        "failure_boundary": "cross-plane keyword matches, duplicate routes, or missing current guidance evidence cannot silently become instructions",
+        "in_scope": true,
+        "label": "FlowGuard agent guidance delegates to one plane-first owner route",
+        "lookup_binding": {
+          "error_signatures": [],
+          "metadata": {},
+          "path_patterns": [
+            ".agents/skills/model-first-function-flow",
+            ".agents/skills/flowguard-*"
+          ],
+          "task_terms": [
+            "FlowGuard route",
+            "agent workflow",
+            "plane-first recall",
+            "skill guidance"
+          ],
+          "tool_ids": [
+            "behavior-commitment-query"
+          ],
+          "workflow_families": [
+            "model_first_routing",
+            "agent_workflow"
+          ]
+        },
+        "metadata": {},
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "commitment:flowguard-agent-guidance-route",
+          "business_intent": "select the existing FlowGuard owner route",
+          "business_intent_id": "intent:flowguard-agent-guidance-route",
+          "evidence_current": true,
+          "evidence_refs": [
+            ".flowguard/guidance_compression/run_checks.py",
+            "tests/test_skill_docs.py"
+          ],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": true,
+          "ppa_confidence": "full",
+          "ppa_coverage_receipt_ids": [
+            "contract_coverage:flowguard-agent-guidance-route"
+          ],
+          "ppa_coverage_shard_ids": [
+            "contract_shard:flowguard-agent-guidance-route"
+          ],
+          "ppa_decision": "primary_path_authority_green",
+          "ppa_ok": true,
+          "ppa_report_id": "report:flowguard-agent-guidance-route",
+          "ppa_risk_gate_ids": [
+            "risk_gate:flowguard-agent-guidance-route"
+          ],
+          "primary_path_id": "path:model-first-function-flow:plane-first-route-selection",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [
+            "proof:flowguard-agent-guidance-current"
+          ],
+          "runtime_observation_ids": [
+            "observation:skill-guidance-route-tests"
+          ],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [],
+        "primary_owner_model_id": ".flowguard/minimum_valuable_model_entry/model.py",
+        "rationale": "This is an AI-operation promise; product behavior named by the selected route remains separately owned.",
+        "relations": [],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:flowguard-agent-guidance"
+        ],
+        "state_writes": [],
+        "supporting_model_ids": [
+          ".flowguard/guidance_compression/model.py"
+        ],
+        "surface_delegation_only": false,
+        "trigger": "an AI agent begins non-trivial FlowGuard-routed work",
+        "validation_boundary": "kernel and satellite guidance, V2 contracts, focused skill tests, and guidance-compression model evidence",
+        "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "FlowGuard portable model consumer",
+        "actor_kind": "developer",
+        "behavior_plane": "product_runtime",
+        "business_intent_id": "intent:portable-compositional-verification",
+        "child_model_ids": [],
+        "commitment_id": "commitment:portable-compositional-verification",
+        "commitment_kind": "public_api",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:portable-compositional-verification"
+          ],
+          "coverage_case_ids": [
+            "bcl.product_runtime.portable-compositional-verification.current"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:portable-compositional-verification"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:portable-compositional-verification"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "obligation:portable-compositional-verification"
+          ],
+          "proof_artifact_ids": [
+            "proof:portable-compositional-verification-current"
+          ],
+          "risk_gate_ids": [
+            "risk_gate:portable-compositional-verification"
+          ],
+          "test_evidence_ids": [
+            "tests/test_portable_model.py",
+            "tests/test_portable_checker.py",
+            "tests/test_compositional_verification.py",
+            "tests/test_portable_model_cli.py"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "the current portable model is validated and checked through one canonical interpreter, and every refinement or composition claim consumes explicit current mappings and contract tokens",
+        "expected_terminal": "one canonical pass or one visible invalid, blocked, or failed report preserves the model identity and actionable counterexample",
+        "external_differences": [],
+        "failure_boundary": "non-current schemas, truncated exploration, unsafe or non-progressing graphs, unmapped child steps, strengthened assumptions, missing guarantees or providers, and conflicts cannot pass",
+        "in_scope": true,
+        "label": "portable finite models receive one fail-closed compositional verification result",
+        "lookup_binding": {
+          "error_signatures": [
+            "portable_model_invalid",
+            "refinement_transition_unmapped",
+            "composition_assumption_unprovided"
+          ],
+          "metadata": {},
+          "path_patterns": [
+            "flowguard/portable_model.py",
+            "flowguard/portable_checker.py",
+            ".flowguard/compositional_verification_kernel/**"
+          ],
+          "task_terms": [
+            "portable model",
+            "model IR",
+            "reference checker",
+            "compositional verification",
+            "refinement",
+            "assume guarantee"
+          ],
+          "tool_ids": [
+            "flowguard.portable-model-check",
+            "flowguard.portable-model-refinement"
+          ],
+          "workflow_families": [
+            "portable_model_verification",
+            "compositional_refinement"
+          ]
+        },
+        "metadata": {
+          "schema_version": "flowguard.portable_model.v1"
+        },
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "commitment:portable-compositional-verification",
+          "business_intent": "validate and check a finite portable FlowGuard model or explicit composition/refinement claim",
+          "business_intent_id": "intent:portable-compositional-verification",
+          "evidence_current": true,
+          "evidence_refs": [
+            ".flowguard/compositional_verification_kernel/run_checks.py",
+            "tests/test_portable_model_cli.py"
+          ],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": true,
+          "ppa_confidence": "full",
+          "ppa_coverage_receipt_ids": [
+            "contract_coverage:portable-compositional-verification"
+          ],
+          "ppa_coverage_shard_ids": [
+            "contract_shard:portable-compositional-verification"
+          ],
+          "ppa_decision": "primary_path_authority_green",
+          "ppa_ok": true,
+          "ppa_report_id": "report:portable-compositional-verification",
+          "ppa_risk_gate_ids": [
+            "risk_gate:portable-compositional-verification"
+          ],
+          "primary_path_id": "path:portable-compositional-verification:canonical-checker",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [
+            "proof:portable-compositional-verification-current"
+          ],
+          "runtime_observation_ids": [
+            "observation:portable-compositional-verification-focused-tests"
+          ],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [
+          "the caller supplies one explicit current-schema finite artifact and any required explicit refinement binding"
+        ],
+        "primary_owner_model_id": ".flowguard/compositional_verification_kernel/model.py",
+        "rationale": "This is intrinsic FlowGuard product-runtime checking behavior, separate from agent guidance, release process, and any future application workflow.",
+        "relations": [],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:portable-compositional-verification"
+        ],
+        "state_writes": [],
+        "supporting_model_ids": [
+          ".flowguard/hierarchical_model_mesh/model.py",
+          ".flowguard/model_topology_hazard_review/model.py"
+        ],
+        "surface_delegation_only": false,
+        "trigger": "a developer validates or checks a portable model, refinement, or component composition",
+        "validation_boundary": "current schema/parser, reference interpreter, safety/temporal checks, explicit mappings, contract provider closure, native model, focused tests, and API/CLI parity",
+        "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "FlowGuard API consumer",
+        "actor_kind": "developer",
+        "behavior_plane": "product_runtime",
+        "business_intent_id": "intent:flowguard-public-api-surface",
+        "child_model_ids": [],
+        "commitment_id": "commitment:flowguard-public-api-surface",
+        "commitment_kind": "public_api",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:flowguard-public-api-surface"
+          ],
+          "coverage_case_ids": [
+            "bcl.product_runtime.flowguard-public-api-surface.current"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:flowguard-public-api-surface"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:flowguard-public-api-surface"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "obligation:flowguard-public-api-surface"
+          ],
+          "proof_artifact_ids": [
+            "proof:flowguard-public-api-surface-current"
+          ],
+          "risk_gate_ids": [
+            "risk_gate:flowguard-public-api-surface"
+          ],
+          "test_evidence_ids": [
+            "tests/test_api_surface.py"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "the documented FlowGuard public names remain importable through one API_SURFACE-backed facade",
+        "expected_terminal": "the public import resolves through the canonical API surface or fails visibly",
+        "external_differences": [],
+        "failure_boundary": "a second manual authority, missing export, or hidden alternate success path blocks compatibility confidence",
+        "in_scope": true,
+        "label": "FlowGuard public imports delegate to the canonical API surface",
+        "lookup_binding": {
+          "error_signatures": [],
+          "metadata": {},
+          "path_patterns": [
+            "flowguard/__init__.py",
+            "flowguard/api_surface.py"
+          ],
+          "task_terms": [
+            "public API",
+            "API_SURFACE",
+            "flowguard import",
+            "__all__"
+          ],
+          "tool_ids": [],
+          "workflow_families": [
+            "public_api_compatibility",
+            "architecture_reduction"
+          ]
+        },
+        "metadata": {},
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "commitment:flowguard-public-api-surface",
+          "business_intent": "import the supported FlowGuard public API",
+          "business_intent_id": "intent:flowguard-public-api-surface",
+          "evidence_current": true,
+          "evidence_refs": [
+            "tests/test_api_surface.py",
+            ".flowguard/reduce_architecture_surface/run_checks.py"
+          ],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": true,
+          "ppa_confidence": "full",
+          "ppa_coverage_receipt_ids": [
+            "contract_coverage:flowguard-public-api-surface"
+          ],
+          "ppa_coverage_shard_ids": [
+            "contract_shard:flowguard-public-api-surface"
+          ],
+          "ppa_decision": "primary_path_authority_green",
+          "ppa_ok": true,
+          "ppa_report_id": "report:flowguard-public-api-surface",
+          "ppa_risk_gate_ids": [
+            "risk_gate:flowguard-public-api-surface"
+          ],
+          "primary_path_id": "path:flowguard-public-api:api-surface-facade",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [
+            "proof:flowguard-public-api-surface-current"
+          ],
+          "runtime_observation_ids": [
+            "observation:flowguard-public-api-import-tests"
+          ],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [],
+        "primary_owner_model_id": ".flowguard/reduce_architecture_surface/model.py",
+        "rationale": "This is product-runtime API behavior and is separate from AI guidance or development-process ownership.",
+        "relations": [],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:flowguard-public-api"
+        ],
+        "state_writes": [],
+        "supporting_model_ids": [
+          ".flowguard/simplify_flowguard_structure/model.py"
+        ],
+        "surface_delegation_only": false,
+        "trigger": "a developer imports a supported name from flowguard",
+        "validation_boundary": "API surface registry, import facade, architecture models, and current API tests",
+        "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "FlowGuard CLI user",
+        "actor_kind": "developer",
+        "behavior_plane": "product_runtime",
+        "business_intent_id": "intent:flowguard-template-cli-dispatch",
+        "child_model_ids": [],
+        "commitment_id": "commitment:flowguard-template-cli-dispatch",
+        "commitment_kind": "cli",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:flowguard-template-cli-dispatch"
+          ],
+          "coverage_case_ids": [
+            "bcl.product_runtime.flowguard-template-cli-dispatch.current"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:flowguard-template-cli-dispatch"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:flowguard-template-cli-dispatch"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "obligation:flowguard-template-cli-dispatch"
+          ],
+          "proof_artifact_ids": [
+            "proof:flowguard-template-cli-dispatch-current"
+          ],
+          "risk_gate_ids": [
+            "risk_gate:flowguard-template-cli-dispatch"
+          ],
+          "test_evidence_ids": [
+            "tests/test_public_templates.py",
+            "tests/test_maintenance_template.py"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "each supported template command delegates through the canonical template registry and preserves its documented output behavior",
+        "expected_terminal": "the selected template is returned or written once, or a visible command error is returned",
+        "external_differences": [],
+        "failure_boundary": "duplicate wrapper authority, duplicate writes, or an automatic alternate success path blocks CLI confidence",
+        "in_scope": true,
+        "label": "FlowGuard template commands delegate to one registry dispatch path",
+        "lookup_binding": {
+          "error_signatures": [],
+          "metadata": {},
+          "path_patterns": [
+            "flowguard/__main__.py",
+            "flowguard/templates.py"
+          ],
+          "task_terms": [
+            "template command",
+            "CLI template",
+            "template registry",
+            "command wrapper"
+          ],
+          "tool_ids": [
+            "flowguard"
+          ],
+          "workflow_families": [
+            "template_cli",
+            "architecture_reduction"
+          ]
+        },
+        "metadata": {},
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "commitment:flowguard-template-cli-dispatch",
+          "business_intent": "execute one supported FlowGuard template command",
+          "business_intent_id": "intent:flowguard-template-cli-dispatch",
+          "evidence_current": true,
+          "evidence_refs": [
+            "tests/test_public_templates.py",
+            "tests/test_maintenance_template.py"
+          ],
+          "fallback_candidate_ids": [],
+          "legacy_plural_migrated": false,
+          "metadata": {},
+          "path_sensitive": true,
+          "ppa_confidence": "full",
+          "ppa_coverage_receipt_ids": [
+            "contract_coverage:flowguard-template-cli-dispatch"
+          ],
+          "ppa_coverage_shard_ids": [
+            "contract_shard:flowguard-template-cli-dispatch"
+          ],
+          "ppa_decision": "primary_path_authority_green",
+          "ppa_ok": true,
+          "ppa_report_id": "report:flowguard-template-cli-dispatch",
+          "ppa_risk_gate_ids": [
+            "risk_gate:flowguard-template-cli-dispatch"
+          ],
+          "primary_path_id": "path:flowguard-template-cli:registry-dispatch",
+          "primary_path_migration_ambiguous": false,
+          "proof_artifact_ids": [
+            "proof:flowguard-template-cli-dispatch-current"
+          ],
+          "runtime_observation_ids": [
+            "observation:flowguard-template-cli-tests"
+          ],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [],
+        "primary_owner_model_id": ".flowguard/simplify_flowguard_structure/model.py",
+        "rationale": "This is product-runtime CLI behavior and remains distinct from agent-operation guidance.",
+        "relations": [],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:flowguard-template-cli"
+        ],
+        "state_writes": [],
+        "supporting_model_ids": [],
+        "surface_delegation_only": false,
+        "trigger": "a developer invokes a FlowGuard template command",
+        "validation_boundary": "template registry, CLI facade, structure model, and current template tests",
+        "variant_of_business_intent_id": ""
+      }
+    ],
+    "current_revision": "2026-07-16-portable-compositional-verification",
+    "expected_business_intent_ids": [
+      "intent:behavior-ledger-current",
+      "intent:ordinary-ui-content-admission",
+      "intent:behavior-dcar-full-axis",
+      "intent:test-mesh-current-for-bcl",
+      "intent:model-miss-backfeeds-existing-commitment",
+      "intent:self-maintenance-child-gates",
+      "intent:spec-work-package-reconciliation",
+      "intent:development-process-strategy-selection",
+      "intent:single-path-replacement-disposition",
+      "intent:flowguard-agent-guidance-route",
+      "intent:portable-compositional-verification",
+      "intent:flowguard-public-api-surface",
+      "intent:flowguard-template-cli-dispatch"
+    ],
+    "expected_commitment_ids": [
+      "commitment:behavior-ledger-current",
+      "commitment:ordinary-ui-content-admission",
+      "commitment:behavior-dcar-full-axis",
+      "commitment:test-mesh-current-for-bcl",
+      "commitment:model-miss-backfeeds-existing-commitment",
+      "commitment:self-maintenance-child-gates",
+      "commitment:spec-work-package-reconciliation",
+      "commitment:development-process-strategy-selection",
+      "commitment:single-path-replacement-disposition",
+      "commitment:flowguard-agent-guidance-route",
+      "commitment:portable-compositional-verification",
+      "commitment:flowguard-public-api-surface",
+      "commitment:flowguard-template-cli-dispatch"
+    ],
+    "ledger_id": "flowguard-self-maintenance-ledger",
+    "metadata": {
+      "behavior_plane_partition": [
+        "product_runtime",
+        "agent_operation",
+        "development_process"
+      ],
+      "canonical_authority": ".flowguard/behavior_commitment_ledger/ledger.json",
+      "python_adapter_role": "thin_loader_only"
+    },
+    "owner": "flowguard_self_maintenance",
+    "project_boundary": "FlowGuard self-maintenance behavior registration hardening",
+    "rationale": "FlowGuard should maintain its own behavior registration using the same hard gates it teaches agents",
+    "require_current_evidence": true,
+    "require_risk_gates_for_broad_claim": true,
+    "source_surfaces": [
+      {
+        "business_intent_ids": [
+          "intent:behavior-ledger-current",
+          "intent:single-path-replacement-disposition"
+        ],
+        "commitment_ids": [
+          "commitment:behavior-ledger-current",
+          "commitment:single-path-replacement-disposition"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "project rules",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "AGENTS.md#FlowGuard Project Rules",
+        "surface_id": "surface:project-rules",
+        "surface_kind": "process",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:single-path-replacement-disposition"
+        ],
+        "commitment_ids": [
+          "commitment:single-path-replacement-disposition"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "agents snippet",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "docs/agents_snippet.md#Hard Gates",
+        "surface_id": "surface:agents-snippet",
+        "surface_kind": "doc",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:behavior-ledger-current"
+        ],
+        "commitment_ids": [
+          "commitment:behavior-ledger-current"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "bcl skill",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".agents/skills/flowguard-behavior-commitment-ledger/SKILL.md",
+        "surface_id": "surface:bcl-skill",
+        "surface_kind": "skill",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:ordinary-ui-content-admission"
+        ],
+        "commitment_ids": [
+          "commitment:ordinary-ui-content-admission"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "ui content visibility openspec",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "openspec/changes/harden-ui-content-visibility/specs/flowguard-ui-flow-structure/spec.md; openspec/changes/harden-ui-content-visibility/verification-contract.yaml",
+        "surface_id": "surface:ui-content-visibility-openspec",
+        "surface_kind": "openspec",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:ordinary-ui-content-admission"
+        ],
+        "commitment_ids": [
+          "commitment:ordinary-ui-content-admission"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "ui flow structure skill",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".agents/skills/flowguard-ui-flow-structure/SKILL.md",
+        "surface_id": "surface:ui-flow-structure-skill",
+        "surface_kind": "skill",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:ordinary-ui-content-admission"
+        ],
+        "commitment_ids": [
+          "commitment:ordinary-ui-content-admission"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "ui content visibility models",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".flowguard/ui_flow_structure_skill/model.py; .flowguard/harden_ui_real_surface_validation/model.py",
+        "surface_id": "surface:ui-content-visibility-models",
+        "surface_kind": "code",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:spec-work-package-reconciliation"
+        ],
+        "commitment_ids": [
+          "commitment:spec-work-package-reconciliation"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "spec work-package executable model",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface models provider reconciliation, dependency short-circuiting, same-session closure, and receipt deduplication",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".flowguard/spec_provider_work_packages/model.py; .flowguard/spec_provider_work_packages/bindings.json",
+        "surface_id": "surface:spec-work-package-model",
+        "surface_kind": "code",
+        "validation_boundary": "registered executable model and project binding review"
+      },
+      {
+        "business_intent_ids": [
+          "intent:spec-work-package-reconciliation"
+        ],
+        "commitment_ids": [
+          "commitment:spec-work-package-reconciliation"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "spec work-package provider and receipt implementation",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface implements bounded provider adapters, bidirectional review, exact snapshots, terminal receipts, and consumer bindings",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "flowguard/spec_work_package.py; flowguard/spec_providers.py; flowguard/spec_check_cache.py",
+        "surface_id": "surface:spec-work-package-code",
+        "surface_kind": "code",
+        "validation_boundary": "public API, CLI, process-owner projections, and receipt verification"
+      },
+      {
+        "business_intent_ids": [
+          "intent:spec-work-package-reconciliation"
+        ],
+        "commitment_ids": [
+          "commitment:spec-work-package-reconciliation"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "spec work-package known-bad and CLI tests",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface proves missing mappings, input mutation, failed dependencies, unsafe reuse, timeout, locking, and Windows-safe peer inspection remain blocked",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "tests/test_spec_work_package.py; tests/test_spec_check_receipts.py; tests/test_spec_work_package_cli.py",
+        "surface_id": "surface:spec-work-package-tests",
+        "surface_kind": "test",
+        "validation_boundary": "focused provider, reconciliation, receipt, session, and CLI regression tests"
+      },
+      {
+        "business_intent_ids": [
+          "intent:development-process-strategy-selection"
+        ],
+        "commitment_ids": [
+          "commitment:development-process-strategy-selection"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "conditional development-process optimization executable model",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "models the lightweight inactive path, six hard equivalence dimensions, TestMesh evidence reuse, related root-cause repair, hard blockers, freshness, and bounded claims",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".flowguard/development_process_strategy/model.py; .flowguard/development_process_strategy/run_checks.py",
+        "surface_id": "surface:development-process-strategy-model",
+        "surface_kind": "code",
+        "validation_boundary": "focused executable model regression and expected counterexamples"
+      },
+      {
+        "business_intent_ids": [
+          "intent:development-process-strategy-selection"
+        ],
+        "commitment_ids": [
+          "commitment:development-process-strategy-selection"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "development-process optimization implementation and owner projections",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "implements the small conditional DPF decision while preserving TestMesh, PlanDetailing, Model-Test Alignment, and provider authority",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "flowguard/development_process_strategy.py; flowguard/development_process_flow.py; flowguard/development_process_simulator.py; flowguard/testmesh.py; flowguard/summary_report.py; flowguard/plan_detailing.py; flowguard/model_test_alignment.py; flowguard/spec_work_package.py",
+        "surface_id": "surface:development-process-strategy-code",
+        "surface_kind": "code",
+        "validation_boundary": "canonical API review, owner-boundary checks, and current focused integration evidence"
+      },
+      {
+        "business_intent_ids": [
+          "intent:development-process-strategy-selection"
+        ],
+        "commitment_ids": [
+          "commitment:development-process-strategy-selection"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "development-process optimization focused and trajectory tests",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "proves the ordinary inactive path, hard gates, bounded comparison, related repair grouping, owner projections, and no universal collect-all rule",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "tests/test_development_process_strategy.py; tests/test_development_process_strategy_benchmark.py; tests/test_development_process_flow.py; tests/test_development_process_simulator.py; tests/test_test_mesh.py; tests/test_summary_report.py; tests/test_plan_detailing.py; tests/test_model_test_alignment.py; tests/test_spec_work_package.py; tests/test_api_surface.py",
+        "surface_id": "surface:development-process-strategy-tests",
+        "surface_kind": "test",
+        "validation_boundary": "focused unit, benchmark, integration, API, and route-topology tests"
+      },
+      {
+        "business_intent_ids": [
+          "intent:ordinary-ui-content-admission"
+        ],
+        "commitment_ids": [
+          "commitment:ordinary-ui-content-admission"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "ui content visibility tests",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".flowguard/ui_flow_structure_skill/run_checks.py; .flowguard/harden_ui_real_surface_validation/run_checks.py; tests/test_ui_structure.py; tests/test_behavior_commitment_ledger.py",
+        "surface_id": "surface:ui-content-visibility-tests",
+        "surface_kind": "test",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:behavior-dcar-full-axis"
+        ],
+        "commitment_ids": [
+          "commitment:behavior-dcar-full-axis"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "contract exhaustion skill",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md",
+        "surface_id": "surface:contract-exhaustion-skill",
+        "surface_kind": "skill",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:test-mesh-current-for-bcl"
+        ],
+        "commitment_ids": [
+          "commitment:test-mesh-current-for-bcl"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "test mesh skill",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".agents/skills/flowguard-test-mesh/SKILL.md",
+        "surface_id": "surface:test-mesh-skill",
+        "surface_kind": "skill",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:model-miss-backfeeds-existing-commitment"
+        ],
+        "commitment_ids": [
+          "commitment:model-miss-backfeeds-existing-commitment"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "model miss skill",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".agents/skills/flowguard-model-miss-review/SKILL.md",
+        "surface_id": "surface:model-miss-skill",
+        "surface_kind": "skill",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:model-miss-backfeeds-existing-commitment"
+        ],
+        "commitment_ids": [
+          "commitment:model-miss-backfeeds-existing-commitment"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "existing model preflight skill",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".agents/skills/flowguard-existing-model-preflight/SKILL.md",
+        "surface_id": "surface:existing-model-preflight-skill",
+        "surface_kind": "skill",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:behavior-ledger-current",
+          "intent:behavior-dcar-full-axis",
+          "intent:model-miss-backfeeds-existing-commitment",
+          "intent:self-maintenance-child-gates",
+          "intent:single-path-replacement-disposition"
+        ],
+        "commitment_ids": [
+          "commitment:behavior-ledger-current",
+          "commitment:behavior-dcar-full-axis",
+          "commitment:model-miss-backfeeds-existing-commitment",
+          "commitment:self-maintenance-child-gates",
+          "commitment:single-path-replacement-disposition"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "bcl open spec",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "openspec/changes/add-behavior-commitment-ledger/specs",
+        "surface_id": "surface:bcl-open-spec",
+        "surface_kind": "openspec",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:behavior-ledger-current",
+          "intent:behavior-dcar-full-axis",
+          "intent:test-mesh-current-for-bcl",
+          "intent:model-miss-backfeeds-existing-commitment"
+        ],
+        "commitment_ids": [
+          "commitment:behavior-ledger-current",
+          "commitment:behavior-dcar-full-axis",
+          "commitment:test-mesh-current-for-bcl",
+          "commitment:model-miss-backfeeds-existing-commitment"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "bcl code",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "flowguard/behavior_commitment.py",
+        "surface_id": "surface:bcl-code",
+        "surface_kind": "code",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:self-maintenance-child-gates",
+          "intent:single-path-replacement-disposition"
+        ],
+        "commitment_ids": [
+          "commitment:self-maintenance-child-gates",
+          "commitment:single-path-replacement-disposition"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "self maintenance code",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "flowguard/self_maintenance.py",
+        "surface_id": "surface:self-maintenance-code",
+        "surface_kind": "code",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:self-maintenance-child-gates"
+        ],
+        "commitment_ids": [
+          "commitment:self-maintenance-child-gates"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "self maintenance model",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".flowguard/self_maintenance_mesh/model.py",
+        "surface_id": "surface:self-maintenance-model",
+        "surface_kind": "code",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:behavior-ledger-current",
+          "intent:behavior-dcar-full-axis",
+          "intent:test-mesh-current-for-bcl",
+          "intent:model-miss-backfeeds-existing-commitment"
+        ],
+        "commitment_ids": [
+          "commitment:behavior-ledger-current",
+          "commitment:behavior-dcar-full-axis",
+          "commitment:test-mesh-current-for-bcl",
+          "commitment:model-miss-backfeeds-existing-commitment"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "bcl tests",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
+        "surface_id": "surface:bcl-tests",
+        "surface_kind": "test",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:self-maintenance-child-gates",
+          "intent:single-path-replacement-disposition"
+        ],
+        "commitment_ids": [
+          "commitment:self-maintenance-child-gates",
+          "commitment:single-path-replacement-disposition"
+        ],
+        "delegates_to_primary_path": false,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "self maintenance tests",
+        "metadata": {},
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "tests/test_api_surface.py; .flowguard/self_maintenance_mesh/run_checks.py",
+        "surface_id": "surface:self-maintenance-tests",
+        "surface_kind": "test",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:flowguard-agent-guidance-route"
+        ],
+        "commitment_ids": [
+          "commitment:flowguard-agent-guidance-route"
+        ],
+        "delegates_to_primary_path": true,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "FlowGuard kernel and satellite agent guidance",
+        "metadata": {
+          "behavior_plane": "agent_operation"
+        },
+        "owner": "model_first_function_flow",
+        "primary_path_id": "path:model-first-function-flow:plane-first-route-selection",
+        "rationale": "Public skill shells delegate detailed work to one selected same-plane owner route.",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".agents/skills/model-first-function-flow/SKILL.md; .agents/skills/flowguard-*/SKILL.md; docs/agents_snippet.md",
+        "surface_id": "surface:flowguard-agent-guidance",
+        "surface_kind": "skill",
+        "validation_boundary": "guidance compression model, skill docs, contract parity, and installed layout"
+      },
+      {
+        "business_intent_ids": [
+          "intent:portable-compositional-verification"
+        ],
+        "commitment_ids": [
+          "commitment:portable-compositional-verification"
+        ],
+        "delegates_to_primary_path": true,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "FlowGuard portable verification API and CLI cohort",
+        "metadata": {
+          "behavior_plane": "product_runtime",
+          "schema_version": "flowguard.portable_model.v1"
+        },
+        "owner": "portable_compositional_verification",
+        "primary_path_id": "path:portable-compositional-verification:canonical-checker",
+        "rationale": "Python imports and three CLI commands delegate to the same schema, interpreter, and report authority.",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "flowguard/portable_model.py; flowguard/portable_checker.py; flowguard/__init__.py; flowguard/__main__.py; .flowguard/compositional_verification_kernel/model.py; tests/test_portable_model.py; tests/test_portable_checker.py; tests/test_compositional_verification.py; tests/test_portable_model_cli.py",
+        "surface_id": "surface:portable-compositional-verification",
+        "surface_kind": "api",
+        "validation_boundary": "portable IR, checker, refinement/composition, API/CLI, native model, and regression-manifest checks"
+      },
+      {
+        "business_intent_ids": [
+          "intent:flowguard-public-api-surface"
+        ],
+        "commitment_ids": [
+          "commitment:flowguard-public-api-surface"
+        ],
+        "delegates_to_primary_path": true,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "FlowGuard public import facade",
+        "metadata": {
+          "behavior_plane": "product_runtime"
+        },
+        "owner": "flowguard_public_api",
+        "primary_path_id": "path:flowguard-public-api:api-surface-facade",
+        "rationale": "The import facade delegates its public name set to the canonical API_SURFACE authority.",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "flowguard/__init__.py; flowguard/api_surface.py",
+        "surface_id": "surface:flowguard-public-api",
+        "surface_kind": "api",
+        "validation_boundary": "API surface model, architecture reduction, import tests, and install parity"
+      },
+      {
+        "business_intent_ids": [
+          "intent:flowguard-template-cli-dispatch"
+        ],
+        "commitment_ids": [
+          "commitment:flowguard-template-cli-dispatch"
+        ],
+        "delegates_to_primary_path": true,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "FlowGuard template CLI facade",
+        "metadata": {
+          "behavior_plane": "product_runtime"
+        },
+        "owner": "flowguard_template_cli",
+        "primary_path_id": "path:flowguard-template-cli:registry-dispatch",
+        "rationale": "Public template command names delegate to one registry dispatch implementation.",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "flowguard/__main__.py; flowguard/templates.py",
+        "surface_id": "surface:flowguard-template-cli",
+        "surface_kind": "cli",
+        "validation_boundary": "structure model, public-template tests, maintenance-template tests, and CLI checks"
+      }
+    ],
+    "validation_boundary": "behavior ledger review plus focused self-maintenance, API, template, and OpenSpec checks"
+  },
+  "schema_version": "1.0"
+}

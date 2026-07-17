@@ -264,8 +264,8 @@
       }
     },
     {
-      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
-      "distribution_policy": "optional_local",
+      "absence_reason": "",
+      "distribution_policy": "required_public",
       "exclusion_reason": "",
       "expected_artifacts": [],
       "input_globs": [
@@ -553,8 +553,8 @@
       }
     },
     {
-      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
-      "distribution_policy": "optional_local",
+      "absence_reason": "",
+      "distribution_policy": "required_public",
       "exclusion_reason": "",
       "expected_artifacts": [],
       "input_globs": [
@@ -652,8 +652,8 @@
       }
     },
     {
-      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
-      "distribution_policy": "optional_local",
+      "absence_reason": "",
+      "distribution_policy": "required_public",
       "exclusion_reason": "",
       "expected_artifacts": [],
       "input_globs": [
@@ -1006,8 +1006,8 @@
       }
     },
     {
-      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
-      "distribution_policy": "optional_local",
+      "absence_reason": "",
+      "distribution_policy": "required_public",
       "exclusion_reason": "",
       "expected_artifacts": [],
       "input_globs": [
@@ -1527,10 +1527,10 @@
         "evidence_check_ids": [
           "check:model-regression:model_miss_review"
         ],
-        "model_sha256": "sha256:895e9f79b25bfb99d23cf62eb8265b9efa7be9c11e2797baa8ffe0e0faf8130c",
-        "runner_sha256": "sha256:0e5eb01382343af4866ffb3e571c05802c121199062bf361fa050d361ace927c",
+        "model_sha256": "sha256:f5f73081de36621e10d97b1b33f1975027baf76498e8437836acf1672eab6ab2",
+        "runner_sha256": "sha256:d1c147c9818ef0b7ababb9398026d245cf77cddbbb5676aa4d71187dac739cd4",
         "declaration_fingerprint": "sha256:590e8d8b319d73492619a6f5e2ae27f2e559bbce4255d0f67191c1edb1637dde",
-        "closure_fingerprint": "sha256:77494e9aad1aa9d80850cbcf292f4edbc5182f8f4e465329db46bf7e55e462f4"
+        "closure_fingerprint": "sha256:d3253db57dcf6c710e92e589b234c3912f01edf2c5a9c5a490bd0025014c2c31"
       }
     },
     {
@@ -2497,8 +2497,8 @@
       }
     },
     {
-      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
-      "distribution_policy": "optional_local",
+      "absence_reason": "",
+      "distribution_policy": "required_public",
       "exclusion_reason": "",
       "expected_artifacts": [],
       "input_globs": [
@@ -2691,8 +2691,8 @@
       }
     },
     {
-      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
-      "distribution_policy": "optional_local",
+      "absence_reason": "",
+      "distribution_policy": "required_public",
       "exclusion_reason": "",
       "expected_artifacts": [],
       "input_globs": [
