@@ -40,3 +40,5 @@ Accept existing-model ownership plus code mapping; classify contraction candidat
 
 ## SkillGuard Maintenance
 - Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard gates the native reduction review and cannot refactor code or invent equivalence.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

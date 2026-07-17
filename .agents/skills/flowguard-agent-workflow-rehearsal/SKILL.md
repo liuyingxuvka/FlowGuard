@@ -41,3 +41,5 @@ Accept a fresh current-machine inventory and explicit/delegated scope; produce a
 
 ## SkillGuard Maintenance
 - Edit contract source, regenerate; SkillGuard cannot create an executor.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

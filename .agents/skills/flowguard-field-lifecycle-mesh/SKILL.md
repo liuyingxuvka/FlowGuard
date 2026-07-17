@@ -39,3 +39,5 @@ Accept a bounded field inventory; create leaf rows and behavior projections; blo
 
 ## SkillGuard Maintenance
 - Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard validates field accounting and cannot fabricate behavior or compatibility evidence.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

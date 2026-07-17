@@ -40,3 +40,5 @@ Accept a source model and named responsibilities; produce FunctionBlock-to-modul
 
 ## SkillGuard Maintenance
 - Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks recommendation inputs/outputs and cannot implement the proposed structure.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

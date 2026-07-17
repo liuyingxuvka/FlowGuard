@@ -40,3 +40,5 @@ Accept an explicit/delegated rough plan; compile scope, artifacts, state, steps,
 
 ## SkillGuard Maintenance
 - Edit contract source and regenerate; SkillGuard cannot execute or create receipts.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

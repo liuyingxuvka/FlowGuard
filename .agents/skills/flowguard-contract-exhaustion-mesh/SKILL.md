@@ -40,3 +40,5 @@ Accept declared finite dimensions/seeds; generate reviewable cases with oracles;
 
 ## SkillGuard Maintenance
 - Edit contract source, regenerate; SkillGuard cannot synthesize pass evidence.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

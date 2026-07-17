@@ -52,7 +52,4 @@ Read `references/route_index.md` for the parity-checked route map and `reference
 ## SkillGuard Maintenance
 - Edit `.skillguard/contract-source.json`, route registry, or direct references first, then regenerate derived contracts; SkillGuard validates native-integrated ownership and cannot define a parallel FlowGuard controller or manufacture evidence.
 
-<!-- BEGIN MANAGED VALIDATED TEMPLATE PACK -->
-- Resolve template packs only through `flowguard.file-template-router` and the target-owned adapter; reject stale or ambiguous projections and preserve candidate/rejection accounting.
-- Consume every target-native validator receipt, record harvest/no-match disposition, and treat previews as starter artifacts rather than behavior, completion, installation, or release proof.
-<!-- END MANAGED VALIDATED TEMPLATE PACK -->
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

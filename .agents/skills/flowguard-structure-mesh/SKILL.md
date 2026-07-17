@@ -39,3 +39,5 @@ Accept a named source model and existing parent surface; derive child ownership;
 
 ## SkillGuard Maintenance
 - Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks native mesh evidence and cannot perform the refactor or invent parity.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

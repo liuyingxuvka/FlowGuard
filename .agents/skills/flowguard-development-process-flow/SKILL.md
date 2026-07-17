@@ -42,3 +42,5 @@ Order modes, keep ordinary work light, compare hard-equivalent candidates condit
 
 ## SkillGuard Maintenance
 - Edit current source, regenerate current outputs, and remove former authority. SkillGuard cannot manufacture evidence.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

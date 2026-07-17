@@ -42,3 +42,5 @@ Accept boundary/root; query/search; choose reuse, extend, child, new, or none; b
 
 ## SkillGuard Maintenance
 - Edit contract source, regenerate; SkillGuard cannot approve downstream work.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

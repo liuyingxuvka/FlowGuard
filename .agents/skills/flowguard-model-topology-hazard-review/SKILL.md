@@ -40,3 +40,5 @@ Accept a current topology digest, usage intent, and evidence boundary; promote o
 
 ## SkillGuard Maintenance
 - Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard validates hazard structure and cannot promote unanchored prose into proof.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

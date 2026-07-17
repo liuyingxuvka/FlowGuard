@@ -43,3 +43,5 @@ Return evidence, failures, blockers, skipped_checks, residual_risk, claim_bounda
 
 ## SkillGuard Maintenance
 Edit contract source, regenerate; SkillGuard is not UI runtime/human evidence.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

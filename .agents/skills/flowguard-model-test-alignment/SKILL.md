@@ -39,3 +39,5 @@ Accept obligations/contracts/evidence; compare bindings/freshness; block missing
 
 ## SkillGuard Maintenance
 - Edit contract source, regenerate; SkillGuard cannot manufacture proof.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

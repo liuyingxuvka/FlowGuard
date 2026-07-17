@@ -41,3 +41,5 @@ Accept a bounded inventory/mode; register one owner per commitment; block covera
 
 ## SkillGuard Maintenance
 - Edit contract source, regenerate; SkillGuard cannot manufacture native evidence.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

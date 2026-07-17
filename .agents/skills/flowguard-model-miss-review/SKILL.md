@@ -41,3 +41,5 @@ Accept concrete failure evidence and prior claim state; classify and generalize 
 
 ## SkillGuard Maintenance
 - Edit contract source, regenerate; SkillGuard cannot turn patches/logs into evidence.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

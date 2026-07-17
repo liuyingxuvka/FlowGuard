@@ -42,3 +42,5 @@ Review a model-derived parent/child validation mesh; block stale, skipped, incom
 
 ## SkillGuard Maintenance
 - Edit contract source and regenerate; SkillGuard cannot turn liveness into pass.
+
+<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->
