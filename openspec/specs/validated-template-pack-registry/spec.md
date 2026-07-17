@@ -1,7 +1,7 @@
 # validated-template-pack-registry Specification
 
 ## Purpose
-TBD - created by archiving change add-validated-template-pack-registry. Update Purpose after archive.
+Govern sealed, target-owned template packs so selection is explicit, ambiguity and staleness fail closed, and generated previews remain subject to native validation.
 ## Requirements
 ### Requirement: Canonical validated template-pack manifest
 FlowGuard SHALL accept only the current `flowguard.template-pack-manifest.v1` schema for template-pack selection and SHALL require its declared manifest digest to equal the canonical digest of all semantic manifest content.

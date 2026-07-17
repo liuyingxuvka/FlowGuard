@@ -1,7 +1,7 @@
 # flowguard-compositional-verification Specification
 
 ## Purpose
-TBD - created by archiving change mature-compositional-verification-kernel. Update Purpose after archive.
+Define how independently checked parent and child models are bound, refined, composed, and diagnosed without turning local success into unsupported whole-system confidence.
 ## Requirements
 ### Requirement: Explicit Parent Child Refinement
 The system SHALL require a complete explicit binding from every reachable child state and transition to a parent state and transition or to a declared stutter permitted by the binding.

@@ -1,7 +1,7 @@
 # flowguard-portable-model-ir Specification
 
 ## Purpose
-TBD - created by archiving change mature-compositional-verification-kernel. Update Purpose after archive.
+Define the canonical finite-state intermediate representation used to exchange FlowGuard models and obligations without importing project-specific executable code.
 ## Requirements
 ### Requirement: Canonical Portable Model Schema
 The system SHALL accept exactly the current `flowguard.portable_model.v1` schema and SHALL represent finite states, inputs, outputs, transitions, initial and terminal states, invariants, temporal obligations, assumptions, guarantees, and declared conflicts without executable project code.

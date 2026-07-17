@@ -1,5 +1,5 @@
 {
-  "check_declarations_hash": "0CDC7C38F96FCD53F6DF2F225AABDC6E6DF9961729861A46229CC9A03C2D7D5D",
+  "check_declarations_hash": "9750F34CAA82B86336CA4D1382A2056E15211C80B3CFD13DC5A53F4698D41A9F",
   "checks": [
     {
       "args": [
@@ -58,7 +58,7 @@
         "exit_code": 0
       },
       "input_component_ids": [
-        "component:documentation_model:0ceafe176971fa6e",
+        "component:documentation_model:51bed4c67f86d762",
         "component:documentation_model:562e22a8b54e7e9e",
         "component:documentation_model:6ffffa0a1d1886f3",
         "component:runtime_source:2d3ae27e0fe91a53",
@@ -98,7 +98,7 @@
       ],
       "kind": "command",
       "owner_declaration_hash": "sha256:a5de25a5afd31d225e45cd67ff57f76eae3f03db091c38323d0a1d797c771d31",
-      "owner_input_projection_hash": "sha256:05a7f99385982c98f9d2b093fe4810345e67d79b5e2dd60b28d85653a18c5795",
+      "owner_input_projection_hash": "sha256:35e733a0a0285229edc176f5e0f0eb752e91311cfed2ae426784839513c1537c",
       "projection_declaration_hash": "sha256:ffdbe16d3a72977623c05cd7ee07c1e6e45193a26e1b25125a87568ab7770a6e",
       "semantic_check_id": "semantic:check:model-first-function-flow:native-authority",
       "timeout_seconds": 180
@@ -201,7 +201,7 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:documentation_model"
         ],
-        "component_hash": "sha256:c85587581ff9494e3a29508eb0c0db359a55ea510a80fb2a54665e454a3e204a",
+        "component_hash": "sha256:e25b64243d21441414834dbea09e59e01dda07c75efb1d5558676b720ff45103",
         "component_id": "component:documentation_model:562e22a8b54e7e9e",
         "consumer_ids": [
           "owner:check:model-first-function-flow:native-authority",
@@ -254,14 +254,15 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:documentation_model"
         ],
-        "component_hash": "sha256:fffdd9e69c471b6dec021175385ce0a6a94f983c6365ec8e42fe9b8b473f36d9",
-        "component_id": "component:documentation_model:0ceafe176971fa6e",
+        "component_hash": "sha256:f1caae2d853f8849d95f4ff1c8df98f71596b004f0d68e1238d979d4b742ab26",
+        "component_id": "component:documentation_model:51bed4c67f86d762",
         "consumer_ids": [
           "owner:check:model-first-function-flow:native-authority"
         ],
         "install_disposition": "source_only",
         "member_paths": [
           ".flowguard/compositional_verification_kernel/model.py",
+          ".flowguard/compositional_verification_kernel/post_change_review.json",
           ".flowguard/compositional_verification_kernel/preflight.json",
           ".flowguard/compositional_verification_kernel/run_checks.py",
           ".flowguard/minimum_valuable_model_entry/run_checks.py"
@@ -355,7 +356,7 @@
       "owner_cycles": [],
       "unmapped_paths": []
     },
-    "impact_graph_hash": "sha256:a201ae5f5fb5a6ae37b8db0219152960b3487bd4b431f013d11c2b325f297157",
+    "impact_graph_hash": "sha256:307621240758302bc08f29653aaf3ba3a31abb83a9f6a4a918b62ac7fe6d2cce",
     "inventory": [
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:contract_schema",
@@ -366,7 +367,7 @@
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
-        "content_hash": "sha256:6ac094c61e62e6da76a0174e624fbdbf9659bd92e12982dc93197f484874e877",
+        "content_hash": "sha256:3e289d73247e9e83b1b1f2f1e169824dc7308368237d1e109e4c92bf4e2589dd",
         "install_disposition": "copy",
         "path": ".agents/skills/model-first-function-flow/SKILL.md",
         "role": "documentation_model"
@@ -548,6 +549,13 @@
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:33952cf2e12d5a2e6b2a440cdfa1584b19d48d9c7a3feeff82795e3d94819346",
+        "install_disposition": "source_only",
+        "path": ".flowguard/compositional_verification_kernel/post_change_review.json",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
         "content_hash": "sha256:f8dec861f39989ebb0d0212c3fb02b7b8ab7ed85b6f751583111c7406f90bed1",
         "install_disposition": "source_only",
         "path": ".flowguard/compositional_verification_kernel/preflight.json",
@@ -617,7 +625,7 @@
         "role": "test_dev"
       }
     ],
-    "inventory_hash": "sha256:b48d1f84524559da08f833dbcfea8e888dc8d3177d8de44337fe4da2c862ef62",
+    "inventory_hash": "sha256:9d3f65df64884e4adf91decf192b695ff514945a047fd52de94e473e7c38ee16",
     "member_root_path": ".agents/skills/model-first-function-flow",
     "owner_receipt_root_ref": {
       "path_token": "owner_evidence_root",
@@ -652,7 +660,7 @@
         "evidence_domain_id": "evidence-domain:check:model-first-function-flow:native-authority",
         "execution_owner_id": "owner:check:model-first-function-flow:native-authority",
         "input_component_ids": [
-          "component:documentation_model:0ceafe176971fa6e",
+          "component:documentation_model:51bed4c67f86d762",
           "component:documentation_model:562e22a8b54e7e9e",
           "component:documentation_model:6ffffa0a1d1886f3",
           "component:runtime_source:2d3ae27e0fe91a53",
@@ -691,7 +699,7 @@
           }
         ],
         "owner_declaration_hash": "sha256:a5de25a5afd31d225e45cd67ff57f76eae3f03db091c38323d0a1d797c771d31",
-        "owner_input_projection_hash": "sha256:05a7f99385982c98f9d2b093fe4810345e67d79b5e2dd60b28d85653a18c5795"
+        "owner_input_projection_hash": "sha256:35e733a0a0285229edc176f5e0f0eb752e91311cfed2ae426784839513c1537c"
       },
       {
         "check_ids": [
@@ -743,7 +751,7 @@
       },
       {
         "consumer_id": "projection:installation",
-        "consumer_projection_hash": "sha256:a4f7ffff9e1f49ad2823d8a6984e505d2f1511f6cbbfbf75e7c8c5f8df1a59d4",
+        "consumer_projection_hash": "sha256:61d0519d6c7e7ec98a0328ce51e113158ea49e955770d8fa5b62ed0b4881e701",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
@@ -751,7 +759,7 @@
           "component:documentation_model:562e22a8b54e7e9e",
           "component:runtime_source:2d3ae27e0fe91a53"
         ],
-        "input_projection_hash": "sha256:d18e409efe76cb5f7a66c822be2a19e91a91ccce805593f3e7b00ee34ab006f4",
+        "input_projection_hash": "sha256:79df3b196148b525aaac651497d7e1d4a4df3c65471587a44315ca7949b90137",
         "kind": "installation",
         "projection_declaration_hash": "sha256:b7d53c46e7fcb94c9c4a65c0f88c761e3bc219b6835db4176e2f97259b1e5ac8"
       },
@@ -779,16 +787,16 @@
     "schema_version": "skillguard.content_impact_plan.current",
     "unknown_mapping_disposition": "block"
   },
-  "contract_hash": "256AD95BB577EC206E1A89917B952711801D072E632C4B84237E1CA5B2A6D1C0",
-  "manifest_hash": "F8828EBF86E7C861B39DE0AEEFC7B1190AFFFCB6A680187CA55BBB0542AE790B",
+  "contract_hash": "307C5EDCE2AEEB582CA707081197142037827EACBAB6FAE5E95CFE08E5EECCFD",
+  "manifest_hash": "A9564C7D0223CD17E77E95A2152CE56F31F496A34897DA6FC40987418C8338D5",
   "model_id": "flowguard.model_first_function_flow.skill_contract.v2",
   "schema_version": "skillguard.check_manifest.v2",
   "skill_id": "model-first-function-flow",
   "source_fingerprints": {
     "binding": "A2090ADFBD2D3AEB2A837BEC760FE8E83D6C79D4899B34EE19D20D701DDD4192",
-    "entrypoint": "6AC094C61E62E6DA76A0174E624FBDBF9659BD92E12982DC93197F484874E877",
-    "implementation:.agents/skills/model-first-function-flow": "80DF5184C918E507053629F81275D4D7D777E7B8AB5087A3113F654760D24AC3",
-    "implementation:.flowguard/compositional_verification_kernel": "005AE83EEDD856E44D3CE3ADABD957EFF1749A056F713BA6864DAC0AD4322BBA",
+    "entrypoint": "3E289D73247E9E83B1B1F2F1E169824DC7308368237D1E109E4C92BF4E2589DD",
+    "implementation:.agents/skills/model-first-function-flow": "2D54FBF9737360005CA677E07A038DEC953843F7AA8AAF538B2D413D560D5965",
+    "implementation:.flowguard/compositional_verification_kernel": "67DC7ED3D1FE2E88A0708873A81FB6F7F0548255E7325B1CF0394F5DCDE7EFAC",
     "implementation:.flowguard/minimum_valuable_model_entry": "3AC81041DBF204F4544982A2913CB8BC8F41CD0CD889C0A53AC47AD5DB594BB0",
     "implementation:flowguard/behavior_commitment_lookup.py": "89B5A892C25F5542CA625DD71F3803F89D4DC02108332EAEABEA9144B6FC79F7",
     "implementation:flowguard/portable_checker.py": "46851BF6428138D299B7D081D7B082148966E010CD708B2E808CB5E9D9C7CB0D",

@@ -1,7 +1,7 @@
 # flowguard-portable-checker Specification
 
 ## Purpose
-TBD - created by archiving change mature-compositional-verification-kernel. Update Purpose after archive.
+Provide a code-independent reference checker that validates portable models, explores bounded nondeterminism, and emits canonical pass, fail, blocked, or invalid evidence.
 ## Requirements
 ### Requirement: Code-Independent Reference Execution
 The system SHALL execute a valid portable model without importing project model code and SHALL explore every nondeterministic branch for the explicit input sequence within declared bounds.
