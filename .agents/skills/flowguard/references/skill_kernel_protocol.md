@@ -1,6 +1,6 @@
 # FlowGuard Skill Kernel Protocol
 
-The `model-first-function-flow` Skill is a kernel, not a monolith. The kernel
+The `flowguard` Skill is the kernel entry, not a monolith. The kernel
 owns trigger selection, hard gates, route selection, and resource discovery.
 Detailed procedures live in sub-protocol references or in route-specific
 standalone satellite skills.
@@ -14,8 +14,8 @@ standalone satellite skills.
   or hard-to-follow models, tests, scripts, modules, and commands;
 - hard gates: real FlowGuard check-engine import, no fake mini-framework, executable evidence
   over prose, skipped is not pass, and adoption evidence for real use;
-- route map to specialized protocols, public owner satellites, and delegated
-  mode satellites;
+- route map to specialized protocols, public owner satellites, and internal
+  DevelopmentProcessFlow routes;
 - distinction between agent sub-protocols and package helper APIs.
 - lightweight non-trivial lookup of the shared BCL/model inventory before
   route choice: same-plane hits guide the native owner, typed related-plane
@@ -52,14 +52,12 @@ directly when the user's request clearly matches their trigger:
 | `flowguard-structure-mesh` | `structure_mesh_maintenance` |
 
 If a task is ambiguous, cross-route, or starts from a general FlowGuard
-applicability question, use the kernel first. Satellite skills must route back
-to the kernel instead of taking ownership of unclear work.
+applicability question, use `flowguard` first. Satellite skills route unclear
+work to `flowguard` instead of taking ownership.
 
-Delegated mode skills are not public owner routes. DevelopmentProcessFlow may
-delegate to `flowguard-plan-detailing-compiler` for `plan_detailing` rows or
-to `flowguard-agent-workflow-rehearsal` for `agent_workflow` rows; explicit
-user requests for those exact skills may still open them, but ordinary routing
-keeps DevelopmentProcessFlow as the owner.
+`plan_detailing` and `agent_workflow` are internal DevelopmentProcessFlow
+routes. They are selected inside `flowguard-development-process-flow` and have
+no independent Codex skill, alias, forwarding entrypoint, or fallback path.
 
 ## Sub-Protocols Own
 
@@ -67,7 +65,7 @@ keeps DevelopmentProcessFlow as the owner.
 | --- | --- |
 | `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, formal CheckPlan, known-bad proof, and the internal finite runner |
 | `development_process_simulator` | internal request helper consumed by `development_process_flow` for rough-plan, multi-skill, execution-freshness, install/sync, release/archive/publish, and final claim modes |
-| `plan_detailing_compiler` | delegated `plan_detailing` mode rows, receipts, validation, rework, human questions, and projection to downstream routes |
+| `plan_detailing_compiler` | internal `plan_detailing` route rows, receipts, validation, rework, human questions, and projection to downstream routes |
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
 | `model_topology_hazard_review` | topology digest, usage intent, anchored future-use hazards, required owner routes, and scoped or blocked confidence before broad claims |
@@ -78,7 +76,7 @@ keeps DevelopmentProcessFlow as the owner.
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
-| `agent_workflow_rehearsal` | delegated `agent_workflow` mode inventory, selected/skipped skills, side effects, continue/rework gates, and final claim scope |
+| `agent_workflow_rehearsal` | internal `agent_workflow` route inventory, selected/skipped skills, side effects, continue/rework gates, and final claim scope |
 | `development_process_flow` | public process owner plus internal simulator and `execution_freshness` mode for staged development, artifact overwrite, post-change scan signals, evidence freshness, and minimum revalidation |
 | `model_miss_review` | non-trivial bug repair, model miss classification, root-cause backpropagation, current bug instance handling, same-class bug responsibility, and analogous defect scan closure |
 | `conformance_adoption` | replay, install sync, shadow workspace sync, release sync, adoption evidence |

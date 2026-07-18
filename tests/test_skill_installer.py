@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from flowguard.distribution_sync import install_skill_suite
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = REPOSITORY_ROOT / "scripts" / "install_flowguard_skills.py"
@@ -18,7 +20,7 @@ class SkillInstallerCommandTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         self.source = self.root / "source-skills"
-        self.member_ids = tuple(["model-first-function-flow", "flowguard-test-mesh"] + [f"flowguard-fixture-{index:02d}" for index in range(15)])
+        self.member_ids = tuple(["flowguard", "flowguard-test-mesh"] + [f"flowguard-fixture-{index:02d}" for index in range(13)])
         for member in self.member_ids:
             directory = self.source / member
             directory.mkdir(parents=True)
@@ -46,7 +48,7 @@ class SkillInstallerCommandTests(unittest.TestCase):
         self.assertEqual(0, install.returncode, install.stderr or install.stdout)
         install_payload = json.loads(install.stdout)
         self.assertEqual("pass", install_payload["status"])
-        self.assertTrue((self.codex_home / "skills" / "model-first-function-flow" / "SKILL.md").is_file())
+        self.assertTrue((self.codex_home / "skills" / "flowguard" / "SKILL.md").is_file())
 
         check = self._run("check", "--source", str(self.source), "--json", env_home=True)
         self.assertEqual(0, check.returncode, check.stderr or check.stdout)
@@ -54,7 +56,7 @@ class SkillInstallerCommandTests(unittest.TestCase):
 
         uninstall = self._run("uninstall", "--json", env_home=True)
         self.assertEqual(0, uninstall.returncode, uninstall.stderr or uninstall.stdout)
-        self.assertFalse((self.codex_home / "skills" / "model-first-function-flow" / "SKILL.md").exists())
+        self.assertFalse((self.codex_home / "skills" / "flowguard" / "SKILL.md").exists())
 
     def test_cli_dry_run_does_not_create_codex_home(self) -> None:
         completed = self._run("install", "--source", str(self.source), "--dry-run", "--json", env_home=True)
@@ -65,12 +67,18 @@ class SkillInstallerCommandTests(unittest.TestCase):
     def test_cli_parity_accepts_configured_formal_shadow_and_installed_roots(self) -> None:
         shadow = self.root / "shadow-skills"
         installed = self.root / "installed-skills"
-        for target in (shadow, installed):
+        for target in (shadow,):
             for source_file in self.source.rglob("*"):
                 if source_file.is_file():
                     destination = target / source_file.relative_to(self.source)
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_bytes(source_file.read_bytes())
+        install = install_skill_suite(
+            self.source,
+            installed,
+            member_ids=self.member_ids,
+        )
+        self.assertTrue(install.ok, install.to_dict())
         completed = self._run(
             "parity",
             "--source",
@@ -98,7 +106,7 @@ class SkillInstallerCommandTests(unittest.TestCase):
         self.assertIn("flowguard-test-mesh/legacy.txt", payload["extra_files"])
 
     def test_cli_requires_explicit_adoption_for_old_unmanaged_install(self) -> None:
-        old_file = self.codex_home / "skills" / "model-first-function-flow" / "SKILL.md"
+        old_file = self.codex_home / "skills" / "flowguard" / "SKILL.md"
         old_file.parent.mkdir(parents=True)
         old_file.write_text("# old unmanaged install\n", encoding="utf-8")
         protected = self._run("install", "--source", str(self.source), "--json", env_home=True)
@@ -115,9 +123,9 @@ class SkillInstallerCommandTests(unittest.TestCase):
         )
         self.assertEqual(0, adopted.returncode, adopted.stderr or adopted.stdout)
         payload = json.loads(adopted.stdout)
-        self.assertIn("model-first-function-flow/SKILL.md", payload["adopted_files"])
+        self.assertIn("flowguard/SKILL.md", payload["adopted_files"])
         self.assertEqual(
-            (self.source / "model-first-function-flow" / "SKILL.md").read_bytes(),
+            (self.source / "flowguard" / "SKILL.md").read_bytes(),
             old_file.read_bytes(),
         )
 

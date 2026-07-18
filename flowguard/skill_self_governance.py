@@ -1,4 +1,4 @@
-"""Receipt-bound parent governance for the seventeen FlowGuard skills.
+"""Receipt-bound parent governance for the fifteen FlowGuard skills.
 
 The parent in this module never accepts caller-authored ``current`` or
 ``pass`` flags.  It loads immutable child receipts, verifies every child
@@ -125,8 +125,8 @@ def load_governance_requirements(
         if bool(member.get("required", True))
     )
     subject_ids = tuple(item.subject_id for item in requirements)
-    if len(subject_ids) != 17:
-        raise ValueError(f"full FlowGuard self-governance requires exactly 17 suite members, found {len(subject_ids)}")
+    if len(subject_ids) != 15:
+        raise ValueError(f"full FlowGuard self-governance requires exactly 15 suite members, found {len(subject_ids)}")
     if len(set(subject_ids)) != len(subject_ids):
         raise ValueError("suite map contains duplicate required skill ids")
     return requirements
@@ -172,7 +172,7 @@ class SkillSelfGovernanceReport:
     self_governance_receipt: EvidenceReceipt | None = None
     self_governance_receipt_hash: str = ""
     claim_boundary: str = (
-        "A full result proves only the exact seventeen receipt-bound skill contracts in the current repository; "
+        "A full result proves only the exact fifteen receipt-bound skill contracts in the current repository; "
         "release, installation, distribution, or future agent behavior need their own current evidence."
     )
 
@@ -406,7 +406,7 @@ def _parent_receipt(
             ConsumedChildReceipt(receipt.receipt_id, receipt.fingerprint) for receipt in receipts
         ),
         claim_boundary=(
-            "The parent consumed the exact seventeen current deep-contract receipts. Distribution, installation, "
+            "The parent consumed the exact fifteen current deep-contract receipts. Distribution, installation, "
             "release, and future agent behavior remain outside this receipt."
         ),
         metadata={"typed_downstream": [item.to_dict() for item in typed_downstream]},
@@ -421,7 +421,7 @@ def run_skill_self_governance(
     output_directory: str | Path | None = None,
     save_parent_receipt: bool = True,
 ) -> SkillSelfGovernanceReport:
-    """Verify and exactly consume all seventeen required child receipts."""
+    """Verify and exactly consume all fifteen required child receipts."""
 
     root = Path(repository_root).resolve()
     requirements = load_governance_requirements(root)
@@ -498,7 +498,7 @@ def run_skill_self_governance(
 
     by_child = {item.child_id: item for item in child_reports}
     kernel_reports = tuple(
-        item for item in child_reports if item.child_id == "model-first-function-flow"
+        item for item in child_reports if item.child_id == "flowguard"
     )
     all_reports = tuple(by_child[item.subject_id] for item in requirements)
     engine_layer = _layer(LAYER_ENGINE_AND_CORE, kernel_reports)

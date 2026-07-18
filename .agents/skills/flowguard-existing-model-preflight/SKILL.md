@@ -21,7 +21,7 @@ Accept boundary/root; query/search; choose reuse, extend, child, new, or none; b
 - Use before non-trivial proposals/implementation where commitments, fields, similar models, or mesh evidence may own the change.
 
 ## Do Not Use When
-- Do not implement, split, or replace native validation; skip trivial/no-context work and return unclear scope to `model-first-function-flow`.
+- Do not implement, split, or replace native validation; skip trivial/no-context work and return unclear scope to `flowguard`.
 
 ## Required Workflow
 1. Query canonical commitments from task plus exact id/path/tool/workflow/error clues before path discovery; select one grounded primary plane or preserve ambiguity.

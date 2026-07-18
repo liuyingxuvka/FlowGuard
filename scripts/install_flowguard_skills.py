@@ -14,6 +14,8 @@ if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
 from flowguard.distribution_sync import (
+    PARITY_ROLE_AUTHOR_SOURCE,
+    PARITY_ROLE_CONSUMER_DISTRIBUTION,
     check_skill_suite,
     compare_configured_skill_trees,
     install_skill_suite,
@@ -90,10 +92,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.dry_run:
             raise SystemExit("--dry-run is unnecessary for the read-only parity action")
         roots: dict[str, str] = {"source": args.source}
+        root_roles: dict[str, str] = {"source": PARITY_ROLE_AUTHOR_SOURCE}
         for name in ("formal", "shadow", "installed"):
             value = getattr(args, name)
             if value:
                 roots[name] = value
+                root_roles[name] = (
+                    PARITY_ROLE_CONSUMER_DISTRIBUTION
+                    if name == "installed"
+                    else PARITY_ROLE_AUTHOR_SOURCE
+                )
         if len(roots) == 1:
             target = args.target
             if target is None and args.codex_home is not None:
@@ -101,7 +109,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             if target is None:
                 raise SystemExit("parity requires a configured --formal, --shadow, --installed, --target, or --codex-home")
             roots["installed"] = target
-        parity = compare_configured_skill_trees(roots)
+            root_roles["installed"] = PARITY_ROLE_CONSUMER_DISTRIBUTION
+        parity = compare_configured_skill_trees(roots, root_roles=root_roles)
         payload = parity.to_dict()
         payload["action"] = "parity"
 

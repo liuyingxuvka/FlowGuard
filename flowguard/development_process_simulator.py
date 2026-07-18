@@ -34,11 +34,11 @@ SIMULATOR_MODE_TO_REVIEW = {
     SIMULATOR_MODE_EXECUTION_FRESHNESS: "review_development_process_flow",
 }
 
-SIMULATOR_MODE_TO_DELEGATED_SKILL = {
-    SIMULATOR_MODE_PLAN_DETAILING: "flowguard-plan-detailing-compiler",
-    SIMULATOR_MODE_STRATEGY_SELECTION: DEVELOPMENT_PROCESS_FRONT_DOOR_SKILL,
-    SIMULATOR_MODE_AGENT_WORKFLOW: "flowguard-agent-workflow-rehearsal",
-    SIMULATOR_MODE_EXECUTION_FRESHNESS: DEVELOPMENT_PROCESS_FRONT_DOOR_SKILL,
+SIMULATOR_MODE_TO_ROUTE_TARGET = {
+    SIMULATOR_MODE_PLAN_DETAILING: "plan_detailing_compiler",
+    SIMULATOR_MODE_STRATEGY_SELECTION: "development_process_flow",
+    SIMULATOR_MODE_AGENT_WORKFLOW: "agent_workflow_rehearsal",
+    SIMULATOR_MODE_EXECUTION_FRESHNESS: "development_process_flow",
 }
 
 SIMULATOR_STATUS_PASS = "pass"
@@ -98,8 +98,8 @@ class DevelopmentProcessSimulationRequest:
     release_archive_or_publish: bool = False
     final_claim_requested: bool = False
     task_trivial: bool = False
-    explicit_plan_detailing_skill: bool = False
-    explicit_agent_workflow_skill: bool = False
+    explicit_plan_detailing: bool = False
+    explicit_agent_workflow: bool = False
     explicit_development_process_skill: bool = False
     plan_detail_evidence_ids: tuple[str, ...] = ()
     process_optimization_evidence_ids: tuple[str, ...] = ()
@@ -158,8 +158,8 @@ class DevelopmentProcessSimulationRequest:
             "release_archive_or_publish": self.release_archive_or_publish,
             "final_claim_requested": self.final_claim_requested,
             "task_trivial": self.task_trivial,
-            "explicit_plan_detailing_skill": self.explicit_plan_detailing_skill,
-            "explicit_agent_workflow_skill": self.explicit_agent_workflow_skill,
+            "explicit_plan_detailing": self.explicit_plan_detailing,
+            "explicit_agent_workflow": self.explicit_agent_workflow,
             "explicit_development_process_skill": self.explicit_development_process_skill,
             "plan_detail_evidence_ids": list(self.plan_detail_evidence_ids),
             "process_optimization_evidence_ids": list(self.process_optimization_evidence_ids),
@@ -175,14 +175,14 @@ class DevelopmentProcessModeDecision:
     """One selected internal simulator mode and its downstream evidence owner."""
 
     mode: str
-    delegated_skill: str
+    route_target: str
     required_review: str
     reason: str
     evidence_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "mode", str(self.mode))
-        object.__setattr__(self, "delegated_skill", str(self.delegated_skill))
+        object.__setattr__(self, "route_target", str(self.route_target))
         object.__setattr__(self, "required_review", str(self.required_review))
         object.__setattr__(self, "reason", str(self.reason))
         object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
@@ -190,7 +190,7 @@ class DevelopmentProcessModeDecision:
     def to_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
-            "delegated_skill": self.delegated_skill,
+            "route_target": self.route_target,
             "required_review": self.required_review,
             "reason": self.reason,
             "evidence_ids": list(self.evidence_ids),
@@ -265,7 +265,7 @@ class DevelopmentProcessSimulatorReport:
             for decision in self.mode_decisions:
                 evidence = ", ".join(decision.evidence_ids) if decision.evidence_ids else "evidence required"
                 lines.append(
-                    f"- {decision.mode}: {decision.required_review} via {decision.delegated_skill} ({evidence})"
+                    f"- {decision.mode}: {decision.required_review} via {decision.route_target} ({evidence})"
                 )
         if self.findings:
             lines.append("findings:")
@@ -282,7 +282,7 @@ def _select_modes(request: DevelopmentProcessSimulationRequest) -> list[Developm
         decisions.append(
             DevelopmentProcessModeDecision(
                 SIMULATOR_MODE_PLAN_DETAILING,
-                SIMULATOR_MODE_TO_DELEGATED_SKILL[SIMULATOR_MODE_PLAN_DETAILING],
+                SIMULATOR_MODE_TO_ROUTE_TARGET[SIMULATOR_MODE_PLAN_DETAILING],
                 SIMULATOR_MODE_TO_REVIEW[SIMULATOR_MODE_PLAN_DETAILING],
                 "rough or under-specified plan needs structured detail rows",
                 request.plan_detail_evidence_ids,
@@ -293,7 +293,7 @@ def _select_modes(request: DevelopmentProcessSimulationRequest) -> list[Developm
         decisions.append(
             DevelopmentProcessModeDecision(
                 SIMULATOR_MODE_STRATEGY_SELECTION,
-                SIMULATOR_MODE_TO_DELEGATED_SKILL[SIMULATOR_MODE_STRATEGY_SELECTION],
+                SIMULATOR_MODE_TO_ROUTE_TARGET[SIMULATOR_MODE_STRATEGY_SELECTION],
                 SIMULATOR_MODE_TO_REVIEW[SIMULATOR_MODE_STRATEGY_SELECTION],
                 "several outcome-equivalent process sequences or material repeated-work/information tradeoffs need comparison",
                 request.process_optimization_evidence_ids,
@@ -304,7 +304,7 @@ def _select_modes(request: DevelopmentProcessSimulationRequest) -> list[Developm
         decisions.append(
             DevelopmentProcessModeDecision(
                 SIMULATOR_MODE_AGENT_WORKFLOW,
-                SIMULATOR_MODE_TO_DELEGATED_SKILL[SIMULATOR_MODE_AGENT_WORKFLOW],
+                SIMULATOR_MODE_TO_ROUTE_TARGET[SIMULATOR_MODE_AGENT_WORKFLOW],
                 SIMULATOR_MODE_TO_REVIEW[SIMULATOR_MODE_AGENT_WORKFLOW],
                 "skill/tool/plugin order, skipped candidates, side effects, or gates affect the outcome",
                 request.agent_workflow_evidence_ids,
@@ -325,7 +325,7 @@ def _select_modes(request: DevelopmentProcessSimulationRequest) -> list[Developm
         decisions.append(
             DevelopmentProcessModeDecision(
                 SIMULATOR_MODE_EXECUTION_FRESHNESS,
-                SIMULATOR_MODE_TO_DELEGATED_SKILL[SIMULATOR_MODE_EXECUTION_FRESHNESS],
+                SIMULATOR_MODE_TO_ROUTE_TARGET[SIMULATOR_MODE_EXECUTION_FRESHNESS],
                 SIMULATOR_MODE_TO_REVIEW[SIMULATOR_MODE_EXECUTION_FRESHNESS],
                 "artifact versions, validation freshness, sync, or final claim confidence matters",
                 request.execution_freshness_evidence_ids,
@@ -386,7 +386,7 @@ def review_development_process_simulator(
             )
         )
 
-    if request.explicit_plan_detailing_skill and SIMULATOR_MODE_PLAN_DETAILING not in selected_modes:
+    if request.explicit_plan_detailing and SIMULATOR_MODE_PLAN_DETAILING not in selected_modes:
         findings.append(
             DevelopmentProcessSimulatorFinding(
                 "explicit_plan_detailing_without_mode",
@@ -396,7 +396,7 @@ def review_development_process_simulator(
             )
         )
 
-    if request.explicit_agent_workflow_skill and SIMULATOR_MODE_AGENT_WORKFLOW not in selected_modes:
+    if request.explicit_agent_workflow and SIMULATOR_MODE_AGENT_WORKFLOW not in selected_modes:
         findings.append(
             DevelopmentProcessSimulatorFinding(
                 "explicit_agent_workflow_without_mode",
@@ -483,7 +483,7 @@ __all__ = [
     "SIMULATOR_MODE_PLAN_DETAILING",
     "SIMULATOR_MODE_STRATEGY_SELECTION",
     "SIMULATOR_MODES",
-    "SIMULATOR_MODE_TO_DELEGATED_SKILL",
+    "SIMULATOR_MODE_TO_ROUTE_TARGET",
     "SIMULATOR_MODE_TO_REVIEW",
     "SIMULATOR_STATUS_BLOCKED",
     "SIMULATOR_STATUS_NEEDS_REVISION",

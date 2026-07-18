@@ -21,7 +21,7 @@ Accept obligations/contracts/evidence; compare bindings/freshness; block missing
 - Use for model-code-test coverage, cells, field projections, code boundaries, targets, or payload evidence.
 
 ## Do Not Use When
-- Do not split tests/code/models or use TestMesh as a parallel semantic owner; return undefined obligations to `model-first-function-flow`.
+- Do not split tests/code/models or use TestMesh as a parallel semantic owner; return undefined obligations to `flowguard`.
 
 ## Required Workflow
 1. List obligations, stable plane/intent/commitment/path ids, fields, `ArtifactPayloadContract`, owner/delegating contracts, similarity, and evidence kinds.

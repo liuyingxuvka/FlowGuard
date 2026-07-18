@@ -9,10 +9,10 @@ FlowGuard SHALL expose one maintainer-source inventory and one consumer-distribu
 
 #### Scenario: Consumer distribution is validated
 - **WHEN** the consumer-distribution inventory runs against a staged or installed release
-- **THEN** it SHALL require the 17 target-owned consumer members and SHALL reject every author-control path
+- **THEN** it SHALL require the 15 target-owned consumer members and SHALL reject every author-control path
 
 ### Requirement: Shared stable membership without shared path policy
-Both inventories MUST derive the same one-kernel and sixteen-satellite identities from one canonical member authority while keeping their required and prohibited path policies separate.
+Both inventories MUST derive the same one-kernel and fourteen-satellite identities from one canonical member authority while keeping their required and prohibited path policies separate.
 
 #### Scenario: Private member list drifts
 - **WHEN** an installer or validator contains an unapproved second literal suite member list

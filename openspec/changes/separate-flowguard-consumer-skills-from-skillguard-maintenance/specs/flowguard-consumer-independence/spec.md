@@ -4,7 +4,7 @@
 Every graduated FlowGuard consumer skill SHALL install and perform its domain work without SkillGuard, SkillGuard Global Router, author contracts, or author receipts.
 
 #### Scenario: Clean consumer environment
-- **WHEN** the 17-skill FlowGuard distribution is installed into an empty `CODEX_HOME`
+- **WHEN** the 15-skill FlowGuard distribution is installed into an empty `CODEX_HOME`
 - **THEN** every FlowGuard skill SHALL be loadable and its representative native checks SHALL run without installing or invoking SkillGuard
 
 #### Scenario: Consumer skill is invoked

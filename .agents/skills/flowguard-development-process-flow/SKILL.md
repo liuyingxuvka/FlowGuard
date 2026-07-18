@@ -9,10 +9,10 @@ description: Use for staged development, multi-skill work, freshness, sync, rele
 Simulate lifecycle order and freshness without replacing specialists.
 
 ## Entrypoint Scope
-Front-door FlowGuard satellite skill; `development_process_flow` (`public_owner`) owns `execution_freshness` and conditional internal process optimization, with `plan_detailing` and `agent_workflow` delegates.
+Front-door `public_owner`; `development_process_flow` owns `execution_freshness`, conditional optimization, and internal `plan_detailing_compiler` and `agent_workflow_rehearsal` routes.
 
 ## Local Material Routing
-Read `references/development_process_flow_protocol.md`; load `references/process_optimization_protocol.md` only for an optimization reason and `references/failure_triage_protocol.md` only for non-pass triage.
+Read `references/development_process_flow_protocol.md`; load `references/plan_detailing_protocol.md` or `references/agent_workflow_protocol.md` only when that internal route is selected, `references/process_optimization_protocol.md` only for an optimization reason, and `references/failure_triage_protocol.md` only for non-pass triage.
 
 ## Entrypoint Acceptance Map
 Order modes, keep ordinary work light, compare hard-equivalent candidates conditionally, enforce freshness, and delegate gaps.
@@ -21,7 +21,7 @@ Order modes, keep ordinary work light, compare hard-equivalent candidates condit
 - Use for rough plans, staged work, multiple skills, background checks, artifact versions, payload schemas, sync, release, or broad claims.
 
 ## Do Not Use When
-- Do not replace specialists; return unclear routing to `model-first-function-flow`.
+- Do not replace specialists; return unclear routing to `flowguard`.
 
 ## Required Workflow
 1. Register modes, artifacts, actions, targets, writes, evidence, peer changes, and a bounded provider package.

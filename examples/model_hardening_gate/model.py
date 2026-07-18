@@ -4,7 +4,7 @@ Risk Purpose Header
 -------------------
 FlowGuard source: https://github.com/liuyingxuvka/FlowGuard
 
-This model reviews the workflow for updating the `model-first-function-flow`
+This model reviews the workflow for updating the `flowguard`
 Skill so complex optimizations must prepare a change inventory, risk catalog,
 risk-to-model coverage matrix, known-bad hazards, tiered heavy-check evidence,
 peer-change preservation, and incremental validation before production edits.

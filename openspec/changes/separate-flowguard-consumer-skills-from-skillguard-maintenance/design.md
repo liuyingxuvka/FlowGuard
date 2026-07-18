@@ -1,8 +1,8 @@
 ## Context
 
-FlowGuard has two legitimate but currently conflated lives. In its canonical author repository, SkillGuard can cultivate the 17 skills, compile contracts, execute target-declared checks, and gate release. On a consumer machine, those same 17 skills must be ordinary independent FlowGuard skills. The current suite inventory, installed-layout tests, target prompts, distribution sync, project adoption, shadow sync, and former specification work-package implementation allow author-control state to cross that boundary.
+FlowGuard has two legitimate but separate lives. In its canonical author repository, SkillGuard cultivates 15 public skills as one maintenance unit, compiles contracts, executes target-declared checks, and gates release. On a consumer machine, those same 15 skills are ordinary independent FlowGuard skills.
 
-Five uncommitted files in the working tree separately move SkillGuard V2 authority from compiled contracts toward source and manifest ownership. Their focused native-check tests pass, but the full related group currently fails because the 17 generated contracts have not been regenerated. This change preserves that work and treats it as a separate input migration, not as proof of consumer separation.
+The existing V2 contract-source work remains a separate evidence slice. All 15 current author contracts must be regenerated from frozen source before parity or release can pass.
 
 The existing FlowGuard model and OpenSpec owners remain authoritative. This change revises them in place and adds no parallel installer, suite, adoption, or specification bridge.
 
@@ -11,7 +11,10 @@ The existing FlowGuard model and OpenSpec owners remain authoritative. This chan
 **Goals:**
 
 - Keep complete SkillGuard maintenance in the FlowGuard author repository.
-- Produce and install 17 independent consumer skills containing no SkillGuard state or runtime dependency.
+- Produce and install 15 independent consumer skills containing no SkillGuard state or runtime dependency.
+- Keep one public `flowguard` kernel, 14 public owner satellites, and two DevelopmentProcessFlow-owned internal routes.
+- Maintain all 15 author sources under the single `unit:flowguard-suite` maintenance unit.
+- Publish source-only releases; package archives and release assets are prohibited.
 - Make ordinary FlowGuard project adoption write only FlowGuard-owned `.flowguard` state and FlowGuard instructions.
 - Preserve all FlowGuard native behavior, routes, prompts, references, scripts, assets, checks, and claim boundaries.
 - Treat official OpenSpec authoring artifacts as read-only development context.
@@ -30,9 +33,9 @@ The existing FlowGuard model and OpenSpec owners remain authoritative. This chan
 
 ### 1. Two explicit inventories
 
-`MaintainerSourceInventory` validates the canonical author tree and may require `.skillguard` control material. `ConsumerDistributionInventory` validates the 17 target-owned release trees and rejects `.skillguard`, SkillGuard markers, commands, imports, receipts, Portfolio data, and router state.
+`MaintainerSourceInventory` validates the canonical author tree and may require `.skillguard` control material. `ConsumerDistributionInventory` validates the 15 target-owned release trees and rejects `.skillguard`, SkillGuard markers, commands, imports, receipts, Portfolio data, and router state.
 
-Both inventories derive the same 17 stable skill identities and target-owned required files from one canonical member table. They have separate allowed-path and prohibited-path policies, separate hashes, and separate reports.
+Both inventories derive the same 15 stable skill identities and target-owned required files from one canonical member table. Every parity root declares its projection role explicitly; author roots are projected as author source and installed roots as consumer distribution.
 
 Alternative considered: one validator with an optional flag. Rejected because a permissive mode makes it too easy to validate the wrong projection and hides which claim was proven.
 
@@ -78,7 +81,7 @@ Consumer `SKILL.md` files retain target-specific activation, workflow, hard gate
 
 ### 8. The dirty V2 migration is a separate validation slice
 
-The five existing uncommitted files are preserved. Native-check authority changes are tested separately. Assertions about removing `depth_profile` from compiled contracts are accepted only after the SkillGuard compiler authority and all 17 generated author contracts are frozen and regenerated. Consumer installed-layout tests stop using author compiled-contract shape as a release-layout requirement.
+Native-check authority changes are tested separately. Generated controls are accepted only after the SkillGuard compiler authority and all 15 generated author contracts are frozen and regenerated. Consumer installed-layout tests never use author compiled-contract shape as a release-layout requirement.
 
 ## Risks / Trade-offs
 
@@ -86,24 +89,39 @@ The five existing uncommitted files are preserved. Native-check authority change
 - **[Author contracts stop seeing the exact consumer prompt]** → Fingerprint the staged consumer entrypoint in maintainer-control compilation and parity checks.
 - **[Upgrade removes a user's local file]** → Require prior installer ownership plus exact unchanged hash; otherwise preserve and report.
 - **[Two inventories drift]** → Derive stable membership from one canonical table and reject duplicate private member lists.
-- **[Dirty V2 work is accidentally normalized as passing]** → Keep separate focused tests and do not mark its generated-contract tasks complete until all 17 author contracts agree.
+- **[V2 work is accidentally normalized as passing]** → Keep separate focused tests and do not mark its generated-contract tasks complete until all 15 author contracts agree.
 - **[OpenSpec context is mistaken for proof]** → Mark every projection
   `read_only_external`, include an explicit claim boundary, and reject any
   session/cache/receipt/execution fields.
 
 ## Migration Plan
 
-1. Freeze current source, dirty-file hashes, installed layouts, and the 17-member canonical identity set.
+1. Freeze current source, dirty-file hashes, installed layouts, and the 15-member canonical identity set.
 2. Update existing FlowGuard models for maintainer source, consumer distribution, project zero-write, shadow eligibility, and read-only specification context.
 3. Introduce the two explicit inventory types and failing consumer-prohibition tests.
 4. Build the staged consumer distribution and ownership-aware installer/withdrawal path.
-5. Remove SkillGuard sections from all 17 consumer prompts and update prompt-parity validation.
+5. Remove SkillGuard sections from all 15 consumer prompts and update prompt-parity validation.
 6. Contract project adoption and shadow sync.
 7. Replace the provider-neutral specification work-package bridge with
    read-only official OpenSpec `SpecContext`.
 8. Resolve and regenerate the separate V2 author-contract migration.
 9. Run focused tests, then install into a clean `CODEX_HOME` and adopt an empty project.
-10. Synchronize the local installed 17-skill projection and author source, freeze one final owner, and run one final full validation.
+10. Synchronize the local installed 15-skill projection and author source, freeze one final owner, and run one final full validation.
+
+### 9. Direct topology migration
+
+The old kernel name and two former public mode skills are upgrade inputs only.
+The current tree contains `flowguard` plus 14 satellites. Plan detailing and
+agent-workflow rehearsal remain separately testable internal routes of
+DevelopmentProcessFlow, but they are not installed skills. Upgrade means one
+direct migration to the current topology; no old path, alias, dual reader,
+forwarding stub, or automatic fallback survives.
+
+### 10. Source-only release authority
+
+Version v0.58.0 is released from one immutable source tag. Local release
+verification fails if a matching wheel or source distribution exists. Published
+verification requires a published, non-draft GitHub Release with zero assets.
 
 Rollback restores the previous complete consumer installation transaction and leaves author-maintenance source/evidence intact. It never enables an old receipt bridge or consumer SkillGuard fallback.
 

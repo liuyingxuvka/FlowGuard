@@ -21,7 +21,7 @@ Accept existing-model ownership plus code mapping; classify contraction candidat
 - Use for merge, collapse, remove, keep-facade, or manual-review decisions over duplicate handlers, modules, adapters, branches, fields, or validations.
 
 ## Do Not Use When
-- Do not use for greenfield module planning, direct refactoring, or behavior change; return unclear models to `model-first-function-flow`.
+- Do not use for greenfield module planning, direct refactoring, or behavior change; return unclear models to `flowguard`.
 
 ## Required Workflow
 1. Ground existing ownership and declare an `ObservableArchitectureContract`.

@@ -21,7 +21,7 @@ Accept a bounded field inventory; create leaf rows and behavior projections; blo
 - Use for schema/payload/config/prompt/persisted/UI/runtime fields, migrations, aliases, defaults, fallbacks, or field-rooted model misses.
 
 ## Do Not Use When
-- Do not put every field in the high-level model, treat inventory as behavior proof, or replace alignment/testing; return missing behavior models to `model-first-function-flow`.
+- Do not put every field in the high-level model, treat inventory as behavior proof, or replace alignment/testing; return missing behavior models to `flowguard`.
 
 ## Required Workflow
 1. Define the field boundary, parent groups, and every discovered `FieldLifecycleRow`.

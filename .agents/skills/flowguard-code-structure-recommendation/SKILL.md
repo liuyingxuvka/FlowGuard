@@ -21,7 +21,7 @@ Accept a source model and named responsibilities; produce FunctionBlock-to-modul
 - Use before code when module split, function ownership, facade, adapter, field reader/writer, or validation boundary is unclear.
 
 ## Do Not Use When
-- Do not perform existing-code refactors, invent behavior, or replace parity/alignment evidence; return missing models to `model-first-function-flow`.
+- Do not perform existing-code refactors, invent behavior, or replace parity/alignment evidence; return missing models to `flowguard`.
 
 ## Required Workflow
 1. Name the source model, FunctionBlocks, state, fields, side effects, and public entrypoints.

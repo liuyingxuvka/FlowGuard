@@ -17,7 +17,7 @@ https://github.com/liuyingxuvka/FlowGuard
 
 FlowGuard agent skill suite:
 - Primary agent surface: `.agents/skills/`
-- Default entry skill: `.agents/skills/model-first-function-flow/SKILL.md`
+- Default entry skill: `.agents/skills/flowguard/SKILL.md`
 - Complete AI-agent setup means the agent can read `AGENTS.md` and all
   FlowGuard sibling `SKILL.md` files under `.agents/skills/`.
 - The Python `flowguard` module/CLI is executable check support, not the
@@ -33,7 +33,7 @@ Project FlowGuard record:
 <!-- flowguard-rule:project.rendered_versions -->
 
 Current adoption record:
-- FlowGuard check-engine version: `0.57.0`
+- FlowGuard check-engine version: `0.58.0`
 - FlowGuard schema version: `1.0`
 
 <!-- flowguard-rule:project.preflight_version_gate -->
@@ -205,23 +205,21 @@ This repository is an explicit skill-authoring workspace. Use SkillGuard only wh
 Canonical SkillGuard repository: https://github.com/liuyingxuvka/SkillGuard
 
 Managed skills:
-- `.agents/skills/flowguard-agent-workflow-rehearsal` — native owner=`development_process_flow`, maintenance unit=`unit:flowguard-agent-workflow-rehearsal`, route evidence=`.agents/skills/flowguard-agent-workflow-rehearsal/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-architecture-reduction` — native owner=`architecture_reduction`, maintenance unit=`unit:flowguard-architecture-reduction`, route evidence=`.agents/skills/flowguard-architecture-reduction/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-behavior-commitment-ledger` — native owner=`behavior_commitment_ledger`, maintenance unit=`unit:flowguard-behavior-commitment-ledger`, route evidence=`.agents/skills/flowguard-behavior-commitment-ledger/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-code-structure-recommendation` — native owner=`code_structure_recommendation`, maintenance unit=`unit:flowguard-code-structure-recommendation`, route evidence=`.agents/skills/flowguard-code-structure-recommendation/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-contract-exhaustion-mesh` — native owner=`contract_exhaustion_mesh`, maintenance unit=`unit:flowguard-contract-exhaustion-mesh`, route evidence=`.agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-development-process-flow` — native owner=`development_process_flow`, maintenance unit=`unit:flowguard-development-process-flow`, route evidence=`.agents/skills/flowguard-development-process-flow/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-existing-model-preflight` — native owner=`existing_model_preflight`, maintenance unit=`unit:flowguard-existing-model-preflight`, route evidence=`.agents/skills/flowguard-existing-model-preflight/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-field-lifecycle-mesh` — native owner=`field_lifecycle_mesh`, maintenance unit=`unit:flowguard-field-lifecycle-mesh`, route evidence=`.agents/skills/flowguard-field-lifecycle-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-model-mesh` — native owner=`model_mesh_maintenance`, maintenance unit=`unit:flowguard-model-mesh`, route evidence=`.agents/skills/flowguard-model-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-model-miss-review` — native owner=`model_miss_review`, maintenance unit=`unit:flowguard-model-miss-review`, route evidence=`.agents/skills/flowguard-model-miss-review/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-model-test-alignment` — native owner=`model_test_alignment`, maintenance unit=`unit:flowguard-model-test-alignment`, route evidence=`.agents/skills/flowguard-model-test-alignment/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-model-topology-hazard-review` — native owner=`model_topology_hazard_review`, maintenance unit=`unit:flowguard-model-topology-hazard-review`, route evidence=`.agents/skills/flowguard-model-topology-hazard-review/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-plan-detailing-compiler` — native owner=`development_process_flow`, maintenance unit=`unit:flowguard-plan-detailing-compiler`, route evidence=`.agents/skills/flowguard-plan-detailing-compiler/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-structure-mesh` — native owner=`structure_mesh_maintenance`, maintenance unit=`unit:flowguard-structure-mesh`, route evidence=`.agents/skills/flowguard-structure-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-test-mesh` — native owner=`test_mesh_maintenance`, maintenance unit=`unit:flowguard-test-mesh`, route evidence=`.agents/skills/flowguard-test-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/flowguard-ui-flow-structure` — native owner=`ui_flow_structure`, maintenance unit=`unit:flowguard-ui-flow-structure`, route evidence=`.agents/skills/flowguard-ui-flow-structure/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
-- `.agents/skills/model-first-function-flow` — native owner=`model_first_function_flow`, maintenance unit=`unit:model-first-function-flow`, route evidence=`.agents/skills/model-first-function-flow/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard` — native owner=`model_first_function_flow`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-architecture-reduction` — native owner=`architecture_reduction`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-architecture-reduction/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-behavior-commitment-ledger` — native owner=`behavior_commitment_ledger`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-behavior-commitment-ledger/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-code-structure-recommendation` — native owner=`code_structure_recommendation`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-code-structure-recommendation/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-contract-exhaustion-mesh` — native owner=`contract_exhaustion_mesh`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-development-process-flow` — native owner=`development_process_flow`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-development-process-flow/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-existing-model-preflight` — native owner=`existing_model_preflight`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-existing-model-preflight/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-field-lifecycle-mesh` — native owner=`field_lifecycle_mesh`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-field-lifecycle-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-model-mesh` — native owner=`model_mesh_maintenance`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-model-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-model-miss-review` — native owner=`model_miss_review`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-model-miss-review/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-model-test-alignment` — native owner=`model_test_alignment`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-model-test-alignment/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-model-topology-hazard-review` — native owner=`model_topology_hazard_review`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-model-topology-hazard-review/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-structure-mesh` — native owner=`structure_mesh_maintenance`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-structure-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-test-mesh` — native owner=`test_mesh_maintenance`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-test-mesh/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
+- `.agents/skills/flowguard-ui-flow-structure` — native owner=`ui_flow_structure`, maintenance unit=`unit:flowguard-suite`, route evidence=`.agents/skills/flowguard-ui-flow-structure/SKILL.md`; the target skill keeps domain-route, judgment, action, and native-check authority.
 
 Required maintenance handoff:
 

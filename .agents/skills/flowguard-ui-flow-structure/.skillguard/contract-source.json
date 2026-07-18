@@ -20,7 +20,7 @@
         }
       ],
       "kind": "model_assertion",
-      "maintenance_unit_id": "unit:flowguard-ui-flow-structure",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-ui-flow-structure",
       "semantic_check_id": "semantic:check:flowguard-ui-flow-structure:plane-boundary",
       "timeout_seconds": 30
@@ -68,7 +68,7 @@
         }
       ],
       "kind": "command",
-      "maintenance_unit_id": "unit:flowguard-ui-flow-structure",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-ui-flow-structure",
       "semantic_check_id": "semantic:check:flowguard-ui-flow-structure:native-authority",
       "timeout_seconds": 300
@@ -92,7 +92,7 @@
         }
       ],
       "kind": "model_assertion",
-      "maintenance_unit_id": "unit:flowguard-ui-flow-structure",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-ui-flow-structure",
       "semantic_check_id": "semantic:check:flowguard-ui-flow-structure:evidence-closure",
       "timeout_seconds": 30
@@ -184,10 +184,24 @@
   ],
   "integration_mode": "native-integrated",
   "judgment_rubrics": [],
-  "maintenance_unit_id": "unit:flowguard-ui-flow-structure",
+  "maintenance_unit_id": "unit:flowguard-suite",
   "may_define_parallel_execution_route": false,
   "may_define_skillguard_runtime_route": false,
   "member_skill_ids": [
+    "flowguard",
+    "flowguard-architecture-reduction",
+    "flowguard-behavior-commitment-ledger",
+    "flowguard-code-structure-recommendation",
+    "flowguard-contract-exhaustion-mesh",
+    "flowguard-development-process-flow",
+    "flowguard-existing-model-preflight",
+    "flowguard-field-lifecycle-mesh",
+    "flowguard-model-mesh",
+    "flowguard-model-miss-review",
+    "flowguard-model-test-alignment",
+    "flowguard-model-topology-hazard-review",
+    "flowguard-structure-mesh",
+    "flowguard-test-mesh",
     "flowguard-ui-flow-structure"
   ],
   "model_id": "flowguard.ui_flow_structure.skill_contract.v2",

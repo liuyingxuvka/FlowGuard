@@ -1,8 +1,9 @@
 """Executable scenarios for agent workflow rehearsal.
 
 Risk Purpose Header:
-This FlowGuard model reviews the new `flowguard-agent-workflow-rehearsal`
-satellite. It guards against stale skill inventories, skipped required skills,
+This FlowGuard model reviews the internal `agent_workflow_rehearsal` route
+owned by the `flowguard-development-process-flow` public skill. It guards
+against stale route inventories, skipped required skills,
 wrong ordering, weak skill validation guidance, missing rework gates,
 overbroad final claims, and over-triggering small tasks before the agent starts
 real work.
@@ -332,7 +333,7 @@ FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
 
 def export_contract_model():
     return build_skill_contract_model_export(
-        skill_id="flowguard-agent-workflow-rehearsal",
+        skill_id="flowguard-development-process-flow",
         route_id="agent_workflow_rehearsal",
         owner_id="development_process_flow",
         parent_model_id="flowguard.development_process_flow",

@@ -4,10 +4,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS_ROOT = ROOT / ".agents" / "skills"
-KERNEL_ROOT = SKILLS_ROOT / "model-first-function-flow"
+KERNEL_ROOT = SKILLS_ROOT / "flowguard"
 
 SATELLITE_SKILLS = {
-    "flowguard-agent-workflow-rehearsal": "agent_workflow_rehearsal_protocol.md",
     "flowguard-architecture-reduction": "architecture_reduction_protocol.md",
     "flowguard-behavior-commitment-ledger": "behavior_commitment_ledger_protocol.md",
     "flowguard-code-structure-recommendation": "code_structure_recommendation_protocol.md",
@@ -19,15 +18,14 @@ SATELLITE_SKILLS = {
     "flowguard-model-miss-review": "model_miss_protocol.md",
     "flowguard-model-test-alignment": "model_test_alignment_protocol.md",
     "flowguard-model-topology-hazard-review": "topology_hazard_protocol.md",
-    "flowguard-plan-detailing-compiler": "plan_detailing_compiler_protocol.md",
     "flowguard-structure-mesh": "structure_mesh_protocol.md",
     "flowguard-test-mesh": "test_mesh_protocol.md",
     "flowguard-ui-flow-structure": "ui_flow_structure_protocol.md",
 }
 
-DELEGATED_DEVELOPMENT_PROCESS_MODE_SKILLS = {
-    "flowguard-agent-workflow-rehearsal",
-    "flowguard-plan-detailing-compiler",
+INTERNAL_DEVELOPMENT_PROCESS_ROUTES = {
+    "plan_detailing_compiler",
+    "agent_workflow_rehearsal",
 }
 
 TEMPLATE_HARVEST_SKILLS = SATELLITE_SKILLS.keys() - {"flowguard-existing-model-preflight"}
@@ -74,7 +72,7 @@ REDUCED_FIELD_PROMPT_FILES = (
     / "references"
     / "development_process_flow_protocol.md",
     SKILLS_ROOT / "flowguard-test-mesh" / "references" / "test_mesh_protocol.md",
-    SKILLS_ROOT / "model-first-function-flow" / "assets" / "adoption_log_template.md",
+    SKILLS_ROOT / "flowguard" / "assets" / "adoption_log_template.md",
 )
 
 
@@ -108,7 +106,7 @@ class SkillDocsTests(unittest.TestCase):
         text = self.read(KERNEL_ROOT / "SKILL.md")
 
         expected = (
-            "FlowGuard Skill Kernel",
+            "# FlowGuard",
             "use_flowguard",
             "skip_with_reason",
             "needs_human_review",
@@ -196,15 +194,6 @@ class SkillDocsTests(unittest.TestCase):
 
     def test_satellite_skills_are_concise_route_shells(self):
         route_expectations = {
-            "flowguard-agent-workflow-rehearsal": (
-                "Delegated FlowGuard mode skill",
-                "agent_workflow",
-                "flowguard-development-process-flow",
-                "SkillInventorySnapshot",
-                "candidate skills",
-                "continue/rework gates",
-                "real-surface artifact payload proof",
-            ),
             "flowguard-architecture-reduction": (
                 "ObservableArchitectureContract",
                 "contraction candidates",
@@ -229,7 +218,7 @@ class SkillDocsTests(unittest.TestCase):
                 "declared finite boundary",
             ),
             "flowguard-development-process-flow": (
-                "Front-door FlowGuard satellite skill",
+                "Front-door public owner",
                 "development-process simulator",
                 "plan_detailing",
                 "agent_workflow",
@@ -275,15 +264,6 @@ class SkillDocsTests(unittest.TestCase):
                 "topology anchor",
                 "Risk Evidence Ledger",
             ),
-            "flowguard-plan-detailing-compiler": (
-                "Delegated FlowGuard mode skill",
-                "plan_detailing",
-                "flowguard-development-process-flow",
-                "PlanDetail",
-                "review_plan_detail()",
-                "step receipts",
-                "payload cases for the real surface",
-            ),
             "flowguard-structure-mesh": (
                 "public entrypoints",
                 "facades",
@@ -313,12 +293,9 @@ class SkillDocsTests(unittest.TestCase):
                 self.assertIn(f"name: {skill_name}", text)
                 if skill_name == "flowguard-development-process-flow":
                     self.assertIn("public_owner", text)
-                elif skill_name in DELEGATED_DEVELOPMENT_PROCESS_MODE_SKILLS:
-                    self.assertIn("delegated_mode", text)
-                    self.assertIn("flowguard-development-process-flow", text)
                 else:
                     self.assertIn("standalone FlowGuard satellite skill", text)
-                self.assertIn("model-first-function-flow", text)
+                self.assertIn("flowguard", text)
                 self.assertIn("FlowGuard check engine", text)
                 self.assertIn("AGENTS.md managed", text)
                 self.assertIn("fake mini-framework", text)
@@ -342,9 +319,9 @@ class SkillDocsTests(unittest.TestCase):
                     self.assertIn(field, openai_yaml)
                 combined = f"{text}\n{reference}"
                 self.assertNotIn("fake file/work-package", combined)
-                if skill_name in DELEGATED_DEVELOPMENT_PROCESS_MODE_SKILLS:
-                    self.assertIn("delegated_mode", openai_yaml)
-                    self.assertIn("development_process_flow", openai_yaml)
+                if skill_name == "flowguard-development-process-flow":
+                    self.assertIn("plan_detailing_compiler", text)
+                    self.assertIn("agent_workflow_rehearsal", text)
 
     def test_model_test_alignment_skill_does_not_teach_optional_code_contracts(self):
         checked = (
@@ -536,14 +513,14 @@ class SkillDocsTests(unittest.TestCase):
         self.assertEqual(sorted(SATELLITE_SKILLS), satellite_names)
         self.assertIn(f"SATELLITE_COUNT = {len(SATELLITE_SKILLS)}", topology_model)
         self.assertIn(
-            f"PUBLIC_OWNER_SKILL_COUNT = {len(set(SATELLITE_SKILLS) - DELEGATED_DEVELOPMENT_PROCESS_MODE_SKILLS)}",
+            f"PUBLIC_OWNER_SKILL_COUNT = {len(SATELLITE_SKILLS)}",
             topology_model,
         )
         self.assertIn(
-            f"DELEGATED_MODE_SKILL_COUNT = {len(DELEGATED_DEVELOPMENT_PROCESS_MODE_SKILLS)}",
+            f"INTERNAL_ROUTE_COUNT = {len(INTERNAL_DEVELOPMENT_PROCESS_ROUTES)}",
             topology_model,
         )
-        self.assertIn("public owner and delegated mode", topology_model)
+        self.assertIn("public owner and internal-route", topology_model)
         self.assertNotIn("seven satellites", topology_model)
 
     def test_agents_snippet_uses_compact_canonical_route_table(self):
@@ -569,7 +546,7 @@ class SkillDocsTests(unittest.TestCase):
             "Check-engine helpers",
             "not separate Codex skills",
             "Primary agent surface: `.agents/skills/`",
-            "Default entry skill: `.agents/skills/model-first-function-flow/SKILL.md`",
+            "Default entry skill: `.agents/skills/flowguard/SKILL.md`",
             "not the AI-agent skill installation surface",
         )
         for phrase in expected:
@@ -594,7 +571,7 @@ class SkillDocsTests(unittest.TestCase):
         expected = (
             "An AI-agent skill suite powered by an executable check engine",
             "primary agent surface is `.agents/skills/`",
-            ".agents/skills/model-first-function-flow/SKILL.md",
+            ".agents/skills/flowguard/SKILL.md",
             "executable check scripts",
             "not the skill installation itself",
         )
@@ -603,7 +580,7 @@ class SkillDocsTests(unittest.TestCase):
 
         self.assertNotIn("python -m pip install -e .", text)
         self.assertLess(
-            text.index(".agents/skills/model-first-function-flow/SKILL.md"),
+            text.index(".agents/skills/flowguard/SKILL.md"),
             text.index("python -m flowguard"),
         )
 
@@ -616,14 +593,13 @@ class SkillDocsTests(unittest.TestCase):
             ROOT / "docs" / "modeling_protocol.md",
             ROOT / "docs" / "productized_helpers.md",
             ROOT / "docs" / "plan_detailing_compiler.md",
-            SKILLS_ROOT / "model-first-function-flow" / "SKILL.md",
-            SKILLS_ROOT / "model-first-function-flow" / "references" / "skill_kernel_protocol.md",
-            SKILLS_ROOT / "model-first-function-flow" / "references" / "modeling_protocol.md",
+            SKILLS_ROOT / "flowguard" / "SKILL.md",
+            SKILLS_ROOT / "flowguard" / "references" / "skill_kernel_protocol.md",
+            SKILLS_ROOT / "flowguard" / "references" / "modeling_protocol.md",
             ROOT / "openspec" / "specs" / "development-process-flow" / "spec.md",
             ROOT / "openspec" / "specs" / "flowguard-global-routing" / "spec.md",
             ROOT / "openspec" / "specs" / "flowguard-codex-skill-satellites" / "spec.md",
             ROOT / "openspec" / "specs" / "plan-detailing-compiler" / "spec.md",
-            ROOT / "openspec" / "specs" / "flowguard-agent-workflow-rehearsal" / "spec.md",
             ROOT / "openspec" / "changes" / "harden-plan-discussion-handoff" / "proposal.md",
             ROOT / "openspec" / "changes" / "harden-plan-discussion-handoff" / "design.md",
             ROOT / "openspec" / "changes" / "harden-plan-discussion-handoff" / "specs" / "flowguard-global-routing" / "spec.md",
@@ -639,7 +615,6 @@ class SkillDocsTests(unittest.TestCase):
             "plan detailing appears beside",
             "peer satellite route",
             "not as a hidden child",
-            "Use `flowguard-plan-detailing-compiler` first",
             "Multi-skill workflow rehearsal routes directly",
             "This is a sibling sub-protocol",
             "rather than introducing separate named modes",

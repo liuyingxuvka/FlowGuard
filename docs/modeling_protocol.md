@@ -254,7 +254,7 @@ module, command, or API surface is being split. Use ModelMesh only when the
 risk is parent/child model evidence or model partitioning.
 
 Read
-`.agents/skills/model-first-function-flow/references/model_test_alignment_protocol.md`
+`.agents/skills/flowguard/references/model_test_alignment_protocol.md`
 for the checklist and prompt template.
 
 ## 0.34 Check The Risk Evidence Ledger
@@ -442,7 +442,7 @@ side-effect owner fields, and rationale for the split. A flat child-suite list
 without derivation is not enough.
 
 Read `docs/test_evidence_mesh.md` for the API sketch and
-`.agents/skills/model-first-function-flow/references/test_mesh_protocol.md` for
+`.agents/skills/flowguard/references/test_mesh_protocol.md` for
 the agent checklist.
 
 ## 0.45 Check The StructureMesh Trigger
@@ -464,7 +464,7 @@ config/default changes, and parity evidence, then pass
 `review_structure_mesh(...)`.
 
 Read `docs/structure_mesh.md` for the API sketch and
-`.agents/skills/model-first-function-flow/references/structure_mesh_protocol.md`
+`.agents/skills/flowguard/references/structure_mesh_protocol.md`
 for the agent checklist.
 
 ## 0.47 Check The Code Structure Recommendation Route
@@ -476,7 +476,7 @@ create or use a functional or hierarchical model, but it does not write
 production code and it is not mandatory for every ordinary model-first task.
 
 Read `docs/code_structure_recommendation.md` and
-`.agents/skills/model-first-function-flow/references/code_structure_recommendation_protocol.md`
+`.agents/skills/flowguard/references/code_structure_recommendation_protocol.md`
 for the recommendation shape.
 
 ## 0.48 Check The UI Flow Structure Route
@@ -513,7 +513,7 @@ process. It may reference sibling route evidence ids and covered artifact
 versions, but it does not inspect or replace sibling routes.
 
 Read `docs/development_process_flow.md` and
-`.agents/skills/model-first-function-flow/references/development_process_flow_protocol.md`
+`.agents/skills/flowguard/references/development_process_flow_protocol.md`
 for the lifecycle evidence shape.
 
 ## 0.5 Write A Minimum Valuable Risk Intent

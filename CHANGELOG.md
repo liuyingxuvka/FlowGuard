@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.58.0 - 2026-07-18
+
+- Renamed the canonical kernel skill directly from
+  `model-first-function-flow` to `flowguard`; no alias, forwarding stub,
+  compatibility reader, or fallback path remains.
+- Reduced the public Codex surface from seventeen to fifteen skills by moving
+  plan detailing and agent-workflow rehearsal into two explicit internal
+  routes owned by `flowguard-development-process-flow`.
+- Consolidated all fifteen author sources into the single
+  `unit:flowguard-suite` SkillGuard maintenance unit while preserving each
+  public satellite's native route and check authority.
+- Made source tags the sole release authority: v0.58.0 releases contain no
+  wheel, source-distribution, or downloadable package assets.
+- Added explicit author-source and consumer-distribution parity roles so
+  consumer projections are compared without author-only SkillGuard material.
+
 ## v0.57.0 - 2026-07-16
 
 Portable compositional-verification kernel release.

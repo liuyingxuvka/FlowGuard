@@ -10,11 +10,11 @@ specialist's judgment.
 
 Record applicable modes in this order:
 
-1. `plan_detailing`: delegate rough or underspecified plans to
-   `flowguard-plan-detailing-compiler` when structured rows are needed.
+1. `plan_detailing`: run the internal plan-detailing route for rough or
+   underspecified plans when structured rows are needed.
 2. `strategy_selection`: an internal, conditional process-optimization mode.
-3. `agent_workflow`: delegate multi-skill/tool or external-side-effect
-   rehearsal to `flowguard-agent-workflow-rehearsal`.
+3. `agent_workflow`: run the internal agent-workflow route for multi-skill,
+   tool, plugin, or external-side-effect rehearsal.
 4. `execution_freshness`: review artifact versions, evidence, sync, and final
    claim closure here.
 
@@ -37,8 +37,8 @@ records, repair groups, or optimization evidence gate.
 
 - DevelopmentProcessFlow owns process order, artifact versions, invalidation,
   current decision references, peer-write handling, and process claims.
-- PlanDetail owns structured plan rows, not execution proof.
-- AgentWorkflowRehearsal owns AI-operation skill/tool order.
+- Internal `plan_detailing` owns structured plan rows, not execution proof.
+- Internal `agent_workflow` owns AI-operation skill/tool order.
 - TestMesh owns diagnostic boundaries, actual execution accounting, findings,
   skips, and terminal test receipts.
 - Finding Ledger owns stable raw finding ids.

@@ -36,9 +36,9 @@ class SkillPromptParityTests(unittest.TestCase):
     def setUpClass(cls):
         cls.suite = json.loads(SUITE_MAP.read_text(encoding="utf-8"))
 
-    def test_all_seventeen_prompts_have_exact_compact_structure(self):
+    def test_all_fifteen_prompts_have_exact_compact_structure(self):
         members = self.suite["included_skills"]
-        self.assertEqual(17, len(members))
+        self.assertEqual(15, len(members))
         for member in members:
             skill_id = member["name"]
             text = (SKILL_ROOT / skill_id / "SKILL.md").read_text(encoding="utf-8")
@@ -60,7 +60,10 @@ class SkillPromptParityTests(unittest.TestCase):
             with self.subTest(skill=skill_id):
                 self.assertEqual(skill_id, source["skill_id"])
                 self.assertEqual(member["owner"], source["native_route_owner"])
-                self.assertEqual(3, len(source["step_bindings"]))
+                self.assertEqual(
+                    9 if skill_id == "flowguard-development-process-flow" else 3,
+                    len(source["step_bindings"]),
+                )
                 self.assertTrue(source["native_check_bindings"])
                 self.assertIn(f"${skill_id}", prompt)
                 route_label = source["default_route_id"].removeprefix("route:")
@@ -78,7 +81,7 @@ class SkillPromptParityTests(unittest.TestCase):
                 for reference in references:
                     self.assertTrue((skill / reference).is_file(), reference)
 
-    def test_all_seventeen_skills_have_one_mandatory_instance_purpose_gate(self):
+    def test_all_fifteen_skills_have_one_mandatory_instance_purpose_gate(self):
         for member in self.suite["included_skills"]:
             text = (SKILL_ROOT / member["name"] / "SKILL.md").read_text(encoding="utf-8")
             with self.subTest(skill=member["name"]):
@@ -91,16 +94,24 @@ class SkillPromptParityTests(unittest.TestCase):
                 self.assertNotIn("SkillGuard", text)
                 self.assertNotIn(".skillguard", text)
 
-    def test_delegated_modes_and_mta_testmesh_handoff_are_not_parallel_owners(self):
-        for skill_id in ("flowguard-agent-workflow-rehearsal", "flowguard-plan-detailing-compiler"):
-            source = json.loads(
-                (SKILL_ROOT / skill_id / ".skillguard" / "contract-source.json").read_text(encoding="utf-8")
-            )
-            self.assertEqual("development_process_flow", source["native_route_owner"])
-            self.assertIn(
-                source["default_route_id"],
-                {"route:agent_workflow_rehearsal", "route:plan_detailing_compiler"},
-            )
+    def test_internal_modes_and_mta_testmesh_handoff_are_not_parallel_owners(self):
+        source = json.loads(
+            (
+                SKILL_ROOT
+                / "flowguard-development-process-flow"
+                / ".skillguard"
+                / "contract-source.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual("development_process_flow", source["native_route_owner"])
+        self.assertEqual(
+            {
+                "route:development_process_flow",
+                "route:agent_workflow_rehearsal",
+                "route:plan_detailing_compiler",
+            },
+            set(source["depth_profile"]["native_route_ids"]),
+        )
         mta_root = SKILL_ROOT / "flowguard-model-test-alignment"
         mta_text = (mta_root / "SKILL.md").read_text(encoding="utf-8")
         self.assertNotIn("Do not invoke TestMesh", mta_text)

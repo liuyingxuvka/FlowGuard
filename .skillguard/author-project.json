@@ -1,20 +1,20 @@
 {
   "claim_boundary": "Author adoption marks only this explicit skill-maintainer repository. It creates no consumer or ordinary-project dependency and proves no target-domain work.",
   "maintenance_default": "skillguard-author-maintenance-only",
-  "managed_block_hash": "4AAF25A96919E1BBFF8B9C52EB7995E285855B9081CF1639ECE4B9B795EC4ACB",
+  "managed_block_hash": "6B9D3A131ACE364902346F09E136668125071897AB94C0BEA79929FEE390ED5A",
   "managed_skills": [
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-agent-workflow-rehearsal",
-      "native_owner_id": "development_process_flow",
-      "native_route_evidence_path": ".agents/skills/flowguard-agent-workflow-rehearsal/SKILL.md",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "native_owner_id": "model_first_function_flow",
+      "native_route_evidence_path": ".agents/skills/flowguard/SKILL.md",
       "native_route_status": "present",
-      "skill_id": "flowguard-agent-workflow-rehearsal",
-      "skill_path": ".agents/skills/flowguard-agent-workflow-rehearsal"
+      "skill_id": "flowguard",
+      "skill_path": ".agents/skills/flowguard"
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-architecture-reduction",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "architecture_reduction",
       "native_route_evidence_path": ".agents/skills/flowguard-architecture-reduction/SKILL.md",
       "native_route_status": "present",
@@ -23,7 +23,7 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-behavior-commitment-ledger",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "behavior_commitment_ledger",
       "native_route_evidence_path": ".agents/skills/flowguard-behavior-commitment-ledger/SKILL.md",
       "native_route_status": "present",
@@ -32,7 +32,7 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-code-structure-recommendation",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "code_structure_recommendation",
       "native_route_evidence_path": ".agents/skills/flowguard-code-structure-recommendation/SKILL.md",
       "native_route_status": "present",
@@ -41,7 +41,7 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-contract-exhaustion-mesh",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "contract_exhaustion_mesh",
       "native_route_evidence_path": ".agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md",
       "native_route_status": "present",
@@ -50,7 +50,7 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-development-process-flow",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "development_process_flow",
       "native_route_evidence_path": ".agents/skills/flowguard-development-process-flow/SKILL.md",
       "native_route_status": "present",
@@ -59,7 +59,7 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-existing-model-preflight",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "existing_model_preflight",
       "native_route_evidence_path": ".agents/skills/flowguard-existing-model-preflight/SKILL.md",
       "native_route_status": "present",
@@ -68,7 +68,7 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-field-lifecycle-mesh",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "field_lifecycle_mesh",
       "native_route_evidence_path": ".agents/skills/flowguard-field-lifecycle-mesh/SKILL.md",
       "native_route_status": "present",
@@ -77,7 +77,7 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-model-mesh",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "model_mesh_maintenance",
       "native_route_evidence_path": ".agents/skills/flowguard-model-mesh/SKILL.md",
       "native_route_status": "present",
@@ -86,7 +86,7 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-model-miss-review",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "model_miss_review",
       "native_route_evidence_path": ".agents/skills/flowguard-model-miss-review/SKILL.md",
       "native_route_status": "present",
@@ -95,7 +95,7 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-model-test-alignment",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "model_test_alignment",
       "native_route_evidence_path": ".agents/skills/flowguard-model-test-alignment/SKILL.md",
       "native_route_status": "present",
@@ -104,7 +104,7 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-model-topology-hazard-review",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "model_topology_hazard_review",
       "native_route_evidence_path": ".agents/skills/flowguard-model-topology-hazard-review/SKILL.md",
       "native_route_status": "present",
@@ -113,16 +113,7 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-plan-detailing-compiler",
-      "native_owner_id": "development_process_flow",
-      "native_route_evidence_path": ".agents/skills/flowguard-plan-detailing-compiler/SKILL.md",
-      "native_route_status": "present",
-      "skill_id": "flowguard-plan-detailing-compiler",
-      "skill_path": ".agents/skills/flowguard-plan-detailing-compiler"
-    },
-    {
-      "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-structure-mesh",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "structure_mesh_maintenance",
       "native_route_evidence_path": ".agents/skills/flowguard-structure-mesh/SKILL.md",
       "native_route_status": "present",
@@ -131,7 +122,7 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-test-mesh",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "test_mesh_maintenance",
       "native_route_evidence_path": ".agents/skills/flowguard-test-mesh/SKILL.md",
       "native_route_status": "present",
@@ -140,28 +131,19 @@
     },
     {
       "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:flowguard-ui-flow-structure",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "native_owner_id": "ui_flow_structure",
       "native_route_evidence_path": ".agents/skills/flowguard-ui-flow-structure/SKILL.md",
       "native_route_status": "present",
       "skill_id": "flowguard-ui-flow-structure",
       "skill_path": ".agents/skills/flowguard-ui-flow-structure"
-    },
-    {
-      "integration_mode": "native-integrated",
-      "maintenance_unit_id": "unit:model-first-function-flow",
-      "native_owner_id": "model_first_function_flow",
-      "native_route_evidence_path": ".agents/skills/model-first-function-flow/SKILL.md",
-      "native_route_status": "present",
-      "skill_id": "model-first-function-flow",
-      "skill_path": ".agents/skills/model-first-function-flow"
     }
   ],
-  "manifest_hash": "202328781BE8B85A410B1CC94C57BFEC5804FA49DC59F48EC8EC537F2157E7DA",
+  "manifest_hash": "4843AFFD5B3A9736A6C2D5AF0E570515CBABCB385E563170CFEE57FE54EFA645",
   "project_id": "FlowGuard",
   "project_prompt_path": "AGENTS.md",
   "repository_role": "skill_maintainer_source",
   "schema_version": "skillguard.project_adoption.v1",
   "skillguard_repository": "https://github.com/liuyingxuvka/SkillGuard",
-  "skillguard_version": "0.3.3"
+  "skillguard_version": "unknown"
 }

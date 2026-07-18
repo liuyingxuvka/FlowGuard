@@ -1,10 +1,12 @@
 ## Why
 
-FlowGuard's author repository is legitimately maintained with SkillGuard, but its 17 graduated skills, installer, and project-adoption path currently carry SkillGuard contracts and prompt dependencies into consumer machines and ordinary business projects. FlowGuard must preserve its own models, native checks, and project records while treating SkillGuard as author-only release supervision.
+FlowGuard's author repository is legitimately maintained with SkillGuard, but its 15 graduated skills, installer, and project-adoption path must keep SkillGuard contracts and prompt dependencies out of consumer machines and ordinary business projects. FlowGuard must preserve its own models, native checks, and project records while treating SkillGuard as author-only release supervision.
 
 ## What Changes
 
-- **BREAKING** Split FlowGuard's SkillGuard-maintained source inventory from its independent 17-skill consumer distribution.
+- **BREAKING** Split FlowGuard's SkillGuard-maintained source inventory from its independent 15-skill consumer distribution.
+- **BREAKING** Rename the kernel skill directly from `model-first-function-flow` to `flowguard`, with no alias, forwarding entry, compatibility reader, or fallback.
+- **BREAKING** Retire the public `flowguard-plan-detailing-compiler` and `flowguard-agent-workflow-rehearsal` skills and preserve their behavior as internal routes owned by `flowguard-development-process-flow`.
 - **BREAKING** Exclude `.skillguard/**`, SkillGuard prompt blocks, commands, imports, receipts, router state, and Portfolio state from every FlowGuard consumer skill.
 - **BREAKING** Remove SkillGuard and SkillGuard Global Router from FlowGuard project adoption and installed-layout requirements.
 - **BREAKING** Replace specification-provider integration with official OpenSpec
@@ -12,6 +14,9 @@ FlowGuard's author repository is legitimately maintained with SkillGuard, but it
   remove other-provider adapters, provider sessions, caches, check execution,
   owner plans, reconciliation, and receipt projection.
 - Add separate maintainer-source and consumer-distribution inventories with explicit validation and release manifests.
+- Consolidate all 15 author sources into one SkillGuard maintenance unit, `unit:flowguard-suite`, while keeping every public skill's native route and check ownership.
+- Require every parity root to declare either `author_source` or `consumer_distribution`; compare only the projection allowed by that role.
+- Make the source tag the sole release authority for v0.58.0 and publish no wheel, source-distribution, or GitHub Release asset.
 - Make consumer installation staged, rollbackable, ownership-aware, and safe when withdrawing previously installed SkillGuard files.
 - Restrict shadow-workspace synchronization to explicitly registered maintainer worktrees.
 - Preserve FlowGuard's `.flowguard` project adoption, native scenario/model checks, public skill behavior, and author-side SkillGuard maintenance.
@@ -21,7 +26,7 @@ FlowGuard's author repository is legitimately maintained with SkillGuard, but it
 
 ### New Capabilities
 
-- `flowguard-consumer-independence`: Clean 17-skill consumer projection, isolated installation, zero SkillGuard dependency, and ordinary-project zero-write behavior.
+- `flowguard-consumer-independence`: Clean 15-skill consumer projection, isolated installation, zero SkillGuard dependency, and ordinary-project zero-write behavior.
 - `flowguard-maintainer-consumer-inventories`: Separate source-maintenance and consumer-distribution inventory authorities with exact parity checks.
 - `spec-context`: Current, project-bounded, read-only official OpenSpec authoring context with no execution or evidence authority.
 
@@ -36,7 +41,7 @@ FlowGuard's author repository is legitimately maintained with SkillGuard, but it
 
 ## Impact
 
-- The 17 `skills/flowguard-*` and `skills/model-first-function-flow` source packages, their installed projections, and prompt content.
+- The 15 `.agents/skills/flowguard*` author packages, their installed projections, and prompt content.
 - `flowguard/distribution_sync.py`, `flowguard/skill_suite.py`,
   `flowguard/project_adoption.py`, the read-only OpenSpec context reader, and
   public package APIs.

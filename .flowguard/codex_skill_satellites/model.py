@@ -2,12 +2,12 @@
 
 Purpose:
 Models the skill-architecture upgrade from one FlowGuard kernel skill with
-internal sub-protocols to one kernel plus the current public owner and
-delegated mode satellite skills.
+internal sub-protocols to one kernel plus the current public owner satellites
+and DevelopmentProcessFlow-owned internal routes.
 
 Guards against:
 - publishing while any satellite skill is missing;
-- publishing while public owner and delegated mode skill counts are collapsed;
+- publishing while public owner and internal-route counts are collapsed;
 - treating helper APIs or CLI templates as Codex skills;
 - allowing satellite skills to bypass kernel hard gates;
 - claiming complete FlowGuard use while the closure contract is absent;
@@ -28,10 +28,10 @@ from typing import Iterable
 from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 
 
-SATELLITE_COUNT = 16
-CONSUMER_SKILL_COUNT = 17
+SATELLITE_COUNT = 14
+CONSUMER_SKILL_COUNT = 15
 PUBLIC_OWNER_SKILL_COUNT = 14
-DELEGATED_MODE_SKILL_COUNT = 2
+INTERNAL_ROUTE_COUNT = 2
 
 
 @dataclass(frozen=True)
@@ -49,7 +49,7 @@ class UpgradeState:
     kernel_preserved: bool = False
     satellite_count: int = 0
     public_owner_skill_count: int = 0
-    delegated_mode_skill_count: int = 0
+    internal_route_count: int = 0
     helper_api_misclassified: bool = False
     global_prompt_synced: bool = False
     installed_skills_synced: bool = False
@@ -68,7 +68,7 @@ class UpgradeState:
             self.kernel_preserved
             and self.satellite_count == SATELLITE_COUNT
             and self.public_owner_skill_count == PUBLIC_OWNER_SKILL_COUNT
-            and self.delegated_mode_skill_count == DELEGATED_MODE_SKILL_COUNT
+            and self.internal_route_count == INTERNAL_ROUTE_COUNT
             and not self.helper_api_misclassified
             and self.global_prompt_synced
             and self.installed_skills_synced
@@ -89,7 +89,7 @@ class SkillSatelliteUpgrade:
         "kernel_preserved",
         "satellite_count",
         "public_owner_skill_count",
-        "delegated_mode_skill_count",
+        "internal_route_count",
         "helper_api_misclassified",
         "global_prompt_synced",
         "installed_skills_synced",
@@ -118,7 +118,7 @@ class SkillSatelliteUpgrade:
                     kernel_preserved=True,
                     satellite_count=SATELLITE_COUNT,
                     public_owner_skill_count=PUBLIC_OWNER_SKILL_COUNT,
-                    delegated_mode_skill_count=DELEGATED_MODE_SKILL_COUNT,
+                    internal_route_count=INTERNAL_ROUTE_COUNT,
                 ),
                 label="topology_prepared",
             )
@@ -219,7 +219,7 @@ def no_release_without_full_topology_and_sync(state: UpgradeState, trace) -> Inv
 INVARIANTS = (
     Invariant(
         "no_release_without_full_topology_and_sync",
-        "Release claims require kernel, current public owner/delegated satellite topology, prompt/install/shadow/test/version alignment, and no helper API misclassification.",
+        "Release claims require kernel, current public owner satellites, internal-route ownership, prompt/install/shadow/test/version alignment, and no helper API misclassification.",
         no_release_without_full_topology_and_sync,
     ),
 )
@@ -255,7 +255,7 @@ __all__ = [
     "INVARIANTS",
     "MAX_SEQUENCE_LENGTH",
     "PUBLIC_OWNER_SKILL_COUNT",
-    "DELEGATED_MODE_SKILL_COUNT",
+    "INTERNAL_ROUTE_COUNT",
     "CONSUMER_SKILL_COUNT",
     "SATELLITE_COUNT",
     "UpgradeAction",

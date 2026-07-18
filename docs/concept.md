@@ -2,7 +2,7 @@
 
 FlowGuard is an AI-agent skill suite powered by an executable check engine. The skills tell an agent when to model a risky workflow, which route owns the problem, what evidence is required, and where a safe claim must stop. The Python engine makes those selected obligations executable before or after production code changes.
 
-It is not a normal test framework, not a prompt-engineering trick, and not an LLM wrapper. It does not call model APIs. Its purpose is to make function-flow behavior, process order, evidence freshness, and claim boundaries explicit, finite, repeatable, and checkable. The installable product surface is the complete 17-member tree under `.agents/skills/`; the `flowguard` package and scripts are its executable support layer.
+It is not a normal test framework, not a prompt-engineering trick, and not an LLM wrapper. It does not call model APIs. Its purpose is to make function-flow behavior, process order, evidence freshness, and claim boundaries explicit, finite, repeatable, and checkable. The installable product surface is the complete 15-member tree under `.agents/skills/`; the `flowguard` package and scripts are its executable support layer.
 
 ## Three Different Meanings Of Green
 
@@ -115,7 +115,7 @@ FlowGuard is also not a replacement for unit tests. Unit tests still verify prod
 
 Repository model checks are owned by an explicit manifest rather than implicit file discovery. `fast` gives scoped development feedback, `focused` covers a wider selected surface, and only a current terminal `full` run can contribute to release evidence. Default output is concise; JSON and full human projections preserve the same status semantics and point to complete artifacts.
 
-The skill distribution lifecycle is also explicit: install, check, parity, and uninstall operate on the complete 17-member tree, use ownership metadata, preserve modified user files, and report missing, extra, raw-hash, semantic-hash, and explicit exclusion results separately. See [Validation and Skill Distribution](./validation_and_distribution.md) for safe commands, evidence locations, background progress, and claim boundaries.
+The skill distribution lifecycle is also explicit: install, check, parity, and uninstall operate on the complete 15-member tree, use ownership metadata, preserve modified user files, and report missing, extra, raw-hash, semantic-hash, and explicit exclusion results separately. See [Validation and Skill Distribution](./validation_and_distribution.md) for safe commands, evidence locations, background progress, and claim boundaries.
 
 ## MVP Limits
 

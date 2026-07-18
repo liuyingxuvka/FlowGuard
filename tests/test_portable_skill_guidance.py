@@ -13,9 +13,9 @@ SKILLS = ROOT / ".agents" / "skills"
 
 class PortableSkillGuidanceTests(unittest.TestCase):
     def test_kernel_owns_current_portable_projection_without_serializing_python(self):
-        skill = (SKILLS / "model-first-function-flow" / "SKILL.md").read_text(encoding="utf-8")
+        skill = (SKILLS / "flowguard" / "SKILL.md").read_text(encoding="utf-8")
         reference = (
-            SKILLS / "model-first-function-flow" / "references" / "modeling_core_protocol.md"
+            SKILLS / "flowguard" / "references" / "modeling_core_protocol.md"
         ).read_text(encoding="utf-8")
         self.assertIn("flowguard.portable_model.v1", skill)
         self.assertIn("do not serialize arbitrary Python", skill)
@@ -45,7 +45,7 @@ class PortableSkillGuidanceTests(unittest.TestCase):
 
     def test_contract_sources_track_portable_runtime_as_affected_input(self):
         for skill_id in (
-            "model-first-function-flow",
+            "flowguard",
             "flowguard-model-mesh",
             "flowguard-model-topology-hazard-review",
         ):

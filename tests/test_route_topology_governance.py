@@ -58,7 +58,7 @@ class RouteTopologyGovernanceTests(unittest.TestCase):
             kinds,
         )
 
-    def test_cross_cutting_and_delegated_routes_have_canonical_owners(self):
+    def test_cross_cutting_and_internal_routes_have_canonical_owners(self):
         profiles = {profile.route_id: profile for profile in self.profiles}
 
         self.assertEqual("behavior_commitment_ledger", profiles["primary_path_authority"].canonical_owner_route)
@@ -70,7 +70,7 @@ class RouteTopologyGovernanceTests(unittest.TestCase):
             self.assertEqual("model_first_function_flow", profiles[route_id].canonical_owner_route)
             self.assertNotEqual(flowguard.ENTRY_POLICY_DIRECT, profiles[route_id].entry_policy)
         for route_id in ("plan_detailing_compiler", "agent_workflow_rehearsal"):
-            self.assertEqual(flowguard.ROUTE_ROLE_DELEGATED_MODE, profiles[route_id].route_role)
+            self.assertEqual(flowguard.ROUTE_ROLE_INTERNAL_MODE, profiles[route_id].route_role)
             self.assertEqual("development_process_flow", profiles[route_id].canonical_owner_route)
 
     def test_legacy_bare_string_is_a_migration_error(self):

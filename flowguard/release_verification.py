@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import importlib.metadata
 import json
 from dataclasses import dataclass, field
@@ -10,11 +9,8 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-import tarfile
-import tempfile
 import tomllib
 from typing import Any, Callable, Sequence
-import zipfile
 
 
 REQUIRED_UNIFIED_CHILDREN = (
@@ -58,8 +54,8 @@ class ReleaseVerificationReport:
     artifact_paths: tuple[str, ...] = ()
     release_url: str = ""
     claim_boundary: str = (
-        "Local verification proves the current checkout and built artifacts; published verification additionally "
-        "proves the immutable remote tag, GitHub Release metadata, and downloaded asset hashes."
+        "Local verification proves the current checkout, source-only release authority, and current unified "
+        "evidence. Published verification additionally proves the immutable remote tag and asset-free GitHub Release."
     )
 
     @property
@@ -128,38 +124,16 @@ def _check(check_id: str, ok: bool, message: str, **details: Any) -> ReleaseChec
     return ReleaseCheck(check_id, "pass" if ok else "fail", message, details)
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _project_version(root: Path) -> str:
     with (root / "pyproject.toml").open("rb") as handle:
         return str(tomllib.load(handle)["project"]["version"])
 
 
-def _wheel_version(path: Path) -> str:
-    with zipfile.ZipFile(path) as archive:
-        metadata_name = next(name for name in archive.namelist() if name.endswith(".dist-info/METADATA"))
-        metadata = archive.read(metadata_name).decode("utf-8")
-    match = re.search(r"(?m)^Version:\s*(\S+)\s*$", metadata)
-    return match.group(1) if match else ""
-
-
-def _sdist_version(path: Path) -> str:
-    match = re.match(r"flowguard-(.+)\.tar\.gz$", path.name)
-    return match.group(1) if match else ""
-
-
-def _release_assets(root: Path, version: str) -> tuple[Path, ...]:
+def _package_archives(root: Path, version: str) -> tuple[Path, ...]:
     dist = root / "dist"
-    assets = tuple(sorted(dist.glob(f"flowguard-{version}*.whl"))) + tuple(
+    return tuple(sorted(dist.glob(f"flowguard-{version}*.whl"))) + tuple(
         sorted(dist.glob(f"flowguard-{version}.tar.gz"))
     )
-    return assets
 
 
 def _latest_governed_source(root: Path) -> tuple[Path | None, int]:
@@ -311,21 +285,13 @@ def verify_local_release(
         )
     )
 
-    assets = _release_assets(root_path, selected_version)
-    wheel_assets = tuple(path for path in assets if path.suffix == ".whl")
-    sdist_assets = tuple(path for path in assets if path.name.endswith(".tar.gz"))
-    asset_versions_ok = (
-        len(wheel_assets) == 1
-        and len(sdist_assets) == 1
-        and _wheel_version(wheel_assets[0]) == selected_version
-        and _sdist_version(sdist_assets[0]) == selected_version
-    )
+    package_archives = _package_archives(root_path, selected_version)
     checks.append(
         _check(
-            "release.built_artifacts",
-            asset_versions_ok,
-            "one wheel and one source distribution exist with matching version metadata",
-            assets=[{"name": path.name, "sha256": _sha256(path)} for path in assets],
+            "release.source_only_authority",
+            not package_archives,
+            "the source tag is the sole release authority and no version-matching package archive is present",
+            package_archives=[path.name for path in package_archives],
         )
     )
     return ReleaseVerificationReport(
@@ -333,7 +299,7 @@ def verify_local_release(
         version=selected_version,
         tag=tag,
         checks=tuple(checks),
-        artifact_paths=tuple(str(path) for path in assets) + (str(evidence),),
+        artifact_paths=(str(evidence),),
     )
 
 
@@ -422,56 +388,19 @@ def verify_published_release(
     published_asset_names = {
         str(asset.get("name")) for asset in release_payload.get("assets", []) if asset.get("name")
     }
-    local_assets = _release_assets(root_path, selected_version)
     release_ok = (
         release_payload.get("tagName") == tag
         and release_payload.get("isDraft") is False
         and bool(release_payload.get("publishedAt"))
-        and all(asset.name in published_asset_names for asset in local_assets)
+        and not published_asset_names
     )
     checks.append(
         _check(
             "release.github_release",
             release_view.returncode == 0 and release_ok,
-            "the GitHub Release is published and contains every required package asset",
+            "the GitHub Release is published, points at the source tag, and contains no package assets",
             assets=sorted(published_asset_names),
             is_prerelease=release_payload.get("isPrerelease"),
-        )
-    )
-
-    downloaded_hashes: dict[str, str] = {}
-    download_ok = bool(local_assets)
-    with tempfile.TemporaryDirectory(prefix="flowguard-release-") as directory:
-        download_root = Path(directory)
-        for asset in local_assets:
-            result = command_runner(
-                (
-                    "gh",
-                    "release",
-                    "download",
-                    tag,
-                    "--repo",
-                    selected_repository,
-                    "--pattern",
-                    asset.name,
-                    "--dir",
-                    str(download_root),
-                ),
-                root_path,
-            )
-            downloaded = download_root / asset.name
-            if result.returncode != 0 or not downloaded.exists():
-                download_ok = False
-                continue
-            downloaded_hashes[asset.name] = _sha256(downloaded)
-            if downloaded_hashes[asset.name] != _sha256(asset):
-                download_ok = False
-    checks.append(
-        _check(
-            "release.downloaded_assets",
-            download_ok and len(downloaded_hashes) == len(local_assets),
-            "downloaded GitHub assets match the locally verified artifacts byte for byte",
-            hashes=downloaded_hashes,
         )
     )
     return ReleaseVerificationReport(

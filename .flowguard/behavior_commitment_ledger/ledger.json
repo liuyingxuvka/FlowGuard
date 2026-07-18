@@ -1324,7 +1324,7 @@
         "commitment_kind": "skill",
         "evidence": {
           "code_contract_ids": [
-            "contract:model-first-function-flow:route-guidance"
+            "contract:flowguard:route-guidance"
           ],
           "coverage_case_ids": [
             "bcl.agent_operation.flowguard-agent-guidance-route.current"
@@ -1364,7 +1364,7 @@
           "error_signatures": [],
           "metadata": {},
           "path_patterns": [
-            ".agents/skills/model-first-function-flow",
+            ".agents/skills/flowguard",
             ".agents/skills/flowguard-*"
           ],
           "task_terms": [
@@ -1411,7 +1411,7 @@
           "ppa_risk_gate_ids": [
             "risk_gate:flowguard-agent-guidance-route"
           ],
-          "primary_path_id": "path:model-first-function-flow:plane-first-route-selection",
+          "primary_path_id": "path:flowguard:plane-first-route-selection",
           "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [
             "proof:flowguard-agent-guidance-current"
@@ -2458,12 +2458,12 @@
           "behavior_plane": "agent_operation"
         },
         "owner": "model_first_function_flow",
-        "primary_path_id": "path:model-first-function-flow:plane-first-route-selection",
+        "primary_path_id": "path:flowguard:plane-first-route-selection",
         "rationale": "Public skill shells delegate detailed work to one selected same-plane owner route.",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": ".agents/skills/model-first-function-flow/SKILL.md; .agents/skills/flowguard-*/SKILL.md; docs/agents_snippet.md",
+        "source_ref": ".agents/skills/flowguard/SKILL.md; .agents/skills/flowguard-*/SKILL.md; docs/agents_snippet.md",
         "surface_id": "surface:flowguard-agent-guidance",
         "surface_kind": "skill",
         "validation_boundary": "guidance compression model, skill docs, contract parity, and installed layout"

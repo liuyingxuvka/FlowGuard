@@ -1,26 +1,17 @@
 {
-  "schema_version": "skillguard.suite_map.v1",
+  "schema_version": "skillguard.suite_map.v2",
   "suite_name": "flowguard-agent-skill-suite",
   "target_path": ".agents/skills",
   "status": "checked",
   "included_skills": [
     {
-      "name": "model-first-function-flow",
-      "path": ".agents/skills/model-first-function-flow",
+      "name": "flowguard",
+      "path": ".agents/skills/flowguard",
       "role": "kernel_router",
       "status": "checked",
-      "evidence_location": ".agents/skills/model-first-function-flow/.skillguard",
+      "evidence_location": ".agents/skills/flowguard/.skillguard",
       "required": true,
       "owner": "model_first_function_flow"
-    },
-    {
-      "name": "flowguard-agent-workflow-rehearsal",
-      "path": ".agents/skills/flowguard-agent-workflow-rehearsal",
-      "role": "public_satellite",
-      "status": "checked",
-      "evidence_location": ".agents/skills/flowguard-agent-workflow-rehearsal/.skillguard",
-      "required": true,
-      "owner": "development_process_flow"
     },
     {
       "name": "flowguard-architecture-reduction",
@@ -122,15 +113,6 @@
       "owner": "model_topology_hazard_review"
     },
     {
-      "name": "flowguard-plan-detailing-compiler",
-      "path": ".agents/skills/flowguard-plan-detailing-compiler",
-      "role": "public_satellite",
-      "status": "checked",
-      "evidence_location": ".agents/skills/flowguard-plan-detailing-compiler/.skillguard",
-      "required": true,
-      "owner": "development_process_flow"
-    },
-    {
       "name": "flowguard-structure-mesh",
       "path": ".agents/skills/flowguard-structure-mesh",
       "role": "public_satellite",
@@ -160,7 +142,7 @@
   ],
   "relationships": [
     {
-      "from_skill": "model-first-function-flow",
+      "from_skill": "flowguard",
       "to_skill": "flowguard-existing-model-preflight",
       "relationship_type": "follow_up",
       "notes": "Existing modeled systems ground ownership before a satellite changes behavior or process."
@@ -170,24 +152,12 @@
       "to_skill": "flowguard-contract-exhaustion-mesh",
       "relationship_type": "follow_up",
       "notes": "Behavior commitments project canonical bad cases and path-sensitive coverage."
-    },
-    {
-      "from_skill": "flowguard-development-process-flow",
-      "to_skill": "flowguard-agent-workflow-rehearsal",
-      "relationship_type": "parent_child",
-      "notes": "Agent workflow rehearsal is a delegated development-process mode."
-    },
-    {
-      "from_skill": "flowguard-development-process-flow",
-      "to_skill": "flowguard-plan-detailing-compiler",
-      "relationship_type": "parent_child",
-      "notes": "Plan detailing is a delegated development-process mode."
     }
   ],
   "routing_hints": [
     {
       "task_shape": "Ordinary behavior/state modeling or unclear FlowGuard route",
-      "preferred_skill": "model-first-function-flow",
+      "preferred_skill": "flowguard",
       "non_use_boundary": "Use a directly matching satellite when its ownership is already clear.",
       "conflict_rule": "A satellite is a peer route; the kernel coordinates only unclear or cross-route work."
     }
@@ -200,18 +170,12 @@
   ],
   "maintenance_ownership": [
     "flowguard_self_maintenance owns canonical membership and inventory reconciliation.",
-    "Each satellite owner maintains its prompt, native route binding, tests, and current evidence.",
+    "All fifteen members belong to unit:flowguard-suite while each member keeps its own prompt, native route binding, semantic checks, evidence subjects, and current evidence.",
     "development_process_flow owns validation freshness, distribution synchronization, and release claim boundaries."
   ],
-  "compatibility": {
-    "version_boundary": "FlowGuard >=0.54.0 with skillguard.local_cli_dispatch.v1",
-    "known_incompatibilities": [
-      "The generic SkillGuard compile-contract default creates a parallel skillguard-runtime route for native-integrated FlowGuard skills and must not be used as the canonical compiler."
-    ]
-  },
   "evidence": [
-    "Canonical inventory reconciles seventeen declared and discovered members.",
-    "All seventeen generated contracts pass current SkillGuard static, contract, and depth checks.",
+    "Canonical inventory reconciles fifteen declared and discovered members.",
+    "All fifteen generated contracts name unit:flowguard-suite and preserve member-specific checks and evidence subjects.",
     "Native receipts and parent self-governance remain separate current-run evidence."
   ],
   "residual_risk": [

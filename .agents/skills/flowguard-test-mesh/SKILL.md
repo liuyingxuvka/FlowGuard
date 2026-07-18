@@ -21,7 +21,7 @@ Review a model-derived parent/child validation mesh; block stale, skipped, incom
 - Use for large/slow/background child test scripts, stale/reused evidence, release gates, artifact-payload matrices, or diagnostic boundaries.
 
 ## Do Not Use When
-- Do not split code/models, choose DPF process shape, group root causes, decide semantics, or execute tests; return small tests to `model-first-function-flow`.
+- Do not split code/models, choose DPF process shape, group root causes, decide semantics, or execute tests; return small tests to `flowguard`.
 
 ## Required Workflow
 1. Define the parent gate and derive child suites/scripts from a FlowGuard validation-structure model.

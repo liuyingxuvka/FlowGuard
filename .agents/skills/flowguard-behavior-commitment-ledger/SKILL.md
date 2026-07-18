@@ -21,7 +21,7 @@ Accept a bounded inventory/mode; register one owner per commitment; block covera
 - Use for the six ledger modes: bootstrap, add, change, remove/replace, gap backfill, or miss check.
 
 ## Do Not Use When
-- Do not inventory helper internals or replace sibling evidence owners; return ordinary modeling to `model-first-function-flow`.
+- Do not inventory helper internals or replace sibling evidence owners; return ordinary modeling to `flowguard`.
 
 ## Required Workflow
 1. Define boundary/mode; query canonical JSON lightly, then do mode-required bidirectional discovery.

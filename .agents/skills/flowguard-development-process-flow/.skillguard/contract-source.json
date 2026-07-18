@@ -20,7 +20,7 @@
         }
       ],
       "kind": "model_assertion",
-      "maintenance_unit_id": "unit:flowguard-development-process-flow",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-development-process-flow",
       "semantic_check_id": "semantic:check:flowguard-development-process-flow:plane-boundary",
       "timeout_seconds": 30
@@ -100,7 +100,7 @@
         }
       ],
       "kind": "command",
-      "maintenance_unit_id": "unit:flowguard-development-process-flow",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-development-process-flow",
       "semantic_check_id": "semantic:check:flowguard-development-process-flow:native-authority",
       "timeout_seconds": 300
@@ -124,9 +124,199 @@
         }
       ],
       "kind": "model_assertion",
-      "maintenance_unit_id": "unit:flowguard-development-process-flow",
+      "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-development-process-flow",
       "semantic_check_id": "semantic:check:flowguard-development-process-flow:evidence-closure",
+      "timeout_seconds": 30
+    },
+    {
+      "check_id": "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+      "coverage_rationale": "The internal plan-detailing route keeps its own model boundary inside the DevelopmentProcessFlow public owner.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+      "evidence_subject_id": "subject:flowguard-development-process-flow:plan-detailing:plane-boundary",
+      "execution_owner_id": "owner:check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "examples/plan_detailing_compiler/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard-development-process-flow",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+      "timeout_seconds": 30
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_plan_detailing.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard-development-process-flow:plan-detailing:native-authority",
+      "command": "python",
+      "coverage_rationale": "The DevelopmentProcessFlow owner executes the internal plan-detailing route's native tests directly.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard-development-process-flow:plan-detailing:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard-development-process-flow:plan-detailing:native-authority",
+      "evidence_subject_id": "subject:flowguard-development-process-flow:plan-detailing:native-authority",
+      "execution_owner_id": "owner:check:flowguard-development-process-flow:plan-detailing:native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "examples/plan_detailing_compiler/model.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/plan_detailing.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_plan_detailing.py"
+        },
+        {
+          "kind": "path",
+          "path": ".agents/skills/flowguard-development-process-flow/references/plan_detailing_protocol.md"
+        }
+      ],
+      "kind": "command",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard-development-process-flow",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:plan-detailing:native-authority",
+      "timeout_seconds": 300
+    },
+    {
+      "check_id": "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+      "coverage_rationale": "The internal plan-detailing route closes only on its current model evidence.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard-development-process-flow:plan-detailing:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+      "evidence_subject_id": "subject:flowguard-development-process-flow:plan-detailing:evidence-closure",
+      "execution_owner_id": "owner:check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "examples/plan_detailing_compiler/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard-development-process-flow",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+      "timeout_seconds": 30
+    },
+    {
+      "check_id": "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+      "coverage_rationale": "The internal agent-workflow route keeps its own model boundary inside the DevelopmentProcessFlow public owner.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+      "evidence_subject_id": "subject:flowguard-development-process-flow:agent-workflow:plane-boundary",
+      "execution_owner_id": "owner:check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "examples/flowguard_agent_workflow_rehearsal/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard-development-process-flow",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+      "timeout_seconds": 30
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_flowguard_agent_workflow_rehearsal.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard-development-process-flow:agent-workflow:native-authority",
+      "command": "python",
+      "coverage_rationale": "The DevelopmentProcessFlow owner executes the internal agent-workflow route's native tests directly.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard-development-process-flow:agent-workflow:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard-development-process-flow:agent-workflow:native-authority",
+      "evidence_subject_id": "subject:flowguard-development-process-flow:agent-workflow:native-authority",
+      "execution_owner_id": "owner:check:flowguard-development-process-flow:agent-workflow:native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "examples/flowguard_agent_workflow_rehearsal/model.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/agent_workflow_rehearsal.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_flowguard_agent_workflow_rehearsal.py"
+        },
+        {
+          "kind": "path",
+          "path": ".agents/skills/flowguard-development-process-flow/references/agent_workflow_protocol.md"
+        }
+      ],
+      "kind": "command",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard-development-process-flow",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:agent-workflow:native-authority",
+      "timeout_seconds": 300
+    },
+    {
+      "check_id": "check:flowguard-development-process-flow:agent-workflow:evidence-closure",
+      "coverage_rationale": "The internal agent-workflow route closes only on its current model evidence.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard-development-process-flow:agent-workflow:evidence-closure",
+      "evidence_subject_id": "subject:flowguard-development-process-flow:agent-workflow:evidence-closure",
+      "execution_owner_id": "owner:check:flowguard-development-process-flow:agent-workflow:evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "examples/flowguard_agent_workflow_rehearsal/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard-development-process-flow",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:agent-workflow:evidence-closure",
       "timeout_seconds": 30
     }
   ],
@@ -138,7 +328,13 @@
         "obligation:flowguard-development-process-flow:plane-boundary",
         "obligation:flowguard-development-process-flow:native-authority",
         "obligation:flowguard-development-process-flow:process-strategy-equivalence",
-        "obligation:flowguard-development-process-flow:evidence-closure"
+        "obligation:flowguard-development-process-flow:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "obligation:flowguard-development-process-flow:plan-detailing:native-authority",
+        "obligation:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "obligation:flowguard-development-process-flow:agent-workflow:native-authority",
+        "obligation:flowguard-development-process-flow:agent-workflow:evidence-closure"
       ]
     }
   ],
@@ -178,17 +374,27 @@
     "native_check_ids": [
       "check:flowguard-development-process-flow:plane-boundary",
       "check:flowguard-development-process-flow:native-authority",
-      "check:flowguard-development-process-flow:evidence-closure"
+      "check:flowguard-development-process-flow:evidence-closure",
+      "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+      "check:flowguard-development-process-flow:plan-detailing:native-authority",
+      "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+      "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+      "check:flowguard-development-process-flow:agent-workflow:native-authority",
+      "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
     ],
     "native_owner_id": "development_process_flow",
     "native_route_ids": [
-      "route:development_process_flow"
+      "route:development_process_flow",
+      "route:plan_detailing_compiler",
+      "route:agent_workflow_rehearsal"
     ],
     "profile_id": "profile:flowguard-development-process-flow:fixed-enforced-declared-check-supervision",
     "provider_runtime": {
       "provider_id": "skillguard-local-provider",
       "readiness_check_ids": [
-        "check:flowguard-development-process-flow:native-authority"
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority"
       ],
       "required_capability_ids": [
         "declared-check-inventory.v1",
@@ -219,15 +425,35 @@
     "flowguard/development_process_strategy.py",
     "tests/test_development_process_strategy.py",
     "tests/test_development_process_strategy_benchmark.py",
-    "tests/test_process_optimization_zero_residuals.py"
+    "tests/test_process_optimization_zero_residuals.py",
+    "examples/plan_detailing_compiler",
+    "flowguard/plan_detailing.py",
+    "tests/test_plan_detailing.py",
+    "examples/flowguard_agent_workflow_rehearsal",
+    "flowguard/agent_workflow_rehearsal.py",
+    "tests/test_flowguard_agent_workflow_rehearsal.py"
   ],
   "integration_mode": "native-integrated",
   "judgment_rubrics": [],
-  "maintenance_unit_id": "unit:flowguard-development-process-flow",
+  "maintenance_unit_id": "unit:flowguard-suite",
   "may_define_parallel_execution_route": false,
   "may_define_skillguard_runtime_route": false,
   "member_skill_ids": [
-    "flowguard-development-process-flow"
+    "flowguard",
+    "flowguard-architecture-reduction",
+    "flowguard-behavior-commitment-ledger",
+    "flowguard-code-structure-recommendation",
+    "flowguard-contract-exhaustion-mesh",
+    "flowguard-development-process-flow",
+    "flowguard-existing-model-preflight",
+    "flowguard-field-lifecycle-mesh",
+    "flowguard-model-mesh",
+    "flowguard-model-miss-review",
+    "flowguard-model-test-alignment",
+    "flowguard-model-topology-hazard-review",
+    "flowguard-structure-mesh",
+    "flowguard-test-mesh",
+    "flowguard-ui-flow-structure"
   ],
   "model_id": "flowguard.development_process_flow.skill_contract.v2",
   "model_path": ".flowguard/development_process_flow/model.py",
@@ -236,6 +462,16 @@
       "authority": "target-native",
       "check_id": "check:flowguard-development-process-flow:native-authority",
       "owner_id": "development_process_flow"
+    },
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard-development-process-flow:plan-detailing:native-authority",
+      "owner_id": "development_process_flow"
+    },
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard-development-process-flow:agent-workflow:native-authority",
+      "owner_id": "development_process_flow"
     }
   ],
   "native_route_bindings": [
@@ -243,6 +479,16 @@
       "authority": "target-native",
       "owner_id": "development_process_flow",
       "route_id": "route:development_process_flow"
+    },
+    {
+      "authority": "target-native",
+      "owner_id": "development_process_flow",
+      "route_id": "route:plan_detailing_compiler"
+    },
+    {
+      "authority": "target-native",
+      "owner_id": "development_process_flow",
+      "route_id": "route:agent_workflow_rehearsal"
     }
   ],
   "native_route_owner": "development_process_flow",
@@ -283,6 +529,72 @@
       ],
       "output_artifact_ids": [],
       "step_id": "step:flowguard-development-process-flow:verify"
+    },
+    {
+      "action": {
+        "kind": "inventory",
+        "summary": "Classify the internal plan-detailing route and its typed planning inputs."
+      },
+      "check_ids": [
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary"
+      ],
+      "output_artifact_ids": [],
+      "step_id": "step:flowguard-development-process-flow:plan-detailing:intake"
+    },
+    {
+      "action": {
+        "kind": "native",
+        "summary": "Compile the rough plan through the DevelopmentProcessFlow-owned internal route."
+      },
+      "check_ids": [
+        "check:flowguard-development-process-flow:plan-detailing:native-authority"
+      ],
+      "output_artifact_ids": [],
+      "step_id": "step:flowguard-development-process-flow:plan-detailing:execute"
+    },
+    {
+      "action": {
+        "kind": "verifier",
+        "summary": "Close plan detailing only on current route-specific evidence."
+      },
+      "check_ids": [
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure"
+      ],
+      "output_artifact_ids": [],
+      "step_id": "step:flowguard-development-process-flow:plan-detailing:verify"
+    },
+    {
+      "action": {
+        "kind": "inventory",
+        "summary": "Classify the internal agent-workflow route and its typed operational inputs."
+      },
+      "check_ids": [
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary"
+      ],
+      "output_artifact_ids": [],
+      "step_id": "step:flowguard-development-process-flow:agent-workflow:intake"
+    },
+    {
+      "action": {
+        "kind": "native",
+        "summary": "Rehearse the selected agent workflow through the DevelopmentProcessFlow-owned internal route."
+      },
+      "check_ids": [
+        "check:flowguard-development-process-flow:agent-workflow:native-authority"
+      ],
+      "output_artifact_ids": [],
+      "step_id": "step:flowguard-development-process-flow:agent-workflow:execute"
+    },
+    {
+      "action": {
+        "kind": "verifier",
+        "summary": "Close agent-workflow rehearsal only on current route-specific evidence."
+      },
+      "check_ids": [
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "output_artifact_ids": [],
+      "step_id": "step:flowguard-development-process-flow:agent-workflow:verify"
     }
   ]
 }

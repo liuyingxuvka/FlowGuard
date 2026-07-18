@@ -317,7 +317,7 @@ FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
 
 def export_contract_model():
     return build_skill_contract_model_export(
-        skill_id="model-first-function-flow",
+        skill_id="flowguard",
         route_id="model_first_function_flow",
         owner_id="model_first_function_flow",
         parent_model_id="flowguard.root",

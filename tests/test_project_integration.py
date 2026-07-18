@@ -23,7 +23,7 @@ class ProjectIntegrationTests(unittest.TestCase):
         self.assertIn("AI-agent skill suite", text)
         self.assertIn("Agent Skill Suite Setup", text)
         self.assertIn("`.agents/skills/`", text)
-        self.assertIn("model-first-function-flow", text)
+        self.assertIn("`.agents/skills/flowguard/SKILL.md`", text)
         self.assertIn("not the AI-agent skill install surface", text)
         self.assertIn("check-execution convenience", text)
         self.assertIn('python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"', text)
@@ -46,7 +46,7 @@ class ProjectIntegrationTests(unittest.TestCase):
             ROOT
             / ".agents"
             / "skills"
-            / "model-first-function-flow"
+            / "flowguard"
             / "SKILL.md"
         ).read_text(encoding="utf-8")
 
@@ -82,7 +82,7 @@ class ProjectIntegrationTests(unittest.TestCase):
             ROOT
             / ".agents"
             / "skills"
-            / "model-first-function-flow"
+            / "flowguard"
             / "assets"
             / "toolchain_preflight.py"
         )

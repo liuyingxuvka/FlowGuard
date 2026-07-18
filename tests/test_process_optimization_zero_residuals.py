@@ -71,7 +71,6 @@ def current_guidance_files():
         ROOT / "flowguard",
         ROOT / ".agents" / "skills" / "flowguard-development-process-flow",
         ROOT / ".agents" / "skills" / "flowguard-test-mesh",
-        ROOT / ".agents" / "skills" / "flowguard-plan-detailing-compiler",
     )
     for root in roots:
         for path in root.rglob("*"):
@@ -118,6 +117,14 @@ class ProcessOptimizationZeroResidualTests(unittest.TestCase):
                 if token in text:
                     violations.append(f"{path.relative_to(ROOT)}: {token}")
         self.assertEqual([], violations, "\n".join(violations))
+
+    def test_retired_public_mode_skills_are_absent_and_internal_routes_are_current(self):
+        skills = ROOT / ".agents" / "skills"
+        self.assertFalse((skills / "flowguard-plan-detailing-compiler").exists())
+        self.assertFalse((skills / "flowguard-agent-workflow-rehearsal").exists())
+        dpf = skills / "flowguard-development-process-flow"
+        self.assertTrue((dpf / "references" / "plan_detailing_protocol.md").is_file())
+        self.assertTrue((dpf / "references" / "agent_workflow_protocol.md").is_file())
 
 
 if __name__ == "__main__":

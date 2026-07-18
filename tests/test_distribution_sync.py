@@ -9,6 +9,8 @@ from pathlib import Path
 from flowguard.distribution_sync import (
     DEFAULT_EXCLUSION_RULES,
     OWNERSHIP_MANIFEST_NAME,
+    PARITY_ROLE_AUTHOR_SOURCE,
+    PARITY_ROLE_CONSUMER_DISTRIBUTION,
     check_skill_suite,
     compare_configured_skill_trees,
     install_skill_suite,
@@ -24,7 +26,7 @@ class DistributionFixture(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.source = self.root / "formal" / ".agents" / "skills"
         self.target = self.root / "codex" / "skills"
-        self.members = ("model-first-function-flow", "flowguard-test-mesh")
+        self.members = ("flowguard", "flowguard-test-mesh")
         for member in self.members:
             (self.source / member / "agents").mkdir(parents=True)
             (self.source / member / "SKILL.md").write_text(f"# {member}\n", encoding="utf-8")
@@ -69,6 +71,11 @@ class TreeInventoryTests(DistributionFixture):
         report = compare_configured_skill_trees(
             {"source": self.source, "formal": self.source, "installed": self.target},
             member_ids=self.members,
+            root_roles={
+                "source": PARITY_ROLE_AUTHOR_SOURCE,
+                "formal": PARITY_ROLE_AUTHOR_SOURCE,
+                "installed": PARITY_ROLE_CONSUMER_DISTRIBUTION,
+            },
         )
         self.assertFalse(report.ok)
         self.assertTrue(report.comparisons["formal"].ok)

@@ -398,8 +398,8 @@ class DecideSkillTrigger:
                     input_obj.task_id,
                     "use_model_first_kernel",
                     input_obj.required_checks,
-                    "model-first-function-flow selected for ordinary behavior/state modeling or route coordination",
-                    "model-first-function-flow",
+                    "flowguard selected for ordinary behavior/state modeling or route coordination",
+                    "flowguard",
                 )
                 label = "kernel_route_selected"
         elif input_obj.decision == "needs_human_review":
@@ -609,9 +609,9 @@ class BrokenPlanDetailingDirectFirst(DecideSkillTrigger):
                 "use_direct_flowguard_skill",
                 input_obj.required_checks,
                 "broken trigger selects plan detailing as the first entry",
-                "flowguard-plan-detailing-compiler",
-                "plan_detailing",
-                ("plan_detailing",),
+                "internal:plan_detailing_compiler",
+                "plan_detailing_compiler",
+                ("plan_detailing_compiler",),
             )
             yield FunctionResult(
                 decision,
@@ -634,9 +634,9 @@ class BrokenAgentWorkflowDirectFirst(DecideSkillTrigger):
                 "use_direct_flowguard_skill",
                 input_obj.required_checks,
                 "broken trigger selects agent workflow as the first entry",
-                "flowguard-agent-workflow-rehearsal",
-                "agent_workflow",
-                ("agent_workflow",),
+                "internal:agent_workflow_rehearsal",
+                "agent_workflow_rehearsal",
+                ("agent_workflow_rehearsal",),
             )
             yield FunctionResult(
                 decision,

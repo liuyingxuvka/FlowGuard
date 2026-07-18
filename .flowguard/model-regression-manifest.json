@@ -515,10 +515,10 @@
         "evidence_check_ids": [
           "check:model-regression:codex_skill_satellites"
         ],
-        "model_sha256": "sha256:7e037961b6c4caeaa12945295a4d39fd6f58fe00f3bd801e7df3b325e8ae957b",
+        "model_sha256": "sha256:a2bf169f9a2f1cee2aef72dedf462a2e26bef3aa910c961ebc1d46f3cd9d7a49",
         "runner_sha256": "sha256:81213708e4a94c874263be65ee4e9ae13e04236b487d3d479b0655d0ab01af90",
         "declaration_fingerprint": "sha256:ad6175482e11e5e9d467c7f5e72e1702e024afe77b258b04db89b8b00da742a3",
-        "closure_fingerprint": "sha256:1f4f15b110d6f414e4611b8424e4bf2087269d1ae5825744b45ee59a32605859"
+        "closure_fingerprint": "sha256:f56edf19ac9afccbce20e215b9a6374dbf0812dfead20bcf18db3db883bf997d"
       }
     },
     {
@@ -659,10 +659,10 @@
         "evidence_check_ids": [
           "check:model-regression:development_process_flow"
         ],
-        "model_sha256": "sha256:e4932bedb7ea4aba6af6d07b4d0d5416b4dc053f08634eff314717da4a4542c8",
+        "model_sha256": "sha256:89fd15579bbe9f214eff5db11886876004f277170564df92c4e14a70b44cd47c",
         "runner_sha256": "sha256:d05dc18beddf1c2cc87f774f1063371a110952cde94c03cbc0e3b177e445cbc0",
         "declaration_fingerprint": "sha256:4f3f6bafc400c2425d790c449512969ad34382c6e8ea366fc31e9a528acca629",
-        "closure_fingerprint": "sha256:61802a01c5aeb88f89f4e98e0119042eec5dbeb304e3205918dab6310659beb4"
+        "closure_fingerprint": "sha256:4b204dcaeb9f035fdf53078cc65db6d7c47fa0a60514646bbc97c3198b2b84b0"
       }
     },
     {
@@ -950,10 +950,10 @@
         "evidence_check_ids": [
           "check:model-regression:guidance_compression"
         ],
-        "model_sha256": "sha256:426f0f1fe1b850e77e12b26ed36df35dde1b076801932a124924782b686dc440",
+        "model_sha256": "sha256:4d789ebaa4d84b24273ad60ca5a35e4d4b1acee409efd37f5aa25d9ea0172a40",
         "runner_sha256": "sha256:c22be2d2a9afc3bde07cf6892b0b381d2c40e513c3a9fbfa4668f93055c9f5bf",
         "declaration_fingerprint": "sha256:2b6f94fe2f0de2880dfbfdc15f43251ccd46f711f2f55b64b31b005bff02677e",
-        "closure_fingerprint": "sha256:8f108f4830284bd006861baf414aeabe0507274ad63847b206b91a76a0b2f993"
+        "closure_fingerprint": "sha256:911a9a1d25a451eac4779f833a916362ac05bae83ac093adc22ec4179c3f3cae"
       }
     },
     {
@@ -1160,10 +1160,10 @@
         "evidence_check_ids": [
           "check:model-regression:legacy_compatibility_cleanup"
         ],
-        "model_sha256": "sha256:c31256ac95abfc5190c7da954046265a8cd083b56b79412a97b2c99d84589e0d",
+        "model_sha256": "sha256:069ea0c73bec2d87f13a787c1e1eeb00d09153e63ca28b788c867b329784e9e5",
         "runner_sha256": "sha256:ba03914e3b8b2688b9dc9d24909033366a4b2043875878ba6da35d59efd18124",
         "declaration_fingerprint": "sha256:d13e6ec20ff9702fa766a58179bed4df0001e01790d0c8fd01651cfc44daa54d",
-        "closure_fingerprint": "sha256:d9092cc81f40e2c760686cdff764d8b3a32696c139faa639f60dffabd22873b8"
+        "closure_fingerprint": "sha256:1c91e301cfb537431c78ac968c2af7d18447d8b4327b1e61bd94281150b02873"
       }
     },
     {
@@ -1208,10 +1208,10 @@
         "evidence_check_ids": [
           "check:model-regression:lightweight_model_miss_review"
         ],
-        "model_sha256": "sha256:0cc126f816ea086b0f61a016cca1cc5c1c301c4a07fe25670171489f4daffae3",
+        "model_sha256": "sha256:52a7f2338b487b9983092c7e27080f32618124af1d8470ffaa8b5db1e9099c06",
         "runner_sha256": "sha256:4392dbb40f0eba299559f010554cfb41b7c57355a98d148737e009379c085243",
         "declaration_fingerprint": "sha256:b18d34d6f66323b172ad8346ee1786483c7cf9c8a72c5190d23fca3279cf70fa",
-        "closure_fingerprint": "sha256:633d4b4578c139d427f9d3949c7023e808b08547d043b134bd2612f194273a47"
+        "closure_fingerprint": "sha256:a851d94b354320b072feae73cf733a437f9d899b49fcac3dd753324d4d01d7cd"
       }
     },
     {
@@ -1400,10 +1400,10 @@
         "evidence_check_ids": [
           "check:model-regression:minimum_valuable_model_entry"
         ],
-        "model_sha256": "sha256:8cffb0ac18d96401504a66dc2cafb5aa54ac88f188d2e1d9e00136cb3c9c5ae7",
+        "model_sha256": "sha256:3d781ac12023362446f6bf637b309d7a690be222d51541817553390eb2e81d15",
         "runner_sha256": "sha256:041ec928815dea9bdccdb14ea194b877f5279848729ad427b79a6f1f6a63b736",
         "declaration_fingerprint": "sha256:b45a00eb181a6e7546b6e2c5090cd71580956a16c48b8b760fc6daa513400cc0",
-        "closure_fingerprint": "sha256:62cbbed8efd210d99774d0c991c4b8f2b6b04c30b6402930298c7967e8bd9105"
+        "closure_fingerprint": "sha256:10b5d4578c36a13f0dba83832fbf8582fcfb9da078fbe4342501ed27a5fc7228"
       }
     },
     {
@@ -2314,10 +2314,10 @@
         "evidence_check_ids": [
           "check:model-regression:self_maintenance_mesh"
         ],
-          "model_sha256": "sha256:e957f0b4409712e97c8f8399085b29e79ac035d92cc86b037fbc73cef0a62ce4",
-        "runner_sha256": "sha256:96559becb2240ed3324ae5a7a1aa3ecc404fb2e782ca9885a24fd240fe236a17",
+        "model_sha256": "sha256:cf61ce14d226d3e6685f86612b5cf7cfe81037f59896d394357dd8c0e3ecbedb",
+        "runner_sha256": "sha256:fdd904e890adbcdff53ddade065ef7defff4e94afa5cfeb5e7dbe93bd6c7b586",
         "declaration_fingerprint": "sha256:a02cbef5dff567145b77d292b750ecc6d2ed5276609b5b3c61a9f39bbffc9545",
-          "closure_fingerprint": "sha256:a1668330d0fa920105829d42f0cce2f1d1f18e225ca1c776be24415a4d7d8b32"
+        "closure_fingerprint": "sha256:60c08749c11ca50a765d595c32c217a651aa56c8f9c30c76e829c40e3990716f"
       }
     },
     {
@@ -2458,10 +2458,10 @@
         "evidence_check_ids": [
           "check:model-regression:skill_kernel_modularization"
         ],
-        "model_sha256": "sha256:15d1b58ef3c686e46d920b1154fcfa467a13670dbda03348bfcc3b2b1362599f",
+        "model_sha256": "sha256:64c57d1bb8c7b839cc7a40768cc27a5a2e4fe76cf883cea502a53d3dfac41aec",
         "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
         "declaration_fingerprint": "sha256:67bb15edd41edf3f90db51a5816f6b4e990e868bb116ce03f387003188f2e848",
-        "closure_fingerprint": "sha256:686ad4abae0cf54486c18b2017706d02b398eebf9d792fc1871d9574c0e1fc80"
+        "closure_fingerprint": "sha256:82bd95cc6c0632f947fb9911aacabceb51498f9a0b9bb58a5692f8f6cabf2bfc"
       }
     },
     {

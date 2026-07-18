@@ -65,7 +65,7 @@ PUBLIC_ROUTE_IDS = (
 
 def _skill_id_for_public_route(route_id: str) -> str:
     if route_id == "model_first_function_flow":
-        return route_id.replace("_", "-")
+        return "flowguard"
     route_stem = {
         "model_mesh_maintenance": "model_mesh",
         "structure_mesh_maintenance": "structure_mesh",
@@ -907,7 +907,7 @@ def validate_route_parity(
         for profile in route_profiles
         if str(getattr(profile, "skill_name", ""))
         and str(getattr(profile, "canonical_owner_route", ""))
-        and str(getattr(profile, "route_role", "")) == "delegated_mode"
+        and str(getattr(profile, "route_role", "")) == "internal_mode"
     }
     for skill_id in suite_snapshot.skill_ids:
         owner_route = str(suite_snapshot.route_owner_by_skill.get(skill_id, ""))

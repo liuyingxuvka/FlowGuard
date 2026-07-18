@@ -21,7 +21,7 @@ Accept declared finite dimensions/seeds; generate reviewable cases with oracles;
 - Use for same-class, payload, transition, state-closure, PPA, BCL, product-language, expected member/candidate inventory, facade delegation, parent/child closure, no-delta, or model-scoped Cartesian coverage.
 
 ## Do Not Use When
-- Do not invent a boundary from prose, run tests, replace sibling routes, or claim all bugs are covered; return unclear ownership to `model-first-function-flow`.
+- Do not invent a boundary from prose, run tests, replace sibling routes, or claim all bugs are covered; return unclear ownership to `flowguard`.
 
 ## Required Workflow
 1. Identify the declaring owner, finite dimensions/seeds, model scope, universe, exclusions, and required consumers.

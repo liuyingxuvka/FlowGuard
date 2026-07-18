@@ -2,11 +2,9 @@ import json
 import os
 from pathlib import Path
 import subprocess
-import tarfile
 import tempfile
 import unittest
 from unittest import mock
-import zipfile
 
 from flowguard.release_verification import (
     REQUIRED_UNIFIED_CHILDREN,
@@ -44,12 +42,6 @@ class ReleaseVerificationTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        wheel = self.root / "dist" / "flowguard-1.2.3-py3-none-any.whl"
-        with zipfile.ZipFile(wheel, "w") as archive:
-            archive.writestr("flowguard-1.2.3.dist-info/METADATA", "Name: flowguard\nVersion: 1.2.3\n")
-        sdist = self.root / "dist" / "flowguard-1.2.3.tar.gz"
-        with tarfile.open(sdist, "w:gz"):
-            pass
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
@@ -62,7 +54,7 @@ class ReleaseVerificationTests(unittest.TestCase):
             source_path=self.root / "flowguard" / "__init__.py",
         )
 
-    def test_local_release_requires_all_exact_children_and_built_artifacts(self) -> None:
+    def test_local_release_requires_all_exact_children_and_source_only_authority(self) -> None:
         report = self._verify()
         self.assertTrue(report.ok, report.to_dict())
         self.assertEqual("pass", report.status)
@@ -75,13 +67,12 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("release.local_evidence", report.to_dict()["blockers"])
 
-    def test_wheel_metadata_version_mismatch_blocks_release(self) -> None:
-        wheel = next((self.root / "dist").glob("*.whl"))
-        with zipfile.ZipFile(wheel, "w") as archive:
-            archive.writestr("flowguard-1.2.3.dist-info/METADATA", "Name: flowguard\nVersion: 9.9.9\n")
+    def test_version_matching_package_archive_blocks_source_only_release(self) -> None:
+        wheel = self.root / "dist" / "flowguard-1.2.3-py3-none-any.whl"
+        wheel.write_bytes(b"package archive is prohibited")
         report = self._verify()
         self.assertFalse(report.ok)
-        self.assertIn("release.built_artifacts", report.to_dict()["blockers"])
+        self.assertIn("release.source_only_authority", report.to_dict()["blockers"])
 
     def test_source_change_after_unified_result_blocks_release(self) -> None:
         source = self.root / "flowguard" / "changed.py"

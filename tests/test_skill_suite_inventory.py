@@ -13,7 +13,7 @@ from flowguard.skill_suite import (
     FLOWGUARD_EXPECTED_MEMBER_COUNT,
     FLOWGUARD_EXPECTED_SATELLITE_COUNT,
     FLOWGUARD_KERNEL_ROLE,
-    FLOWGUARD_REQUIRED_MEMBER_FILES,
+    FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES,
     FLOWGUARD_SATELLITE_ROLE,
     FLOWGUARD_SUITE_MAP,
     MODEL_PURPOSE_PROMPT_MARKERS,
@@ -45,7 +45,7 @@ class SkillSuiteInventoryTests(unittest.TestCase):
     def _write_complete_members(self) -> None:
         for member in self.map_data["included_skills"]:
             skill_dir = self.root / member["path"]
-            for relative in FLOWGUARD_REQUIRED_MEMBER_FILES:
+            for relative in FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES:
                 path = skill_dir / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 if relative == "SKILL.md":
@@ -107,7 +107,7 @@ class SkillSuiteInventoryTests(unittest.TestCase):
     def _codes(self) -> set[str]:
         return {finding.code for finding in validate_skill_suite(self.root).findings}
 
-    def test_complete_inventory_has_one_kernel_and_sixteen_satellites(self) -> None:
+    def test_complete_inventory_has_one_kernel_and_fourteen_satellites(self) -> None:
         report = validate_skill_suite(self.root)
         self.assertTrue(report.ok, report.to_json_text())
         self.assertEqual(FLOWGUARD_EXPECTED_MEMBER_COUNT, len(report.declared_member_ids))
@@ -245,7 +245,7 @@ class SkillSuiteInventoryTests(unittest.TestCase):
         self.assertEqual(set(report.declared_member_ids), set(report.discovered_member_ids))
         self.assertIn("flowguard-behavior-commitment-ledger", report.declared_member_ids)
 
-    def test_compatibility_scripts_project_the_same_inventory(self) -> None:
+    def test_inventory_scripts_project_the_same_inventory(self) -> None:
         suite = subprocess.run(
             [sys.executable, "scripts/verify_skill_suite_markers.py", "--root", ".", "--json"],
             cwd=REPOSITORY_ROOT,

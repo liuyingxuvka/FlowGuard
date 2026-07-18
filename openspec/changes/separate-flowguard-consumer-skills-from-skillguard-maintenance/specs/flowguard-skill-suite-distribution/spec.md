@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Distribution is a clean consumer projection
-FlowGuard SHALL construct its public 17-skill distribution from explicit target-owned paths and SHALL validate the staged projection before atomic activation.
+FlowGuard SHALL construct its public 15-skill distribution from explicit target-owned paths and SHALL validate the staged projection before atomic activation.
 
 #### Scenario: Author source contains SkillGuard controls
 - **WHEN** a public distribution is built from the maintained FlowGuard source tree
@@ -23,6 +23,25 @@ The maintainer-source projection SHALL synchronize and parity-check the current 
 #### Scenario: Author policy survives in consumer projection
 - **WHEN** a consumer prompt, generated AGENTS block, template, or installed skill still authorizes SkillGuard maintenance, contracts, receipts, or the former six-policy/Pareto path
 - **THEN** suite distribution is blocked even if the maintainer-source skill is current
+
+### Requirement: Parity roots declare projection roles
+Every configured parity root SHALL declare exactly one current role:
+`author_source` or `consumer_distribution`. The reference root SHALL be
+`author_source`; consumer roots SHALL be compared against a generated clean
+consumer projection.
+
+#### Scenario: Installed tree is compared as author source
+- **WHEN** an installed consumer root is missing a role or is labeled `author_source`
+- **THEN** parity blocks rather than treating author-only controls as consumer files
+
+### Requirement: Release authority is source only
+The v0.58.0 release SHALL use the immutable source tag as its sole artifact
+authority. Matching wheels, source distributions, and GitHub Release assets
+are prohibited.
+
+#### Scenario: Package archive is present
+- **WHEN** local or published verification finds a version-matching package archive or release asset
+- **THEN** source-only release verification fails
 
 ### Requirement: Managed skills declare V1 authority lifecycle
 Every maintained FlowGuard V2 contract source SHALL declare whether former V1 author-runtime surfaces are migration evidence or formally retired. The maintainer-source projection SHALL preserve that decision, while the generated consumer distribution SHALL exclude all V1 and V2 SkillGuard control surfaces.

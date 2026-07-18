@@ -1,7 +1,7 @@
 """FlowGuard rollout model for lightweight post-runtime model-miss review.
 
 Risk Purpose Header:
-This FlowGuard model reviews the `model-first-function-flow` Skill update for
+This FlowGuard model reviews the `flowguard` Skill update for
 post-runtime model-miss review. It guards against point-fix-only model repairs,
 point-fix-only test upgrades, recurring same-class misses being treated as
 another local point fix, over-detailed formal miss categories, and turning

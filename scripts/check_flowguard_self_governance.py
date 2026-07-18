@@ -1,4 +1,4 @@
-"""Check receipt-bound governance for all seventeen FlowGuard skills."""
+"""Check receipt-bound governance for all fifteen FlowGuard skills."""
 
 from __future__ import annotations
 

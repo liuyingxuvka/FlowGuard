@@ -21,7 +21,7 @@ Accept a parent and bounded children; verify partitions/receipts; block overlap,
 - Use for 3+ models, oversized/incomplete model groups, changed child boundaries, stale child evidence, coverage receipts, affected siblings, or parent whole-flow claims.
 
 ## Do Not Use When
-- Do not split tests or code, trust child-local green as parent proof, or use for ordinary single-model work; return that work to `model-first-function-flow`.
+- Do not split tests or code, trust child-local green as parent proof, or use for ordinary single-model work; return that work to `flowguard`.
 
 ## Required Workflow
 1. Inventory parent/children, risk boundaries, target split derivation, ownership partitions, evidence tiers, and freshness.

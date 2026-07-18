@@ -12,7 +12,7 @@ from flowguard.skill_contracts import validate_contract_source
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = {
-    "flowguard-agent-workflow-rehearsal": "examples/flowguard_agent_workflow_rehearsal/model.py",
+    "flowguard": ".flowguard/minimum_valuable_model_entry/model.py",
     "flowguard-architecture-reduction": ".flowguard/architecture_reduction/model.py",
     "flowguard-behavior-commitment-ledger": ".flowguard/behavior_commitment_ledger/model.py",
     "flowguard-code-structure-recommendation": "examples/skill_contract_model_exports/code_structure_recommendation.py",
@@ -24,12 +24,11 @@ SKILLS = {
     "flowguard-model-miss-review": ".flowguard/model_miss_review/model.py",
     "flowguard-model-test-alignment": ".flowguard/model_test_code_alignment/model.py",
     "flowguard-model-topology-hazard-review": ".flowguard/model_topology_hazard_review/model.py",
-    "flowguard-plan-detailing-compiler": "examples/plan_detailing_compiler/model.py",
     "flowguard-structure-mesh": ".flowguard/structure_refactor_mesh/model.py",
     "flowguard-test-mesh": ".flowguard/test_evidence_mesh/model.py",
     "flowguard-ui-flow-structure": ".flowguard/ui_flow_structure_skill/model.py",
-    "model-first-function-flow": ".flowguard/minimum_valuable_model_entry/model.py",
 }
+SUITE_MEMBER_IDS = tuple(SKILLS)
 
 
 def load_module(path: Path):
@@ -58,8 +57,8 @@ class SkillContractCurrentProjectionTests(unittest.TestCase):
                 self.assertFalse(validate_contract_source(source, skill))
                 self.assertNotIn("v1_runtime_authority", source)
                 self.assertEqual("skill_maintainer_source", source["repository_role"])
-                self.assertEqual(f"unit:{skill_id}", source["maintenance_unit_id"])
-                self.assertEqual([skill_id], source["member_skill_ids"])
+                self.assertEqual("unit:flowguard-suite", source["maintenance_unit_id"])
+                self.assertEqual(list(SUITE_MEMBER_IDS), source["member_skill_ids"])
                 self.assertEqual(
                     {
                         "projection_id": "projection:consumer-distribution",
@@ -121,8 +120,8 @@ class SkillContractCurrentProjectionTests(unittest.TestCase):
                 self.assertEqual(exported["model_id"], compiled["model_id"])
                 self.assertEqual(source["depth_profile"], compiled["depth_profile"])
                 self.assertEqual("skill_maintainer_source", compiled["repository_role"])
-                self.assertEqual(f"unit:{skill_id}", compiled["maintenance_unit_id"])
-                self.assertEqual([skill_id], compiled["member_skill_ids"])
+                self.assertEqual("unit:flowguard-suite", compiled["maintenance_unit_id"])
+                self.assertEqual(list(SUITE_MEMBER_IDS), compiled["member_skill_ids"])
                 self.assertEqual(source["consumer_projection"], compiled["consumer_projection"])
                 self.assertEqual(source["consumer_projection"], manifest["consumer_projection"])
                 self.assertEqual(compiled["contract_hash"], manifest["contract_hash"])
@@ -145,8 +144,8 @@ class SkillContractCurrentProjectionTests(unittest.TestCase):
         self.assertIn(obligation, native["covers_obligation_ids"])
         self.assertIn("tests/test_development_process_strategy.py", native["args"])
 
-    def test_suite_inventory_is_exactly_the_seventeen_current_sources(self) -> None:
-        self.assertEqual(17, len(SKILLS))
+    def test_suite_inventory_is_exactly_the_fifteen_current_sources(self) -> None:
+        self.assertEqual(15, len(SKILLS))
         discovered = {
             path.parent.parent.name
             for path in (ROOT / ".agents" / "skills").glob("*/.skillguard/contract-source.json")

@@ -57,6 +57,12 @@ class CurrentSkillContractParityTests(unittest.TestCase):
             copied_skill = repo / ".agents" / "skills" / SKILL_ID
             copied_skill.parent.mkdir(parents=True)
             shutil.copytree(SKILL, copied_skill)
+            suite_map = repo / ".skillguard" / "flowguard-suite" / "suite-map.json"
+            suite_map.parent.mkdir(parents=True)
+            shutil.copy2(
+                ROOT / ".skillguard" / "flowguard-suite" / "suite-map.json",
+                suite_map,
+            )
             model = repo / ".flowguard" / "development_process_flow" / "model.py"
             model.parent.mkdir(parents=True)
             shutil.copy2(ROOT / ".flowguard" / "development_process_flow" / "model.py", model)
@@ -77,11 +83,11 @@ class CurrentSkillContractParityTests(unittest.TestCase):
             self.assertIn("binding_fingerprint_stale", codes)
             self.assertIn("former_runtime_authority_residual", codes)
 
-    def test_all_seventeen_members_pass_current_parity(self) -> None:
+    def test_all_fifteen_members_pass_current_parity(self) -> None:
         report = compile_skill_suite(ROOT)
         self.assertTrue(report.ok, report.to_json_text())
-        self.assertEqual(17, len(report.member_ids))
-        self.assertEqual(17, len(report.contract_hashes))
+        self.assertEqual(15, len(report.member_ids))
+        self.assertEqual(15, len(report.contract_hashes))
 
     def test_current_authority_root_contains_only_the_trio(self) -> None:
         for skill_root in sorted((ROOT / ".agents" / "skills").iterdir()):

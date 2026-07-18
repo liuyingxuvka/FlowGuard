@@ -284,7 +284,7 @@ def architecture_reduction_report():
             public_entrypoints=(
                 "flowguard.SimilarityHandoff",
                 "flowguard.FLOWGUARD_ROUTE_API",
-                ".agents/skills/model-first-function-flow/SKILL.md",
+                ".agents/skills/flowguard/SKILL.md",
             ),
             observable_outputs=(
                 "agents use SimilarityHandoff for similarity provenance",

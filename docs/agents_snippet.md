@@ -6,7 +6,7 @@ Copy this compact section into another repository's `AGENTS.md`.
 FlowGuard repository: https://github.com/liuyingxuvka/FlowGuard
 Keep the managed AGENTS.md block and `.flowguard/project.toml` current.
 
-Primary agent surface: `.agents/skills/`; Default entry skill: `.agents/skills/model-first-function-flow/SKILL.md`
+Primary agent surface: `.agents/skills/`; Default entry skill: `.agents/skills/flowguard/SKILL.md`
 Complete AI-agent setup means the agent can read `AGENTS.md` and all FlowGuard sibling `SKILL.md` files under `.agents/skills/`. The Python `flowguard` module/CLI is executable check support, not the AI-agent skill installation surface.
 ### Decision
 
@@ -72,8 +72,8 @@ This is still compact, but it must have teeth. A new or deepened model names the
 | Field lifecycle, behavior-bearing field projection, old/replaced/deprecated field disposition | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
 | Canonical finite bad-case generation from declared fields, state/input boundaries, Cartesian interaction groups, same-class families, payload contracts, transition cells, parent/child closure, no-delta loops, broad coverage universe, or observed-problem backfeed | `contract_exhaustion_mesh` | `flowguard-contract-exhaustion-mesh` |
 | New/deepened model must reuse/search and close public/local template harvest | `risk_template_library` | `risk-template-search`, `risk-template-harvest`, `risk-template-harvest-review`, or `risk-template-library-template` |
-| Rough plan, multi-skill/tool setup, staged execution, conditional process optimization, post-change scan, install/sync, release/archive/publish, or final process claim | `development_process_flow` | `flowguard-development-process-flow`; owns conditional internal `strategy_selection` and may delegate to `flowguard-plan-detailing-compiler` or `flowguard-agent-workflow-rehearsal` |
-| Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `model-first-function-flow` |
+| Rough plan, multi-skill/tool setup, staged execution, conditional process optimization, post-change scan, install/sync, release/archive/publish, or final process claim | `development_process_flow` | `flowguard-development-process-flow`; owns internal `plan_detailing_compiler`, conditional `strategy_selection`, and `agent_workflow_rehearsal` routes |
+| Ordinary behavior/state modeling, Risk Intent, state inventory | `core_modeling` | `flowguard` |
 | Existing code/prompt flow should shrink without behavior loss | `architecture_reduction` | `flowguard-architecture-reduction` |
 | Pre-code module/function/block ownership recommendation | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
 | UI content admission, real visible surface inventory, controls, enabled-control functional chains, source-baseline interaction semantics when applicable, screens, journeys, display/text ownership, on-demand disclosure, runnable UI click-through evidence | `ui_flow_structure` | `flowguard-ui-flow-structure` |
@@ -83,11 +83,11 @@ This is still compact, but it must have teeth. A new or deepened model names the
 | Large/slow/stale/release-only tests or parent/child test hierarchy | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | Large script/module/package/API split, facade or public entrypoint parity | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
 | Non-trivial bug repair, false confidence, or runtime/test/replay/manual evidence shows a missed failure class | `model_miss_review` | `flowguard-model-miss-review` |
-| Model too coarse after state-closure/code/test/mesh/freshness evidence | `model_maturation_loop` | `model-first-function-flow` reference |
+| Model too coarse after state-closure/code/test/mesh/freshness evidence | `model_maturation_loop` | `flowguard` reference |
 | Final broad confidence boundary | `risk_evidence_ledger` | `docs/risk_evidence_ledger.md` |
-| Production conformance, install sync, shadow workspace sync | `conformance_adoption` | `model-first-function-flow` reference |
-| Long-running model/test/regression check | `long_check_observability` | `model-first-function-flow` reference |
-| FlowGuard framework upgrade or benchmark/corpus claim | `framework_upgrade` | `model-first-function-flow` reference |
+| Production conformance, install sync, shadow workspace sync | `conformance_adoption` | `flowguard` reference |
+| Long-running model/test/regression check | `long_check_observability` | `flowguard` reference |
+| FlowGuard framework upgrade or benchmark/corpus claim | `framework_upgrade` | `flowguard` reference |
 ### Reference Handoff
 
 Use the matching satellite `references/*.md` file after selecting a route.

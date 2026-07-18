@@ -39,7 +39,7 @@ class DevelopmentProcessSimulatorTests(unittest.TestCase):
             report.selected_modes,
         )
         strategy = report.mode_decisions[1]
-        self.assertEqual(DEVELOPMENT_PROCESS_FRONT_DOOR_SKILL, strategy.delegated_skill)
+        self.assertEqual("development_process_flow", strategy.route_target)
         self.assertEqual("review_process_optimization", strategy.required_review)
 
     def test_rough_plan_selects_plan_detailing_under_front_door(self):
@@ -56,7 +56,7 @@ class DevelopmentProcessSimulatorTests(unittest.TestCase):
         self.assertEqual(DEVELOPMENT_PROCESS_FRONT_DOOR_SKILL, report.front_door_skill)
         self.assertEqual((SIMULATOR_MODE_PLAN_DETAILING,), report.selected_modes)
         self.assertEqual(("review_plan_detail",), report.required_reviews)
-        self.assertIn("flowguard-plan-detailing-compiler", report.format_text())
+        self.assertIn("plan_detailing_compiler", report.format_text())
 
     def test_multi_skill_workflow_selects_agent_workflow_under_front_door(self):
         report = review_development_process_simulator(
@@ -72,7 +72,7 @@ class DevelopmentProcessSimulatorTests(unittest.TestCase):
         self.assertEqual(DEVELOPMENT_PROCESS_FRONT_DOOR_SKILL, report.front_door_skill)
         self.assertEqual((SIMULATOR_MODE_AGENT_WORKFLOW,), report.selected_modes)
         self.assertEqual(("review_agent_workflow_rehearsal",), report.required_reviews)
-        self.assertIn("flowguard-agent-workflow-rehearsal", report.format_text())
+        self.assertIn("agent_workflow_rehearsal", report.format_text())
 
     def test_execution_and_release_select_execution_freshness(self):
         report = review_development_process_simulator(

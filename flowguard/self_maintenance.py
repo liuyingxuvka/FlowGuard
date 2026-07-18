@@ -81,13 +81,13 @@ SELF_MAINTENANCE_FINDING_GAP = "gap"
 SELF_MAINTENANCE_FINDING_BLOCKER = "blocker"
 
 ROUTE_ROLE_PUBLIC_OWNER = "public_owner"
-ROUTE_ROLE_DELEGATED_MODE = "delegated_mode"
+ROUTE_ROLE_INTERNAL_MODE = "internal_mode"
 ROUTE_ROLE_INTERNAL_FEEDER = "internal_feeder"
 ROUTE_ROLE_DATA_HELPER = "data_helper"
 ROUTE_ROLE_ARCHIVE_ONLY = "archive_only"
 ROUTE_ROLES = (
     ROUTE_ROLE_PUBLIC_OWNER,
-    ROUTE_ROLE_DELEGATED_MODE,
+    ROUTE_ROLE_INTERNAL_MODE,
     ROUTE_ROLE_INTERNAL_FEEDER,
     ROUTE_ROLE_DATA_HELPER,
     ROUTE_ROLE_ARCHIVE_ONLY,
@@ -622,7 +622,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             (),
             "model_first_function_flow",
             "",
-            "model-first-function-flow",
+            "flowguard",
         ),
         RouteProfile(
             "template_structure",
@@ -1015,19 +1015,19 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
         ),
         RouteProfile(
             "agent_workflow_rehearsal",
-            "Delegated agent_workflow simulator mode needs skill/tool ordering, skipped-skill consequences, and rework gates.",
+            "Internal agent_workflow simulator route needs skill/tool ordering, skipped-skill consequences, and rework gates.",
             ("candidate skills", "tool actions", "claim boundary"),
             ("workflow findings", "required rework", "final claim scope"),
             "agent_workflow_rehearsal",
             route_handoffs("development_process_flow", "maintenance_scan_router"),
             "agent_workflow_rehearsal",
             "",
-            "flowguard-agent-workflow-rehearsal",
-            route_role=ROUTE_ROLE_DELEGATED_MODE,
+            "",
+            route_role=ROUTE_ROLE_INTERNAL_MODE,
             entry_policy=ENTRY_POLICY_VIA_OWNER,
             canonical_owner_route="development_process_flow",
             absorbed_by_route="development_process_flow",
-            cleanup_disposition=CLEANUP_DISPOSITION_KEEP,
+            cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
             "ui_flow_structure",
@@ -1053,19 +1053,19 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
         ),
         RouteProfile(
             "plan_detailing_compiler",
-            "Delegated plan_detailing simulator mode needs checkable PlanDetail rows.",
+            "Internal plan_detailing simulator route needs checkable PlanDetail rows.",
             ("rough plan", "sources", "state surfaces"),
             ("plan detail rows", "step contracts", "validation requirements"),
             "plan_detailing_compiler",
             route_handoffs("development_process_flow", "agent_workflow_rehearsal"),
             "plan_detailing_compiler",
             "plan_detailing_template_files",
-            "flowguard-plan-detailing-compiler",
-            route_role=ROUTE_ROLE_DELEGATED_MODE,
+            "",
+            route_role=ROUTE_ROLE_INTERNAL_MODE,
             entry_policy=ENTRY_POLICY_VIA_OWNER,
             canonical_owner_route="development_process_flow",
             absorbed_by_route="development_process_flow",
-            cleanup_disposition=CLEANUP_DISPOSITION_KEEP,
+            cleanup_disposition=CLEANUP_DISPOSITION_ABSORB,
         ),
         RouteProfile(
             "state_closure",
@@ -1246,7 +1246,7 @@ def route_graph_completeness_findings(
                     metadata=profile.to_dict(),
                 )
             )
-        if profile.route_role in {ROUTE_ROLE_INTERNAL_FEEDER, ROUTE_ROLE_DATA_HELPER, ROUTE_ROLE_DELEGATED_MODE} and not (
+        if profile.route_role in {ROUTE_ROLE_INTERNAL_FEEDER, ROUTE_ROLE_DATA_HELPER, ROUTE_ROLE_INTERNAL_MODE} and not (
             profile.canonical_owner_route or profile.absorbed_by_route
         ):
             findings.append(
@@ -1443,7 +1443,7 @@ __all__ = [
     "FIELD_LAYERS",
     "ROUTE_ROLE_ARCHIVE_ONLY",
     "ROUTE_ROLE_DATA_HELPER",
-    "ROUTE_ROLE_DELEGATED_MODE",
+    "ROUTE_ROLE_INTERNAL_MODE",
     "ROUTE_ROLE_INTERNAL_FEEDER",
     "ROUTE_ROLE_PUBLIC_OWNER",
     "ROUTE_ROLES",

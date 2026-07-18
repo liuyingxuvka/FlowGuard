@@ -20,7 +20,6 @@ from .skill_suite import FLOWGUARD_SKILL_ROOT, validate_skill_suite
 
 
 CONTRACT_SOURCE_SCHEMA = "skillguard.contract_source.v2"
-CONTRACT_SOURCE_V2_SCHEMA = CONTRACT_SOURCE_SCHEMA
 COMPILED_CONTRACT_SCHEMA = "skillguard.compiled_contract.v2"
 CHECK_MANIFEST_SCHEMA = "skillguard.check_manifest.v2"
 CONTRACT_SOURCE_FILE = ".skillguard/contract-source.json"
@@ -191,9 +190,16 @@ def validate_contract_source(
     maintenance_unit_id = str(source.get("maintenance_unit_id", ""))
     if source.get("repository_role") != "skill_maintainer_source":
         failures.append("contract_source_not_author_source")
-    if maintenance_unit_id != f"unit:{skill_id}":
+    if maintenance_unit_id != "unit:flowguard-suite":
         failures.append("maintenance_unit_identity_mismatch")
-    if source.get("member_skill_ids") != [skill_id]:
+    member_skill_ids = source.get("member_skill_ids")
+    if (
+        not isinstance(member_skill_ids, list)
+        or not member_skill_ids
+        or not all(isinstance(item, str) and item for item in member_skill_ids)
+        or len(member_skill_ids) != len(set(member_skill_ids))
+        or skill_id not in member_skill_ids
+    ):
         failures.append("member_skill_inventory_mismatch")
     if source.get("consumer_projection") != _CONSUMER_PROJECTION:
         failures.append("consumer_projection_mismatch")
@@ -331,6 +337,12 @@ def validate_contract_source(
         if source.get("skill_id") != skill_dir.name:
             failures.append("skill_id_directory_mismatch")
         repository_root = skill_dir.resolve().parents[2]
+        expected_member_ids = validate_skill_suite(
+            repository_root,
+            check_private_inventories=False,
+        ).declared_member_ids
+        if tuple(member_skill_ids or ()) != expected_member_ids:
+            failures.append("member_skill_inventory_mismatch")
         model_path = repository_root / str(source.get("model_path", ""))
         if not model_path.is_file():
             failures.append("model_path_missing")
@@ -575,7 +587,6 @@ __all__ = [
     "COMPILED_CONTRACT_SCHEMA",
     "CONTRACT_SOURCE_FILE",
     "CONTRACT_SOURCE_SCHEMA",
-    "CONTRACT_SOURCE_V2_SCHEMA",
     "ContractCompileFinding",
     "ContractCompileReport",
     "compile_skill_contract",

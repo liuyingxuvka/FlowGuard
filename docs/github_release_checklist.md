@@ -8,16 +8,8 @@ repository.
 Include:
 
 - `flowguard/`
-- `.agents/skills/model-first-function-flow/`
-- `.agents/skills/flowguard-model-test-alignment/`
-- `.agents/skills/flowguard-development-process-flow/`
-- `.agents/skills/flowguard-model-miss-review/`
-- `.agents/skills/flowguard-architecture-reduction/`
-- `.agents/skills/flowguard-code-structure-recommendation/`
-- `.agents/skills/flowguard-ui-flow-structure/`
-- `.agents/skills/flowguard-model-mesh/`
-- `.agents/skills/flowguard-test-mesh/`
-- `.agents/skills/flowguard-structure-mesh/`
+- the exact 15 `.agents/skills/flowguard*` members declared by
+  `.skillguard/flowguard-suite/suite-map.json`;
 - `docs/`
 - `examples/job_matching/`
 - `examples/looping_workflow/`
@@ -87,9 +79,15 @@ python -m flowguard risk-evidence-ledger-template
 python -m flowguard ui-flow-structure-template
 python examples/risk_evidence_ledger/run_checks.py
 python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard-ui-flow-structure
-python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\model-first-function-flow
+python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard
 python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard-architecture-reduction
 ```
+
+## Source-only Release
+
+FlowGuard v0.58.0 uses the immutable source tag as its sole release authority.
+Do not build or upload a wheel or source distribution. The GitHub Release must
+be published with zero assets.
 
 If a release claims implemented or runnable UI completeness, also require UI
 implementation validation evidence: feature contracts, reviewed journey
@@ -112,5 +110,6 @@ Block publication if:
 - tests fail;
 - examples fail;
 - README does not match the actual public surface.
+- a version-matching wheel, source distribution, or GitHub Release asset exists;
 - implemented/runnable UI claims lack current UI implementation validation
   evidence.

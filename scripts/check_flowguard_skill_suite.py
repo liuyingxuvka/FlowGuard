@@ -1,6 +1,6 @@
 """Validate the FlowGuard skill suite at static or full repository scope.
 
-The default ``static`` scope intentionally preserves the historical 17-member
+The default ``static`` scope checks the current 15-member
 inventory/compiler/SkillGuard check.  ``full`` is the release-facing
 composition: every required child keeps its own stdout, stderr, and canonical
 result artifact, and the parent uses FlowGuard's shared validation-result
@@ -93,8 +93,8 @@ def _skillguard_cli(value: str) -> Path:
     return Path.home() / ".codex" / "skills" / "skillguard" / "scripts" / "skillguard.py"
 
 
-def _run(command: list[str], cwd: Path) -> dict[str, Any]:
-    """Historical static-scope process adapter (kept for API compatibility)."""
+def _run_json_command(command: list[str], cwd: Path) -> dict[str, Any]:
+    """Run one static-scope child and expose its terminal JSON material."""
 
     outcome = _execute_command(tuple(command), cwd)
     return {
@@ -189,7 +189,7 @@ def run_static_suite(
     skillguard: str = "all",
     members: Sequence[str] = (),
 ) -> dict[str, Any]:
-    """Run the original inventory/compiler/SkillGuard 17-member surface."""
+    """Run the inventory/compiler/SkillGuard 15-member surface."""
 
     inventory = validate_skill_suite(root)
     compiler = compile_skill_suite(root, write=False)
@@ -244,7 +244,7 @@ def run_static_suite(
                     "--output",
                     "-",
                 ]
-            results = {name: _run(command, root) for name, command in commands.items()}
+            results = {name: _run_json_command(command, root) for name, command in commands.items()}
             static_ok = results["static"]["exit_code"] == 0 and (results["static"]["payload"] or {}).get("decision") == "pass"
             depth_payload = results["depth"]["payload"] or {}
             if is_v2:
@@ -295,7 +295,7 @@ def run_static_suite(
             "Static/deep certification does not execute declared FlowGuard native commands or prove future AI behavior."
         ],
         "claim_boundary": (
-            "Pass certifies current prompt/contract/depth structure for 17 members only; "
+            "Pass certifies current prompt/contract/depth structure for 15 members only; "
             "native receipt and parent self-governance gates remain separate."
         ),
     }
@@ -672,7 +672,7 @@ def run_full_validation(args: argparse.Namespace) -> ValidationResult:
             "Remote publication and post-publication verification remain separate release gates.",
         ),
         claim_boundary=(
-            "Full pass requires exact pass from project adoption, all 17 static/deep skill contracts, "
+            "Full pass requires exact pass from project adoption, all 15 static/deep skill contracts, "
             "receipt-bound self-governance, manifest full models, pytest, strict OpenSpec, and complete "
             "formal/shadow/installed distribution checks in this run."
         ),
@@ -766,7 +766,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.model_timeout is not None and args.model_timeout <= 0:
         invalid_reason = "--model-timeout must be positive"
     elif args.member:
-        invalid_reason = "--member is static-only; full scope always requires all 17 members"
+        invalid_reason = "--member is static-only; full scope always requires all 15 members"
     if invalid_reason:
         result = _command_error(VALIDATION_STATUS_INVALID_INPUT, invalid_reason, scope="full")
         print(result.to_json_text() if args.json else result.format_text(full=args.full))

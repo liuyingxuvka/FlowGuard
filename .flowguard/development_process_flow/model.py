@@ -481,6 +481,63 @@ def export_contract_model():
             "required": True,
         }
     )
+    for route_id, namespace, business_intent, claim_boundary in (
+        (
+            "plan_detailing_compiler",
+            "flowguard-development-process-flow:plan-detailing",
+            "Compile a rough non-trivial plan into plane-safe steps, gates, failure branches, and evidence requirements.",
+            "This internal route structures a plan; it does not execute steps or absorb referenced product behavior.",
+        ),
+        (
+            "agent_workflow_rehearsal",
+            "flowguard-development-process-flow:agent-workflow",
+            "Rehearse a selected AI-operation workflow while keeping product commitments as typed target context.",
+            "This internal route rehearses agent-operation order and gates only; it does not own product runtime behavior.",
+        ),
+    ):
+        internal = build_skill_contract_model_export(
+            skill_id="flowguard-development-process-flow",
+            route_id=route_id,
+            owner_id="development_process_flow",
+            parent_model_id=exported["model_id"],
+            business_intent=business_intent,
+            claim_boundary=claim_boundary,
+        )
+        default_step_prefix = "step:flowguard-development-process-flow"
+        internal_step_prefix = f"step:{namespace}"
+        default_obligation_prefix = "obligation:flowguard-development-process-flow"
+        internal_obligation_prefix = f"obligation:{namespace}"
+        for route in internal["routes"]:
+            route["step_ids"] = [
+                step_id.replace(default_step_prefix, internal_step_prefix, 1)
+                for step_id in route["step_ids"]
+            ]
+            route["success_terminal_step_id"] = route["success_terminal_step_id"].replace(
+                default_step_prefix, internal_step_prefix, 1
+            )
+            route["blocked_terminal_step_id"] = route["blocked_terminal_step_id"].replace(
+                default_step_prefix, internal_step_prefix, 1
+            )
+        for step in internal["steps"]:
+            step["step_id"] = step["step_id"].replace(
+                default_step_prefix, internal_step_prefix, 1
+            )
+            step["prerequisite_step_ids"] = [
+                step_id.replace(default_step_prefix, internal_step_prefix, 1)
+                for step_id in step["prerequisite_step_ids"]
+            ]
+        for obligation in internal["obligations"]:
+            obligation["obligation_id"] = obligation["obligation_id"].replace(
+                default_obligation_prefix, internal_obligation_prefix, 1
+            )
+            obligation["owner_step_ids"] = [
+                step_id.replace(default_step_prefix, internal_step_prefix, 1)
+                for step_id in obligation["owner_step_ids"]
+            ]
+        exported["functions"].extend(internal["functions"])
+        exported["routes"].extend(internal["routes"])
+        exported["steps"].extend(internal["steps"])
+        exported["obligations"].extend(internal["obligations"])
     return exported
 
 

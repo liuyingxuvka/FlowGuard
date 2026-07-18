@@ -31,6 +31,7 @@ def build_skill_contract_model_export(
     function_id = f"function:{route_id}"
     route_ref = f"route:{route_id}"
     step_prefix = f"step:{skill_id}"
+    obligation_prefix = f"obligation:{skill_id}"
     intake = f"{step_prefix}:intake"
     execute = f"{step_prefix}:execute"
     verify = f"{step_prefix}:verify"
@@ -110,19 +111,19 @@ def build_skill_contract_model_export(
         ],
         "obligations": [
             {
-                "obligation_id": f"obligation:{skill_id}:plane-boundary",
+                "obligation_id": f"{obligation_prefix}:plane-boundary",
                 "invariant_id": "invariant:plane-boundary",
                 "owner_step_ids": [intake],
                 "required": True,
             },
             {
-                "obligation_id": f"obligation:{skill_id}:native-authority",
+                "obligation_id": f"{obligation_prefix}:native-authority",
                 "invariant_id": "invariant:native-authority",
                 "owner_step_ids": [execute],
                 "required": True,
             },
             {
-                "obligation_id": f"obligation:{skill_id}:evidence-closure",
+                "obligation_id": f"{obligation_prefix}:evidence-closure",
                 "invariant_id": "invariant:evidence-closure",
                 "owner_step_ids": [verify],
                 "required": True,

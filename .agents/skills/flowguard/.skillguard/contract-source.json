@@ -2,17 +2,17 @@
   "artifacts": [],
   "checks": [
     {
-      "check_id": "check:model-first-function-flow:plane-boundary",
+      "check_id": "check:flowguard:plane-boundary",
       "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
-        "obligation:model-first-function-flow:plane-boundary"
+        "obligation:flowguard:plane-boundary"
       ],
       "depends_on_check_ids": [],
       "evidence_class": "hard",
-      "evidence_domain_id": "evidence-domain:check:model-first-function-flow:plane-boundary",
-      "evidence_subject_id": "subject:model-first-function-flow:plane-boundary",
-      "execution_owner_id": "owner:check:model-first-function-flow:plane-boundary",
+      "evidence_domain_id": "evidence-domain:check:flowguard:plane-boundary",
+      "evidence_subject_id": "subject:flowguard:plane-boundary",
+      "execution_owner_id": "owner:check:flowguard:plane-boundary",
       "input_selectors": [
         {
           "kind": "path",
@@ -20,28 +20,28 @@
         }
       ],
       "kind": "model_assertion",
-      "maintenance_unit_id": "unit:model-first-function-flow",
-      "member_skill_id": "model-first-function-flow",
-      "semantic_check_id": "semantic:check:model-first-function-flow:plane-boundary",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard",
+      "semantic_check_id": "semantic:check:flowguard:plane-boundary",
       "timeout_seconds": 30
     },
     {
       "args": [
         ".flowguard/minimum_valuable_model_entry/run_checks.py"
       ],
-      "check_id": "check:model-first-function-flow:native-authority",
+      "check_id": "check:flowguard:native-authority",
       "command": "python",
       "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
-        "obligation:model-first-function-flow:native-authority"
+        "obligation:flowguard:native-authority"
       ],
       "cwd_token": "repository_root",
       "depends_on_check_ids": [],
       "evidence_class": "hard",
-      "evidence_domain_id": "evidence-domain:check:model-first-function-flow:native-authority",
-      "evidence_subject_id": "subject:model-first-function-flow:native-authority",
-      "execution_owner_id": "owner:check:model-first-function-flow:native-authority",
+      "evidence_domain_id": "evidence-domain:check:flowguard:native-authority",
+      "evidence_subject_id": "subject:flowguard:native-authority",
+      "execution_owner_id": "owner:check:flowguard:native-authority",
       "expected": {
         "exit_code": 0
       },
@@ -76,23 +76,23 @@
         }
       ],
       "kind": "command",
-      "maintenance_unit_id": "unit:model-first-function-flow",
-      "member_skill_id": "model-first-function-flow",
-      "semantic_check_id": "semantic:check:model-first-function-flow:native-authority",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard",
+      "semantic_check_id": "semantic:check:flowguard:native-authority",
       "timeout_seconds": 180
     },
     {
-      "check_id": "check:model-first-function-flow:evidence-closure",
+      "check_id": "check:flowguard:evidence-closure",
       "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
-        "obligation:model-first-function-flow:evidence-closure"
+        "obligation:flowguard:evidence-closure"
       ],
       "depends_on_check_ids": [],
       "evidence_class": "hard",
-      "evidence_domain_id": "evidence-domain:check:model-first-function-flow:evidence-closure",
-      "evidence_subject_id": "subject:model-first-function-flow:evidence-closure",
-      "execution_owner_id": "owner:check:model-first-function-flow:evidence-closure",
+      "evidence_domain_id": "evidence-domain:check:flowguard:evidence-closure",
+      "evidence_subject_id": "subject:flowguard:evidence-closure",
+      "execution_owner_id": "owner:check:flowguard:evidence-closure",
       "input_selectors": [
         {
           "kind": "path",
@@ -100,9 +100,9 @@
         }
       ],
       "kind": "model_assertion",
-      "maintenance_unit_id": "unit:model-first-function-flow",
-      "member_skill_id": "model-first-function-flow",
-      "semantic_check_id": "semantic:check:model-first-function-flow:evidence-closure",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard",
+      "semantic_check_id": "semantic:check:flowguard:evidence-closure",
       "timeout_seconds": 30
     }
   ],
@@ -111,9 +111,9 @@
     {
       "profile_id": "enforced",
       "required_obligation_ids": [
-        "obligation:model-first-function-flow:plane-boundary",
-        "obligation:model-first-function-flow:native-authority",
-        "obligation:model-first-function-flow:evidence-closure"
+        "obligation:flowguard:plane-boundary",
+        "obligation:flowguard:native-authority",
+        "obligation:flowguard:evidence-closure"
       ]
     }
   ],
@@ -147,23 +147,23 @@
   },
   "default_route_id": "route:model_first_function_flow",
   "depth_profile": {
-    "claim_boundary": "model-first-function-flow owns every check's domain meaning; SkillGuard only reconciles the exact current declared-check inventory and terminal receipts in one fixed enforced closure.",
+    "claim_boundary": "flowguard owns every check's domain meaning; SkillGuard only reconciles the exact current declared-check inventory and terminal receipts in one fixed enforced closure.",
     "enforcement_level": "enforced",
     "integration_mode": "native-integrated",
     "native_check_ids": [
-      "check:model-first-function-flow:plane-boundary",
-      "check:model-first-function-flow:native-authority",
-      "check:model-first-function-flow:evidence-closure"
+      "check:flowguard:plane-boundary",
+      "check:flowguard:native-authority",
+      "check:flowguard:evidence-closure"
     ],
     "native_owner_id": "model_first_function_flow",
     "native_route_ids": [
       "route:model_first_function_flow"
     ],
-    "profile_id": "profile:model-first-function-flow:fixed-enforced-declared-check-supervision",
+    "profile_id": "profile:flowguard:fixed-enforced-declared-check-supervision",
     "provider_runtime": {
       "provider_id": "skillguard-local-provider",
       "readiness_check_ids": [
-        "check:model-first-function-flow:native-authority"
+        "check:flowguard:native-authority"
       ],
       "required_capability_ids": [
         "declared-check-inventory.v1",
@@ -181,10 +181,10 @@
     ],
     "schema_version": "skillguard.depth_profile.v2",
     "skillguard_adds_domain_route": false,
-    "target_skill_id": "model-first-function-flow"
+    "target_skill_id": "flowguard"
   },
   "implementation_paths": [
-    ".agents/skills/model-first-function-flow",
+    ".agents/skills/flowguard",
     ".flowguard/minimum_valuable_model_entry",
     "flowguard/skill_contract_model.py",
     "flowguard/behavior_commitment_lookup.py",
@@ -196,18 +196,32 @@
   ],
   "integration_mode": "native-integrated",
   "judgment_rubrics": [],
-  "maintenance_unit_id": "unit:model-first-function-flow",
+  "maintenance_unit_id": "unit:flowguard-suite",
   "may_define_parallel_execution_route": false,
   "may_define_skillguard_runtime_route": false,
   "member_skill_ids": [
-    "model-first-function-flow"
+    "flowguard",
+    "flowguard-architecture-reduction",
+    "flowguard-behavior-commitment-ledger",
+    "flowguard-code-structure-recommendation",
+    "flowguard-contract-exhaustion-mesh",
+    "flowguard-development-process-flow",
+    "flowguard-existing-model-preflight",
+    "flowguard-field-lifecycle-mesh",
+    "flowguard-model-mesh",
+    "flowguard-model-miss-review",
+    "flowguard-model-test-alignment",
+    "flowguard-model-topology-hazard-review",
+    "flowguard-structure-mesh",
+    "flowguard-test-mesh",
+    "flowguard-ui-flow-structure"
   ],
   "model_id": "flowguard.model_first_function_flow.skill_contract.v2",
   "model_path": ".flowguard/minimum_valuable_model_entry/model.py",
   "native_check_bindings": [
     {
       "authority": "target-native",
-      "check_id": "check:model-first-function-flow:native-authority",
+      "check_id": "check:flowguard:native-authority",
       "owner_id": "model_first_function_flow"
     }
   ],
@@ -222,7 +236,7 @@
   "release_eligible": false,
   "repository_role": "skill_maintainer_source",
   "schema_version": "skillguard.contract_source.v2",
-  "skill_id": "model-first-function-flow",
+  "skill_id": "flowguard",
   "step_bindings": [
     {
       "action": {
@@ -230,10 +244,10 @@
         "summary": "Classify the primary behavior plane and perform lightweight commitment/model recall before creating a model."
       },
       "check_ids": [
-        "check:model-first-function-flow:plane-boundary"
+        "check:flowguard:plane-boundary"
       ],
       "output_artifact_ids": [],
-      "step_id": "step:model-first-function-flow:intake"
+      "step_id": "step:flowguard:intake"
     },
     {
       "action": {
@@ -241,10 +255,10 @@
         "summary": "Select the existing owner or build the minimum useful executable model; when interchange is required, project the explicit finite relation to the current portable schema and consume the canonical checker without creating a duplicate route."
       },
       "check_ids": [
-        "check:model-first-function-flow:native-authority"
+        "check:flowguard:native-authority"
       ],
       "output_artifact_ids": [],
-      "step_id": "step:model-first-function-flow:execute"
+      "step_id": "step:flowguard:execute"
     },
     {
       "action": {
@@ -252,10 +266,10 @@
         "summary": "Require current scenarios, bad cases, invariants, and scoped evidence; do not force a model for trivial actions."
       },
       "check_ids": [
-        "check:model-first-function-flow:evidence-closure"
+        "check:flowguard:evidence-closure"
       ],
       "output_artifact_ids": [],
-      "step_id": "step:model-first-function-flow:verify"
+      "step_id": "step:flowguard:verify"
     }
   ]
 }

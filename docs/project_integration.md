@@ -17,12 +17,12 @@ that a Python package has been installed.
 The required agent-visible surface is:
 
 - `AGENTS.md`
-- `.agents/skills/model-first-function-flow/SKILL.md`
+- `.agents/skills/flowguard/SKILL.md`
 - all sibling FlowGuard `SKILL.md` files under `.agents/skills/`
 - any referenced `references/`, `assets/`, and check scripts used by the
   selected route
 
-Start from `model-first-function-flow`. Use a direct FlowGuard sibling skill
+Start from `flowguard`. Use a direct FlowGuard sibling skill
 when the route is obvious, and use the kernel when route selection is unclear.
 
 If the agent can read the skills but cannot run executable checks yet, record
@@ -63,12 +63,12 @@ $env:PYTHONPATH = "$env:FLOWGUARD_SOURCE;$env:PYTHONPATH"
 python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
 ```
 
-The repository still exposes `python -m flowguard ...` as a compatibility
-command wrapper for checks, templates, and project records. That wrapper is a
+The repository exposes `python -m flowguard ...` as the current command
+surface for checks, templates, and project records. That surface is a
 check-execution convenience; it is not the AI-agent skill install surface.
 
 If a development environment deliberately wants editable metadata for those
-compatibility commands, it may run:
+current commands, it may run:
 
 ```powershell
 python -m pip install -e $env:FLOWGUARD_SOURCE
@@ -82,7 +82,7 @@ The Skill includes a standard-library helper for active Python environments
 that cannot import FlowGuard yet:
 
 ```powershell
-python <path-to-model-first-function-flow-skill>\assets\toolchain_preflight.py --json
+python <path-to-flowguard-skill>\assets\toolchain_preflight.py --json
 ```
 
 If the helper reports `mode: pythonpath_available`, the source tree is usable
@@ -93,13 +93,13 @@ current.
 To point the helper at a local source tree:
 
 ```powershell
-python <path-to-model-first-function-flow-skill>\assets\toolchain_preflight.py --source <path-to-your-FlowGuard-checkout> --json
+python <path-to-flowguard-skill>\assets\toolchain_preflight.py --source <path-to-your-FlowGuard-checkout> --json
 ```
 
-To let it prepare editable metadata for compatibility commands:
+To let it prepare editable metadata for current commands:
 
 ```powershell
-python <path-to-model-first-function-flow-skill>\assets\toolchain_preflight.py --source <path-to-your-FlowGuard-checkout> --install-editable --json
+python <path-to-flowguard-skill>\assets\toolchain_preflight.py --source <path-to-your-FlowGuard-checkout> --install-editable --json
 ```
 
 The helper does not replace skill-suite setup or import preflight. After it
@@ -137,7 +137,7 @@ next_action: make the FlowGuard skills visible and connect the check engine
 
 After the target agent can see the skill suite, add the rule from
 `docs/agents_snippet.md` to the target project's `AGENTS.md`. The low-friction
-compatibility command is:
+current command is:
 
 ```powershell
 python -m flowguard project-adopt --root .
@@ -194,8 +194,8 @@ If the target project also uses a spec/SPAC-style planning or orchestration
 skill, treat that tool's plan as optional FlowGuard handoff context. The handoff
 should name planned steps, state fields, side effects, parallel ownership,
 repeat or retry points, skipped checks with reasons, and completion evidence.
-Missing planner support should not block FlowGuard; the agent should fall back
-to the normal standalone model-first path.
+Missing planner support does not change FlowGuard's current authority; the
+agent uses the normal standalone model-first path directly.
 
 When `python -m flowguard` is available, the lightweight adoption CLI can reduce
 manual log drift:

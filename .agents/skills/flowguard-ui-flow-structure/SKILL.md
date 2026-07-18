@@ -21,7 +21,7 @@ Accept admission, UI state/task/control coverage, and current evidence; block le
 - Use for UI content/details, controls, surfaces, tasks/actions, runnable/layout evidence, typography hierarchy, or product-wide interaction language.
 
 ## Do Not Use When
-- Do not style first, invent roles, or treat observation as permission; return non-UI work to `model-first-function-flow`.
+- Do not style first, invent roles, or treat observation as permission; return non-UI work to `flowguard`.
 
 ## Required Workflow
 1. Declare `greenfield`, `source_based`, or `mixed`; observation never grants display permission.

@@ -1,11 +1,21 @@
 ## MODIFIED Requirements
 
 ### Requirement: Canonical Skill Suite Inventory
-The system SHALL maintain one versioned canonical member authority that identifies the FlowGuard kernel and every public satellite skill, including stable skill id, route role, and target-owned consumer entry files. Inventory skill ids MUST be unique and the current authority MUST contain exactly one kernel and sixteen satellites. Maintainer-source and consumer-distribution validators SHALL derive separate path policies from this member authority.
+The system SHALL maintain one versioned canonical member authority that identifies the FlowGuard kernel and every public satellite skill, including stable skill id, route role, and target-owned consumer entry files. Inventory skill ids MUST be unique and the current authority MUST contain exactly one `flowguard` kernel and fourteen satellites. Maintainer-source and consumer-distribution validators SHALL derive separate path policies from this member authority.
 
 #### Scenario: Current suite is fully declared
 - **WHEN** either current inventory projection is loaded from the repository
-- **THEN** it identifies seventeen unique members with exactly one kernel and sixteen satellites and states which projection it validates
+- **THEN** it identifies fifteen unique members with exactly one kernel and fourteen satellites and states which projection it validates
+
+### Requirement: Retired public entries have zero residual authority
+The current public inventory SHALL NOT contain `model-first-function-flow`,
+`flowguard-plan-detailing-compiler`, or
+`flowguard-agent-workflow-rehearsal`. Plan detailing and agent-workflow
+rehearsal SHALL remain internal routes of `flowguard-development-process-flow`.
+
+#### Scenario: Retired entry remains installed
+- **WHEN** any current source, staged consumer, or installed inventory contains a retired public skill id
+- **THEN** inventory validation fails instead of routing through an alias, compatibility path, or fallback
 
 #### Scenario: Duplicate member is declared
 - **WHEN** two canonical member records use the same skill id

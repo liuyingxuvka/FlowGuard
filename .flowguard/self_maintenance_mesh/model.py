@@ -35,7 +35,7 @@ class SelfMaintenanceAction:
     terminal_plane_upgrade_receipt_ids: tuple[str, ...] = ()
     progress_only_plane_upgrade_receipt_ids: tuple[str, ...] = ()
     verification_contract_fingerprint: str = ""
-    verified_spec_work_package_ids: tuple[str, ...] = ()
+    spec_context_ids: tuple[str, ...] = ()
     spec_context_provider: str = "openspec"
     spec_context_artifacts_current: bool = True
     spec_context_read_only: bool = True
@@ -66,8 +66,8 @@ class SelfMaintenanceState:
     install_sync_verified: bool = False
     shadow_sync_checked: bool = False
     git_status_checked: bool = False
-    spec_work_package_context_current: bool = False
-    consumed_spec_work_package_ids: tuple[str, ...] = ()
+    spec_context_current: bool = False
+    consumed_spec_context_ids: tuple[str, ...] = ()
     consumed_child_receipt_ids: tuple[str, ...] = ()
     receipt_set_fingerprint: str = ""
     consumed_plane_upgrade_receipt_ids: tuple[str, ...] = ()
@@ -95,7 +95,7 @@ class SelfMaintenanceState:
             and self.install_sync_verified
             and self.shadow_sync_checked
             and self.git_status_checked
-            and self.spec_work_package_context_current
+            and self.spec_context_current
         )
 
 
@@ -119,7 +119,7 @@ def _receipt_sets_current(input_obj: SelfMaintenanceAction) -> tuple[bool, bool,
         == PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
     )
     spec_set_current = (
-        set(input_obj.verified_spec_work_package_ids) == set(REQUIRED_SPEC_WORK_PACKAGE_IDS)
+        set(input_obj.spec_context_ids) == set(REQUIRED_SPEC_CONTEXT_IDS)
         and input_obj.spec_context_provider == "openspec"
         and input_obj.spec_context_artifacts_current
         and input_obj.spec_context_read_only
@@ -148,8 +148,8 @@ class CorrectSelfMaintenance:
         "install_sync_verified",
         "shadow_sync_checked",
         "git_status_checked",
-        "spec_work_package_context_current",
-        "consumed_spec_work_package_ids",
+        "spec_context_current",
+        "consumed_spec_context_ids",
         "consumed_child_receipt_ids",
         "receipt_set_fingerprint",
         "consumed_plane_upgrade_receipt_ids",
@@ -199,7 +199,7 @@ class CorrectSelfMaintenance:
             elif not (
                 state.child_reports_current
                 and state.plane_upgrade_reports_current
-                and state.spec_work_package_context_current
+                and state.spec_context_current
             ):
                 receipt_ids = tuple(input_obj.verified_child_receipt_ids)
                 plane_receipt_ids = tuple(input_obj.verified_plane_upgrade_receipt_ids)
@@ -224,9 +224,9 @@ class CorrectSelfMaintenance:
                         verification_contract_fingerprint=(
                             input_obj.verification_contract_fingerprint if plane_exact_set else ""
                         ),
-                        spec_work_package_context_current=spec_exact_set,
-                        consumed_spec_work_package_ids=(
-                            tuple(input_obj.verified_spec_work_package_ids) if spec_exact_set else ()
+                        spec_context_current=spec_exact_set,
+                        consumed_spec_context_ids=(
+                            tuple(input_obj.spec_context_ids) if spec_exact_set else ()
                         ),
                     ),
                     label="receipt_set_consumed" if all_current else "receipt_set_rejected",
@@ -301,9 +301,9 @@ class CorrectSelfMaintenance:
                     verification_contract_fingerprint=(
                         input_obj.verification_contract_fingerprint if plane_exact_set else ""
                     ),
-                    spec_work_package_context_current=spec_exact_set,
-                    consumed_spec_work_package_ids=(
-                        tuple(input_obj.verified_spec_work_package_ids) if spec_exact_set else ()
+                    spec_context_current=spec_exact_set,
+                    consumed_spec_context_ids=(
+                        tuple(input_obj.spec_context_ids) if spec_exact_set else ()
                     ),
                 ),
                 label="receipt_set_consumed" if all_current else "receipt_set_rejected",
@@ -538,13 +538,13 @@ class BrokenWrongPlaneCompletionAuthority(CorrectSelfMaintenance):
         yield from super().apply(input_obj, state)
 
 
-class BrokenMissingSpecWorkPackage(CorrectSelfMaintenance):
-    name = "BrokenMissingSpecWorkPackage"
+class BrokenMissingSpecContext(CorrectSelfMaintenance):
+    name = "BrokenMissingSpecContext"
     idempotency = "Broken variant accepts done after ordinary checks pass without current read-only requirements context."
 
     def apply(self, input_obj: SelfMaintenanceAction, state: SelfMaintenanceState) -> Iterable[FunctionResult]:
         if input_obj.action_type == "claim_done":
-            ordinary_ready = replace(state, spec_work_package_context_current=True).ready_for_done()
+            ordinary_ready = replace(state, spec_context_current=True).ready_for_done()
             claim = "accepted" if ordinary_ready else "rejected"
             yield FunctionResult(
                 SelfMaintenanceOutput(f"done_{claim}"),
@@ -603,11 +603,11 @@ def no_evidence_flags_without_exact_receipt_set(state: SelfMaintenanceState, tra
         return InvariantResult.fail(
             "plane-upgrade evidence became current without exact terminal check identities and the current verification-contract fingerprint"
         )
-    if state.spec_work_package_context_current and not (
-        set(state.consumed_spec_work_package_ids) == set(REQUIRED_SPEC_WORK_PACKAGE_IDS)
+    if state.spec_context_current and not (
+        set(state.consumed_spec_context_ids) == set(REQUIRED_SPEC_CONTEXT_IDS)
     ):
         return InvariantResult.fail(
-            "spec work-package context became current without the required read-only package identity"
+            "spec context became current without the required read-only change identity"
         )
     return InvariantResult.pass_()
 
@@ -652,8 +652,7 @@ INVARIANTS = (
 )
 
 REQUIRED_SKILL_RECEIPT_IDS = (
-    "model-first-function-flow",
-    "flowguard-agent-workflow-rehearsal",
+    "flowguard",
     "flowguard-architecture-reduction",
     "flowguard-behavior-commitment-ledger",
     "flowguard-code-structure-recommendation",
@@ -665,7 +664,6 @@ REQUIRED_SKILL_RECEIPT_IDS = (
     "flowguard-model-miss-review",
     "flowguard-model-test-alignment",
     "flowguard-model-topology-hazard-review",
-    "flowguard-plan-detailing-compiler",
     "flowguard-structure-mesh",
     "flowguard-test-mesh",
     "flowguard-ui-flow-structure",
@@ -697,8 +695,8 @@ PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT = (
 PLANE_UPGRADE_VERIFICATION_CONTRACT_SOURCE_SHA256 = (
     "sha256:01BC478660999AE0B19A3DF6EFFC2A55368E54D28B5B9043B447E3BC25C7A86A"
 )
-REQUIRED_SPEC_WORK_PACKAGE_IDS = (
-    "openspec:reconcile-spec-provider-work-packages-with-flowguard-evidence",
+REQUIRED_SPEC_CONTEXT_IDS = (
+    "openspec:separate-flowguard-consumer-skills-from-skillguard-maintenance",
 )
 EXTERNAL_INPUTS = (
     SelfMaintenanceAction(
@@ -708,7 +706,7 @@ EXTERNAL_INPUTS = (
         verified_plane_upgrade_receipt_ids=REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
         terminal_plane_upgrade_receipt_ids=REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
         verification_contract_fingerprint=PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT,
-        verified_spec_work_package_ids=REQUIRED_SPEC_WORK_PACKAGE_IDS,
+        spec_context_ids=REQUIRED_SPEC_CONTEXT_IDS,
         spec_context_provider="openspec",
         spec_context_artifacts_current=True,
         spec_context_read_only=True,
@@ -770,8 +768,8 @@ def build_broken_wrong_plane_completion_workflow() -> Workflow:
     return Workflow((BrokenWrongPlaneCompletionAuthority(),), name="self_maintenance_broken_wrong_plane_completion")
 
 
-def build_broken_missing_spec_work_package_workflow() -> Workflow:
-    return Workflow((BrokenMissingSpecWorkPackage(),), name="self_maintenance_broken_missing_spec_work_package")
+def build_broken_missing_spec_context_workflow() -> Workflow:
+    return Workflow((BrokenMissingSpecContext(),), name="self_maintenance_broken_missing_spec_context")
 
 
 __all__ = [
@@ -785,6 +783,7 @@ __all__ = [
     "build_broken_missing_dcar_coverage_workflow",
     "build_broken_missing_model_miss_backfeed_workflow",
     "build_broken_missing_plane_upgrade_reports_workflow",
+    "build_broken_missing_spec_context_workflow",
     "build_broken_missing_sync_workflow",
     "build_broken_synthetic_all_flags_workflow",
     "build_broken_unverified_plane_receipts_workflow",

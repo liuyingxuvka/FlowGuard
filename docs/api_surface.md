@@ -57,7 +57,7 @@ Use this group before expanding to `FLOWGUARD_ROUTE_API` or the complete
 `FLOWGUARD_GOVERNANCE_API` groups the release-facing control plane, including
 local/published release verification, without
 turning it into another modeling route. It exposes immutable evidence receipts,
-seventeen-skill inventory and contract compilation, receipt-bound self
+fifteen-skill inventory and contract compilation, receipt-bound self
 governance, canonical validation results, manifest-owned model regressions, and
 safe skill install/check/uninstall/parity helpers. Import route behavior from
 the owning route group; use this group to verify that current route evidence is

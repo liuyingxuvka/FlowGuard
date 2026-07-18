@@ -100,7 +100,7 @@ class FullValidationCompositionTests(unittest.TestCase):
     def test_default_scope_remains_static(self):
         args = suite_command.build_parser().parse_args([])
         self.assertEqual("static", args.scope)
-        with patch.object(suite_command, "run_static_suite", return_value={"ok": True, "passed_members": 17, "total_members": 17, "blockers": [], "members": []}) as run:
+        with patch.object(suite_command, "run_static_suite", return_value={"ok": True, "passed_members": 15, "total_members": 15, "blockers": [], "members": []}) as run:
             with patch("builtins.print"):
                 exit_code = suite_command.main(["--root", str(self.root)])
         self.assertEqual(0, exit_code)
@@ -173,7 +173,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             patch.object(suite_command, "validate_skill_suite", return_value=inventory),
             patch.object(suite_command, "compile_skill_suite", return_value=compiler),
             patch.object(suite_command, "_skillguard_cli", return_value=cli),
-            patch.object(suite_command, "_run", side_effect=fake_run),
+            patch.object(suite_command, "_run_json_command", side_effect=fake_run),
         ):
             result = suite_command.run_static_suite(self.root)
 

@@ -24,12 +24,12 @@ from .distribution_sync import (
 
 FLOWGUARD_SUITE_MAP = ".skillguard/flowguard-suite/suite-map.json"
 FLOWGUARD_SKILL_ROOT = ".agents/skills"
-FLOWGUARD_SUITE_SCHEMA = "skillguard.suite_map.v1"
+FLOWGUARD_SUITE_SCHEMA = "skillguard.suite_map.v2"
 FLOWGUARD_SUITE_NAME = "flowguard-agent-skill-suite"
 FLOWGUARD_KERNEL_ROLE = "kernel_router"
 FLOWGUARD_SATELLITE_ROLE = "public_satellite"
-FLOWGUARD_EXPECTED_MEMBER_COUNT = 17
-FLOWGUARD_EXPECTED_SATELLITE_COUNT = 16
+FLOWGUARD_EXPECTED_MEMBER_COUNT = 15
+FLOWGUARD_EXPECTED_SATELLITE_COUNT = 14
 MODEL_PURPOSE_SKILL_MARKERS = (
     "Model-purpose gate",
     "task-specific failure(s)",
@@ -55,9 +55,6 @@ FLOWGUARD_CONSUMER_REQUIRED_MEMBER_FILES = (
     "agents/openai.yaml",
     CONSUMER_RELEASE_MANIFEST,
 )
-# Backward-compatible public name means author-source requirements. Consumer
-# projection validation selects the narrower standalone surface explicitly.
-FLOWGUARD_REQUIRED_MEMBER_FILES = FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES
 FLOWGUARD_CONTROL_ROOT = ".skillguard"
 
 SUITE_STATUS_PASS = "pass"
@@ -265,7 +262,6 @@ def _uses_flowguard_reserved_skill_id(skill_id: str) -> bool:
     return (
         normalized == "flowguard"
         or normalized.startswith("flowguard-")
-        or normalized.startswith("model-first-function-flow")
     )
 
 
@@ -426,13 +422,13 @@ def validate_skill_suite(
         member_rows.append(raw)
 
     if len(declared_ids) != FLOWGUARD_EXPECTED_MEMBER_COUNT:
-        findings.append(SkillSuiteFinding("invalid_suite_cardinality", "current FlowGuard suite must declare seventeen members", metadata={"actual": len(declared_ids), "expected": FLOWGUARD_EXPECTED_MEMBER_COUNT}))
+        findings.append(SkillSuiteFinding("invalid_suite_cardinality", "current FlowGuard suite must declare fifteen members", metadata={"actual": len(declared_ids), "expected": FLOWGUARD_EXPECTED_MEMBER_COUNT}))
     kernel_ids = [str(raw.get("name", "")) for raw in member_rows if raw.get("role") == FLOWGUARD_KERNEL_ROLE]
     satellite_ids = [str(raw.get("name", "")) for raw in member_rows if raw.get("role") == FLOWGUARD_SATELLITE_ROLE]
     if len(kernel_ids) != 1:
         findings.append(SkillSuiteFinding("invalid_kernel_cardinality", "suite must declare exactly one kernel", metadata={"kernel_ids": kernel_ids}))
     if len(satellite_ids) != FLOWGUARD_EXPECTED_SATELLITE_COUNT:
-        findings.append(SkillSuiteFinding("invalid_satellite_cardinality", "suite must declare sixteen satellites", metadata={"satellite_ids": satellite_ids}))
+        findings.append(SkillSuiteFinding("invalid_satellite_cardinality", "suite must declare fourteen satellites", metadata={"satellite_ids": satellite_ids}))
 
     all_discovered_ids = discover_skill_ids(skills_path)
     declared_set = set(declared_ids)
@@ -584,7 +580,6 @@ __all__ = [
     "FLOWGUARD_KERNEL_ROLE",
     "MODEL_PURPOSE_PROMPT_MARKERS",
     "MODEL_PURPOSE_SKILL_MARKERS",
-    "FLOWGUARD_REQUIRED_MEMBER_FILES",
     "FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES",
     "FLOWGUARD_CONSUMER_REQUIRED_MEMBER_FILES",
     "FLOWGUARD_SATELLITE_ROLE",

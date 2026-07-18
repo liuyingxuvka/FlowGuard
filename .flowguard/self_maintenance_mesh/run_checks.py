@@ -217,8 +217,8 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                 max_sequence_length=5,
             ),
             FormalWorkflowCase(
-                "broken_missing_spec_work_package_close",
-                model.build_broken_missing_spec_work_package_workflow(),
+                "broken_missing_spec_context_close",
+                model.build_broken_missing_spec_context_workflow(),
                 False,
                 required_labels=("done_accepted",),
                 external_inputs=(
@@ -277,8 +277,8 @@ def run_receipt_parent_review() -> bool:
         parent = report.self_governance_receipt
         return bool(
             parent
-            and len(parent.required_child_receipts) == 17
-            and len(parent.consumed_child_receipts) == 17
+            and len(parent.required_child_receipts) == model.REQUIRED_RECEIPT_COUNT
+            and len(parent.consumed_child_receipts) == model.REQUIRED_RECEIPT_COUNT
             and report.self_governance_receipt_hash == parent.fingerprint
         )
     # Environment-local evidence is intentionally not committed. A model

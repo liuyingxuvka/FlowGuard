@@ -1,12 +1,12 @@
 ---
-name: model-first-function-flow
-description: FlowGuard kernel for ordinary behavior/state modeling, unclear route selection, cross-route coordination, and kernel-owned internal gates. Use when no direct FlowGuard satellite clearly owns the risk or several routes must be coordinated; use the matching satellite directly when ownership is clear.
+name: flowguard
+description: Unified FlowGuard entry for ordinary behavior/state modeling, unclear route selection, cross-route coordination, and kernel-owned internal gates. Use a matching public owner directly when ownership is clear.
 ---
 
-# FlowGuard Skill Kernel
+# FlowGuard
 
 ## Purpose
-Select the smallest owning FlowGuard route and build the minimum valuable executable model for ordinary behavior/state work without becoming a monolith.
+The FlowGuard kernel selects the smallest owning route and builds the minimum valuable executable model for ordinary behavior/state work without becoming a monolith; use the matching satellite directly when ownership is clear.
 
 ## Entrypoint Scope
 Route id: `model_first_function_flow`; role: `kernel`; native owner: `model_first_function_flow`. Decide `use_flowguard`, `skip_with_reason`, or `needs_human_review` through `behavior_flow`, `argument_flow`, or `decision_flow`.
@@ -17,7 +17,7 @@ Read `references/route_index.md` for the parity-checked route map and `reference
 ## Entrypoint Acceptance Map
 - Accept ordinary modeling, unclear ownership, cross-route coordination, portable finite-model interchange, or kernel-owned `flowguard_self_maintenance`, `model_maturation_loop`, `risk_template_library`, `risk_evidence_ledger`, and closure work.
 - Route clear ownership directly to `flowguard-existing-model-preflight`, `flowguard-behavior-commitment-ledger`, `flowguard-architecture-reduction`, `flowguard-code-structure-recommendation`, `flowguard-contract-exhaustion-mesh`, `flowguard-development-process-flow`, `flowguard-field-lifecycle-mesh`, `flowguard-model-mesh`, `flowguard-model-miss-review`, `flowguard-model-test-alignment`, `flowguard-model-topology-hazard-review`, `flowguard-structure-mesh`, `flowguard-test-mesh`, or `flowguard-ui-flow-structure`.
-- Keep `flowguard-plan-detailing-compiler` and `flowguard-agent-workflow-rehearsal` explicit/delegated modes owned by DevelopmentProcessFlow.
+- Keep `plan_detailing` and `agent_workflow` as internal routes owned by DevelopmentProcessFlow. They have no independent skill, alias, forwarding entrypoint, or fallback.
 
 ## Use When
 - Use when behavior/state/order/retry/side-effect risk needs `Input x State -> Set(Output x State)` modeling, the correct satellite is unclear, or multiple route outputs must be coordinated.

@@ -6,7 +6,7 @@ This compact projection is checked against `flowguard.route_topology` and the ca
 
 | Route id | Role | Native owner | Skill |
 | --- | --- | --- | --- |
-| `model_first_function_flow` | kernel | `model_first_function_flow` | `model-first-function-flow` |
+| `model_first_function_flow` | kernel | `model_first_function_flow` | `flowguard` |
 
 ## Public owner routes
 
@@ -27,14 +27,16 @@ This compact projection is checked against `flowguard.route_topology` and the ca
 | `test_mesh_maintenance` | `test_mesh_maintenance` | `flowguard-test-mesh` |
 | `ui_flow_structure` | `ui_flow_structure` | `flowguard-ui-flow-structure` |
 
-## Delegated modes
+## Internal DevelopmentProcessFlow routes
 
-| Route id | Role | Native owner | Skill |
+| Route id | Role | Native owner | Public entry |
 | --- | --- | --- | --- |
-| `plan_detailing_compiler` | delegated_mode | `development_process_flow` | `flowguard-plan-detailing-compiler` |
-| `agent_workflow_rehearsal` | delegated_mode | `development_process_flow` | `flowguard-agent-workflow-rehearsal` |
+| `plan_detailing_compiler` | internal_route | `development_process_flow` | `flowguard-development-process-flow` |
+| `agent_workflow_rehearsal` | internal_route | `development_process_flow` | `flowguard-development-process-flow` |
 
-Generic rough-plan or multi-skill requests enter `development_process_flow`; delegated modes open directly only when explicitly requested or delegated.
+All rough-plan, named PlanDetailing, multi-skill, or named
+AgentWorkflowRehearsal requests enter `development_process_flow`. Retired skill
+ids are not valid routes.
 
 ## Internal route ownership
 

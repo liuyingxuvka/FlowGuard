@@ -17,7 +17,7 @@ This is the surface that belongs in a future public GitHub release:
 - modeling protocol;
 - invariant cookbook;
 - scenario, loop, progress, contract, and conformance examples;
-- `model-first-function-flow` Skill Kernel;
+- `flowguard` Skill Kernel;
 - `flowguard-*` satellite skills for mature public owner routes, including UI
   flow structure, code structure, model-test alignment, process flow, model
   misses, ModelMesh, TestMesh, and StructureMesh, plus delegated

@@ -1323,8 +1323,8 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `release_archive_or_publish` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `final_claim_requested` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `task_trivial` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `explicit_plan_detailing_skill` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `explicit_agent_workflow_skill` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `explicit_plan_detailing` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `explicit_agent_workflow` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `explicit_development_process_skill` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `plan_detail_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `agent_workflow_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
@@ -1332,7 +1332,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `accepted_scope` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `development_process_simulator` | `DevelopmentProcessModeDecision` | `mode` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `development_process_simulator` | `DevelopmentProcessModeDecision` | `delegated_skill` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_simulator` | `DevelopmentProcessModeDecision` | `route_target` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessModeDecision` | `required_review` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessModeDecision` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `development_process_simulator` | `DevelopmentProcessModeDecision` | `evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |

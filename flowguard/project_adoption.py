@@ -116,7 +116,7 @@ process changes.""",
         "skill_suite.agent_surface",
         """FlowGuard agent skill suite:
 - Primary agent surface: `.agents/skills/`
-- Default entry skill: `.agents/skills/model-first-function-flow/SKILL.md`
+- Default entry skill: `.agents/skills/flowguard/SKILL.md`
 - Complete AI-agent setup means the agent can read `AGENTS.md` and all
   FlowGuard sibling `SKILL.md` files under `.agents/skills/`.
 - The Python `flowguard` module/CLI is executable check support, not the

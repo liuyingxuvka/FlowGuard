@@ -75,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
         "results": rows,
         "claim_boundary": (
             "Child receipts prove only each declared owner-specific native binding and its current contract inputs; "
-            "the parent self-governance command must independently reload and consume all seventeen."
+            "the parent self-governance command must independently reload and consume all fifteen."
         ),
     }
     if args.json:

@@ -21,7 +21,7 @@ Accept concrete failure evidence and prior claim state; classify and generalize 
 - Use after a FlowGuard-green runtime/test/replay/log/manual/UI failure or for a repair needing `boundary_missing`, root-cause backpropagation, and bug-class evidence.
 
 ## Do Not Use When
-- Do not patch only the observed instance, invent a new feature commitment, or use without concrete failure evidence; return ordinary unclear modeling to `model-first-function-flow`.
+- Do not patch only the observed instance, invent a new feature commitment, or use without concrete failure evidence; return ordinary unclear modeling to `flowguard`.
 
 ## Required Workflow
 1. Run existing-model preflight, identify whose promise failed (`behavior_plane`, commitment, primary owner, error signature), and classify the miss.

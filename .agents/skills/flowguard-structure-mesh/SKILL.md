@@ -21,7 +21,7 @@ Accept a named source model and existing parent surface; derive child ownership;
 - Use for splitting large code surfaces, moving public imports/CLI/API/data/plugin entrypoints, dividing state/config/side effects, or checking dependency cycles and parity.
 
 ## Do Not Use When
-- Do not derive behavior requirements from scratch, recommend greenfield modules, refactor code directly, or claim parity from internal/formatting checks; return unclear models to `model-first-function-flow`.
+- Do not derive behavior requirements from scratch, recommend greenfield modules, refactor code directly, or claim parity from internal/formatting checks; return unclear models to `flowguard`.
 
 ## Required Workflow
 1. Derive target modules from a named FlowGuard model with FunctionBlock/state/side-effect/facade/validation maps.

@@ -16,10 +16,10 @@ SUITE_MAP = ROOT / ".skillguard" / "flowguard-suite" / "suite-map.json"
 
 
 class SkillInstalledLayoutTests(unittest.TestCase):
-    def test_real_seventeen_skill_tree_resolves_every_direct_reference_after_install(self) -> None:
+    def test_real_fifteen_skill_tree_resolves_every_direct_reference_after_install(self) -> None:
         suite = json.loads(SUITE_MAP.read_text(encoding="utf-8"))
         members = tuple(member["name"] for member in suite["included_skills"])
-        self.assertEqual(17, len(members))
+        self.assertEqual(15, len(members))
 
         with tempfile.TemporaryDirectory() as directory:
             installed_root = Path(directory) / "skills"

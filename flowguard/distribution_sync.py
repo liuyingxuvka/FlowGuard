@@ -26,7 +26,12 @@ CONSUMER_RELEASE_SCHEMA = "consumer.skill_distribution.current"
 CONSUMER_RELEASE_MANIFEST = "consumer-release.json"
 CANONICAL_SKILL_ROOT = ".agents/skills"
 CANONICAL_SUITE_MAP = ".skillguard/flowguard-suite/suite-map.json"
-FLOWGUARD_EXPECTED_MEMBER_COUNT = 17
+FLOWGUARD_EXPECTED_MEMBER_COUNT = 15
+PARITY_ROLE_AUTHOR_SOURCE = "author_source"
+PARITY_ROLE_CONSUMER_DISTRIBUTION = "consumer_distribution"
+PARITY_ROLES = frozenset(
+    {PARITY_ROLE_AUTHOR_SOURCE, PARITY_ROLE_CONSUMER_DISTRIBUTION}
+)
 
 
 @dataclass(frozen=True)
@@ -508,6 +513,7 @@ def compare_tree_inventories(reference: SkillTreeInventory, candidate: SkillTree
 @dataclass(frozen=True)
 class ConfiguredParityReport:
     reference_name: str
+    root_roles: Mapping[str, str]
     inventories: Mapping[str, SkillTreeInventory]
     comparisons: Mapping[str, TreeParity]
 
@@ -520,39 +526,66 @@ class ConfiguredParityReport:
             "artifact_type": "flowguard_skill_tree_parity",
             "schema_version": DISTRIBUTION_SCHEMA,
             "reference_name": self.reference_name,
+            "root_roles": dict(self.root_roles),
             "ok": self.ok,
             "inventories": {name: value.to_dict() for name, value in self.inventories.items()},
             "comparisons": {name: value.to_dict() for name, value in self.comparisons.items()},
-            "claim_boundary": "Parity covers the complete declared member trees except paths itemized by exclusion rule.",
+            "claim_boundary": (
+                "Author roots are compared to the canonical author projection and consumer roots "
+                "to the generated clean consumer projection; roles are explicit and never inferred."
+            ),
         }
 
 
 def compare_configured_skill_trees(
     roots: Mapping[str, str | Path],
     *,
+    root_roles: Mapping[str, str],
     reference_name: str = "source",
     member_ids: Sequence[str] | None = None,
     exclusion_rules: Sequence[ExclusionRule] = DEFAULT_EXCLUSION_RULES,
 ) -> ConfiguredParityReport:
     if reference_name not in roots:
         raise ValueError(f"reference root {reference_name!r} is not configured")
+    if set(root_roles) != set(roots):
+        raise ValueError("root_roles must declare exactly one role for every configured root")
+    invalid_roles = sorted(
+        f"{name}:{role}" for name, role in root_roles.items() if role not in PARITY_ROLES
+    )
+    if invalid_roles:
+        raise ValueError(f"unsupported parity root roles: {', '.join(invalid_roles)}")
+    if root_roles[reference_name] != PARITY_ROLE_AUTHOR_SOURCE:
+        raise ValueError("the canonical parity reference must be an explicit author_source root")
     ids = tuple(member_ids) if member_ids is not None else discover_member_ids(roots[reference_name])
-    inventories = {
-        name: inventory_skill_tree(
+    reference_author = inventory_skill_tree(
+        roots[reference_name],
+        member_ids=ids,
+        exclusion_rules=exclusion_rules,
+    )
+    reference_consumer, _ = _consumer_source_inventory(
+        roots[reference_name],
+        member_ids=ids,
+        exclusion_rules=exclusion_rules,
+    )
+    inventories: dict[str, SkillTreeInventory] = {reference_name: reference_author}
+    comparisons: dict[str, TreeParity] = {}
+    for name, root in roots.items():
+        if name == reference_name:
+            continue
+        inventory = inventory_skill_tree(
             root,
             member_ids=ids,
             exclusion_rules=exclusion_rules,
-            allow_missing_root=name != reference_name,
+            allow_missing_root=True,
         )
-        for name, root in roots.items()
-    }
-    reference = inventories[reference_name]
-    comparisons = {
-        name: compare_tree_inventories(reference, inventory)
-        for name, inventory in inventories.items()
-        if name != reference_name
-    }
-    return ConfiguredParityReport(reference_name, inventories, comparisons)
+        inventories[name] = inventory
+        reference = (
+            reference_consumer
+            if root_roles[name] == PARITY_ROLE_CONSUMER_DISTRIBUTION
+            else reference_author
+        )
+        comparisons[name] = compare_tree_inventories(reference, inventory)
+    return ConfiguredParityReport(reference_name, dict(root_roles), inventories, comparisons)
 
 
 @dataclass(frozen=True)
@@ -716,7 +749,7 @@ def install_skill_suite(
         findings.append(
             DistributionFinding(
                 "invalid_suite_cardinality",
-                "a complete FlowGuard distribution must contain exactly seventeen skills",
+                "a complete FlowGuard distribution must contain exactly fifteen skills",
                 metadata={"actual": len(ids), "expected": FLOWGUARD_EXPECTED_MEMBER_COUNT},
             )
         )
@@ -910,7 +943,7 @@ def check_skill_suite(
         findings.append(
             DistributionFinding(
                 "invalid_suite_cardinality",
-                "a complete FlowGuard distribution must contain exactly seventeen skills",
+                "a complete FlowGuard distribution must contain exactly fifteen skills",
                 metadata={"actual": len(ids), "expected": FLOWGUARD_EXPECTED_MEMBER_COUNT},
             )
         )
@@ -1064,6 +1097,9 @@ __all__ = [
     "DEFAULT_EXCLUSION_RULES",
     "DISTRIBUTION_SCHEMA",
     "FLOWGUARD_EXPECTED_MEMBER_COUNT",
+    "PARITY_ROLE_AUTHOR_SOURCE",
+    "PARITY_ROLE_CONSUMER_DISTRIBUTION",
+    "PARITY_ROLES",
     "OWNERSHIP_MANIFEST_NAME",
     "OWNERSHIP_SCHEMA",
     "ConfiguredParityReport",

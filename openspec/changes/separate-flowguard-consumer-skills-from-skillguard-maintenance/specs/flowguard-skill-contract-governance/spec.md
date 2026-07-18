@@ -56,13 +56,22 @@ Every FlowGuard author contract SHALL declare `native-integrated` and evidence t
 - **WHEN** a consumer prompt or native FlowGuard runtime imports or invokes SkillGuard
 - **THEN** consumer-independence validation fails
 
-### Requirement: Seventeen Skill Deep Certification
-Author release governance SHALL require static skill, contract, and depth validation to pass independently for all seventeen canonical suite members. Consumer readiness SHALL additionally require all seventeen clean consumer projections to pass with zero SkillGuard author-control findings.
+### Requirement: Fifteen Skill Deep Certification
+Author release governance SHALL require static skill, contract, and depth validation to pass independently for all fifteen canonical suite members under `unit:flowguard-suite`. Consumer readiness SHALL additionally require all fifteen clean consumer projections to pass with zero SkillGuard author-control findings.
 
-#### Scenario: Sixteen author members pass and one is hollow
-- **WHEN** sixteen author members pass but one member lacks required deep evidence
-- **THEN** author certification fails and reports `16/17`, not a partial suite pass
+#### Scenario: Fourteen author members pass and one is hollow
+- **WHEN** fourteen author members pass but one member lacks required deep evidence
+- **THEN** author certification fails and reports `14/15`, not a partial suite pass
 
 #### Scenario: Author certification passes but one consumer is contaminated
 - **WHEN** all author checks pass but one consumer member contains SkillGuard control material
 - **THEN** distribution readiness fails and no partial consumer suite is activated
+
+### Requirement: One suite maintenance unit
+Every current FlowGuard author contract SHALL declare
+`maintenance_unit_id=unit:flowguard-suite` and the exact ordered fifteen-member
+inventory. Separate per-skill maintenance units are not current authority.
+
+#### Scenario: A member declares another maintenance unit
+- **WHEN** one current contract source names a per-skill or foreign maintenance unit
+- **THEN** compilation and maintainer audit fail before check execution
