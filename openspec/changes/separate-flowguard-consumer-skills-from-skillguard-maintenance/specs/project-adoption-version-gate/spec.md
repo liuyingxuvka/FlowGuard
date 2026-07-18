@@ -29,6 +29,28 @@ suite authority.
 - **WHEN** the current installed consumer suite is missing, mismatched, or contains an unregistered reserved FlowGuard member
 - **THEN** project upgrade SHALL block visibly before mutation and SHALL NOT consult a target-local suite map as a fallback
 
+### Requirement: Ordinary-project guidance uses the one global consumer authority
+FlowGuard project adoption, audit, and upgrade SHALL direct agents to the
+current clean consumer projection under the Codex skills root. Generated
+ordinary-project guidance SHALL NOT require or authorize a project-local
+FlowGuard skill suite, target-local suite map, or FlowGuard source-repository
+script.
+
+#### Scenario: Managed project block is generated
+- **WHEN** FlowGuard renders its managed `AGENTS.md` block for an ordinary project
+- **THEN** it SHALL identify `$CODEX_HOME/skills/flowguard/SKILL.md` as the default entry
+- **AND** it SHALL state that the ordinary project does not copy the suite into local `.agents/skills`
+
+#### Scenario: Required revalidation is generated
+- **WHEN** project adoption, audit, or upgrade emits required revalidation
+- **THEN** `python -m flowguard project-audit --root . --json` SHALL be the sole package-owned executable suite audit
+- **AND** no executable item SHALL require `python scripts/`, a target-local suite map, or a project-local FlowGuard skill tree
+
+#### Scenario: Project-local legacy suite exists
+- **WHEN** an ordinary target still contains a legacy project-local FlowGuard suite
+- **THEN** that tree SHALL NOT become current suite authority
+- **AND** the current global consumer projection SHALL remain the sole runtime skill authority without an alias, fallback, or dual reader
+
 ## MODIFIED Requirements
 
 ### Requirement: Shadow workspace sync helper

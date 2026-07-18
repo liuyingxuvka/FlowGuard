@@ -62,6 +62,14 @@ target repository is neither authority and is never searched for a suite map
 or author-side `.skillguard` state. A missing or mismatched installed consumer
 suite blocks visibly; no target-local reader, alias, or fallback is permitted.
 
+Generated project guidance follows the same authority split. It points agents
+to the one clean consumer projection under `$CODEX_HOME/skills/`, and its sole
+portable executable suite revalidation is the installed-package-owned
+`python -m flowguard project-audit --root . --json`. A source-repository
+`python scripts/...` command and a project-local `.agents/skills` copy are
+invalid ordinary-project requirements, even when they happen to exist in a
+maintainer checkout.
+
 ### 5. Shadow sync is maintainer-only
 
 Shadow synchronization requires a repository-owned registry entry identifying the target as a maintainer worktree. It may synchronize author material only between registered FlowGuard maintenance roots. Arbitrary project roots and consumer installations are rejected before writes.

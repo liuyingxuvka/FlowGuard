@@ -143,8 +143,10 @@ class ProjectAdoptionTests(unittest.TestCase):
         self.assertIn(FLOWGUARD_AGENTS_BEGIN, updated)
         self.assertIn(FLOWGUARD_AGENTS_END, updated)
         self.assertIn(FLOWGUARD_REPOSITORY_URL, updated)
-        self.assertIn("Primary agent surface: `.agents/skills/`", updated)
-        self.assertIn("Default entry skill: `.agents/skills/flowguard/SKILL.md`", updated)
+        self.assertIn("Primary agent surface: the current clean consumer projection", updated)
+        self.assertIn("`$CODEX_HOME/skills/flowguard/SKILL.md`", updated)
+        self.assertIn("does not copy the FlowGuard suite into its local", updated)
+        self.assertNotIn("Primary agent surface: `.agents/skills/`", updated)
         self.assertIn("not the", updated)
         self.assertIn("AI-agent skill installation surface", updated)
         self.assertIn("FlowGuard check-engine version: `1.2.3`", updated)
@@ -169,8 +171,10 @@ class ProjectAdoptionTests(unittest.TestCase):
             self.assertIn("FlowGuard repository:", agents_text)
             self.assertIn(FLOWGUARD_REPOSITORY_URL, agents_text)
             self.assertIn("FlowGuard agent skill suite:", agents_text)
-            self.assertIn("Primary agent surface: `.agents/skills/`", agents_text)
-            self.assertIn("Default entry skill: `.agents/skills/flowguard/SKILL.md`", agents_text)
+            self.assertIn("Primary agent surface: the current clean consumer projection", agents_text)
+            self.assertIn("`$CODEX_HOME/skills/flowguard/SKILL.md`", agents_text)
+            self.assertIn("does not copy the FlowGuard suite into its local", agents_text)
+            self.assertNotIn("Primary agent surface: `.agents/skills/`", agents_text)
             self.assertIn("not the", agents_text)
             self.assertIn("AI-agent skill installation surface", agents_text)
             self.assertIn("FlowGuard check-engine version:", agents_text)
@@ -188,16 +192,19 @@ class ProjectAdoptionTests(unittest.TestCase):
     def test_project_adopt_portable_revalidation_commands_in_reports_and_markdown_log(self):
         expected = (
             "python -m flowguard project-audit --root . --json",
-            "python scripts/verify_skill_suite_markers.py --root . --json",
             "Rerun affected FlowGuard model checks and focused tests before broad confidence.",
         )
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as home_directory:
             root = Path(directory, "private project root")
+            codex_home = Path(home_directory)
             root.mkdir()
             (root / "AGENTS.md").write_text("# Existing\n", encoding="utf-8")
+            install_report = install_skill_suite(ROOT, codex_home=codex_home)
+            self.assertTrue(install_report.ok, install_report.to_dict())
 
-            adopt_report = adopt_project(root)
-            audit_report = audit_project_adoption(root)
+            with patch.dict(os.environ, {"CODEX_HOME": str(codex_home)}):
+                adopt_report = adopt_project(root)
+                audit_report = audit_project_adoption(root)
             markdown = (root / "docs" / "flowguard_adoption_log.md").read_text(
                 encoding="utf-8"
             )
@@ -211,7 +218,24 @@ class ProjectAdoptionTests(unittest.TestCase):
             self.assertNotIn(absolute_root, "\n".join(audit_report.required_revalidation))
             self.assertNotIn(absolute_root, markdown)
             self.assertIn(expected[0], markdown)
-            self.assertIn(expected[1], markdown)
+            self.assertNotIn("python scripts/verify_skill_suite_markers.py", markdown)
+            self.assertFalse((root / "scripts").exists())
+            self.assertFalse((root / ".agents" / "skills").exists())
+            self.assertFalse((root / ".skillguard").exists())
+
+            command = adopt_report.required_revalidation[0].split()
+            completed = subprocess.run(
+                [sys.executable, *command[1:]],
+                cwd=root,
+                env={**os.environ, "CODEX_HOME": str(codex_home)},
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
+            payload = json.loads(completed.stdout)
+            self.assertTrue(payload["ok"])
+            self.assertEqual("pass", payload["suite_status"])
 
     def test_audit_reports_newer_and_older_version_states(self):
         with tempfile.TemporaryDirectory() as directory:

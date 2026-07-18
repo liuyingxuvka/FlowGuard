@@ -545,8 +545,9 @@ class SkillDocsTests(unittest.TestCase):
             "risk-template-harvest-review",
             "Check-engine helpers",
             "not separate Codex skills",
-            "Primary agent surface: `.agents/skills/`",
-            "Default entry skill: `.agents/skills/flowguard/SKILL.md`",
+            "Primary agent surface: the current clean consumer projection",
+            "$CODEX_HOME/skills/flowguard/SKILL.md",
+            "does not copy the FlowGuard suite into its local",
             "not the AI-agent skill installation surface",
         )
         for phrase in expected:

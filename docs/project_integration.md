@@ -17,13 +17,18 @@ that a Python package has been installed.
 The required agent-visible surface is:
 
 - `AGENTS.md`
-- `.agents/skills/flowguard/SKILL.md`
-- all sibling FlowGuard `SKILL.md` files under `.agents/skills/`
+- `$CODEX_HOME/skills/flowguard/SKILL.md`
+- all sibling FlowGuard `SKILL.md` files under `$CODEX_HOME/skills/`
 - any referenced `references/`, `assets/`, and check scripts used by the
   selected route
 
 Start from `flowguard`. Use a direct FlowGuard sibling skill
 when the route is obvious, and use the kernel when route selection is unclear.
+The target repository does not vendor a second project-local FlowGuard suite,
+does not copy the suite into `.agents/skills/`, and does not own
+`.skillguard/flowguard-suite/suite-map.json`. The installed package owns the
+canonical suite map and the current Codex skills root owns the one clean
+consumer projection.
 
 If the agent can read the skills but cannot run executable checks yet, record
 that as scoped or partial evidence. Do not treat package metadata, a passing

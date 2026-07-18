@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.58.2 - 2026-07-18
+
+- Repaired an ordinary-project authority regression: generated minimum
+  revalidation now invokes only the installed package audit and no longer
+  requires the author-repository `verify_skill_suite_markers.py` script.
+- Made the one clean consumer projection under `$CODEX_HOME/skills/` the sole
+  FlowGuard skill authority for ordinary projects; adopted projects do not
+  receive a second `.agents/skills` tree or suite map.
+- Added executable temporary-project regressions proving project adoption,
+  audit, and minimum revalidation work without local `scripts`,
+  `.agents/skills`, or `.skillguard` directories.
+- Preserved the author-maintenance boundary: the canonical suite map, full
+  fifteen-member SkillGuard validation, and generated author contracts remain
+  owned by the FlowGuard source repository.
+- Kept one direct current path only; no alias, fallback, compatibility reader,
+  or shadow-suite authority was added.
+- Retained source-only release authority with an immutable tag and zero GitHub
+  Release assets.
+
 ## v0.58.1 - 2026-07-18
 
 - Corrected a v0.58.0 model miss in project audit and upgrade: suite

@@ -111,10 +111,13 @@ process changes.""",
     ManagedAdoptionRule(
         "skill_suite.agent_surface",
         """FlowGuard agent skill suite:
-- Primary agent surface: `.agents/skills/`
-- Default entry skill: `.agents/skills/flowguard/SKILL.md`
+- Primary agent surface: the current clean consumer projection under
+  `$CODEX_HOME/skills/`
+- Default entry skill: `$CODEX_HOME/skills/flowguard/SKILL.md`
 - Complete AI-agent setup means the agent can read `AGENTS.md` and all
-  FlowGuard sibling `SKILL.md` files under `.agents/skills/`.
+  FlowGuard sibling `SKILL.md` files under `$CODEX_HOME/skills/`.
+- An ordinary target project does not copy the FlowGuard suite into its local
+  `.agents/skills/` tree and does not own the canonical suite map.
 - The Python `flowguard` module/CLI is executable check support, not the
   AI-agent skill installation surface.""",
     ),
@@ -1583,7 +1586,6 @@ def _adoption_state(
 def _minimum_revalidation() -> tuple[str, ...]:
     return (
         "python -m flowguard project-audit --root . --json",
-        "python scripts/verify_skill_suite_markers.py --root . --json",
         "Rerun affected FlowGuard model checks and focused tests before broad confidence.",
     )
 

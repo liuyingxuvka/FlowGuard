@@ -103,7 +103,17 @@
 - [x] 11.4a Remove the Python 3.10 hand-written TOML parser fallback and require the single Python 3.11+ `tomllib` path.
 - [x] 11.4b Delete the unused self-governance forwarding entrypoint so the canonical checker has no alias.
 - [x] 11.5 Freeze version 0.58.1, regenerate affected author contracts, and run the final native, OpenSpec, SkillGuard, install, project-upgrade, and full regression gates.
-- [ ] 11.6 Synchronize the exact v0.58.1 source, installed suite and package, default Git branch, tag, and asset-free GitHub Release.
+- [x] 11.6 Synchronize the exact v0.58.1 source, installed suite and package, default Git branch, tag, and asset-free GitHub Release.
 - [x] 11.7 Remove the two retired model-regression registrations for deleted SpecContext and task-local replay owners, refresh the changed ModelMissReview purpose identity, and update the exact manifest cardinality assertion.
 - [x] 11.8 Make CI install the one current consumer projection before project adoption audit instead of assuming an undeclared pre-existing machine installation.
-- [ ] 11.9 Rerun the final frozen-source full gate and publish v0.58.1 only after local, installed, Git, tag, Release, and CI identities agree.
+- [x] 11.9 Rerun the final frozen-source full gate and publish v0.58.1 only after local, installed, Git, tag, Release, and CI identities agree.
+
+## 12. v0.58.2 Ordinary-Project Authority Repair
+
+- [x] 12.1 Record the v0.58.1 false-green: project audit validated the global consumer suite, but generated revalidation and AGENTS guidance still pointed at project-local author paths.
+- [x] 12.2 Make `$CODEX_HOME/skills` the sole generated ordinary-project agent surface and remove the source-layout marker command from minimum revalidation.
+- [x] 12.3 Add regressions that execute the generated package-owned audit from an adopted project with no local `scripts`, `.agents/skills`, or `.skillguard`.
+- [x] 12.4 Exercise the checkout-local project-adoption model and update the tracked OpenSpec requirement, docs, and FlowGuard consumer reference without adding an alias, fallback, or second suite authority.
+- [x] 12.5 Regenerate affected SkillGuard author contracts and prove the clean 15-skill consumer projection remains independent and globally installed.
+- [x] 12.6 Freeze and run the focused, full FlowGuard, OpenSpec, SkillGuard, install, source-only, and release gates for v0.58.2.
+- [x] 12.7 Synchronize the exact v0.58.2 source, global installed suite, editable package, default Git branch, immutable tag, and asset-free GitHub Release.

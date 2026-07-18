@@ -20,6 +20,9 @@ FlowGuard's author repository is legitimately maintained with SkillGuard, but it
 - Make consumer installation staged, rollbackable, ownership-aware, and safe when withdrawing previously installed SkillGuard files.
 - Restrict shadow-workspace synchronization to explicitly registered maintainer worktrees.
 - Preserve FlowGuard's `.flowguard` project adoption, native scenario/model checks, public skill behavior, and author-side SkillGuard maintenance.
+- Make generated ordinary-project guidance point only to the current global
+  Codex skills root and the package-owned `project-audit`; never require a
+  project-local FlowGuard suite, suite map, or source-repository script.
 - Keep the existing uncommitted SkillGuard V2 contract-source changes as a separately validated migration rather than silently folding them into consumer separation.
 
 ## Capabilities

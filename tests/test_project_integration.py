@@ -22,8 +22,10 @@ class ProjectIntegrationTests(unittest.TestCase):
 
         self.assertIn("AI-agent skill suite", text)
         self.assertIn("Agent Skill Suite Setup", text)
-        self.assertIn("`.agents/skills/`", text)
-        self.assertIn("`.agents/skills/flowguard/SKILL.md`", text)
+        self.assertIn("`$CODEX_HOME/skills/`", text)
+        self.assertIn("`$CODEX_HOME/skills/flowguard/SKILL.md`", text)
+        self.assertIn("does not vendor a second project-local FlowGuard suite", text)
+        self.assertNotIn("`.agents/skills/flowguard/SKILL.md`", text)
         self.assertIn("not the AI-agent skill install surface", text)
         self.assertIn("check-execution convenience", text)
         self.assertIn('python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"', text)

@@ -16,10 +16,13 @@ https://github.com/liuyingxuvka/FlowGuard
 <!-- flowguard-rule:skill_suite.agent_surface -->
 
 FlowGuard agent skill suite:
-- Primary agent surface: `.agents/skills/`
-- Default entry skill: `.agents/skills/flowguard/SKILL.md`
+- Primary agent surface: the current clean consumer projection under
+  `$CODEX_HOME/skills/`
+- Default entry skill: `$CODEX_HOME/skills/flowguard/SKILL.md`
 - Complete AI-agent setup means the agent can read `AGENTS.md` and all
-  FlowGuard sibling `SKILL.md` files under `.agents/skills/`.
+  FlowGuard sibling `SKILL.md` files under `$CODEX_HOME/skills/`.
+- An ordinary target project does not copy the FlowGuard suite into its local
+  `.agents/skills/` tree and does not own the canonical suite map.
 - The Python `flowguard` module/CLI is executable check support, not the
   AI-agent skill installation surface.
 
@@ -33,7 +36,7 @@ Project FlowGuard record:
 <!-- flowguard-rule:project.rendered_versions -->
 
 Current adoption record:
-- FlowGuard check-engine version: `0.58.1`
+- FlowGuard check-engine version: `0.58.2`
 - FlowGuard schema version: `1.0`
 
 <!-- flowguard-rule:project.preflight_version_gate -->

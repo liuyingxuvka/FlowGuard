@@ -6,8 +6,8 @@ Copy this compact section into another repository's `AGENTS.md`.
 FlowGuard repository: https://github.com/liuyingxuvka/FlowGuard
 Keep the managed AGENTS.md block and `.flowguard/project.toml` current.
 
-Primary agent surface: `.agents/skills/`; Default entry skill: `.agents/skills/flowguard/SKILL.md`
-Complete AI-agent setup means the agent can read `AGENTS.md` and all FlowGuard sibling `SKILL.md` files under `.agents/skills/`. The Python `flowguard` module/CLI is executable check support, not the AI-agent skill installation surface.
+Primary agent surface: the current clean consumer projection under `$CODEX_HOME/skills/`; Default entry skill: `$CODEX_HOME/skills/flowguard/SKILL.md`
+Complete AI-agent setup means the agent can read `AGENTS.md` and all FlowGuard sibling `SKILL.md` files under `$CODEX_HOME/skills/`. An ordinary target project does not copy the FlowGuard suite into its local `.agents/skills/` tree and does not own the canonical suite map. The Python `flowguard` module/CLI is executable check support, not the AI-agent skill installation surface.
 ### Decision
 
 For coding, repository, process, prompt, skill, documentation, release, archive, publish, UI, test, and software-maintenance work, first decide:
