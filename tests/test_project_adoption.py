@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import subprocess
 import sys
@@ -28,9 +29,6 @@ from flowguard.project_adoption import (
     update_agents_text,
     upgrade_project,
 )
-from flowguard.skill_suite import FLOWGUARD_SUITE_MAP
-
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -41,6 +39,21 @@ def _passing_suite_evidence():
         "inventory-hash",
         "semantic-hash",
         (),
+    )
+
+
+def _blocked_suite_evidence():
+    return project_adoption._SuiteEvidence(
+        False,
+        "blocked",
+        findings=(
+            {
+                "code": "missing_declared_member",
+                "message": "current installed consumer suite is incomplete",
+                "member_id": "flowguard",
+                "file_path": "",
+            },
+        ),
     )
 
 
@@ -467,7 +480,11 @@ class ProjectAdoptionTests(unittest.TestCase):
             )
             before = _tree_snapshot(root)
 
-            report = upgrade_project(root, dry_run=True)
+            with patch(
+                "flowguard.project_adoption._load_suite_evidence",
+                return_value=_blocked_suite_evidence(),
+            ):
+                report = upgrade_project(root, dry_run=True)
 
             self.assertFalse(report.ok)
             self.assertIn("suite_inventory_unresolved", {item.category for item in report.findings})
@@ -556,7 +573,11 @@ class ProjectAdoptionTests(unittest.TestCase):
             )
             before = _tree_snapshot(root)
 
-            report = upgrade_project(root)
+            with patch(
+                "flowguard.project_adoption._load_suite_evidence",
+                return_value=_blocked_suite_evidence(),
+            ):
+                report = upgrade_project(root)
 
             self.assertFalse(report.ok)
             self.assertIn("suite_inventory_unresolved", {item.category for item in report.findings})
@@ -564,9 +585,10 @@ class ProjectAdoptionTests(unittest.TestCase):
             self.assertEqual((), report.written_files)
 
     def test_project_upgrade_accepts_owned_mixed_root_and_rejects_reserved_extra(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as home_directory:
             root = Path(directory)
-            skill_root = root / ".agents" / "skills"
+            codex_home = Path(home_directory)
+            skill_root = codex_home / "skills"
             foreign_files = {}
             for skill_id in ("skillguard", "skillguard-global-router"):
                 path = skill_root / skill_id / "SKILL.md"
@@ -577,9 +599,6 @@ class ProjectAdoptionTests(unittest.TestCase):
 
             install_report = install_skill_suite(ROOT, skill_root)
             self.assertTrue(install_report.ok, install_report.to_dict())
-            suite_map = root / FLOWGUARD_SUITE_MAP
-            suite_map.parent.mkdir(parents=True, exist_ok=True)
-            suite_map.write_bytes((ROOT / FLOWGUARD_SUITE_MAP).read_bytes())
             (root / "AGENTS.md").write_text(
                 build_flowguard_agents_block(package_version="0.1.0"),
                 encoding="utf-8",
@@ -591,24 +610,29 @@ class ProjectAdoptionTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            before_upgrade = audit_project_adoption(root)
-            self.assertEqual("pass", before_upgrade.suite_status)
-            self.assertFalse(before_upgrade.suite_findings)
+            with patch.dict(os.environ, {"CODEX_HOME": str(codex_home)}):
+                before_upgrade = audit_project_adoption(root)
+                self.assertEqual("pass", before_upgrade.suite_status)
+                self.assertFalse(before_upgrade.suite_findings)
 
-            upgraded = upgrade_project(root, records_only=True)
+                upgraded = upgrade_project(root, records_only=True)
 
-            self.assertTrue(upgraded.ok, upgraded.format_text())
-            self.assertEqual("pass", upgraded.suite_status)
+                self.assertTrue(upgraded.ok, upgraded.format_text())
+                self.assertEqual("pass", upgraded.suite_status)
             for path, content in foreign_files.items():
                 self.assertEqual(content, path.read_text(encoding="utf-8"))
-            after_upgrade = audit_project_adoption(root)
-            self.assertTrue(after_upgrade.ok, after_upgrade.format_text())
-            self.assertEqual("pass", after_upgrade.suite_status)
+            self.assertFalse((root / ".skillguard").exists())
+            self.assertFalse((root / ".agents" / "skills").exists())
+            with patch.dict(os.environ, {"CODEX_HOME": str(codex_home)}):
+                after_upgrade = audit_project_adoption(root)
+                self.assertTrue(after_upgrade.ok, after_upgrade.format_text())
+                self.assertEqual("pass", after_upgrade.suite_status)
 
             fake = skill_root / "flowguard-unregistered" / "SKILL.md"
             fake.parent.mkdir(parents=True)
             fake.write_text("# fake FlowGuard member\n", encoding="utf-8")
-            blocked = upgrade_project(root, records_only=True)
+            with patch.dict(os.environ, {"CODEX_HOME": str(codex_home)}):
+                blocked = upgrade_project(root, records_only=True)
 
             self.assertFalse(blocked.ok)
             self.assertEqual("blocked", blocked.suite_status)
@@ -676,7 +700,7 @@ class ProjectAdoptionTests(unittest.TestCase):
             self.assertTrue((Path(directory) / FLOWGUARD_PROJECT_MANIFEST).exists())
 
     def test_project_upgrade_cli_accepts_records_only(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as home_directory:
             root = Path(directory)
             (root / "AGENTS.md").write_text(build_flowguard_agents_block(package_version="0.1.0"), encoding="utf-8")
             manifest = root / FLOWGUARD_PROJECT_MANIFEST
@@ -698,6 +722,7 @@ class ProjectAdoptionTests(unittest.TestCase):
                 text=True,
                 capture_output=True,
                 check=False,
+                env={**os.environ, "CODEX_HOME": home_directory},
             )
 
             self.assertEqual(1, result.returncode, result.stdout + result.stderr)
@@ -712,7 +737,7 @@ class ProjectAdoptionTests(unittest.TestCase):
             self.assertEqual([], payload["written_files"])
 
     def test_project_upgrade_cli_dry_run_is_non_mutating_when_blocked(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as home_directory:
             root = Path(directory)
             (root / "AGENTS.md").write_text(
                 build_flowguard_agents_block(package_version="0.1.0"),
@@ -741,6 +766,7 @@ class ProjectAdoptionTests(unittest.TestCase):
                 text=True,
                 capture_output=True,
                 check=False,
+                env={**os.environ, "CODEX_HOME": home_directory},
             )
 
             self.assertEqual(1, result.returncode, result.stdout + result.stderr)

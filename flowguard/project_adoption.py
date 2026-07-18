@@ -12,15 +12,11 @@ import hashlib
 import importlib.metadata
 import json
 import re
+import tomllib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
-
-try:  # pragma: no cover - Python 3.10 fallback
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover
-    tomllib = None  # type: ignore[assignment]
 
 from .adoption import (
     AdoptionCommandResult,
@@ -1430,9 +1426,16 @@ def _write_preflight_blockers(
 
 
 def _load_suite_evidence(root_path: Path) -> _SuiteEvidence:
-    """Load the canonical suite validator lazily to avoid import cycles."""
+    """Validate the one current installed consumer suite against author truth.
+
+    ``root_path`` is an ordinary project and is never a FlowGuard suite or
+    SkillGuard authority.  The canonical suite map belongs to the installed
+    FlowGuard package source, while the clean consumer projection belongs to
+    the current Codex skills root.
+    """
 
     try:
+        from .distribution_sync import resolve_target_skill_root
         from .skill_suite import validate_skill_suite
     except (ImportError, ModuleNotFoundError) as exc:
         return _SuiteEvidence(
@@ -1448,7 +1451,11 @@ def _load_suite_evidence(root_path: Path) -> _SuiteEvidence:
             ),
         )
     try:
-        report = validate_skill_suite(root_path)
+        package_root = Path(__file__).resolve().parents[1]
+        report = validate_skill_suite(
+            package_root,
+            skill_root=resolve_target_skill_root(),
+        )
     except Exception as exc:  # validator failures must remain visible, not crash writes
         return _SuiteEvidence(
             False,
@@ -1623,31 +1630,12 @@ def _read_manifest(path: Path) -> dict[str, Any]:
     text = _read_text(path)
     if not text:
         return {}
-    if tomllib is not None:
-        try:
-            payload = tomllib.loads(text)
-            flowguard_section = payload.get("flowguard", {})
-            return dict(flowguard_section) if isinstance(flowguard_section, dict) else {}
-        except Exception:
-            return {}
-    return _read_manifest_fallback(text)
-
-
-def _read_manifest_fallback(text: str) -> dict[str, Any]:
-    values: dict[str, str] = {}
-    in_flowguard = False
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("[") and line.endswith("]"):
-            in_flowguard = line == "[flowguard]"
-            continue
-        if not in_flowguard or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        values[key.strip()] = value.strip().strip('"')
-    return values
+    try:
+        payload = tomllib.loads(text)
+        flowguard_section = payload.get("flowguard", {})
+        return dict(flowguard_section) if isinstance(flowguard_section, dict) else {}
+    except (TypeError, tomllib.TOMLDecodeError):
+        return {}
 
 
 def _read_text(path: Path) -> str:

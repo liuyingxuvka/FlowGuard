@@ -55,6 +55,13 @@ No broad recursive `.skillguard` deletion is allowed.
 
 `project-adopt`, `project-audit`, and `project-upgrade` operate on `.flowguard/project.toml` and a FlowGuard-managed `AGENTS.md` block. They do not discover, require, install, or repair SkillGuard, its router, contracts, or project state. Eligibility and report schemas explicitly assert `skillguard_project_writes: 0`.
 
+The single suite-evidence path keeps its two real authorities separate: the
+current FlowGuard package source owns the canonical suite map, and the current
+Codex skills root owns the installed clean consumer projection. An ordinary
+target repository is neither authority and is never searched for a suite map
+or author-side `.skillguard` state. A missing or mismatched installed consumer
+suite blocks visibly; no target-local reader, alias, or fallback is permitted.
+
 ### 5. Shadow sync is maintainer-only
 
 Shadow synchronization requires a repository-owned registry entry identifying the target as a maintainer worktree. It may synchronize author material only between registered FlowGuard maintenance roots. Arbitrary project roots and consumer installations are rejected before writes.

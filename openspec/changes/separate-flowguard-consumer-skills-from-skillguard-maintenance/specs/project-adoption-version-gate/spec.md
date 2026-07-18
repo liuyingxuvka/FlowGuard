@@ -15,6 +15,20 @@ FlowGuard project adoption, audit, and upgrade SHALL operate without discovering
 - **WHEN** project adoption fails before its FlowGuard transaction commits
 - **THEN** it SHALL leave no `.skillguard` directory, SkillGuard marker, or SkillGuard process evidence
 
+### Requirement: Project upgrade validates the installed consumer suite
+FlowGuard project audit and upgrade SHALL validate the current installed
+consumer suite against the canonical suite map owned by the current FlowGuard
+package source. The ordinary target repository SHALL NOT be treated as either
+suite authority.
+
+#### Scenario: Ordinary project has no author controls
+- **WHEN** an ordinary project has no `.skillguard` directory or local FlowGuard skill suite and the current installed consumer suite is valid
+- **THEN** project audit and upgrade SHALL pass suite reconciliation without writing author controls or a local skill suite into the project
+
+#### Scenario: Installed consumer suite is unresolved
+- **WHEN** the current installed consumer suite is missing, mismatched, or contains an unregistered reserved FlowGuard member
+- **THEN** project upgrade SHALL block visibly before mutation and SHALL NOT consult a target-local suite map as a fallback
+
 ## MODIFIED Requirements
 
 ### Requirement: Shadow workspace sync helper

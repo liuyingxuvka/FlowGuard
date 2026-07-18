@@ -93,3 +93,13 @@
 - [x] 10.6 Remove the tracked worktree gitlink, preserve the registered physical linked worktree, and exclude that physical worktree from repository test discovery.
 - [x] 10.7 Make v0.58.0 source-only release authority and reject package archives and GitHub Release assets.
 - [x] 10.8 Publish and verify the v0.58.0 remote tag and asset-free GitHub Release at the exact source commit used for the installed consumer projection.
+
+## 11. v0.58.1 Model-Miss Repair
+
+- [x] 11.1 Record the v0.58.0 false-green claim: ordinary project upgrade was expected to be consumer-independent but searched the target repository for the author suite map.
+- [x] 11.2 Replace that path with the sole current authority split: package-source suite map plus current installed consumer skills root.
+- [x] 11.3 Add a generalized regression proving a project without `.skillguard` or local FlowGuard skills upgrades successfully, while an invalid installed consumer suite blocks before mutation.
+- [x] 11.4 Specify and validate that no target-local suite map, compatibility reader, alias, or fallback path is retained.
+- [x] 11.4a Remove the Python 3.10 hand-written TOML parser fallback and require the single Python 3.11+ `tomllib` path.
+- [x] 11.5 Freeze version 0.58.1, regenerate affected author contracts, and run the final native, OpenSpec, SkillGuard, install, project-upgrade, and full regression gates.
+- [x] 11.6 Synchronize the exact v0.58.1 source, installed suite and package, default Git branch, tag, and asset-free GitHub Release.

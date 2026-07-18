@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.58.1 - 2026-07-18
+
+- Corrected a v0.58.0 model miss in project audit and upgrade: suite
+  reconciliation now uses the canonical map from the current FlowGuard package
+  source and the clean consumer projection from the current installed Codex
+  skills root.
+- Added a regression proving ordinary projects need no `.skillguard` directory
+  or local FlowGuard skill suite, while missing or mismatched installed
+  consumer skills still block before mutation.
+- Retained one direct current path only; no target-local compatibility reader,
+  alias, or fallback was added.
+- Removed the Python 3.10 hand-written TOML parser fallback and made Python
+  3.11+ with the standard-library `tomllib` parser the sole current runtime
+  path.
+
 ## v0.58.0 - 2026-07-18
 
 - Renamed the canonical kernel skill directly from
