@@ -143,9 +143,10 @@ from .template_text.workflow_step_contracts import (
     WORKFLOW_STEP_CONTRACTS_RUN_CHECKS_TEMPLATE,
     WORKFLOW_STEP_CONTRACTS_NOTES_TEMPLATE,
 )
-from .template_text.spec_work_package import (
-    SPEC_WORK_PACKAGE_MODEL_TEMPLATE,
-    SPEC_WORK_PACKAGE_RUN_CHECKS_TEMPLATE,
+from .template_text.spec_context import (
+    SPEC_CONTEXT_MODEL_TEMPLATE,
+    SPEC_CONTEXT_NOTES_TEMPLATE,
+    SPEC_CONTEXT_RUN_CHECKS_TEMPLATE,
 )
 
 
@@ -153,47 +154,6 @@ from .template_text.spec_work_package import (
 class TemplateFile:
     path: str
     content: str
-
-
-SPEC_WORK_PACKAGE_BINDINGS_TEMPLATE = """{
-  "packages": [
-    {
-      "provider_id": "openspec",
-      "work_package_id": "replace-with-change-id",
-      "change_id": "replace-with-change-id",
-      "task_binding_rules": [
-        {
-          "task_prefix": "1.",
-          "obligation_ids": ["req.example"]
-        }
-      ],
-      "check_policies": [
-        {
-          "check_id": "check.example",
-          "validation_obligation_ids": ["validation:example"],
-          "depends_on": [],
-          "timeout_seconds": 600,
-          "cross_change_safe": false
-        }
-      ]
-    }
-  ],
-  "schema_version": "flowguard.spec-work-package-bindings.v1"
-}
-"""
-
-SPEC_WORK_PACKAGE_NOTES_TEMPLATE = """# FlowGuard specification work package
-
-Keep provider, work-package, change, task, obligation, check, session, receipt,
-and consumer identities distinct. Every task and required obligation/check
-needs a bidirectional owner mapping. OpenSpec or Spec Kit retains native task,
-verification, and archive authority.
-
-Use `spec-session-begin`, wrap checks with `spec-check-run`, and finish with
-`spec-session-close`. Derived reports, logs, caches, and receipts are outputs,
-not governed source inputs. Do not expose these internal development-process
-fields as product UI content.
-"""
 
 
 def project_template_files() -> tuple[TemplateFile, ...]:
@@ -227,12 +187,11 @@ def risk_intent_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def spec_work_package_template_files() -> tuple[TemplateFile, ...]:
+def spec_context_template_files() -> tuple[TemplateFile, ...]:
     return (
-        TemplateFile(".flowguard/spec_provider_work_packages/model.py", SPEC_WORK_PACKAGE_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/spec_provider_work_packages/run_checks.py", SPEC_WORK_PACKAGE_RUN_CHECKS_TEMPLATE),
-        TemplateFile(".flowguard/spec_provider_work_packages/bindings.json", SPEC_WORK_PACKAGE_BINDINGS_TEMPLATE),
-        TemplateFile("docs/flowguard_spec_work_package.md", SPEC_WORK_PACKAGE_NOTES_TEMPLATE),
+        TemplateFile(".flowguard/spec_context/model.py", SPEC_CONTEXT_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/spec_context/run_checks.py", SPEC_CONTEXT_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_spec_context.md", SPEC_CONTEXT_NOTES_TEMPLATE),
     )
 
 
@@ -593,7 +552,7 @@ __all__ = [
     "risk_evidence_ledger_template_files",
     "risk_intent_template_files",
     "risk_template_library_template_files",
-    "spec_work_package_template_files",
+    "spec_context_template_files",
     "runtime_path_evidence_template_files",
     "structure_mesh_template_files",
     "test_mesh_template_files",

@@ -166,6 +166,71 @@
       }
     },
     {
+      "absence_reason": "This executable task-local replay model is required in the public distribution.",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/task_local_prediction_replay/model.py",
+        ".flowguard/task_local_prediction_replay/run_checks.py",
+        "flowguard/conformance.py",
+        "flowguard/replay.py",
+        "flowguard/runner.py",
+        "flowguard/runtime_path.py",
+        "flowguard/task_local_model.py"
+      ],
+      "model_id": "task_local_prediction_replay",
+      "model_path": ".flowguard/task_local_prediction_replay/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/task_local_prediction_replay/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:task_local_prediction_replay:current",
+        "reusable_model_type_id": "task_local_prediction_replay",
+        "task_intent_id": "flowguard-regression:task-local-prediction-replay",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent task-local model iteration from accepting status-only conformance, expected-output-leaking replay, or a candidate revision without current required replay evidence.",
+        "protected_failure_ids": [
+          "task-local-replay:status-only-pass-accepted",
+          "task-local-replay:expected-output-leak-accepted",
+          "task-local-revision:accepted-without-required-replays"
+        ],
+        "claim_boundary": "Current closure proves only that the task-local prediction and replay model rejects the three declared false-green families; it does not prove any production adapter, permanent learning, or future task model.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:task-local-prediction-replay:complete-cycle",
+        "failure_bindings": [
+          {
+            "failure_id": "task-local-replay:status-only-pass-accepted",
+            "known_bad_case_id": "native-runner:task-local-prediction-replay:status-only",
+            "oracle_id": "native:task-local-prediction-replay:run-checks"
+          },
+          {
+            "failure_id": "task-local-replay:expected-output-leak-accepted",
+            "known_bad_case_id": "native-runner:task-local-prediction-replay:leaking-adapter",
+            "oracle_id": "native:task-local-prediction-replay:run-checks"
+          },
+          {
+            "failure_id": "task-local-revision:accepted-without-required-replays",
+            "known_bad_case_id": "native-runner:task-local-prediction-replay:missing-replays",
+            "oracle_id": "native:task-local-prediction-replay:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:task-local-prediction-replay"
+        ],
+        "model_sha256": "sha256:ac0df635a0894c200852815888c0610b940c5a1486eb0e779931882353394ef1",
+        "runner_sha256": "sha256:09c829aa896106a61dd3ec84247ee23e2a0eb067aa05b2864ae33aaf12d16f48",
+        "declaration_fingerprint": "sha256:c917d76bd9d50d2b5f43b1ed62f66cf5de1d1758b87d94b3ba592a20a4674be2",
+        "closure_fingerprint": "sha256:25fa1ddb910b472c08a532f975e330421101609059c6cbb2b66d58157284e0de"
+      }
+    },
+    {
       "absence_reason": "",
       "distribution_policy": "required_public",
       "exclusion_reason": "",
@@ -450,10 +515,10 @@
         "evidence_check_ids": [
           "check:model-regression:codex_skill_satellites"
         ],
-        "model_sha256": "sha256:11fff616d7e2f1a5fe519f3e52d8b477c045a03b559808e407964d272e7c60a7",
-        "runner_sha256": "sha256:e27f5b3f3adfd9860e4c389312d87b969f9ea69cd2e793f91eea3207ded34bc1",
+        "model_sha256": "sha256:7e037961b6c4caeaa12945295a4d39fd6f58fe00f3bd801e7df3b325e8ae957b",
+        "runner_sha256": "sha256:81213708e4a94c874263be65ee4e9ae13e04236b487d3d479b0655d0ab01af90",
         "declaration_fingerprint": "sha256:ad6175482e11e5e9d467c7f5e72e1702e024afe77b258b04db89b8b00da742a3",
-        "closure_fingerprint": "sha256:fb6e74bb0827c2c7ed056a7f8fec26c76352e05cde3d6a950ef78eeb0c56822c"
+        "closure_fingerprint": "sha256:1f4f15b110d6f414e4611b8424e4bf2087269d1ae5825744b45ee59a32605859"
       }
     },
     {
@@ -594,10 +659,10 @@
         "evidence_check_ids": [
           "check:model-regression:development_process_flow"
         ],
-        "model_sha256": "sha256:37941928086371cf615ebe59ab663a8cd6502c79e7e6f47c2f3e7160538ef7c4",
-        "runner_sha256": "sha256:e59ecc22ce95cdf19d863d8b28d6b34e3a88b3c021ed48449df82bacfb9706dc",
+        "model_sha256": "sha256:e4932bedb7ea4aba6af6d07b4d0d5416b4dc053f08634eff314717da4a4542c8",
+        "runner_sha256": "sha256:d05dc18beddf1c2cc87f774f1063371a110952cde94c03cbc0e3b177e445cbc0",
         "declaration_fingerprint": "sha256:4f3f6bafc400c2425d790c449512969ad34382c6e8ea366fc31e9a528acca629",
-        "closure_fingerprint": "sha256:d07af9e634935b783866670d5e2e2757e6c70542d1b9602de4758ef838e12bf9"
+        "closure_fingerprint": "sha256:61802a01c5aeb88f89f4e98e0119042eec5dbeb304e3205918dab6310659beb4"
       }
     },
     {
@@ -693,10 +758,10 @@
         "evidence_check_ids": [
           "check:model-regression:existing_model_preflight"
         ],
-        "model_sha256": "sha256:d06b239ad09ba7856ac6fecd1e16a138222e5e65d25cee06f8434d8e98c87440",
-        "runner_sha256": "sha256:ca9908cc2c0b6c0afb3083bb8aceaee2ff306f4e0e3bbe1a2f097108eba17879",
+        "model_sha256": "sha256:5d24d703a301557caec6f8d0bb27a2636e9d7448c2ce7b68f77e31b170fc53ff",
+        "runner_sha256": "sha256:a4af744733e8f7aed6705274500d1d2cd367d80b4c2404ed6f12611c66853462",
         "declaration_fingerprint": "sha256:2d43b2f5745416c9249d0a1837514fe2632ac900721eec67543473871b2bbd7e",
-        "closure_fingerprint": "sha256:91ff1006e562569d6998e4c59752063af10482786ed8e9ee3b98953ec5c58e71"
+        "closure_fingerprint": "sha256:33cc72b5caed8f559beb12b67a34a2741f5c0225f1fe46f0f6a5b2fe1cd81f74"
       }
     },
     {
@@ -1527,10 +1592,10 @@
         "evidence_check_ids": [
           "check:model-regression:model_miss_review"
         ],
-        "model_sha256": "sha256:f5f73081de36621e10d97b1b33f1975027baf76498e8437836acf1672eab6ab2",
-        "runner_sha256": "sha256:d1c147c9818ef0b7ababb9398026d245cf77cddbbb5676aa4d71187dac739cd4",
+        "model_sha256": "sha256:895e9f79b25bfb99d23cf62eb8265b9efa7be9c11e2797baa8ffe0e0faf8130c",
+        "runner_sha256": "sha256:0e5eb01382343af4866ffb3e571c05802c121199062bf361fa050d361ace927c",
         "declaration_fingerprint": "sha256:590e8d8b319d73492619a6f5e2ae27f2e559bbce4255d0f67191c1edb1637dde",
-        "closure_fingerprint": "sha256:d3253db57dcf6c710e92e589b234c3912f01edf2c5a9c5a490bd0025014c2c31"
+        "closure_fingerprint": "sha256:77494e9aad1aa9d80850cbcf292f4edbc5182f8f4e465329db46bf7e55e462f4"
       }
     },
     {
@@ -1913,10 +1978,10 @@
         "evidence_check_ids": [
           "check:model-regression:project_adoption_version_gate"
         ],
-        "model_sha256": "sha256:198e9b3185cb289a67a4bc2e7bb83a9edc804085c6cba9b7292cd09ab66455a6",
-        "runner_sha256": "sha256:84b48dd70293a21783511cf07f8f851f8431ac8a7baac2959794a96583a08eae",
+        "model_sha256": "sha256:33c84009874775ad62950254fdb2c5fe6b793830ae605a1877d0a7f62032384b",
+        "runner_sha256": "sha256:dd3fc9743b62db6bdae91022d0dcc48252932371c43cbe5d3d2ca5d0f731accb",
         "declaration_fingerprint": "sha256:dd93782e2b1c1e03aeccffa5e4845fd0f29c56ffc4757b40645e5955e4ad99a1",
-        "closure_fingerprint": "sha256:30f8a1f4d2049aefcc655e280626cec0e789f8beed1342b4b00707c4c9bc3bca"
+        "closure_fingerprint": "sha256:87252a46c9211227f3de8be91d0808dd1a265bd1186f954090f4fa405287a79e"
       }
     },
     {
@@ -2249,10 +2314,10 @@
         "evidence_check_ids": [
           "check:model-regression:self_maintenance_mesh"
         ],
-        "model_sha256": "sha256:56707f88d97b5f682ed402344af7a700cb190aa4eef22553a8f2f049e23e7281",
-        "runner_sha256": "sha256:82520f4e555c5b0f115ad66fe6010b86e6f94f2d4b112944de035389bdb4721f",
+          "model_sha256": "sha256:e957f0b4409712e97c8f8399085b29e79ac035d92cc86b037fbc73cef0a62ce4",
+        "runner_sha256": "sha256:96559becb2240ed3324ae5a7a1aa3ecc404fb2e782ca9885a24fd240fe236a17",
         "declaration_fingerprint": "sha256:a02cbef5dff567145b77d292b750ecc6d2ed5276609b5b3c61a9f39bbffc9545",
-        "closure_fingerprint": "sha256:05a11139f5f763d49789b66bd2f9de39e07d35a33db1cc97f09006b27a405e61"
+          "closure_fingerprint": "sha256:a1668330d0fa920105829d42f0cce2f1d1f18e225ca1c776be24415a4d7d8b32"
       }
     },
     {
@@ -2400,52 +2465,52 @@
       }
     },
     {
-      "absence_reason": "This executable model is a checkout-local OpenSpec reconciliation record and is run when present but is not required in a clean public distribution.",
-      "distribution_policy": "optional_local",
+      "absence_reason": "",
+      "distribution_policy": "required_public",
       "exclusion_reason": "",
       "expected_artifacts": [],
       "input_globs": [
-        ".flowguard/spec_provider_work_packages/model.py",
-        ".flowguard/spec_provider_work_packages/run_checks.py",
-        ".flowguard/spec_provider_work_packages/bindings.json"
+        ".flowguard/spec_context/model.py",
+        ".flowguard/spec_context/run_checks.py",
+        "flowguard/spec_context.py"
       ],
-      "model_id": "spec_provider_work_packages",
-      "model_path": ".flowguard/spec_provider_work_packages/model.py",
+      "model_id": "spec_context",
+      "model_path": ".flowguard/spec_context/model.py",
       "mutation_policy": "none",
       "runner": [
         "{python}",
-        ".flowguard/spec_provider_work_packages/run_checks.py"
+        ".flowguard/spec_context/run_checks.py"
       ],
       "shard_safe": true,
       "tier": "focused",
       "timeout_seconds": 300,
       "purpose_closure": {
         "schema_version": "flowguard.model_purpose_closure.v1",
-        "model_instance_id": "regression:spec_provider_work_packages:current",
-        "reusable_model_type_id": "spec_provider_work_packages",
-        "task_intent_id": "flowguard-regression:spec_provider_work_packages",
+        "model_instance_id": "regression:spec_context:current",
+        "reusable_model_type_id": "spec_context",
+        "task_intent_id": "flowguard-regression:spec-context",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent the spec provider work packages model from accepting an invalid, bypassed, stale, or incomplete spec provider work packages outcome as current FlowGuard evidence.",
+        "guarded_purpose": "Prevent read-only official OpenSpec context from gaining provider writes, execution, session, cache, receipt, reconciliation, or archive authority.",
         "protected_failure_ids": [
-          "spec_provider_work_packages:invalid-or-incomplete-outcome"
+          "spec_context:forbidden-provider-authority"
         ],
-        "claim_boundary": "Current closure proves only that the checked-in spec_provider_work_packages candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "claim_boundary": "Current closure proves only that the checked-in SpecContext model and native runner reject the declared provider-authority failures; it does not prove OpenSpec validation, FlowGuard implementation, archive readiness, or production truth.",
         "adoption_scope": "current_candidate_only",
-        "known_good_case_id": "native-runner:spec_provider_work_packages:declared-positive-suite",
+        "known_good_case_id": "native-runner:spec-context:declared-positive-suite",
         "failure_bindings": [
           {
-            "failure_id": "spec_provider_work_packages:invalid-or-incomplete-outcome",
-            "known_bad_case_id": "native-runner:spec_provider_work_packages:declared-negative-suite",
-            "oracle_id": "native:spec_provider_work_packages:run-checks"
+            "failure_id": "spec_context:forbidden-provider-authority",
+            "known_bad_case_id": "native-runner:spec-context:declared-negative-suite",
+            "oracle_id": "native:spec-context:run-checks"
           }
         ],
         "evidence_check_ids": [
-          "check:model-regression:spec_provider_work_packages"
+          "check:model-regression:spec-context"
         ],
-        "model_sha256": "sha256:74ca56149690008a1aa5ceef2d05aa5d0b656ba474c1e2aef7ab0759455d690e",
-        "runner_sha256": "sha256:5ae45c27ee64f4404a670fc31565ba21c7508cf35787e131630f82e871e17061",
-        "declaration_fingerprint": "sha256:b0cfc343287170cdc2af664ef04c0aa949c89ad10105098ee955accecee2e43f",
-        "closure_fingerprint": "sha256:e9549addfa4098f6971da97e3ead926457a98fdc31aa8698335dc21c9f1669ec"
+        "model_sha256": "sha256:7c728e6694bbd740e45de4178061bbd189c281e906f7e14a43104f0a9d5f76ea",
+        "runner_sha256": "sha256:5679042e761f84e84f672e72fda0ea9a81c41efab28429cb553a1561075291d9",
+        "declaration_fingerprint": "sha256:e2bca2d5f464729b026ee0689fa8ef06a63b3f33057827a712300c194c5e0281",
+        "closure_fingerprint": "sha256:4cf54c635e9cca51bef389777adc11ef933f8df52b25c3c4f84de1ea444878d1"
       }
     },
     {

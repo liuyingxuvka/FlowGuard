@@ -46,12 +46,11 @@ For real project use, record task/trigger/status, model files, commands/results,
 ## Output
 
 Return route decision, evidence, failures, blockers, skipped checks, residual risk, claim boundary, typed next actions, model/counterexample snapshot, and current validation scope. Diagrams explain the active semantics; they are not validation evidence and must not flatten other Guard-family edge meanings.
-## Specification-provider evidence boundary
+## Read-only OpenSpec context boundary
 
-OpenSpec, Spec Kit, and comparable tools keep their native requirements, task
-completion, verification, and archive authority. Route their cross-step
-freshness and receipt coordination to DevelopmentProcessFlow as one bounded
-`SpecWorkPackage`. FlowGuard may reconcile tasks with obligations/checks,
-short-circuit dependent checks, and reverify immutable receipts, but it must
-not create a second task engine or expose these development-process fields as
-product UI content.
+Official OpenSpec keeps proposal, design, specification, task, status,
+validation, and archive authority. DevelopmentProcessFlow may read those
+authoring artifacts as one current `SpecContext` for planning. FlowGuard must
+not write them, execute OpenSpec checks, create provider sessions, caches, or
+receipts, reconcile provider tasks into test owners, or expose this
+development-process context as product UI content.

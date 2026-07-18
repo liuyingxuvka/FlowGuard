@@ -330,9 +330,9 @@ class WorkflowStepContractTests(unittest.TestCase):
             def apply_step(self, step):
                 return ReplayObservation(
                     function_name=step.function_name,
-                    observed_output=step.function_output,
-                    observed_state=step.new_state,
-                    label=step.label,
+                    observed_output=step.function_input,
+                    observed_state=(),
+                    label=step.function_input,
                     metadata={STEP_METADATA_PRODUCED_RECEIPTS: ()},
                 )
 

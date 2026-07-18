@@ -9,9 +9,8 @@ from typing import Any, Iterable
 from flowguard.conformance import ConformanceReport, replay_trace
 from flowguard.core import Invariant, InvariantResult
 from flowguard.export import to_jsonable
-from flowguard.replay import ReplayObservation
+from flowguard.replay import ReplayInput, ReplayObservation
 from flowguard.review import review_scenario
-from flowguard.trace import TraceStep
 
 from examples.job_matching.conformance import (
     generate_representative_traces,
@@ -148,7 +147,7 @@ class DomainSeedReplayAdapter:
         self.last_label = ""
         self.last_reason = ""
 
-    def apply_step(self, step: TraceStep) -> ReplayObservation:
+    def apply_step(self, step: ReplayInput) -> ReplayObservation:
         if self.state is None:
             raise RuntimeError("adapter was not reset")
         block = self.blocks.get(step.function_name)

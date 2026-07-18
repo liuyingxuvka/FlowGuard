@@ -141,13 +141,9 @@ class MaintenanceEvidence:
     covers_signal_ids: tuple[str, ...] = ()
     result_path: str = ""
     description: str = ""
-    spec_work_package_id: str = ""
-    spec_session_id: str = ""
-    spec_session_state: str = ""
-    spec_begin_fingerprint: str = ""
-    spec_post_fingerprint: str = ""
-    spec_close_record_path: str = ""
-    spec_receipt_ids: tuple[str, ...] = ()
+    spec_context_id: str = ""
+    spec_context_hash: str = ""
+    spec_context_read_only: bool = True
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -159,28 +155,20 @@ class MaintenanceEvidence:
         object.__setattr__(self, "covers_signal_ids", _as_tuple(self.covers_signal_ids))
         object.__setattr__(self, "result_path", str(self.result_path))
         object.__setattr__(self, "description", str(self.description))
-        object.__setattr__(self, "spec_work_package_id", str(self.spec_work_package_id))
-        object.__setattr__(self, "spec_session_id", str(self.spec_session_id))
-        object.__setattr__(self, "spec_session_state", str(self.spec_session_state))
-        object.__setattr__(self, "spec_begin_fingerprint", str(self.spec_begin_fingerprint))
-        object.__setattr__(self, "spec_post_fingerprint", str(self.spec_post_fingerprint))
-        object.__setattr__(self, "spec_close_record_path", str(self.spec_close_record_path))
-        object.__setattr__(self, "spec_receipt_ids", _as_tuple(self.spec_receipt_ids))
+        object.__setattr__(self, "spec_context_id", str(self.spec_context_id))
+        object.__setattr__(self, "spec_context_hash", str(self.spec_context_hash))
+        object.__setattr__(self, "spec_context_read_only", bool(self.spec_context_read_only))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def is_current_pass(self) -> bool:
         return self.current and self.status in PASSING_EVIDENCE_GATE_STATUSES
 
-    def is_current_spec_close(self, work_package_id: str) -> bool:
+    def is_current_spec_context(self, context_id: str) -> bool:
         return (
-            self.spec_work_package_id == work_package_id
+            self.spec_context_id == context_id
             and self.is_current_pass()
-            and bool(self.spec_session_id)
-            and self.spec_session_state == "closed"
-            and bool(self.spec_begin_fingerprint)
-            and self.spec_begin_fingerprint == self.spec_post_fingerprint
-            and bool(self.spec_close_record_path)
-            and bool(self.spec_receipt_ids)
+            and bool(self.spec_context_hash)
+            and self.spec_context_read_only
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -193,13 +181,9 @@ class MaintenanceEvidence:
             "covers_signal_ids": list(self.covers_signal_ids),
             "result_path": self.result_path,
             "description": self.description,
-            "spec_work_package_id": self.spec_work_package_id,
-            "spec_session_id": self.spec_session_id,
-            "spec_session_state": self.spec_session_state,
-            "spec_begin_fingerprint": self.spec_begin_fingerprint,
-            "spec_post_fingerprint": self.spec_post_fingerprint,
-            "spec_close_record_path": self.spec_close_record_path,
-            "spec_receipt_ids": list(self.spec_receipt_ids),
+            "spec_context_id": self.spec_context_id,
+            "spec_context_hash": self.spec_context_hash,
+            "spec_context_read_only": self.spec_context_read_only,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -354,7 +338,7 @@ class MaintenanceScanPlan:
     prior_obligations: tuple[MaintenanceObligation, ...] = ()
     claim_scope: str = "bounded"
     allow_scoped_confidence: bool = True
-    required_spec_work_package_ids: tuple[str, ...] = ()
+    required_spec_context_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
@@ -371,8 +355,8 @@ class MaintenanceScanPlan:
         object.__setattr__(self, "allow_scoped_confidence", bool(self.allow_scoped_confidence))
         object.__setattr__(
             self,
-            "required_spec_work_package_ids",
-            _as_tuple(self.required_spec_work_package_ids),
+            "required_spec_context_ids",
+            _as_tuple(self.required_spec_context_ids),
         )
 
     def broad_claim(self) -> bool:
@@ -388,7 +372,7 @@ class MaintenanceScanPlan:
             "prior_obligations": [obligation.to_dict() for obligation in self.prior_obligations],
             "claim_scope": self.claim_scope,
             "allow_scoped_confidence": self.allow_scoped_confidence,
-            "required_spec_work_package_ids": list(self.required_spec_work_package_ids),
+            "required_spec_context_ids": list(self.required_spec_context_ids),
         }
 
 
@@ -616,24 +600,24 @@ def review_maintenance_scan(plan: MaintenanceScanPlan) -> MaintenanceScanReport:
         for artifact in artifacts
     )
 
-    for work_package_id in plan.required_spec_work_package_ids:
+    for context_id in plan.required_spec_context_ids:
         matching = [
-            item for item in plan.evidence if item.is_current_spec_close(work_package_id)
+            item for item in plan.evidence if item.is_current_spec_context(context_id)
         ]
         actions.append(
             _make_action(
                 route_id=MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW,
                 strength=MAINTENANCE_ACTION_REQUIRED,
-                reason_code=f"spec_work_package_evidence:{work_package_id}",
+                reason_code=f"spec_context:{context_id}",
                 message=(
-                    f"Spec work package {work_package_id} requires a current same-session post/close record "
-                    "and terminal receipt coverage."
+                    f"OpenSpec context {context_id} must be current and read-only before "
+                    "FlowGuard uses it for planning."
                 ),
-                signal_ids=(work_package_id,),
+                signal_ids=(context_id,),
                 evidence_ids=tuple(item.evidence_id for item in matching),
-                required_input_kinds=("spec_work_package", "spec_session_close", "spec_receipt"),
-                proof_gap_codes=(() if matching else ("spec_work_package_evidence_missing_or_stale",)),
-                claim_effect="blocks done/release/archive while package evidence is missing or stale",
+                required_input_kinds=("spec_context",),
+                proof_gap_codes=(() if matching else ("spec_context_missing_or_stale",)),
+                claim_effect="blocks planning claims that rely on missing or stale OpenSpec context",
             )
         )
 

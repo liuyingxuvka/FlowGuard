@@ -22,6 +22,8 @@ from typing import Any, Iterable, Mapping, Sequence
 DISTRIBUTION_SCHEMA = "flowguard.skill_distribution.v1"
 OWNERSHIP_SCHEMA = "flowguard.skill_distribution_ownership.v1"
 OWNERSHIP_MANIFEST_NAME = ".flowguard-skill-suite-ownership.json"
+CONSUMER_RELEASE_SCHEMA = "consumer.skill_distribution.current"
+CONSUMER_RELEASE_MANIFEST = "consumer-release.json"
 CANONICAL_SKILL_ROOT = ".agents/skills"
 CANONICAL_SUITE_MAP = ".skillguard/flowguard-suite/suite-map.json"
 FLOWGUARD_EXPECTED_MEMBER_COUNT = 17
@@ -40,12 +42,11 @@ class ExclusionRule:
 DEFAULT_EXCLUSION_RULES = (
     ExclusionRule("python_bytecode", "*/__pycache__/*", "generated Python bytecode is not a release-owned skill artifact"),
     ExclusionRule("python_bytecode", "*.pyc", "generated Python bytecode is not a release-owned skill artifact"),
-    ExclusionRule("current_evidence", "*/.skillguard/evidence/*", "current-run evidence is environment-local and is re-created by validation"),
-    ExclusionRule("current_report", "*/.skillguard/reports/current_*.json", "current-run reports are receipts, not installed skill source"),
-    ExclusionRule("current_ai_judgment", "*/.skillguard/ai_judgments/current_*.json", "current AI judgments are run receipts, not installed skill source"),
-    ExclusionRule("progress_ledger", "*/.skillguard/skillguard_progress_ledger.jsonl", "the append-only local run ledger is not distributed"),
-    ExclusionRule("run_receipt", "*/.skillguard/*run*receipt*.json", "current-run receipt files are not distributed"),
-    ExclusionRule("run_record", "*/.skillguard/*run*record*.json", "current-run record files are not distributed"),
+    ExclusionRule(
+        "author_control",
+        "*/.skillguard/*",
+        "SkillGuard contracts, checks, receipts, and runtime state are author-side maintenance artifacts and never consumer files",
+    ),
 )
 
 
@@ -147,6 +148,10 @@ class FileFingerprint:
     @classmethod
     def from_path(cls, path: Path, relative_path: str) -> "FileFingerprint":
         content = path.read_bytes()
+        return cls.from_bytes(content, relative_path)
+
+    @classmethod
+    def from_bytes(cls, content: bytes, relative_path: str) -> "FileFingerprint":
         return cls(
             relative_path=_safe_relative(relative_path),
             raw_hash=_sha256(content),
@@ -299,6 +304,143 @@ def inventory_skill_tree(
         raw_tree_hash=raw_tree_hash,
         semantic_tree_hash=semantic_tree_hash,
     )
+
+
+def _wire_hash(value: bytes) -> str:
+    return "sha256:" + hashlib.sha256(value).hexdigest()
+
+
+def _consumer_release_bytes(
+    member_id: str,
+    files: Sequence[FileFingerprint],
+) -> bytes:
+    prefix = f"{member_id}/"
+    member_files = [
+        {
+            "path": item.relative_path.removeprefix(prefix),
+            "content_hash": "sha256:" + item.raw_hash.casefold(),
+        }
+        for item in files
+        if item.relative_path.startswith(prefix)
+        and item.relative_path != f"{member_id}/{CONSUMER_RELEASE_MANIFEST}"
+    ]
+    member_files.sort(key=lambda row: row["path"])
+    identity = {
+        "schema_version": CONSUMER_RELEASE_SCHEMA,
+        "skill_id": member_id,
+        "projection_id": "projection:consumer-distribution",
+        "files": member_files,
+        "author_control_excluded": True,
+    }
+    release_id = _wire_hash(_canonical_json(identity).encode("utf-8"))
+    manifest = {
+        **identity,
+        "release_id": release_id,
+        "claim_boundary": (
+            "This manifest identifies target-owned consumer files only. It carries no "
+            "author contract, receipt, router, session, cache, or execution authority."
+        ),
+    }
+    manifest["manifest_hash"] = _wire_hash(_canonical_json(manifest).encode("utf-8"))
+    return (_canonical_json(manifest) + "\n").encode("utf-8")
+
+
+def _consumer_source_inventory(
+    root: str | Path,
+    *,
+    member_ids: Sequence[str],
+    exclusion_rules: Sequence[ExclusionRule],
+) -> tuple[SkillTreeInventory, dict[str, bytes]]:
+    """Project an author tree into the exact clean consumer file inventory."""
+
+    base = inventory_skill_tree(
+        root,
+        member_ids=member_ids,
+        exclusion_rules=exclusion_rules,
+    )
+    generated: dict[str, bytes] = {}
+    files = list(base.files)
+    for member_id in base.member_ids:
+        relative = f"{member_id}/{CONSUMER_RELEASE_MANIFEST}"
+        payload = _consumer_release_bytes(member_id, base.files)
+        generated[relative] = payload
+        files.append(FileFingerprint.from_bytes(payload, relative))
+    files.sort(key=lambda item: item.relative_path)
+    raw_tree_hash = _sha256(
+        _canonical_json([[item.relative_path, item.raw_hash] for item in files]).encode("utf-8")
+    )
+    semantic_tree_hash = _sha256(
+        _canonical_json([[item.relative_path, item.semantic_hash] for item in files]).encode("utf-8")
+    )
+    return (
+        SkillTreeInventory(
+            root=base.root,
+            member_ids=base.member_ids,
+            missing_member_ids=base.missing_member_ids,
+            files=tuple(files),
+            excluded_files=base.excluded_files,
+            unsafe_paths=base.unsafe_paths,
+            raw_tree_hash=raw_tree_hash,
+            semantic_tree_hash=semantic_tree_hash,
+        ),
+        generated,
+    )
+
+
+def _consumer_author_control_files(
+    root: Path,
+    member_ids: Sequence[str],
+) -> tuple[str, ...]:
+    residuals: list[str] = []
+    for member_id in member_ids:
+        control_root = _contained_path(root, f"{member_id}/.skillguard")
+        if not control_root.is_dir():
+            continue
+        residuals.extend(
+            path.relative_to(root).as_posix()
+            for path in sorted(control_root.rglob("*"))
+            if path.is_file() or path.is_symlink()
+        )
+    return tuple(residuals)
+
+
+def _consumer_text_findings(
+    root: Path,
+    files: Sequence[FileFingerprint],
+) -> tuple[DistributionFinding, ...]:
+    findings: list[DistributionFinding] = []
+    text_suffixes = {
+        ".md", ".txt", ".json", ".jsonl", ".yaml", ".yml", ".toml",
+        ".py", ".ps1", ".sh", ".js", ".ts", ".tsx", ".jsx", ".html",
+        ".css", ".xml", ".ini", ".cfg",
+    }
+    patterns = (
+        ("consumer_skillguard_reference", re.compile(r"(?i)\bskillguard\b|\.skillguard")),
+        (
+            "consumer_portfolio_authority_reference",
+            re.compile(r"(?i)\bportfolio[_ -](?:receipt|reuse|evidence|graduation)\b"),
+        ),
+    )
+    for item in files:
+        if item.relative_path.endswith(f"/{CONSUMER_RELEASE_MANIFEST}"):
+            continue
+        path = _contained_path(root, item.relative_path)
+        if path.suffix.casefold() not in text_suffixes and path.name != "SKILL.md":
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            continue
+        for code, pattern in patterns:
+            if pattern.search(text):
+                findings.append(
+                    DistributionFinding(
+                        code,
+                        "consumer files must not require or instruct use of author-side SkillGuard state",
+                        item.relative_path,
+                    )
+                )
+    return tuple(findings)
 
 
 @dataclass(frozen=True)
@@ -564,7 +706,11 @@ def install_skill_suite(
     target_root = resolve_target_skill_root(target, codex_home=codex_home)
     _assert_disjoint(source_root, target_root)
     ids = tuple(member_ids) if member_ids is not None else discover_member_ids(source)
-    source_inventory = inventory_skill_tree(source_root, member_ids=ids, exclusion_rules=exclusion_rules)
+    source_inventory, generated_files = _consumer_source_inventory(
+        source_root,
+        member_ids=ids,
+        exclusion_rules=exclusion_rules,
+    )
     findings: list[DistributionFinding] = []
     if member_ids is None and len(ids) != FLOWGUARD_EXPECTED_MEMBER_COUNT:
         findings.append(
@@ -578,6 +724,7 @@ def install_skill_suite(
         findings.append(DistributionFinding("source_member_missing", "declared source member is missing", member))
     for relative in source_inventory.unsafe_paths:
         findings.append(DistributionFinding("unsafe_source_path", "source contains a symlink or escaping path", relative))
+    findings.extend(_consumer_text_findings(source_root, source_inventory.files))
     if findings:
         return DistributionReport("install", str(source_root), str(target_root), dry_run, excluded_files=source_inventory.excluded_files, findings=tuple(findings), ownership_manifest=str(_manifest_path(target_root)))
 
@@ -661,6 +808,18 @@ def install_skill_suite(
             owned[relative] = old_file
             findings.append(DistributionFinding("obsolete_modified_conflict", "obsolete installer-owned file was modified and is preserved", relative))
 
+    author_residuals = _consumer_author_control_files(target_root, ids)
+    planned_removals = set(removed)
+    for relative in author_residuals:
+        if relative not in planned_removals:
+            findings.append(
+                DistributionFinding(
+                    "consumer_author_control_residual",
+                    "installed consumer skill still contains author-side .skillguard state",
+                    relative,
+                )
+            )
+
     target_inventory = inventory_skill_tree(
         target_root,
         member_ids=ids,
@@ -687,10 +846,17 @@ def install_skill_suite(
     if not dry_run:
         target_root.mkdir(parents=True, exist_ok=True)
         for relative in copied:
-            source_file = _contained_path(source_root, relative)
             destination = _contained_path(target_root, relative)
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source_file, destination)
+            generated = generated_files.get(relative)
+            if generated is not None:
+                with tempfile.NamedTemporaryFile("wb", dir=destination.parent, delete=False) as handle:
+                    handle.write(generated)
+                    temporary = Path(handle.name)
+                temporary.replace(destination)
+            else:
+                source_file = _contained_path(source_root, relative)
+                shutil.copy2(source_file, destination)
         for relative in removed:
             destination = _contained_path(target_root, relative)
             if destination.is_file() and not destination.is_symlink():
@@ -732,7 +898,11 @@ def check_skill_suite(
     target_root = resolve_target_skill_root(target, codex_home=codex_home)
     _assert_disjoint(source_root, target_root)
     ids = tuple(member_ids) if member_ids is not None else discover_member_ids(source)
-    source_inventory = inventory_skill_tree(source_root, member_ids=ids, exclusion_rules=exclusion_rules)
+    source_inventory, _generated_files = _consumer_source_inventory(
+        source_root,
+        member_ids=ids,
+        exclusion_rules=exclusion_rules,
+    )
     target_inventory = inventory_skill_tree(target_root, member_ids=ids, exclusion_rules=exclusion_rules, allow_missing_root=True)
     parity = compare_tree_inventories(source_inventory, target_inventory)
     findings: list[DistributionFinding] = []
@@ -770,6 +940,15 @@ def check_skill_suite(
         findings.append(DistributionFinding("installed_member_missing", "installed tree is missing a declared skill member", relative))
     for relative in parity.unsafe_paths:
         findings.append(DistributionFinding("unsafe_distribution_path", "source or installed tree contains a symlink or escaping path", relative))
+    for relative in _consumer_author_control_files(target_root, ids):
+        findings.append(
+            DistributionFinding(
+                "consumer_author_control_residual",
+                "installed consumer skill still contains author-side .skillguard state",
+                relative,
+            )
+        )
+    findings.extend(_consumer_text_findings(source_root, source_inventory.files))
     return DistributionReport(
         action="check",
         source=str(source_root),

@@ -56,10 +56,10 @@ The template writes:
 
 The generated model includes one complete plan and broken variants for missing
 failure branches, missing rework gates, and missing validation.
-## Specification-provider sources
+## Read-only OpenSpec sources
 
-PlanDetail source rows preserve provider, work-package, change, task,
-obligation, check, and binding ids. These rows project lifecycle freshness to
-DevelopmentProcessFlow and receipt children to TestMesh; they do not copy the
-provider task state or absorb product behavior ownership. See
-[`spec_provider_work_packages.md`](spec_provider_work_packages.md).
+PlanDetail may cite one current `spec_context_id`, its content hash, and the
+exact proposal/design/specification/task/status artifact ids that informed the
+plan. It projects scope and order to DevelopmentProcessFlow only. It creates no
+provider bindings, TestMesh children, sessions, caches, receipts, or execution
+authority. See [`spec_context.md`](spec_context.md).

@@ -114,50 +114,21 @@ class TestMeshTests(unittest.TestCase):
         self.assertIn("diagnostic_false_completeness", codes)
         self.assertIn("diagnostic_finding_missing", codes)
 
-    def test_spec_receipt_requires_complete_consumer_fanout_and_provider_reuse_authority(self):
-        child = suite(
-            "check.one",
-            spec_work_package_id="change-one",
-            spec_check_id="check.one",
-            spec_session_id="session:one",
-            spec_consumer_ids=("consumer:a",),
-            spec_execution_state="executed",
-            spec_receipt_id="receipt:one",
-            spec_receipt_fingerprint="sha256:receipt",
-            spec_cross_change_reuse=True,
-            cross_change_safe=True,
-            spec_provider_cross_change_authorized=False,
-        )
-        report = review_test_mesh(
-            TestMeshPlan(
-                "spec-parent",
-                child_suites=(child,),
-                required_spec_consumer_ids=("consumer:a", "consumer:b"),
-            )
-        )
-        codes = {finding.code for finding in report.findings}
-        self.assertIn("spec_consumer_fanout_incomplete", codes)
-        self.assertIn("spec_cross_change_reuse_unauthorized", codes)
+    def test_test_mesh_has_no_openspec_session_or_receipt_bridge(self):
+        child = suite("check.one")
+        payload = child.to_dict()
+        for retired in (
+            "spec_session_id",
+            "spec_consumer_ids",
+            "spec_execution_state",
+            "spec_receipt_id",
+            "spec_work_package_id",
+            "spec_check_id",
+        ):
+            self.assertNotIn(retired, payload)
 
-    def test_one_spec_receipt_cannot_be_copied_into_several_children(self):
-        children = tuple(
-            suite(
-                suite_id,
-                spec_work_package_id="change-one",
-                spec_check_id=suite_id,
-                spec_session_id="session:one",
-                spec_consumer_ids=(f"consumer:{suite_id}",),
-                spec_execution_state="executed",
-                spec_receipt_id="receipt:shared",
-                spec_receipt_fingerprint="sha256:shared",
-            )
-            for suite_id in ("check.one", "check.two")
-        )
-        report = review_test_mesh(TestMeshPlan("spec-parent", child_suites=children))
-        self.assertIn(
-            "spec_receipt_duplicated_across_children",
-            {finding.code for finding in report.findings},
-        )
+        with self.assertRaises(TypeError):
+            suite("legacy", spec_session_id="session:one")
     def test_complete_test_mesh_can_continue(self):
         plan = TestMeshPlan(
             parent_suite_id="router-runtime",

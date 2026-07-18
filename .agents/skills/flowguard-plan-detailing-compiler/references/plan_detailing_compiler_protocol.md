@@ -104,16 +104,14 @@ A product target never becomes an AI/process owner through projection. Missing
 target commitment ids or typed cross-plane relations blocks plane-aware detail;
 legacy/trivial plans remain opt-in so this does not become a universal action
 gate.
-## Specification-provider sources
+## Read-only OpenSpec sources
 
-A provider work package enters PlanDetail as a current source row with explicit
-`spec_provider_id`, `work_package_id`, `change_id`, task ids, obligation ids,
-check ids, and binding ids. Keep those identities distinct: a task is not an
-obligation, a provider obligation is not a stable validation obligation, and a
-check label is not a terminal receipt. Missing task binding ids or a missing
-reverse obligation/check owner is a plan-detail blocker.
+An official OpenSpec change enters PlanDetail as one current read-only source
+row with a `spec_context_id`, change id, context hash, and the exact
+proposal/design/specification/task/status artifact ids used by the plan.
+Missing, stale, mutable, or unknown context is a plan-detail blocker.
 
-Projection sends lifecycle order/freshness to DevelopmentProcessFlow and check
-children/consumer fan-out to TestMesh. It never makes the planning compiler the
-provider authority and never transfers product-runtime ownership to a provider
-task.
+Projection sends only this scope/order context to DevelopmentProcessFlow. It
+does not create provider task/check bindings, execute provider commands, issue
+sessions/caches/receipts, fan evidence out to TestMesh, or transfer product
+runtime ownership to OpenSpec.

@@ -44,11 +44,10 @@ class LifecycleAction:
     target_behavior_planes: tuple[str, ...] = ()
     target_commitment_ids: tuple[str, ...] = ()
     typed_commitment_relation_refs: tuple[str, ...] = ()
-    spec_session_state: str = "closed"
-    spec_begin_fingerprint: str = "sha256:current-inputs"
-    spec_post_fingerprint: str = "sha256:current-inputs"
-    spec_terminal_receipts: bool = True
-    spec_provider_verified: bool = True
+    spec_context_provider: str = "openspec"
+    spec_context_read_only: bool = True
+    spec_context_artifacts_current: bool = True
+    spec_receipt_bridge_present: bool = False
 
 
 @dataclass(frozen=True)
@@ -77,11 +76,10 @@ class LifecycleState:
     evidence_git_version: int = 0
     release_claim: str = "none"
     wrong_plane_action_accepted: bool = False
-    spec_session_state: str = ""
-    spec_begin_fingerprint: str = ""
-    spec_post_fingerprint: str = ""
-    spec_terminal_receipts: bool = False
-    spec_provider_verified: bool = False
+    spec_context_provider: str = ""
+    spec_context_read_only: bool = False
+    spec_context_artifacts_current: bool = False
+    spec_receipt_bridge_present: bool = False
 
     def evidence_matches_current(self) -> bool:
         return (
@@ -98,11 +96,10 @@ class LifecycleState:
             and self.formal_version == self.package_version
             and self.formal_version == self.skills_version
             and self.formal_version == self.git_version
-            and self.spec_session_state == "closed"
-            and bool(self.spec_begin_fingerprint)
-            and self.spec_begin_fingerprint == self.spec_post_fingerprint
-            and self.spec_terminal_receipts
-            and self.spec_provider_verified
+            and self.spec_context_provider == "openspec"
+            and self.spec_context_read_only
+            and self.spec_context_artifacts_current
+            and not self.spec_receipt_bridge_present
         )
 
 
@@ -262,11 +259,14 @@ class CorrectLifecycleGate:
                     evidence_package_version=state.package_version,
                     evidence_skills_version=state.skills_version,
                     evidence_git_version=state.git_version,
-                    spec_session_state=input_obj.spec_session_state,
-                    spec_begin_fingerprint=input_obj.spec_begin_fingerprint,
-                    spec_post_fingerprint=input_obj.spec_post_fingerprint,
-                    spec_terminal_receipts=input_obj.spec_terminal_receipts,
-                    spec_provider_verified=input_obj.spec_provider_verified,
+                    spec_context_provider=input_obj.spec_context_provider,
+                    spec_context_read_only=input_obj.spec_context_read_only,
+                    spec_context_artifacts_current=(
+                        input_obj.spec_context_artifacts_current
+                    ),
+                    spec_receipt_bridge_present=(
+                        input_obj.spec_receipt_bridge_present
+                    ),
                 ),
                 label="validation_passed",
             )
@@ -436,7 +436,7 @@ EXTERNAL_INPUTS = (
         "run_validation",
         target_behavior_planes=("product_runtime",),
     ),
-    LifecycleAction("run_validation", spec_post_fingerprint=""),
+    LifecycleAction("run_validation", spec_context_read_only=False),
 )
 
 MAX_SEQUENCE_LENGTH = 3

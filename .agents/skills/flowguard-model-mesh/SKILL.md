@@ -29,7 +29,7 @@ Accept a parent and bounded children; verify partitions/receipts; block overlap,
 3. Preserve scoped/stale gaps and project cases/receipts to Model-Test Alignment, TestMesh, and closure owners.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Parent confidence requires complete partition ownership, legal overlap, current child evidence/receipts, and current parent consumption.
 - Portable refinement requires complete reachable child mappings (or legal stutter), no stronger assumptions, and no weaker guarantees; prose edges are insufficient.
@@ -39,7 +39,5 @@ Accept a parent and bounded children; verify partitions/receipts; block overlap,
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a mesh diagram, reattachment, siblings, and receipt status.
 - In the mesh diagram, edges mean delegates, reattaches, consumes output, or blocks the parent claim boundary.
 
-## SkillGuard Maintenance
-- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard checks the native mesh contract and cannot reattach children or manufacture receipts.
 
 <!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

@@ -63,6 +63,25 @@ class SkillSuiteInventoryTests(unittest.TestCase):
         schema_version: str = OWNERSHIP_SCHEMA,
     ) -> None:
         ids = member_ids or [member["name"] for member in self.map_data["included_skills"]]
+        # An installer ownership manifest changes this fixture from author
+        # source into a consumer distribution. Mirror the real projection:
+        # retain only consumer files, remove author-side control state, and
+        # add the compiler-owned release marker.
+        for member in self.map_data["included_skills"]:
+            skill_dir = self.root / member["path"]
+            shutil.rmtree(skill_dir / ".skillguard", ignore_errors=True)
+            (skill_dir / "consumer-release.json").write_text(
+                json.dumps(
+                    {
+                        "artifact_type": "flowguard_consumer_skill_release",
+                        "schema_version": "consumer.skill_distribution.current",
+                        "skill_id": member["name"],
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
         path = self.root / ".agents" / "skills" / OWNERSHIP_MANIFEST_NAME
         path.write_text(
             json.dumps(

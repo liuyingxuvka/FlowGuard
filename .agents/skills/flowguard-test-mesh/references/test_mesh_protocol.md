@@ -241,18 +241,13 @@ A TestMesh review can support the parent only when:
   evidence status and parent consumption;
 - release-only obligations are either current or explicitly deferred only under
   routine scope.
-## Specification-check receipt children
+## OpenSpec is not TestMesh evidence
 
-Provider checks are ordinary TestMesh children with extra consumer bindings.
-Record the provider session id, all consumer ids, canonical execution state,
-immutable receipt id/fingerprint, stable validation-obligation coverage, and
-explicit cross-change scope. `executed` and `reused-current` may support a pass
-only when the underlying `EvidenceReceipt` is independently current and exact.
-`stale`, `not-run`, `blocked`, timeout, running, skipped, or progress-only rows
-remain non-passing.
+Official OpenSpec proposal, design, specifications, tasks, and status may enter
+DevelopmentProcessFlow as read-only context. They do not become TestMesh
+children, sessions, caches, receipts, execution owners, or consumer fan-out
+rows. OpenSpec keeps its own validation and archive authority.
 
-One receipt with several consumers is one execution, not duplicated evidence.
-Changing a provider-local obligation does not necessarily change a neutral
-execution receipt; consumer bindings attach provider task/check ids afterward.
-Never split a broad combined command into unsupported child claims without an
-independent node/coverage inventory.
+Any FlowGuard test prompted by that context is a normal FlowGuard-owned test
+with its own declared boundary and evidence. Never treat an OpenSpec checkbox
+or status projection as proof that a FlowGuard check ran.

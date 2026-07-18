@@ -38,19 +38,17 @@ def model_hit(**kwargs) -> ModelContextHit:
 
 
 class ExistingModelPreflightTests(unittest.TestCase):
-    def test_stale_or_unreconciled_spec_provider_context_is_scoped_gap(self):
+    def test_stale_or_mutable_spec_context_is_scoped_gap(self):
         context = {
-            "spec_provider_id": "openspec",
-            "work_package_id": "change-one",
+            "provider_id": "openspec",
+            "context_id": "openspec:change-one",
             "change_id": "change-one",
             "behavior_plane": "development_process",
             "provider_owns_product_behavior": False,
-            "provider_current": False,
-            "reconciliation_current": False,
-            "package_identity_fingerprint": "sha256:package",
-            "reconciliation_fingerprint": "sha256:reconciliation",
-            "target_commitment_ids": ["commitment:product"],
-            "typed_relation_ids": ["relation:targets"],
+            "read_only": False,
+            "current": False,
+            "context_hash": "sha256:context",
+            "artifact_ids": ["proposal", "design", "spec", "tasks", "status"],
         }
         preflight = ExistingModelPreflight(
             "spec-context",
@@ -59,11 +57,15 @@ class ExistingModelPreflightTests(unittest.TestCase):
             behavior_lookup_status="performed",
             primary_behavior_plane="development_process",
             ledger_fingerprint="sha256:ledger",
-            spec_provider_context=context,
+            spec_context=context,
         )
         report = review_existing_model_preflight(preflight)
         self.assertIn(
-            "spec_provider_context_not_current",
+            "spec_context_not_current",
+            {finding.code for finding in report.findings},
+        )
+        self.assertIn(
+            "spec_context_write_authority_forbidden",
             {finding.code for finding in report.findings},
         )
     def test_same_intent_surface_inventory_reuses_one_commitment_and_primary_path(self):

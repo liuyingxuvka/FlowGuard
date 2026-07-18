@@ -180,40 +180,36 @@ SPEC_MAPPED_PLAN = replace(
     sources=(
         PlanDetailSource(
             "source:openspec:change-one",
-            "spec_work_package",
+            "spec_context",
             supports_surface_ids=("rough-plan-detail",),
-            spec_provider_id="openspec",
-            work_package_id="change-one",
-            change_id="change-one",
-            spec_task_ids=("1.1",),
-            spec_obligation_ids=("req.one",),
-            spec_check_ids=("check.one",),
-            spec_binding_ids=("binding:1.1",),
+            spec_context_id="openspec:change-one",
+            spec_context_artifact_ids=(
+                "openspec:change-one:proposal",
+                "openspec:change-one:design",
+                "openspec:change-one:specification",
+                "openspec:change-one:tasks",
+                "openspec:change-one:status",
+            ),
         ),
     ),
     steps=(
         replace(
             GOOD_PLAN.steps[0],
-            spec_provider_id="openspec",
-            work_package_id="change-one",
-            change_id="change-one",
-            spec_task_ids=("1.1",),
-            spec_obligation_ids=("req.one",),
-            spec_check_ids=("check.one",),
-            spec_binding_ids=("binding:1.1",),
+            spec_context_id="openspec:change-one",
+            spec_context_artifact_ids=(
+                "openspec:change-one:proposal",
+                "openspec:change-one:design",
+                "openspec:change-one:specification",
+                "openspec:change-one:tasks",
+                "openspec:change-one:status",
+            ),
         ),
     )
     + GOOD_PLAN.steps[1:],
     validations=(
         replace(
             GOOD_PLAN.validations[0],
-            spec_provider_id="openspec",
-            work_package_id="change-one",
-            change_id="change-one",
-            spec_task_ids=("1.1",),
-            spec_obligation_ids=("req.one",),
-            spec_check_ids=("check.one",),
-            spec_binding_ids=("binding:1.1",),
+            spec_context_id="openspec:change-one",
         ),
     ),
 )

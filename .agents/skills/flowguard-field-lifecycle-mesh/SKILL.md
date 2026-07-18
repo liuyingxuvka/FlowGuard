@@ -29,7 +29,7 @@ Accept a bounded field inventory; create leaf rows and behavior projections; blo
 3. Close replacement disposition and send owners, readers/writers, projections, cases, and gaps downstream.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Default replacement requires delete, block, migrate, delegate, repair, explicit preserve, or scoped reason; unknown disposition blocks full confidence.
 - Behavior claims still require current obligations, owner code contracts, tests, freshness, and template harvest closure where the model deepens.
@@ -37,7 +37,5 @@ Accept a bounded field inventory; create leaf rows and behavior projections; blo
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus leaf rows, projections, owners, and dispositions.
 
-## SkillGuard Maintenance
-- Edit `.skillguard/contract-source.json`, then regenerate derived contracts; SkillGuard validates field accounting and cannot fabricate behavior or compatibility evidence.
 
 <!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

@@ -42,8 +42,9 @@ records, repair groups, or optimization evidence gate.
 - TestMesh owns diagnostic boundaries, actual execution accounting, findings,
   skips, and terminal test receipts.
 - Finding Ledger owns stable raw finding ids.
-- SpecWorkPackage owns provider tasks, dependency graphs, sessions, receipts,
-  and consumer fan-out.
+- Official OpenSpec owns its proposal, design, specifications, tasks, status,
+  validation, and archive lifecycle. DevelopmentProcessFlow may consume only a
+  current read-only `SpecContext`; it owns no OpenSpec execution bridge.
 - Model-Test Alignment owns ordinary obligation, primary CodeContract owner,
   and TestEvidence closure.
 - Product models retain product-runtime behavior; process references are typed
@@ -67,8 +68,8 @@ Capture grouped rows for:
 - final claim: routine versus release/archive/publish scope and consuming Risk
   Evidence Ledger evidence.
 
-Keep provider, work-package, change, task, obligation, check, validation,
-session, receipt, and consumer ids distinct.
+Keep the read-only OpenSpec context/change/artifact ids distinct from
+FlowGuard's own obligation, validation, execution, and receipt ids.
 
 ## Execution Shape
 
@@ -106,18 +107,18 @@ evidence requires terminal status, exit code, concrete result artifact and
 fingerprint, covered ids, inventory revision, and current artifact/verifier
 versions.
 
-## Specification Work Packages
+## Read-only OpenSpec context
 
-For an active OpenSpec, Spec Kit, or supported provider, consume one bounded
-`SpecWorkPackage`. Reconcile provider tasks with FlowGuard obligations/checks
-in both directions. Canonical input snapshots exclude reports, logs, caches,
-and receipts. One exact terminal receipt may serve several consumers without
-being copied or counted as several executions. Cross-change reuse requires an
-explicit safe scope and identical execution identity.
+For an active official OpenSpec change, read only its proposal, design,
+specifications, tasks, and derived status as one current `SpecContext`.
+FlowGuard may use that material to understand scope and order its own work. It
+must not write OpenSpec artifacts, execute OpenSpec checks, open sessions,
+create caches or receipts for OpenSpec, claim provider execution ownership, or
+fan one provider result out to FlowGuard consumers.
 
-A failed dependency creates visible not-run descendants instead of launching
-them. Archive remains blocked while mappings, frozen/post-run input stability,
-provider-native verification, or receipt freshness is missing.
+FlowGuard validations remain ordinary FlowGuard validations with their own
+owners and evidence. OpenSpec validation and archive decisions remain entirely
+with official OpenSpec.
 
 ## Failure Routing
 

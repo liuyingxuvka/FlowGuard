@@ -71,7 +71,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 def _native_checks(
     source: Mapping[str, Any],
-    contract: Mapping[str, Any],
+    manifest: Mapping[str, Any],
 ) -> tuple[dict[str, Any], ...]:
     """Resolve current target-native bindings to compiled command checks."""
 
@@ -82,7 +82,7 @@ def _native_checks(
     )
     checks_by_id = {
         str(item.get("check_id", "")): dict(item)
-        for item in contract.get("checks", ())
+        for item in manifest.get("checks", ())
         if isinstance(item, Mapping)
     }
     return tuple(checks_by_id[item] for item in binding_ids if item in checks_by_id)
@@ -183,7 +183,7 @@ def _validate_binding(
     contract: Mapping[str, Any],
     manifest: Mapping[str, Any],
 ) -> tuple[tuple[dict[str, Any], ...], tuple[str, ...], tuple[str, ...]]:
-    native_checks = _native_checks(source, contract)
+    native_checks = _native_checks(source, manifest)
     blockers: list[str] = []
     raw_bindings = tuple(
         dict(item)
@@ -203,9 +203,9 @@ def _validate_binding(
         if str(binding.get("owner_id", "")) != owner:
             blockers.append(f"native_binding_owner_mismatch:{check_id}")
 
-    contract_checks = {
+    source_checks = {
         str(item.get("check_id", "")): item
-        for item in contract.get("checks", ())
+        for item in source.get("checks", ())
         if isinstance(item, Mapping)
     }
     manifest_checks = {
@@ -214,10 +214,10 @@ def _validate_binding(
         if isinstance(item, Mapping)
     }
     for check_id in binding_ids:
-        declared = contract_checks.get(check_id)
+        declared = source_checks.get(check_id)
         projected = manifest_checks.get(check_id)
         if declared is None:
-            blockers.append(f"native_binding_not_in_compiled_contract:{check_id}")
+            blockers.append(f"native_binding_not_in_contract_source:{check_id}")
             continue
         if declared.get("kind") != "command":
             blockers.append(f"native_binding_not_command:{check_id}")

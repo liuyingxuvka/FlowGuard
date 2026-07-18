@@ -272,14 +272,13 @@ groups use ordinary primary-owner evidence and affected revalidation.
 Estimated comparison may support a preference, never a global optimum.""",
     ),
     ManagedAdoptionRule(
-        "process.spec_work_package_reconciliation",
-        """When OpenSpec, Spec Kit, or another supported specification provider is in
-scope, keep provider tasks native and reconcile them bidirectionally with
-FlowGuard obligations/checks through one development-process Spec Work
-Package. Begin and close one immutable input session, reuse only exact terminal
-receipts within an explicit boundary, and block archive when mappings,
-post-snapshot evidence, provider verification, or receipt freshness is
-missing. Internal work-package fields never become product UI content.""",
+        "process.spec_context_read_only",
+        """When official OpenSpec is in scope, FlowGuard may read only the current
+proposal, design, specifications, tasks, and task status as external planning
+context. FlowGuard must not write OpenSpec files, execute provider checks,
+create provider sessions/caches/receipts, claim provider execution ownership,
+or place provider-internal fields in product UI. OpenSpec retains validation
+and archive authority.""",
     ),
     ManagedAdoptionRule(
         "process.post_change_scan",

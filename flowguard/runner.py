@@ -689,6 +689,21 @@ def _append_conformance_section(
         return
 
     status = _normalize_conformance_status(plan.conformance_status)
+    if status == "pass":
+        sections.append(
+            FlowGuardSection(
+                name="conformance_replay",
+                status="blocked",
+                summary=(
+                    f"conformance_status={plan.conformance_status}; "
+                    "current ConformanceReport required"
+                ),
+                findings=(
+                    "status-only pass is not production evidence; provide the current replay report",
+                ),
+            )
+        )
+        return
     if status == "not_run":
         sections.append(
             FlowGuardSection(

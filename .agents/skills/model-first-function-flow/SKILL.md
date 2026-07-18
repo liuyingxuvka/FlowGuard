@@ -33,7 +33,7 @@ Read `references/route_index.md` for the parity-checked route map and `reference
 5. Preserve checked/unchecked/blocked/scoped evidence and close only at the requested current scope.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; if import fails, connect the real toolchain or report blocked/partial and never create a fake mini-framework.
 - Represent every modeled block as `Input x State -> Set(Output x State)`; do not replace executable modeling with prose or weaken hard invariants to pass.
 - A portable-model, compositional, refinement, liveness, or fairness claim requires the current portable artifact identity plus the canonical reference-checker receipt. Python-only execution, prompt prose, descriptive mesh edges, or topology metadata cannot substitute for that evidence.
@@ -43,13 +43,11 @@ Read `references/route_index.md` for the parity-checked route map and `reference
 - Broad model/code/test claims bind obligation ids, owner code contract ids, and current external-contract evidence for the same behavior.
 - Missing, stale, skipped, `not_run`, `progress_only`, `scoped`, or `pass_with_gaps` evidence cannot support broad done, full-governance, release, archive, or publication claims.
 - Long-check progress is liveness only; UI/payload claims need real-surface proof; new/deepened models require template harvest closure.
-- OpenSpec/Spec Kit retain native requirement, task, verification, and archive authority. FlowGuard may read one root-bounded work package, reconcile obligations, order dependency gates, and verify immutable receipts, but it cannot create a parallel provider state or treat a checkbox as evidence.
+- Official OpenSpec retains proposal, design, specification, task, status, validation, and archive authority. FlowGuard may read proposal/design/spec/tasks/status as current root-bounded context, but it cannot write provider files, execute provider checks, create sessions/caches/receipts, claim provider execution ownership, or treat a checkbox as validation evidence.
 - FlowGuard diagram intent gate: preserve active model semantics. Do not flatten these into a generic flowchart; state/process/UI/SourceGuard/TraceGuard/WorldGuard/LogicGuard diagrams keep their own edge meanings, without LogicGuard being collapsed into FlowGuard control flow.
 
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus route decision, model snapshot, counterexamples, and current validation status.
 
-## SkillGuard Maintenance
-- Edit `.skillguard/contract-source.json`, route registry, or direct references first, then regenerate derived contracts; SkillGuard validates native-integrated ownership and cannot define a parallel FlowGuard controller or manufacture evidence.
 
 <!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

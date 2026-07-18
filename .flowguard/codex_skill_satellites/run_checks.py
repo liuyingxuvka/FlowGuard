@@ -11,6 +11,7 @@ REQUIRED_LABELS = (
             "runtime_surfaces_synced",
             "validations_passed",
             "version_surfaces_aligned",
+            "clean_consumer_distribution_built",
             "release_accepted",
 )
 

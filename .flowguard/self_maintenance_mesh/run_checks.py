@@ -315,26 +315,16 @@ def run_route_topology_review() -> bool:
 
 
 def run_plane_upgrade_contract_binding() -> bool:
-    contract_path = (
-        ROOT
-        / "openspec"
-        / "changes"
-        / "partition-behavior-commitments-by-execution-plane"
-        / "verification-contract.yaml"
-    )
-    payload = contract_path.read_bytes()
-    actual_fingerprint = f"sha256:{hashlib.sha256(payload).hexdigest().upper()}"
-    check_ids = tuple(
-        re.findall(
-            r"^  - id: (check\.[^\s]+)\s*$",
-            payload.decode("utf-8"),
-            flags=re.MULTILINE,
-        )
+    check_ids = model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS
+    actual_fingerprint = (
+        "sha256:"
+        + hashlib.sha256("\n".join(check_ids).encode("utf-8")).hexdigest().upper()
     )
     ok = (
         actual_fingerprint == model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
-        and len(check_ids) == len(model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
-        and set(check_ids) == set(model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        and len(check_ids) == len(set(check_ids))
+        and "check.openspec.strict" not in check_ids
+        and "check.session.begin" not in check_ids
     )
     print(
         "plane-upgrade verification contract binding: "

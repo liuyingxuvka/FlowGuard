@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Iterable, Sequence
 
-from flowguard import ConformanceReport, ReplayObservation, Trace, TraceStep, replay_trace
+from flowguard import ConformanceReport, ReplayObservation, Trace, replay_trace
+from flowguard.replay import ReplayInput
 
 from .model import (
-    Decision,
     INVARIANTS,
     Job,
     RecordResult,
@@ -26,25 +26,19 @@ class JobMatchingReplayAdapter:
     def reset(self, initial_state) -> None:
         self.system.reset(initial_state)
 
-    def apply_step(self, step: TraceStep) -> ReplayObservation:
+    def apply_step(self, step: ReplayInput) -> ReplayObservation:
         if step.function_name != "ScoreJob" and step.function_name != "RecordScoredJob" and step.function_name != "DecideNextAction":
             raise ValueError(f"unsupported function step: {step.function_name}")
 
         if step.function_name == "ScoreJob":
             assert isinstance(step.function_input, Job)
-            expected_bucket = None
-            if isinstance(step.function_output, ScoredJob):
-                expected_bucket = step.function_output.score_bucket
-            self.system.score_job(step.function_input, expected_score_bucket=expected_bucket)
+            self.system.score_job(step.function_input)
         elif step.function_name == "RecordScoredJob":
             assert isinstance(step.function_input, ScoredJob)
             self.system.record_scored_job(step.function_input)
         elif step.function_name == "DecideNextAction":
             assert isinstance(step.function_input, RecordResult)
-            expected_action = None
-            if isinstance(step.function_output, Decision):
-                expected_action = step.function_output.action
-            self.system.decide_next_action(step.function_input, expected_action=expected_action)
+            self.system.decide_next_action(step.function_input)
 
         return ReplayObservation(
             function_name=step.function_name,
@@ -67,6 +61,15 @@ def has_repeated_external_input(trace: Trace) -> bool:
 
 def select_representative_traces(traces: Sequence[Trace]) -> tuple[Trace, ...]:
     selected: list[Trace] = []
+    production_conforming = tuple(
+        trace
+        for trace in traces
+        if replay_trace(
+            trace=trace,
+            adapter=JobMatchingReplayAdapter(CorrectJobMatchingSystem()),
+            invariants=INVARIANTS,
+        ).ok
+    )
 
     requirements = (
         lambda trace: has_repeated_external_input(trace)
@@ -77,7 +80,7 @@ def select_representative_traces(traces: Sequence[Trace]) -> tuple[Trace, ...]:
     )
 
     for requirement in requirements:
-        for trace in traces:
+        for trace in production_conforming:
             if requirement(trace) and trace not in selected:
                 selected.append(trace)
                 break

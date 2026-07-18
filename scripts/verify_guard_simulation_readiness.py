@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import importlib
 import importlib.metadata
 import json
@@ -17,7 +16,8 @@ SCRIPT_ROOT = Path(__file__).resolve().parents[1]
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
-from flowguard.skill_suite import FLOWGUARD_REQUIRED_MEMBER_FILES, SkillSuiteReport, validate_skill_suite
+from flowguard.distribution_sync import check_skill_suite
+from flowguard.skill_suite import SkillSuiteReport, validate_skill_suite
 
 
 HOME_SKILLS = Path.home() / ".codex" / "skills"
@@ -38,10 +38,6 @@ def _display_path(path: Path, root: Path, installed_root: Path) -> str:
         return "$CODEX_HOME/skills/" + resolved.relative_to(installed_root.resolve()).as_posix()
     except ValueError:
         return resolved.as_posix()
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest().upper()
 
 
 def _run(args: list[str], cwd: Path, *, root: Path, installed_root: Path) -> dict[str, object]:
@@ -118,28 +114,15 @@ def _check_skillguard(root: Path, installed_root: Path, report: SkillSuiteReport
 
 
 def _check_installed_sync(root: Path, installed_root: Path, report: SkillSuiteReport) -> dict[str, object]:
-    rows: list[dict[str, object]] = []
-    for skill_id in report.declared_member_ids:
-        source_skill = root / ".agents" / "skills" / skill_id
-        installed_skill = installed_root / skill_id
-        for relative in FLOWGUARD_REQUIRED_MEMBER_FILES:
-            source = source_skill / relative
-            installed = installed_skill / relative
-            rows.append(
-                {
-                    "member_id": skill_id,
-                    "relative_path": relative,
-                    "source": _display_path(source, root, installed_root),
-                    "installed": _display_path(installed, root, installed_root),
-                    "ok": source.is_file() and installed.is_file() and _sha256(source) == _sha256(installed),
-                }
-            )
+    distribution = check_skill_suite(root, installed_root)
+    consumer = validate_skill_suite(root, skill_root=installed_root)
     return {
-        "check": "installed_skill_sync",
-        "ok": bool(rows) and all(row["ok"] for row in rows),
+        "check": "installed_consumer_distribution",
+        "ok": distribution.ok and consumer.ok,
         "inventory_hash": report.inventory_hash,
         "member_ids": list(report.declared_member_ids),
-        "rows": rows,
+        "distribution": distribution.to_dict(),
+        "consumer_suite": consumer.to_dict(),
     }
 
 
@@ -167,7 +150,11 @@ def main() -> int:
         "inventory_hash": suite_report.inventory_hash,
         "member_ids": list(suite_report.declared_member_ids),
         "checks": checks,
-        "claim_boundary": "Readiness requires current suite controls and installed-file parity; this command does not prove release publication or future AI behavior.",
+        "claim_boundary": (
+            "Readiness requires current author-side checks plus a clean standalone consumer "
+            "installation; installed consumers carry no SkillGuard authority. This command "
+            "does not prove release publication or future AI behavior."
+        ),
     }
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))

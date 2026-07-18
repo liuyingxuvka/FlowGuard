@@ -19,7 +19,6 @@ EXPECTED_HEADINGS = (
     "## Required Workflow",
     "## Hard Gates",
     "## Output Requirements",
-    "## SkillGuard Maintenance",
 )
 OUTPUT_FIELDS = (
     "evidence",
@@ -71,7 +70,8 @@ class SkillPromptParityTests(unittest.TestCase):
                     self.assertIn(field, prompt)
                 self.assertIn("one-or-many protected failures", prompt)
                 self.assertIn("reusable model types are not permanently single-purpose", prompt)
-                self.assertIn("SkillGuard only supervises declared checks", prompt)
+                self.assertIn("only declared checks may support completion claims", prompt)
+                self.assertNotIn("SkillGuard", prompt)
                 skill_text = (skill / "SKILL.md").read_text(encoding="utf-8")
                 references = re.findall(r"`(references/[^`]+)`", skill_text)
                 self.assertTrue(references)
@@ -87,7 +87,9 @@ class SkillPromptParityTests(unittest.TestCase):
                 self.assertIn("native good/bad-per-failure/oracle/current evidence", text)
                 self.assertIn("Reusable types are not fixed-purpose", text)
                 self.assertIn("no mode/fallback", text)
-                self.assertIn("SkillGuard only supervises FlowGuard-declared checks", text)
+                self.assertIn("only FlowGuard-declared checks may support completion claims", text)
+                self.assertNotIn("SkillGuard", text)
+                self.assertNotIn(".skillguard", text)
 
     def test_delegated_modes_and_mta_testmesh_handoff_are_not_parallel_owners(self):
         for skill_id in ("flowguard-agent-workflow-rehearsal", "flowguard-plan-detailing-compiler"):

@@ -25,22 +25,20 @@ Accept boundary/root; query/search; choose reuse, extend, child, new, or none; b
 
 ## Required Workflow
 1. Query canonical commitments from task plus exact id/path/tool/workflow/error clues before path discovery; select one grounded primary plane or preserve ambiguity.
-2. Search current models/specs/docs/surfaces/records; add exact owner models from primary hits and classify old evidence. Only after plane-first lookup, attach any specification-provider context as `development_process` target context with stable provider/work-package/change ids.
+2. Search current models/specs/docs/surfaces/records; add exact owner models from primary hits and classify old evidence. Only after plane-first lookup, attach current official OpenSpec proposal/design/spec/tasks/status as read-only `development_process` context.
 3. Extract block/state/field/effect/entrypoint/commitment/intent/path/mesh ownership.
 4. Independently inventory every declared same-intent surface, not only caller candidates.
 5. Record lookup/fingerprint, primary/related hits, reuse, unknown/scoped surfaces, duplicate/stale risks, and typed handoff.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework. Full mode precedes proposal/implementation.
 - Missing/stale search or ownership, duplicate owners, unresolved mesh proof, or omitted same-intent surfaces block full preflight; equivalent current semantics default to reuse.
 - Shared words cannot promote a wrong-plane hit. Missing/stale lookup falls back explicitly; ambiguity blocks full-confidence selection.
-- A provider task cannot become a product-runtime owner. Provider context before canonical lookup, missing provider identities, the wrong primary plane, or `provider_owns_product_behavior=true` blocks full preflight.
+- OpenSpec cannot become a product-runtime owner. Context before canonical lookup, missing context identity/artifacts, mutable access, the wrong primary plane, or `provider_owns_product_behavior=true` blocks full preflight.
 
 ## Output Requirements
 - Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, hits, ownership, plane lookup, reuse, and duplicate risks.
 
-## SkillGuard Maintenance
-- Edit contract source, regenerate; SkillGuard cannot approve downstream work.
 
 <!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

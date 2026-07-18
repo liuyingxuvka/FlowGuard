@@ -36,6 +36,7 @@ _CURRENT_SOURCE_FIELDS = frozenset(
         "claim_boundary",
         "closure_profiles",
         "confirmed",
+        "consumer_projection",
         "content_impact_policy",
         "content_role_overrides",
         "depth_profile",
@@ -43,8 +44,10 @@ _CURRENT_SOURCE_FIELDS = frozenset(
         "implementation_paths",
         "integration_mode",
         "judgment_rubrics",
+        "maintenance_unit_id",
         "may_define_parallel_execution_route",
         "may_define_skillguard_runtime_route",
+        "member_skill_ids",
         "model_id",
         "model_path",
         "native_check_bindings",
@@ -54,6 +57,7 @@ _CURRENT_SOURCE_FIELDS = frozenset(
         "portfolio_target_edges",
         "projection_consumers",
         "release_eligible",
+        "repository_role",
         "route_branch_closure_required",
         "schema_version",
         "skill_id",
@@ -90,6 +94,12 @@ _FULL_ADMISSION_REASONS = frozenset(
     }
 )
 _CLOSURE_PROFILE_ORDER = ("enforced",)
+_CONSUMER_PROJECTION = {
+    "projection_id": "projection:consumer-distribution",
+    "prohibited_path_prefixes": [".skillguard/"],
+    "prohibited_prompt_tokens": ["SkillGuard", ".skillguard", "skillguard.py"],
+    "release_manifest_path": "consumer-release.json",
+}
 _DEPTH_PROFILE_FIELDS = frozenset(
     {
         "schema_version",
@@ -177,6 +187,16 @@ def validate_contract_source(
         failures.append("parallel_execution_route_forbidden")
     if source.get("may_define_skillguard_runtime_route") is not False:
         failures.append("skillguard_runtime_route_forbidden")
+    skill_id = str(source.get("skill_id", ""))
+    maintenance_unit_id = str(source.get("maintenance_unit_id", ""))
+    if source.get("repository_role") != "skill_maintainer_source":
+        failures.append("contract_source_not_author_source")
+    if maintenance_unit_id != f"unit:{skill_id}":
+        failures.append("maintenance_unit_identity_mismatch")
+    if source.get("member_skill_ids") != [skill_id]:
+        failures.append("member_skill_inventory_mismatch")
+    if source.get("consumer_projection") != _CONSUMER_PROJECTION:
+        failures.append("consumer_projection_mismatch")
     for field_name in (
         "implementation_paths",
         "step_bindings",
@@ -292,11 +312,18 @@ def validate_contract_source(
         for field_name in (
             "check_id",
             "semantic_check_id",
+            "maintenance_unit_id",
+            "member_skill_id",
+            "evidence_subject_id",
             "execution_owner_id",
             "evidence_domain_id",
         ):
             if not isinstance(check.get(field_name), str) or not check[field_name]:
                 failures.append(f"check_missing_{field_name}:{index}")
+        if check.get("maintenance_unit_id") != maintenance_unit_id:
+            failures.append(f"check_maintenance_unit_mismatch:{index}")
+        if check.get("member_skill_id") != skill_id:
+            failures.append(f"check_member_skill_mismatch:{index}")
         if not isinstance(check.get("input_selectors"), list) or not check.get("input_selectors"):
             failures.append(f"check_input_selectors_missing:{index}")
 
@@ -454,11 +481,27 @@ def compile_skill_contract(
         findings.append(ContractCompileFinding("compiled_contract_schema_mismatch", COMPILED_CONTRACT_SCHEMA, skill_path.name, str(compiled_path)))
     if manifest.get("schema_version") != CHECK_MANIFEST_SCHEMA:
         findings.append(ContractCompileFinding("check_manifest_schema_mismatch", CHECK_MANIFEST_SCHEMA, skill_path.name, str(manifest_path)))
-    for field_name in ("skill_id", "model_id", "model_path", "depth_profile", "claim_boundary"):
+    for field_name in (
+        "skill_id",
+        "model_id",
+        "model_path",
+        "claim_boundary",
+        "repository_role",
+        "maintenance_unit_id",
+        "member_skill_ids",
+        "consumer_projection",
+    ):
         if compiled.get(field_name) != source.get(field_name):
             findings.append(ContractCompileFinding("source_projection_mismatch", field_name, skill_path.name, str(compiled_path)))
-    if manifest.get("skill_id") != source.get("skill_id") or manifest.get("model_id") != source.get("model_id"):
-        findings.append(ContractCompileFinding("manifest_identity_mismatch", "skill_id/model_id", skill_path.name, str(manifest_path)))
+    for field_name in (
+        "skill_id",
+        "model_id",
+        "maintenance_unit_id",
+        "member_skill_ids",
+        "consumer_projection",
+    ):
+        if manifest.get(field_name) != source.get(field_name):
+            findings.append(ContractCompileFinding("manifest_identity_mismatch", field_name, skill_path.name, str(manifest_path)))
     if manifest.get("contract_hash") != compiled.get("contract_hash"):
         findings.append(ContractCompileFinding("manifest_contract_hash_mismatch", "contract_hash", skill_path.name, str(manifest_path)))
     contract_hash = str(compiled.get("contract_hash", ""))

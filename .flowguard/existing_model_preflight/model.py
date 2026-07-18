@@ -48,9 +48,9 @@ class ChangeIdea:
     behavior_plane: str = BCL_PLANE_DEVELOPMENT_PROCESS
     commitment_lookup_performed: bool = True
     related_plane_hit_promoted: bool = False
-    spec_provider_context_present: bool = False
-    spec_provider_context_current: bool = True
-    spec_reconciliation_current: bool = True
+    spec_context_present: bool = False
+    spec_context_current: bool = True
+    spec_context_read_only: bool = True
 
 
 @dataclass(frozen=True)
@@ -72,9 +72,9 @@ class ClassifiedNeed:
     behavior_plane: str
     commitment_lookup_performed: bool
     related_plane_hit_promoted: bool
-    spec_provider_context_present: bool = False
-    spec_provider_context_current: bool = True
-    spec_reconciliation_current: bool = True
+    spec_context_present: bool = False
+    spec_context_current: bool = True
+    spec_context_read_only: bool = True
 
 
 @dataclass(frozen=True)
@@ -131,8 +131,8 @@ class State:
     lookup_required: tuple[str, ...] = ()
     lookup_complete: tuple[str, ...] = ()
     unsafe_related_plane_promoted: tuple[str, ...] = ()
-    spec_provider_context_required: tuple[str, ...] = ()
-    spec_provider_context_current: tuple[str, ...] = ()
+    spec_context_required: tuple[str, ...] = ()
+    spec_context_current: tuple[str, ...] = ()
 
 
 FULL_ACTIONS = {"implementation", "proposal", "restructure", "high_risk_change"}
@@ -194,9 +194,9 @@ class ClassifyNeed:
             if input_obj.expected_surface_ids
             else state.stable_authority_required,
             lookup_required=_add_once(state.lookup_required, input_obj.task_id),
-            spec_provider_context_required=_add_once(state.spec_provider_context_required, input_obj.task_id)
-            if input_obj.spec_provider_context_present
-            else state.spec_provider_context_required,
+            spec_context_required=_add_once(state.spec_context_required, input_obj.task_id)
+            if input_obj.spec_context_present
+            else state.spec_context_required,
         )
         yield FunctionResult(
             ClassifiedNeed(
@@ -217,9 +217,9 @@ class ClassifyNeed:
                 input_obj.behavior_plane,
                 input_obj.commitment_lookup_performed,
                 input_obj.related_plane_hit_promoted,
-                input_obj.spec_provider_context_present,
-                input_obj.spec_provider_context_current,
-                input_obj.spec_reconciliation_current,
+                input_obj.spec_context_present,
+                input_obj.spec_context_current,
+                input_obj.spec_context_read_only,
             ),
             new_state,
             label=f"classified_{level}_preflight",
@@ -252,13 +252,13 @@ class SearchExistingModels:
                 label="blocked_related_plane_promotion",
             )
             return
-        if input_obj.spec_provider_context_present and not (
-            input_obj.spec_provider_context_current and input_obj.spec_reconciliation_current
+        if input_obj.spec_context_present and not (
+            input_obj.spec_context_current and input_obj.spec_context_read_only
         ):
             yield FunctionResult(
-                BlockedNeed(input_obj.task_id, "spec_provider_context_stale_or_unmapped"),
+                BlockedNeed(input_obj.task_id, "spec_context_stale_or_mutable"),
                 replace(state, blocked=_add_once(state.blocked, input_obj.task_id)),
-                label="blocked_spec_provider_context_stale",
+                label="blocked_spec_context_stale_or_mutable",
             )
             return
         if input_obj.duplicate_risk and not (
@@ -309,9 +309,9 @@ class SearchExistingModels:
             if input_obj.expected_surface_ids
             else state.stable_authority_bound,
             lookup_complete=_add_once(state.lookup_complete, input_obj.task_id),
-            spec_provider_context_current=_add_once(state.spec_provider_context_current, input_obj.task_id)
-            if input_obj.spec_provider_context_present
-            else state.spec_provider_context_current,
+            spec_context_current=_add_once(state.spec_context_current, input_obj.task_id)
+            if input_obj.spec_context_present
+            else state.spec_context_current,
         )
         if input_obj.required_level == "full":
             grounded_state = replace(
@@ -533,17 +533,17 @@ def route_requires_plane_first_commitment_lookup(state: State, trace) -> Invaria
     return InvariantResult.pass_()
 
 
-def spec_provider_context_requires_current_reconciliation(state: State, trace) -> InvariantResult:
+def spec_context_requires_current_read_only_snapshot(state: State, trace) -> InvariantResult:
     del trace
     bad = tuple(
         sorted(
-            (set(state.route_selected) & set(state.spec_provider_context_required))
-            - set(state.spec_provider_context_current)
+            (set(state.route_selected) & set(state.spec_context_required))
+            - set(state.spec_context_current)
         )
     )
     if bad:
         return InvariantResult.fail(
-            f"route selected from stale or unmapped spec provider context: {bad!r}"
+            f"route selected from a stale or mutable OpenSpec context: {bad!r}"
         )
     return InvariantResult.pass_()
 
@@ -580,9 +580,9 @@ INVARIANTS = (
         route_requires_plane_first_commitment_lookup,
     ),
     Invariant(
-        "spec_provider_context_requires_current_reconciliation",
-        "Provider task context cannot support routing until current bidirectional reconciliation is preserved.",
-        spec_provider_context_requires_current_reconciliation,
+        "spec_context_requires_current_read_only_snapshot",
+        "Official OpenSpec context can support routing only as a current read-only snapshot.",
+        spec_context_requires_current_read_only_snapshot,
     ),
 )
 
@@ -642,18 +642,26 @@ EXTERNAL_INPUTS = (
         related_plane_hit_promoted=True,
     ),
     ChangeIdea(
-        "current-provider-context",
+        "current-spec-context",
         True,
         action_class="implementation",
-        spec_provider_context_present=True,
+        spec_context_present=True,
     ),
     ChangeIdea(
-        "stale-provider-context",
+        "stale-spec-context",
         True,
         action_class="implementation",
-        spec_provider_context_present=True,
-        spec_provider_context_current=False,
-        spec_reconciliation_current=False,
+        spec_context_present=True,
+        spec_context_current=False,
+        spec_context_read_only=True,
+    ),
+    ChangeIdea(
+        "mutable-spec-context",
+        True,
+        action_class="implementation",
+        spec_context_present=True,
+        spec_context_current=True,
+        spec_context_read_only=False,
     ),
 )
 

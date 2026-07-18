@@ -11,6 +11,7 @@
       "depends_on_check_ids": [],
       "evidence_class": "hard",
       "evidence_domain_id": "evidence-domain:check:model-first-function-flow:plane-boundary",
+      "evidence_subject_id": "subject:model-first-function-flow:plane-boundary",
       "execution_owner_id": "owner:check:model-first-function-flow:plane-boundary",
       "input_selectors": [
         {
@@ -19,6 +20,8 @@
         }
       ],
       "kind": "model_assertion",
+      "maintenance_unit_id": "unit:model-first-function-flow",
+      "member_skill_id": "model-first-function-flow",
       "semantic_check_id": "semantic:check:model-first-function-flow:plane-boundary",
       "timeout_seconds": 30
     },
@@ -37,6 +40,7 @@
       "depends_on_check_ids": [],
       "evidence_class": "hard",
       "evidence_domain_id": "evidence-domain:check:model-first-function-flow:native-authority",
+      "evidence_subject_id": "subject:model-first-function-flow:native-authority",
       "execution_owner_id": "owner:check:model-first-function-flow:native-authority",
       "expected": {
         "exit_code": 0
@@ -72,6 +76,8 @@
         }
       ],
       "kind": "command",
+      "maintenance_unit_id": "unit:model-first-function-flow",
+      "member_skill_id": "model-first-function-flow",
       "semantic_check_id": "semantic:check:model-first-function-flow:native-authority",
       "timeout_seconds": 180
     },
@@ -85,6 +91,7 @@
       "depends_on_check_ids": [],
       "evidence_class": "hard",
       "evidence_domain_id": "evidence-domain:check:model-first-function-flow:evidence-closure",
+      "evidence_subject_id": "subject:model-first-function-flow:evidence-closure",
       "execution_owner_id": "owner:check:model-first-function-flow:evidence-closure",
       "input_selectors": [
         {
@@ -93,6 +100,8 @@
         }
       ],
       "kind": "model_assertion",
+      "maintenance_unit_id": "unit:model-first-function-flow",
+      "member_skill_id": "model-first-function-flow",
       "semantic_check_id": "semantic:check:model-first-function-flow:evidence-closure",
       "timeout_seconds": 30
     }
@@ -109,6 +118,18 @@
     }
   ],
   "confirmed": true,
+  "consumer_projection": {
+    "prohibited_path_prefixes": [
+      ".skillguard/"
+    ],
+    "prohibited_prompt_tokens": [
+      "SkillGuard",
+      ".skillguard",
+      "skillguard.py"
+    ],
+    "projection_id": "projection:consumer-distribution",
+    "release_manifest_path": "consumer-release.json"
+  },
   "content_impact_policy": {
     "full_admission_reason_codes": [
       "explicit_final_gate",
@@ -126,27 +147,24 @@
   },
   "default_route_id": "route:model_first_function_flow",
   "depth_profile": {
-    "schema_version": "skillguard.depth_profile.v2",
-    "profile_id": "profile:model-first-function-flow:fixed-enforced-declared-check-supervision",
-    "target_skill_id": "model-first-function-flow",
+    "claim_boundary": "model-first-function-flow owns every check's domain meaning; SkillGuard only reconciles the exact current declared-check inventory and terminal receipts in one fixed enforced closure.",
+    "enforcement_level": "enforced",
     "integration_mode": "native-integrated",
-    "native_owner_id": "model_first_function_flow",
-    "native_route_ids": [
-      "route:model_first_function_flow"
-    ],
     "native_check_ids": [
       "check:model-first-function-flow:plane-boundary",
       "check:model-first-function-flow:native-authority",
       "check:model-first-function-flow:evidence-closure"
     ],
-    "skillguard_adds_domain_route": false,
-    "enforcement_level": "enforced",
-    "required_closure_profiles": [
-      "enforced"
+    "native_owner_id": "model_first_function_flow",
+    "native_route_ids": [
+      "route:model_first_function_flow"
     ],
+    "profile_id": "profile:model-first-function-flow:fixed-enforced-declared-check-supervision",
     "provider_runtime": {
       "provider_id": "skillguard-local-provider",
-      "required_runtime_contract_id": "skillguard-declared-check-supervision-current",
+      "readiness_check_ids": [
+        "check:model-first-function-flow:native-authority"
+      ],
       "required_capability_ids": [
         "declared-check-inventory.v1",
         "declared-check-receipt-reconciliation.v1",
@@ -156,11 +174,14 @@
         "single-flight-check-execution.v1"
       ],
       "required_enrollment_status": "enrolled",
-      "readiness_check_ids": [
-        "check:model-first-function-flow:native-authority"
-      ]
+      "required_runtime_contract_id": "skillguard-declared-check-supervision-current"
     },
-    "claim_boundary": "model-first-function-flow owns every check's domain meaning; SkillGuard only reconciles the exact current declared-check inventory and terminal receipts in one fixed enforced closure."
+    "required_closure_profiles": [
+      "enforced"
+    ],
+    "schema_version": "skillguard.depth_profile.v2",
+    "skillguard_adds_domain_route": false,
+    "target_skill_id": "model-first-function-flow"
   },
   "implementation_paths": [
     ".agents/skills/model-first-function-flow",
@@ -175,8 +196,12 @@
   ],
   "integration_mode": "native-integrated",
   "judgment_rubrics": [],
+  "maintenance_unit_id": "unit:model-first-function-flow",
   "may_define_parallel_execution_route": false,
   "may_define_skillguard_runtime_route": false,
+  "member_skill_ids": [
+    "model-first-function-flow"
+  ],
   "model_id": "flowguard.model_first_function_flow.skill_contract.v2",
   "model_path": ".flowguard/minimum_valuable_model_entry/model.py",
   "native_check_bindings": [
@@ -195,6 +220,7 @@
   ],
   "native_route_owner": "model_first_function_flow",
   "release_eligible": false,
+  "repository_role": "skill_maintainer_source",
   "schema_version": "skillguard.contract_source.v2",
   "skill_id": "model-first-function-flow",
   "step_bindings": [

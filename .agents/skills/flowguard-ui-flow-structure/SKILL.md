@@ -30,7 +30,7 @@ Accept admission, UI state/task/control coverage, and current evidence; block le
 4. Bind claims to plan, inventory, content rows, screenshot/DOM/event/result evidence, click chains, blindspots, and tests.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Unclassified/internal content cannot render; do not add audience/role/persona categories.
 - On-demand stays hidden until an accessible task-owned reveal/return; hover has keyboard/focus parity.
@@ -41,7 +41,5 @@ Accept admission, UI state/task/control coverage, and current evidence; block le
 ## Output Requirements
 Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, blindspots, and a UI state diagram; edges mean reachable interaction transitions.
 
-## SkillGuard Maintenance
-Edit contract source, regenerate; SkillGuard is not UI runtime/human evidence.
 
 <!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

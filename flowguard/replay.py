@@ -11,6 +11,26 @@ from .trace import TraceStep
 
 
 @dataclass(frozen=True)
+class ReplayInput:
+    """Production-call input projected from a model step without its oracle."""
+
+    external_input: Any
+    function_name: str
+    function_input: Any
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "function_name", str(self.function_name))
+
+    @classmethod
+    def from_trace_step(cls, step: TraceStep) -> "ReplayInput":
+        return cls(
+            external_input=step.external_input,
+            function_name=step.function_name,
+            function_input=step.function_input,
+        )
+
+
+@dataclass(frozen=True)
 class ReplayObservation:
     """Projected behavior observed after replaying one trace step."""
 
@@ -48,8 +68,8 @@ class ReplayAdapter(Protocol):
     def reset(self, initial_state: Any) -> None:
         """Prepare the real system for replaying a trace."""
 
-    def apply_step(self, step: TraceStep) -> ReplayObservation | None:
-        """Execute the production behavior corresponding to a trace step."""
+    def apply_step(self, step: ReplayInput) -> ReplayObservation | None:
+        """Execute production behavior without receiving expected output or state."""
 
     def observe_state(self) -> Any:
         """Return a projection of real state after the latest step."""
@@ -86,4 +106,4 @@ def coerce_observation(value: Any, step: TraceStep, adapter: Any) -> ReplayObser
     raise TypeError("ReplayAdapter.apply_step must return ReplayObservation or None")
 
 
-__all__ = ["ReplayAdapter", "ReplayObservation", "coerce_observation"]
+__all__ = ["ReplayAdapter", "ReplayInput", "ReplayObservation", "coerce_observation"]

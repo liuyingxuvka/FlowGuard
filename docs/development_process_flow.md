@@ -306,11 +306,11 @@ results can be reused only when a `TestResultReuseTicket` and matching
 dependencies, environment, result fingerprint, and covered obligation scope are
 current. Later writes that touch any of those fields stale the reuse proof and
 force a rerun or refreshed ticket before done confidence.
-## Specification-provider evidence
+## Read-only OpenSpec context
 
-OpenSpec and Spec Kit changes enter this route as bounded
-`SpecWorkPackage` sources. DevelopmentProcessFlow preserves provider authority,
-requires bidirectional task/obligation/check owners, orders fast dependency
-gates before heavy checks, and closes only with unchanged begin/post manifests
-plus exact terminal receipt consumers. See
-[`spec_provider_work_packages.md`](spec_provider_work_packages.md).
+An official OpenSpec change may enter this route only as one current,
+project-bounded `SpecContext` containing proposal, design, specification, task,
+and derived-status identities. DevelopmentProcessFlow uses it to understand
+scope and order its own work; it never writes or executes OpenSpec, creates a
+provider session/cache/receipt, reconciles provider tasks into test owners, or
+decides OpenSpec archive readiness. See [`spec_context.md`](spec_context.md).

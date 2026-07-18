@@ -184,10 +184,10 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "project_adoption_template_files",
     ),
     FileTemplateCommand(
-        "spec-work-package-template",
-        "Print or write a provider work-package binding and receipt-orchestration example.",
-        "spec_work_package",
-        "spec_work_package_template_files",
+        "spec-context-template",
+        "Print or write a read-only official OpenSpec context example.",
+        "spec_context",
+        "spec_context_template_files",
     ),
     FileTemplateCommand(
         "risk-intent-template",
@@ -523,92 +523,12 @@ def _run_risk_template_harvest_review_command(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
-def _run_spec_work_package_audit_command(args: argparse.Namespace) -> int:
-    from .spec_providers import discover_spec_work_packages
-    from .spec_work_package import review_spec_work_package
+def _run_spec_context_command(args: argparse.Namespace) -> int:
+    from .spec_context import read_openspec_context, review_spec_context
 
-    packages = discover_spec_work_packages(
-        args.root,
-        provider_id=args.provider,
-        change_id=args.change,
-        bindings_path=args.bindings or None,
-    )
-    reports = tuple(review_spec_work_package(package) for package in packages)
-    payload = {
-        "artifact_type": "flowguard_spec_work_package_audit",
-        "provider": args.provider,
-        "change": args.change,
-        "package_count": len(packages),
-        "ok": bool(reports) and all(report.ok for report in reports),
-        "packages": [package.to_dict() for package in packages],
-        "reports": [report.to_dict() for report in reports],
-        "claim_boundary": (
-            "Development-process reconciliation only; provider-native task, verification, and archive authority is preserved."
-        ),
-    }
-    print(json.dumps(payload, indent=2, sort_keys=True))
-    return 0 if payload["ok"] else 1
-
-
-def _run_spec_session_begin_command(args: argparse.Namespace) -> int:
-    from .spec_check_cache import begin_spec_session
-
-    result = begin_spec_session(args.root, args.provider, args.work_package)
-    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-    return 0 if result.ok else 1
-
-
-def _run_spec_session_close_command(args: argparse.Namespace) -> int:
-    from .spec_check_cache import close_spec_session
-
-    result = close_spec_session(args.root, args.provider, args.work_package)
-    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-    return 0 if result.ok else 1
-
-
-def _run_spec_check_command(args: argparse.Namespace) -> int:
-    from .spec_check_cache import run_spec_check
-    from .spec_providers import load_openspec_work_package, load_speckit_work_package
-
-    package = (
-        load_openspec_work_package(args.root, args.work_package)
-        if args.provider == "openspec"
-        else load_speckit_work_package(args.root, args.work_package)
-    )
-    declared = next((item for item in package.checks if item.check_id == args.check_id), None)
-    validation_ids = tuple(args.validation_obligation or ()) or (
-        declared.validation_obligation_ids if declared is not None else ()
-    )
-    dependencies = tuple(args.depends_on or ()) or (declared.depends_on if declared is not None else ())
-    timeout_seconds = args.timeout_seconds or (declared.timeout_seconds if declared is not None else 1800)
-    expected_exit_code = (
-        args.expected_exit_code
-        if args.expected_exit_code is not None
-        else declared.expected_exit_code
-        if declared is not None
-        else 0
-    )
-    cross_change_safe = bool(args.cross_change_safe or (declared.cross_change_safe if declared else False))
-    command = tuple(args.inner_command or ())
-    if command and command[0] == "--":
-        command = command[1:]
-    result = run_spec_check(
-        args.root,
-        provider_id=args.provider,
-        work_package_id=args.work_package,
-        check_id=args.check_id,
-        semantic_id=args.semantic_id,
-        command=command,
-        validation_obligation_ids=validation_ids,
-        coverage=tuple(args.coverage or ()),
-        depends_on=dependencies,
-        timeout_seconds=timeout_seconds,
-        expected_exit_code=expected_exit_code,
-        cross_change_safe=cross_change_safe,
-        working_directory=args.cwd,
-    )
-    print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
-    return 0 if result.ok else 1
+    review = review_spec_context(read_openspec_context(args.root, args.change))
+    print(json.dumps(review.to_dict(), indent=2, sort_keys=True))
+    return 0 if review.ok else 1
 
 
 def _portable_invalid_report(path: str, exc: Exception):
@@ -875,50 +795,17 @@ def _add_risk_template_harvest_review_parser(subparsers: argparse._SubParsersAct
     parser.set_defaults(handler=_run_risk_template_harvest_review_command)
 
 
-def _add_spec_work_package_parsers(
+def _add_spec_context_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    audit = subparsers.add_parser(
-        "spec-work-package-audit",
-        help="Read-only provider task/obligation/check reconciliation under one project root.",
+    parser = subparsers.add_parser(
+        "spec-context",
+        help="Read proposal, design, specs, tasks, and status from one official OpenSpec change.",
     )
-    audit.add_argument("--root", default=".")
-    audit.add_argument("--provider", choices=("auto", "openspec", "speckit"), default="auto")
-    audit.add_argument("--change", default="")
-    audit.add_argument("--bindings", default="")
-    audit.add_argument("--json", action="store_true", help="Canonical JSON is always emitted.")
-    audit.set_defaults(handler=_run_spec_work_package_audit_command)
-
-    for command_name, help_text, handler in (
-        ("spec-session-begin", "Capture the immutable begin snapshot for one provider work package.", _run_spec_session_begin_command),
-        ("spec-session-close", "Capture the post snapshot and reject stale or incomplete closure.", _run_spec_session_close_command),
-    ):
-        parser = subparsers.add_parser(command_name, help=help_text)
-        parser.add_argument("--root", default=".")
-        parser.add_argument("--provider", choices=("openspec", "speckit"), required=True)
-        parser.add_argument("--work-package", required=True)
-        parser.add_argument("--json", action="store_true", help="Canonical JSON is always emitted.")
-        parser.set_defaults(handler=handler)
-
-    run = subparsers.add_parser(
-        "spec-check-run",
-        help="Run or safely reuse one exact check inside an active provider session.",
-    )
-    run.add_argument("--root", default=".")
-    run.add_argument("--provider", choices=("openspec", "speckit"), required=True)
-    run.add_argument("--work-package", required=True)
-    run.add_argument("--check-id", required=True)
-    run.add_argument("--semantic-id", required=True)
-    run.add_argument("--validation-obligation", action="append", default=[])
-    run.add_argument("--coverage", action="append", default=[])
-    run.add_argument("--depends-on", action="append", default=[])
-    run.add_argument("--timeout-seconds", type=int, default=0)
-    run.add_argument("--expected-exit-code", type=int, default=None)
-    run.add_argument("--cross-change-safe", action="store_true")
-    run.add_argument("--cwd", default=".")
-    run.add_argument("--json", action="store_true", help="Canonical JSON is always emitted.")
-    run.add_argument("inner_command", nargs=argparse.REMAINDER)
-    run.set_defaults(handler=_run_spec_check_command)
+    parser.add_argument("--root", default=".")
+    parser.add_argument("--change", required=True)
+    parser.add_argument("--json", action="store_true", help="Canonical JSON is always emitted.")
+    parser.set_defaults(handler=_run_spec_context_command)
 
 
 def _add_portable_model_parsers(
@@ -966,7 +853,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_risk_template_search_parser(subparsers)
     _add_risk_template_harvest_parser(subparsers)
     _add_risk_template_harvest_review_parser(subparsers)
-    _add_spec_work_package_parsers(subparsers)
+    _add_spec_context_parser(subparsers)
     _add_portable_model_parsers(subparsers)
     _add_project_adoption_parser(
         subparsers,

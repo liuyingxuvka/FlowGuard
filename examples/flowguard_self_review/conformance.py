@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Iterable, Sequence
 
-from flowguard import ConformanceReport, ReplayObservation, Trace, TraceStep, replay_trace
+from flowguard import ConformanceReport, ReplayObservation, Trace, replay_trace
+from flowguard.replay import ReplayInput
 from flowguard.review import review_scenario
 
 from .model import (
@@ -28,7 +29,7 @@ class FlowguardSelfReviewReplayAdapter:
     def reset(self, initial_state) -> None:
         self.orchestrator.reset(initial_state)
 
-    def apply_step(self, step: TraceStep) -> ReplayObservation:
+    def apply_step(self, step: ReplayInput) -> ReplayObservation:
         if step.function_name == "VerifyFlowguardToolchain":
             if not isinstance(step.function_input, ProductTask):
                 raise TypeError("VerifyFlowguardToolchain expects ProductTask")

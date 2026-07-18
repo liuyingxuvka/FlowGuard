@@ -56,18 +56,18 @@ def routes(report):
 
 
 class MaintenanceScanTests(unittest.TestCase):
-    def test_self_maintenance_requires_package_specific_close_and_receipts(self):
+    def test_self_maintenance_requires_current_read_only_spec_context(self):
         report = review_flowguard_self_maintenance(
             SelfMaintenancePlan(
                 "spec-self-maintenance",
-                required_spec_work_package_ids=("change-one",),
+                required_spec_context_ids=("openspec:change-one",),
             )
         )
         self.assertIn(
-            "spec_work_package_evidence_missing_or_stale",
+            "spec_context_missing_or_stale",
             {finding.code for finding in report.findings},
         )
-    def test_required_spec_work_package_cannot_hide_behind_generic_green_evidence(self):
+    def test_required_spec_context_cannot_hide_behind_generic_green_evidence(self):
         generic = MaintenanceEvidence(
             "generic-green",
             MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW,
@@ -78,30 +78,26 @@ class MaintenanceScanTests(unittest.TestCase):
             MaintenanceScanPlan(
                 "spec-missing-close",
                 evidence=(generic,),
-                required_spec_work_package_ids=("change-one",),
+                required_spec_context_ids=("openspec:change-one",),
             )
         )
         self.assertFalse(blocked.ok)
         self.assertTrue(blocked.unresolved_required_action_ids)
 
         exact = MaintenanceEvidence(
-            "spec-close",
+            "spec-context",
             MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW,
             status="passed",
             current=True,
-            spec_work_package_id="change-one",
-            spec_session_id="session:one",
-            spec_session_state="closed",
-            spec_begin_fingerprint="sha256:inputs",
-            spec_post_fingerprint="sha256:inputs",
-            spec_close_record_path=".flowguard/evidence/spec-work-packages/sessions/history/one/close.json",
-            spec_receipt_ids=("receipt:one",),
+            spec_context_id="openspec:change-one",
+            spec_context_hash="sha256:inputs",
+            spec_context_read_only=True,
         )
         current = review_maintenance_scan(
             MaintenanceScanPlan(
                 "spec-current",
                 evidence=(generic, exact),
-                required_spec_work_package_ids=("change-one",),
+                required_spec_context_ids=("openspec:change-one",),
             )
         )
         self.assertTrue(current.ok)

@@ -29,7 +29,7 @@ from flowguard.templates import (
     risk_intent_template_files,
     risk_template_library_template_files,
     runtime_path_evidence_template_files,
-    spec_work_package_template_files,
+    spec_context_template_files,
     structure_mesh_template_files,
     test_mesh_template_files as mesh_template_files_factory,
     topology_hazard_template_files,
@@ -66,13 +66,13 @@ PUBLIC_TEMPLATE_FACTORIES = (
     mesh_template_files_factory,
     structure_mesh_template_files,
     topology_hazard_template_files,
-    spec_work_package_template_files,
+    spec_context_template_files,
 )
 
 TEMPLATE_CLI_COMMANDS = {
     "project-template": "project",
     "project-adoption-template": "project_adoption",
-    "spec-work-package-template": "spec_work_package",
+    "spec-context-template": "spec_context",
     "risk-intent-template": "risk_intent_check_plan",
     "risk-template-library-template": "risk_template_library",
     "plan-detailing-template": "plan_detailing",

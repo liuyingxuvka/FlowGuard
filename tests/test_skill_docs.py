@@ -141,10 +141,11 @@ class SkillDocsTests(unittest.TestCase):
                 "## Required Workflow",
                 "## Hard Gates",
                 "## Output Requirements",
-                "## SkillGuard Maintenance",
             ),
             headings,
         )
+        self.assertNotIn("SkillGuard", text)
+        self.assertNotIn(".skillguard", text)
         for skill_name in SATELLITE_SKILLS:
             self.assertIn(skill_name, text)
 
@@ -324,7 +325,10 @@ class SkillDocsTests(unittest.TestCase):
                 self.assertIn(reference_name, text)
                 self.assertIn(skill_name, openai_yaml)
                 self.assertGreater(len(reference), 200)
-                self.assertEqual(10, sum(line.startswith("## ") for line in text.splitlines()))
+                self.assertEqual(9, sum(line.startswith("## ") for line in text.splitlines()))
+                self.assertNotIn("SkillGuard", text)
+                self.assertNotIn(".skillguard", text)
+                self.assertNotIn("SkillGuard", openai_yaml)
                 for field in (
                     "evidence",
                     "failures",

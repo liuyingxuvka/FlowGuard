@@ -168,12 +168,14 @@ existing parent model, child models, leaf models, current evidence ids, and any
 duplicate-boundary risks before a new model or test boundary is added. A model
 reference plus ordinary test mention is not the same as complete finite leaf
 boundary proof.
-## Specification-provider context
+## Read-only OpenSpec context
 
-Attach OpenSpec, Spec Kit, or compatible provider context only after canonical
-plane-first commitment lookup. The context must preserve provider,
-work-package, and change identities and must declare `development_process`.
-Provider tasks can point to target commitments through typed relations, but
-`provider_owns_product_behavior` must remain false. Missing lookup, wrong-plane
-primary ownership, missing provider identities, or provider takeover of a
-product commitment blocks full preflight.
+Attach official OpenSpec context only after canonical plane-first commitment
+lookup. Preserve one context id, change id, current context hash, read-only
+flag, and proposal/design/specification/task/status artifact ids. The context
+belongs to `development_process` and cannot own product behavior.
+
+Missing lookup, stale context, mutable access, missing artifact identities, a
+wrong-plane primary owner, or any OpenSpec execution/session/cache/receipt
+bridge blocks full preflight. No provider-task-to-test-owner reconciliation is
+performed here.

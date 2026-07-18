@@ -511,9 +511,8 @@ class SelfMaintenancePlan:
     child_reports: tuple[SelfMaintenanceChildReport, ...] = ()
     broad_claim: bool = False
     allow_scoped_confidence: bool = True
-    required_spec_work_package_ids: tuple[str, ...] = ()
-    spec_work_package_session_close_evidence: Mapping[str, str] = field(default_factory=dict)
-    spec_work_package_receipt_evidence: Mapping[str, Sequence[str]] = field(default_factory=dict)
+    required_spec_context_ids: tuple[str, ...] = ()
+    spec_context_hashes: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
@@ -530,18 +529,13 @@ class SelfMaintenancePlan:
         object.__setattr__(self, "allow_scoped_confidence", bool(self.allow_scoped_confidence))
         object.__setattr__(
             self,
-            "required_spec_work_package_ids",
-            _as_tuple(self.required_spec_work_package_ids),
+            "required_spec_context_ids",
+            _as_tuple(self.required_spec_context_ids),
         )
         object.__setattr__(
             self,
-            "spec_work_package_session_close_evidence",
-            {str(key): str(value) for key, value in dict(self.spec_work_package_session_close_evidence).items()},
-        )
-        object.__setattr__(
-            self,
-            "spec_work_package_receipt_evidence",
-            {str(key): _as_tuple(value) for key, value in dict(self.spec_work_package_receipt_evidence).items()},
+            "spec_context_hashes",
+            {str(key): str(value) for key, value in dict(self.spec_context_hashes).items()},
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -554,13 +548,8 @@ class SelfMaintenancePlan:
             "child_reports": [report.to_dict() for report in self.child_reports],
             "broad_claim": self.broad_claim,
             "allow_scoped_confidence": self.allow_scoped_confidence,
-            "required_spec_work_package_ids": list(self.required_spec_work_package_ids),
-            "spec_work_package_session_close_evidence": dict(
-                self.spec_work_package_session_close_evidence
-            ),
-            "spec_work_package_receipt_evidence": {
-                key: list(value) for key, value in self.spec_work_package_receipt_evidence.items()
-            },
+            "required_spec_context_ids": list(self.required_spec_context_ids),
+            "spec_context_hashes": dict(self.spec_context_hashes),
         }
 
 
@@ -1310,23 +1299,19 @@ def review_flowguard_self_maintenance(plan: SelfMaintenancePlan) -> SelfMaintena
 
     findings = list(route_graph_completeness_findings(plan.route_profiles, plan.api_route_group_ids))
 
-    for work_package_id in plan.required_spec_work_package_ids:
-        close_evidence = plan.spec_work_package_session_close_evidence.get(work_package_id, "")
-        receipt_evidence = tuple(plan.spec_work_package_receipt_evidence.get(work_package_id, ()))
-        if close_evidence and receipt_evidence:
+    for context_id in plan.required_spec_context_ids:
+        context_hash = plan.spec_context_hashes.get(context_id, "")
+        if context_hash.startswith("sha256:"):
             continue
         findings.append(
             SelfMaintenanceFinding(
-                "spec_work_package_evidence_missing_or_stale",
-                "self-maintenance requires package-specific immutable session-close and terminal receipt evidence",
+                "spec_context_missing_or_stale",
+                "self-maintenance needs the current read-only OpenSpec context identity",
                 SELF_MAINTENANCE_FINDING_BLOCKER,
                 owner_route="development_process_flow",
-                child_id=work_package_id,
-                next_action="close a current spec session and attach its exact terminal receipts",
-                metadata={
-                    "session_close_evidence": close_evidence,
-                    "receipt_evidence": list(receipt_evidence),
-                },
+                child_id=context_id,
+                next_action="read the current OpenSpec proposal/design/spec/tasks/status context",
+                metadata={"context_hash": context_hash},
             )
         )
 

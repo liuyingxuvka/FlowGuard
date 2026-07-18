@@ -15,7 +15,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
-from .distribution_sync import OWNERSHIP_MANIFEST_NAME, OWNERSHIP_SCHEMA
+from .distribution_sync import (
+    CONSUMER_RELEASE_MANIFEST,
+    OWNERSHIP_MANIFEST_NAME,
+    OWNERSHIP_SCHEMA,
+)
 
 
 FLOWGUARD_SUITE_MAP = ".skillguard/flowguard-suite/suite-map.json"
@@ -32,20 +36,28 @@ MODEL_PURPOSE_SKILL_MARKERS = (
     "native good/bad-per-failure/oracle/current evidence",
     "Reusable types are not fixed-purpose",
     "no mode/fallback",
-    "SkillGuard only supervises FlowGuard-declared checks",
+    "only FlowGuard-declared checks may support completion claims",
 )
 MODEL_PURPOSE_PROMPT_MARKERS = (
     "one-or-many protected failures",
     "reusable model types are not permanently single-purpose",
-    "SkillGuard only supervises declared checks",
+    "only declared checks may support completion claims",
 )
-FLOWGUARD_REQUIRED_MEMBER_FILES = (
+FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES = (
     "SKILL.md",
     "agents/openai.yaml",
     ".skillguard/contract-source.json",
     ".skillguard/compiled-contract.json",
     ".skillguard/check-manifest.json",
 )
+FLOWGUARD_CONSUMER_REQUIRED_MEMBER_FILES = (
+    "SKILL.md",
+    "agents/openai.yaml",
+    CONSUMER_RELEASE_MANIFEST,
+)
+# Backward-compatible public name means author-source requirements. Consumer
+# projection validation selects the narrower standalone surface explicitly.
+FLOWGUARD_REQUIRED_MEMBER_FILES = FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES
 FLOWGUARD_CONTROL_ROOT = ".skillguard"
 
 SUITE_STATUS_PASS = "pass"
@@ -95,6 +107,7 @@ class SkillSuiteMemberReport:
     role: str
     owner: str
     declared_path: str
+    repository_role: str
     discovered: bool
     control_root_present: bool
     required_files: Mapping[str, bool]
@@ -102,7 +115,12 @@ class SkillSuiteMemberReport:
 
     @property
     def ok(self) -> bool:
-        return self.discovered and self.control_root_present and all(self.required_files.values())
+        control_ok = (
+            self.control_root_present
+            if self.repository_role == "skill_maintainer_source"
+            else not self.control_root_present
+        )
+        return self.discovered and control_ok and all(self.required_files.values())
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -110,6 +128,7 @@ class SkillSuiteMemberReport:
             "role": self.role,
             "owner": self.owner,
             "declared_path": self.declared_path,
+            "repository_role": self.repository_role,
             "discovered": self.discovered,
             "control_root_present": self.control_root_present,
             "required_files": dict(self.required_files),
@@ -255,11 +274,17 @@ def _member_source_hash(skill_dir: Path) -> str:
     return hashlib.sha256(skill_file.read_bytes()).hexdigest().upper() if skill_file.is_file() else ""
 
 
-def _member_required_files(skill_dir: Path) -> tuple[str, ...]:
+def _member_required_files(
+    skill_dir: Path,
+    *,
+    repository_role: str,
+) -> tuple[str, ...]:
     """Return the one current required member surface."""
 
     del skill_dir
-    return FLOWGUARD_REQUIRED_MEMBER_FILES
+    if repository_role == "skill_maintainer_source":
+        return FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES
+    return FLOWGUARD_CONSUMER_REQUIRED_MEMBER_FILES
 
 
 def _semantic_inventory(map_data: Mapping[str, Any]) -> dict[str, Any]:
@@ -275,7 +300,7 @@ def _semantic_inventory(map_data: Mapping[str, Any]) -> dict[str, Any]:
                 "owner": str(raw.get("owner", "")),
                 "required": bool(raw.get("required", False)),
                 "control_root": str(raw.get("evidence_location", "")),
-                "required_files": list(FLOWGUARD_REQUIRED_MEMBER_FILES),
+                "required_files": list(FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES),
             }
         )
     return {
@@ -340,6 +365,15 @@ def validate_skill_suite(
     skills_path = Path(skill_root) if external_skill_root else root_path / FLOWGUARD_SKILL_ROOT
     if not skills_path.is_absolute():
         skills_path = root_path / skills_path
+    # A target project may keep the installed suite under the conventional
+    # ``.agents/skills`` path. The installer-owned manifest, rather than path
+    # location, distinguishes that clean consumer distribution from this
+    # repository's author source.
+    repository_role = (
+        "consumer_distribution"
+        if external_skill_root or _distribution_owned_member_ids(skills_path)
+        else "skill_maintainer_source"
+    )
 
     findings: list[SkillSuiteFinding] = []
     if not map_path.is_file():
@@ -425,7 +459,13 @@ def validate_skill_suite(
         skill_id = str(raw.get("name", ""))
         declared_path = str(raw.get("path", f"{FLOWGUARD_SKILL_ROOT}/{skill_id}"))
         skill_dir = skills_path / skill_id if external_skill_root else root_path / declared_path
-        required_files = {relative: (skill_dir / relative).is_file() for relative in _member_required_files(skill_dir)}
+        required_files = {
+            relative: (skill_dir / relative).is_file()
+            for relative in _member_required_files(
+                skill_dir,
+                repository_role=repository_role,
+            )
+        }
         control_root_present = (skill_dir / FLOWGUARD_CONTROL_ROOT).is_dir()
         member_reports.append(
             SkillSuiteMemberReport(
@@ -433,14 +473,24 @@ def validate_skill_suite(
                 role=str(raw.get("role", "")),
                 owner=str(raw.get("owner", "")),
                 declared_path=declared_path,
+                repository_role=repository_role,
                 discovered=skill_id in discovered_set and (skill_dir / "SKILL.md").is_file(),
                 control_root_present=control_root_present,
                 required_files=required_files,
                 source_hash=_member_source_hash(skill_dir),
             )
         )
-        if not control_root_present:
+        if repository_role == "skill_maintainer_source" and not control_root_present:
             findings.append(SkillSuiteFinding("missing_control_root", "declared member is missing its required .skillguard control root", member_id=skill_id, file_path=f"{declared_path}/{FLOWGUARD_CONTROL_ROOT}"))
+        if repository_role == "consumer_distribution" and control_root_present:
+            findings.append(
+                SkillSuiteFinding(
+                    "consumer_author_control_present",
+                    "consumer skill contains author-side .skillguard state",
+                    member_id=skill_id,
+                    file_path=f"{declared_path}/{FLOWGUARD_CONTROL_ROOT}",
+                )
+            )
         for relative, present in required_files.items():
             if not present:
                 findings.append(SkillSuiteFinding("missing_required_file", "declared suite member is missing a required entry or control file", member_id=skill_id, file_path=f"{declared_path}/{relative}", metadata={"required_file": relative}))
@@ -458,6 +508,17 @@ def validate_skill_suite(
                     metadata={"missing_markers": missing},
                 ))
             lowered = skill_text.casefold()
+            if repository_role == "consumer_distribution" and (
+                "skillguard" in lowered or ".skillguard" in lowered
+            ):
+                findings.append(
+                    SkillSuiteFinding(
+                        "consumer_skillguard_prompt_reference",
+                        "consumer SKILL.md must be independent of author-side SkillGuard",
+                        member_id=skill_id,
+                        file_path=f"{declared_path}/SKILL.md",
+                    )
+                )
             forbidden = tuple(value for value in ("optional purpose mode", "skip purpose declaration", "skillguard owns purpose semantics") if value in lowered)
             if forbidden:
                 findings.append(SkillSuiteFinding(
@@ -478,6 +539,18 @@ def validate_skill_suite(
                     file_path=f"{declared_path}/agents/openai.yaml",
                     metadata={"missing_markers": missing},
                 ))
+            if repository_role == "consumer_distribution" and (
+                "skillguard" in prompt_text.casefold()
+                or ".skillguard" in prompt_text.casefold()
+            ):
+                findings.append(
+                    SkillSuiteFinding(
+                        "consumer_skillguard_prompt_reference",
+                        "consumer default prompt must be independent of author-side SkillGuard",
+                        member_id=skill_id,
+                        file_path=f"{declared_path}/agents/openai.yaml",
+                    )
+                )
 
     inventory_hash = _sha256_text(_canonical_json(map_data))
     semantic_hash = _sha256_text(_canonical_json(_semantic_inventory(map_data)))
@@ -512,6 +585,8 @@ __all__ = [
     "MODEL_PURPOSE_PROMPT_MARKERS",
     "MODEL_PURPOSE_SKILL_MARKERS",
     "FLOWGUARD_REQUIRED_MEMBER_FILES",
+    "FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES",
+    "FLOWGUARD_CONSUMER_REQUIRED_MEMBER_FILES",
     "FLOWGUARD_SATELLITE_ROLE",
     "FLOWGUARD_SKILL_ROOT",
     "FLOWGUARD_SUITE_MAP",

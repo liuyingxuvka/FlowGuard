@@ -281,13 +281,12 @@ class PlanDetailingTests(unittest.TestCase):
         self.assertIn("flowguard scenario review", completed.stdout)
         self.assertIn("total: 8", completed.stdout)
 
-    def test_spec_mapping_survives_development_process_projection(self):
+    def test_read_only_spec_context_survives_development_process_projection(self):
         process = flowguard.plan_detail_to_development_process(SPEC_MAPPED_PLAN)
-        self.assertIn("1.1", {task for action in process.actions for task in action.spec_task_ids})
-        self.assertIn(
-            "req.one",
-            {obligation for validation in process.validation_requirements for obligation in validation.spec_obligation_ids},
-        )
+        self.assertEqual(("openspec:change-one",), process.spec_context_ids)
+        action = next(item for item in process.actions if item.spec_context_id)
+        self.assertTrue(action.spec_context_read_only)
+        self.assertIn("openspec:change-one:proposal", action.spec_context_artifact_ids)
 
 
 if __name__ == "__main__":

@@ -245,6 +245,36 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("conformance_gap", {entry.category for entry in ledger.entries})
         self.assertIn("finding_ledger", summary.to_dict())
 
+    def test_status_only_passing_conformance_is_blocked(self):
+        plan = FlowGuardCheckPlan(
+            workflow=Workflow((IdempotentRecord(),), name="recording"),
+            initial_states=(State(),),
+            external_inputs=("job_1",),
+            max_sequence_length=1,
+            risk_profile=formal_risk_profile(
+                confidence_goal="production_conformance",
+                risk_classes=("conformance",),
+            ),
+            template_reuse_review=formal_template_reuse(),
+            template_harvest_review=formal_template_harvest(
+                disposition="not_harvestable",
+                linked_template_ids=(),
+                not_harvestable_reason="no_new_pattern",
+            ),
+            minimum_model_contract=formal_minimum_contract(),
+            known_bad_proofs=(formal_known_bad_proof(),),
+            conformance_status="pass",
+        )
+
+        summary = run_model_first_checks(plan)
+        section = {
+            item.name: item for item in summary.sections
+        }["conformance_replay"]
+
+        self.assertEqual("blocked", summary.overall_status)
+        self.assertEqual("blocked", section.status)
+        self.assertIn("current ConformanceReport required", section.summary)
+
     def test_run_model_first_checks_blocks_missing_template_harvest_closure(self):
         plan = FlowGuardCheckPlan(
             workflow=Workflow((IdempotentRecord(),), name="recording"),

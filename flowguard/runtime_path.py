@@ -1016,7 +1016,12 @@ def review_runtime_path_alignment(
 
     findings: list[RuntimePathFinding] = []
     for node_id, contracts in sorted(contracts_by_node.items()):
-        if len(contracts) > 1:
+        exact_occurrences = (
+            plan.require_exact_path
+            and all(contract.ordered and contract.sequence_index is not None for contract in contracts)
+            and len({contract.sequence_index for contract in contracts}) == len(contracts)
+        )
+        if len(contracts) > 1 and not exact_occurrences:
             findings.append(
                 RuntimePathFinding(
                     "duplicate_runtime_node_contract",
@@ -1044,10 +1049,20 @@ def review_runtime_path_alignment(
 
     for contract in plan.node_contracts:
         node_observations = tuple(observations_by_node.get(contract.node_id, ()))
+        if (
+            plan.require_exact_path
+            and contract.ordered
+            and contract.sequence_index is not None
+        ):
+            node_observations = tuple(
+                observation
+                for observation in node_observations
+                if observation.sequence_index == contract.sequence_index
+            )
         _review_contract_observations(contract, node_observations, findings, plan=plan)
 
     if plan.require_exact_path:
-        _review_exact_path(plan.node_contracts, observations, findings)
+        _review_exact_path(plan, findings)
 
     authority_values = _review_runtime_authority(plan, observations, findings)
     inventory_values = _review_runtime_inventory(plan, observations, findings)
@@ -1481,17 +1496,105 @@ def _review_proof_artifact(
         )
 
 
-def _review_exact_path(
-    contracts: tuple[RuntimeNodeContract, ...],
+def _standalone_runtime_runs(
     observations: tuple[RuntimeNodeObservation, ...],
+) -> tuple[tuple[str, tuple[RuntimeNodeObservation, ...]], ...]:
+    grouped: dict[str, list[RuntimeNodeObservation]] = {}
+    order: list[str] = []
+    for observation in observations:
+        run_id = observation.run_id or "(standalone)"
+        if run_id not in grouped:
+            grouped[run_id] = []
+            order.append(run_id)
+        grouped[run_id].append(observation)
+    return tuple((run_id, tuple(grouped[run_id])) for run_id in order)
+
+
+def _ordered_passing_observations(
+    observations: tuple[RuntimeNodeObservation, ...],
+) -> tuple[RuntimeNodeObservation, ...]:
+    indexed = tuple(enumerate(observations))
+    return tuple(
+        observation
+        for _, observation in sorted(
+            (
+                (position, observation)
+                for position, observation in indexed
+                if observation.has_current_pass() and observation.has_external_scope()
+            ),
+            key=lambda item: (
+                item[1].sequence_index
+                if item[1].sequence_index is not None
+                else 10**9 + item[0],
+                item[0],
+            ),
+        )
+    )
+
+
+def _review_exact_occurrence_behavior(
+    contract: RuntimeNodeContract,
+    observation: RuntimeNodeObservation,
+    findings: list[RuntimePathFinding],
+    *,
+    run_id: str,
+) -> None:
+    comparisons = (
+        (
+            "runtime_path_occurrence_terminal_mismatch",
+            "terminal",
+            contract.expected_terminal,
+            observation.observed_terminal,
+        ),
+        (
+            "runtime_path_occurrence_state_writes_mismatch",
+            "state writes",
+            contract.allowed_state_writes,
+            observation.observed_state_writes,
+        ),
+        (
+            "runtime_path_occurrence_side_effects_mismatch",
+            "side effects",
+            contract.allowed_side_effects,
+            observation.observed_side_effects,
+        ),
+    )
+    for code, label, expected, actual in comparisons:
+        if not expected or expected == actual:
+            continue
+        findings.append(
+            RuntimePathFinding(
+                code,
+                (
+                    f"runtime occurrence {contract.sequence_index!r} for node "
+                    f"{contract.node_id!r} has different {label}"
+                ),
+                node_id=contract.node_id,
+                observation_id=observation.observation_id,
+                evidence_id=observation.evidence_key(),
+                metadata={
+                    "run_id": run_id,
+                    "sequence_index": contract.sequence_index,
+                    "expected": list(expected) if isinstance(expected, tuple) else expected,
+                    "actual": list(actual) if isinstance(actual, tuple) else actual,
+                },
+            )
+        )
+
+
+def _review_exact_path(
+    plan: RuntimePathAlignmentPlan,
     findings: list[RuntimePathFinding],
 ) -> None:
     ordered_contracts = tuple(
         sorted(
-            (contract for contract in contracts if contract.required and contract.ordered),
+            (
+                contract
+                for contract in plan.node_contracts
+                if contract.required and contract.ordered
+            ),
             key=lambda contract: (
                 contract.sequence_index if contract.sequence_index is not None else 10**9,
-                contract.node_id,
             ),
         )
     )
@@ -1499,33 +1602,53 @@ def _review_exact_path(
     if not expected_node_ids:
         return
 
-    first_position: dict[str, int] = {}
-    for position, observation in enumerate(observations):
-        if observation.has_current_pass() and observation.node_id not in first_position:
-            first_position[observation.node_id] = (
-                observation.sequence_index if observation.sequence_index is not None else position
+    run_groups = tuple(
+        (run.run_id, run.observations)
+        for run in plan.runs
+    ) + _standalone_runtime_runs(plan.observations)
+    expected_node_set = set(expected_node_ids)
+    for run_id, raw_observations in run_groups:
+        observations = _ordered_passing_observations(raw_observations)
+        if plan.allow_uncontracted_nodes:
+            observations = tuple(
+                observation
+                for observation in observations
+                if observation.node_id in expected_node_set
             )
+        observed_node_ids = tuple(observation.node_id for observation in observations)
+        if observed_node_ids != expected_node_ids:
+            findings.append(
+                RuntimePathFinding(
+                    "runtime_path_order_mismatch",
+                    "runtime path observations do not match the complete modeled occurrence order",
+                    metadata={
+                        "run_id": run_id,
+                        "expected_order": list(expected_node_ids),
+                        "observed_order": list(observed_node_ids),
+                    },
+                )
+            )
+            if len(observed_node_ids) != len(expected_node_ids):
+                findings.append(
+                    RuntimePathFinding(
+                        "runtime_path_sequence_mismatch",
+                        "runtime path dropped or added one or more modeled node occurrences",
+                        metadata={
+                            "run_id": run_id,
+                            "expected_order": list(expected_node_ids),
+                            "observed_order": list(observed_node_ids),
+                        },
+                    )
+                )
+            continue
 
-    observed_order = tuple(node_id for node_id in expected_node_ids if node_id in first_position)
-    if observed_order != expected_node_ids:
-        findings.append(
-            RuntimePathFinding(
-                "runtime_path_missing_ordered_node",
-                "runtime path does not contain every required ordered node",
-                metadata={"expected_order": list(expected_node_ids), "observed_order": list(observed_order)},
+        for contract, observation in zip(ordered_contracts, observations):
+            _review_exact_occurrence_behavior(
+                contract,
+                observation,
+                findings,
+                run_id=run_id,
             )
-        )
-        return
-
-    observed_positions = [first_position[node_id] for node_id in expected_node_ids]
-    if observed_positions != sorted(observed_positions):
-        findings.append(
-            RuntimePathFinding(
-                "runtime_path_order_mismatch",
-                "runtime path observations are not in the modeled node order",
-                metadata={"expected_order": list(expected_node_ids), "positions": observed_positions},
-            )
-        )
 
 
 __all__ = [

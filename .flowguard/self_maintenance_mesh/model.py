@@ -18,6 +18,7 @@ Modeled block shape: Input x State -> Set(Output x State).
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, replace
 from typing import Iterable
 
@@ -35,12 +36,10 @@ class SelfMaintenanceAction:
     progress_only_plane_upgrade_receipt_ids: tuple[str, ...] = ()
     verification_contract_fingerprint: str = ""
     verified_spec_work_package_ids: tuple[str, ...] = ()
-    spec_session_id: str = ""
-    spec_session_state: str = ""
-    spec_begin_fingerprint: str = ""
-    spec_post_fingerprint: str = ""
-    spec_close_record_path: str = ""
-    spec_receipt_ids: tuple[str, ...] = ()
+    spec_context_provider: str = "openspec"
+    spec_context_artifacts_current: bool = True
+    spec_context_read_only: bool = True
+    spec_receipt_bridge_present: bool = False
 
 
 @dataclass(frozen=True)
@@ -67,9 +66,8 @@ class SelfMaintenanceState:
     install_sync_verified: bool = False
     shadow_sync_checked: bool = False
     git_status_checked: bool = False
-    spec_work_package_evidence_current: bool = False
+    spec_work_package_context_current: bool = False
     consumed_spec_work_package_ids: tuple[str, ...] = ()
-    consumed_spec_receipt_ids: tuple[str, ...] = ()
     consumed_child_receipt_ids: tuple[str, ...] = ()
     receipt_set_fingerprint: str = ""
     consumed_plane_upgrade_receipt_ids: tuple[str, ...] = ()
@@ -97,7 +95,7 @@ class SelfMaintenanceState:
             and self.install_sync_verified
             and self.shadow_sync_checked
             and self.git_status_checked
-            and self.spec_work_package_evidence_current
+            and self.spec_work_package_context_current
         )
 
 
@@ -122,12 +120,10 @@ def _receipt_sets_current(input_obj: SelfMaintenanceAction) -> tuple[bool, bool,
     )
     spec_set_current = (
         set(input_obj.verified_spec_work_package_ids) == set(REQUIRED_SPEC_WORK_PACKAGE_IDS)
-        and bool(input_obj.spec_session_id)
-        and input_obj.spec_session_state == "closed"
-        and bool(input_obj.spec_begin_fingerprint)
-        and input_obj.spec_begin_fingerprint == input_obj.spec_post_fingerprint
-        and bool(input_obj.spec_close_record_path)
-        and set(input_obj.spec_receipt_ids) == set(REQUIRED_SPEC_RECEIPT_IDS)
+        and input_obj.spec_context_provider == "openspec"
+        and input_obj.spec_context_artifacts_current
+        and input_obj.spec_context_read_only
+        and not input_obj.spec_receipt_bridge_present
     )
     return skill_set_current, plane_set_current, spec_set_current
 
@@ -152,9 +148,8 @@ class CorrectSelfMaintenance:
         "install_sync_verified",
         "shadow_sync_checked",
         "git_status_checked",
-        "spec_work_package_evidence_current",
+        "spec_work_package_context_current",
         "consumed_spec_work_package_ids",
-        "consumed_spec_receipt_ids",
         "consumed_child_receipt_ids",
         "receipt_set_fingerprint",
         "consumed_plane_upgrade_receipt_ids",
@@ -204,7 +199,7 @@ class CorrectSelfMaintenance:
             elif not (
                 state.child_reports_current
                 and state.plane_upgrade_reports_current
-                and state.spec_work_package_evidence_current
+                and state.spec_work_package_context_current
             ):
                 receipt_ids = tuple(input_obj.verified_child_receipt_ids)
                 plane_receipt_ids = tuple(input_obj.verified_plane_upgrade_receipt_ids)
@@ -229,11 +224,10 @@ class CorrectSelfMaintenance:
                         verification_contract_fingerprint=(
                             input_obj.verification_contract_fingerprint if plane_exact_set else ""
                         ),
-                        spec_work_package_evidence_current=spec_exact_set,
+                        spec_work_package_context_current=spec_exact_set,
                         consumed_spec_work_package_ids=(
                             tuple(input_obj.verified_spec_work_package_ids) if spec_exact_set else ()
                         ),
-                        consumed_spec_receipt_ids=(tuple(input_obj.spec_receipt_ids) if spec_exact_set else ()),
                     ),
                     label="receipt_set_consumed" if all_current else "receipt_set_rejected",
                 )
@@ -307,11 +301,10 @@ class CorrectSelfMaintenance:
                     verification_contract_fingerprint=(
                         input_obj.verification_contract_fingerprint if plane_exact_set else ""
                     ),
-                    spec_work_package_evidence_current=spec_exact_set,
+                    spec_work_package_context_current=spec_exact_set,
                     consumed_spec_work_package_ids=(
                         tuple(input_obj.verified_spec_work_package_ids) if spec_exact_set else ()
                     ),
-                    consumed_spec_receipt_ids=(tuple(input_obj.spec_receipt_ids) if spec_exact_set else ()),
                 ),
                 label="receipt_set_consumed" if all_current else "receipt_set_rejected",
             )
@@ -547,11 +540,11 @@ class BrokenWrongPlaneCompletionAuthority(CorrectSelfMaintenance):
 
 class BrokenMissingSpecWorkPackage(CorrectSelfMaintenance):
     name = "BrokenMissingSpecWorkPackage"
-    idempotency = "Broken variant accepts done after ordinary checks pass but without a closed spec session."
+    idempotency = "Broken variant accepts done after ordinary checks pass without current read-only requirements context."
 
     def apply(self, input_obj: SelfMaintenanceAction, state: SelfMaintenanceState) -> Iterable[FunctionResult]:
         if input_obj.action_type == "claim_done":
-            ordinary_ready = replace(state, spec_work_package_evidence_current=True).ready_for_done()
+            ordinary_ready = replace(state, spec_work_package_context_current=True).ready_for_done()
             claim = "accepted" if ordinary_ready else "rejected"
             yield FunctionResult(
                 SelfMaintenanceOutput(f"done_{claim}"),
@@ -610,12 +603,11 @@ def no_evidence_flags_without_exact_receipt_set(state: SelfMaintenanceState, tra
         return InvariantResult.fail(
             "plane-upgrade evidence became current without exact terminal check identities and the current verification-contract fingerprint"
         )
-    if state.spec_work_package_evidence_current and not (
+    if state.spec_work_package_context_current and not (
         set(state.consumed_spec_work_package_ids) == set(REQUIRED_SPEC_WORK_PACKAGE_IDS)
-        and set(state.consumed_spec_receipt_ids) == set(REQUIRED_SPEC_RECEIPT_IDS)
     ):
         return InvariantResult.fail(
-            "spec work-package evidence became current without the required package and terminal receipt identities"
+            "spec work-package context became current without the required read-only package identity"
         )
     return InvariantResult.pass_()
 
@@ -681,7 +673,6 @@ REQUIRED_SKILL_RECEIPT_IDS = (
 REQUIRED_RECEIPT_COUNT = len(REQUIRED_SKILL_RECEIPT_IDS)
 ABSTRACT_RECEIPT_IDS = REQUIRED_SKILL_RECEIPT_IDS
 REQUIRED_PLANE_UPGRADE_RECEIPT_IDS = (
-    "check.session.begin",
     "check.lookup.focused",
     "check.behavior.focused",
     "check.contracts.focused",
@@ -693,19 +684,22 @@ REQUIRED_PLANE_UPGRADE_RECEIPT_IDS = (
     "check.models.full",
     "check.tests.full",
     "check.flowguard.audit",
-    "check.openspec.strict",
 )
 PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT = (
+    "sha256:"
+    + hashlib.sha256(
+        "\n".join(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS).encode("utf-8")
+    ).hexdigest().upper()
+)
+# Exact source identity for the OpenSpec verification contract that declares
+# the current plane-upgrade checks. This is intentionally separate from the
+# normalized check-id fingerprint above.
+PLANE_UPGRADE_VERIFICATION_CONTRACT_SOURCE_SHA256 = (
     "sha256:01BC478660999AE0B19A3DF6EFFC2A55368E54D28B5B9043B447E3BC25C7A86A"
 )
 REQUIRED_SPEC_WORK_PACKAGE_IDS = (
     "openspec:reconcile-spec-provider-work-packages-with-flowguard-evidence",
 )
-REQUIRED_SPEC_RECEIPT_IDS = (
-    "receipt:spec-models-full",
-    "receipt:spec-tests-full",
-)
-
 EXTERNAL_INPUTS = (
     SelfMaintenanceAction(
         "advance_receipt_bound_workflow",
@@ -715,12 +709,10 @@ EXTERNAL_INPUTS = (
         terminal_plane_upgrade_receipt_ids=REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
         verification_contract_fingerprint=PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT,
         verified_spec_work_package_ids=REQUIRED_SPEC_WORK_PACKAGE_IDS,
-        spec_session_id="session:spec-work-package:abstract-current",
-        spec_session_state="closed",
-        spec_begin_fingerprint="sha256:abstract-spec-inputs",
-        spec_post_fingerprint="sha256:abstract-spec-inputs",
-        spec_close_record_path=".flowguard/evidence/spec-work-packages/sessions/history/abstract/close.json",
-        spec_receipt_ids=REQUIRED_SPEC_RECEIPT_IDS,
+        spec_context_provider="openspec",
+        spec_context_artifacts_current=True,
+        spec_context_read_only=True,
+        spec_receipt_bridge_present=False,
     ),
 )
 

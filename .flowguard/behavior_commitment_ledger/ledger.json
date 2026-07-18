@@ -874,12 +874,6 @@
             "rationale": "The development process consumes product-runtime UI admission evidence.",
             "relation_type": "requires_evidence_from",
             "target_commitment_id": "commitment:ordinary-ui-content-admission"
-          },
-          {
-            "metadata": {},
-            "rationale": "Self-maintenance closure consumes current provider work-package reconciliation and exact check receipts.",
-            "relation_type": "depends_on",
-            "target_commitment_id": "commitment:spec-work-package-reconciliation"
           }
         ],
         "replacement_state": "active",
@@ -911,80 +905,74 @@
         "actor": "FlowGuard maintainer AI",
         "actor_kind": "ai_agent",
         "behavior_plane": "development_process",
-        "business_intent_id": "intent:spec-work-package-reconciliation",
+        "business_intent_id": "intent:spec-context-read-only",
         "child_model_ids": [],
-        "commitment_id": "commitment:spec-work-package-reconciliation",
+        "commitment_id": "commitment:spec-context-read-only",
         "commitment_kind": "workflow",
         "evidence": {
           "code_contract_ids": [
-            "contract:spec-work-package-reconciliation"
+            "contract:spec-context-read-only"
           ],
           "coverage_case_ids": [
-            "bcl.behavior_plane.spec-work-package-reconciliation.current"
+            "bcl.behavior_plane.spec-context-read-only.current"
           ],
           "coverage_receipt_ids": [
-            "contract_coverage:behavior_commitment_ledger:spec-work-package-reconciliation"
+            "contract_coverage:behavior_commitment_ledger:spec-context-read-only"
           ],
           "coverage_shard_ids": [
-            "contract_shard:behavior_commitment_ledger:spec-work-package-reconciliation"
+            "contract_shard:behavior_commitment_ledger:spec-context-read-only"
           ],
           "current": true,
           "evidence_state": "current_pass",
           "metadata": {},
           "model_obligation_ids": [
-            "obligation:spec-work-package-reconciliation"
+            "obligation:spec-context-read-only"
           ],
           "proof_artifact_ids": [],
           "risk_gate_ids": [
-            "risk_gate:behavior_commitment_coverage:spec-work-package-reconciliation"
+            "risk_gate:behavior_commitment_coverage:spec-context-read-only"
           ],
           "test_evidence_ids": [
-            "test:spec-work-package-reconciliation"
+            "test:spec-context-read-only"
           ],
           "test_mesh_state": "shard_current"
         },
         "excluded_behavior_ids": [],
-        "expected_result": "provider-native tasks reconcile bidirectionally with FlowGuard obligations and checks, heavy checks short-circuit behind fast gates, and exact terminal receipts are safely reused",
-        "expected_terminal": "one same-session post snapshot and complete current receipt consumer bindings support provider-native close readiness",
+        "expected_result": "the declared official OpenSpec change is projected as current project-bounded read-only proposal, design, specification, task, and derived-status context",
+        "expected_terminal": "one deterministic SpecContext is returned with no provider write, execution, session, cache, receipt, reconciliation, completion, or archive authority",
         "external_differences": [],
-        "failure_boundary": "unmapped tasks or obligations, missing post snapshots, changed inputs, non-terminal evidence, unsafe cross-change reuse, or failed dependencies remain visible and block closure",
+        "failure_boundary": "unsupported providers, unsafe change ids, out-of-root reads, missing authoring artifacts, mutable access, or any execution/evidence bridge remain visible and block context readiness",
         "in_scope": true,
-        "label": "specification providers retain authority while FlowGuard reconciles development-process obligations and exact evidence",
+        "label": "official OpenSpec remains independent while FlowGuard reads bounded authoring context",
         "lookup_binding": {
           "error_signatures": [
-            "verification stale",
-            "duplicate full regression",
-            "not_run_due_to_dependency"
+            "unsupported_spec_provider",
+            "spec_context_not_read_only",
+            "openspec_change_missing"
           ],
           "metadata": {},
           "path_patterns": [
-            "flowguard/spec_work_package.py",
-            "flowguard/spec_providers.py",
-            "flowguard/spec_check_cache.py",
-            ".flowguard/spec_provider_work_packages"
+            "flowguard/spec_context.py",
+            ".flowguard/spec_context",
+            "docs/spec_context.md"
           ],
           "task_terms": [
-            "OpenSpec FlowGuard reconciliation",
-            "spec work package",
-            "immutable check receipt",
-            "safe cross-change reuse",
-            "verification fail fast"
+            "official OpenSpec read-only context",
+            "proposal design specs tasks status",
+            "project bounded OpenSpec discovery",
+            "no provider receipt or session"
           ],
           "tool_ids": [
-            "spec-work-package-audit",
-            "spec-session-begin",
-            "spec-check-run",
-            "spec-session-close"
+            "spec-context"
           ],
           "workflow_families": [
             "development_process_flow",
-            "spec_provider_verification",
-            "self_maintenance"
+            "spec_context_read_only"
           ]
         },
         "metadata": {
           "behavior_plane_classification": "explicit_project_owner_review",
-          "provider_authority_boundary": "read_only_adapter"
+          "provider_authority_boundary": "official_openspec_read_only_external"
         },
         "miss_origin_state": "no_miss",
         "model_sync_state": "owner_model_current",
@@ -1013,51 +1001,32 @@
           "scoped_out_reason": ""
         },
         "preconditions": [
-          "one active provider change or feature is selected under the current project root"
+          "one official OpenSpec change is explicitly selected under the current project root"
         ],
-        "primary_owner_model_id": ".flowguard/spec_provider_work_packages/model.py",
-        "rationale": "FlowGuard development-process evidence orchestration promise",
-        "relations": [
-          {
-            "metadata": {},
-            "rationale": "Provider reconciliation relies on the current canonical behavior inventory and same-plane owner lookup.",
-            "relation_type": "depends_on",
-            "target_commitment_id": "commitment:behavior-ledger-current"
-          },
-          {
-            "metadata": {},
-            "rationale": "Exact check receipts and consumer fan-out remain governed by current TestMesh evidence.",
-            "relation_type": "depends_on",
-            "target_commitment_id": "commitment:test-mesh-current-for-bcl"
-          }
-        ],
+        "primary_owner_model_id": ".flowguard/spec_context/model.py",
+        "rationale": "FlowGuard read-only external-context promise",
+        "relations": [],
         "replacement_state": "active",
         "scoped_out_reason": "",
-        "side_effects": [
-          "capture_governed_input_snapshots",
-          "execute_or_reuse_exact_checks",
-          "bind_receipts_to_provider_consumers"
-        ],
+        "side_effects": [],
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
-          "surface:spec-work-package-model",
-          "surface:spec-work-package-code",
-          "surface:spec-work-package-tests"
+          "surface:spec-context-model",
+          "surface:spec-context-code",
+          "surface:spec-context-tests"
         ],
         "state_writes": [
-          "spec_session_state",
-          "receipt_consumer_bindings",
-          "minimum_revalidation_set"
+          "read_only_spec_context_projection"
         ],
         "supporting_model_ids": [
           ".flowguard/development_process_flow/model.py",
-          ".flowguard/test_evidence_mesh/model.py"
+          ".flowguard/existing_model_preflight/model.py"
         ],
         "surface_delegation_only": false,
-        "trigger": "a non-trivial OpenSpec or Spec Kit work package needs FlowGuard-governed validation, freshness, or closure evidence",
-        "validation_boundary": "provider artifacts, bidirectional bindings, same-session snapshots, exact EvidenceReceipt verification, TestMesh fan-out, and provider-native final verification",
+        "trigger": "a non-trivial task explicitly uses one official OpenSpec change as FlowGuard planning context",
+        "validation_boundary": "official OpenSpec provider id, safe project-bounded change id, proposal/design/specification/task/status identities, deterministic hash, zero writes, and zero execution/evidence authority",
         "variant_of_business_intent_id": ""
       },
       {
@@ -1182,12 +1151,6 @@
         "primary_owner_model_id": ".flowguard/development_process_strategy/model.py",
         "rationale": "Reuse the DPF-owned internal strategy child as a small conditional process-quality decision, without a new route or ordinary-task ceremony",
         "relations": [
-          {
-            "metadata": {},
-            "rationale": "Strategy selection preserves provider-native check dependencies and obligation authority.",
-            "relation_type": "depends_on",
-            "target_commitment_id": "commitment:spec-work-package-reconciliation"
-          },
           {
             "metadata": {},
             "rationale": "Diagnostic completeness and execution evidence remain owned by TestMesh.",
@@ -1886,7 +1849,7 @@
       "intent:test-mesh-current-for-bcl",
       "intent:model-miss-backfeeds-existing-commitment",
       "intent:self-maintenance-child-gates",
-      "intent:spec-work-package-reconciliation",
+      "intent:spec-context-read-only",
       "intent:development-process-strategy-selection",
       "intent:single-path-replacement-disposition",
       "intent:flowguard-agent-guidance-route",
@@ -1901,7 +1864,7 @@
       "commitment:test-mesh-current-for-bcl",
       "commitment:model-miss-backfeeds-existing-commitment",
       "commitment:self-maintenance-child-gates",
-      "commitment:spec-work-package-reconciliation",
+      "commitment:spec-context-read-only",
       "commitment:development-process-strategy-selection",
       "commitment:single-path-replacement-disposition",
       "commitment:flowguard-agent-guidance-route",
@@ -2067,72 +2030,72 @@
       },
       {
         "business_intent_ids": [
-          "intent:spec-work-package-reconciliation"
+          "intent:spec-context-read-only"
         ],
         "commitment_ids": [
-          "commitment:spec-work-package-reconciliation"
+          "commitment:spec-context-read-only"
         ],
         "delegates_to_primary_path": false,
         "freshness_state": "current",
         "in_scope": true,
-        "label": "spec work-package executable model",
+        "label": "read-only official OpenSpec context executable model",
         "metadata": {},
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
-        "rationale": "surface models provider reconciliation, dependency short-circuiting, same-session closure, and receipt deduplication",
+        "rationale": "surface models project-bounded official OpenSpec reading and rejects provider writes, other providers, and execution/evidence bridges",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": ".flowguard/spec_provider_work_packages/model.py; .flowguard/spec_provider_work_packages/bindings.json",
-        "surface_id": "surface:spec-work-package-model",
+        "source_ref": ".flowguard/spec_context/model.py; .flowguard/spec_context/run_checks.py",
+        "surface_id": "surface:spec-context-model",
         "surface_kind": "code",
-        "validation_boundary": "registered executable model and project binding review"
+        "validation_boundary": "registered executable model and declared known-bad provider-authority cases"
       },
       {
         "business_intent_ids": [
-          "intent:spec-work-package-reconciliation"
+          "intent:spec-context-read-only"
         ],
         "commitment_ids": [
-          "commitment:spec-work-package-reconciliation"
+          "commitment:spec-context-read-only"
         ],
         "delegates_to_primary_path": false,
         "freshness_state": "current",
         "in_scope": true,
-        "label": "spec work-package provider and receipt implementation",
+        "label": "read-only official OpenSpec context implementation",
         "metadata": {},
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
-        "rationale": "surface implements bounded provider adapters, bidirectional review, exact snapshots, terminal receipts, and consumer bindings",
+        "rationale": "surface implements one official OpenSpec reader, stable artifact identities, derived task status, and explicit no-authority claim boundary",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "flowguard/spec_work_package.py; flowguard/spec_providers.py; flowguard/spec_check_cache.py",
-        "surface_id": "surface:spec-work-package-code",
+        "source_ref": "flowguard/spec_context.py",
+        "surface_id": "surface:spec-context-code",
         "surface_kind": "code",
-        "validation_boundary": "public API, CLI, process-owner projections, and receipt verification"
+        "validation_boundary": "public read/review/discovery API, read-only CLI, safe paths, unique identities, and zero provider writes"
       },
       {
         "business_intent_ids": [
-          "intent:spec-work-package-reconciliation"
+          "intent:spec-context-read-only"
         ],
         "commitment_ids": [
-          "commitment:spec-work-package-reconciliation"
+          "commitment:spec-context-read-only"
         ],
         "delegates_to_primary_path": false,
         "freshness_state": "current",
         "in_scope": true,
-        "label": "spec work-package known-bad and CLI tests",
+        "label": "read-only official OpenSpec context and CLI tests",
         "metadata": {},
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
-        "rationale": "surface proves missing mappings, input mutation, failed dependencies, unsafe reuse, timeout, locking, and Windows-safe peer inspection remain blocked",
+        "rationale": "surface proves unsafe ids, unsupported providers, missing materials, duplicate spec names, mutable authority, and retired execution commands remain blocked",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "tests/test_spec_work_package.py; tests/test_spec_check_receipts.py; tests/test_spec_work_package_cli.py",
-        "surface_id": "surface:spec-work-package-tests",
+        "source_ref": "tests/test_spec_context.py; tests/test_existing_model_preflight.py; tests/test_development_process_flow.py; tests/test_plan_detailing.py; tests/test_test_mesh.py",
+        "surface_id": "surface:spec-context-tests",
         "surface_kind": "test",
-        "validation_boundary": "focused provider, reconciliation, receipt, session, and CLI regression tests"
+        "validation_boundary": "focused read-only context, model, public API, CLI, and no-bridge regression tests"
       },
       {
         "business_intent_ids": [
@@ -2175,7 +2138,7 @@
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "flowguard/development_process_strategy.py; flowguard/development_process_flow.py; flowguard/development_process_simulator.py; flowguard/testmesh.py; flowguard/summary_report.py; flowguard/plan_detailing.py; flowguard/model_test_alignment.py; flowguard/spec_work_package.py",
+        "source_ref": "flowguard/development_process_strategy.py; flowguard/development_process_flow.py; flowguard/development_process_simulator.py; flowguard/testmesh.py; flowguard/summary_report.py; flowguard/plan_detailing.py; flowguard/model_test_alignment.py; flowguard/spec_context.py",
         "surface_id": "surface:development-process-strategy-code",
         "surface_kind": "code",
         "validation_boundary": "canonical API review, owner-boundary checks, and current focused integration evidence"
@@ -2198,7 +2161,7 @@
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "tests/test_development_process_strategy.py; tests/test_development_process_strategy_benchmark.py; tests/test_development_process_flow.py; tests/test_development_process_simulator.py; tests/test_test_mesh.py; tests/test_summary_report.py; tests/test_plan_detailing.py; tests/test_model_test_alignment.py; tests/test_spec_work_package.py; tests/test_api_surface.py",
+        "source_ref": "tests/test_development_process_strategy.py; tests/test_development_process_strategy_benchmark.py; tests/test_development_process_flow.py; tests/test_development_process_simulator.py; tests/test_test_mesh.py; tests/test_summary_report.py; tests/test_plan_detailing.py; tests/test_model_test_alignment.py; tests/test_spec_context.py; tests/test_api_surface.py",
         "surface_id": "surface:development-process-strategy-tests",
         "surface_kind": "test",
         "validation_boundary": "focused unit, benchmark, integration, API, and route-topology tests"

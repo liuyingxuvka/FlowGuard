@@ -235,6 +235,186 @@ class RuntimePathEvidenceTests(unittest.TestCase):
         self.assertIn("runtime_path_order_mismatch", codes)
         self.assertIn("uncontracted_runtime_node_observed", codes)
 
+    def test_exact_path_preserves_repeated_node_occurrences(self):
+        plan = RuntimePathAlignmentPlan(
+            "checkout-retry-path",
+            node_contracts=(
+                contract(
+                    "attempt",
+                    sequence_index=0,
+                    expected_terminal="retrying",
+                    allowed_state_writes=("attempt_count",),
+                    allowed_side_effects=("retry_log",),
+                ),
+                contract("wait", sequence_index=1),
+                contract(
+                    "attempt",
+                    sequence_index=2,
+                    expected_terminal="accepted",
+                    allowed_state_writes=("order_status",),
+                    allowed_side_effects=("notify",),
+                ),
+            ),
+            observations=(
+                observation(
+                    "attempt",
+                    observation_id="obs:attempt:0",
+                    sequence_index=0,
+                    observed_terminal="retrying",
+                    observed_state_writes=("attempt_count",),
+                    observed_side_effects=("retry_log",),
+                ),
+                observation("wait", observation_id="obs:wait:1", sequence_index=1),
+                observation(
+                    "attempt",
+                    observation_id="obs:attempt:2",
+                    sequence_index=2,
+                    observed_terminal="accepted",
+                    observed_state_writes=("order_status",),
+                    observed_side_effects=("notify",),
+                ),
+            ),
+            require_exact_path=True,
+        )
+
+        report = review_runtime_path_alignment(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertNotIn("duplicate_runtime_node_contract", finding_codes(report))
+
+    def test_exact_path_rejects_dropped_repeated_occurrence(self):
+        report = review_runtime_path_alignment(
+            RuntimePathAlignmentPlan(
+                "checkout-retry-missing",
+                node_contracts=(
+                    contract("attempt", sequence_index=0),
+                    contract("wait", sequence_index=1),
+                    contract("attempt", sequence_index=2),
+                ),
+                observations=(
+                    observation(
+                        "attempt",
+                        observation_id="obs:attempt:0",
+                        sequence_index=0,
+                    ),
+                    observation("wait", observation_id="obs:wait:1", sequence_index=1),
+                ),
+                require_exact_path=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("runtime_path_sequence_mismatch", finding_codes(report))
+
+    def test_exact_path_checks_occurrence_specific_effects(self):
+        report = review_runtime_path_alignment(
+            RuntimePathAlignmentPlan(
+                "checkout-retry-effects",
+                node_contracts=(
+                    contract(
+                        "attempt",
+                        sequence_index=0,
+                        allowed_state_writes=("attempt_count",),
+                        allowed_side_effects=("retry_log",),
+                    ),
+                    contract(
+                        "attempt",
+                        sequence_index=1,
+                        allowed_state_writes=("order_status",),
+                        allowed_side_effects=("notify",),
+                    ),
+                ),
+                observations=(
+                    observation(
+                        "attempt",
+                        observation_id="obs:attempt:0",
+                        sequence_index=0,
+                        observed_state_writes=("attempt_count",),
+                        observed_side_effects=("retry_log",),
+                    ),
+                    observation(
+                        "attempt",
+                        observation_id="obs:attempt:1",
+                        sequence_index=1,
+                        observed_state_writes=("order_status",),
+                        observed_side_effects=(),
+                    ),
+                ),
+                require_exact_path=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "runtime_path_occurrence_side_effects_mismatch",
+            finding_codes(report),
+        )
+
+    def test_exact_path_reviews_explicit_runs_independently(self):
+        run_kwargs = {
+            "business_intent_id": "intent:checkout.submit-order",
+            "behavior_commitment_id": "commitment:checkout.submit-order",
+            "primary_path_id": "path:checkout.submit-order",
+        }
+        good_run = RuntimePathRun(
+            "run:checkout:good",
+            observations=(
+                observation(
+                    "validate_order",
+                    observation_id="obs:good:validate",
+                    run_id="run:checkout:good",
+                    sequence_index=0,
+                ),
+                observation(
+                    "store_order",
+                    observation_id="obs:good:store",
+                    run_id="run:checkout:good",
+                    sequence_index=1,
+                ),
+            ),
+            **run_kwargs,
+        )
+        wrong_run = RuntimePathRun(
+            "run:checkout:wrong",
+            observations=(
+                observation(
+                    "store_order",
+                    observation_id="obs:wrong:store",
+                    run_id="run:checkout:wrong",
+                    sequence_index=0,
+                ),
+                observation(
+                    "validate_order",
+                    observation_id="obs:wrong:validate",
+                    run_id="run:checkout:wrong",
+                    sequence_index=1,
+                ),
+            ),
+            **run_kwargs,
+        )
+
+        report = review_runtime_path_alignment(
+            RuntimePathAlignmentPlan(
+                "checkout-two-runs",
+                node_contracts=(
+                    contract("validate_order", sequence_index=0),
+                    contract("store_order", sequence_index=1),
+                ),
+                runs=(good_run, wrong_run),
+                require_exact_path=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        mismatches = [
+            finding
+            for finding in report.findings
+            if finding.code == "runtime_path_order_mismatch"
+        ]
+        self.assertTrue(
+            any(finding.metadata.get("run_id") == "run:checkout:wrong" for finding in mismatches)
+        )
+
     def test_broad_runtime_claim_requires_stable_authority_ids(self):
         report = review_runtime_path_alignment(
             RuntimePathAlignmentPlan(

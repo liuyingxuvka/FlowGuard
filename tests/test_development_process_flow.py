@@ -169,61 +169,51 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
         self.assertNotIn("measured-cost", report.revalidation_optimality_boundary)
 
     def spec_process_plan(self):
-        lifecycle = (
-            "spec_provider_read",
-            "spec_reconcile",
-            "spec_session_begin",
-            "spec_check",
-            "spec_post_snapshot",
-            "spec_provider_verify",
-            "spec_sync",
-            "spec_archive_ready",
+        artifacts = (
+            ProcessArtifact(
+                "openspec:change-one:proposal",
+                artifact_type="spec",
+                owner="openspec",
+                spec_context_id="openspec:change-one",
+                read_only_external=True,
+            ),
         )
-        actions = tuple(
+        actions = (
             ProcessAction(
-                f"spec:{index}:{action_type}",
-                action_type=action_type,
-                order_after=((f"spec:{index - 1}:{lifecycle[index - 1]}",) if index else ()),
-            )
-            for index, action_type in enumerate(lifecycle)
-        )
-        evidence = ProcessEvidence(
-            "evidence:spec-check",
-            status=PROCESS_EVIDENCE_PASSED,
-            spec_work_package_id="change-one",
-            spec_check_id="check.one",
-            spec_session_id="session:one",
-            spec_session_state="closed",
-            spec_begin_fingerprint="sha256:inputs",
-            spec_post_fingerprint="sha256:inputs",
-            spec_close_record_path=".flowguard/evidence/spec-work-packages/sessions/history/one/close.json",
-            spec_consumer_ids=("consumer:one",),
-            spec_execution_state="executed",
-            spec_receipt_id="receipt:one",
-            spec_receipt_fingerprint="sha256:receipt",
-            spec_provider_verified=True,
-            spec_provider_archive_ready=True,
+                "spec:read",
+                action_type="spec_context_read",
+                reads_artifacts=("openspec:change-one:proposal",),
+                spec_context_id="openspec:change-one",
+                spec_context_artifact_ids=("openspec:change-one:proposal",),
+                spec_context_read_only=True,
+            ),
         )
         return DevelopmentProcessPlan(
             "spec-process",
+            artifacts=artifacts,
             actions=actions,
-            evidence=(evidence,),
-            spec_work_package_ids=("openspec:change-one",),
-            required_spec_session_ids=("session:one",),
-            required_spec_receipt_ids=("receipt:one",),
-            require_spec_session_close=True,
-            require_spec_provider_close=True,
+            spec_context_ids=("openspec:change-one",),
+            require_current_spec_context=True,
         )
 
-    def test_spec_process_requires_same_session_close_and_terminal_receipt(self):
+    def test_spec_process_requires_read_only_context_and_forbids_provider_writes(self):
         plan = self.spec_process_plan()
         self.assertTrue(review_development_process_flow(plan).ok)
 
-        stale_evidence = replace(plan.evidence[0], spec_post_fingerprint="sha256:peer-write")
-        report = review_development_process_flow(replace(plan, evidence=(stale_evidence,)))
+        writable = replace(plan.actions[0], spec_context_read_only=False)
+        report = review_development_process_flow(replace(plan, actions=(writable,)))
         codes = {finding.code for finding in report.findings}
-        self.assertIn("required_spec_session_not_closed", codes)
-        self.assertIn("spec_receipt_binding_incomplete", codes)
+        self.assertIn("spec_context_write_authority_forbidden", codes)
+
+        writer = replace(
+            plan.actions[0],
+            writes_artifacts=("openspec:change-one:proposal",),
+        )
+        report = review_development_process_flow(replace(plan, actions=(writer,)))
+        self.assertIn(
+            "spec_context_artifact_write_forbidden",
+            {finding.code for finding in report.findings},
+        )
     def test_current_v_model_plan_is_green(self):
         plan = DevelopmentProcessPlan(
             "search-lifecycle",

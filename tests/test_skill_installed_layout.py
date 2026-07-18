@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from flowguard.skill_suite import validate_skill_suite
+
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = ROOT / "scripts" / "install_flowguard_skills.py"
@@ -46,32 +48,27 @@ class SkillInstalledLayoutTests(unittest.TestCase):
                     for relative in (
                         "SKILL.md",
                         "agents/openai.yaml",
-                        ".skillguard/contract-source.json",
-                        ".skillguard/compiled-contract.json",
-                        ".skillguard/check-manifest.json",
+                        "consumer-release.json",
                     ):
                         self.assertTrue((skill / relative).is_file(), relative)
+                    self.assertFalse((skill / ".skillguard").exists())
+                    manifest = json.loads(
+                        (skill / "consumer-release.json").read_text(encoding="utf-8")
+                    )
                     self.assertEqual(
-                        {"contract-source.json", "compiled-contract.json", "check-manifest.json"},
-                        {path.name for path in (skill / ".skillguard").iterdir()},
+                        "consumer.skill_distribution.current",
+                        manifest["schema_version"],
                     )
-                    source = json.loads(
-                        (skill / ".skillguard" / "contract-source.json").read_text(encoding="utf-8")
-                    )
-                    self.assertEqual("skillguard.contract_source.v2", source["schema_version"])
-                    self.assertEqual("skillguard.depth_profile.v2", source["depth_profile"]["schema_version"])
-                    self.assertNotIn("v1_runtime_authority", source)
-                    compiled = json.loads(
-                        (skill / ".skillguard" / "compiled-contract.json").read_text(encoding="utf-8")
-                    )
-                    v2_manifest = json.loads(
-                        (skill / ".skillguard" / "check-manifest.json").read_text(encoding="utf-8")
-                    )
-                    self.assertEqual("skillguard.compiled_contract.v2", compiled["schema_version"])
-                    self.assertEqual("skillguard.check_manifest.v2", v2_manifest["schema_version"])
-                    self.assertEqual(source["model_id"], compiled["model_id"])
-                    self.assertEqual(source["depth_profile"], compiled["depth_profile"])
-                    self.assertEqual(compiled["contract_hash"], v2_manifest["contract_hash"])
+                    self.assertTrue(manifest["author_control_excluded"])
+                    self.assertEqual(skill_id, manifest["skill_id"])
+                    consumer_text = (
+                        (skill / "SKILL.md").read_text(encoding="utf-8")
+                        + (skill / "agents/openai.yaml").read_text(encoding="utf-8")
+                    ).casefold()
+                    self.assertNotIn("skillguard", consumer_text)
+
+            suite_report = validate_skill_suite(ROOT, skill_root=installed_root)
+            self.assertTrue(suite_report.ok, suite_report.to_json_text())
 
             check = subprocess.run(
                 [

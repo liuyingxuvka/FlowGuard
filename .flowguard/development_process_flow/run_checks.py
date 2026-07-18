@@ -35,12 +35,16 @@ def main() -> int:
                 required_labels=("wrong_plane_action_accepted",),
             ),
             FormalWorkflowCase(
-                "broken_accepts_checked_tasks_without_post_snapshot",
+                "broken_accepts_mutating_spec_context",
                 model.build_broken_workflow(),
                 False,
                 required_labels=("validation_passed", "release_accepted"),
                 external_inputs=(
-                    model.LifecycleAction("run_validation", spec_post_fingerprint=""),
+                    model.LifecycleAction(
+                        "run_validation",
+                        spec_context_read_only=False,
+                        spec_receipt_bridge_present=True,
+                    ),
                     model.LifecycleAction("claim_release"),
                 ),
                 max_sequence_length=2,

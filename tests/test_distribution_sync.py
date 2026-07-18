@@ -59,7 +59,7 @@ class TreeInventoryTests(DistributionFixture):
         report = inventory_skill_tree(self.source, member_ids=self.members)
         self.assertNotIn(receipt.relative_to(self.source).as_posix(), {item.relative_path for item in report.files})
         exclusion = next(item for item in report.excluded_files if item.relative_path.endswith("current.json"))
-        self.assertEqual("current_evidence", exclusion.rule_id)
+        self.assertEqual("author_control", exclusion.rule_id)
         self.assertTrue(exclusion.reason)
         self.assertIn(exclusion.pattern, {rule.pattern for rule in DEFAULT_EXCLUSION_RULES})
 
@@ -97,10 +97,10 @@ class DistributionLifecycleTests(DistributionFixture):
         second = install_skill_suite(self.source, self.target, member_ids=self.members)
         self.assertTrue(second.ok, second.to_dict())
         self.assertEqual((), second.copied_files)
-        self.assertEqual(4, len(second.unchanged_files))
+        self.assertEqual(6, len(second.unchanged_files))
         self.assertEqual(first_manifest, manifest_path.read_bytes())
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        self.assertEqual(4, len(manifest["files"]))
+        self.assertEqual(6, len(manifest["files"]))
         self.assertTrue(all(row["raw_hash"] and row["semantic_hash"] for row in manifest["files"]))
 
     def test_check_is_strictly_read_only(self) -> None:
@@ -122,7 +122,52 @@ class DistributionLifecycleTests(DistributionFixture):
     def test_dry_run_does_not_create_target_or_manifest(self) -> None:
         report = install_skill_suite(self.source, self.target, member_ids=self.members, dry_run=True)
         self.assertTrue(report.ok, report.to_dict())
-        self.assertEqual(4, len(report.copied_files))
+        self.assertEqual(6, len(report.copied_files))
+        self.assertFalse(self.target.exists())
+
+    def test_install_projects_clean_consumer_release_and_never_copies_author_control(self) -> None:
+        control = self.source / self.members[0] / ".skillguard"
+        control.mkdir(parents=True)
+        (control / "contract-source.json").write_text("{}", encoding="utf-8")
+
+        report = install_skill_suite(self.source, self.target, member_ids=self.members)
+
+        self.assertTrue(report.ok, report.to_dict())
+        for member in self.members:
+            installed = self.target / member
+            self.assertFalse((installed / ".skillguard").exists())
+            manifest = json.loads(
+                (installed / "consumer-release.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual("consumer.skill_distribution.current", manifest["schema_version"])
+            self.assertTrue(manifest["author_control_excluded"])
+            self.assertEqual(member, manifest["skill_id"])
+
+    def test_check_blocks_any_consumer_author_control_residual(self) -> None:
+        install_skill_suite(self.source, self.target, member_ids=self.members)
+        residual = self.target / self.members[0] / ".skillguard" / "foreign.json"
+        residual.parent.mkdir(parents=True)
+        residual.write_text("{}", encoding="utf-8")
+
+        report = check_skill_suite(self.source, self.target, member_ids=self.members)
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "consumer_author_control_residual",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_install_blocks_consumer_text_that_requires_skillguard(self) -> None:
+        prompt = self.source / self.members[0] / "SKILL.md"
+        prompt.write_text("# SkillGuard is required at runtime\n", encoding="utf-8")
+
+        report = install_skill_suite(self.source, self.target, member_ids=self.members)
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "consumer_skillguard_reference",
+            {finding.code for finding in report.findings},
+        )
         self.assertFalse(self.target.exists())
 
     def test_install_updates_unchanged_owned_file_when_source_changes(self) -> None:

@@ -863,11 +863,12 @@ When repeated issues or broad completion claims depend on upstream plan
 construction, first run the plan-intake, adapter-conformance,
 false-negative-backpropagation, mutation, and typed claim-chain helpers so
 omitted surfaces or narrow reports cannot be silently upgraded.
-## Specification work-package API
+## Read-only OpenSpec context API
 
-`SPEC_WORK_PACKAGE_API` is the single public projection for provider-neutral
-work packages, bounded provider adapters, session snapshots, exact check
-receipts, safe reuse, and the four CLI commands documented in
-[`spec_provider_work_packages.md`](spec_provider_work_packages.md). The API is
-development-process governance and is intentionally absent from product UI
+`SPEC_CONTEXT_API` exposes the project-bounded official OpenSpec context
+reader, discovery helper, and review. It reads proposal, design,
+specifications, tasks, and derived status without provider writes, sessions,
+caches, receipts, check execution, task-owner reconciliation, or archive
+authority. See [`spec_context.md`](spec_context.md). The context belongs to
+development-process planning and is intentionally absent from product UI
 content projection.

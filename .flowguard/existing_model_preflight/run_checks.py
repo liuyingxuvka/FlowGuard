@@ -24,7 +24,8 @@ def main() -> int:
             "unhandled-duplicate",
             "omitted-same-intent-surface",
             "wrong-plane-promotion",
-            "stale-provider-context",
+            "stale-spec-context",
+            "mutable-spec-context",
         }
     )
     exact_ok = run_exact_workflow_case(
@@ -60,12 +61,12 @@ def main() -> int:
                 False,
             ),
             FormalWorkflowCase(
-                "stale_provider_context_blocks",
+                "stale_spec_context_blocks",
                 model.build_workflow(search_block=model.BrokenIgnoresSurfaceInventory()),
                 False,
                 required_labels=("broken_grounded_from_caller_selected_surface_subset",),
                 external_inputs=(
-                    next(item for item in model.EXTERNAL_INPUTS if item.task_id == "stale-provider-context"),
+                    next(item for item in model.EXTERNAL_INPUTS if item.task_id == "stale-spec-context"),
                 ),
                 max_sequence_length=3,
             ),

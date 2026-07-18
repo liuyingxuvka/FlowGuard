@@ -163,16 +163,6 @@ class TestSuiteEvidence:
     covered_obligation_ids: tuple[str, ...] = ()
     artifact_version: str = ""
     verifier_version: str = ""
-    spec_session_id: str = ""
-    spec_consumer_ids: tuple[str, ...] = ()
-    spec_execution_state: str = ""
-    spec_receipt_id: str = ""
-    spec_receipt_fingerprint: str = ""
-    cross_change_safe: bool = False
-    spec_work_package_id: str = ""
-    spec_check_id: str = ""
-    spec_cross_change_reuse: bool = False
-    spec_provider_cross_change_authorized: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "suite_id", str(self.suite_id))
@@ -209,20 +199,6 @@ class TestSuiteEvidence:
         object.__setattr__(self, "covered_obligation_ids", _as_tuple(self.covered_obligation_ids))
         object.__setattr__(self, "artifact_version", str(self.artifact_version))
         object.__setattr__(self, "verifier_version", str(self.verifier_version))
-        object.__setattr__(self, "spec_session_id", str(self.spec_session_id))
-        object.__setattr__(self, "spec_consumer_ids", _as_tuple(self.spec_consumer_ids))
-        object.__setattr__(self, "spec_execution_state", str(self.spec_execution_state))
-        object.__setattr__(self, "spec_receipt_id", str(self.spec_receipt_id))
-        object.__setattr__(self, "spec_receipt_fingerprint", str(self.spec_receipt_fingerprint))
-        object.__setattr__(self, "cross_change_safe", bool(self.cross_change_safe))
-        object.__setattr__(self, "spec_work_package_id", str(self.spec_work_package_id))
-        object.__setattr__(self, "spec_check_id", str(self.spec_check_id))
-        object.__setattr__(self, "spec_cross_change_reuse", bool(self.spec_cross_change_reuse))
-        object.__setattr__(
-            self,
-            "spec_provider_cross_change_authorized",
-            bool(self.spec_provider_cross_change_authorized),
-        )
 
     def is_release_only(self) -> bool:
         return self.release_required or self.layer == TEST_LAYER_RELEASE
@@ -312,16 +288,6 @@ class TestSuiteEvidence:
             "covered_obligation_ids": list(self.covered_obligation_ids),
             "artifact_version": self.artifact_version,
             "verifier_version": self.verifier_version,
-            "spec_session_id": self.spec_session_id,
-            "spec_consumer_ids": list(self.spec_consumer_ids),
-            "spec_execution_state": self.spec_execution_state,
-            "spec_receipt_id": self.spec_receipt_id,
-            "spec_receipt_fingerprint": self.spec_receipt_fingerprint,
-            "cross_change_safe": self.cross_change_safe,
-            "spec_work_package_id": self.spec_work_package_id,
-            "spec_check_id": self.spec_check_id,
-            "spec_cross_change_reuse": self.spec_cross_change_reuse,
-            "spec_provider_cross_change_authorized": self.spec_provider_cross_change_authorized,
         }
 
 
@@ -385,7 +351,6 @@ class TestMeshPlan:
     scoped_inventory_item_reasons: Mapping[str, str] = field(default_factory=dict)
     require_complete_inventory: bool = False
     require_final_receipts: bool = False
-    required_spec_consumer_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_suite_id", str(self.parent_suite_id))
@@ -407,7 +372,6 @@ class TestMeshPlan:
         )
         object.__setattr__(self, "require_complete_inventory", bool(self.require_complete_inventory))
         object.__setattr__(self, "require_final_receipts", bool(self.require_final_receipts))
-        object.__setattr__(self, "required_spec_consumer_ids", _as_tuple(self.required_spec_consumer_ids))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -432,7 +396,6 @@ class TestMeshPlan:
             "scoped_inventory_item_reasons": to_jsonable(dict(self.scoped_inventory_item_reasons)),
             "require_complete_inventory": self.require_complete_inventory,
             "require_final_receipts": self.require_final_receipts,
-            "required_spec_consumer_ids": list(self.required_spec_consumer_ids),
         }
 
 
@@ -1127,61 +1090,6 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
                     metadata=suite.to_dict(),
                 )
             )
-        spec_bound = bool(
-            suite.spec_session_id
-            or suite.spec_consumer_ids
-            or suite.spec_execution_state
-            or suite.spec_receipt_id
-            or suite.spec_receipt_fingerprint
-            or suite.spec_work_package_id
-            or suite.spec_check_id
-        )
-        if spec_bound and suite.spec_execution_state not in {"executed", "reused-current", "stale", "not-run", "blocked"}:
-            findings.append(
-                TestMeshFinding(
-                    "spec_execution_state_invalid",
-                    f"suite {suite.suite_id} has an invalid spec execution state",
-                    suite_id=suite.suite_id,
-                    metadata=suite.to_dict(),
-                )
-            )
-        if spec_bound and suite.result_status == TEST_STATUS_PASSED and (
-            suite.spec_execution_state not in {"executed", "reused-current"}
-            or not suite.spec_session_id
-            or not suite.spec_consumer_ids
-            or not suite.spec_receipt_id
-            or not suite.spec_receipt_fingerprint
-            or not suite.spec_work_package_id
-            or not suite.spec_check_id
-        ):
-            findings.append(
-                TestMeshFinding(
-                    "spec_receipt_binding_incomplete",
-                    f"suite {suite.suite_id} lacks an exact spec session/consumer/receipt binding",
-                    suite_id=suite.suite_id,
-                    metadata=suite.to_dict(),
-                )
-            )
-        if suite.spec_execution_state == "reused-current" and not suite.result_reused:
-            findings.append(
-                TestMeshFinding(
-                    "spec_reuse_state_without_ticket",
-                    f"suite {suite.suite_id} declares reused-current without the native reuse path",
-                    suite_id=suite.suite_id,
-                    metadata=suite.to_dict(),
-                )
-            )
-        if suite.spec_cross_change_reuse and not (
-            suite.cross_change_safe and suite.spec_provider_cross_change_authorized
-        ):
-            findings.append(
-                TestMeshFinding(
-                    "spec_cross_change_reuse_unauthorized",
-                    f"suite {suite.suite_id} lacks provider-authorized cross-change reuse",
-                    suite_id=suite.suite_id,
-                    metadata=suite.to_dict(),
-                )
-            )
         if suite.result_reused or suite.reuse_ticket is not None:
             owned_obligation_ids = suite.owned_leaf_cell_ids + suite.owned_coverage_shard_ids
             for code, message in test_result_reuse_gap_codes(
@@ -1323,36 +1231,6 @@ def _leaf_matrix_evidence_findings(plan: TestMeshPlan) -> list[TestMeshFinding]:
     return findings
 
 
-def _spec_receipt_topology_findings(plan: TestMeshPlan) -> list[TestMeshFinding]:
-    findings: list[TestMeshFinding] = []
-    observed_consumers = {consumer for suite in plan.child_suites for consumer in suite.spec_consumer_ids}
-    missing_consumers = sorted(set(plan.required_spec_consumer_ids) - observed_consumers)
-    if missing_consumers:
-        findings.append(
-            TestMeshFinding(
-                "spec_consumer_fanout_incomplete",
-                "required task/obligation consumers are missing from the shared receipt fan-out",
-                suite_id=plan.parent_suite_id,
-                metadata={"missing_consumer_ids": missing_consumers},
-            )
-        )
-    suites_by_receipt: dict[str, list[str]] = {}
-    for suite in plan.child_suites:
-        if suite.spec_receipt_id:
-            suites_by_receipt.setdefault(suite.spec_receipt_id, []).append(suite.suite_id)
-    for receipt_id, suite_ids in suites_by_receipt.items():
-        if len(set(suite_ids)) > 1:
-            findings.append(
-                TestMeshFinding(
-                    "spec_receipt_duplicated_across_children",
-                    "one immutable spec receipt must fan out through consumers, not duplicate child executions",
-                    suite_id=plan.parent_suite_id,
-                    metadata={"receipt_id": receipt_id, "suite_ids": sorted(set(suite_ids))},
-                )
-            )
-    return findings
-
-
 def review_test_mesh(plan: TestMeshPlan) -> TestMeshReport:
     """Review a test hierarchy without running the tests."""
 
@@ -1360,7 +1238,6 @@ def review_test_mesh(plan: TestMeshPlan) -> TestMeshReport:
     inventory_values = _inventory_findings(plan)
     findings.extend(inventory_values[0])
     findings.extend(_target_split_derivation_findings(plan))
-    findings.extend(_spec_receipt_topology_findings(plan))
     findings.extend(
         _duplicate_value_findings(
             plan.child_suites,

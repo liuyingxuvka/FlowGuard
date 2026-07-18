@@ -51,7 +51,7 @@ class CorrectJobMatchingSystem:
             decisions=tuple(self.decisions),
         )
 
-    def score_job(self, job: Job, expected_score_bucket: str | None = None) -> ScoredJob:
+    def score_job(self, job: Job) -> ScoredJob:
         cached = self.score_cache.get(job.job_id)
         if cached is not None:
             output = ScoredJob(job.job_id, cached)
@@ -59,7 +59,7 @@ class CorrectJobMatchingSystem:
             return output
 
         possible = possible_score_buckets(job)
-        score_bucket = expected_score_bucket if expected_score_bucket in possible else possible[0]
+        score_bucket = possible[0]
         self.score_cache[job.job_id] = score_bucket
         self.score_attempts.append(job.job_id)
         output = ScoredJob(job.job_id, score_bucket)
@@ -82,11 +82,7 @@ class CorrectJobMatchingSystem:
         self._remember(output, "record_added", "medium/high score is recorded once")
         return output
 
-    def decide_next_action(
-        self,
-        record_result: RecordResult,
-        expected_action: str | None = None,
-    ) -> Decision:
+    def decide_next_action(self, record_result: RecordResult) -> Decision:
         if record_result.status == "added":
             actions = ("apply", "save")
         elif record_result.status == "already_exists":
@@ -96,7 +92,7 @@ class CorrectJobMatchingSystem:
         else:
             actions = ("ask_human",)
 
-        action = expected_action if expected_action in actions else actions[0]
+        action = actions[0]
         output = Decision(record_result.job_id, action)
         self.decisions.append(output)
         self._remember(output, f"decision_{action}", f"record status {record_result.status!r} maps to {action!r}")
@@ -130,14 +126,10 @@ class BrokenDuplicateRecordSystem(CorrectJobMatchingSystem):
 class BrokenRepeatedScoringSystem(CorrectJobMatchingSystem):
     """Broken implementation that scores again even when a cache entry exists."""
 
-    def score_job(self, job: Job, expected_score_bucket: str | None = None) -> ScoredJob:
+    def score_job(self, job: Job) -> ScoredJob:
         cached = self.score_cache.get(job.job_id)
         possible = possible_score_buckets(job)
-        score_bucket = (
-            expected_score_bucket
-            if expected_score_bucket in possible
-            else cached or possible[0]
-        )
+        score_bucket = cached or possible[0]
         if cached is None:
             self.score_cache[job.job_id] = score_bucket
         self.score_attempts.append(job.job_id)

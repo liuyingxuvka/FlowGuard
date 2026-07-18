@@ -13,6 +13,8 @@ Guards against:
 - claiming complete FlowGuard use while the closure contract is absent;
 - claiming release readiness before installed skills, shadow workspace, tests,
   and version/tag/release surfaces are aligned.
+- shipping SkillGuard author-control material inside any FlowGuard consumer
+  skill or making consumer use depend on SkillGuard.
 
 Run:
 python .flowguard/codex_skill_satellites/run_checks.py
@@ -27,6 +29,7 @@ from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 
 
 SATELLITE_COUNT = 16
+CONSUMER_SKILL_COUNT = 17
 PUBLIC_OWNER_SKILL_COUNT = 14
 DELEGATED_MODE_SKILL_COUNT = 2
 
@@ -54,6 +57,10 @@ class UpgradeState:
     validations_passed: bool = False
     version_surfaces_aligned: bool = False
     closure_contract_documented: bool = False
+    clean_consumer_skill_count: int = 0
+    consumer_skillguard_residual_count: int = 0
+    consumer_independence_validated: bool = False
+    author_maintenance_state_private: bool = False
     release_claim: str = "none"
 
     def ready_for_release(self) -> bool:
@@ -69,6 +76,10 @@ class UpgradeState:
             and self.validations_passed
             and self.version_surfaces_aligned
             and self.closure_contract_documented
+            and self.clean_consumer_skill_count == CONSUMER_SKILL_COUNT
+            and self.consumer_skillguard_residual_count == 0
+            and self.consumer_independence_validated
+            and self.author_maintenance_state_private
         )
 
 
@@ -86,6 +97,10 @@ class SkillSatelliteUpgrade:
         "validations_passed",
         "version_surfaces_aligned",
         "closure_contract_documented",
+        "clean_consumer_skill_count",
+        "consumer_skillguard_residual_count",
+        "consumer_independence_validated",
+        "author_maintenance_state_private",
     )
     writes = reads + ("release_claim",)
     accepted_input_type = UpgradeAction
@@ -142,6 +157,28 @@ class SkillSatelliteUpgrade:
                 replace(state, version_surfaces_aligned=True, closure_contract_documented=True),
                 label="version_surfaces_aligned",
             )
+        elif action == "build_clean_consumer_distribution":
+            yield FunctionResult(
+                UpgradeOutput("clean_consumer_distribution_built"),
+                replace(
+                    state,
+                    clean_consumer_skill_count=CONSUMER_SKILL_COUNT,
+                    consumer_skillguard_residual_count=0,
+                    consumer_independence_validated=True,
+                    author_maintenance_state_private=True,
+                ),
+                label="clean_consumer_distribution_built",
+            )
+        elif action == "pollute_consumer_with_skillguard":
+            yield FunctionResult(
+                UpgradeOutput("consumer_polluted"),
+                replace(
+                    state,
+                    consumer_skillguard_residual_count=1,
+                    consumer_independence_validated=False,
+                ),
+                label="consumer_polluted",
+            )
         elif action == "claim_release":
             claim = "accepted" if state.ready_for_release() else "rejected"
             yield FunctionResult(
@@ -194,6 +231,7 @@ EXTERNAL_INPUTS = (
     UpgradeAction("sync_runtime_surfaces"),
     UpgradeAction("pass_validations"),
     UpgradeAction("align_version_surfaces"),
+    UpgradeAction("build_clean_consumer_distribution"),
     UpgradeAction("claim_release"),
 )
 
@@ -218,6 +256,7 @@ __all__ = [
     "MAX_SEQUENCE_LENGTH",
     "PUBLIC_OWNER_SKILL_COUNT",
     "DELEGATED_MODE_SKILL_COUNT",
+    "CONSUMER_SKILL_COUNT",
     "SATELLITE_COUNT",
     "UpgradeAction",
     "UpgradeOutput",

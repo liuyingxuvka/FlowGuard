@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Sequence
 
 from .core import FrozenMetadata, InvariantResult, freeze_metadata
 from .export import to_jsonable, trace_step_to_dict, trace_to_dict
-from .replay import ReplayObservation, coerce_observation
+from .replay import ReplayInput, ReplayObservation, coerce_observation
+from .task_local_model import TaskPredictionSnapshot
 from .trace import Trace, TraceStep
 
 
@@ -72,6 +73,10 @@ class ConformanceReport:
     failed_step_index: int | None = None
     expected_trace: Trace | None = None
     summary: str = ""
+    prediction_id: str = ""
+    prediction_fingerprint: str = ""
+    model_fingerprint: str = ""
+    observation_boundary_id: str = ""
 
     def format_text(self, max_examples: int = 3) -> str:
         lines = [
@@ -108,6 +113,10 @@ class ConformanceReport:
                 if self.expected_trace is not None
                 else None
             ),
+            "prediction_id": self.prediction_id,
+            "prediction_fingerprint": self.prediction_fingerprint,
+            "model_fingerprint": self.model_fingerprint,
+            "observation_boundary_id": self.observation_boundary_id,
         }
 
     def to_json_text(self, indent: int = 2) -> str:
@@ -220,7 +229,7 @@ def replay_trace(
 
     for index, expected_step in enumerate(trace.steps, start=1):
         try:
-            raw_observation = adapter.apply_step(expected_step)
+            raw_observation = adapter.apply_step(ReplayInput.from_trace_step(expected_step))
             observation = coerce_observation(raw_observation, expected_step, adapter)
         except Exception as exc:
             violation = ConformanceViolation(
@@ -282,6 +291,29 @@ def replay_trace(
     )
 
 
+def replay_prediction(
+    prediction: TaskPredictionSnapshot,
+    adapter: Any,
+    rules: Sequence[ConformanceRule] | None = None,
+    invariants: Sequence[Any] = (),
+) -> ConformanceReport:
+    """Replay one frozen task prediction and bind its identity to the report."""
+
+    report = replay_trace(
+        trace=prediction.expected_trace,
+        adapter=adapter,
+        rules=rules,
+        invariants=invariants,
+    )
+    return replace(
+        report,
+        prediction_id=prediction.prediction_id,
+        prediction_fingerprint=prediction.prediction_fingerprint,
+        model_fingerprint=prediction.model_version.model_fingerprint,
+        observation_boundary_id=prediction.observation_boundary_id,
+    )
+
+
 __all__ = [
     "ConformanceReport",
     "ConformanceRule",
@@ -290,5 +322,6 @@ __all__ = [
     "label_matches",
     "projected_output_matches",
     "projected_state_matches",
+    "replay_prediction",
     "replay_trace",
 ]

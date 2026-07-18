@@ -42,12 +42,12 @@ def build_fixture(root, *, command="python native_check.py"):
                 "owner_id": "fixture-owner",
             }
         ],
+        "checks": [check],
     }
     contract = {
         "schema_version": "skillguard.compiled_contract.v2",
         "skill_id": skill_id,
         "contract_hash": "FIXTURE-CONTRACT-HASH",
-        "checks": [check],
         "obligations": [
             {
                 "obligation_id": "fixture-obligation",
@@ -127,10 +127,10 @@ class SkillNativeCheckTests(unittest.TestCase):
             root = Path(directory)
             skill_id = build_fixture(root)
             (root / "native_check.py").write_text("print('would pass')\n", encoding="utf-8")
-            contract_path = root / ".agents/skills" / skill_id / ".skillguard/compiled-contract.json"
-            contract = json.loads(contract_path.read_text(encoding="utf-8"))
-            contract["checks"][0]["args"] = ["another.py"]
-            write_json(contract_path, contract)
+            source_path = root / ".agents/skills" / skill_id / ".skillguard/contract-source.json"
+            source = json.loads(source_path.read_text(encoding="utf-8"))
+            source["checks"][0]["args"] = ["another.py"]
+            write_json(source_path, source)
 
             result = run_native_skill_check(root, skill_id, timeout_seconds=10)
 

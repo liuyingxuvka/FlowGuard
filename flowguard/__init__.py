@@ -847,9 +847,7 @@ from . import evidence_receipts as _evidence_receipts
 from . import model_regressions as _model_regressions
 from . import model_purpose as _model_purpose
 from . import release_verification as _release_verification
-from . import spec_check_cache as _spec_check_cache
-from . import spec_providers as _spec_providers
-from . import spec_work_package as _spec_work_package
+from . import spec_context as _spec_context
 from . import skill_contracts as _skill_contracts
 from . import skill_native_checks as _skill_native_checks
 from . import skill_self_governance as _skill_self_governance
@@ -1277,7 +1275,7 @@ from .templates import (
     risk_intent_template_files,
     risk_template_library_template_files,
     runtime_path_evidence_template_files,
-    spec_work_package_template_files,
+    spec_context_template_files,
     structure_mesh_template_files,
     test_mesh_template_files,
     topology_hazard_template_files,
@@ -1300,9 +1298,7 @@ _GOVERNANCE_MODULES = (
     _model_purpose,
     _distribution_sync,
     _release_verification,
-    _spec_work_package,
-    _spec_providers,
-    _spec_check_cache,
+    _spec_context,
 )
 _GOVERNANCE_EXCLUDED_TOP_LEVEL_NAMES = {"MANIFEST_SCHEMA"}
 for _governance_module in _GOVERNANCE_MODULES:
@@ -1316,11 +1312,7 @@ FLOWGUARD_GOVERNANCE_API = tuple(
     for name in module.__all__
     if name not in _GOVERNANCE_EXCLUDED_TOP_LEVEL_NAMES
 )
-SPEC_WORK_PACKAGE_API = tuple(
-    name
-    for module in (_spec_work_package, _spec_providers, _spec_check_cache)
-    for name in module.__all__
-)
+SPEC_CONTEXT_API = tuple(_spec_context.__all__)
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
 for _name in _primary_path_authority.__all__:
@@ -2516,7 +2508,7 @@ EVIDENCE_API = (
     "behavior_commitment_ledger_template_files",
     "primary_path_authority_template_files",
     "project_adoption_template_files",
-    "spec_work_package_template_files",
+    "spec_context_template_files",
     "project_template_files",
     "risk_evidence_ledger_template_files",
     "risk_intent_template_files",
@@ -3020,7 +3012,7 @@ API_SURFACE = {
     "reporting_helpers_full": REPORTING_HELPER_API,
     "evidence": EVIDENCE_API,
     "governance_and_distribution": FLOWGUARD_GOVERNANCE_API,
-    "spec_work_packages": SPEC_WORK_PACKAGE_API,
+    "spec_context": SPEC_CONTEXT_API,
     "portable_verification": (
         "PORTABLE_MODEL_SCHEMA_VERSION",
         "PORTABLE_REFINEMENT_SCHEMA_VERSION",
@@ -3079,7 +3071,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "PLAN_INTAKE_STARTER_API",
     "PORTABLE_VERIFICATION_API",
     "STATE_CLOSURE_ROUTE_API",
-    "SPEC_WORK_PACKAGE_API",
+    "SPEC_CONTEXT_API",
     "STRUCTURE_MESH_ROUTE_API",
     "TEST_MESH_ROUTE_API",
     "TOPOLOGY_HAZARD_ROUTE_API",

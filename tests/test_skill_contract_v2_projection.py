@@ -57,6 +57,22 @@ class SkillContractCurrentProjectionTests(unittest.TestCase):
                 self.assertFalse(source["release_eligible"])
                 self.assertFalse(validate_contract_source(source, skill))
                 self.assertNotIn("v1_runtime_authority", source)
+                self.assertEqual("skill_maintainer_source", source["repository_role"])
+                self.assertEqual(f"unit:{skill_id}", source["maintenance_unit_id"])
+                self.assertEqual([skill_id], source["member_skill_ids"])
+                self.assertEqual(
+                    {
+                        "projection_id": "projection:consumer-distribution",
+                        "prohibited_path_prefixes": [".skillguard/"],
+                        "prohibited_prompt_tokens": [
+                            "SkillGuard",
+                            ".skillguard",
+                            "skillguard.py",
+                        ],
+                        "release_manifest_path": "consumer-release.json",
+                    },
+                    source["consumer_projection"],
+                )
                 self.assertEqual("native-integrated", source["integration_mode"])
                 self.assertFalse(source["may_define_parallel_execution_route"])
                 self.assertFalse(source["may_define_skillguard_runtime_route"])
@@ -104,6 +120,11 @@ class SkillContractCurrentProjectionTests(unittest.TestCase):
                 self.assertEqual(source["model_id"], exported["model_id"])
                 self.assertEqual(exported["model_id"], compiled["model_id"])
                 self.assertEqual(source["depth_profile"], compiled["depth_profile"])
+                self.assertEqual("skill_maintainer_source", compiled["repository_role"])
+                self.assertEqual(f"unit:{skill_id}", compiled["maintenance_unit_id"])
+                self.assertEqual([skill_id], compiled["member_skill_ids"])
+                self.assertEqual(source["consumer_projection"], compiled["consumer_projection"])
+                self.assertEqual(source["consumer_projection"], manifest["consumer_projection"])
                 self.assertEqual(compiled["contract_hash"], manifest["contract_hash"])
                 self.assertEqual(
                     {row["route_id"] for row in exported["routes"]},
@@ -117,9 +138,10 @@ class SkillContractCurrentProjectionTests(unittest.TestCase):
     def test_development_process_contract_owns_strategy_equivalence(self) -> None:
         skill = ROOT / ".agents" / "skills" / "flowguard-development-process-flow"
         compiled = json.loads((skill / ".skillguard" / "compiled-contract.json").read_text(encoding="utf-8"))
+        manifest = json.loads((skill / ".skillguard" / "check-manifest.json").read_text(encoding="utf-8"))
         obligation = "obligation:flowguard-development-process-flow:process-strategy-equivalence"
         self.assertIn(obligation, {row["obligation_id"] for row in compiled["obligations"]})
-        native = next(row for row in compiled["checks"] if row["check_id"].endswith(":native-authority"))
+        native = next(row for row in manifest["checks"] if row["check_id"].endswith(":native-authority"))
         self.assertIn(obligation, native["covers_obligation_ids"])
         self.assertIn("tests/test_development_process_strategy.py", native["args"])
 

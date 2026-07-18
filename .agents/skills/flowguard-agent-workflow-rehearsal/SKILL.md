@@ -30,7 +30,7 @@ Accept a fresh current-machine inventory and explicit/delegated scope; produce a
 4. Return selected/skipped skills, candidate skills, continue/rework gates, validation gaps, and final claim scope.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Require explicit delegation/direct request, current inventory, accepted skip boundaries, and evidence before every irreversible side effect.
 - Progress or missing real-surface artifact payload proof, UI/manual/install evidence cannot satisfy a full claim.
@@ -39,7 +39,5 @@ Accept a fresh current-machine inventory and explicit/delegated scope; produce a
 ## Output Requirements
 - Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, selected/skipped skills, and side effects.
 
-## SkillGuard Maintenance
-- Edit contract source, regenerate; SkillGuard cannot create an executor.
 
 <!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

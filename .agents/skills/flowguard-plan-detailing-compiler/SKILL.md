@@ -29,7 +29,7 @@ Accept an explicit/delegated rough plan; compile scope, artifacts, state, steps,
 3. Project passing/scoped rows to DevelopmentProcessFlow, AgentWorkflow, UI, Model-Test Alignment, and TestMesh owners.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; SkillGuard only supervises FlowGuard-declared checks.
+- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Prose, checkboxes, or progress cannot satisfy structured detail or terminal evidence.
 - Full claims need resolved questions, final evidence, real-surface payload cases, human-operability gates, and template harvest closure.
@@ -38,7 +38,5 @@ Accept an explicit/delegated rough plan; compile scope, artifacts, state, steps,
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, `PlanDetail` rows, gaps, and projections.
 
-## SkillGuard Maintenance
-- Edit contract source and regenerate; SkillGuard cannot execute or create receipts.
 
 <!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

@@ -114,11 +114,8 @@ class ProcessArtifact:
     owner: str = ""
     upstream_artifact_ids: tuple[str, ...] = ()
     description: str = ""
-    spec_provider_id: str = ""
-    work_package_id: str = ""
-    spec_task_ids: tuple[str, ...] = ()
-    spec_obligation_ids: tuple[str, ...] = ()
-    spec_check_ids: tuple[str, ...] = ()
+    spec_context_id: str = ""
+    read_only_external: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "artifact_id", str(self.artifact_id))
@@ -128,11 +125,8 @@ class ProcessArtifact:
         object.__setattr__(self, "owner", str(self.owner))
         object.__setattr__(self, "upstream_artifact_ids", _as_tuple(self.upstream_artifact_ids))
         object.__setattr__(self, "description", str(self.description))
-        object.__setattr__(self, "spec_provider_id", str(self.spec_provider_id))
-        object.__setattr__(self, "work_package_id", str(self.work_package_id))
-        object.__setattr__(self, "spec_task_ids", _as_tuple(self.spec_task_ids))
-        object.__setattr__(self, "spec_obligation_ids", _as_tuple(self.spec_obligation_ids))
-        object.__setattr__(self, "spec_check_ids", _as_tuple(self.spec_check_ids))
+        object.__setattr__(self, "spec_context_id", str(self.spec_context_id))
+        object.__setattr__(self, "read_only_external", bool(self.read_only_external))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -143,11 +137,8 @@ class ProcessArtifact:
             "owner": self.owner,
             "upstream_artifact_ids": list(self.upstream_artifact_ids),
             "description": self.description,
-            "spec_provider_id": self.spec_provider_id,
-            "work_package_id": self.work_package_id,
-            "spec_task_ids": list(self.spec_task_ids),
-            "spec_obligation_ids": list(self.spec_obligation_ids),
-            "spec_check_ids": list(self.spec_check_ids),
+            "spec_context_id": self.spec_context_id,
+            "read_only_external": self.read_only_external,
         }
 
 
@@ -197,12 +188,9 @@ class ProcessAction:
     target_behavior_planes: tuple[str, ...] = ()
     target_commitment_ids: tuple[str, ...] = ()
     typed_commitment_relation_refs: tuple[str, ...] = ()
-    spec_provider_id: str = ""
-    spec_work_package_id: str = ""
-    spec_task_ids: tuple[str, ...] = ()
-    spec_obligation_ids: tuple[str, ...] = ()
-    spec_check_ids: tuple[str, ...] = ()
-    spec_binding_ids: tuple[str, ...] = ()
+    spec_context_id: str = ""
+    spec_context_artifact_ids: tuple[str, ...] = ()
+    spec_context_read_only: bool = True
     description: str = ""
 
     def __post_init__(self) -> None:
@@ -228,12 +216,13 @@ class ProcessAction:
             "typed_commitment_relation_refs",
             _as_tuple(self.typed_commitment_relation_refs),
         )
-        object.__setattr__(self, "spec_provider_id", str(self.spec_provider_id))
-        object.__setattr__(self, "spec_work_package_id", str(self.spec_work_package_id))
-        object.__setattr__(self, "spec_task_ids", _as_tuple(self.spec_task_ids))
-        object.__setattr__(self, "spec_obligation_ids", _as_tuple(self.spec_obligation_ids))
-        object.__setattr__(self, "spec_check_ids", _as_tuple(self.spec_check_ids))
-        object.__setattr__(self, "spec_binding_ids", _as_tuple(self.spec_binding_ids))
+        object.__setattr__(self, "spec_context_id", str(self.spec_context_id))
+        object.__setattr__(
+            self,
+            "spec_context_artifact_ids",
+            _as_tuple(self.spec_context_artifact_ids),
+        )
+        object.__setattr__(self, "spec_context_read_only", bool(self.spec_context_read_only))
         object.__setattr__(self, "description", str(self.description))
 
     def is_claim(self) -> bool:
@@ -269,12 +258,9 @@ class ProcessAction:
             "target_behavior_planes": list(self.target_behavior_planes),
             "target_commitment_ids": list(self.target_commitment_ids),
             "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
-            "spec_provider_id": self.spec_provider_id,
-            "spec_work_package_id": self.spec_work_package_id,
-            "spec_task_ids": list(self.spec_task_ids),
-            "spec_obligation_ids": list(self.spec_obligation_ids),
-            "spec_check_ids": list(self.spec_check_ids),
-            "spec_binding_ids": list(self.spec_binding_ids),
+            "spec_context_id": self.spec_context_id,
+            "spec_context_artifact_ids": list(self.spec_context_artifact_ids),
+            "spec_context_read_only": self.spec_context_read_only,
             "description": self.description,
         }
 
@@ -305,22 +291,6 @@ class ProcessEvidence:
     revalidation_cost: float = 1.0
     revalidation_cost_basis: str = "estimated"
     stale_reasons: tuple[str, ...] = ()
-    spec_session_id: str = ""
-    spec_consumer_ids: tuple[str, ...] = ()
-    spec_execution_state: str = ""
-    spec_receipt_id: str = ""
-    spec_receipt_fingerprint: str = ""
-    cross_change_safe: bool = False
-    spec_work_package_id: str = ""
-    spec_check_id: str = ""
-    spec_session_state: str = ""
-    spec_begin_fingerprint: str = ""
-    spec_post_fingerprint: str = ""
-    spec_close_record_path: str = ""
-    spec_provider_verified: bool = False
-    spec_provider_archive_ready: bool = False
-    spec_cross_change_reuse: bool = False
-    spec_provider_cross_change_authorized: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "evidence_id", str(self.evidence_id))
@@ -345,26 +315,6 @@ class ProcessEvidence:
             raise ValueError("revalidation_cost_basis must be estimated or measured")
         object.__setattr__(self, "revalidation_cost_basis", cost_basis)
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
-        object.__setattr__(self, "spec_session_id", str(self.spec_session_id))
-        object.__setattr__(self, "spec_consumer_ids", _as_tuple(self.spec_consumer_ids))
-        object.__setattr__(self, "spec_execution_state", str(self.spec_execution_state))
-        object.__setattr__(self, "spec_receipt_id", str(self.spec_receipt_id))
-        object.__setattr__(self, "spec_receipt_fingerprint", str(self.spec_receipt_fingerprint))
-        object.__setattr__(self, "cross_change_safe", bool(self.cross_change_safe))
-        object.__setattr__(self, "spec_work_package_id", str(self.spec_work_package_id))
-        object.__setattr__(self, "spec_check_id", str(self.spec_check_id))
-        object.__setattr__(self, "spec_session_state", str(self.spec_session_state))
-        object.__setattr__(self, "spec_begin_fingerprint", str(self.spec_begin_fingerprint))
-        object.__setattr__(self, "spec_post_fingerprint", str(self.spec_post_fingerprint))
-        object.__setattr__(self, "spec_close_record_path", str(self.spec_close_record_path))
-        object.__setattr__(self, "spec_provider_verified", bool(self.spec_provider_verified))
-        object.__setattr__(self, "spec_provider_archive_ready", bool(self.spec_provider_archive_ready))
-        object.__setattr__(self, "spec_cross_change_reuse", bool(self.spec_cross_change_reuse))
-        object.__setattr__(
-            self,
-            "spec_provider_cross_change_authorized",
-            bool(self.spec_provider_cross_change_authorized),
-        )
 
     def background_complete(self) -> bool:
         if not self.background:
@@ -398,22 +348,6 @@ class ProcessEvidence:
             "revalidation_cost": self.revalidation_cost,
             "revalidation_cost_basis": self.revalidation_cost_basis,
             "stale_reasons": list(self.stale_reasons),
-            "spec_session_id": self.spec_session_id,
-            "spec_consumer_ids": list(self.spec_consumer_ids),
-            "spec_execution_state": self.spec_execution_state,
-            "spec_receipt_id": self.spec_receipt_id,
-            "spec_receipt_fingerprint": self.spec_receipt_fingerprint,
-            "cross_change_safe": self.cross_change_safe,
-            "spec_work_package_id": self.spec_work_package_id,
-            "spec_check_id": self.spec_check_id,
-            "spec_session_state": self.spec_session_state,
-            "spec_begin_fingerprint": self.spec_begin_fingerprint,
-            "spec_post_fingerprint": self.spec_post_fingerprint,
-            "spec_close_record_path": self.spec_close_record_path,
-            "spec_provider_verified": self.spec_provider_verified,
-            "spec_provider_archive_ready": self.spec_provider_archive_ready,
-            "spec_cross_change_reuse": self.spec_cross_change_reuse,
-            "spec_provider_cross_change_authorized": self.spec_provider_cross_change_authorized,
         }
 
 
@@ -456,12 +390,6 @@ class ValidationRequirement:
     release_required: bool = False
     v_model_pair: bool = False
     command: str = ""
-    spec_provider_id: str = ""
-    spec_work_package_id: str = ""
-    spec_task_ids: tuple[str, ...] = ()
-    spec_obligation_ids: tuple[str, ...] = ()
-    spec_check_ids: tuple[str, ...] = ()
-    spec_binding_ids: tuple[str, ...] = ()
     description: str = ""
 
     def __post_init__(self) -> None:
@@ -471,12 +399,6 @@ class ValidationRequirement:
         object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
         object.__setattr__(self, "scope", str(self.scope))
         object.__setattr__(self, "command", str(self.command))
-        object.__setattr__(self, "spec_provider_id", str(self.spec_provider_id))
-        object.__setattr__(self, "spec_work_package_id", str(self.spec_work_package_id))
-        object.__setattr__(self, "spec_task_ids", _as_tuple(self.spec_task_ids))
-        object.__setattr__(self, "spec_obligation_ids", _as_tuple(self.spec_obligation_ids))
-        object.__setattr__(self, "spec_check_ids", _as_tuple(self.spec_check_ids))
-        object.__setattr__(self, "spec_binding_ids", _as_tuple(self.spec_binding_ids))
         object.__setattr__(self, "description", str(self.description))
 
     def is_release_only(self) -> bool:
@@ -492,12 +414,6 @@ class ValidationRequirement:
             "release_required": self.release_required,
             "v_model_pair": self.v_model_pair,
             "command": self.command,
-            "spec_provider_id": self.spec_provider_id,
-            "spec_work_package_id": self.spec_work_package_id,
-            "spec_task_ids": list(self.spec_task_ids),
-            "spec_obligation_ids": list(self.spec_obligation_ids),
-            "spec_check_ids": list(self.spec_check_ids),
-            "spec_binding_ids": list(self.spec_binding_ids),
             "description": self.description,
         }
 
@@ -517,11 +433,8 @@ class DevelopmentProcessPlan:
     release_deferred_allowed: bool = True
     behavior_plane: str = ""
     require_behavior_plane_boundary: bool = False
-    spec_work_package_ids: tuple[str, ...] = ()
-    required_spec_session_ids: tuple[str, ...] = ()
-    required_spec_receipt_ids: tuple[str, ...] = ()
-    require_spec_session_close: bool = False
-    require_spec_provider_close: bool = False
+    spec_context_ids: tuple[str, ...] = ()
+    require_current_spec_context: bool = False
     process_optimization_reasons: tuple[str, ...] = ()
     required_process_optimization_evidence_ids: tuple[str, ...] = ()
 
@@ -539,11 +452,12 @@ class DevelopmentProcessPlan:
             "require_behavior_plane_boundary",
             bool(self.require_behavior_plane_boundary),
         )
-        object.__setattr__(self, "spec_work_package_ids", _as_tuple(self.spec_work_package_ids))
-        object.__setattr__(self, "required_spec_session_ids", _as_tuple(self.required_spec_session_ids))
-        object.__setattr__(self, "required_spec_receipt_ids", _as_tuple(self.required_spec_receipt_ids))
-        object.__setattr__(self, "require_spec_session_close", bool(self.require_spec_session_close))
-        object.__setattr__(self, "require_spec_provider_close", bool(self.require_spec_provider_close))
+        object.__setattr__(self, "spec_context_ids", _as_tuple(self.spec_context_ids))
+        object.__setattr__(
+            self,
+            "require_current_spec_context",
+            bool(self.require_current_spec_context),
+        )
         object.__setattr__(self, "process_optimization_reasons", _as_tuple(self.process_optimization_reasons))
         object.__setattr__(
             self,
@@ -566,11 +480,8 @@ class DevelopmentProcessPlan:
             "release_deferred_allowed": self.release_deferred_allowed,
             "behavior_plane": self.behavior_plane,
             "require_behavior_plane_boundary": self.require_behavior_plane_boundary,
-            "spec_work_package_ids": list(self.spec_work_package_ids),
-            "required_spec_session_ids": list(self.required_spec_session_ids),
-            "required_spec_receipt_ids": list(self.required_spec_receipt_ids),
-            "require_spec_session_close": self.require_spec_session_close,
-            "require_spec_provider_close": self.require_spec_provider_close,
+            "spec_context_ids": list(self.spec_context_ids),
+            "require_current_spec_context": self.require_current_spec_context,
             "process_optimization_reasons": list(self.process_optimization_reasons),
             "required_process_optimization_evidence_ids": list(
                 self.required_process_optimization_evidence_ids
@@ -1119,144 +1030,69 @@ def _evidence_quality_findings(evidence: ProcessEvidence, *, require_proof_artif
                     metadata=evidence.to_dict(),
                 )
             )
-    spec_bound = bool(
-        evidence.spec_session_id
-        or evidence.spec_consumer_ids
-        or evidence.spec_execution_state
-        or evidence.spec_receipt_id
-        or evidence.spec_receipt_fingerprint
-        or evidence.spec_work_package_id
-        or evidence.spec_session_state
-        or evidence.spec_close_record_path
-    )
-    if spec_bound:
-        allowed_states = {"executed", "reused-current", "stale", "not-run", "blocked"}
-        if evidence.spec_execution_state not in allowed_states:
-            findings.append(
-                ProcessFlowFinding(
-                    "spec_execution_state_invalid",
-                    "spec-bound process evidence needs one canonical execution state",
-                    evidence_id=evidence.evidence_id,
-                    metadata=evidence.to_dict(),
-                )
-            )
-        if evidence.status == PROCESS_EVIDENCE_PASSED and (
-            evidence.spec_execution_state not in {"executed", "reused-current"}
-            or not evidence.spec_session_id
-            or not evidence.spec_consumer_ids
-            or not evidence.spec_receipt_id
-            or not evidence.spec_receipt_fingerprint
-            or not evidence.spec_work_package_id
-            or not evidence.spec_check_id
-            or evidence.spec_session_state != "closed"
-            or not evidence.spec_begin_fingerprint
-            or evidence.spec_begin_fingerprint != evidence.spec_post_fingerprint
-            or not evidence.spec_close_record_path
-        ):
-            findings.append(
-                ProcessFlowFinding(
-                    "spec_receipt_binding_incomplete",
-                    "passing spec evidence needs exact package/check/session, matching begin/post, close record, consumers, and receipt identity",
-                    evidence_id=evidence.evidence_id,
-                    metadata=evidence.to_dict(),
-                )
-            )
-        if evidence.spec_cross_change_reuse and not (
-            evidence.cross_change_safe and evidence.spec_provider_cross_change_authorized
-        ):
-            findings.append(
-                ProcessFlowFinding(
-                    "spec_cross_change_reuse_unauthorized",
-                    "cross-change spec reuse needs both an explicit safe definition and provider authorization",
-                    evidence_id=evidence.evidence_id,
-                    metadata=evidence.to_dict(),
-                )
-            )
     return findings
 
 
-def _spec_work_package_findings(plan: DevelopmentProcessPlan) -> list[ProcessFlowFinding]:
-    if not plan.spec_work_package_ids:
+def _spec_context_findings(plan: DevelopmentProcessPlan) -> list[ProcessFlowFinding]:
+    if not plan.spec_context_ids:
         return []
     findings: list[ProcessFlowFinding] = []
-    lifecycle = (
-        "spec_provider_read",
-        "spec_reconcile",
-        "spec_session_begin",
-        "spec_check",
-        "spec_post_snapshot",
-        "spec_provider_verify",
-        "spec_sync",
-        "spec_archive_ready",
-    )
-    action_types = [action.action_type for action in plan.actions]
-    positions: list[int] = []
-    for action_type in lifecycle:
-        if action_type not in action_types:
-            findings.append(
-                ProcessFlowFinding(
-                    "spec_lifecycle_action_missing",
-                    f"spec work-package lifecycle is missing {action_type}",
-                    metadata={"action_type": action_type},
-                )
-            )
-        else:
-            positions.append(action_types.index(action_type))
-    if len(positions) == len(lifecycle) and positions != sorted(positions):
+    external_artifacts = {
+        artifact.artifact_id
+        for artifact in plan.artifacts
+        if artifact.spec_context_id or artifact.read_only_external
+    }
+    context_actions = [
+        action for action in plan.actions if action.spec_context_id
+    ]
+    observed_ids = {action.spec_context_id for action in context_actions}
+    for context_id in sorted(set(plan.spec_context_ids) - observed_ids):
         findings.append(
             ProcessFlowFinding(
-                "spec_lifecycle_order_invalid",
-                "spec lifecycle must preserve provider read, reconcile, begin, check, post, verify, sync, archive order",
+                "required_spec_context_missing",
+                f"read-only spec context {context_id} is not referenced by any action",
             )
         )
-
-    session_rows = [item for item in plan.evidence if item.spec_session_id]
-    required_sessions = set(plan.required_spec_session_ids)
-    if plan.require_spec_session_close and not required_sessions:
-        required_sessions = {item.spec_session_id for item in session_rows}
-        if not required_sessions:
+    for action in context_actions:
+        if not action.spec_context_read_only:
             findings.append(
                 ProcessFlowFinding(
-                    "required_spec_session_missing",
-                    "spec work-package closure requires a concrete session identity",
+                    "spec_context_write_authority_forbidden",
+                    "OpenSpec context must remain read-only external input",
+                    action_id=action.action_id,
+                    metadata=action.to_dict(),
                 )
             )
-    for session_id in sorted(required_sessions):
-        matching = [item for item in session_rows if item.spec_session_id == session_id]
-        closed = [
-            item
-            for item in matching
-            if item.spec_session_state == "closed"
-            and item.spec_begin_fingerprint
-            and item.spec_begin_fingerprint == item.spec_post_fingerprint
-            and item.spec_close_record_path
-        ]
-        if not closed:
+        touched = set(action.spec_context_artifact_ids)
+        written = touched & set(action.all_written_artifacts())
+        if written:
             findings.append(
                 ProcessFlowFinding(
-                    "required_spec_session_not_closed",
-                    f"required spec session {session_id} lacks matching immutable post/close evidence",
-                    evidence_id=session_id,
+                    "spec_context_artifact_write_forbidden",
+                    "FlowGuard actions may read but never write OpenSpec artifacts",
+                    action_id=action.action_id,
+                    metadata={"artifact_ids": sorted(written)},
                 )
             )
-    observed_receipts = {item.spec_receipt_id for item in plan.evidence if item.spec_receipt_id}
-    for receipt_id in sorted(set(plan.required_spec_receipt_ids) - observed_receipts):
-        findings.append(
-            ProcessFlowFinding(
-                "required_spec_receipt_missing",
-                f"required spec receipt {receipt_id} has no process evidence",
-                evidence_id=receipt_id,
+        if plan.require_current_spec_context and not action.spec_context_artifact_ids:
+            findings.append(
+                ProcessFlowFinding(
+                    "spec_context_artifacts_missing",
+                    "current OpenSpec context requires proposal/design/spec/tasks/status artifact ids",
+                    action_id=action.action_id,
+                )
             )
-        )
-    if plan.require_spec_provider_close and not any(
-        item.spec_provider_verified and item.spec_provider_archive_ready for item in session_rows
-    ):
-        findings.append(
-            ProcessFlowFinding(
-                "spec_provider_close_missing",
-                "provider-native verification and archive readiness remain incomplete",
+    for action in plan.actions:
+        written = external_artifacts & set(action.all_written_artifacts())
+        if written:
+            findings.append(
+                ProcessFlowFinding(
+                    "spec_context_artifact_write_forbidden",
+                    "FlowGuard actions may read but never write OpenSpec artifacts",
+                    action_id=action.action_id,
+                    metadata={"artifact_ids": sorted(written)},
+                )
             )
-        )
     return findings
 
 
@@ -1718,7 +1554,7 @@ def review_development_process_flow(plan: DevelopmentProcessPlan) -> Development
     """Review a development lifecycle plan without running its checks."""
 
     artifacts, findings = _artifact_maps(plan)
-    findings.extend(_spec_work_package_findings(plan))
+    findings.extend(_spec_context_findings(plan))
     findings.extend(_behavior_plane_boundary_findings(plan))
     findings.extend(_validate_references(plan, artifacts))
     stale_by_evidence: dict[str, dict[str, tuple[str, str]]] = {}

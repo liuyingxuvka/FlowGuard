@@ -28,16 +28,17 @@ Current native and parent receipts belong under:
 
 Those receipts are environment-local. The distribution inventory reports their exclusion explicitly instead of copying them into an installed skill package.
 
-## Specification Work-Package Evidence
+## Read-only OpenSpec Context
 
-OpenSpec or Spec Kit remains the native owner of requirements, tasks, strict
-verification, and archive. FlowGuard records a development-process package
-that maps every in-scope task to obligations/checks and maps every required
-obligation/check back to a task or typed infrastructure owner. Verification
-uses immutable begin/post manifests and terminal receipts. Reports, logs,
-ordinary `result.json`, receipt files, and SkillGuard runtime output are
-derived outputs and cannot stale the session that produced them; real specs,
-models, tests, prompts, and V2 contract sources still do.
+Official OpenSpec remains the sole owner of its proposal, design,
+specifications, tasks, validation, status lifecycle, and archive operations.
+FlowGuard may read the current authoring files and derive checkbox status as
+project-bounded planning context. It does not write OpenSpec, execute or wrap
+its checks, open sessions, create caches or receipts, reconcile OpenSpec tasks
+into FlowGuard execution owners, or decide archive readiness.
+
+FlowGuard models and tests keep their own native owners and evidence. An
+OpenSpec checkbox or derived context status is never FlowGuard test proof.
 
 SkillGuard V2 contract source, compiled contract, and check manifest are the
 runtime authority for the current `v2-migration` lifecycle. Former V1 files are
@@ -202,14 +203,16 @@ FlowGuard 是一套由可执行检查引擎驱动的 AI-agent 技能套件。本
 
 `pass`、`partial`、`running`、`pass_with_gaps` 和“命令已经启动”不是一回事。父级闭环不能凭空制造缺失的原生证据。提示词、合同、检查器、模型、测试、命令、依赖或覆盖输入一旦变化，受影响回执必须重新验证，也可能必须重跑。
 
-### 规格工作包证据
+### 只读 OpenSpec 上下文
 
-OpenSpec 或 Spec Kit 继续拥有需求、任务、严格验证和归档。FlowGuard
-只在开发流程层做双向对账：每个任务都要连到义务/检查，每个必需义务/
-检查也要反向连回任务或明确的基础设施负责人。一次验证必须有同一会话
-的 begin/post 快照和终态回执。报告、日志、普通 `result.json`、回执文件
-和 SkillGuard 运行结果都是派生产物，不能让刚刚生成它们的验证自己变旧；
-真正的 spec、模型、测试、提示词和 V2 合同源变化仍会使证据失效。
+官方 OpenSpec 独立拥有 proposal、design、spec、tasks、验证、状态生命周期
+和归档。FlowGuard 只能在当前项目内读取这些编写材料，并根据任务勾选情况
+生成只读的规划上下文；不能修改 OpenSpec、包装或执行其检查、创建会话/
+缓存/回执、把 OpenSpec 任务变成 FlowGuard 测试负责人，也不能替 OpenSpec
+判断能否归档。
+
+FlowGuard 的模型和测试分别拥有自己的执行者与证据。OpenSpec 的任务勾选
+或上下文状态不能当成 FlowGuard 检查已经运行的证明。
 
 结构层的技能套件命令是：
 
