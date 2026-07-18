@@ -101,5 +101,6 @@
 - [x] 11.3 Add a generalized regression proving a project without `.skillguard` or local FlowGuard skills upgrades successfully, while an invalid installed consumer suite blocks before mutation.
 - [x] 11.4 Specify and validate that no target-local suite map, compatibility reader, alias, or fallback path is retained.
 - [x] 11.4a Remove the Python 3.10 hand-written TOML parser fallback and require the single Python 3.11+ `tomllib` path.
+- [x] 11.4b Delete the unused self-governance forwarding entrypoint so the canonical checker has no alias.
 - [x] 11.5 Freeze version 0.58.1, regenerate affected author contracts, and run the final native, OpenSpec, SkillGuard, install, project-upgrade, and full regression gates.
 - [x] 11.6 Synchronize the exact v0.58.1 source, installed suite and package, default Git branch, tag, and asset-free GitHub Release.

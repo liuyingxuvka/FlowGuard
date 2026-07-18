@@ -14,6 +14,8 @@
 - Removed the Python 3.10 hand-written TOML parser fallback and made Python
   3.11+ with the standard-library `tomllib` parser the sole current runtime
   path.
+- Removed the unused `run_flowguard_self_governance.py` forwarding alias; the
+  sole current command is `check_flowguard_self_governance.py`.
 
 ## v0.58.0 - 2026-07-18
 
