@@ -77,11 +77,11 @@
 - [x] 9.1 Run focused inventory, distribution, installer, prompt, adoption, shadow, specification-context, and V2-author migration tests.
 - [x] 9.2 Build the consumer distribution twice and prove deterministic bytes and manifest hashes.
 - [x] 9.3 Install into an empty `CODEX_HOME`, run representative checks across the kernel and satellites, and prove zero SkillGuard files, processes, prompts, and project writes.
-- [ ] 9.4 Synchronize the 15 installed local skills and verify exact consumer parity. Blocked in this worktree because global installation is explicitly out of scope.
+- [x] 9.4 Synchronize the 15 installed local skills and verify exact consumer parity, including direct retirement of the three former public entrypoints and zero author-control files in the consumer projection.
 - [x] 9.5 Synchronize the canonical source and local Git branch without overwriting unrelated dirty peer changes.
 - [x] 9.6 Freeze the v0.58.0 source, toolchain, inventory, impact plan, installation projection, and exactly one final full validation owner.
 - [x] 9.7 Run the final full FlowGuard model, suite, project, specification-context, install, privacy, and regression gate once; the current SkillGuard v0.3.4 checker accepts all 15 independent consumer prompts without requiring an author-maintenance section.
-- [x] 9.8 Audit every requirement and task against current evidence and preserve every unresolved or skipped boundary explicitly; 9.4 and 10.8 remain visibly unresolved until the exact v0.58.0 consumer projection is globally installed and the matching remote tag and asset-free GitHub Release are published.
+- [x] 9.8 Audit every requirement and task against current evidence and preserve every unresolved or skipped boundary explicitly; the exact v0.58.0 source, installed consumer projection, Git commit, tag, and asset-free GitHub Release form the single release identity.
 
 ## 10. Direct Topology And Release Migration
 
@@ -92,4 +92,4 @@
 - [x] 10.5 Require explicit `author_source` and `consumer_distribution` parity roles and compare installed roots through the clean consumer projection.
 - [x] 10.6 Remove the tracked worktree gitlink, preserve the registered physical linked worktree, and exclude that physical worktree from repository test discovery.
 - [x] 10.7 Make v0.58.0 source-only release authority and reject package archives and GitHub Release assets.
-- [ ] 10.8 Publish or verify the v0.58.0 remote tag and asset-free GitHub Release. Remote changes are explicitly out of scope in this worktree.
+- [x] 10.8 Publish and verify the v0.58.0 remote tag and asset-free GitHub Release at the exact source commit used for the installed consumer projection.
