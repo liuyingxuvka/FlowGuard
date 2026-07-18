@@ -118,6 +118,8 @@ process changes.""",
   FlowGuard sibling `SKILL.md` files under `$CODEX_HOME/skills/`.
 - An ordinary target project does not copy the FlowGuard suite into its local
   `.agents/skills/` tree and does not own the canonical suite map.
+- Project audit and upgrade verify the package-owned clean-consumer authority
+  directly against that global projection and its ownership manifest.
 - The Python `flowguard` module/CLI is executable check support, not the
   AI-agent skill installation surface.""",
     ),
@@ -985,7 +987,7 @@ def _write_project_adoption(
             summary="generated block contains every required stable rule",
         ),
         AdoptionCommandResult(
-            "canonical FlowGuard skill-suite validation",
+            "package-authority/global-consumer validation",
             suite.ok if action == PROJECT_ADOPTION_ACTION_UPGRADE else True,
             summary=suite.status,
         ),
@@ -1352,8 +1354,8 @@ def _audit_findings(
             ProjectAdoptionFinding(
                 "blocked",
                 "suite_inventory_unresolved",
-                "Canonical FlowGuard skill-suite validation is unresolved.",
-                "Resolve every canonical suite finding before a writing project upgrade.",
+                "Package-authority/global-consumer validation is unresolved.",
+                "Resolve every installed consumer finding before a writing project upgrade.",
                 metadata={
                     "suite_status": suite.status,
                     "inventory_hash": suite.inventory_hash,
@@ -1420,8 +1422,8 @@ def _write_preflight_blockers(
             ProjectAdoptionFinding(
                 "blocked",
                 "suite_inventory_unresolved",
-                "Writing project-upgrade is blocked until canonical suite validation passes.",
-                "Resolve suite membership and required-file findings before retrying.",
+                "Writing project-upgrade is blocked until package/global consumer validation passes.",
+                "Resolve installed membership, ownership, and file findings before retrying.",
                 metadata={"suite_status": suite.status, "inventory_hash": suite.inventory_hash},
             )
         )
@@ -1429,17 +1431,15 @@ def _write_preflight_blockers(
 
 
 def _load_suite_evidence(root_path: Path) -> _SuiteEvidence:
-    """Validate the one current installed consumer suite against author truth.
+    """Validate the global consumer suite against package-owned authority.
 
-    ``root_path`` is an ordinary project and is never a FlowGuard suite or
-    SkillGuard authority.  The canonical suite map belongs to the installed
-    FlowGuard package source, while the clean consumer projection belongs to
-    the current Codex skills root.
+    ``root_path`` is an ordinary project and is never a FlowGuard suite,
+    author checkout, or SkillGuard authority.  Runtime validation has exactly
+    one path: packaged consumer authority to the current global skills root.
     """
 
     try:
-        from .distribution_sync import resolve_target_skill_root
-        from .skill_suite import validate_skill_suite
+        from .distribution_sync import validate_installed_consumer_suite
     except (ImportError, ModuleNotFoundError) as exc:
         return _SuiteEvidence(
             False,
@@ -1454,11 +1454,7 @@ def _load_suite_evidence(root_path: Path) -> _SuiteEvidence:
             ),
         )
     try:
-        package_root = Path(__file__).resolve().parents[1]
-        report = validate_skill_suite(
-            package_root,
-            skill_root=resolve_target_skill_root(),
-        )
+        report = validate_installed_consumer_suite()
     except Exception as exc:  # validator failures must remain visible, not crash writes
         return _SuiteEvidence(
             False,
@@ -1475,12 +1471,20 @@ def _load_suite_evidence(root_path: Path) -> _SuiteEvidence:
     findings: list[Mapping[str, Any]] = []
     for finding in getattr(report, "findings", ()):
         payload = finding.to_dict() if hasattr(finding, "to_dict") else dict(finding)
-        findings.append(payload)
+        findings.append(
+            {
+                "code": str(payload.get("code", "")),
+                "message": str(payload.get("message", "")),
+                "member_id": "",
+                "file_path": str(payload.get("relative_path", "")),
+                "metadata": dict(payload.get("metadata", {})),
+            }
+        )
     return _SuiteEvidence(
         bool(getattr(report, "ok", False)),
         str(getattr(report, "status", "blocked")),
-        str(getattr(report, "inventory_hash", "")),
-        str(getattr(report, "semantic_hash", "")),
+        str(getattr(report, "authority_raw_tree_hash", "")),
+        str(getattr(report, "authority_semantic_tree_hash", "")),
         tuple(findings),
     )
 

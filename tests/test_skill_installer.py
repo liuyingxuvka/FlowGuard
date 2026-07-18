@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from flowguard.distribution_sync import install_skill_suite
+from flowguard.distribution_sync import _install_skill_tree
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -44,13 +44,13 @@ class SkillInstallerCommandTests(unittest.TestCase):
         )
 
     def test_temporary_codex_home_install_check_uninstall_lifecycle(self) -> None:
-        install = self._run("install", "--source", str(self.source), "--json", env_home=True)
+        install = self._run("install", "--source", str(REPOSITORY_ROOT), "--json", env_home=True)
         self.assertEqual(0, install.returncode, install.stderr or install.stdout)
         install_payload = json.loads(install.stdout)
         self.assertEqual("pass", install_payload["status"])
         self.assertTrue((self.codex_home / "skills" / "flowguard" / "SKILL.md").is_file())
 
-        check = self._run("check", "--source", str(self.source), "--json", env_home=True)
+        check = self._run("check", "--source", str(REPOSITORY_ROOT), "--json", env_home=True)
         self.assertEqual(0, check.returncode, check.stderr or check.stdout)
         self.assertTrue(json.loads(check.stdout)["ok"])
 
@@ -59,7 +59,7 @@ class SkillInstallerCommandTests(unittest.TestCase):
         self.assertFalse((self.codex_home / "skills" / "flowguard" / "SKILL.md").exists())
 
     def test_cli_dry_run_does_not_create_codex_home(self) -> None:
-        completed = self._run("install", "--source", str(self.source), "--dry-run", "--json", env_home=True)
+        completed = self._run("install", "--source", str(REPOSITORY_ROOT), "--dry-run", "--json", env_home=True)
         self.assertEqual(0, completed.returncode, completed.stderr or completed.stdout)
         self.assertTrue(json.loads(completed.stdout)["dry_run"])
         self.assertFalse(self.codex_home.exists())
@@ -73,7 +73,7 @@ class SkillInstallerCommandTests(unittest.TestCase):
                     destination = target / source_file.relative_to(self.source)
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_bytes(source_file.read_bytes())
-        install = install_skill_suite(
+        install = _install_skill_tree(
             self.source,
             installed,
             member_ids=self.member_ids,
@@ -97,10 +97,10 @@ class SkillInstallerCommandTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
 
     def test_cli_check_reports_extra_file(self) -> None:
-        self._run("install", "--source", str(self.source), "--json", env_home=True)
+        self._run("install", "--source", str(REPOSITORY_ROOT), "--json", env_home=True)
         extra = self.codex_home / "skills" / "flowguard-test-mesh" / "legacy.txt"
         extra.write_text("obsolete", encoding="utf-8")
-        completed = self._run("check", "--source", str(self.source), "--json", env_home=True)
+        completed = self._run("check", "--source", str(REPOSITORY_ROOT), "--json", env_home=True)
         self.assertEqual(1, completed.returncode)
         payload = json.loads(completed.stdout)
         self.assertIn("flowguard-test-mesh/legacy.txt", payload["extra_files"])
@@ -109,14 +109,14 @@ class SkillInstallerCommandTests(unittest.TestCase):
         old_file = self.codex_home / "skills" / "flowguard" / "SKILL.md"
         old_file.parent.mkdir(parents=True)
         old_file.write_text("# old unmanaged install\n", encoding="utf-8")
-        protected = self._run("install", "--source", str(self.source), "--json", env_home=True)
+        protected = self._run("install", "--source", str(REPOSITORY_ROOT), "--json", env_home=True)
         self.assertEqual(1, protected.returncode)
         self.assertEqual("# old unmanaged install\n", old_file.read_text(encoding="utf-8"))
 
         adopted = self._run(
             "install",
             "--source",
-            str(self.source),
+            str(REPOSITORY_ROOT),
             "--adopt-existing",
             "--json",
             env_home=True,
@@ -125,7 +125,7 @@ class SkillInstallerCommandTests(unittest.TestCase):
         payload = json.loads(adopted.stdout)
         self.assertIn("flowguard/SKILL.md", payload["adopted_files"])
         self.assertEqual(
-            (self.source / "flowguard" / "SKILL.md").read_bytes(),
+            (REPOSITORY_ROOT / ".agents" / "skills" / "flowguard" / "SKILL.md").read_bytes(),
             old_file.read_bytes(),
         )
 

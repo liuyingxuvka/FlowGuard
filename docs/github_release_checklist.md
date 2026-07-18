@@ -8,6 +8,7 @@ repository.
 Include:
 
 - `flowguard/`
+- `flowguard/consumer-suite-authority.json`;
 - the exact 15 `.agents/skills/flowguard*` members declared by
   `.skillguard/flowguard-suite/suite-map.json`;
 - `docs/`
@@ -66,6 +67,7 @@ Run:
 ```powershell
 python -m unittest discover -s tests
 openspec validate --all --strict
+python scripts/compile_flowguard_consumer_suite_authority.py --root . --check --json
 python examples/job_matching/run_checks.py
 python examples/job_matching/run_conformance.py
 python examples/job_matching/run_scenario_review.py
@@ -85,7 +87,7 @@ python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_valida
 
 ## Source-only Release
 
-FlowGuard v0.58.2 uses the immutable source tag as its sole release authority.
+FlowGuard v0.58.3 uses the immutable source tag as its sole release authority.
 Do not build or upload a wheel or source distribution. The GitHub Release must
 be published with zero assets.
 

@@ -23,6 +23,8 @@ FlowGuard agent skill suite:
   FlowGuard sibling `SKILL.md` files under `$CODEX_HOME/skills/`.
 - An ordinary target project does not copy the FlowGuard suite into its local
   `.agents/skills/` tree and does not own the canonical suite map.
+- Project audit and upgrade verify the package-owned clean-consumer authority
+  directly against that global projection and its ownership manifest.
 - The Python `flowguard` module/CLI is executable check support, not the
   AI-agent skill installation surface.
 
@@ -36,7 +38,7 @@ Project FlowGuard record:
 <!-- flowguard-rule:project.rendered_versions -->
 
 Current adoption record:
-- FlowGuard check-engine version: `0.58.2`
+- FlowGuard check-engine version: `0.58.3`
 - FlowGuard schema version: `1.0`
 
 <!-- flowguard-rule:project.preflight_version_gate -->

@@ -16,13 +16,13 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.58.2` | `1.0` | Python standard library only | MIT |
+| `v0.58.3` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
 ## What FlowGuard Is
 
-An AI-agent skill suite with executable check scripts, FlowGuard checks the risky part of a software change before an agent writes more code. The suite is powered by an executable check engine. In this author repository, its primary agent surface is `.agents/skills/`: start with `.agents/skills/flowguard/SKILL.md`, then use its sibling `SKILL.md` files, references, assets, and check scripts to select the right route. An ordinary target project uses the single clean consumer projection under `$CODEX_HOME/skills/`; it does not vendor a second local FlowGuard suite or suite map.
+An AI-agent skill suite with executable check scripts, FlowGuard checks the risky part of a software change before an agent writes more code. The suite is powered by an executable check engine. In this author repository, its primary agent surface is `.agents/skills/`: start with `.agents/skills/flowguard/SKILL.md`, then use its sibling `SKILL.md` files, references, assets, and check scripts to select the right route. An ordinary target project uses the single clean consumer projection under `$CODEX_HOME/skills/`; it does not vendor a second local FlowGuard suite or suite map. The installed package ships one deterministic clean-consumer authority, and project audit or upgrade compares that authority directly with the global projection and its ownership manifest.
 
 It asks the agent to turn the danger zone into a finite state model, run that model, and inspect counterexample traces. That makes problems such as duplicate side effects, stale test evidence, broken UI recovery paths, or unsupported "done" claims visible before they become maintenance debt.
 
@@ -367,7 +367,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.58.2 is source-only: the immutable Git tag is the release
+FlowGuard v0.58.3 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -750,7 +750,7 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.58.2 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.58.3 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 ## Guard Family 关系

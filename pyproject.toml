@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flowguard"
-version = "0.58.2"
+version = "0.58.3"
 description = "Model-first workflow checks for AI agents and process preflights."
 requires-python = ">=3.11"
 dependencies = []
@@ -17,6 +17,9 @@ flowguard = "flowguard.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["flowguard*"]
+
+[tool.setuptools.package-data]
+flowguard = ["consumer-suite-authority.json"]
 
 [tool.pytest.ini_options]
 norecursedirs = ["build", "worktrees"]

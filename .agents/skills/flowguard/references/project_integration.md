@@ -26,8 +26,15 @@ Start from `flowguard`. Use a direct FlowGuard sibling skill
 when the route is obvious, and use the kernel when route selection is unclear.
 The target repository does not vendor a second project-local FlowGuard suite,
 does not copy the suite into `.agents/skills/`, and does not own the canonical
-suite map. The installed package owns that map and the current Codex skills
-root owns the one clean consumer projection.
+suite map. The author repository owns that maintenance map. The installed
+package instead ships one deterministic clean-consumer authority, and the
+current Codex skills root owns the one clean consumer projection.
+
+Project audit and upgrade use exactly one consumer-validation path: packaged
+authority to `$CODEX_HOME/skills/` plus its ownership manifest. They do not
+read an author checkout, project-local suite, author-maintenance state,
+alternate manifest, or fallback reader. Missing or mismatched current
+authority is a visible blocker before any project-upgrade write.
 
 If the agent can read the skills but cannot run executable checks yet, record
 that as scoped or partial evidence. Do not treat package metadata, a passing
@@ -122,8 +129,8 @@ Do not:
 - write a one-off mini framework and mark the task as fully checked;
 - hide import failures behind prose;
 - treat skipped check-engine setup as a passed model-first check;
-- treat package metadata as proof that `.agents/skills/` is available to the
-  AI agent.
+- treat package metadata as proof that the global FlowGuard consumer skills are
+  available to the AI agent.
 
 If an AI wrote a model-shaped draft before `flowguard` was available, treat
 that draft as an exploratory sketch only, not as FlowGuard evidence. It cannot
@@ -155,7 +162,7 @@ know where the skill suite and check engine come from.
 That project rule should require:
 
 - FlowGuard repository URL: `https://github.com/liuyingxuvka/FlowGuard`;
-- FlowGuard skill-suite visibility under `.agents/skills/`;
+- FlowGuard skill-suite visibility under `$CODEX_HOME/skills/`;
 - `flowguard` executable check preflight;
 - installed check-engine version comparison against `.flowguard/project.toml`
   when version freshness matters;
@@ -184,7 +191,9 @@ This does more than update version text. For an older adopted repository,
 docs, and guidance for deterministic upgrades into the current FlowGuard
 shape. Use `--records-only` only when intentionally scoping out that scan, and
 run `python -m flowguard artifact-upgrade --root . --apply` when you need the
-upgrade scan directly.
+upgrade scan directly. Before writing, it must first prove exact parity between
+the authority shipped in the installed package, the global 15-skill consumer
+projection, and the distribution ownership manifest.
 
 Then check release notes or the changelog, rerun affected FlowGuard models and
 tests, and record the evidence. If the installed check-engine version is older
@@ -198,8 +207,8 @@ If the target project also uses a spec/SPAC-style planning or orchestration
 skill, treat that tool's plan as optional FlowGuard handoff context. The handoff
 should name planned steps, state fields, side effects, parallel ownership,
 repeat or retry points, skipped checks with reasons, and completion evidence.
-Missing planner support should not block FlowGuard; the agent should fall back
-to the normal standalone model-first path.
+Missing planner support does not change the FlowGuard route; the agent uses the
+normal standalone model-first path directly.
 
 When `python -m flowguard` is available, the lightweight adoption CLI can reduce
 manual log drift:

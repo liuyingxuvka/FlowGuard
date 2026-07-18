@@ -1913,10 +1913,10 @@
         "evidence_check_ids": [
           "check:model-regression:project_adoption_version_gate"
         ],
-        "model_sha256": "sha256:33c84009874775ad62950254fdb2c5fe6b793830ae605a1877d0a7f62032384b",
-        "runner_sha256": "sha256:dd3fc9743b62db6bdae91022d0dcc48252932371c43cbe5d3d2ca5d0f731accb",
+      "model_sha256": "sha256:9c8c7fc7113919d2ce77202b24f1f0610169aabbb54b4f1e167715d752de4cb5",
+      "runner_sha256": "sha256:35b24c7696b6bbdbe6824921c20785ec720bbeb7310990b71cb1b24fcaeb4e39",
         "declaration_fingerprint": "sha256:dd93782e2b1c1e03aeccffa5e4845fd0f29c56ffc4757b40645e5955e4ad99a1",
-        "closure_fingerprint": "sha256:87252a46c9211227f3de8be91d0808dd1a265bd1186f954090f4fa405287a79e"
+      "closure_fingerprint": "sha256:94f9e3dd00dbf6c84dfbff6b273d9dc1c9f1fdbf9aba5fd6121e2516b9e0590d"
       }
     },
     {

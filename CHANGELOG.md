@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.58.3 - 2026-07-19
+
+- Corrected the v0.58.2 deployment-topology miss: ordinary project audit and
+  upgrade no longer look for the author-only suite map through an editable
+  package layout.
+- Added one deterministic package-owned clean-consumer authority containing
+  the exact 15 member ids and complete projected file fingerprints, including
+  generated consumer-release manifests.
+- Made ordinary project writes require exact package-authority parity with the
+  global `$CODEX_HOME/skills/` projection and its ownership manifest. Missing,
+  modified, reserved-extra, or author-control-polluted consumers block visibly.
+- Added a real non-editable package regression that installs into an isolated
+  target directory, upgrades a genuinely empty ordinary project, verifies the
+  expected writes, and passes the subsequent project audit.
+- Kept author suite maps, SkillGuard contracts, receipts, and check execution
+  outside the installed consumer and ordinary project runtime. No fallback,
+  alternate reader, compatibility path, or project-local shadow suite was
+  added.
+- Retained source-only release authority with an immutable tag and zero GitHub
+  Release assets.
+
 ## v0.58.2 - 2026-07-18
 
 - Repaired an ordinary-project authority regression: generated minimum

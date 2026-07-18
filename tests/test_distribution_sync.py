@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import inspect
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,13 +14,19 @@ from flowguard.distribution_sync import (
     OWNERSHIP_MANIFEST_NAME,
     PARITY_ROLE_AUTHOR_SOURCE,
     PARITY_ROLE_CONSUMER_DISTRIBUTION,
-    check_skill_suite,
+    _check_skill_tree as check_skill_suite,
+    _consumer_release_bytes,
+    _install_skill_tree as install_skill_suite,
     compare_configured_skill_trees,
-    install_skill_suite,
+    install_skill_suite as install_canonical_skill_suite,
     inventory_skill_tree,
+    load_consumer_suite_authority,
     semantic_hash_bytes,
     uninstall_skill_suite,
+    validate_installed_consumer_suite,
 )
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class DistributionFixture(unittest.TestCase):
@@ -96,6 +105,20 @@ class TreeInventoryTests(DistributionFixture):
 
 
 class DistributionLifecycleTests(DistributionFixture):
+    def test_author_source_cannot_preempt_compiler_owned_consumer_release(self) -> None:
+        collision = self.source / self.members[0] / "consumer-release.json"
+        collision.write_text("{}\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "compiler-owned consumer release manifest",
+        ):
+            install_skill_suite(
+                self.source,
+                self.target,
+                member_ids=self.members,
+            )
+
     def test_install_is_idempotent_and_manifest_owns_every_installed_file(self) -> None:
         first = install_skill_suite(self.source, self.target, member_ids=self.members)
         self.assertTrue(first.ok, first.to_dict())
@@ -296,6 +319,119 @@ class DistributionLifecycleTests(DistributionFixture):
         report = uninstall_skill_suite(self.target)
         self.assertFalse(report.ok)
         self.assertEqual("ownership_manifest_unavailable", report.findings[0].code)
+
+
+class ConsumerSuiteAuthorityTests(unittest.TestCase):
+    def test_package_authority_validates_exact_owned_consumer_without_author_checkout(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "skills"
+            installed = install_canonical_skill_suite(ROOT, target)
+            self.assertTrue(installed.ok, installed.to_dict())
+
+            authority = load_consumer_suite_authority()
+            report = validate_installed_consumer_suite(target)
+
+            self.assertTrue(report.ok, report.to_dict())
+            self.assertEqual(authority.member_ids, report.authority_member_ids)
+            self.assertEqual(authority.authority_hash, report.authority_hash)
+            self.assertIsNotNone(report.parity)
+            self.assertEqual(authority.source, report.parity.reference)
+
+    def test_package_authority_blocks_file_drift_and_reserved_shadow_member(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "skills"
+            installed = install_canonical_skill_suite(ROOT, target)
+            self.assertTrue(installed.ok, installed.to_dict())
+            (target / "flowguard" / "SKILL.md").write_text(
+                "# changed after install\n",
+                encoding="utf-8",
+            )
+            shadow = target / "FlowGuard-retired-shadow"
+            shadow.mkdir()
+            (target / "flowguard" / ".skillguard").mkdir()
+
+            report = validate_installed_consumer_suite(target)
+
+            self.assertFalse(report.ok)
+            codes = {finding.code for finding in report.findings}
+            self.assertIn("installed_raw_hash_mismatch", codes)
+            self.assertIn("reserved_flowguard_member_extra", codes)
+            self.assertIn("consumer_author_control_residual", codes)
+
+    def test_public_authority_interfaces_have_no_alternate_reader_or_policy(self) -> None:
+        self.assertEqual((), tuple(inspect.signature(load_consumer_suite_authority).parameters))
+        self.assertEqual(
+            {"target", "codex_home"},
+            set(inspect.signature(validate_installed_consumer_suite).parameters),
+        )
+        self.assertNotIn(
+            "member_ids",
+            inspect.signature(install_canonical_skill_suite).parameters,
+        )
+
+    def test_package_authority_rejects_self_consistent_stale_global_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "skills"
+            installed = install_canonical_skill_suite(ROOT, target)
+            self.assertTrue(installed.ok, installed.to_dict())
+            authority = load_consumer_suite_authority()
+            (target / "flowguard" / "SKILL.md").write_text(
+                "# internally re-owned stale projection\n",
+                encoding="utf-8",
+            )
+            before_release = inventory_skill_tree(
+                target,
+                member_ids=authority.member_ids,
+            )
+            (target / "flowguard" / "consumer-release.json").write_bytes(
+                _consumer_release_bytes("flowguard", before_release.files)
+            )
+            stale_inventory = inventory_skill_tree(
+                target,
+                member_ids=authority.member_ids,
+            )
+            ownership_path = target / OWNERSHIP_MANIFEST_NAME
+            ownership = json.loads(ownership_path.read_text(encoding="utf-8"))
+            ownership["source_raw_tree_hash"] = stale_inventory.raw_tree_hash
+            ownership["source_semantic_tree_hash"] = (
+                stale_inventory.semantic_tree_hash
+            )
+            ownership["files"] = [
+                item.to_dict() for item in stale_inventory.files
+            ]
+            ownership_path.write_text(
+                json.dumps(ownership, ensure_ascii=False, indent=2, sort_keys=True)
+                + "\n",
+                encoding="utf-8",
+            )
+
+            report = validate_installed_consumer_suite(target)
+
+            self.assertFalse(report.ok)
+            codes = {finding.code for finding in report.findings}
+            self.assertIn("installed_raw_hash_mismatch", codes)
+            self.assertIn("ownership_file_inventory_mismatch", codes)
+
+    def test_repository_package_authority_compiler_reports_no_drift(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "compile_flowguard_consumer_suite_authority.py"),
+                "--root",
+                str(ROOT),
+                "--check",
+                "--json",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["ok"], payload)
+        self.assertFalse(payload["changed"])
 
 
 if __name__ == "__main__":
