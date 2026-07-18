@@ -166,71 +166,6 @@
       }
     },
     {
-      "absence_reason": "This executable task-local replay model is required in the public distribution.",
-      "distribution_policy": "required_public",
-      "exclusion_reason": "",
-      "expected_artifacts": [],
-      "input_globs": [
-        ".flowguard/task_local_prediction_replay/model.py",
-        ".flowguard/task_local_prediction_replay/run_checks.py",
-        "flowguard/conformance.py",
-        "flowguard/replay.py",
-        "flowguard/runner.py",
-        "flowguard/runtime_path.py",
-        "flowguard/task_local_model.py"
-      ],
-      "model_id": "task_local_prediction_replay",
-      "model_path": ".flowguard/task_local_prediction_replay/model.py",
-      "mutation_policy": "none",
-      "runner": [
-        "{python}",
-        ".flowguard/task_local_prediction_replay/run_checks.py"
-      ],
-      "shard_safe": true,
-      "tier": "focused",
-      "timeout_seconds": 300,
-      "purpose_closure": {
-        "schema_version": "flowguard.model_purpose_closure.v1",
-        "model_instance_id": "regression:task_local_prediction_replay:current",
-        "reusable_model_type_id": "task_local_prediction_replay",
-        "task_intent_id": "flowguard-regression:task-local-prediction-replay",
-        "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent task-local model iteration from accepting status-only conformance, expected-output-leaking replay, or a candidate revision without current required replay evidence.",
-        "protected_failure_ids": [
-          "task-local-replay:status-only-pass-accepted",
-          "task-local-replay:expected-output-leak-accepted",
-          "task-local-revision:accepted-without-required-replays"
-        ],
-        "claim_boundary": "Current closure proves only that the task-local prediction and replay model rejects the three declared false-green families; it does not prove any production adapter, permanent learning, or future task model.",
-        "adoption_scope": "current_candidate_only",
-        "known_good_case_id": "native-runner:task-local-prediction-replay:complete-cycle",
-        "failure_bindings": [
-          {
-            "failure_id": "task-local-replay:status-only-pass-accepted",
-            "known_bad_case_id": "native-runner:task-local-prediction-replay:status-only",
-            "oracle_id": "native:task-local-prediction-replay:run-checks"
-          },
-          {
-            "failure_id": "task-local-replay:expected-output-leak-accepted",
-            "known_bad_case_id": "native-runner:task-local-prediction-replay:leaking-adapter",
-            "oracle_id": "native:task-local-prediction-replay:run-checks"
-          },
-          {
-            "failure_id": "task-local-revision:accepted-without-required-replays",
-            "known_bad_case_id": "native-runner:task-local-prediction-replay:missing-replays",
-            "oracle_id": "native:task-local-prediction-replay:run-checks"
-          }
-        ],
-        "evidence_check_ids": [
-          "check:model-regression:task-local-prediction-replay"
-        ],
-        "model_sha256": "sha256:ac0df635a0894c200852815888c0610b940c5a1486eb0e779931882353394ef1",
-        "runner_sha256": "sha256:09c829aa896106a61dd3ec84247ee23e2a0eb067aa05b2864ae33aaf12d16f48",
-        "declaration_fingerprint": "sha256:c917d76bd9d50d2b5f43b1ed62f66cf5de1d1758b87d94b3ba592a20a4674be2",
-        "closure_fingerprint": "sha256:25fa1ddb910b472c08a532f975e330421101609059c6cbb2b66d58157284e0de"
-      }
-    },
-    {
       "absence_reason": "",
       "distribution_policy": "required_public",
       "exclusion_reason": "",
@@ -1592,10 +1527,10 @@
         "evidence_check_ids": [
           "check:model-regression:model_miss_review"
         ],
-        "model_sha256": "sha256:895e9f79b25bfb99d23cf62eb8265b9efa7be9c11e2797baa8ffe0e0faf8130c",
-        "runner_sha256": "sha256:0e5eb01382343af4866ffb3e571c05802c121199062bf361fa050d361ace927c",
+        "model_sha256": "sha256:f5f73081de36621e10d97b1b33f1975027baf76498e8437836acf1672eab6ab2",
+        "runner_sha256": "sha256:d1c147c9818ef0b7ababb9398026d245cf77cddbbb5676aa4d71187dac739cd4",
         "declaration_fingerprint": "sha256:590e8d8b319d73492619a6f5e2ae27f2e559bbce4255d0f67191c1edb1637dde",
-        "closure_fingerprint": "sha256:77494e9aad1aa9d80850cbcf292f4edbc5182f8f4e465329db46bf7e55e462f4"
+        "closure_fingerprint": "sha256:d3253db57dcf6c710e92e589b234c3912f01edf2c5a9c5a490bd0025014c2c31"
       }
     },
     {
@@ -2462,55 +2397,6 @@
         "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
         "declaration_fingerprint": "sha256:67bb15edd41edf3f90db51a5816f6b4e990e868bb116ce03f387003188f2e848",
         "closure_fingerprint": "sha256:82bd95cc6c0632f947fb9911aacabceb51498f9a0b9bb58a5692f8f6cabf2bfc"
-      }
-    },
-    {
-      "absence_reason": "",
-      "distribution_policy": "required_public",
-      "exclusion_reason": "",
-      "expected_artifacts": [],
-      "input_globs": [
-        ".flowguard/spec_context/model.py",
-        ".flowguard/spec_context/run_checks.py",
-        "flowguard/spec_context.py"
-      ],
-      "model_id": "spec_context",
-      "model_path": ".flowguard/spec_context/model.py",
-      "mutation_policy": "none",
-      "runner": [
-        "{python}",
-        ".flowguard/spec_context/run_checks.py"
-      ],
-      "shard_safe": true,
-      "tier": "focused",
-      "timeout_seconds": 300,
-      "purpose_closure": {
-        "schema_version": "flowguard.model_purpose_closure.v1",
-        "model_instance_id": "regression:spec_context:current",
-        "reusable_model_type_id": "spec_context",
-        "task_intent_id": "flowguard-regression:spec-context",
-        "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent read-only official OpenSpec context from gaining provider writes, execution, session, cache, receipt, reconciliation, or archive authority.",
-        "protected_failure_ids": [
-          "spec_context:forbidden-provider-authority"
-        ],
-        "claim_boundary": "Current closure proves only that the checked-in SpecContext model and native runner reject the declared provider-authority failures; it does not prove OpenSpec validation, FlowGuard implementation, archive readiness, or production truth.",
-        "adoption_scope": "current_candidate_only",
-        "known_good_case_id": "native-runner:spec-context:declared-positive-suite",
-        "failure_bindings": [
-          {
-            "failure_id": "spec_context:forbidden-provider-authority",
-            "known_bad_case_id": "native-runner:spec-context:declared-negative-suite",
-            "oracle_id": "native:spec-context:run-checks"
-          }
-        ],
-        "evidence_check_ids": [
-          "check:model-regression:spec-context"
-        ],
-        "model_sha256": "sha256:7c728e6694bbd740e45de4178061bbd189c281e906f7e14a43104f0a9d5f76ea",
-        "runner_sha256": "sha256:5679042e761f84e84f672e72fda0ea9a81c41efab28429cb553a1561075291d9",
-        "declaration_fingerprint": "sha256:e2bca2d5f464729b026ee0689fa8ef06a63b3f33057827a712300c194c5e0281",
-        "closure_fingerprint": "sha256:4cf54c635e9cca51bef389777adc11ef933f8df52b25c3c4f84de1ea444878d1"
       }
     },
     {

@@ -16,6 +16,12 @@
   path.
 - Removed the unused `run_flowguard_self_governance.py` forwarding alias; the
   sole current command is `check_flowguard_self_governance.py`.
+- Removed stale regression-manifest registrations for the already retired
+  SpecContext and task-local replay models and refreshed the changed
+  ModelMissReview purpose identity.
+- Made CI materialize the current clean consumer skill projection before the
+  project-adoption audit, so a clean runner follows the same declared install
+  path instead of depending on undeclared machine state.
 
 ## v0.58.0 - 2026-07-18
 

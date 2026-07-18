@@ -41,6 +41,9 @@ jobs:
       - name: Install FlowGuard
         run: python -m pip install -e .
 
+      - name: Install FlowGuard consumer skills
+        run: python scripts/install_flowguard_skills.py install --source . --json
+
       - name: Project audit
         run: python -m flowguard project-audit --root .
 
@@ -76,6 +79,9 @@ jobs:
 
       - name: Install FlowGuard
         run: python -m pip install -e .
+
+      - name: Install FlowGuard consumer skills
+        run: python scripts/install_flowguard_skills.py install --source . --json
 
       - name: Project audit
         run: python -m flowguard project-audit --root .

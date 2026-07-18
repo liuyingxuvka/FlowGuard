@@ -103,4 +103,7 @@
 - [x] 11.4a Remove the Python 3.10 hand-written TOML parser fallback and require the single Python 3.11+ `tomllib` path.
 - [x] 11.4b Delete the unused self-governance forwarding entrypoint so the canonical checker has no alias.
 - [x] 11.5 Freeze version 0.58.1, regenerate affected author contracts, and run the final native, OpenSpec, SkillGuard, install, project-upgrade, and full regression gates.
-- [x] 11.6 Synchronize the exact v0.58.1 source, installed suite and package, default Git branch, tag, and asset-free GitHub Release.
+- [ ] 11.6 Synchronize the exact v0.58.1 source, installed suite and package, default Git branch, tag, and asset-free GitHub Release.
+- [x] 11.7 Remove the two retired model-regression registrations for deleted SpecContext and task-local replay owners, refresh the changed ModelMissReview purpose identity, and update the exact manifest cardinality assertion.
+- [x] 11.8 Make CI install the one current consumer projection before project adoption audit instead of assuming an undeclared pre-existing machine installation.
+- [ ] 11.9 Rerun the final frozen-source full gate and publish v0.58.1 only after local, installed, Git, tag, Release, and CI identities agree.
