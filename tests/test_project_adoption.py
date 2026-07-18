@@ -695,7 +695,6 @@ class ProjectAdoptionTests(unittest.TestCase):
                     "pip",
                     "install",
                     "--no-deps",
-                    "--no-build-isolation",
                     "--target",
                     str(site_root),
                     str(ROOT),
