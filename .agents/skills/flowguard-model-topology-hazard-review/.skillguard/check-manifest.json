@@ -1,5 +1,5 @@
 {
-  "check_declarations_hash": "AE4CBBDF5A9A47AE055016BD998DC6CD3D73BA3B9FB1F2CCACF358EB32599699",
+  "check_declarations_hash": "F898B3BACDED704C78B6A69A7511E93A7C0ACB6710579A7A5F3A714C6177D422",
   "checks": [
     {
       "args": [
@@ -35,10 +35,11 @@
       "kind": "model_assertion",
       "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-model-topology-hazard-review",
-      "owner_declaration_hash": "sha256:54a8a127d84c63b2e64673217f1aca22ad7b7062a5f6b0b8fb0375fc4fe00a47",
+      "owner_declaration_hash": "sha256:a4af3cfc2c9214961628c0f05fa3720e5620c8ece5487ae818e025a076dc2fff",
       "owner_input_projection_hash": "sha256:eac80ef3e525a1d8f4af94d5d27d1f29630318747f11c6a29ac419433b029f2b",
       "projection_declaration_hash": "sha256:a0f22007131dcdbcb80be00d78a6ebb6f8ebfcf99da3a8fac4a9faa2eaed3676",
       "semantic_check_id": "semantic:check:flowguard-model-topology-hazard-review:plane-boundary",
+      "target_input_role_ids": [],
       "timeout_seconds": 30
     },
     {
@@ -99,10 +100,11 @@
       "kind": "command",
       "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-model-topology-hazard-review",
-      "owner_declaration_hash": "sha256:6902e4363d92ea4ca91c16e60facfe49bfca167007392bf58954cff9f06dd05a",
+      "owner_declaration_hash": "sha256:4c67fdb266027149b4623e30ed72f2140c76f34cfcc48900bc021941b1397431",
       "owner_input_projection_hash": "sha256:75add9b9df3fea477ecd232c7b29ce542107a3c8a9e93f526887d455fee48957",
       "projection_declaration_hash": "sha256:27a4023307c4599daf0ea0653c85f56269fcf1dfd67b3c1310f6155f273914fa",
       "semantic_check_id": "semantic:check:flowguard-model-topology-hazard-review:native-authority",
+      "target_input_role_ids": [],
       "timeout_seconds": 180
     },
     {
@@ -139,10 +141,11 @@
       "kind": "model_assertion",
       "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-model-topology-hazard-review",
-      "owner_declaration_hash": "sha256:90d966b508103d203208380d94811786bc46602242822778f1e22f6b11aab078",
+      "owner_declaration_hash": "sha256:7c24057d1f84161bc8186dbeb15755f237cbbfc7ae90d43fd6c0af866936bc18",
       "owner_input_projection_hash": "sha256:eac80ef3e525a1d8f4af94d5d27d1f29630318747f11c6a29ac419433b029f2b",
       "projection_declaration_hash": "sha256:c9cabcb67ca17ea064c080cb7f96a49603b297fe376665105eeb290d3617adb6",
       "semantic_check_id": "semantic:check:flowguard-model-topology-hazard-review:evidence-closure",
+      "target_input_role_ids": [],
       "timeout_seconds": 30
     }
   ],
@@ -347,7 +350,7 @@
       "owner_cycles": [],
       "unmapped_paths": []
     },
-    "impact_graph_hash": "sha256:98b0e34160ebf220cfeafd575ee1083ae9da6af7f4880e98b056a0f834654ed5",
+    "impact_graph_hash": "sha256:a5e7d2feb7dfa31626716935042da759db1ede4c60aff48cb485509fc38adf9b",
     "inventory": [
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:contract_schema",
@@ -458,8 +461,9 @@
             "path": ".flowguard/model_topology_hazard_review/model.py"
           }
         ],
-        "owner_declaration_hash": "sha256:90d966b508103d203208380d94811786bc46602242822778f1e22f6b11aab078",
-        "owner_input_projection_hash": "sha256:eac80ef3e525a1d8f4af94d5d27d1f29630318747f11c6a29ac419433b029f2b"
+        "owner_declaration_hash": "sha256:7c24057d1f84161bc8186dbeb15755f237cbbfc7ae90d43fd6c0af866936bc18",
+        "owner_input_projection_hash": "sha256:eac80ef3e525a1d8f4af94d5d27d1f29630318747f11c6a29ac419433b029f2b",
+        "target_input_role_ids": []
       },
       {
         "check_ids": [
@@ -503,8 +507,9 @@
             "role": "test_dev"
           }
         ],
-        "owner_declaration_hash": "sha256:6902e4363d92ea4ca91c16e60facfe49bfca167007392bf58954cff9f06dd05a",
-        "owner_input_projection_hash": "sha256:75add9b9df3fea477ecd232c7b29ce542107a3c8a9e93f526887d455fee48957"
+        "owner_declaration_hash": "sha256:4c67fdb266027149b4623e30ed72f2140c76f34cfcc48900bc021941b1397431",
+        "owner_input_projection_hash": "sha256:75add9b9df3fea477ecd232c7b29ce542107a3c8a9e93f526887d455fee48957",
+        "target_input_role_ids": []
       },
       {
         "check_ids": [
@@ -523,8 +528,9 @@
             "path": ".flowguard/model_topology_hazard_review/model.py"
           }
         ],
-        "owner_declaration_hash": "sha256:54a8a127d84c63b2e64673217f1aca22ad7b7062a5f6b0b8fb0375fc4fe00a47",
-        "owner_input_projection_hash": "sha256:eac80ef3e525a1d8f4af94d5d27d1f29630318747f11c6a29ac419433b029f2b"
+        "owner_declaration_hash": "sha256:a4af3cfc2c9214961628c0f05fa3720e5620c8ece5487ae818e025a076dc2fff",
+        "owner_input_projection_hash": "sha256:eac80ef3e525a1d8f4af94d5d27d1f29630318747f11c6a29ac419433b029f2b",
+        "target_input_role_ids": []
       }
     ],
     "policy_id": "skillguard.content_impact_policy.current",
@@ -592,9 +598,9 @@
     "schema_version": "skillguard.content_impact_plan.current",
     "unknown_mapping_disposition": "block"
   },
-  "contract_hash": "6088F65F2E14A9727870FFD2312125A50EF562E29B5F4A910A7BA9BFCD0863B8",
+  "contract_hash": "5B9F2A8E3C3E9589A2016ECCC93B581DDAC4FFC6BB61AC13394B8C34C53CD2FE",
   "maintenance_unit_id": "unit:flowguard-suite",
-  "manifest_hash": "19E98545438E3EF2E5659D4806F3D54B2A21C67EC8E5FD058B4A5DF93034D3BC",
+  "manifest_hash": "89B595EEB47358D7D4DD56968E22592663525BC307490795F3456C745888A8D4",
   "member_skill_ids": [
     "flowguard",
     "flowguard-architecture-reduction",
