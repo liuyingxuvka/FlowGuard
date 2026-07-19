@@ -4,13 +4,18 @@ import unittest
 
 from examples.latest_schema_upgrade_policy.model import (
     BROKEN_CLASSIFIER_DELETED,
+    BROKEN_NUMERIC_TARGET_JSON_REWRITE,
+    BROKEN_PARTIAL_LEDGER_REWRITE,
     BROKEN_RUNTIME_COMPAT,
     BROKEN_SILENT_SKIP,
+    BROKEN_UNSUPPORTED_REGISTERED_ENVELOPE_REWRITE,
     BROKEN_UNKNOWN_REWRITE,
     CURRENT_ARTIFACT,
-    KNOWN_OLD_ARTIFACT_UPGRADED,
+    LEGACY_BCL_ARTIFACT_UPGRADED,
     OLDER_PROJECT_TRIGGERS_SCAN,
     RECORDS_ONLY_SCOPED,
+    TARGET_OWNED_JSON_PRESERVED,
+    UNSUPPORTED_REGISTERED_ENVELOPE_BLOCKED,
     UNKNOWN_SCRIPT_BLOCKED,
     run_latest_schema_upgrade_policy_review,
 )
@@ -24,17 +29,19 @@ class LatestSchemaUpgradePolicyTests(unittest.TestCase):
 
     def test_policy_model_matches_expectations(self):
         self.assertTrue(self.review.ok, self.review.format_text(max_counterexamples=1))
-        self.assertEqual(9, self.review.total_scenarios)
-        self.assertEqual(5, self.review.passed)
-        self.assertEqual(4, self.review.expected_violations_observed)
+        self.assertEqual(14, self.review.total_scenarios)
+        self.assertEqual(7, self.review.passed)
+        self.assertEqual(7, self.review.expected_violations_observed)
 
     def test_supported_policy_paths_pass(self):
         for case in (
             CURRENT_ARTIFACT,
-            KNOWN_OLD_ARTIFACT_UPGRADED,
+            LEGACY_BCL_ARTIFACT_UPGRADED,
+            UNSUPPORTED_REGISTERED_ENVELOPE_BLOCKED,
             OLDER_PROJECT_TRIGGERS_SCAN,
             UNKNOWN_SCRIPT_BLOCKED,
             RECORDS_ONLY_SCOPED,
+            TARGET_OWNED_JSON_PRESERVED,
         ):
             self.assertEqual("pass", self.statuses[case.name])
 
@@ -44,6 +51,9 @@ class LatestSchemaUpgradePolicyTests(unittest.TestCase):
             BROKEN_SILENT_SKIP,
             BROKEN_UNKNOWN_REWRITE,
             BROKEN_CLASSIFIER_DELETED,
+            BROKEN_NUMERIC_TARGET_JSON_REWRITE,
+            BROKEN_PARTIAL_LEDGER_REWRITE,
+            BROKEN_UNSUPPORTED_REGISTERED_ENVELOPE_REWRITE,
         ):
             self.assertEqual("expected_violation_observed", self.statuses[case.name])
 
@@ -56,7 +66,7 @@ class LatestSchemaUpgradePolicyTests(unittest.TestCase):
         )
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
         self.assertIn("latest-schema upgrade policy", completed.stdout)
-        self.assertIn("expected violations observed: 4", completed.stdout)
+        self.assertIn("expected violations observed: 7", completed.stdout)
 
 
 if __name__ == "__main__":

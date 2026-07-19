@@ -86,7 +86,6 @@
           "evidence_current": false,
           "evidence_refs": [],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": false,
           "ppa_confidence": "",
@@ -97,7 +96,6 @@
           "ppa_report_id": "",
           "ppa_risk_gate_ids": [],
           "primary_path_id": "",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [],
           "runtime_observation_ids": [],
           "scoped_out_reason": ""
@@ -316,7 +314,6 @@
           "evidence_current": false,
           "evidence_refs": [],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": false,
           "ppa_confidence": "",
@@ -327,7 +324,6 @@
           "ppa_report_id": "",
           "ppa_risk_gate_ids": [],
           "primary_path_id": "",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [],
           "runtime_observation_ids": [],
           "scoped_out_reason": ""
@@ -431,7 +427,6 @@
           "evidence_current": false,
           "evidence_refs": [],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": false,
           "ppa_confidence": "",
@@ -442,7 +437,6 @@
           "ppa_report_id": "",
           "ppa_risk_gate_ids": [],
           "primary_path_id": "",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [],
           "runtime_observation_ids": [],
           "scoped_out_reason": ""
@@ -560,7 +554,6 @@
           "evidence_current": false,
           "evidence_refs": [],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": false,
           "ppa_confidence": "",
@@ -571,7 +564,6 @@
           "ppa_report_id": "",
           "ppa_risk_gate_ids": [],
           "primary_path_id": "",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [],
           "runtime_observation_ids": [],
           "scoped_out_reason": ""
@@ -691,7 +683,6 @@
           "evidence_current": false,
           "evidence_refs": [],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": false,
           "ppa_confidence": "",
@@ -702,7 +693,6 @@
           "ppa_report_id": "",
           "ppa_risk_gate_ids": [],
           "primary_path_id": "",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [],
           "runtime_observation_ids": [],
           "scoped_out_reason": ""
@@ -823,7 +813,6 @@
           "evidence_current": false,
           "evidence_refs": [],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": false,
           "ppa_confidence": "",
@@ -834,7 +823,6 @@
           "ppa_report_id": "",
           "ppa_risk_gate_ids": [],
           "primary_path_id": "",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [],
           "runtime_observation_ids": [],
           "scoped_out_reason": ""
@@ -984,7 +972,6 @@
           "evidence_current": false,
           "evidence_refs": [],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": false,
           "ppa_confidence": "",
@@ -995,7 +982,6 @@
           "ppa_report_id": "",
           "ppa_risk_gate_ids": [],
           "primary_path_id": "",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [],
           "runtime_observation_ids": [],
           "scoped_out_reason": ""
@@ -1129,7 +1115,6 @@
           "evidence_current": false,
           "evidence_refs": [],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": false,
           "ppa_confidence": "",
@@ -1140,7 +1125,6 @@
           "ppa_report_id": "",
           "ppa_risk_gate_ids": [],
           "primary_path_id": "",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [],
           "runtime_observation_ids": [],
           "scoped_out_reason": ""
@@ -1259,7 +1243,6 @@
           "evidence_current": false,
           "evidence_refs": [],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": false,
           "ppa_confidence": "",
@@ -1270,7 +1253,6 @@
           "ppa_report_id": "",
           "ppa_risk_gate_ids": [],
           "primary_path_id": "",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [],
           "runtime_observation_ids": [],
           "scoped_out_reason": ""
@@ -1395,7 +1377,6 @@
             "tests/test_skill_docs.py"
           ],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": true,
           "ppa_confidence": "full",
@@ -1412,7 +1393,6 @@
             "risk_gate:flowguard-agent-guidance-route"
           ],
           "primary_path_id": "path:flowguard:plane-first-route-selection",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [
             "proof:flowguard-agent-guidance-current"
           ],
@@ -1536,7 +1516,6 @@
             "tests/test_portable_model_cli.py"
           ],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": true,
           "ppa_confidence": "full",
@@ -1553,7 +1532,6 @@
             "risk_gate:portable-compositional-verification"
           ],
           "primary_path_id": "path:portable-compositional-verification:canonical-checker",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [
             "proof:portable-compositional-verification-current"
           ],
@@ -1665,7 +1643,6 @@
             ".flowguard/reduce_architecture_surface/run_checks.py"
           ],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": true,
           "ppa_confidence": "full",
@@ -1682,7 +1659,6 @@
             "risk_gate:flowguard-public-api-surface"
           ],
           "primary_path_id": "path:flowguard-public-api:api-surface-facade",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [
             "proof:flowguard-public-api-surface-current"
           ],
@@ -1794,7 +1770,6 @@
             "tests/test_maintenance_template.py"
           ],
           "fallback_candidate_ids": [],
-          "legacy_plural_migrated": false,
           "metadata": {},
           "path_sensitive": true,
           "ppa_confidence": "full",
@@ -1811,7 +1786,6 @@
             "risk_gate:flowguard-template-cli-dispatch"
           ],
           "primary_path_id": "path:flowguard-template-cli:registry-dispatch",
-          "primary_path_migration_ambiguous": false,
           "proof_artifact_ids": [
             "proof:flowguard-template-cli-dispatch-current"
           ],

@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.58.4 - 2026-07-19
+
+- Corrected the v0.58.3 artifact-ownership model miss: a numeric
+  `schema_version`, producer label, FlowGuard-looking prefix, scan path, or
+  partial ledger shape no longer grants FlowGuard write authority.
+- Added an exact current-only registry for real FlowGuard `report` and `trace`
+  envelopes. Current shapes remain byte-identical; malformed, old, future, and
+  unsupported versions block without writing because no evidence-bound
+  migrator exists.
+- Retained one repository-history-backed behavior-ledger writer, bounded to
+  the exact complete bare producer shape from commit `56083c1e`. It
+  materializes the full current canonical envelope at the upgrade boundary;
+  target-only extra fields and old/future BCL envelopes never enter it.
+- Required explicit upgrade-AI plane/actor dispositions in legacy row metadata;
+  actor, owner, label, trigger, and commitment-kind text are never used to
+  guess new current semantics.
+- Migrated historical `primary_path_ids` explicitly at that boundary: zero or
+  one value becomes the current singular field, while multiple values block
+  for an evidence-bound disposition. No generic version-field writer,
+  fallback, dual reader, or compatibility parser was added.
+- Removed the normal-runtime plural path reader and its
+  `legacy_plural_migrated` / `primary_path_migration_ambiguous` state. The BCL
+  loader now requires the exact current envelope field set, current schema and
+  format versions, and a canonical current payload.
+- Updated the bundled public BCL template to emit that complete current
+  canonical payload directly; template loading never fills omitted fields or
+  consults a compatibility reader.
+- Added a real non-editable-package regression that migrates a historical
+  FlowGuard behavior ledger while proving a Khaos-style target fixture remains
+  byte- and SHA-256-identical in the same `project-upgrade` run.
+- Extended both public upgrade models with target-owned JSON, full
+  legacy-lookalike extra-field, and unsupported-envelope known-bad cases.
+- Retained source-only release authority with an immutable tag and zero GitHub
+  Release assets.
+
 ## v0.58.3 - 2026-07-19
 
 - Corrected the v0.58.2 deployment-topology miss: ordinary project audit and

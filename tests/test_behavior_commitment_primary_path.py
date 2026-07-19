@@ -153,33 +153,13 @@ def codes(report):
 
 
 class BehaviorCommitmentPrimaryPathTests(unittest.TestCase):
-    def test_one_item_legacy_plural_migrates_to_canonical_singular_path(self):
-        binding = BehaviorPathAuthorityBinding(primary_path_ids=(PRIMARY_PATH_ID,))
-
-        self.assertEqual(PRIMARY_PATH_ID, binding.primary_path_id)
-        self.assertTrue(binding.legacy_plural_migrated)
-        self.assertEqual(PRIMARY_PATH_ID, binding.to_dict()["primary_path_id"])
-        self.assertNotIn("primary_path_ids", binding.to_dict())
-
-    def test_ambiguous_legacy_plural_blocks_path_sensitive_commitment(self):
-        binding = BehaviorPathAuthorityBinding(
-            path_sensitive=True,
-            business_intent_id=INTENT_ID,
-            behavior_commitment_id=COMMITMENT_ID,
-            ppa_report_id="report:ambiguous",
-            ppa_decision="primary_path_authority_green",
-            ppa_confidence="full",
-            ppa_ok=True,
-            primary_path_ids=(PRIMARY_PATH_ID, "submit_order_parallel"),
-            runtime_observation_ids=("runtime:ambiguous",),
-            proof_artifact_ids=("proof:ambiguous",),
-            evidence_current=True,
-            ppa_risk_gate_ids=("risk_gate:primary_path_authority",),
-        )
-        report = review_behavior_commitment_ledger(behavior_ledger(binding))
-
-        self.assertFalse(report.ok)
-        self.assertIn("commitment_primary_path_migration_ambiguous", codes(report))
+    def test_retired_plural_path_inputs_are_rejected_at_runtime(self):
+        with self.assertRaises(TypeError):
+            BehaviorPathAuthorityBinding(primary_path_ids=(PRIMARY_PATH_ID,))
+        with self.assertRaises(ValueError):
+            BehaviorPathAuthorityBinding(
+                metadata={"legacy_primary_path_ids": [PRIMARY_PATH_ID]}
+            )
 
     def test_path_sensitive_commitment_requires_ppa_binding(self):
         report = review_behavior_commitment_ledger(

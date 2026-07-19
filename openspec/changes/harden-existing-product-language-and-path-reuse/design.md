@@ -181,12 +181,13 @@ Similarity, UI observation, or a free-form evidence id alone cannot.
 Alternative considered: add a path-reuse evidence schema. Rejected because it
 would duplicate RuntimePathEvidence, ProofArtifact, MTA, and TestMesh.
 
-### Decision 7: Singular path binding uses deterministic compatibility input
+### Decision 7: Singular path binding is current-only
 
-The canonical path-sensitive BCL binding emits one `primary_path_id`. Legacy
-`primary_path_ids` input is accepted only when it contains exactly one distinct
-non-empty id, which is deterministically migrated to the singular field. Empty,
-multi-item, or conflicting singular/list input cannot support broad confidence.
+The canonical path-sensitive BCL runtime binding accepts and emits one
+`primary_path_id`; it has no plural alias or compatibility state. The exact
+historical BCL artifact upgrader owns the only retired `primary_path_ids`
+input. It materializes zero or one value at the upgrade boundary and blocks
+multiple values pending one evidence-bound current disposition.
 
 Alternative considered: retain a list indefinitely and require callers to
 interpret the first item. Rejected because ordering cannot establish authority
@@ -206,9 +207,9 @@ and preserves ambiguity by design.
 - [UI consistency suppresses legitimate platform behavior] → Allow bounded,
   typed platform, native-control, accessibility, and safety exceptions while
   retaining the same commitment and primary path when business semantics match.
-- [The singular field breaks existing callers] → Accept only deterministic
-  one-item legacy input, report ambiguity explicitly, and update templates and
-  fixtures before removing legacy input in a later change.
+- [The singular field breaks existing callers] → Upgrade old files once
+  through the exact historical artifact owner, update callers and fixtures to
+  the singular field, and reject retired input in normal runtime.
 - [Cross-owner findings are mistaken for a new workflow] → Keep one typed
   handoff chain and document each existing owner's claim boundary in skills,
   specs, and reports.

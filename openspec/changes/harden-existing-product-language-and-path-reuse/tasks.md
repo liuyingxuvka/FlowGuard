@@ -41,7 +41,9 @@
 - [x] 5.3 Add family/reduction/similarity materialization cases for omitted members/candidates and opaque handoff ids, and project them into concrete MTA/TestMesh obligations and shards.
 - [x] 5.4 Extend TestMesh inventory records and review logic so complete required ids/revisions are explicit and running, heartbeat, log, PID, or progress-only evidence never counts as a passing final receipt.
 - [x] 5.5 Add tests/test_product_language_path_reuse.py as the end-to-end known-good/known-bad integration suite required by the verification contract.
-- [x] 5.6 Update focused unit tests for every extended model family, singular migration, serialization compatibility, public exports, route registry, and no-new-CLI invariant.
+- [x] 5.6 Update focused unit tests for every extended model family, singular
+  current-only runtime binding, bounded historical artifact migration, public
+  exports, route registry, and no-new-CLI invariant.
 
 ## 6. Prompts, skills, templates, docs, and self-models
 

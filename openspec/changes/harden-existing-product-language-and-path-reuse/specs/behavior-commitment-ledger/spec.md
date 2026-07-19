@@ -47,13 +47,13 @@ commitment coverage.
 - **WHEN** a path-sensitive commitment carries one primary path id, matching exact business-intent identity, current green PPA decision, and current runtime and proof evidence
 - **THEN** the ledger review SHALL accept the PPA binding for the declared commitment scope
 
-#### Scenario: Legacy one-item path list migrates deterministically
-- **WHEN** legacy input supplies exactly one distinct non-empty `primary_path_ids` value and no conflicting singular value
-- **THEN** the ledger SHALL migrate that value to `primary_path_id` and SHALL emit the singular field in current output
-
-#### Scenario: Ambiguous path list blocks broad confidence
-- **WHEN** legacy input supplies zero, multiple, duplicate-conflicting, or singular/list-conflicting primary path values
-- **THEN** the ledger review SHALL report an ambiguous primary-path binding and SHALL NOT support broad confidence
+#### Scenario: Retired plural path input is not a runtime route
+- **WHEN** normal runtime input supplies retired `primary_path_ids` or
+  `legacy_primary_path_ids`
+- **THEN** the ledger loader SHALL reject the input instead of migrating,
+  aliasing, or selecting a list element
+- **AND** historical file migration SHALL remain owned by the exact bounded
+  artifact upgrader
 
 #### Scenario: Scoped or opaque PPA reference is insufficient
 - **WHEN** a path-sensitive commitment carries a PPA reference but the decision is scoped, missing, stale, blocked, not current, or lacks the selected primary path and material proof

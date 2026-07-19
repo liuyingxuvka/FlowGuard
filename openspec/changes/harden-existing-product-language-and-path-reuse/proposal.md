@@ -10,7 +10,9 @@ FlowGuard can currently validate UI content, text hierarchy, behavior commitment
 - Bind business UI features, action grammars, functional chains, and transition projections to the existing commitment and primary path without making UI the runtime authority owner.
 - Require ObligationFamily, Model-Test Alignment, RuntimePathEvidence, ArchitectureReduction, ContractExhaustionMesh, and TestMesh to consume complete inventories and materialized obligations rather than opaque or caller-selected IDs.
 - Update the existing skills, prompts, protocols, templates, docs, self-models, tests, version/install workflow, shadow/formal parity, and local Git closure.
-- **BREAKING**: path-sensitive behavior bindings emit one singular `primary_path_id`; legacy `primary_path_ids` input is accepted only for deterministic one-item migration and cannot support broad confidence when ambiguous.
+- **BREAKING**: path-sensitive runtime bindings accept and emit only one
+  singular `primary_path_id`. Retired `primary_path_ids` is handled only by
+  the exact historical BCL artifact upgrader and is never a runtime alias.
 - Do not create a Product Design Language route, Functional Path Reuse route, intent ledger, second evidence engine, second runtime authority, audience/persona visibility taxonomy, or new CLI command.
 
 ## Capabilities

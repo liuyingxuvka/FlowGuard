@@ -63,6 +63,11 @@ second behavior inventory. Use `load_behavior_commitment_ledger()`,
 `write_behavior_commitment_ledger()`, and
 `behavior_commitment_ledger_fingerprint()` at tool boundaries.
 
+The bundled public template emits the complete current canonical envelope.
+The current loader rejects omitted default fields instead of filling them as a
+compatibility path; update a producer directly whenever the current shape
+changes.
+
 Commitments connect through typed `BehaviorCommitmentRelation` rows:
 `depends_on`, `invokes`, `validates`, `governs`, or
 `requires_evidence_from`. Cross-plane relations need a reason and never move
@@ -139,10 +144,12 @@ path-sensitive, attach PPA evidence with
 `behavior_path_binding_from_primary_path_report()`. If PPA blocks, the ledger
 blocks that commitment and any broad claim depending on it.
 
-The current binding emits one `primary_path_id`. Legacy `primary_path_ids`
-input is accepted only when it contains one distinct non-empty value and does
-not conflict with the singular value. Empty, multi-path, or conflicting input
-is an ambiguity blocker rather than a list-order selection rule.
+The current runtime binding accepts and emits only one `primary_path_id`.
+Retired `primary_path_ids` is never a runtime input or compatibility alias.
+The bounded artifact upgrader may consume the exact historical BCL producer
+shape once: zero or one old value is materialized directly as the current
+singular field, while multiple values block until upgrade AI supplies one
+evidence-bound current disposition.
 
 ## Public API Shape
 

@@ -317,18 +317,7 @@ def _coerce_path_binding(value: "BehaviorPathAuthorityBinding | Mapping[str, Any
         return BehaviorPathAuthorityBinding()
     if isinstance(value, BehaviorPathAuthorityBinding):
         return value
-    data = dict(value)
-    legacy_primary_path_ids = data.pop("legacy_primary_path_ids", ())
-    metadata = data.get("metadata")
-    if (
-        not legacy_primary_path_ids
-        and isinstance(metadata, Mapping)
-        and metadata.get("legacy_primary_path_ids")
-    ):
-        legacy_primary_path_ids = metadata.get("legacy_primary_path_ids", ())
-    if legacy_primary_path_ids and not data.get("primary_path_ids"):
-        data["primary_path_ids"] = legacy_primary_path_ids
-    return BehaviorPathAuthorityBinding(**data)
+    return BehaviorPathAuthorityBinding(**dict(value))
 
 
 def _coerce_evidence(value: "BehaviorEvidenceBinding | Mapping[str, Any] | None") -> "BehaviorEvidenceBinding":
@@ -630,9 +619,6 @@ class BehaviorPathAuthorityBinding:
     ppa_confidence: str = ""
     ppa_ok: bool | None = None
     primary_path_id: str = ""
-    primary_path_ids: tuple[str, ...] = ()
-    legacy_plural_migrated: bool = False
-    primary_path_migration_ambiguous: bool = False
     fallback_candidate_ids: tuple[str, ...] = ()
     ppa_coverage_receipt_ids: tuple[str, ...] = ()
     ppa_coverage_shard_ids: tuple[str, ...] = ()
@@ -652,25 +638,7 @@ class BehaviorPathAuthorityBinding:
         object.__setattr__(self, "ppa_report_id", str(self.ppa_report_id))
         object.__setattr__(self, "ppa_decision", str(self.ppa_decision))
         object.__setattr__(self, "ppa_confidence", str(self.ppa_confidence))
-        primary_path_id = str(self.primary_path_id)
-        primary_path_ids = _as_tuple(self.primary_path_ids)
-        legacy_plural_migrated = bool(
-            self.legacy_plural_migrated
-            or (not primary_path_id and len(primary_path_ids) == 1)
-        )
-        migration_ambiguous = bool(
-            self.primary_path_migration_ambiguous
-            or len(primary_path_ids) > 1
-            or (primary_path_id and primary_path_ids and primary_path_ids != (primary_path_id,))
-        )
-        if legacy_plural_migrated:
-            primary_path_id = primary_path_ids[0]
-        if primary_path_id and not primary_path_ids:
-            primary_path_ids = (primary_path_id,)
-        object.__setattr__(self, "primary_path_id", primary_path_id)
-        object.__setattr__(self, "primary_path_ids", primary_path_ids)
-        object.__setattr__(self, "legacy_plural_migrated", legacy_plural_migrated)
-        object.__setattr__(self, "primary_path_migration_ambiguous", migration_ambiguous)
+        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
         object.__setattr__(self, "fallback_candidate_ids", _as_tuple(self.fallback_candidate_ids))
         object.__setattr__(self, "ppa_coverage_receipt_ids", _as_tuple(self.ppa_coverage_receipt_ids))
         object.__setattr__(self, "ppa_coverage_shard_ids", _as_tuple(self.ppa_coverage_shard_ids))
@@ -680,7 +648,12 @@ class BehaviorPathAuthorityBinding:
         object.__setattr__(self, "runtime_observation_ids", _as_tuple(self.runtime_observation_ids))
         object.__setattr__(self, "proof_artifact_ids", _as_tuple(self.proof_artifact_ids))
         object.__setattr__(self, "evidence_current", bool(self.evidence_current))
-        object.__setattr__(self, "metadata", _metadata(self.metadata))
+        metadata = _metadata(self.metadata)
+        if "legacy_primary_path_ids" in metadata:
+            raise ValueError(
+                "retired legacy_primary_path_ids metadata is not accepted at runtime"
+            )
+        object.__setattr__(self, "metadata", metadata)
 
     def has_ppa_evidence(self) -> bool:
         return bool(
@@ -695,8 +668,6 @@ class BehaviorPathAuthorityBinding:
 
     def ppa_blocked(self) -> bool:
         return (
-            self.primary_path_migration_ambiguous
-            or
             self.ppa_ok is False
             or self.ppa_decision == PPA_DECISION_BLOCKED
             or self.ppa_confidence == PPA_CONFIDENCE_BLOCKED
@@ -708,7 +679,6 @@ class BehaviorPathAuthorityBinding:
             and self.ppa_decision == PPA_DECISION_GREEN
             and self.ppa_confidence == PPA_CONFIDENCE_FULL
             and self.primary_path_id
-            and not self.primary_path_migration_ambiguous
             and self.business_intent_id
             and self.behavior_commitment_id
             and self.runtime_observation_ids
@@ -728,9 +698,6 @@ class BehaviorPathAuthorityBinding:
         return BCL_PPA_BLOCKED
 
     def to_dict(self) -> dict[str, Any]:
-        metadata = dict(self.metadata)
-        if self.primary_path_migration_ambiguous and self.primary_path_ids:
-            metadata.setdefault("legacy_primary_path_ids", list(self.primary_path_ids))
         return {
             "path_sensitive": self.path_sensitive,
             "business_intent": self.business_intent,
@@ -741,8 +708,6 @@ class BehaviorPathAuthorityBinding:
             "ppa_confidence": self.ppa_confidence,
             "ppa_ok": self.ppa_ok,
             "primary_path_id": self.primary_path_id,
-            "legacy_plural_migrated": self.legacy_plural_migrated,
-            "primary_path_migration_ambiguous": self.primary_path_migration_ambiguous,
             "fallback_candidate_ids": list(self.fallback_candidate_ids),
             "ppa_coverage_receipt_ids": list(self.ppa_coverage_receipt_ids),
             "ppa_coverage_shard_ids": list(self.ppa_coverage_shard_ids),
@@ -752,7 +717,7 @@ class BehaviorPathAuthorityBinding:
             "runtime_observation_ids": list(self.runtime_observation_ids),
             "proof_artifact_ids": list(self.proof_artifact_ids),
             "evidence_current": self.evidence_current,
-            "metadata": to_jsonable(metadata),
+            "metadata": to_jsonable(dict(self.metadata)),
         }
 
 
@@ -1042,11 +1007,27 @@ def behavior_commitment_ledger_from_mapping(
     if isinstance(value, BehaviorCommitmentLedger):
         return value
     data = dict(value)
-    if "ledger" in data:
+    is_envelope = "ledger" in data
+    if is_envelope:
+        expected_envelope_fields = {
+            "artifact_type",
+            "schema_version",
+            "format_version",
+            "ledger",
+        }
+        if set(data) != expected_envelope_fields:
+            raise ValueError(
+                "behavior commitment ledger envelope must use the exact current field set"
+            )
         artifact_type = str(data.get("artifact_type", ""))
         if artifact_type != BCL_LEDGER_ARTIFACT_TYPE:
             raise ValueError(
                 f"behavior commitment ledger artifact_type must be {BCL_LEDGER_ARTIFACT_TYPE!r}"
+            )
+        schema_version = str(data.get("schema_version", ""))
+        if schema_version != SCHEMA_VERSION:
+            raise ValueError(
+                f"unsupported behavior commitment ledger schema_version {schema_version!r}"
             )
         format_version = str(data.get("format_version", ""))
         if format_version != BCL_LEDGER_FORMAT_VERSION:
@@ -1057,7 +1038,13 @@ def behavior_commitment_ledger_from_mapping(
         if not isinstance(payload, Mapping):
             raise ValueError("behavior commitment ledger envelope has no mapping payload")
         data = dict(payload)
-    return BehaviorCommitmentLedger(**data)
+    normalized = BehaviorCommitmentLedger(**data)
+    if normalized.to_dict() != data:
+        source = "envelope payload" if is_envelope else "direct mapping"
+        raise ValueError(
+            f"behavior commitment ledger {source} must use the exact current canonical shape"
+        )
+    return normalized
 
 
 def behavior_commitment_ledger_fingerprint(
@@ -1938,16 +1925,6 @@ def _review_path_binding(
     if not binding.path_sensitive:
         return
     path_sensitive_commitment_ids.append(commitment.commitment_id)
-    if binding.primary_path_migration_ambiguous:
-        ppa_blocked_commitment_ids.append(commitment.commitment_id)
-        findings.append(
-            _finding(
-                "commitment_primary_path_migration_ambiguous",
-                "legacy plural primary-path input is ambiguous or conflicts with the singular binding",
-                commitment_id=commitment.commitment_id,
-                metadata={"path_authority": binding.to_dict()},
-            )
-        )
     if binding.business_intent_id != commitment.business_intent_id:
         findings.append(
             _finding(

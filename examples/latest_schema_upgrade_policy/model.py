@@ -24,8 +24,13 @@ class UpgradePolicyCase:
 class UpgradePolicyState:
     case_name: str = ""
     artifact_shape: str = "unknown"
+    artifact_ownership: str = "unknown"
     project_version_state: str = "current"
     upgrade_action: str = "not_run"
+    json_write_performed: bool = False
+    json_write_owner: str = "none"
+    target_owned_json_modified: bool = False
+    target_owned_json_bytes_preserved: bool = True
     runtime_accepts_old_shape: bool = False
     validation_status: str = "not_run"
     safety_classifier_preserved: bool = True
@@ -34,7 +39,13 @@ class UpgradePolicyState:
 
 
 CURRENT_ARTIFACT = UpgradePolicyCase("current_artifact_passes")
-KNOWN_OLD_ARTIFACT_UPGRADED = UpgradePolicyCase("known_old_artifact_upgraded")
+LEGACY_BCL_ARTIFACT_UPGRADED = UpgradePolicyCase(
+    "legacy_behavior_ledger_artifact_upgraded"
+)
+UNSUPPORTED_REGISTERED_ENVELOPE_BLOCKED = UpgradePolicyCase(
+    "unsupported_registered_envelope_blocked"
+)
+TARGET_OWNED_JSON_PRESERVED = UpgradePolicyCase("target_owned_json_preserved")
 OLDER_PROJECT_TRIGGERS_SCAN = UpgradePolicyCase("older_project_triggers_upgrade_scan")
 UNKNOWN_SCRIPT_BLOCKED = UpgradePolicyCase("unknown_script_blocks")
 RECORDS_ONLY_SCOPED = UpgradePolicyCase("records_only_scope_declared")
@@ -42,6 +53,13 @@ BROKEN_RUNTIME_COMPAT = UpgradePolicyCase("broken_runtime_accepts_old_shape")
 BROKEN_SILENT_SKIP = UpgradePolicyCase("broken_older_project_skips_scan")
 BROKEN_UNKNOWN_REWRITE = UpgradePolicyCase("broken_unknown_script_rewritten")
 BROKEN_CLASSIFIER_DELETED = UpgradePolicyCase("broken_safety_classifier_deleted")
+BROKEN_NUMERIC_TARGET_JSON_REWRITE = UpgradePolicyCase(
+    "broken_numeric_target_json_rewrite"
+)
+BROKEN_PARTIAL_LEDGER_REWRITE = UpgradePolicyCase("broken_partial_ledger_rewrite")
+BROKEN_UNSUPPORTED_REGISTERED_ENVELOPE_REWRITE = UpgradePolicyCase(
+    "broken_unsupported_registered_envelope_rewrite"
+)
 
 
 class ApplyUpgradePolicyCase:
@@ -50,8 +68,13 @@ class ApplyUpgradePolicyCase:
     writes = (
         "case_name",
         "artifact_shape",
+        "artifact_ownership",
         "project_version_state",
         "upgrade_action",
+        "json_write_performed",
+        "json_write_owner",
+        "target_owned_json_modified",
+        "target_owned_json_bytes_preserved",
         "runtime_accepts_old_shape",
         "validation_status",
         "safety_classifier_preserved",
@@ -75,17 +98,41 @@ def _state_for_case(case: UpgradePolicyCase) -> UpgradePolicyState:
         return UpgradePolicyState(
             case_name=case.name,
             artifact_shape="current",
+            artifact_ownership="exact-current-flowguard-envelope",
             project_version_state="current",
             upgrade_action="unchanged",
             validation_status="route_evidence_required",
         )
-    if case == KNOWN_OLD_ARTIFACT_UPGRADED:
+    if case == LEGACY_BCL_ARTIFACT_UPGRADED:
         return UpgradePolicyState(
             case_name=case.name,
             artifact_shape="current",
+            artifact_ownership="exact-legacy-56083c1e-bcl",
             project_version_state="older",
             upgrade_action="deterministic_upgrade",
+            json_write_performed=True,
+            json_write_owner="exact-legacy-56083c1e-bcl",
             validation_status="route_evidence_required",
+        )
+    if case == UNSUPPORTED_REGISTERED_ENVELOPE_BLOCKED:
+        return UpgradePolicyState(
+            case_name=case.name,
+            artifact_shape="unsupported-registered-envelope-version",
+            artifact_ownership="registered-flowguard",
+            project_version_state="older",
+            upgrade_action="blocked",
+            validation_status="blocked",
+        )
+    if case == TARGET_OWNED_JSON_PRESERVED:
+        return UpgradePolicyState(
+            case_name=case.name,
+            artifact_shape="numeric-schema-json",
+            artifact_ownership="target-owned",
+            project_version_state="older",
+            upgrade_action="outside_authority",
+            validation_status="route_evidence_required",
+            target_owned_json_modified=False,
+            target_owned_json_bytes_preserved=True,
         )
     if case == OLDER_PROJECT_TRIGGERS_SCAN:
         return UpgradePolicyState(
@@ -148,6 +195,43 @@ def _state_for_case(case: UpgradePolicyCase) -> UpgradePolicyState:
             validation_status="pass",
             safety_classifier_preserved=False,
         )
+    if case == BROKEN_NUMERIC_TARGET_JSON_REWRITE:
+        return UpgradePolicyState(
+            case_name=case.name,
+            artifact_shape="numeric-schema-json",
+            artifact_ownership="target-owned",
+            project_version_state="older",
+            upgrade_action="deterministic_upgrade",
+            json_write_performed=True,
+            json_write_owner="target-owned",
+            target_owned_json_modified=True,
+            target_owned_json_bytes_preserved=False,
+            validation_status="pass",
+        )
+    if case == BROKEN_PARTIAL_LEDGER_REWRITE:
+        return UpgradePolicyState(
+            case_name=case.name,
+            artifact_shape="full-legacy-fields-plus-target-extra",
+            artifact_ownership="target-owned",
+            project_version_state="older",
+            upgrade_action="deterministic_upgrade",
+            json_write_performed=True,
+            json_write_owner="target-owned",
+            target_owned_json_modified=True,
+            target_owned_json_bytes_preserved=False,
+            validation_status="pass",
+        )
+    if case == BROKEN_UNSUPPORTED_REGISTERED_ENVELOPE_REWRITE:
+        return UpgradePolicyState(
+            case_name=case.name,
+            artifact_shape="unsupported-registered-envelope-version",
+            artifact_ownership="registered-flowguard",
+            project_version_state="older",
+            upgrade_action="deterministic_upgrade",
+            json_write_performed=True,
+            json_write_owner="unsupported-current-only-envelope",
+            validation_status="pass",
+        )
     raise ValueError(f"unknown upgrade policy case: {case!r}")
 
 
@@ -204,6 +288,51 @@ def safety_classifier_survives_cleanup(state: UpgradePolicyState, trace) -> Inva
     return InvariantResult.pass_()
 
 
+def artifact_write_requires_exact_bounded_owner(
+    state: UpgradePolicyState, trace
+) -> InvariantResult:
+    del trace
+    if (
+        state.json_write_performed
+        and state.json_write_owner != "exact-legacy-56083c1e-bcl"
+    ):
+        return _fail(
+            "artifact_write_requires_exact_bounded_owner",
+            "a JSON write occurred without the exact historical 56083c1e BCL owner",
+        )
+    return InvariantResult.pass_()
+
+
+def target_owned_json_is_byte_identical(
+    state: UpgradePolicyState, trace
+) -> InvariantResult:
+    del trace
+    if (
+        state.artifact_ownership == "target-owned"
+        and not state.target_owned_json_bytes_preserved
+    ):
+        return _fail(
+            "target_owned_json_is_byte_identical",
+            "target-owned JSON bytes changed during FlowGuard artifact upgrade",
+        )
+    return InvariantResult.pass_()
+
+
+def registered_envelopes_are_current_only(
+    state: UpgradePolicyState, trace
+) -> InvariantResult:
+    del trace
+    if (
+        state.artifact_shape == "unsupported-registered-envelope-version"
+        and state.upgrade_action != "blocked"
+    ):
+        return _fail(
+            "registered_envelopes_are_current_only",
+            "unsupported registered envelope version was rewritten without an evidence-bound migrator",
+        )
+    return InvariantResult.pass_()
+
+
 def upgrade_does_not_replace_validation(state: UpgradePolicyState, trace) -> InvariantResult:
     del trace
     if state.upgrade_action in {"deterministic_upgrade", "scan_and_upgrade"} and state.validation_status == "pass":
@@ -229,6 +358,21 @@ def invariants() -> tuple[Invariant, ...]:
             safety_classifier_survives_cleanup,
         ),
         Invariant(
+            "artifact_write_requires_exact_bounded_owner",
+            "JSON writes require an exact bounded FlowGuard owner",
+            artifact_write_requires_exact_bounded_owner,
+        ),
+        Invariant(
+            "target_owned_json_is_byte_identical",
+            "Target-owned JSON remains byte-identical",
+            target_owned_json_is_byte_identical,
+        ),
+        Invariant(
+            "registered_envelopes_are_current_only",
+            "Registered report and trace envelopes are current-only",
+            registered_envelopes_are_current_only,
+        ),
+        Invariant(
             "upgrade_does_not_replace_validation",
             "Upgrade reports do not replace route evidence",
             upgrade_does_not_replace_validation,
@@ -243,7 +387,9 @@ def build_workflow() -> Workflow:
 def all_cases() -> tuple[UpgradePolicyCase, ...]:
     return (
         CURRENT_ARTIFACT,
-        KNOWN_OLD_ARTIFACT_UPGRADED,
+        LEGACY_BCL_ARTIFACT_UPGRADED,
+        UNSUPPORTED_REGISTERED_ENVELOPE_BLOCKED,
+        TARGET_OWNED_JSON_PRESERVED,
         OLDER_PROJECT_TRIGGERS_SCAN,
         UNKNOWN_SCRIPT_BLOCKED,
         RECORDS_ONLY_SCOPED,
@@ -251,6 +397,9 @@ def all_cases() -> tuple[UpgradePolicyCase, ...]:
         BROKEN_SILENT_SKIP,
         BROKEN_UNKNOWN_REWRITE,
         BROKEN_CLASSIFIER_DELETED,
+        BROKEN_NUMERIC_TARGET_JSON_REWRITE,
+        BROKEN_PARTIAL_LEDGER_REWRITE,
+        BROKEN_UNSUPPORTED_REGISTERED_ENVELOPE_REWRITE,
     )
 
 
@@ -260,6 +409,18 @@ def scenarios() -> tuple[Scenario, ...]:
         BROKEN_SILENT_SKIP.name: ("older_project_runs_upgrade_scan",),
         BROKEN_UNKNOWN_REWRITE.name: ("unknown_script_blocks",),
         BROKEN_CLASSIFIER_DELETED.name: ("safety_classifier_survives_cleanup",),
+        BROKEN_NUMERIC_TARGET_JSON_REWRITE.name: (
+            "artifact_write_requires_exact_bounded_owner",
+            "target_owned_json_is_byte_identical",
+        ),
+        BROKEN_PARTIAL_LEDGER_REWRITE.name: (
+            "artifact_write_requires_exact_bounded_owner",
+            "target_owned_json_is_byte_identical",
+        ),
+        BROKEN_UNSUPPORTED_REGISTERED_ENVELOPE_REWRITE.name: (
+            "artifact_write_requires_exact_bounded_owner",
+            "registered_envelopes_are_current_only",
+        ),
     }
     workflow = build_workflow()
     checks = invariants()
@@ -297,13 +458,18 @@ def run_latest_schema_upgrade_policy_review():
 
 __all__ = [
     "BROKEN_CLASSIFIER_DELETED",
+    "BROKEN_NUMERIC_TARGET_JSON_REWRITE",
+    "BROKEN_PARTIAL_LEDGER_REWRITE",
+    "BROKEN_UNSUPPORTED_REGISTERED_ENVELOPE_REWRITE",
     "BROKEN_RUNTIME_COMPAT",
     "BROKEN_SILENT_SKIP",
     "BROKEN_UNKNOWN_REWRITE",
     "CURRENT_ARTIFACT",
-    "KNOWN_OLD_ARTIFACT_UPGRADED",
+    "LEGACY_BCL_ARTIFACT_UPGRADED",
     "OLDER_PROJECT_TRIGGERS_SCAN",
     "RECORDS_ONLY_SCOPED",
+    "TARGET_OWNED_JSON_PRESERVED",
+    "UNSUPPORTED_REGISTERED_ENVELOPE_BLOCKED",
     "UNKNOWN_SCRIPT_BLOCKED",
     "UpgradePolicyCase",
     "UpgradePolicyState",

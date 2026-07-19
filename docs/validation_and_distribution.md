@@ -174,7 +174,7 @@ A distribution pass proves file-tree parity and ownership safety. It does not pr
 
 ## Release Closure
 
-FlowGuard v0.58.3 is source-only. Bind local release readiness to the current
+FlowGuard v0.58.4 is source-only. Bind local release readiness to the current
 eight-child unified result and verify that no matching wheel or source archive
 exists:
 
@@ -186,7 +186,7 @@ After pushing the immutable tag and creating an asset-free GitHub Release,
 verify the remote tag and release metadata:
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.58.3 --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.58.4 --repository liuyingxuvka/FlowGuard --json
 ```
 
 The published phase reuses the local checks and additionally requires the
@@ -363,7 +363,7 @@ Distribution pass 只证明文件树一致性和 ownership 安全。它不证明
 
 ### 发布闭环
 
-FlowGuard v0.58.3 只发布源码。把本地发布结论绑定到当前统一门禁的 8 个子结果，
+FlowGuard v0.58.4 只发布源码。把本地发布结论绑定到当前统一门禁的 8 个子结果，
 并确认不存在对应版本的 wheel 或源码包：
 
 ```powershell
@@ -373,7 +373,7 @@ python scripts/verify_flowguard_release.py --root . --phase local --json
 推送不可变 tag 并创建零资产 GitHub Release 后，再验证远端 tag 和 Release 元数据：
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.58.3 --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.58.4 --repository liuyingxuvka/FlowGuard --json
 ```
 
 published 阶段会重新检查本地条件，并要求远端 tag 指向同一提交、Release 已发布且不是 draft、资产列表为空。若发布后验证失败，应发布新的修正版，不能移动已有 tag。

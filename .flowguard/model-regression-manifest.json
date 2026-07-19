@@ -909,6 +909,7 @@
         ".flowguard/behavior_commitment_ledger/run_checks.py",
         ".flowguard/default_replacement_field_lifecycle/model.py",
         ".flowguard/default_replacement_field_lifecycle/run_checks.py",
+        "flowguard/template_text/behavior_commitment_ledger.py",
         "flowguard/ui_structure.py",
         "tests/test_ui_structure.py",
         "tests/test_api_surface.py",
@@ -1896,11 +1897,14 @@
         "reusable_model_type_id": "project_adoption_version_gate",
         "task_intent_id": "flowguard-regression:project_adoption_version_gate",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent the project adoption version gate model from accepting the native project adoption gate bypassed failure as a valid completed outcome.",
+        "guarded_purpose": "Prevent project upgrade from accepting adoption-gate bypasses, numeric target-owned JSON writes, legacy-lookalike extra-field writes, or unsupported envelope rewrites as valid completed outcomes.",
         "protected_failure_ids": [
-          "project_adoption_gate_bypassed"
+          "project_adoption_gate_bypassed",
+          "target_owned_json_rewritten",
+          "legacy_lookalike_json_rewritten",
+          "unsupported_registered_envelope_rewritten"
         ],
-        "claim_boundary": "Current closure proves only that the checked-in project_adoption_version_gate candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "claim_boundary": "Current closure proves only that the checked-in project-adoption candidate and native runner reject the four declared ownership and completion failures; it does not prove target data truth, unrelated migrations, publication, or future behavior.",
         "adoption_scope": "current_candidate_only",
         "known_good_case_id": "native-runner:project_adoption_version_gate:correct_project_adoption_gate",
         "failure_bindings": [
@@ -1908,15 +1912,30 @@
             "failure_id": "project_adoption_gate_bypassed",
             "known_bad_case_id": "native-runner:project_adoption_version_gate:broken_claim_without_agents",
             "oracle_id": "native:project_adoption_version_gate:run-checks"
+          },
+          {
+            "failure_id": "target_owned_json_rewritten",
+            "known_bad_case_id": "native-runner:project_adoption_version_gate:numeric_schema_marker_is_not_artifact_authority",
+            "oracle_id": "native:project_adoption_version_gate:run-checks"
+          },
+          {
+            "failure_id": "legacy_lookalike_json_rewritten",
+            "known_bad_case_id": "native-runner:project_adoption_version_gate:legacy_lookalike_extra_fields_are_not_artifact_authority",
+            "oracle_id": "native:project_adoption_version_gate:run-checks"
+          },
+          {
+            "failure_id": "unsupported_registered_envelope_rewritten",
+            "known_bad_case_id": "native-runner:project_adoption_version_gate:unsupported_registered_envelope_has_no_migrator",
+            "oracle_id": "native:project_adoption_version_gate:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:project_adoption_version_gate"
         ],
-      "model_sha256": "sha256:9c8c7fc7113919d2ce77202b24f1f0610169aabbb54b4f1e167715d752de4cb5",
-      "runner_sha256": "sha256:35b24c7696b6bbdbe6824921c20785ec720bbeb7310990b71cb1b24fcaeb4e39",
-        "declaration_fingerprint": "sha256:dd93782e2b1c1e03aeccffa5e4845fd0f29c56ffc4757b40645e5955e4ad99a1",
-      "closure_fingerprint": "sha256:94f9e3dd00dbf6c84dfbff6b273d9dc1c9f1fdbf9aba5fd6121e2516b9e0590d"
+        "model_sha256": "sha256:697e33cccdc9fa20738424017a8ca98ea6303aaf05f3264b1901e4453e1ac465",
+        "runner_sha256": "sha256:3b74e040fcd8cd9e296b820b4d03b71ddc0afe9c28102e741e1b5a7d27e09e46",
+        "declaration_fingerprint": "sha256:f3a1a349d4333817b3d25afd1caa21f7659047df22f0783f500d27d8c02ce09a",
+        "closure_fingerprint": "sha256:492545be2e8620cb21b5e7bc5d122d5199090708c14c2a0b7d1b79646a05006c"
       }
     },
     {

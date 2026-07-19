@@ -4,50 +4,50 @@ Generated inventory of FlowGuard dataclass fields. It is a maintenance
 aid, not deletion authority: behavior-bearing, compatibility-looking,
 and evidence-bearing fields still need route-owned proof before edits.
 
-- Field rows: `5330`
-- Modules: `85`
+- Field rows: `5657`
+- Modules: `92`
 
 ## Lifecycle Layers
 
 | Layer | Fields |
 | --- | ---: |
-| `behavior_or_contract` | 685 |
-| `collection_metadata` | 1207 |
-| `compatibility_or_old_path` | 56 |
-| `display_or_metadata` | 223 |
-| `evidence_or_decision` | 983 |
-| `unclassified` | 2176 |
+| `behavior_or_contract` | 733 |
+| `collection_metadata` | 1267 |
+| `compatibility_or_old_path` | 55 |
+| `display_or_metadata` | 229 |
+| `evidence_or_decision` | 1032 |
+| `unclassified` | 2341 |
 
 ## AI Surface Tiers
 
 | Tier | Fields |
 | --- | ---: |
-| `advanced` | 498 |
-| `internal` | 3559 |
-| `starter` | 1273 |
+| `advanced` | 500 |
+| `internal` | 3872 |
+| `starter` | 1285 |
 
 ## Route Owners
 
 | Route Owner | Fields |
 | --- | ---: |
-| `core_or_internal` | 2220 |
+| `core_or_internal` | 2507 |
 | `ui_flow_structure` | 830 |
 | `model_test_alignment` | 265 |
 | `model_similarity_consolidation` | 206 |
 | `plan_intake_claims` | 177 |
 | `model_mesh_maintenance` | 155 |
-| `plan_detailing_compiler` | 126 |
+| `plan_detailing_compiler` | 135 |
 | `model_miss_review` | 125 |
-| `existing_model_preflight` | 112 |
-| `development_process_flow` | 101 |
+| `development_process_flow` | 118 |
+| `existing_model_preflight` | 113 |
 | `architecture_reduction` | 99 |
 | `flowguard_closure_contract` | 94 |
 | `model_topology_hazard_review` | 93 |
-| `test_mesh_maintenance` | 86 |
+| `test_mesh_maintenance` | 93 |
+| `flowguard_self_maintenance` | 76 |
 | `agent_workflow_rehearsal` | 75 |
 | `model_impact_freshness` | 75 |
-| `flowguard_self_maintenance` | 74 |
-| `maintenance_scan_router` | 66 |
+| `maintenance_scan_router` | 70 |
 | `field_lifecycle_mesh` | 65 |
 | `structure_mesh_maintenance` | 61 |
 | `risk_evidence_ledger` | 47 |
@@ -67,68 +67,75 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_similarity` | 206 |
 | `plan_intake` | 177 |
 | `hierarchy` | 155 |
-| `behavior_commitment` | 145 |
+| `behavior_commitment` | 142 |
 | `runtime_path` | 137 |
+| `plan_detailing` | 135 |
 | `obligation_family` | 127 |
-| `plan_detailing` | 126 |
 | `recurring_model_miss` | 125 |
-| `existing_model_preflight` | 112 |
+| `development_process_flow` | 118 |
+| `existing_model_preflight` | 113 |
 | `layered_proof` | 103 |
-| `development_process_flow` | 101 |
 | `architecture_reduction` | 99 |
 | `primary_path_authority` | 99 |
 | `closure_contract` | 94 |
+| `testmesh` | 93 |
 | `topology_hazard` | 93 |
-| `testmesh` | 86 |
 | `evidence_receipts` | 84 |
+| `self_maintenance` | 76 |
 | `agent_workflow_rehearsal` | 75 |
 | `model_freshness` | 75 |
-| `self_maintenance` | 74 |
-| `maintenance_scan` | 66 |
+| `maintenance_scan` | 70 |
 | `field_lifecycle` | 65 |
 | `runtime_gateway` | 65 |
+| `development_process_strategy` | 64 |
+| `distribution_sync` | 63 |
 | `risk_templates` | 61 |
 | `structuremesh` | 61 |
 | `auto_split` | 52 |
 | `budgeted` | 52 |
-| `distribution_sync` | 51 |
 | `corpus` | 48 |
 | `executable` | 48 |
 | `risk_evidence_ledger` | 47 |
 | `code_structure` | 44 |
+| `model_regressions` | 44 |
+| `development_process_simulator` | 43 |
 | `project_adoption` | 42 |
-| `development_process_simulator` | 41 |
-| `model_regressions` | 40 |
+| `template_packs` | 41 |
 | `model_maturation` | 39 |
+| `portable_model` | 38 |
 | `state_closure` | 38 |
+| `task_local_model` | 38 |
 | `route_topology` | 36 |
 | `plan` | 35 |
 | `model_angle_deliberation` | 32 |
+| `portable_checker` | 31 |
 | `report` | 30 |
 | `scenario` | 30 |
+| `summary_report` | 30 |
 | `step_contracts` | 29 |
 | `loop` | 28 |
+| `artifact_upgrade` | 27 |
 | `behavior_commitment_lookup` | 26 |
-| `summary_report` | 26 |
 | `maintenance_obligation` | 25 |
 | `progress` | 25 |
 | `validation_results` | 25 |
+| `skill_suite` | 24 |
 | `transition_coverage` | 24 |
 | `adoption` | 23 |
 | `risk` | 23 |
 | `skill_self_governance` | 23 |
-| `skill_suite` | 23 |
+| `spec_context` | 23 |
 | `contract` | 22 |
-| `artifact_upgrade` | 21 |
 | `test_reuse` | 21 |
+| `conformance` | 20 |
 | `coverage` | 19 |
 | `formal_runner` | 19 |
 | `legacy_path_disposition` | 19 |
+| `model_purpose` | 19 |
 | `review` | 19 |
 | `baseline` | 17 |
 | `proof_artifact` | 17 |
 | `assumptions` | 16 |
-| `conformance` | 16 |
 | `minimize` | 15 |
 | `scenario_matrix` | 15 |
 | `explorer` | 14 |
@@ -141,9 +148,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `adoption_audit` | 10 |
 | `evidence_fields` | 10 |
 | `audit` | 9 |
+| `replay` | 9 |
 | `workflow` | 8 |
 | `schema` | 7 |
-| `replay` | 6 |
 | `__main__` | 4 |
 | `templates` | 2 |
 
@@ -362,6 +369,12 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `architecture_reduction` | `ArchitectureReductionReport` | `unexpected_candidate_ids` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
 | `architecture_reduction` | `ArchitectureReductionReport` | `materialized_similarity_relation_ids` | `architecture_reduction` | `internal` | `collection_metadata` | `false` |
 | `architecture_reduction` | `ArchitectureReductionReport` | `materialized_similarity_code_obligation_ids` | `architecture_reduction` | `starter` | `behavior_or_contract` | `true` |
+| `artifact_upgrade` | `FlowGuardJsonArtifactRegistration` | `artifact_type` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `artifact_upgrade` | `FlowGuardJsonArtifactRegistration` | `version_field` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `artifact_upgrade` | `FlowGuardJsonArtifactRegistration` | `current_versions` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `artifact_upgrade` | `FlowGuardJsonArtifactRegistration` | `allowed_fields` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `artifact_upgrade` | `FlowGuardJsonArtifactRegistration` | `field_types` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `artifact_upgrade` | `FlowGuardJsonArtifactRegistration` | `required_values` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `artifact_upgrade` | `ArtifactUpgradeItem` | `path` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `artifact_upgrade` | `ArtifactUpgradeItem` | `item_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `artifact_upgrade` | `ArtifactUpgradeItem` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
@@ -533,9 +546,6 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `behavior_commitment` | `BehaviorPathAuthorityBinding` | `ppa_confidence` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `behavior_commitment` | `BehaviorPathAuthorityBinding` | `ppa_ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `behavior_commitment` | `BehaviorPathAuthorityBinding` | `primary_path_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `behavior_commitment` | `BehaviorPathAuthorityBinding` | `primary_path_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
-| `behavior_commitment` | `BehaviorPathAuthorityBinding` | `legacy_plural_migrated` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
-| `behavior_commitment` | `BehaviorPathAuthorityBinding` | `primary_path_migration_ambiguous` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `behavior_commitment` | `BehaviorPathAuthorityBinding` | `fallback_candidate_ids` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
 | `behavior_commitment` | `BehaviorPathAuthorityBinding` | `ppa_coverage_receipt_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `behavior_commitment` | `BehaviorPathAuthorityBinding` | `ppa_coverage_shard_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
@@ -867,6 +877,10 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `conformance` | `ConformanceReport` | `failed_step_index` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `conformance` | `ConformanceReport` | `expected_trace` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `conformance` | `ConformanceReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `conformance` | `ConformanceReport` | `prediction_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `conformance` | `ConformanceReport` | `prediction_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `conformance` | `ConformanceReport` | `model_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `conformance` | `ConformanceReport` | `observation_boundary_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `contract` | `FunctionContract` | `function_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
 | `contract` | `FunctionContract` | `accepted_input_type` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `contract` | `FunctionContract` | `output_type` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
@@ -1213,6 +1227,8 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_flow` | `ProcessArtifact` | `owner` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `ProcessArtifact` | `upstream_artifact_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
 | `development_process_flow` | `ProcessArtifact` | `description` | `development_process_flow` | `internal` | `display_or_metadata` | `false` |
+| `development_process_flow` | `ProcessArtifact` | `spec_context_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessArtifact` | `read_only_external` | `development_process_flow` | `advanced` | `behavior_or_contract` | `true` |
 | `development_process_flow` | `ActionEffect` | `target_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
 | `development_process_flow` | `ActionEffect` | `effect_type` | `development_process_flow` | `advanced` | `behavior_or_contract` | `true` |
 | `development_process_flow` | `ActionEffect` | `target_type` | `development_process_flow` | `internal` | `unclassified` | `false` |
@@ -1235,6 +1251,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_flow` | `ProcessAction` | `target_behavior_planes` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
 | `development_process_flow` | `ProcessAction` | `target_commitment_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
 | `development_process_flow` | `ProcessAction` | `typed_commitment_relation_refs` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessAction` | `spec_context_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessAction` | `spec_context_artifact_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessAction` | `spec_context_read_only` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `ProcessAction` | `description` | `development_process_flow` | `internal` | `display_or_metadata` | `false` |
 | `development_process_flow` | `ProcessEvidence` | `evidence_id` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `ProcessEvidence` | `evidence_kind` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
@@ -1255,6 +1274,8 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_flow` | `ProcessEvidence` | `skipped_count` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `ProcessEvidence` | `skipped_visible` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `ProcessEvidence` | `release_required` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `revalidation_cost` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessEvidence` | `revalidation_cost_basis` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `ProcessEvidence` | `stale_reasons` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `FreshnessRule` | `rule_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
 | `development_process_flow` | `FreshnessRule` | `upstream_artifact_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
@@ -1281,6 +1302,10 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_flow` | `DevelopmentProcessPlan` | `release_deferred_allowed` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `DevelopmentProcessPlan` | `behavior_plane` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `DevelopmentProcessPlan` | `require_behavior_plane_boundary` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `spec_context_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `require_current_spec_context` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `process_optimization_reasons` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `required_process_optimization_evidence_ids` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `RevalidationRecommendation` | `requirement_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
 | `development_process_flow` | `RevalidationRecommendation` | `evidence_id` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `RevalidationRecommendation` | `command` | `development_process_flow` | `starter` | `unclassified` | `false` |
@@ -1291,6 +1316,10 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_flow` | `RevalidationRecommendation` | `proof_artifact_required` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `RevalidationRecommendation` | `freshness_gap_codes` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `RevalidationRecommendation` | `blocks_claim_scopes` | `development_process_flow` | `starter` | `collection_metadata` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `covered_requirement_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `revalidation_cost` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `revalidation_cost_basis` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `RevalidationRecommendation` | `selection_boundary` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `ProcessFlowFinding` | `code` | `development_process_flow` | `starter` | `unclassified` | `false` |
 | `development_process_flow` | `ProcessFlowFinding` | `message` | `development_process_flow` | `internal` | `display_or_metadata` | `false` |
 | `development_process_flow` | `ProcessFlowFinding` | `severity` | `development_process_flow` | `internal` | `unclassified` | `false` |
@@ -1303,9 +1332,11 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_flow` | `DevelopmentProcessFlowReport` | `process_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
 | `development_process_flow` | `DevelopmentProcessFlowReport` | `decision` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `DevelopmentProcessFlowReport` | `decision_scope` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
+| `development_process_flow` | `DevelopmentProcessFlowReport` | `process_optimization_status` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `DevelopmentProcessFlowReport` | `findings` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `DevelopmentProcessFlowReport` | `release_obligations` | `development_process_flow` | `advanced` | `behavior_or_contract` | `true` |
 | `development_process_flow` | `DevelopmentProcessFlowReport` | `revalidation_recommendations` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `DevelopmentProcessFlowReport` | `revalidation_optimality_boundary` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `DevelopmentProcessFlowReport` | `summary` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `request_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `task_summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
@@ -1313,6 +1344,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `plan_discussion` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `plan_detail_requested` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `multiple_skills_or_tools` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `process_optimization_reasons` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `external_side_effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `staged_validation` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `implementation_work` | `core_or_internal` | `internal` | `unclassified` | `false` |
@@ -1327,12 +1359,13 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `explicit_agent_workflow` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `explicit_development_process_skill` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `plan_detail_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `process_optimization_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `agent_workflow_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `execution_freshness_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `accepted_scope` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulationRequest` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `development_process_simulator` | `DevelopmentProcessModeDecision` | `mode` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `development_process_simulator` | `DevelopmentProcessModeDecision` | `route_target` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_simulator` | `DevelopmentProcessModeDecision` | `route_target` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `development_process_simulator` | `DevelopmentProcessModeDecision` | `required_review` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessModeDecision` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `development_process_simulator` | `DevelopmentProcessModeDecision` | `evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
@@ -1348,6 +1381,70 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_simulator` | `DevelopmentProcessSimulatorReport` | `claim_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulatorReport` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `development_process_simulator` | `DevelopmentProcessSimulatorReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationContract` | `contract_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `development_process_strategy` | `ProcessOptimizationContract` | `terminal_outcome_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationContract` | `required_obligation_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `development_process_strategy` | `ProcessOptimizationContract` | `required_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationContract` | `safety_constraint_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationContract` | `protected_side_effect_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `development_process_strategy` | `ProcessOptimizationContract` | `dependency_authority_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationContract` | `execution_owner_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationContract` | `revision` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `candidate_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `contract_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `terminal_outcome_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `covered_obligation_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `safety_constraint_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `protected_side_effect_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `dependency_authority_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `execution_owner_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `step_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `validation_requirement_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `dependency_edges` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `stop_condition_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `diagnostic_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `execution_mode` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `dependency_isolation_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `state_isolation_evidence_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `side_effect_isolation_evidence_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `execution_owner_isolation_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `comparison_basis` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `comparison_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `applicable` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessOptimizationCandidate` | `current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessRepairGroup` | `group_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessRepairGroup` | `finding_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessRepairGroup` | `relation_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessRepairGroup` | `root_cause_claim` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessRepairGroup` | `disproof_check_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessRepairGroup` | `affected_obligation_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `development_process_strategy` | `ProcessRepairGroup` | `owner_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessRepairGroup` | `repair_action_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `development_process_strategy` | `ProcessRepairGroup` | `required_revalidation_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessRepairGroup` | `current_revalidation_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessRepairGroup` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationDecision` | `decision_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationDecision` | `outcome_contract` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `development_process_strategy` | `ProcessOptimizationDecision` | `activation_reasons` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationDecision` | `candidates` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationDecision` | `repair_groups` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationDecision` | `selected_candidate_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessOptimizationDecision` | `input_revision` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `development_process_strategy` | `ProcessOptimizationDecision` | `current_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationDecision` | `material_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationDecision` | `selection_rationale` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessOptimizationReport` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationReport` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationReport` | `decision_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationReport` | `selected_candidate_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessOptimizationReport` | `eligible_candidate_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationReport` | `rejected_candidate_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationReport` | `selected_comparison_basis` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessOptimizationReport` | `required_revalidation_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `development_process_strategy` | `ProcessOptimizationReport` | `finding_codes` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `development_process_strategy` | `ProcessOptimizationReport` | `claim_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `development_process_strategy` | `ProcessOptimizationReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `distribution_sync` | `ExclusionRule` | `rule_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `distribution_sync` | `ExclusionRule` | `pattern` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `distribution_sync` | `ExclusionRule` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
@@ -1367,6 +1464,13 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `distribution_sync` | `SkillTreeInventory` | `unsafe_paths` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `distribution_sync` | `SkillTreeInventory` | `raw_tree_hash` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `distribution_sync` | `SkillTreeInventory` | `semantic_tree_hash` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `distribution_sync` | `ConsumerSuiteAuthority` | `source` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `distribution_sync` | `ConsumerSuiteAuthority` | `flowguard_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `distribution_sync` | `ConsumerSuiteAuthority` | `member_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `distribution_sync` | `ConsumerSuiteAuthority` | `files` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `distribution_sync` | `ConsumerSuiteAuthority` | `raw_tree_hash` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `distribution_sync` | `ConsumerSuiteAuthority` | `semantic_tree_hash` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `distribution_sync` | `ConsumerSuiteAuthority` | `authority_hash` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `distribution_sync` | `TreeParity` | `reference` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `distribution_sync` | `TreeParity` | `candidate` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `distribution_sync` | `TreeParity` | `missing_files` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
@@ -1378,6 +1482,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `distribution_sync` | `TreeParity` | `reference_exclusions` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `distribution_sync` | `TreeParity` | `candidate_exclusions` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `distribution_sync` | `ConfiguredParityReport` | `reference_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `distribution_sync` | `ConfiguredParityReport` | `root_roles` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `distribution_sync` | `ConfiguredParityReport` | `inventories` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `distribution_sync` | `ConfiguredParityReport` | `comparisons` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `distribution_sync` | `DistributionFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
@@ -1399,6 +1504,10 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `distribution_sync` | `DistributionReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `distribution_sync` | `DistributionReport` | `ownership_manifest` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `distribution_sync` | `DistributionReport` | `parity` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `distribution_sync` | `DistributionReport` | `authority_hash` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `distribution_sync` | `DistributionReport` | `authority_raw_tree_hash` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `distribution_sync` | `DistributionReport` | `authority_semantic_tree_hash` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `distribution_sync` | `DistributionReport` | `authority_member_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `evidence_fields` | `EvidenceGate` | `gate_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `evidence_fields` | `EvidenceGate` | `gate_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `evidence_fields` | `EvidenceGate` | `required` | `core_or_internal` | `internal` | `unclassified` | `false` |
@@ -1636,6 +1745,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `existing_model_preflight` | `ExistingModelPreflight` | `typed_external_difference_ids` | `existing_model_preflight` | `advanced` | `behavior_or_contract` | `true` |
 | `existing_model_preflight` | `ExistingModelPreflight` | `require_complete_surface_inventory` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflight` | `skip_reason` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `spec_context` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflightFinding` | `code` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflightFinding` | `message` | `existing_model_preflight` | `internal` | `display_or_metadata` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflightFinding` | `severity` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
@@ -2096,6 +2206,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `maintenance_scan` | `MaintenanceEvidence` | `covers_signal_ids` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
 | `maintenance_scan` | `MaintenanceEvidence` | `result_path` | `maintenance_scan_router` | `starter` | `evidence_or_decision` | `false` |
 | `maintenance_scan` | `MaintenanceEvidence` | `description` | `maintenance_scan_router` | `internal` | `display_or_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `spec_context_id` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `spec_context_hash` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `spec_context_read_only` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
 | `maintenance_scan` | `MaintenanceEvidence` | `metadata` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
 | `maintenance_scan` | `MaintenanceSignal` | `signal_id` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
 | `maintenance_scan` | `MaintenanceSignal` | `signal_type` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
@@ -2137,6 +2250,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `maintenance_scan` | `MaintenanceScanPlan` | `prior_obligations` | `maintenance_scan_router` | `advanced` | `behavior_or_contract` | `true` |
 | `maintenance_scan` | `MaintenanceScanPlan` | `claim_scope` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
 | `maintenance_scan` | `MaintenanceScanPlan` | `allow_scoped_confidence` | `maintenance_scan_router` | `advanced` | `evidence_or_decision` | `false` |
+| `maintenance_scan` | `MaintenanceScanPlan` | `required_spec_context_ids` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
 | `maintenance_scan` | `MaintenanceScanReport` | `ok` | `maintenance_scan_router` | `starter` | `evidence_or_decision` | `false` |
 | `maintenance_scan` | `MaintenanceScanReport` | `plan_id` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
 | `maintenance_scan` | `MaintenanceScanReport` | `decision` | `maintenance_scan_router` | `advanced` | `evidence_or_decision` | `false` |
@@ -2308,6 +2422,25 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_maturation` | `ModelMaturationReport` | `scoped_signal_ids` | `model_maturation_loop` | `internal` | `collection_metadata` | `false` |
 | `model_maturation` | `ModelMaturationReport` | `maintenance_obligations` | `model_maturation_loop` | `advanced` | `behavior_or_contract` | `true` |
 | `model_maturation` | `ModelMaturationReport` | `summary` | `model_maturation_loop` | `advanced` | `evidence_or_decision` | `false` |
+| `model_purpose` | `FailureProofBinding` | `failure_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `FailureProofBinding` | `known_bad_case_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `FailureProofBinding` | `oracle_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `model_instance_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `reusable_model_type_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `task_intent_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `guarded_purpose` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `protected_failure_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `known_good_case_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `failure_bindings` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `claim_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `evidence_check_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `model_sha256` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `runner_sha256` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `declaration_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `closure_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `declaration_phase` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `adoption_scope` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_purpose` | `ModelPurposeClosure` | `schema_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionEntry` | `model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionEntry` | `model_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionEntry` | `runner` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
@@ -2320,6 +2453,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_regressions` | `ModelRegressionEntry` | `exclusion_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `model_regressions` | `ModelRegressionEntry` | `distribution_policy` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionEntry` | `absence_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_regressions` | `ModelRegressionEntry` | `purpose_closure` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionManifest` | `path` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionManifest` | `entries` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `model_regressions` | `ManifestAudit` | `ok` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
@@ -2337,6 +2471,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_regressions` | `ModelRunResult` | `artifact_paths` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `model_regressions` | `ModelRunResult` | `finding_codes` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `model_regressions` | `ModelRunResult` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `model_regressions` | `ModelRunResult` | `model_instance_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_regressions` | `ModelRunResult` | `purpose_closure_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_regressions` | `ModelRunResult` | `purpose_claim_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionReport` | `root` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionReport` | `tier` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionReport` | `output_dir` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
@@ -2987,6 +3124,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `plan_detailing` | `PlanDetailSource` | `supports_surface_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
 | `plan_detailing` | `PlanDetailSource` | `summary` | `plan_detailing_compiler` | `advanced` | `evidence_or_decision` | `false` |
 | `plan_detailing` | `PlanDetailSource` | `metadata` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `spec_context_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `spec_context_artifact_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `spec_context_read_only` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailSurface` | `surface_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailSurface` | `surface_kind` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailSurface` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
@@ -3038,6 +3178,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `plan_detailing` | `PlanDetailStep` | `target_behavior_planes` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
 | `plan_detailing` | `PlanDetailStep` | `target_commitment_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
 | `plan_detailing` | `PlanDetailStep` | `typed_commitment_relation_refs` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `spec_context_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `spec_context_artifact_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `spec_context_read_only` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailStep` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
 | `plan_detailing` | `PlanDetailValidation` | `validation_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailValidation` | `required_artifact_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
@@ -3046,6 +3189,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `plan_detailing` | `PlanDetailValidation` | `command` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailValidation` | `scope` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailValidation` | `release_required` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailValidation` | `spec_context_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailValidation` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
 | `plan_detailing` | `PlanDetailEvidence` | `evidence_id` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
 | `plan_detailing` | `PlanDetailEvidence` | `evidence_kind` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
@@ -3093,6 +3237,8 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `plan_detailing` | `PlanDetail` | `final_claim` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetail` | `final_evidence_ids` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
 | `plan_detailing` | `PlanDetail` | `claim_labels` | `plan_detailing_compiler` | `starter` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetail` | `process_optimization_reasons` | `plan_detailing_compiler` | `advanced` | `evidence_or_decision` | `false` |
+| `plan_detailing` | `PlanDetail` | `required_process_optimization_evidence_ids` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
 | `plan_detailing` | `PlanDetail` | `non_trivial` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetail` | `exploratory` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetail` | `allow_scoped_confidence` | `plan_detailing_compiler` | `advanced` | `evidence_or_decision` | `false` |
@@ -3284,6 +3430,75 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `plan_intake` | `FlowGuardClaimChainReport` | `confidence` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
 | `plan_intake` | `FlowGuardClaimChainReport` | `findings` | `plan_intake_claims` | `starter` | `evidence_or_decision` | `false` |
 | `plan_intake` | `FlowGuardClaimChainReport` | `summary` | `plan_intake_claims` | `advanced` | `evidence_or_decision` | `false` |
+| `portable_checker` | `PortableTraceStep` | `transition_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_checker` | `PortableTraceStep` | `source_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_checker` | `PortableTraceStep` | `input_symbol` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_checker` | `PortableTraceStep` | `output_symbol` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_checker` | `PortableTraceStep` | `target_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_checker` | `PortableTrace` | `initial_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_checker` | `PortableTrace` | `steps` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_checker` | `PortableTrace` | `terminal_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_checker` | `PortableFinding` | `finding_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `portable_checker` | `PortableFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `portable_checker` | `PortableFinding` | `obligation_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_checker` | `PortableFinding` | `state_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_checker` | `PortableFinding` | `transition_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_checker` | `PortableFinding` | `details` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_checker` | `PortableExecutionReport` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `portable_checker` | `PortableExecutionReport` | `model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_checker` | `PortableExecutionReport` | `model_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_checker` | `PortableExecutionReport` | `traces` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_checker` | `PortableExecutionReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `portable_checker` | `PortableExecutionReport` | `blockers` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_checker` | `PortableExecutionReport` | `claim_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_checker` | `PortableCheckReport` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `portable_checker` | `PortableCheckReport` | `model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_checker` | `PortableCheckReport` | `model_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_checker` | `PortableCheckReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `portable_checker` | `PortableCheckReport` | `counterexamples` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_checker` | `PortableCheckReport` | `checked_obligation_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_checker` | `PortableCheckReport` | `blockers` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_checker` | `PortableCheckReport` | `skipped_checks` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_checker` | `PortableCheckReport` | `residual_risk` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_checker` | `PortableCheckReport` | `claim_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_model` | `PortableState` | `state_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableState` | `payload` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_model` | `PortableTransition` | `transition_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableTransition` | `source_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableTransition` | `input_symbol` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableTransition` | `output_symbol` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableTransition` | `target_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableTransition` | `label` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `portable_model` | `PortableInvariant` | `invariant_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableInvariant` | `forbidden_state_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableInvariant` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `portable_model` | `PortableTemporalObligation` | `obligation_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableTemporalObligation` | `kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_model` | `PortableTemporalObligation` | `trigger_state_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableTemporalObligation` | `target_state_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableTemporalObligation` | `transition_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableTemporalObligation` | `max_steps` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_model` | `PortableTemporalObligation` | `description` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `portable_model` | `PortableModel` | `model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_model` | `PortableModel` | `states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableModel` | `transitions` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableModel` | `initial_state_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableModel` | `terminal_state_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableModel` | `invariants` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableModel` | `temporal_obligations` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `PortableModel` | `assumptions` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_model` | `PortableModel` | `guarantees` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_model` | `PortableModel` | `conflicts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_model` | `PortableModel` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_model` | `PortableModel` | `schema_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_model` | `RefinementBinding` | `parent_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_model` | `RefinementBinding` | `child_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_model` | `RefinementBinding` | `state_mapping` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `RefinementBinding` | `transition_mapping` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `RefinementBinding` | `allowed_stutter_transition_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_model` | `RefinementBinding` | `parent_model_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_model` | `RefinementBinding` | `child_model_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_model` | `RefinementBinding` | `schema_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `primary_path_authority` | `PrimaryPathContract` | `business_path_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `primary_path_authority` | `PrimaryPathContract` | `business_intent` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `primary_path_authority` | `PrimaryPathContract` | `business_intent_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
@@ -3603,6 +3818,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `release_verification` | `ReleaseVerificationReport` | `artifact_paths` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `release_verification` | `ReleaseVerificationReport` | `release_url` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `release_verification` | `ReleaseVerificationReport` | `claim_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `replay` | `ReplayInput` | `external_input` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `replay` | `ReplayInput` | `function_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `replay` | `ReplayInput` | `function_input` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `replay` | `ReplayObservation` | `function_name` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
 | `replay` | `ReplayObservation` | `observed_output` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `replay` | `ReplayObservation` | `observed_state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
@@ -4145,6 +4363,8 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `self_maintenance` | `SelfMaintenancePlan` | `child_reports` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
 | `self_maintenance` | `SelfMaintenancePlan` | `broad_claim` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
 | `self_maintenance` | `SelfMaintenancePlan` | `allow_scoped_confidence` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
+| `self_maintenance` | `SelfMaintenancePlan` | `required_spec_context_ids` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
+| `self_maintenance` | `SelfMaintenancePlan` | `spec_context_hashes` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
 | `self_maintenance` | `SelfMaintenanceReport` | `ok` | `flowguard_self_maintenance` | `starter` | `evidence_or_decision` | `false` |
 | `self_maintenance` | `SelfMaintenanceReport` | `plan_id` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
 | `self_maintenance` | `SelfMaintenanceReport` | `decision` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
@@ -4211,6 +4431,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `skill_suite` | `SkillSuiteMemberReport` | `role` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `skill_suite` | `SkillSuiteMemberReport` | `owner` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `skill_suite` | `SkillSuiteMemberReport` | `declared_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `skill_suite` | `SkillSuiteMemberReport` | `repository_role` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `skill_suite` | `SkillSuiteMemberReport` | `discovered` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `skill_suite` | `SkillSuiteMemberReport` | `control_root_present` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `skill_suite` | `SkillSuiteMemberReport` | `required_files` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
@@ -4225,6 +4446,29 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `skill_suite` | `SkillSuiteReport` | `members` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `skill_suite` | `SkillSuiteReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `skill_suite` | `SkillSuiteReport` | `co_located_skill_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `spec_context` | `SpecContextArtifact` | `artifact_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContextArtifact` | `artifact_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContextArtifact` | `relative_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContextArtifact` | `content_hash` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContextArtifact` | `size` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContext` | `context_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContext` | `change_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContext` | `project_root` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContext` | `change_root` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContext` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `spec_context` | `SpecContext` | `task_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContext` | `completed_task_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContext` | `artifacts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `spec_context` | `SpecContext` | `provider_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContext` | `provider_role` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContext` | `read_only` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContext` | `current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContext` | `context_hash` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContextFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContextFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `spec_context` | `SpecContextFinding` | `relative_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContextReview` | `context` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `spec_context` | `SpecContextReview` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `state_closure` | `StateClosureCase` | `case_id` | `state_closure` | `starter` | `unclassified` | `false` |
 | `state_closure` | `StateClosureCase` | `dimension_id` | `state_closure` | `starter` | `unclassified` | `false` |
 | `state_closure` | `StateClosureCase` | `case_kind` | `state_closure` | `starter` | `unclassified` | `false` |
@@ -4364,6 +4608,10 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `summary_report` | `FlowGuardFindingLedgerEntry` | `category` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `summary_report` | `FlowGuardFindingLedgerEntry` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
 | `summary_report` | `FlowGuardFindingLedgerEntry` | `finding_index` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `finding_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `source_finding_code` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `source_subject_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `summary_report` | `FlowGuardFindingLedgerEntry` | `evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `summary_report` | `FlowGuardFindingLedgerEntry` | `section_summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `summary_report` | `FlowGuardFindingLedgerEntry` | `next_step` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `summary_report` | `FlowGuardFindingLedgerEntry` | `owner_route` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
@@ -4379,6 +4627,85 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `summary_report` | `FlowGuardSummaryReport` | `sections` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `summary_report` | `FlowGuardSummaryReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `summary_report` | `FlowGuardSummaryReport` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskModelVersion` | `version_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskModelVersion` | `model_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskModelVersion` | `artifact_ref` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskModelVersion` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskPredictionSnapshot` | `prediction_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskPredictionSnapshot` | `task_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskPredictionSnapshot` | `model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskPredictionSnapshot` | `scenario_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskPredictionSnapshot` | `model_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskPredictionSnapshot` | `expected_trace` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskPredictionSnapshot` | `falsifier` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskPredictionSnapshot` | `observation_boundary_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskPredictionSnapshot` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskPredictionSnapshot` | `trace_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskPredictionSnapshot` | `prediction_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskReplayEvidence` | `replay_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskReplayEvidence` | `task_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskReplayEvidence` | `model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskReplayEvidence` | `prediction_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskReplayEvidence` | `prediction_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskReplayEvidence` | `model_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskReplayEvidence` | `report_fingerprint` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `task_local_model` | `TaskReplayEvidence` | `observation_boundary_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskReplayEvidence` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `task_local_model` | `TaskReplayEvidence` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskModelRevision` | `revision_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskModelRevision` | `task_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskModelRevision` | `model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskModelRevision` | `base_model` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskModelRevision` | `candidate_model` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskModelRevision` | `prediction_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `task_local_model` | `TaskModelRevision` | `mismatch_summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `task_local_model` | `TaskModelRevision` | `changed_model_elements` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `task_local_model` | `TaskModelRevision` | `required_replay_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `task_local_model` | `TaskModelRevision` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `task_local_model` | `TaskModelRevision` | `completed_replay_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `task_local_model` | `TaskModelRevision` | `decision_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `task_local_model` | `TaskModelRevision` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `HardPredicate` | `key` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `HardPredicate` | `operator` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `HardPredicate` | `expected` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePack` | `template_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePack` | `version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePack` | `template` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `template_packs` | `TemplatePack` | `predicates` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `template_packs` | `TemplatePack` | `priority` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePack` | `base` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePack` | `composable` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePack` | `owned_fields` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `template_packs` | `TemplatePack` | `required_parameters` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `template_packs` | `TemplatePackManifest` | `manifest_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePackManifest` | `version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePackManifest` | `templates` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `template_packs` | `TemplatePackManifest` | `schema_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePackManifest` | `manifest_digest` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `ManifestValidation` | `manifest_digest` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `ManifestValidation` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `template_packs` | `TemplatePackSelectionReceipt` | `manifest_digest` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePackSelectionReceipt` | `context_digest` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePackSelectionReceipt` | `matched_template_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `template_packs` | `TemplatePackSelectionReceipt` | `selected_template_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `template_packs` | `TemplatePackSelectionReceipt` | `disposition` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePackSelectionReceipt` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `template_packs` | `TemplatePackSelectionReceipt` | `schema_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePackSelectionReceipt` | `selection_digest` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePackInstanceReceipt` | `manifest_digest` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePackInstanceReceipt` | `selection_digest` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePackInstanceReceipt` | `parameter_digest` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePackInstanceReceipt` | `selected_template_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `template_packs` | `TemplatePackInstanceReceipt` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `template_packs` | `TemplatePackInstanceReceipt` | `rendered_template` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `template_packs` | `TemplatePackInstanceReceipt` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `template_packs` | `TemplatePackInstanceReceipt` | `schema_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `TemplatePackInstanceReceipt` | `instance_digest` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `ReceiptValidation` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `template_packs` | `ReceiptValidation` | `expected_digest` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `ReceiptValidation` | `observed_digest` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `template_packs` | `ReceiptValidation` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `template_packs` | `ValidatedTemplatePackRegistry` | `manifest` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `templates` | `TemplateFile` | `path` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `templates` | `TemplateFile` | `content` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `test_reuse` | `TestResultReuseTicket` | `evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
@@ -4418,6 +4745,13 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `testmesh` | `TestSuiteEvidence` | `test_count` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
 | `testmesh` | `TestSuiteEvidence` | `selected_count` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
 | `testmesh` | `TestSuiteEvidence` | `skipped_count` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `planned_count` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `executed_count` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `failed_count` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `not_run_count` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `diagnostic_campaign_id` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `diagnostic_boundary` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestSuiteEvidence` | `finding_ids` | `test_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
 | `testmesh` | `TestSuiteEvidence` | `skipped_visible` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
 | `testmesh` | `TestSuiteEvidence` | `timeout_seconds` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
 | `testmesh` | `TestSuiteEvidence` | `duration_seconds` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |

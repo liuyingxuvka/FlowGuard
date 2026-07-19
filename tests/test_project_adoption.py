@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import re
@@ -59,6 +60,86 @@ def _blocked_suite_evidence():
             },
         ),
     )
+
+
+def _legacy_behavior_ledger():
+    evidence = {
+        "model_obligation_ids": [],
+        "code_contract_ids": [],
+        "test_evidence_ids": [],
+        "proof_artifact_ids": [],
+        "risk_gate_ids": [],
+        "coverage_case_ids": [],
+        "coverage_shard_ids": [],
+        "coverage_receipt_ids": [],
+        "evidence_state": "missing",
+        "test_mesh_state": "shard_current",
+        "current": False,
+        "metadata": {},
+    }
+    path_authority = {
+        "path_sensitive": False,
+        "business_intent": "",
+        "ppa_report_id": "",
+        "ppa_decision": "",
+        "ppa_confidence": "",
+        "ppa_ok": None,
+        "primary_path_ids": [],
+        "fallback_candidate_ids": [],
+        "ppa_coverage_receipt_ids": [],
+        "ppa_coverage_shard_ids": [],
+        "ppa_risk_gate_ids": [],
+        "scoped_out_reason": "",
+        "evidence_refs": [],
+        "metadata": {},
+    }
+    return {
+        "ledger_id": "ledger:legacy-project-upgrade",
+        "project_boundary": "legacy project-upgrade ledger",
+        "current_revision": "legacy-revision",
+        "commitments": [
+            {
+                "commitment_id": "commitment:project-upgrade",
+                "label": "project upgrade",
+                "commitment_kind": "process",
+                "actor": "developer",
+                "trigger": "",
+                "expected_result": "",
+                "failure_boundary": "",
+                "source_surface_ids": [],
+                "source_refs": [],
+                "primary_owner_model_id": "model:project-upgrade",
+                "supporting_model_ids": [],
+                "child_model_ids": [],
+                "dependency_commitment_ids": [],
+                "excluded_behavior_ids": [],
+                "replacement_state": "active",
+                "model_sync_state": "owner_model_current",
+                "miss_origin_state": "no_miss",
+                "path_authority": path_authority,
+                "evidence": evidence,
+                "in_scope": True,
+                "scoped_out_reason": "",
+                "owner": "",
+                "validation_boundary": "",
+                "rationale": "",
+                "metadata": {
+                    "migration_behavior_plane": "development_process",
+                    "migration_actor_kind": "developer",
+                },
+            }
+        ],
+        "source_surfaces": [],
+        "expected_commitment_ids": ["commitment:project-upgrade"],
+        "claim_scope": "routine",
+        "change_mode": "bootstrap_ledger",
+        "require_current_evidence": False,
+        "require_risk_gates_for_broad_claim": True,
+        "owner": "",
+        "validation_boundary": "",
+        "rationale": "",
+        "metadata": {},
+    }
 
 
 def _tree_snapshot(root: Path) -> dict[str, bytes]:
@@ -277,13 +358,7 @@ class ProjectAdoptionTests(unittest.TestCase):
             manifest.write_text(current_project_manifest_text(package_version="0.1.0"), encoding="utf-8")
             old_report = root / ".flowguard" / "old_report.json"
             old_report.write_text(
-                json.dumps(
-                    {
-                        "schema_version": "0.1",
-                        "artifact_type": "flowguard_test_report",
-                        "payload": {"ok": True},
-                    }
-                ),
+                json.dumps(_legacy_behavior_ledger()),
                 encoding="utf-8",
             )
 
@@ -309,15 +384,10 @@ class ProjectAdoptionTests(unittest.TestCase):
             manifest.write_text(current_project_manifest_text(package_version="0.1.0"), encoding="utf-8")
             old_report = root / ".flowguard" / "old_report.json"
             old_report.write_text(
-                json.dumps(
-                    {
-                        "schema_version": "0.1",
-                        "artifact_type": "flowguard_test_report",
-                        "payload": {"ok": True},
-                    }
-                ),
+                json.dumps(_legacy_behavior_ledger()),
                 encoding="utf-8",
             )
+            old_report_before = old_report.read_bytes()
 
             with patch(
                 "flowguard.project_adoption._load_suite_evidence",
@@ -329,7 +399,7 @@ class ProjectAdoptionTests(unittest.TestCase):
             self.assertIsNone(report.artifact_upgrade_report)
             categories = {finding.category for finding in report.findings}
             self.assertIn("artifact_upgrade_scan_scoped_out", categories)
-            self.assertEqual("0.1", json.loads(old_report.read_text(encoding="utf-8"))["schema_version"])
+            self.assertEqual(old_report_before, old_report.read_bytes())
 
     def test_audit_reports_stable_codes_for_missing_locked_rules(self):
         cases = (
@@ -467,7 +537,7 @@ class ProjectAdoptionTests(unittest.TestCase):
             )
             old_report = root / ".flowguard" / "old_report.json"
             old_report.write_text(
-                json.dumps({"schema_version": "0.1", "artifact_type": "flowguard_test_report"}),
+                json.dumps(_legacy_behavior_ledger()),
                 encoding="utf-8",
             )
             before = _tree_snapshot(root)
@@ -503,7 +573,7 @@ class ProjectAdoptionTests(unittest.TestCase):
             )
             old_report = root / ".flowguard" / "old_report.json"
             old_report.write_text(
-                json.dumps({"schema_version": "0.1", "artifact_type": "flowguard_test_report"}),
+                json.dumps(_legacy_behavior_ledger()),
                 encoding="utf-8",
             )
             before = _tree_snapshot(root)
@@ -816,6 +886,84 @@ class ProjectAdoptionTests(unittest.TestCase):
             audit_payload = json.loads(audit.stdout)
             self.assertTrue(audit_payload["ok"], audit_payload)
             self.assertEqual("pass", audit_payload["suite_status"])
+
+            (project_root / "AGENTS.md").write_text(
+                build_flowguard_agents_block(package_version="0.1.0"),
+                encoding="utf-8",
+            )
+            (project_root / FLOWGUARD_PROJECT_MANIFEST).write_text(
+                current_project_manifest_text(package_version="0.1.0"),
+                encoding="utf-8",
+            )
+            target_fixture = (
+                project_root
+                / "tests"
+                / "fixtures"
+                / "kb_retrieval_eval_cases.json"
+            )
+            target_fixture.parent.mkdir(parents=True)
+            target_fixture.write_bytes(
+                b'{\n  "schema_version": 1,\n  "cases": [{"query": "target-owned"}]\n}\n'
+            )
+            target_fixture_before = target_fixture.read_bytes()
+            target_fixture_hash = hashlib.sha256(target_fixture_before).hexdigest()
+            registered_artifact = (
+                project_root
+                / ".flowguard"
+                / "behavior_commitment_ledger"
+                / "ledger.json"
+            )
+            registered_artifact.parent.mkdir()
+            registered_artifact.write_text(
+                json.dumps(_legacy_behavior_ledger()),
+                encoding="utf-8",
+            )
+            ownership_upgrade = subprocess.run(
+                [
+                    sys.executable,
+                    "-S",
+                    "-m",
+                    "flowguard",
+                    "project-upgrade",
+                    "--root",
+                    ".",
+                    "--json",
+                ],
+                cwd=project_root,
+                env=runtime_env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(
+                0,
+                ownership_upgrade.returncode,
+                ownership_upgrade.stdout + ownership_upgrade.stderr,
+            )
+            ownership_payload = json.loads(ownership_upgrade.stdout)
+            self.assertTrue(ownership_payload["ok"], ownership_payload)
+            artifact_report = ownership_payload["artifact_upgrade_report"]
+            self.assertEqual(1, artifact_report["upgraded_count"])
+            self.assertEqual(
+                [".flowguard/behavior_commitment_ledger/ledger.json"],
+                artifact_report["changed_files"],
+            )
+            target_fixture_after = target_fixture.read_bytes()
+            self.assertEqual(target_fixture_before, target_fixture_after)
+            self.assertEqual(
+                target_fixture_hash,
+                hashlib.sha256(target_fixture_after).hexdigest(),
+            )
+            migrated_ledger = json.loads(
+                registered_artifact.read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                "flowguard_behavior_commitment_ledger",
+                migrated_ledger["artifact_type"],
+            )
+            migrated_row = migrated_ledger["ledger"]["commitments"][0]
+            self.assertNotIn("dependency_commitment_ids", migrated_row)
+            self.assertEqual([], migrated_row["relations"])
 
             packaged_authority = Path(probe_payload["authority_file"])
             authority_bytes = packaged_authority.read_bytes()

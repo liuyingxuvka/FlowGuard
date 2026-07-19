@@ -6,6 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from flowguard import (
+    behavior_commitment_ledger_from_mapping,
+    behavior_commitment_ledger_to_mapping,
+)
 from flowguard.templates import (
     behavior_commitment_ledger_template_files,
     closure_contract_template_files,
@@ -257,6 +261,8 @@ class PublicTemplateTests(unittest.TestCase):
 
         self.assertIn(".flowguard/behavior_commitment_ledger/ledger.json", by_path)
         payload = json.loads(by_path[".flowguard/behavior_commitment_ledger/ledger.json"])
+        canonical = behavior_commitment_ledger_from_mapping(payload)
+        self.assertEqual(payload, behavior_commitment_ledger_to_mapping(canonical))
         commitment = payload["ledger"]["commitments"][0]
         self.assertEqual("product_runtime", commitment["behavior_plane"])
         self.assertEqual("end_user", commitment["actor_kind"])
