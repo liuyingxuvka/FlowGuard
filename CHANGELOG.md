@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.58.5 - 2026-07-19
+
+- Refreshed every FlowGuard skill's private author-side SkillGuard contract
+  with the current affected-only validation ownership and provenance model.
+- Kept graduated consumer skills clean: author contracts and receipts remain
+  excluded from the installed projection, with no fallback or compatibility
+  runtime.
+- Retained source-only release authority with an immutable tag and zero GitHub
+  Release assets.
+
 ## v0.58.4 - 2026-07-19
 
 - Corrected the v0.58.3 artifact-ownership model miss: a numeric
