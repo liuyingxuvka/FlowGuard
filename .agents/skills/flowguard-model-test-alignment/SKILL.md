@@ -26,7 +26,8 @@ Accept obligations/contracts/evidence; compare bindings/freshness; block missing
 ## Required Workflow
 1. List obligations, stable plane/intent/commitment/path ids, fields, `ArtifactPayloadContract`, owner/delegating contracts, similarity, and evidence kinds.
 2. Materialize similarity/exhaustion rows into obligations, owner contracts, targets, tests, or typed scoped dispositions; consume current source/runtime/family evidence.
-3. Classify gaps and hand them to TestMesh, maturation, risk, or closure owners.
+3. For bounded system properties, preserve property -> definition/request/slice -> interaction case -> mapped system trace step -> component transition -> optional code/runtime target -> current regression evidence; code/runtime targets are non-semantic provenance until this route proves their currentness.
+4. Classify gaps and hand them to TestMesh, maturation, risk, or closure owners.
 
 ## Hard Gates
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.

@@ -6,7 +6,7 @@ description: Use to generate canonical bad cases, Cartesian combinations, oracle
 # FlowGuard Contract Exhaustion Mesh
 
 ## Purpose
-Turn an owner-declared finite boundary into canonical mutation/combination cases and typed evidence handoffs; never act as a global bug oracle.
+Turn an owner-declared finite boundary into canonical cases and typed evidence handoffs; never act as a global bug oracle.
 
 ## Entrypoint Scope
 Route id: `contract_exhaustion_mesh`; role: `public_owner`; native owner: `contract_exhaustion_mesh`. This standalone FlowGuard satellite skill owns canonical finite-case generation.
@@ -15,7 +15,7 @@ Route id: `contract_exhaustion_mesh`; role: `public_owner`; native owner: `contr
 Read `references/contract_exhaustion_mesh_protocol.md` for feeders, universes, `ContractDimension`, `ContractMutationCase`, oracles, receipts, and consumers.
 
 ## Entrypoint Acceptance Map
-Accept declared finite dimensions/seeds; generate reviewable cases with oracles; block unbounded broad claims, missing feedback, stale/incomplete receipts, or missing universe items; hand obligations/cells/shards/receipts/risk gates to their owners.
+Accept finite dimensions/seeds; generate cases with oracles; block unbounded claims, missing feedback, stale receipts, or missing universe items; hand evidence to its owners.
 
 ## Use When
 - Use for same-class, payload, transition, state-closure, PPA, BCL, product-language, expected member/candidate inventory, facade delegation, parent/child closure, no-delta, or model-scoped Cartesian coverage.
@@ -26,7 +26,8 @@ Accept declared finite dimensions/seeds; generate reviewable cases with oracles;
 ## Required Workflow
 1. Identify the declaring owner, finite dimensions/seeds, model scope, universe, exclusions, and required consumers.
 2. Build a `ContractExhaustionPlan`, run `review_contract_exhaustion()`, and repair oracle, feedback, matrix, receipt, and backfeed gaps.
-3. Project stable case ids to Model-Test Alignment, TestMesh, ModelMesh, DevelopmentProcessFlow, and Risk Evidence Ledger.
+3. For bounded system composition, generate only owner-declared artifact/delivery variants, initial environments, finite fault profiles, malformed boundaries, and benchmark/test shards; do not regenerate joint-step schedules already explored by the canonical checker.
+4. Project stable case ids to Model-Test Alignment, TestMesh, ModelMesh, DevelopmentProcessFlow, and Risk Evidence Ledger.
 
 ## Hard Gates
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.

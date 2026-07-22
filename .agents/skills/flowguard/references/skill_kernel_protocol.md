@@ -17,6 +17,7 @@ standalone satellite skills.
 - route map to specialized protocols, public owner satellites, and internal
   DevelopmentProcessFlow routes;
 - distinction between agent sub-protocols and package helper APIs.
+- selection of bounded declared-system composition when current portable models share an executable event/identity/retry/order/resource/cache/confirmation/atomicity/compensation/property boundary; the kernel routes discovery/evidence/process work but keeps one canonical checker owner.
 - lightweight non-trivial lookup of the shared BCL/model inventory before
   route choice: same-plane hits guide the native owner, typed related-plane
   rows remain context, and ambiguous planes remain separated;

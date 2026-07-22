@@ -1025,6 +1025,36 @@ from .portable_checker import (
     check_refinement,
     execute_portable_model,
 )
+from .portable_system import (
+    PORTABLE_SYSTEM_REQUEST_SCHEMA_VERSION,
+    PORTABLE_SYSTEM_SCHEMA_VERSION,
+    PortableSystemDefinition,
+    PortableSystemSlice,
+    SystemComponentRef,
+    SystemCompositionRequest,
+    SystemDependency,
+    SystemEventBinding,
+    SystemEventPort,
+    SystemProperty,
+    SystemSharedResource,
+    SystemStatePattern,
+    SystemStep,
+    SystemTransitionRef,
+    derive_system_slice,
+    load_portable_system,
+    load_system_composition_request,
+    validate_system_components,
+    validate_system_definition,
+    write_portable_system,
+    write_system_composition_request,
+)
+from .system_composition import (
+    SYSTEM_COMPOSITION_STATUSES,
+    SystemCompositionReport,
+    SystemCounterexample,
+    SystemTraceStep,
+    check_system_composition,
+)
 from .minimize import (
     MinimizedCounterexample,
     ReductionStep,
@@ -3024,6 +3054,16 @@ API_SURFACE = {
         "check_portable_model",
         "check_refinement",
         "check_composition",
+        "PORTABLE_SYSTEM_SCHEMA_VERSION",
+        "PORTABLE_SYSTEM_REQUEST_SCHEMA_VERSION",
+        "PortableSystemDefinition",
+        "SystemCompositionRequest",
+        "PortableSystemSlice",
+        "load_portable_system",
+        "load_system_composition_request",
+        "derive_system_slice",
+        "SystemCompositionReport",
+        "check_system_composition",
     ),
 }
 

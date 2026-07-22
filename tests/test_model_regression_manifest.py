@@ -22,7 +22,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
         manifest = ModelRegressionManifest.load(root)
         audit = audit_manifest(root, manifest)
         self.assertTrue(audit.ok, audit.errors)
-        self.assertEqual(61, len(audit.registered_model_ids))
+        self.assertEqual(62, len(audit.registered_model_ids))
         discovered = {
             path.relative_to(root / ".flowguard").as_posix()
             for path in discover_model_directories(root)
@@ -72,6 +72,8 @@ class ModelRegressionManifestTests(unittest.TestCase):
                 ".flowguard/spec_context/model.py",
                 ".flowguard/spec_context/run_checks.py",
                 "flowguard/spec_context.py",
+                ".flowguard/bounded_system_composition_benchmark/model.py",
+                ".flowguard/bounded_system_composition_benchmark/run_checks.py",
             }
         )
         manifest = ModelRegressionManifest.load(root)

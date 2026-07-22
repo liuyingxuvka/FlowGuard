@@ -1460,15 +1460,17 @@
             "tests/test_portable_model.py",
             "tests/test_portable_checker.py",
             "tests/test_compositional_verification.py",
-            "tests/test_portable_model_cli.py"
+            "tests/test_portable_model_cli.py",
+            "tests/test_portable_system.py",
+            "tests/test_system_composition_benchmark.py"
           ],
           "test_mesh_state": "shard_current"
         },
         "excluded_behavior_ids": [],
-        "expected_result": "the current portable model is validated and checked through one canonical interpreter, and every refinement or composition claim consumes explicit current mappings and contract tokens",
+        "expected_result": "the current portable model or bounded declared system slice is validated and checked through one canonical interpreter, and every refinement, token-composition, or executable-composition claim consumes explicit current identities and mappings",
         "expected_terminal": "one canonical pass or one visible invalid, blocked, or failed report preserves the model identity and actionable counterexample",
         "external_differences": [],
-        "failure_boundary": "non-current schemas, truncated exploration, unsafe or non-progressing graphs, unmapped child steps, strengthened assumptions, missing guarantees or providers, and conflicts cannot pass",
+        "failure_boundary": "non-current schemas, stale components, unresolved or omitted declared closure, clean or temporal truncation, unsafe or non-progressing graphs, unmapped child steps, strengthened assumptions, missing guarantees or providers, and conflicts cannot pass",
         "in_scope": true,
         "label": "portable finite models receive one fail-closed compositional verification result",
         "lookup_binding": {
@@ -1476,11 +1478,14 @@
             "portable_model_invalid",
             "refinement_transition_unmapped",
             "composition_assumption_unprovided"
+            ,"joint exploration reached max_states"
           ],
           "metadata": {},
           "path_patterns": [
             "flowguard/portable_model.py",
             "flowguard/portable_checker.py",
+            "flowguard/portable_system.py",
+            "flowguard/system_composition.py",
             ".flowguard/compositional_verification_kernel/**"
           ],
           "task_terms": [
@@ -1490,18 +1495,23 @@
             "compositional verification",
             "refinement",
             "assume guarantee"
+            ,"bounded system composition"
+            ,"affected system slice"
           ],
           "tool_ids": [
             "flowguard.portable-model-check",
             "flowguard.portable-model-refinement"
+            ,"flowguard.portable-system-check"
           ],
           "workflow_families": [
             "portable_model_verification",
             "compositional_refinement"
+            ,"bounded_system_composition"
           ]
         },
         "metadata": {
-          "schema_version": "flowguard.portable_model.v1"
+          "schema_version": "flowguard.portable_model.v1",
+          "system_schema_version": "flowguard.portable_system.v1"
         },
         "miss_origin_state": "no_miss",
         "model_sync_state": "owner_model_current",
@@ -1513,7 +1523,8 @@
           "evidence_current": true,
           "evidence_refs": [
             ".flowguard/compositional_verification_kernel/run_checks.py",
-            "tests/test_portable_model_cli.py"
+            ".flowguard/bounded_system_composition_benchmark/run_checks.py",
+            "tests/test_portable_system.py"
           ],
           "fallback_candidate_ids": [],
           "metadata": {},
@@ -1541,7 +1552,7 @@
           "scoped_out_reason": ""
         },
         "preconditions": [
-          "the caller supplies one explicit current-schema finite artifact and any required explicit refinement binding"
+          "the caller supplies one explicit current-schema finite artifact and any required explicit refinement binding, or one strict system definition/request with every exact referenced component model"
         ],
         "primary_owner_model_id": ".flowguard/compositional_verification_kernel/model.py",
         "rationale": "This is intrinsic FlowGuard product-runtime checking behavior, separate from agent guidance, release process, and any future application workflow.",
@@ -1561,8 +1572,8 @@
           ".flowguard/model_topology_hazard_review/model.py"
         ],
         "surface_delegation_only": false,
-        "trigger": "a developer validates or checks a portable model, refinement, or component composition",
-        "validation_boundary": "current schema/parser, reference interpreter, safety/temporal checks, explicit mappings, contract provider closure, native model, focused tests, and API/CLI parity",
+        "trigger": "a developer validates or checks a portable model, refinement, token composition, or bounded declared system composition",
+        "validation_boundary": "current schema/parser, declared-graph slice closure, deterministic joint compilation, reference interpreter, safety/temporal checks, explicit mappings, contract provider closure, native models, benchmark, focused tests, and API/CLI parity",
         "variant_of_business_intent_id": ""
       },
       {
@@ -2455,18 +2466,19 @@
         "label": "FlowGuard portable verification API and CLI cohort",
         "metadata": {
           "behavior_plane": "product_runtime",
-          "schema_version": "flowguard.portable_model.v1"
+          "schema_version": "flowguard.portable_model.v1",
+          "system_schema_version": "flowguard.portable_system.v1"
         },
         "owner": "portable_compositional_verification",
         "primary_path_id": "path:portable-compositional-verification:canonical-checker",
-        "rationale": "Python imports and three CLI commands delegate to the same schema, interpreter, and report authority.",
+        "rationale": "Python imports and the portable CLI cohort delegate model and bounded-system verdicts to the same canonical portable checker authority.",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "flowguard/portable_model.py; flowguard/portable_checker.py; flowguard/__init__.py; flowguard/__main__.py; .flowguard/compositional_verification_kernel/model.py; tests/test_portable_model.py; tests/test_portable_checker.py; tests/test_compositional_verification.py; tests/test_portable_model_cli.py",
+        "source_ref": "flowguard/portable_model.py; flowguard/portable_checker.py; flowguard/portable_system.py; flowguard/system_composition.py; flowguard/__init__.py; flowguard/__main__.py; .flowguard/compositional_verification_kernel/model.py; .flowguard/bounded_system_composition_benchmark/model.py; tests/test_portable_model.py; tests/test_portable_checker.py; tests/test_compositional_verification.py; tests/test_portable_model_cli.py; tests/test_portable_system.py; tests/test_system_composition_benchmark.py",
         "surface_id": "surface:portable-compositional-verification",
         "surface_kind": "api",
-        "validation_boundary": "portable IR, checker, refinement/composition, API/CLI, native model, and regression-manifest checks"
+        "validation_boundary": "portable IR, strict system definition/request/slice, canonical checker delegation, refinement/token/executable composition, API/CLI, native model/benchmark, and regression-manifest checks"
       },
       {
         "business_intent_ids": [

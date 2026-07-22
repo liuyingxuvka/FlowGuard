@@ -67,3 +67,24 @@ states. There is no alternate reader or prose fallback.
 Route explicit parent/child mappings to ModelMesh and topology-anchored
 liveness/fairness interpretation to Model Topology Hazard Review. Both consume
 the same portable checker receipts; neither reimplements the interpreter.
+
+## Bounded declared-system composition
+
+Use `flowguard.portable_system.v1` only when current portable component models
+have a declared cross-model relation or owner-bound property that local and
+token checks cannot decide. Keep three immutable identities separate:
+`PortableSystemDefinition` for stable declared semantics,
+`SystemCompositionRequest` for changed roots/property selection/subset,
+environment guarantees and finite bound, and the derived
+`PortableSystemSlice` for the exact closure inside that declared graph.
+
+One-reference system steps are the v1 interleaving authority; multi-reference
+steps are explicit atomic transitions. Queue, resource, clock, fault, retry,
+cache, and external-confirmation behavior remain ordinary finite components.
+The compiler may assemble and map a joint graph but cannot decide safety or
+temporal truth. A complete graph is checked once by the canonical portable
+checker. A truncated graph is blocked without a checker verdict unless it
+contains a reachable forbidden-state safety witness, in which case a
+safety-only witness graph is checked once; temporal/fairness observations from
+an incomplete graph never become failures. Exact declared-graph closure does
+not prove that production code has no undeclared dependencies.

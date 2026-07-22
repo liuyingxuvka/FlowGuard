@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.60.0 - 2026-07-22
+
+- Added strict `flowguard.portable_system.v1` system definitions, verification
+  requests, and exact declared-graph slices with separate canonical identities.
+- Added bounded joint-system compilation and a stage-aware composition report
+  that distinguishes `pass`, `fail`, `blocked`, `invalid`, and `not_run`, maps
+  counterexamples back to components, and invokes the canonical system checker
+  at most once.
+- Added `portable-system-check`, Python API exports, and three benchmark
+  families covering retry identity, permission revocation, and deletion
+  propagation with bad, repaired, missing-semantics, and truncated variants.
+- Extended the existing portable-composition behavior commitment, executable
+  model evidence, regression manifest, tests, and affected FlowGuard skill
+  guidance without adding a second runtime owner or a new satellite skill.
+- Retained source-only release authority with an immutable tag and zero GitHub
+  Release assets.
+
 ## v0.59.0 - 2026-07-22
 
 - Added one manifest-backed `python -m flowguard simulator` surface for model

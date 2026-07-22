@@ -52,6 +52,22 @@ It keeps the normal path short:
 Use this group before expanding to `FLOWGUARD_ROUTE_API` or the complete
 `MODELING_HELPER_API` inventory.
 
+## Portable System Verification API
+
+`API_SURFACE["portable_verification"]` also exposes the bounded system
+composition cohort: `PortableSystemDefinition`, `SystemCompositionRequest`,
+`PortableSystemSlice`, `SystemComponent`, `SystemDependency`, `SystemPort`,
+`SystemBinding`, `SystemResource`, `SystemStep`, `SystemInteractionPattern`,
+`SystemProperty`, `SystemCompositionReport`, `derive_system_slice()`, and
+`check_portable_system()`.
+
+Use these names when the verification subject is a declared finite subsystem
+rather than one portable component. The system definition, request, and slice
+have separate canonical fingerprints. The checker validates and compiles the
+exact declared dependency closure, produces one stage-aware report, and never
+claims coverage of undeclared or unknown components. The command-line surface
+is `python -m flowguard portable-system-check`.
+
 ## Governance And Distribution API
 
 `FLOWGUARD_GOVERNANCE_API` groups the release-facing control plane, including

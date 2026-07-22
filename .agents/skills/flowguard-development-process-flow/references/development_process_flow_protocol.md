@@ -107,6 +107,14 @@ evidence requires terminal status, exit code, concrete result artifact and
 fingerprint, covered ids, inventory revision, and current artifact/verifier
 versions.
 
+For bounded-system capability delivery, native API/CLI and benchmark evidence
+must precede prompt/skill activation. Build one clean fifteen-skill consumer
+projection only after its author source is frozen. Keep source, editable/installed
+package, consumer skills, repository commit, tag, and GitHub Release identities
+separate. A source-only release follows one frozen final validation; post-push
+parity verifies every identity. If governed source changes after publication,
+the correction uses a new immutable version rather than moving the tag.
+
 ## Read-only OpenSpec context
 
 For an active official OpenSpec change, read only its proposal, design,

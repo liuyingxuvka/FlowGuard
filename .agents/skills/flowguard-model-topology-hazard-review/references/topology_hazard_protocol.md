@@ -96,3 +96,11 @@ declared fair transition group is continuously enabled across that component
 and taking any declared fair transition leaves it. The review consumes the
 canonical checker report for the exact model fingerprint; it never converts
 descriptive route metadata into an executable fairness pass.
+
+Topology-anchored cross-model event, retry-identity, shared-writer/resource,
+commit/emit/ack atomicity, cache-authority, external-confirmation, or finite
+delivery hazards may become proposed bounded-interaction seeds. Each seed names
+its exact model/transition/binding/resource/property anchors and references a
+property owner already resolved by BCL or Existing Model Preflight; otherwise
+it emits `owner_missing`. Topology review never appoints the owner and never
+labels an unexecuted seed as a system-composition finding.

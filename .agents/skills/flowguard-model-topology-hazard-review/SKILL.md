@@ -26,7 +26,8 @@ Accept a current topology digest, usage intent, and evidence boundary; promote o
 ## Required Workflow
 1. Record usage, scope, topology, business paths, evidence, and gaps. Portable temporal claims bind the digest to the exact `flowguard.portable_model.v1` fingerprint and executable obligations.
 2. For each candidate, name the topology anchor, real-use failure, affected element, confidence effect, and disposition.
-3. Resolve, scope with rationale, or issue typed owner-route handoffs and maintenance obligations.
+3. Cross-model event/retry/resource/cache/atomicity/external-confirmation hazards may seed bounded interaction candidates, but must reference a BCL/preflight-resolved property owner or emit `owner_missing`; seeds are not executed findings.
+4. Resolve, scope with rationale, or issue typed owner-route handoffs and maintenance obligations.
 
 ## Hard Gates
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.

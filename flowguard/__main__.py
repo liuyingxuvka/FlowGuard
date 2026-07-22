@@ -593,6 +593,34 @@ def _run_portable_model_refinement_command(args: argparse.Namespace) -> int:
     return _print_portable_report(report, as_json=args.json)
 
 
+def _run_portable_system_check_command(args: argparse.Namespace) -> int:
+    from .portable_model import load_portable_model
+    from .portable_system import load_portable_system, load_system_composition_request
+    from .system_composition import SystemCompositionReport, check_system_composition
+
+    try:
+        system = load_portable_system(args.system)
+        request = load_system_composition_request(args.request)
+        models = tuple(load_portable_model(path) for path in args.component)
+        report = check_system_composition(system, request, models)
+    except Exception as exc:
+        report = SystemCompositionReport(
+            status="invalid",
+            system_id=args.system,
+            system_fingerprint="",
+            request_fingerprint="",
+            stages={
+                "component_local": "not_run",
+                "contract_composition": "not_run",
+                "affected_slice": "not_run",
+                "system_composition": "not_run",
+            },
+            findings=(str(exc),),
+        )
+    print(report.to_json_text() if args.json else report.format_text())
+    return {"pass": 0, "fail": 1, "blocked": 2, "invalid": 3}[report.status]
+
+
 def _simulator_listing(root: Path) -> tuple[dict[str, object], int]:
     from .model_regressions import ModelRegressionManifest, audit_manifest
 
@@ -995,6 +1023,16 @@ def _add_portable_model_parsers(
     refinement.add_argument("--binding", required=True, help="Refinement binding JSON path.")
     refinement.add_argument("--json", action="store_true", help="Print canonical JSON output.")
     refinement.set_defaults(handler=_run_portable_model_refinement_command)
+
+    system_check = subparsers.add_parser(
+        "portable-system-check",
+        help="Check one strict bounded system definition and request through the canonical portable checker.",
+    )
+    system_check.add_argument("--system", required=True, help="Portable system definition JSON path.")
+    system_check.add_argument("--request", required=True, help="System composition request JSON path.")
+    system_check.add_argument("--component", action="append", required=True, help="Referenced portable component model JSON path; repeat for every component.")
+    system_check.add_argument("--json", action="store_true", help="Print canonical JSON output.")
+    system_check.set_defaults(handler=_run_portable_system_check_command)
 
 
 def _add_simulator_parser(

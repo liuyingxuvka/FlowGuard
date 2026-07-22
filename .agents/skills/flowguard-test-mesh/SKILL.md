@@ -12,7 +12,7 @@ Govern parent/child test hierarchy, validation partitions, results, and freshnes
 This is a standalone FlowGuard satellite skill; `test_mesh_maintenance` owns evidence structure, not semantics, process optimization, or test execution.
 
 ## Local Material Routing
-Read `references/test_mesh_protocol.md` for split, ownership, diagnostic accounting, reuse, matrices, and release scope.
+Read `references/test_mesh_protocol.md` for ownership, diagnostics, reuse, matrices, and release scope.
 
 ## Entrypoint Acceptance Map
 Review a model-derived parent/child validation mesh; block stale, skipped, incomplete, or unowned evidence; hand semantics and lifecycle/risk to typed owners.
@@ -27,7 +27,8 @@ Review a model-derived parent/child validation mesh; block stale, skipped, incom
 1. Define the parent gate and derive child suites/scripts from a FlowGuard validation-structure model.
 2. Declare an independent inventory revision and every required surface, obligation, member, cell, case, and shard; map each id to one owner.
 3. Attach status, freshness, artifacts, reuse tickets, skips/timeouts, terminal identity, fingerprint, covered ids, and versions. Diagnostics add `diagnostic_boundary`, planned/executed/failed/not-run counts, not-run reason, campaign id, and stable Finding Ledger ids. OpenSpec context never becomes a test receipt or execution owner.
-4. Review routine/release scope and return child evidence plus typed handoffs.
+4. For long/background system-composition checks, preserve definition/request/slice/component/compiled-model/scheduler/bound/truncation/trace identities in the existing `ProofArtifactRef.artifact_fingerprints`; progress remains liveness and no system-specific generic receipt fields are invented without a proven gap.
+5. Review routine/release scope and return child evidence plus typed handoffs.
 
 ## Hard Gates
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.

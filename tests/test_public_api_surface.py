@@ -16,6 +16,16 @@ EXPECTED_PORTABLE_COHORT = (
     "check_portable_model",
     "check_refinement",
     "check_composition",
+    "PORTABLE_SYSTEM_SCHEMA_VERSION",
+    "PORTABLE_SYSTEM_REQUEST_SCHEMA_VERSION",
+    "PortableSystemDefinition",
+    "SystemCompositionRequest",
+    "PortableSystemSlice",
+    "load_portable_system",
+    "load_system_composition_request",
+    "derive_system_slice",
+    "SystemCompositionReport",
+    "check_system_composition",
 )
 
 
@@ -30,7 +40,7 @@ class PublicApiSurfaceTests(unittest.TestCase):
             self.assertTrue(hasattr(flowguard, name), name)
 
     def test_internal_checker_helpers_are_not_public(self):
-        for name in ("_tarjan", "_eventual_failure", "_fairness_forces_escape"):
+        for name in ("_tarjan", "_eventual_failure", "_fairness_forces_escape", "_compile"):
             self.assertNotIn(name, flowguard.__all__)
 
 

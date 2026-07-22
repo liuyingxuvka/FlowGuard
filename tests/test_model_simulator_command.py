@@ -26,7 +26,7 @@ class ModelSimulatorCommandTests(unittest.TestCase):
 
         self.assertEqual(0, exit_code)
         self.assertEqual("pass", payload["status"])
-        self.assertEqual(61, len(payload["models"]))
+        self.assertEqual(62, len(payload["models"]))
         self.assertTrue(payload["manifest_audit"]["ok"])
 
     def test_execution_scope_is_required(self) -> None:

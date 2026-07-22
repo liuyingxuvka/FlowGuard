@@ -168,6 +168,19 @@ existing parent model, child models, leaf models, current evidence ids, and any
 duplicate-boundary risks before a new model or test boundary is added. A model
 reference plus ordinary test mention is not the same as complete finite leaf
 boundary proof.
+## Executable composition handoff
+
+When two or more current portable models have a candidate event, identity,
+retry, ordering, shared-resource, cache, external-confirmation, atomicity,
+compensation, or owner-bound property relation, emit `compose_existing_models`.
+The handoff names exact current model fingerprints, any existing
+PortableSystemDefinition reference, proposed relation anchors, candidate
+changed roots, discovery-evidence identity, and unresolved facts. Candidate
+relations remain proposed until the portable-system owner accepts them. Full
+preflight blocks broad executable-composition confidence when required relation
+or freshness facts remain ambiguous; it does not copy ports, bindings,
+resources, steps, or properties into a second authoritative preflight schema.
+
 ## Read-only OpenSpec context
 
 Attach official OpenSpec context only after canonical plane-first commitment

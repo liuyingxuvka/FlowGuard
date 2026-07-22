@@ -107,6 +107,13 @@ the named route owners close the same acceptance id.
 
 ## Consumers
 
+For bounded system composition, the finite axes are artifact or delivery-policy
+variants, initial environment variants, finite fault profiles, malformed
+boundary inputs, and benchmark/test shard identities. The compiler and
+canonical checker already enumerate enabled joint-step schedules in the exact
+compiled graph, so ContractExhaustionMesh must not create a second ordering
+enumerator for those same schedules.
+
 - Model-Test Alignment consumes `contract_exhaustion_to_model_obligations(...)`;
   each generated combination obligation needs current test evidence that cites
   the obligation id.

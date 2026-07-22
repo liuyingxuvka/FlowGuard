@@ -25,10 +25,11 @@ Accept boundary/root; query/search; choose reuse, extend, child, new, or none; b
 
 ## Required Workflow
 1. Query canonical commitments from task plus exact id/path/tool/workflow/error clues before path discovery; select one grounded primary plane or preserve ambiguity.
-2. Search current models/specs/docs/surfaces/records; add exact owner models from primary hits and classify old evidence. Only after plane-first lookup, attach current official OpenSpec proposal/design/spec/tasks/status as read-only `development_process` context.
+2. Search current models/specs/docs/surfaces/records, add exact owners, and classify old evidence. After plane-first lookup, attach current OpenSpec artifacts as read-only process context.
 3. Extract block/state/field/effect/entrypoint/commitment/intent/path/mesh ownership.
 4. Independently inventory every declared same-intent surface, not only caller candidates.
 5. Record lookup/fingerprint, primary/related hits, reuse, unknown/scoped surfaces, duplicate/stale risks, and typed handoff.
+6. For cross-model composition, report current references, changed roots, discovery identity, and unresolved items through `compose_existing_models`; never duplicate the portable-system schema.
 
 ## Hard Gates
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.

@@ -378,3 +378,13 @@ states, and checks that the child does not strengthen assumptions or weaken
 guarantees. A descriptive edge, matching label, child-local green receipt, or
 prompt assertion is not semantic reattachment evidence. Consume the exact
 canonical refinement report; do not build a second mesh-owned interpreter.
+
+For a hierarchical cross-model interaction risk, ModelMesh may additionally
+emit a typed composite-candidate handoff containing exact child fingerprints,
+proposed relations and changed roots, affected siblings, an already-resolved
+system-property owner or `owner_missing`, and current system/slice receipt
+references. It consumes a receipt only when definition, slice, and component
+fingerprints still match. This is limited to parent/child, sibling
+reattachment, and hierarchical closure/freshness work. Ordinary peer-model
+composition bypasses ModelMesh, and no mesh path expands or checks the joint
+portable state graph.

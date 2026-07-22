@@ -12,7 +12,7 @@ Simulate lifecycle order and freshness without replacing specialists.
 Front-door `public_owner`; `development_process_flow` owns `execution_freshness`, conditional optimization, and internal `plan_detailing_compiler` and `agent_workflow_rehearsal` routes.
 
 ## Local Material Routing
-Read `references/development_process_flow_protocol.md`; load `references/plan_detailing_protocol.md` or `references/agent_workflow_protocol.md` only when that internal route is selected, `references/process_optimization_protocol.md` only for an optimization reason, and `references/failure_triage_protocol.md` only for non-pass triage.
+Read `references/development_process_flow_protocol.md`; load each internal protocol only when its route or non-pass triage is selected.
 
 ## Entrypoint Acceptance Map
 Order modes, keep ordinary work light, compare hard-equivalent candidates conditionally, enforce freshness, and delegate gaps.
@@ -25,10 +25,11 @@ Order modes, keep ordinary work light, compare hard-equivalent candidates condit
 
 ## Required Workflow
 1. Register modes, artifacts, actions, targets, writes, evidence, peer changes, and a bounded provider package.
-2. Activate optimization only for `explicit_request`, `multiple_equivalent_routes`, `material_rework_risk`, or `diagnostic_boundary_choice`; otherwise return `not_needed` with no ceremony.
-3. When active, prove equal outcome, obligation/evidence, safety, protected side effects, dependency authority, and execution owner. Choose `targeted|declared_complete|budgeted` diagnosis plus `sequential|safe_parallel` execution.
+2. Activate optimization only for a declared optimization trigger; otherwise return `not_needed`.
+3. When active, prove hard equivalence, then choose the declared diagnosis and execution modes.
 4. Reuse TestMesh and Finding Ledger evidence; group only related findings, repair the primary owner/root cause, and revalidate affected obligations. Hard blockers stop invalid descendants; material evidence stales the decision.
 5. Route non-pass results, scan owners, preserve peer writes, track freshness domains separately, freeze final inputs, and use one owner per heavy check.
+6. For bounded-system delivery, require native API/CLI and benchmark evidence before prompt activation, synchronize source/package/fifteen-skill/Git identities, run one frozen final gate, then push/tag/source-only release and verify post-publish parity.
 
 ## Hard Gates
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.

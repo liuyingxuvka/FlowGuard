@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.59.0` | `1.0` | Python standard library only | MIT |
+| `v0.60.0` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -71,7 +71,19 @@ workflow layer.
 python -m flowguard portable-model-validate path/to/model.json --json
 python -m flowguard portable-model-check path/to/model.json --json
 python -m flowguard portable-model-refinement --parent parent.json --child child.json --binding binding.json --json
+python -m flowguard portable-system-check --system system.json --request request.json --component component-a.json --component component-b.json --json
 ```
+
+For a declared finite subsystem, `flowguard.portable_system.v1` keeps the
+system definition, the verification request, and the exact derived slice as
+three distinct identities. The system checker validates every referenced
+component, compiles the declared dependency/step graph into one bounded joint
+model, and makes at most one canonical system-level checker invocation. A
+counterexample is mapped back to component transitions and optional code
+targets. Missing, stale, or omitted dependencies, clean truncation, and
+truncated temporal claims block rather than being reported as passes. This is
+evidence about the declared bounded slice only; it does not discover unknown
+components or prove arbitrary software outside that slice.
 
 The practical loop is:
 
@@ -402,7 +414,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.59.0 is source-only: the immutable Git tag is the release
+FlowGuard v0.60.0 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -508,7 +520,16 @@ assume/guarantee composition。它不会序列化任意 Python，也不承担未
 python -m flowguard portable-model-validate path/to/model.json --json
 python -m flowguard portable-model-check path/to/model.json --json
 python -m flowguard portable-model-refinement --parent parent.json --child child.json --binding binding.json --json
+python -m flowguard portable-system-check --system system.json --request request.json --component component-a.json --component component-b.json --json
 ```
+
+对于一个明确声明的有限子系统，`flowguard.portable_system.v1` 会把系统定义、
+验证请求和精确推导出的系统切片保留为三个不同身份。系统检查器先验证所有被
+引用的组件，再把声明的依赖与步骤图编译为一个有界联合模型，系统级规范检查
+最多调用一次。若出现反例，会映射回组件迁移和可选代码位置。依赖缺失、过期或
+被遗漏，以及没有发现错误但探索被截断、时间性质被截断，都会报告为阻塞，而
+不是通过。这份证据只覆盖声明的有界切片，不会自动发现未知组件，也不证明切片
+之外的任意软件。
 
 实际工作循环是：
 
@@ -817,7 +838,7 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.59.0 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.60.0 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 ## Guard Family 关系

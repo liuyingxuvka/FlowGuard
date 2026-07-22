@@ -110,6 +110,14 @@ model/test disposition, treat the hazard id as a model obligation source. Bind
 current tests or code-boundary observations to that hazard, or return the gap
 to model maturation and Risk Evidence Ledger.
 
+For a bounded system property, preserve one current chain from property id and
+owner through definition/request/slice fingerprints, interaction case, mapped
+system trace step, component transition, and any declared code/runtime target
+to current external regression evidence. Local component, token-composition,
+and executable-system evidence remain separate. Code/runtime targets are
+optional non-semantic trace provenance at the checker layer; this route owns
+whether they exist, are current, and support a production-conformance claim.
+
 When real Python source and tests are available, add the conservative source audit
 layer before trusting hand-authored rows. This layer reads Python ASTs to
 generate or check `PythonCodeContractEvidence` and

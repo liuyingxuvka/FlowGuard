@@ -10,7 +10,9 @@
         ".flowguard/compositional_verification_kernel/model.py",
         ".flowguard/compositional_verification_kernel/run_checks.py",
         "flowguard/portable_model.py",
-        "flowguard/portable_checker.py"
+        "flowguard/portable_checker.py",
+        "flowguard/portable_system.py",
+        "flowguard/system_composition.py"
       ],
       "model_id": "compositional_verification_kernel",
       "model_path": ".flowguard/compositional_verification_kernel/model.py",
@@ -28,14 +30,17 @@
         "reusable_model_type_id": "compositional_verification_kernel",
         "task_intent_id": "flowguard-regression:compositional_verification_kernel",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent portable verification from accepting non-current schemas, unsafe or non-progressing models, unmapped refinements, or open/conflicting compositions.",
+        "guarded_purpose": "Prevent portable verification from accepting non-current schemas, unsafe or non-progressing models, unmapped refinements, open/conflicting token composition, incomplete slices, unverified system interactions, or misclassified truncation.",
         "protected_failure_ids": [
           "portable-model:non-current-or-ambiguous-schema-accepted",
           "portable-checker:unsafe-or-nonterminating-model-passes",
           "portable-refinement:unmapped-or-contract-incompatible-child-passes",
-          "portable-composition:unprovided-assumption-or-conflict-passes"
+          "portable-composition:unprovided-assumption-or-conflict-passes",
+          "portable-system:incomplete-impact-slice-passes",
+          "portable-system:interaction-failure-passes",
+          "portable-system:truncation-or-status-classification-bypassed"
         ],
-        "claim_boundary": "Current closure proves only that the checked-in portable compositional verification candidate and native runner reject the four declared failure families; it does not prove domain truth, infinite-state software, or any future application behavior.",
+        "claim_boundary": "Current closure proves only that the checked-in portable compositional verification candidate and native runner reject the seven declared failure families; it does not prove domain truth, infinite-state software, undeclared system relations, or future application behavior.",
         "adoption_scope": "current_candidate_only",
         "known_good_case_id": "native:compositional-verification-kernel:complete-portable-refinement",
         "failure_bindings": [
@@ -58,15 +63,78 @@
             "failure_id": "portable-composition:unprovided-assumption-or-conflict-passes",
             "known_bad_case_id": "native:compositional-verification-kernel:missing-assumption-provider",
             "oracle_id": "native:compositional-verification-kernel:run-checks"
+          },
+          {
+            "failure_id": "portable-system:incomplete-impact-slice-passes",
+            "known_bad_case_id": "native:compositional-verification-kernel:bad-slice",
+            "oracle_id": "native:compositional-verification-kernel:run-checks"
+          },
+          {
+            "failure_id": "portable-system:interaction-failure-passes",
+            "known_bad_case_id": "native:compositional-verification-kernel:bad-system",
+            "oracle_id": "native:compositional-verification-kernel:run-checks"
+          },
+          {
+            "failure_id": "portable-system:truncation-or-status-classification-bypassed",
+            "known_bad_case_id": "native:compositional-verification-kernel:bad-truncation-status",
+            "oracle_id": "native:compositional-verification-kernel:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:compositional_verification_kernel"
         ],
-        "model_sha256": "sha256:2554b42b86f4343990f9e817aee122985b83f91e9f6d5b86ebf7450871a5f2bf",
-        "runner_sha256": "sha256:b73bbb542310fbafa5d756194ad471b542704e25e809b41dca475f1ac141df03",
-        "declaration_fingerprint": "sha256:81fb2cd670f97581a31b8431ff2340372fa74b138fdec8e8ebdd1a70a88ae81f",
-        "closure_fingerprint": "sha256:d8d83122de1f97dbed93d93c2ef6d0a82c8e8a1c251450f7ae335070bb055996"
+        "model_sha256": "sha256:a3d642f6ee62e72e392435a6d96050209cd9cbd8d49de7cc4488f2b082424e36",
+        "runner_sha256": "sha256:6c8c96d0565176202e4ca0e80df647f4237055410d6f004eb61ed0f927f8d740",
+        "declaration_fingerprint": "sha256:6c2d3a36cab8fbbfd6d6b2240f26d5599fbb329e8d7f61771026b826cc6ad817",
+        "closure_fingerprint": "sha256:0bd01df111b88111df9e7977fb39bab3032113de65e46d92542002229584b796"
+      }
+    },
+    {
+      "absence_reason": "This executable product-runtime benchmark owner is required in the public distribution.",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": ["benchmark-report.json"],
+      "input_globs": [
+        ".flowguard/bounded_system_composition_benchmark/model.py",
+        ".flowguard/bounded_system_composition_benchmark/run_checks.py",
+        "examples/bounded_system_composition/*.py",
+        "flowguard/portable_system.py",
+        "flowguard/system_composition.py"
+      ],
+      "model_id": "bounded_system_composition_benchmark",
+      "model_path": ".flowguard/bounded_system_composition_benchmark/model.py",
+      "mutation_policy": "isolated_output",
+      "runner": ["{python}", ".flowguard/bounded_system_composition_benchmark/run_checks.py"],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:bounded_system_composition_benchmark:current",
+        "reusable_model_type_id": "bounded_system_composition_benchmark",
+        "task_intent_id": "flowguard-regression:bounded-system-composition",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent local-green and token-green multi-model interactions, incomplete semantics, or truncated exploration from receiving the wrong executable-composition status.",
+        "protected_failure_ids": [
+          "portable-system:local-token-green-emergent-failure-missed",
+          "portable-system:repair-does-not-pass",
+          "portable-system:missing-semantics-does-not-block",
+          "portable-system:truncation-does-not-block"
+        ],
+        "claim_boundary": "Current closure covers twelve declared finite cases in three representative interaction families only; it does not prove arbitrary systems, undeclared dependencies, production conformance, or infinite-state behavior.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native:bounded-system-composition:three-repaired-families",
+        "failure_bindings": [
+          {"failure_id": "portable-system:local-token-green-emergent-failure-missed", "known_bad_case_id": "benchmark:three-families:bad", "oracle_id": "native:bounded-system-composition:run-checks"},
+          {"failure_id": "portable-system:repair-does-not-pass", "known_bad_case_id": "benchmark:three-families:repaired", "oracle_id": "native:bounded-system-composition:run-checks"},
+          {"failure_id": "portable-system:missing-semantics-does-not-block", "known_bad_case_id": "benchmark:three-families:missing-semantics", "oracle_id": "native:bounded-system-composition:run-checks"},
+          {"failure_id": "portable-system:truncation-does-not-block", "known_bad_case_id": "benchmark:three-families:truncated", "oracle_id": "native:bounded-system-composition:run-checks"}
+        ],
+        "evidence_check_ids": ["check:model-regression:bounded_system_composition_benchmark"],
+        "model_sha256": "sha256:172ecbacb75bf9eccacf777a0f9992b0de98fe6f63842ae5fca94ceacf972bd0",
+        "runner_sha256": "sha256:fec460a2253405c27e5a87ca79528c477477e7861ea7a9d234b58abd9448e91c",
+        "declaration_fingerprint": "sha256:f201b628e9a677ed7dcd389180bbaa81dac112b36883dea4b525cabe0790ab9d",
+        "closure_fingerprint": "sha256:e59337281063ebcce090187fd4ee3e44fe443482d78f6a64d05f8fd720bed6a5"
       }
     },
     {

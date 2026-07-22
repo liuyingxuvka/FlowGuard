@@ -61,6 +61,24 @@ composition requires every assumption to have an environment or peer provider
 and rejects declared conflicts. Descriptive mesh edges, prompt prose, or a
 Python-only pass are not portable semantic evidence.
 
+When several portable component models must be checked as one declared finite
+subsystem, `flowguard.portable_system.v1` separates three identities:
+
+- the system definition: components, typed dependencies, ports, bindings,
+  resources, ordered or atomic steps, supported interaction patterns, and
+  system properties;
+- the request: selected roots, bounds, and explicit environment guarantees;
+- the derived slice: the exact fixed-point closure over declared dependencies.
+
+The composition checker validates each component, compiles that exact slice
+into one joint portable model, invokes the canonical checker at most once for
+the system result, and maps any counterexample back to component transitions
+and optional code targets. Missing/stale closure and unresolved references are
+`blocked`; malformed identities or schemas are `invalid`; a complete checked
+counterexample is `fail`; unexecuted descendants are `not_run`. Clean or
+temporal truncation never becomes a pass. Unknown components outside the
+declared graph remain outside the proof boundary.
+
 This is an intrinsic FlowGuard verification capability. It is not a storage
 model or workflow engine for an unrelated application, and it makes no claim
 about arbitrary Python, unbounded software, or domain truth outside the

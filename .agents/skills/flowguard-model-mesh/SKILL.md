@@ -6,7 +6,7 @@ description: Use when a FlowGuard project has three or more local models, an ove
 # FlowGuard Model Mesh
 
 ## Purpose
-Govern parent/child ownership, evidence freshness, reattachment, and closure without expanding child graphs into the parent.
+Govern parent/child ownership, freshness, reattachment, and closure without expanding child graphs into the parent.
 
 ## Entrypoint Scope
 Route id: `model_mesh_maintenance`; role: `public_owner`; native owner: `model_mesh_maintenance`. This standalone FlowGuard satellite skill owns model hierarchy, not test/code splits.
@@ -27,6 +27,7 @@ Accept a parent and bounded children; verify partitions/receipts; block overlap,
 1. Inventory parent/children, risk boundaries, target split derivation, ownership partitions, evidence tiers, and freshness.
 2. Review disjointness, reattachment, siblings, receipts, leaf boundaries, and closure/liveness. Portable claims require current parent/child fingerprints and an explicit `flowguard.portable_refinement.v1` binding.
 3. Preserve scoped/stale gaps and project cases/receipts to Model-Test Alignment, TestMesh, and closure owners.
+4. For hierarchical closure risk, hand exact child fingerprints, relations/roots, property owner, and current system/slice receipts to the portable-system owner; do not execute the joint graph here.
 
 ## Hard Gates
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.

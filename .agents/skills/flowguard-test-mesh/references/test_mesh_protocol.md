@@ -162,6 +162,15 @@ code, result artifact, fingerprint, covered required ids, inventory revision,
 and covered artifact and verifier versions. PIDs, heartbeats, logs, and
 progress-only/running status are never final evidence.
 
+For bounded system composition, keep the definition, request, derived slice,
+every component, compiled model, scheduler/bound, truncation frontier, and
+mapped trace identities in the existing
+`ProofArtifactRef.artifact_fingerprints` map. Preserve exactly one execution
+owner and the complete terminal artifacts for background checks. A running PID,
+explored-state count, or log line is liveness only; a truncated receipt stays
+blocked. Do not add dedicated generic TestMesh fields unless focused evidence
+proves the fingerprint map cannot represent an identity.
+
 When `required_leaf_cell_ids` are declared on the parent gate, every required
 cell must be owned by a registered child suite/script with current passing
 evidence. A leaf matrix-cell suite that does not name its cells is a blocker,

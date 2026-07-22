@@ -25,6 +25,13 @@ Keep these distinct:
 
 Only the first can satisfy the matching current obligation. A summary, checkbox, configured boolean, generated contract, path-only log, or directory inventory does not manufacture pass evidence.
 
+For bounded system composition, record all four stages separately:
+component-local, token composition, affected slice, and executable system.
+`invalid` means malformed/unsupported current input, `blocked` means
+stale/unresolved/omitted/incomplete evidence, `fail` means a current semantic
+counterexample, and `not_run` is stage evidence only. Token green, progress,
+clean truncation, or an incomplete temporal prefix cannot project system pass.
+
 ## Model miss and maturation
 
 If runtime, tests, replay, logs, manual validation, or UI behavior fails after green, use `flowguard-model-miss-review`. Preserve prior claim/failure, identify the affected behavior plane, search that plane for the existing commitment/owner first, keep related planes typed and separate, classify/backpropagate the miss, generate a canonical same-class case, bind owner code/tests, close old paths/fields, and rerun affected parent/sibling/freshness/risk gates.
