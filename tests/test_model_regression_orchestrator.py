@@ -1,4 +1,5 @@
 import json
+import gzip
 import tempfile
 import textwrap
 import threading
@@ -67,7 +68,7 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
         root = self.make_repo(
             [{"model_id": "slow", "script": "import time\ntime.sleep(10)\n", "timeout_seconds": 0.2}]
         )
-        report = run_manifest_regressions(root, tier="full", output_dir=root.parent / "out-timeout")
+        report = run_manifest_regressions(root, tier="full", output_dir=root / "outputs" / "out-timeout")
         self.assertEqual("timeout", report.status)
         receipt = json.loads(Path(report.results[0].receipt_path).read_text(encoding="utf-8"))
         self.assertTrue(receipt["terminal"])
@@ -83,7 +84,7 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
         timer.start()
         try:
             report = run_manifest_regressions(
-                root, tier="full", output_dir=root.parent / "out-cancel", cancel_event=cancel
+                root, tier="full", output_dir=root / "outputs" / "out-cancel", cancel_event=cancel
             )
         finally:
             timer.cancel()
@@ -95,7 +96,7 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
             [{"model_id": "unsafe", "script": "print('ok')\n", "shard_safe": False}]
         )
         with self.assertRaisesRegex(ValueError, "non-shard-safe"):
-            run_manifest_regressions(root, tier="full", jobs=2, output_dir=root.parent / "out-unsafe")
+            run_manifest_regressions(root, tier="full", jobs=2, output_dir=root / "outputs" / "out-unsafe")
 
     def test_tiers_filters_and_shards_have_scoped_claims(self):
         root = self.make_repo(
@@ -105,8 +106,8 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
                 {"model_id": "c", "script": "print('c')\n", "tier": "full"},
             ]
         )
-        fast = run_manifest_regressions(root, tier="fast", output_dir=root.parent / "out-fast")
-        shard = run_manifest_regressions(root, tier="full", shard="2/3", output_dir=root.parent / "out-shard")
+        fast = run_manifest_regressions(root, tier="fast", output_dir=root / "outputs" / "out-fast")
+        shard = run_manifest_regressions(root, tier="full", shard="2/3", output_dir=root / "outputs" / "out-shard")
         self.assertEqual(("a",), fast.selected_model_ids)
         self.assertIn("does not support a full-model release claim", fast.to_validation_result().claim_boundary)
         self.assertEqual(("b",), shard.selected_model_ids)
@@ -123,7 +124,7 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
         root = self.make_repo(
             [{"model_id": "artifact", "script": script, "expected_artifacts": ["result.json"]}]
         )
-        report = run_manifest_regressions(root, tier="full", output_dir=root.parent / "out-artifact")
+        report = run_manifest_regressions(root, tier="full", output_dir=root / "outputs" / "out-artifact")
         self.assertTrue(report.ok, report.to_dict())
         self.assertTrue(Path(report.results[0].artifact_paths[0]).is_file())
 
@@ -140,11 +141,11 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
             """
         )
         root = self.make_repo([{"model_id": "replacer", "script": script}])
-        report = run_manifest_regressions(root, tier="full", output_dir=root.parent / "out-replacer")
+        report = run_manifest_regressions(root, tier="full", output_dir=root / "outputs" / "out-replacer")
         self.assertTrue(report.ok, report.to_dict())
         self.assertIn(
             "child replaced output directory",
-            Path(report.results[0].stdout_path).read_text(encoding="utf-8"),
+            gzip.decompress(Path(report.results[0].stdout_path).read_bytes()).decode("utf-8"),
         )
         self.assertTrue(Path(report.results[0].receipt_path).is_file())
 
@@ -163,12 +164,12 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
         )
         with patch.dict("os.environ", {"PYTHONPATH": str(root.parent / "unrelated-install")}, clear=False):
             report = run_manifest_regressions(
-                root, tier="full", output_dir=root.parent / "out-source-identity"
+                root, tier="full", output_dir=root / "outputs" / "out-source-identity"
             )
         self.assertTrue(report.ok, report.to_dict())
         self.assertIn(
             "selected repository",
-            Path(report.results[0].stdout_path).read_text(encoding="utf-8"),
+            gzip.decompress(Path(report.results[0].stdout_path).read_bytes()).decode("utf-8"),
         )
 
     def test_tracked_mutation_blocks_success(self):
@@ -176,7 +177,7 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
         root = self.make_repo([{"model_id": "writer", "script": script}])
         root.joinpath("tracked.txt").write_text("before", encoding="utf-8")
         with patch("flowguard.model_regressions._tracked_paths", return_value=(root / "tracked.txt",)):
-            report = run_manifest_regressions(root, tier="full", output_dir=root.parent / "out-mutation")
+            report = run_manifest_regressions(root, tier="full", output_dir=root / "outputs" / "out-mutation")
         self.assertEqual("blocked", report.status)
         self.assertEqual(("tracked.txt",), report.mutation_paths)
 

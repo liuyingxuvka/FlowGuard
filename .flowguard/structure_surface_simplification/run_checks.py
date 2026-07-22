@@ -22,6 +22,9 @@ CASES = (
     ("missing_template_parity_blocks", model.scenario_missing_template_parity_blocks),
     ("hidden_non_pass_blocks", model.scenario_hidden_non_pass_blocks),
     ("commit_without_shadow_blocks", model.scenario_commit_without_shadow_blocks),
+    ("simulator_takeover_blocks", model.scenario_simulator_takeover_blocks),
+    ("duplicate_payload_blocks", model.scenario_duplicate_payload_blocks),
+    ("automatic_purge_blocks", model.scenario_automatic_purge_blocks),
 )
 
 

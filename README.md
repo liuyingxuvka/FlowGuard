@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.58.5` | `1.0` | Python standard library only | MIT |
+| `v0.59.0` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -324,6 +324,23 @@ If a prompt, contract, native checker, model, test, or covered input changes, ol
 
 Model regressions use an explicit manifest and three tiers: `fast` for narrow development feedback, `focused` for a wider selected surface, and `full` for every required non-excluded model. Only a current, terminal full-tier pass can contribute to a release claim.
 
+For normal use, the package exposes one simulator front door. It audits the
+same manifest and delegates each selected id to that model's own native runner;
+it does not merge domain models or reinterpret their results:
+
+```powershell
+python -m flowguard simulator --root . --list
+python -m flowguard simulator --root . --model architecture_reduction
+python -m flowguard simulator --root . --model "ui_*" --tier focused --json
+python -m flowguard simulator --root . --all --tier full --jobs 1 --timeout 900
+```
+
+The checked-in `.flowguard/**/model.py` and native `run_checks.py` files are
+executable model source. `.flowguard/evidence/`, extra local worktrees,
+`build/`, `dist/`, caches, and release receipts are generated or environment
+state; their size is not the model size and none of them is part of the clean
+installed AI-agent skill projection.
+
 ```powershell
 python scripts/run_flowguard_model_regressions.py --audit-only --json
 python scripts/run_flowguard_model_regressions.py --tier fast --output-dir .flowguard/evidence/model-regressions/fast-local
@@ -331,7 +348,25 @@ python scripts/run_flowguard_model_regressions.py --tier focused --model "ui_*" 
 python scripts/run_flowguard_model_regressions.py --tier full --jobs 1 --timeout 900 --output-dir .flowguard/evidence/model-regressions/full-local --full
 ```
 
-Default human output is concise. `--json` emits the canonical machine result, while `--full` expands human-readable child details; neither option upgrades the evidence scope. During a long foreground or background run, progress events show liveness only. Completion requires the final `report.json` and terminal child receipts in the selected output directory.
+Default human output is concise. `--json` emits the canonical machine result, while `--full` expands human-readable child details; neither option upgrades the evidence scope. Complete stdout/stderr are retained once as deterministic gzip objects with logical and storage hashes. Child and parent JSON keep bounded diagnostics and references rather than nested full payload copies. During a long foreground or background run, progress events show liveness only. Completion requires the final `report.json`, `evidence-run.json`, current-head binding, and terminal child receipts in the selected output directory.
+
+Persistent evidence cleanup is always explicit:
+
+```powershell
+python -m flowguard evidence-audit --root .flowguard/evidence --json
+python -m flowguard evidence-gc-plan --root .flowguard/evidence --keep 2 --preserve skill-suite --output .flowguard/evidence-gc-plan.json --json
+python -m flowguard evidence-gc-apply --root .flowguard/evidence --plan .flowguard/evidence-gc-plan.json --json
+python -m flowguard evidence-gc-restore --root .flowguard/evidence --quarantine-id <id> --json
+python -m flowguard evidence-gc-purge --root .flowguard/evidence --quarantine-id <id> --json
+```
+
+Audit and planning do not modify evidence. Apply revalidates the frozen plan
+and moves only unreachable runs into quarantine. Restore is available before
+purge; purge accepts only one exact quarantine after current and pinned runs
+still validate. Store plans outside the retained evidence root, repeat
+`--preserve` for exact externally bound legacy roots, and require zero
+unclassified bytes before cleanup. Ordinary validation never invokes
+persistent cleanup.
 
 The skill installer manages the complete 15-member tree and records which files it owns:
 
@@ -367,7 +402,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.58.5 is source-only: the immutable Git tag is the release
+FlowGuard v0.59.0 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -703,6 +738,22 @@ FlowGuard 刻意把三种不同的“通过”分开：
 
 模型回归由显式清单管理，并分为三档：`fast` 给日常窄范围反馈，`focused` 检查更宽的选定范围，`full` 运行所有必需且未明确排除的模型。只有当前、全部终态且通过的 full-tier 结果，才能参与 release 声明。
 
+普通使用统一从一个模拟器入口进入。它先审计同一份 manifest，再把每个选中的
+模型交给该模型自己的原生 runner；它不会把不同领域模型揉成一个文件，也不会
+替模型重新解释通过或失败：
+
+```powershell
+python -m flowguard simulator --root . --list
+python -m flowguard simulator --root . --model architecture_reduction
+python -m flowguard simulator --root . --model "ui_*" --tier focused --json
+python -m flowguard simulator --root . --all --tier full --jobs 1 --timeout 900
+```
+
+仓库里的 `.flowguard/**/model.py` 和原生 `run_checks.py` 才是可执行模型源码。
+`.flowguard/evidence/`、额外本地 worktree、`build/`、`dist/`、缓存和发布回执
+属于生成状态或环境状态；它们的体积不等于模型体积，也不会进入干净的 AI-agent
+技能安装投影。
+
 ```powershell
 python scripts/run_flowguard_model_regressions.py --audit-only --json
 python scripts/run_flowguard_model_regressions.py --tier fast --output-dir .flowguard/evidence/model-regressions/fast-local
@@ -710,7 +761,23 @@ python scripts/run_flowguard_model_regressions.py --tier focused --model "ui_*" 
 python scripts/run_flowguard_model_regressions.py --tier full --jobs 1 --timeout 900 --output-dir .flowguard/evidence/model-regressions/full-local --full
 ```
 
-默认的人类输出是精简摘要；`--json` 输出稳定的机器结果，`--full` 展开人类可读的子项详情，它们都不会改变证据范围。长任务在前台或后台运行时，progress event 只代表“还活着”，不代表完成。真正完成需要选定输出目录里的最终 `report.json` 和所有子任务终态回执。
+默认的人类输出是精简摘要；`--json` 输出稳定的机器结果，`--full` 展开人类可读的子项详情，它们都不会改变证据范围。完整 stdout/stderr 只保留一次，使用确定性的 gzip object，并分别记录逻辑内容 hash/大小和存储 hash/大小；child/parent JSON 只保留有限诊断与引用，不再嵌套复制完整 payload。长任务在前台或后台运行时，progress event 只代表“还活着”，不代表完成。真正完成需要选定输出目录里的最终 `report.json`、`evidence-run.json`、current-head 绑定和所有子任务终态回执。
+
+持久证据的清理必须显式执行：
+
+```powershell
+python -m flowguard evidence-audit --root .flowguard/evidence --json
+python -m flowguard evidence-gc-plan --root .flowguard/evidence --keep 2 --preserve skill-suite --output .flowguard/evidence-gc-plan.json --json
+python -m flowguard evidence-gc-apply --root .flowguard/evidence --plan .flowguard/evidence-gc-plan.json --json
+python -m flowguard evidence-gc-restore --root .flowguard/evidence --quarantine-id <id> --json
+python -m flowguard evidence-gc-purge --root .flowguard/evidence --quarantine-id <id> --json
+```
+
+audit 和 plan 不修改证据。apply 会重新核对冻结计划，只把仍然不可达的 run
+移动到 quarantine；purge 前可以 restore。purge 只能处理一个精确 quarantine，
+而且必须再次确认 current 和 pin 仍有效。plan 应写在持久 evidence root 之外；仍被
+其他流程绑定的 legacy 根应逐个传入 `--preserve`，存在未分类字节时不得清理。普通
+验证绝不会自动触发持久清理。
 
 技能安装器管理完整的 15 项文件树，并记录自己拥有的文件：
 
@@ -750,7 +817,7 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.58.5 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.59.0 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 ## Guard Family 关系

@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.59.0 - 2026-07-22
+
+- Added one manifest-backed `python -m flowguard simulator` surface for model
+  listing and explicit selected/all-model execution while preserving every
+  model's native runner as its sole domain-result owner.
+- Replaced full stdout/parsed-payload replication in model and unified release
+  validation with deterministic compressed content objects, bounded
+  diagnostics, hashes, and artifact references.
+- Added terminal run manifests, atomic scoped current heads, read-only evidence
+  audit/GC planning, exact quarantine/restore, and separately authorized purge;
+  ordinary validation never silently cleans persistent evidence.
+- Registered two previously unaccounted checkout-local models as
+  `optional_local`, refreshed one stale model-purpose fingerprint, and extended
+  the existing structure-surface model with simulator-takeover, duplicate-
+  payload, and automatic-purge known-bad cases.
+- Clarified that executable model source is small and distinct from generated
+  evidence, build products, installed consumer skills, and extra local
+  worktrees.
+- Retained source-only release authority with an immutable tag and zero GitHub
+  Release assets.
+
 ## v0.58.5 - 2026-07-19
 
 - Refreshed every FlowGuard skill's private author-side SkillGuard contract

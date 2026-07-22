@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from .evidence_lifecycle import ensure_new_run_directory, publish_run, store_text_object
 from .model_purpose import ModelPurposeClosure, ModelPurposeError, validate_unique_model_instances
 
 from .validation_results import (
@@ -155,6 +156,8 @@ class ModelRunResult:
     model_instance_id: str = ""
     purpose_closure_fingerprint: str = ""
     purpose_claim_boundary: str = ""
+    stdout: Mapping[str, Any] = field(default_factory=dict, compare=False)
+    stderr: Mapping[str, Any] = field(default_factory=dict, compare=False)
 
     @property
     def ok(self) -> bool:
@@ -177,6 +180,8 @@ class ModelRunResult:
             "model_instance_id": self.model_instance_id,
             "purpose_closure_fingerprint": self.purpose_closure_fingerprint,
             "purpose_claim_boundary": self.purpose_claim_boundary,
+            "stdout": dict(self.stdout),
+            "stderr": dict(self.stderr),
         }
 
 
@@ -193,6 +198,7 @@ class ModelRegressionReport:
     mutation_paths: tuple[str, ...] = ()
     started_at_epoch: float = 0.0
     finished_at_epoch: float = 0.0
+    command: str = "flowguard-model-regressions"
 
     @property
     def status(self) -> str:
@@ -206,7 +212,7 @@ class ModelRegressionReport:
                 receipt_id=item.receipt_path,
                 artifact_paths=item.artifact_paths,
                 claim_boundary="This child receipt covers only the declared model runner invocation.",
-                payload=item.to_dict(),
+                payload={},
             )
             for item in self.results
         )
@@ -233,7 +239,12 @@ class ModelRegressionReport:
                 receipt_id=item.receipt_path,
                 artifact_paths=(item.stdout_path, item.stderr_path, item.receipt_path, *item.artifact_paths),
                 claim_boundary="This child receipt covers only the declared model runner invocation.",
-                payload=item.to_dict(),
+                payload={
+                    "exit_code": item.exit_code,
+                    "seconds": item.seconds,
+                    "finding_codes": list(item.finding_codes),
+                    "model_instance_id": item.model_instance_id,
+                },
             )
             for item in self.results
         )
@@ -251,7 +262,7 @@ class ModelRegressionReport:
             else f"{self.tier.title()}-tier success is scoped feedback and does not support a full-model release claim."
         )
         return ValidationResult(
-            command="flowguard-model-regressions",
+            command=self.command,
             status=self.status,
             scope="model-regression-manifest",
             tier=self.tier,
@@ -454,8 +465,6 @@ def _run_entry(
 ) -> ModelRunResult:
     started = time.monotonic()
     artifact_dir = _safe_artifact_dir(output_dir, entry.model_id)
-    stdout_path = artifact_dir / "stdout.log"
-    stderr_path = artifact_dir / "stderr.log"
     receipt_path = artifact_dir / "receipt.json"
     command = entry.command(root=root)
     timeout = timeout_override if timeout_override is not None else entry.timeout_seconds
@@ -535,8 +544,10 @@ def _run_entry(
     # legitimately replace its isolated FLOWGUARD_OUTPUT_DIR while producing
     # artifacts, so restore the parent-owned directory before retaining logs.
     artifact_dir.mkdir(parents=True, exist_ok=True)
-    stdout_path.write_text(stdout, encoding="utf-8")
-    stderr_path.write_text(stderr, encoding="utf-8")
+    stdout_descriptor = store_text_object(output_dir, stdout)
+    stderr_descriptor = store_text_object(output_dir, stderr)
+    stdout_path = (output_dir / str(stdout_descriptor["object_path"])).resolve()
+    stderr_path = (output_dir / str(stderr_descriptor["object_path"])).resolve()
     expected_paths = tuple(str((artifact_dir / item).resolve()) for item in entry.expected_artifacts)
     missing = tuple(path for path in expected_paths if not Path(path).exists())
     if status == VALIDATION_STATUS_PASS and missing:
@@ -559,6 +570,8 @@ def _run_entry(
         model_instance_id=entry.purpose_closure.model_instance_id if entry.purpose_closure else "",
         purpose_closure_fingerprint=(entry.purpose_closure.closure_fingerprint if entry.purpose_closure else ""),
         purpose_claim_boundary=entry.purpose_closure.claim_boundary if entry.purpose_closure else "",
+        stdout=stdout_descriptor,
+        stderr=stderr_descriptor,
     )
     receipt = {
         "schema_version": RECEIPT_SCHEMA,
@@ -584,6 +597,8 @@ def _run_entry(
         "known_bad_case_ids": [item.known_bad_case_id for item in entry.purpose_closure.failure_bindings] if entry.purpose_closure else [],
         "native_oracle_ids": [item.oracle_id for item in entry.purpose_closure.failure_bindings] if entry.purpose_closure else [],
         "artifact_paths": [str(stdout_path), str(stderr_path), *expected_paths],
+        "stdout": stdout_descriptor,
+        "stderr": stderr_descriptor,
         "claim_boundary": result.purpose_claim_boundary or "Current invocation of one manifest-owned model runner only.",
     }
     _write_json(receipt_path, receipt)
@@ -648,6 +663,7 @@ def run_manifest_regressions(
     cancel_event: threading.Event | None = None,
     progress: ProgressCallback | None = None,
     allow_mutating: bool = False,
+    command: str = "flowguard-model-regressions",
 ) -> ModelRegressionReport:
     root_path = Path(root).resolve()
     manifest = ModelRegressionManifest.load(root_path)
@@ -672,7 +688,7 @@ def run_manifest_regressions(
         output_path = Path(tempfile.mkdtemp(prefix="flowguard-model-regressions-"))
     else:
         output_path = Path(output_dir).resolve()
-        output_path.mkdir(parents=True, exist_ok=True)
+    ensure_new_run_directory(output_path)
     cancel = cancel_event or threading.Event()
     tracked = _tracked_paths(root_path)
     before = _snapshot(tracked)
@@ -737,8 +753,18 @@ def run_manifest_regressions(
         mutation_paths=mutations,
         started_at_epoch=started_at,
         finished_at_epoch=time.time(),
+        command=command,
     )
-    _write_json(output_path / "report.json", report.to_dict())
+    report_path = output_path / "report.json"
+    _write_json(report_path, report.to_dict())
+    publish_run(
+        output_path,
+        kind="model-simulator" if command == "flowguard-simulator" else "model-regressions",
+        status=report.status,
+        result_path=report_path,
+        started_at_epoch=report.started_at_epoch,
+        finished_at_epoch=report.finished_at_epoch,
+    )
     return report
 
 

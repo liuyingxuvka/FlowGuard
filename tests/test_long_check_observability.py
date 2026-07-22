@@ -1,4 +1,5 @@
 import json
+import gzip
 import tempfile
 import unittest
 from pathlib import Path
@@ -59,7 +60,10 @@ class LongCheckObservabilityTests(unittest.TestCase):
             report = run_manifest_regressions(root, output_dir=output, progress=events.append)
             self.assertEqual(["started", "finished"], [item["event"] for item in events])
             self.assertTrue(Path(report.results[0].receipt_path).is_file())
-            self.assertGreater(Path(report.results[0].stdout_path).stat().st_size, 40000)
+            stdout_object = Path(report.results[0].stdout_path)
+            self.assertGreater(len(gzip.decompress(stdout_object.read_bytes())), 40000)
+            self.assertLess(stdout_object.stat().st_size, 1000)
+            self.assertGreater(report.results[0].stdout["logical_bytes"], 40000)
             self.assertLess(len(report.to_validation_result().format_text()), 1000)
 
 

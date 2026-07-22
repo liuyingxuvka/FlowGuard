@@ -43,6 +43,7 @@ Read `references/route_index.md` for the parity-checked route map and `reference
 - Broad model/code/test claims bind obligation ids, owner code contract ids, and current external-contract evidence for the same behavior.
 - Missing, stale, skipped, `not_run`, `progress_only`, `scoped`, or `pass_with_gaps` evidence cannot support broad done, full-governance, release, archive, or publication claims.
 - Long-check progress is liveness only; UI/payload claims need real-surface proof; new/deepened models require template harvest closure.
+- Retain complete long-check streams once through verifiable bounded evidence descriptors. Persistent audit/GC planning is read-only, apply is quarantine-only, purge is separate and exact, and ordinary validation never silently cleans prior evidence.
 - Official OpenSpec retains proposal, design, specification, task, status, validation, and archive authority. FlowGuard may read proposal/design/spec/tasks/status as current root-bounded context, but it cannot write provider files, execute provider checks, create sessions/caches/receipts, claim provider execution ownership, or treat a checkbox as validation evidence.
 - FlowGuard diagram intent gate: preserve active model semantics. Do not flatten these into a generic flowchart; state/process/UI/SourceGuard/TraceGuard/WorldGuard/LogicGuard diagrams keep their own edge meanings, without LogicGuard being collapsed into FlowGuard control flow.
 

@@ -87,7 +87,7 @@ python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_valida
 
 ## Source-only Release
 
-FlowGuard v0.58.5 uses the immutable source tag as its sole release authority.
+FlowGuard v0.59.0 uses the immutable source tag as its sole release authority.
 Do not build or upload a wheel or source distribution. The GitHub Release must
 be published with zero assets.
 

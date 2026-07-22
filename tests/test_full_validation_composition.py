@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+import gzip
 import io
 import json
 import tempfile
@@ -163,7 +164,7 @@ class FullValidationCompositionTests(unittest.TestCase):
                     "authority_decision": "current",
                     "contract_hash": "CONTRACT",
                     "manifest_hash": "MANIFEST",
-                    "depth_classification": "contract-depth-pass",
+                    "depth_classification": "declared-contract-current",
                 }
             else:
                 payload = {"decision": "pass"}
@@ -198,9 +199,41 @@ class FullValidationCompositionTests(unittest.TestCase):
             result_artifact = json.loads(Path(child.artifact_paths[2]).read_text(encoding="utf-8"))
             self.assertEqual(child.child_id, result_artifact["child_id"])
             self.assertEqual(child.status, result_artifact["status"])
+            self.assertNotIn("payload", result_artifact)
+            self.assertEqual("gzip", result_artifact["stdout"]["compression"])
+            self.assertEqual("gzip", result_artifact["stderr"]["compression"])
         parent = json.loads(Path(result.artifact_paths[0]).read_text(encoding="utf-8"))
         self.assertEqual("pass", parent["status"])
         self.assertEqual(8, len(parent["children"]))
+        self.assertNotIn("result", parent["children"][0]["payload"])
+        self.assertTrue((self.output / "evidence-run.json").is_file())
+        self.assertTrue((self.output.parent / "CURRENT.json").is_file())
+        self.assertTrue(gzip.decompress(Path(model_child.artifact_paths[0]).read_bytes()))
+
+    def test_large_child_payload_is_retained_once_as_compressed_evidence(self):
+        child = self.output / "01-large"
+        large_value = "x" * 1_000_000
+        outcome = suite_command.CommandOutcome(
+            ("fixture",),
+            0,
+            stdout=json.dumps({"value": large_value}),
+            stderr="",
+            payload={"value": large_value},
+        )
+
+        paths = suite_command._write_child_artifacts(
+            child,
+            child_id="large",
+            status="pass",
+            outcome=outcome,
+        )
+
+        result = json.loads(Path(paths[2]).read_text(encoding="utf-8"))
+        self.assertNotIn("payload", result)
+        self.assertNotIn(large_value, Path(paths[2]).read_text(encoding="utf-8"))
+        stored_bytes = sum(path.stat().st_size for path in self.output.rglob("*") if path.is_file())
+        self.assertLess(stored_bytes, 25_000)
+        self.assertEqual(outcome.stdout.encode("utf-8"), gzip.decompress(Path(paths[0]).read_bytes()))
 
     def test_one_child_failure_is_preserved_and_blocks_full(self):
         with patch.object(
@@ -213,7 +246,7 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertEqual("fail", result.status)
         parity = next(child for child in result.children if child.child_id == "distribution_parity")
         self.assertEqual("fail", parity.status)
-        self.assertEqual("fail", parity.payload["result"]["status"])
+        self.assertTrue(parity.payload["payload_sha256"].startswith("sha256:"))
         self.assertFalse(result.broad_success)
 
     def test_missing_required_script_is_a_blocked_child_with_artifacts(self):

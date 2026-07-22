@@ -5,16 +5,21 @@ suites, simulations, or release validations that should run in the background.
 
 ## Artifact Contract
 
-Default to a project-local log root at `tmp/flowguard_background/` unless the
-repository defines a stricter convention. Use a stable command base name and
-write:
+Default to the repository's declared evidence root. Current FlowGuard model
+and full-validation commands retain complete stdout/stderr once as
+deterministic gzip objects below `objects/sha256/`. Each descriptor records
+logical hash/bytes, storage hash/bytes, compression, encoding, media type,
+object path, and only a bounded diagnostic tail. The run also writes:
 
-- `<name>.out.txt` for stdout;
-- `<name>.err.txt` for stderr and progress;
-- `<name>.combined.txt` for a human-readable merged stream;
-- `<name>.exit.txt` for the final exit code;
-- `<name>.meta.json` for command, start/end time, status, and proof-reuse
-  metadata.
+- one terminal `report.json` or `result.json`;
+- child `receipt.json` files where the runner defines them;
+- one immutable `evidence-run.json` after terminal output is durable;
+- one scope-local `CURRENT.json` binding updated only after the run manifest.
+
+For a target-owned long check that does not use FlowGuard's evidence writer,
+retain equivalent complete stdout/stderr, exit, metadata, and terminal result
+artifacts. Do not require redundant raw, combined, and parsed full-payload
+copies when one complete verifiable stream object exists.
 
 ## Completion Evidence
 
@@ -22,7 +27,7 @@ Before reporting a long check as complete, inspect the actual artifacts and
 report:
 
 - log root;
-- stdout/stderr/combined paths;
+- stdout/stderr object paths and logical/storage identities;
 - exit code;
 - latest update time;
 - completion status;
@@ -57,3 +62,12 @@ reuse briefly and keep stale evidence visible.
 For tests, reuse only a completed result with final exit/status/result artifacts
 plus a current `TestResultReuseTicket` and `ProofArtifactRef`. Progress output
 is liveness only, not reusable pass evidence.
+
+## Persistent Evidence Lifecycle
+
+Audit and GC planning are read-only. A current exact plan may quarantine only
+still-unreachable runs. Restore remains available until a separately explicit
+purge revalidates current and pinned evidence and deletes one exact quarantine.
+Ordinary validation never invokes persistent cleanup. Historical directories
+without the current run manifest remain visible as `legacy_unmanaged`; file
+recency never promotes them to current evidence.

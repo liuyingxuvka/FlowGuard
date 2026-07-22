@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -591,6 +593,162 @@ def _run_portable_model_refinement_command(args: argparse.Namespace) -> int:
     return _print_portable_report(report, as_json=args.json)
 
 
+def _simulator_listing(root: Path) -> tuple[dict[str, object], int]:
+    from .model_regressions import ModelRegressionManifest, audit_manifest
+
+    manifest = ModelRegressionManifest.load(root)
+    audit = audit_manifest(root, manifest)
+    models = []
+    for entry in sorted(manifest.entries, key=lambda item: item.model_id):
+        model_exists = (root / entry.model_path).is_file()
+        runner_exists = len(entry.runner) >= 2 and (root / entry.runner[1]).is_file()
+        models.append(
+            {
+                "model_id": entry.model_id,
+                "tier": entry.tier,
+                "distribution_policy": entry.distribution_policy,
+                "available": model_exists and runner_exists and not entry.excluded,
+                "native_runner": list(entry.runner),
+                "exclusion_reason": entry.exclusion_reason,
+            }
+        )
+    payload: dict[str, object] = {
+        "schema_version": "flowguard.model_simulator_listing.v1",
+        "command": "flowguard-simulator",
+        "status": "pass" if audit.ok else "blocked",
+        "manifest_audit": audit.to_dict(),
+        "models": models,
+        "claim_boundary": "Listing proves manifest accounting and availability only; no model was executed.",
+    }
+    return payload, 0 if audit.ok else 2
+
+
+def _run_simulator_command(args: argparse.Namespace) -> int:
+    from .evidence_lifecycle import default_run_directory
+    from .model_regressions import ModelRegressionManifest, audit_manifest, run_manifest_regressions, select_entries
+
+    root = Path(args.root).resolve()
+    try:
+        if args.list:
+            payload, exit_code = _simulator_listing(root)
+            print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) if args.json else "\n".join(
+                [f"status: {payload['status']}", f"registered: {len(payload['models'])}"]
+                + [f"model: {item['model_id']} tier={item['tier']} available={str(item['available']).lower()}" for item in payload["models"]]
+            ))
+            return exit_code
+        if args.all and args.model:
+            raise ValueError("--all and --model are mutually exclusive")
+        if not args.all and not args.model:
+            raise ValueError("execution requires at least one --model selector or explicit --all")
+        manifest = ModelRegressionManifest.load(root)
+        audit = audit_manifest(root, manifest)
+        if not audit.ok:
+            payload = {
+                "schema_version": "flowguard.validation_result.v1",
+                "command": "flowguard-simulator",
+                "status": "blocked",
+                "exit_code": 2,
+                "blockers": list(audit.errors),
+            }
+            print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) if args.json else "status: blocked\n" + "\n".join(f"blocker: {item}" for item in audit.errors))
+            return 2
+        available_ids = tuple(
+            entry.model_id
+            for entry in manifest.entries
+            if not entry.excluded
+            and (root / entry.model_path).is_file()
+            and len(entry.runner) >= 2
+            and (root / entry.runner[1]).is_file()
+        )
+        unmatched = [pattern for pattern in args.model if not any(fnmatch.fnmatchcase(model_id, pattern) for model_id in available_ids)]
+        if unmatched:
+            raise ValueError("model selector matched no available registered model: " + ", ".join(unmatched))
+        selected = select_entries(manifest, tier=args.tier, model_patterns=args.model)
+        if not selected:
+            raise ValueError("execution selected zero models at the requested tier")
+        output_dir = Path(args.output_dir).resolve() if args.output_dir else default_run_directory(root, "simulator")
+        report = run_manifest_regressions(
+            root,
+            tier=args.tier,
+            model_patterns=args.model,
+            jobs=args.jobs,
+            timeout=args.timeout,
+            output_dir=output_dir,
+            cancel_event=threading.Event(),
+            command="flowguard-simulator",
+        )
+        validation = report.to_validation_result()
+        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2, sort_keys=True) if args.json else validation.format_text(full=args.full))
+        return validation.exit_code
+    except (ValueError, OSError) as exc:
+        payload = {
+            "schema_version": "flowguard.validation_result.v1",
+            "command": "flowguard-simulator",
+            "status": "invalid_input",
+            "exit_code": 3,
+            "message": str(exc),
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) if args.json else f"status: invalid_input\nerror: {exc}")
+        return 3
+
+
+def _print_lifecycle(payload: dict[str, object], *, as_json: bool) -> int:
+    status = str(payload.get("status", "pass"))
+    if as_json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+    else:
+        print(f"status: {status}")
+        if "counts" in payload:
+            print("counts: " + " ".join(f"{key}={value}" for key, value in sorted(dict(payload["counts"]).items())))
+        if "plan_id" in payload:
+            print(f"plan_id: {payload['plan_id']}")
+        if "quarantine_id" in payload:
+            print(f"quarantine_id: {payload['quarantine_id']}")
+        for finding in payload.get("findings", ()):
+            print(f"finding: {finding.get('code')}: {finding.get('message')}")
+    return 0 if status == "pass" else 2
+
+
+def _run_evidence_lifecycle_command(args: argparse.Namespace) -> int:
+    from .evidence_lifecycle import (
+        EvidenceLifecycleError,
+        apply_evidence_gc,
+        audit_evidence,
+        plan_evidence_gc,
+        purge_evidence_quarantine,
+        restore_evidence_quarantine,
+        write_json_atomic,
+    )
+
+    try:
+        if args.evidence_action == "audit":
+            payload = audit_evidence(args.root)
+        elif args.evidence_action == "plan":
+            payload = plan_evidence_gc(
+                args.root,
+                keep=args.keep,
+                include_legacy=args.include_legacy,
+                preserve_paths=tuple(args.preserve),
+            )
+            if args.output:
+                write_json_atomic(args.output, payload)
+        elif args.evidence_action == "apply":
+            payload = apply_evidence_gc(args.root, args.plan)
+        elif args.evidence_action == "restore":
+            payload = restore_evidence_quarantine(args.root, args.quarantine_id)
+        else:
+            payload = purge_evidence_quarantine(args.root, args.quarantine_id)
+        return _print_lifecycle(dict(payload), as_json=args.json)
+    except (EvidenceLifecycleError, OSError) as exc:
+        payload = {
+            "schema_version": "flowguard.evidence_lifecycle_error.v1",
+            "status": "blocked",
+            "message": str(exc),
+            "claim_boundary": "No lifecycle mutation is accepted after an identity, reachability, or containment failure.",
+        }
+        return _print_lifecycle(payload, as_json=args.json)
+
+
 COMMANDS: dict[str, Callable[[], int]] = {
     "adoption-template": _run_adoption_template,
     "benchmark": _run_benchmark,
@@ -839,6 +997,67 @@ def _add_portable_model_parsers(
     refinement.set_defaults(handler=_run_portable_model_refinement_command)
 
 
+def _add_simulator_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parser = subparsers.add_parser(
+        "simulator",
+        help="List or execute manifest-registered FlowGuard models through their native runners.",
+    )
+    parser.add_argument("--root", default=".", help="FlowGuard project root.")
+    parser.add_argument("--list", action="store_true", help="Audit and list registered models without executing them.")
+    parser.add_argument("--model", action="append", default=[], help="Exact model id or glob; repeatable.")
+    parser.add_argument("--all", action="store_true", help="Explicitly execute every model eligible for --tier.")
+    parser.add_argument("--tier", choices=("fast", "focused", "full"), default="focused")
+    parser.add_argument("--jobs", type=int, default=1)
+    parser.add_argument("--timeout", type=float, help="Override each native runner timeout in seconds.")
+    parser.add_argument("--output-dir", help="Retained run directory; defaults under .flowguard/evidence/simulator.")
+    parser.add_argument("--json", action="store_true", help="Print canonical JSON output.")
+    parser.add_argument("--full", action="store_true", help="Include complete bounded text summaries.")
+    parser.set_defaults(handler=_run_simulator_command)
+
+
+def _add_evidence_lifecycle_parsers(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    audit = subparsers.add_parser("evidence-audit", help="Read-only audit of FlowGuard evidence reachability and storage.")
+    audit.add_argument("--root", default=".flowguard/evidence", help="Evidence root.")
+    audit.add_argument("--json", action="store_true")
+    audit.set_defaults(handler=_run_evidence_lifecycle_command, evidence_action="audit")
+
+    plan = subparsers.add_parser("evidence-gc-plan", help="Create an exact read-only evidence GC plan.")
+    plan.add_argument("--root", default=".flowguard/evidence", help="Evidence root.")
+    plan.add_argument("--keep", type=int, default=2, help="Retain this many newest otherwise-collectible runs.")
+    plan.add_argument("--include-legacy", action="store_true", help="Explicitly include lifecycle-unmanaged historical parents.")
+    plan.add_argument(
+        "--preserve",
+        action="append",
+        default=[],
+        help="Exact audited run path to preserve; repeat for externally bound legacy evidence.",
+    )
+    plan.add_argument("--output", help="Optional plan artifact path.")
+    plan.add_argument("--json", action="store_true")
+    plan.set_defaults(handler=_run_evidence_lifecycle_command, evidence_action="plan")
+
+    apply = subparsers.add_parser("evidence-gc-apply", help="Quarantine candidates from one exact current GC plan.")
+    apply.add_argument("--root", default=".flowguard/evidence", help="Evidence root.")
+    apply.add_argument("--plan", required=True, help="GC plan JSON path.")
+    apply.add_argument("--json", action="store_true")
+    apply.set_defaults(handler=_run_evidence_lifecycle_command, evidence_action="apply")
+
+    restore = subparsers.add_parser("evidence-gc-restore", help="Restore one exact evidence quarantine.")
+    restore.add_argument("--root", default=".flowguard/evidence", help="Evidence root.")
+    restore.add_argument("--quarantine-id", required=True)
+    restore.add_argument("--json", action="store_true")
+    restore.set_defaults(handler=_run_evidence_lifecycle_command, evidence_action="restore")
+
+    purge = subparsers.add_parser("evidence-gc-purge", help="Purge one exact quarantine after current/pin replay.")
+    purge.add_argument("--root", default=".flowguard/evidence", help="Evidence root.")
+    purge.add_argument("--quarantine-id", required=True)
+    purge.add_argument("--json", action="store_true")
+    purge.set_defaults(handler=_run_evidence_lifecycle_command, evidence_action="purge")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m flowguard",
@@ -855,6 +1074,8 @@ def main(argv: list[str] | None = None) -> int:
     _add_risk_template_harvest_review_parser(subparsers)
     _add_spec_context_parser(subparsers)
     _add_portable_model_parsers(subparsers)
+    _add_simulator_parser(subparsers)
+    _add_evidence_lifecycle_parsers(subparsers)
     _add_project_adoption_parser(
         subparsers,
         "project-audit",

@@ -27,6 +27,7 @@ if str(SCRIPT_ROOT) not in sys.path:
 
 from flowguard.skill_contracts import compile_skill_suite
 from flowguard.skill_suite import FLOWGUARD_SKILL_ROOT, validate_skill_suite
+from flowguard.evidence_lifecycle import ensure_new_run_directory, fingerprint_payload, publish_run, store_text_object
 from flowguard.validation_results import (
     SkippedValidation,
     VALIDATION_STATUS_BLOCKED,
@@ -251,7 +252,7 @@ def run_static_suite(
                 results["contract"] = _v2_contract_projection(skill_id, compiler, results["depth"])
             contract_ok = results["contract"]["exit_code"] == 0 and (results["contract"]["payload"] or {}).get("decision") == "pass"
             expected_depth_classes = (
-                {"contract-depth-pass"}
+                {"declared-contract-current"}
                 if source_payload.get("schema_version") == "skillguard.contract_source.v2"
                 else {"deep-pass"}
             )
@@ -292,10 +293,10 @@ def run_static_suite(
         "blockers": blockers,
         "skipped_checks": [] if cli.is_file() else ["SkillGuard static/contract/depth"],
         "residual_risk": [
-            "Static/deep certification does not execute declared FlowGuard native commands or prove future AI behavior."
+            "Static contract-currentness does not execute declared FlowGuard native commands or prove future AI behavior."
         ],
         "claim_boundary": (
-            "Pass certifies current prompt/contract/depth structure for 15 members only; "
+            "Pass certifies current prompt and target-declared contract structure for 15 members only; "
             "native receipt and parent self-governance gates remain separate."
         ),
     }
@@ -498,27 +499,33 @@ def _write_child_artifacts(
     outcome: CommandOutcome,
 ) -> tuple[str, str, str]:
     child_dir.mkdir(parents=True, exist_ok=True)
-    stdout_path = child_dir / "stdout.txt"
-    stderr_path = child_dir / "stderr.txt"
+    run_dir = child_dir.parent
     result_path = child_dir / "result.json"
-    stdout_path.write_text(outcome.stdout, encoding="utf-8")
-    stderr_path.write_text(outcome.stderr, encoding="utf-8")
+    stdout = store_text_object(run_dir, outcome.stdout, media_type="application/json; charset=utf-8" if outcome.payload is not None else "text/plain; charset=utf-8")
+    stderr = store_text_object(run_dir, outcome.stderr)
+    payload = dict(outcome.payload) if outcome.payload is not None else None
     result_payload = {
-        "schema_version": "flowguard.unified_validation_child.v1",
+        "schema_version": "flowguard.unified_validation_child.v2",
         "child_id": child_id,
         "status": status,
         "exit_code": outcome.exit_code,
         "command": list(outcome.command),
         "launch_error": outcome.launch_error,
-        "stdout_artifact": str(stdout_path),
-        "stderr_artifact": str(stderr_path),
-        "payload": dict(outcome.payload) if outcome.payload is not None else None,
+        "stdout": stdout,
+        "stderr": stderr,
+        "payload_sha256": fingerprint_payload(payload),
+        "payload_keys": sorted(payload) if payload is not None else [],
+        "claim_boundary": "Complete child streams are retained once as compressed objects; parsed payload content is not duplicated here.",
     }
     result_path.write_text(
         json.dumps(result_payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    return (str(stdout_path), str(stderr_path), str(result_path))
+    return (
+        str((run_dir / stdout["object_path"]).resolve()),
+        str((run_dir / stderr["object_path"]).resolve()),
+        str(result_path),
+    )
 
 
 def _blocked_child(spec: ChildSpec, reason: str, child_dir: Path) -> ValidationChildResult:
@@ -568,7 +575,8 @@ def _run_full_child(spec: ChildSpec, root: Path, output_dir: Path, index: int) -
             "command": list(outcome.command),
             "exit_code": outcome.exit_code,
             "launch_error": outcome.launch_error,
-            "result": payload,
+            "payload_sha256": fingerprint_payload(payload),
+            "payload_keys": sorted(payload),
         },
     )
 
@@ -583,7 +591,7 @@ def _output_directory(value: str | None) -> Path:
 def run_full_validation(args: argparse.Namespace) -> ValidationResult:
     root = Path(args.root).resolve()
     output_dir = _output_directory(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    ensure_new_run_directory(output_dir)
     # Child commands must write beneath the same retained run directory even
     # when the caller lets the parent choose a temporary output location.
     args.output_dir = str(output_dir)
@@ -685,6 +693,12 @@ def run_full_validation(args: argparse.Namespace) -> ValidationResult:
         children=tuple(children),
     )
     parent_path.write_text(result.to_json_text() + "\n", encoding="utf-8")
+    publish_run(
+        output_dir,
+        kind="full-validation",
+        status=result.status,
+        result_path=parent_path,
+    )
     return result
 
 

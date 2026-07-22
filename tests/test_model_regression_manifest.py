@@ -22,7 +22,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
         manifest = ModelRegressionManifest.load(root)
         audit = audit_manifest(root, manifest)
         self.assertTrue(audit.ok, audit.errors)
-        self.assertEqual(59, len(audit.registered_model_ids))
+        self.assertEqual(61, len(audit.registered_model_ids))
         discovered = {
             path.relative_to(root / ".flowguard").as_posix()
             for path in discover_model_directories(root)

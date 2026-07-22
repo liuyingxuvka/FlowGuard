@@ -1528,10 +1528,10 @@
         "evidence_check_ids": [
           "check:model-regression:model_miss_review"
         ],
-        "model_sha256": "sha256:f5f73081de36621e10d97b1b33f1975027baf76498e8437836acf1672eab6ab2",
-        "runner_sha256": "sha256:d1c147c9818ef0b7ababb9398026d245cf77cddbbb5676aa4d71187dac739cd4",
+        "model_sha256": "sha256:895e9f79b25bfb99d23cf62eb8265b9efa7be9c11e2797baa8ffe0e0faf8130c",
+        "runner_sha256": "sha256:0e5eb01382343af4866ffb3e571c05802c121199062bf361fa050d361ace927c",
         "declaration_fingerprint": "sha256:590e8d8b319d73492619a6f5e2ae27f2e559bbce4255d0f67191c1edb1637dde",
-        "closure_fingerprint": "sha256:d3253db57dcf6c710e92e589b234c3912f01edf2c5a9c5a490bd0025014c2c31"
+        "closure_fingerprint": "sha256:77494e9aad1aa9d80850cbcf292f4edbc5182f8f4e465329db46bf7e55e462f4"
       }
     },
     {
@@ -2558,10 +2558,10 @@
         "evidence_check_ids": [
           "check:model-regression:structure_surface_simplification"
         ],
-        "model_sha256": "sha256:833d5ba953fb900f68c8e6d71f38f11665b022e7a5d6d925c7a28ab92f0ca7c8",
-        "runner_sha256": "sha256:67ba8ae035cc9482bb9e7ee787ac5bded886b4bacf8136ed422a9e50e96656a5",
+        "model_sha256": "sha256:8d3dfcb39f7a295771378c7106d7b8f94ab90ab9f74ebc61f96f289d5f10e854",
+        "runner_sha256": "sha256:0149c4b6b71c756c0241d49e1d0478f609f35e1d7ce2b53d0399521a89db00e7",
         "declaration_fingerprint": "sha256:3c8845c739a3340eb538efb218eb58e6cf0993f2427d6f40e2a1de097d552a1f",
-        "closure_fingerprint": "sha256:64a04a2ef90b8c1661278c5e86e983a4b22fbab1a4cc8d1bb38ba8f69a7b3044"
+        "closure_fingerprint": "sha256:6e9953d27a18ea9eaf89db717f38f03270678bf60f098385962654b9a720be8a"
       }
     },
     {
@@ -2902,6 +2902,138 @@
         "runner_sha256": "sha256:5ed9554e15bbeb66080768f8295b7d45a5e5a7b593ff9126d1156c37bc861b13",
         "declaration_fingerprint": "sha256:75506b7c3f06cdf53ad527db2ce65bd4e001f7449ce3b5624418c890ae471082",
         "closure_fingerprint": "sha256:3d4980ed5adf9f40ff617f7b1b26117014f654bc183f87fa632f7d70da8b3e9a"
+      }
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/spec_context/model.py",
+        ".flowguard/spec_context/run_checks.py"
+      ],
+      "model_id": "spec_context",
+      "model_path": ".flowguard/spec_context/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/spec_context/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:spec_context:current",
+        "reusable_model_type_id": "spec_context",
+        "task_intent_id": "flowguard-regression:spec_context",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent read-only OpenSpec context projection from writing provider artifacts, executing provider checks, or creating FlowGuard-owned session, cache, or receipt authority.",
+        "protected_failure_ids": [
+          "spec-context:provider-write",
+          "spec-context:provider-execution",
+          "spec-context:receipt-bridge",
+          "spec-context:session-cache"
+        ],
+        "claim_boundary": "Current closure covers the local read-only specification-context model and its native known-good and known-bad checks; it does not prove OpenSpec execution, verification, or archive status.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native:spec-context:complete-read-only-projection",
+        "failure_bindings": [
+          {
+            "failure_id": "spec-context:provider-write",
+            "known_bad_case_id": "native:spec-context:provider-write",
+            "oracle_id": "native:spec_context:run-checks"
+          },
+          {
+            "failure_id": "spec-context:provider-execution",
+            "known_bad_case_id": "native:spec-context:provider-execution",
+            "oracle_id": "native:spec_context:run-checks"
+          },
+          {
+            "failure_id": "spec-context:receipt-bridge",
+            "known_bad_case_id": "native:spec-context:receipt-bridge",
+            "oracle_id": "native:spec_context:run-checks"
+          },
+          {
+            "failure_id": "spec-context:session-cache",
+            "known_bad_case_id": "native:spec-context:session-cache",
+            "oracle_id": "native:spec_context:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:spec_context"
+        ],
+        "model_sha256": "sha256:7c728e6694bbd740e45de4178061bbd189c281e906f7e14a43104f0a9d5f76ea",
+        "runner_sha256": "sha256:5679042e761f84e84f672e72fda0ea9a81c41efab28429cb553a1561075291d9",
+        "declaration_fingerprint": "sha256:802b935bc7bc02983732a34518746d7e2b72dd239afffa1efffcd747b6c52b88",
+        "closure_fingerprint": "sha256:2ccfc720da1eb81c93307073a949e0adb959c18ddbdc20036b1fc0a06134e665"
+      }
+    },
+    {
+      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
+      "distribution_policy": "optional_local",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/task_local_prediction_replay/model.py",
+        ".flowguard/task_local_prediction_replay/run_checks.py"
+      ],
+      "model_id": "task_local_prediction_replay",
+      "model_path": ".flowguard/task_local_prediction_replay/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/task_local_prediction_replay/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:task_local_prediction_replay:current",
+        "reusable_model_type_id": "task_local_prediction_replay",
+        "task_intent_id": "flowguard-regression:task_local_prediction_replay",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent task-local model revision from accepting status-only evidence, expected-output leakage, unvalidated candidate revision, or loss of the preserved base model.",
+        "protected_failure_ids": [
+          "prediction-replay:status-only",
+          "prediction-replay:expected-output-leak",
+          "prediction-replay:accept-without-replay",
+          "prediction-replay:base-model-loss"
+        ],
+        "claim_boundary": "Current closure covers only the local task prediction and independent replay workflow plus its native counterexamples; it does not prove arbitrary future model revisions or production truth.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native:task-local-prediction-replay:complete-independent-replay",
+        "failure_bindings": [
+          {
+            "failure_id": "prediction-replay:status-only",
+            "known_bad_case_id": "native:task-local-prediction-replay:broken-status-only",
+            "oracle_id": "native:task_local_prediction_replay:run-checks"
+          },
+          {
+            "failure_id": "prediction-replay:expected-output-leak",
+            "known_bad_case_id": "native:task-local-prediction-replay:broken-expected-output",
+            "oracle_id": "native:task_local_prediction_replay:run-checks"
+          },
+          {
+            "failure_id": "prediction-replay:accept-without-replay",
+            "known_bad_case_id": "native:task-local-prediction-replay:broken-accept-without-replay",
+            "oracle_id": "native:task_local_prediction_replay:run-checks"
+          },
+          {
+            "failure_id": "prediction-replay:base-model-loss",
+            "known_bad_case_id": "native:task-local-prediction-replay:broken-base-model-loss",
+            "oracle_id": "native:task_local_prediction_replay:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:task_local_prediction_replay"
+        ],
+        "model_sha256": "sha256:ac0df635a0894c200852815888c0610b940c5a1486eb0e779931882353394ef1",
+        "runner_sha256": "sha256:09c829aa896106a61dd3ec84247ee23e2a0eb067aa05b2864ae33aaf12d16f48",
+        "declaration_fingerprint": "sha256:bc85f810ece60c661ccc04c34146c4ba920fcc8b0cebeab5483eca4c1ccaeddf",
+        "closure_fingerprint": "sha256:7902206ff4398c50c7276f0c232e7eb7a1ddebb8d8a6a36bf9a27eccf141c9b2"
       }
     }
   ],
