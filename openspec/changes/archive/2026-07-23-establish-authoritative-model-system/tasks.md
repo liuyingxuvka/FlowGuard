@@ -84,6 +84,6 @@
 
 - [x] 12.1 Select and apply the next semantic version, release notes, changelog, project records, and source package metadata
 - [x] 12.2 Validate OpenSpec implementation, reconcile delta specs, and archive the completed change
-- [ ] 12.3 Commit only owned and deliberately integrated paths, push the release branch, and publish the new tag and GitHub Release
-- [ ] 12.4 Verify the published source in a clean environment and rerun installation/currentness checks
-- [ ] 12.5 Perform the predictive-KB postflight, record any reusable miss or route lesson once, and close the goal with explicit evidence and bounded claims
+- [x] 12.3 Commit only owned and deliberately integrated paths, push the release branch, and publish the new tag and GitHub Release
+- [x] 12.4 Verify the published source in a clean environment and rerun installation/currentness checks
+- [x] 12.5 Perform the predictive-KB postflight, record any reusable miss or route lesson once, and close the goal with explicit evidence and bounded claims
