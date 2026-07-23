@@ -28,6 +28,7 @@ from .model_authority import (
     build_model_instance_ref,
 )
 from .model_purpose import ModelPurposeClosure, ModelPurposeError, validate_unique_model_instances
+from .source_identity import source_file_fingerprint
 
 from .validation_results import (
     VALIDATION_STATUS_BLOCKED,
@@ -494,7 +495,7 @@ def resolve_entry_input_inventory(
                 raise ModelRegressionManifestError(
                     f"{entry.model_id}: input resolves outside repository: {path}"
                 ) from exc
-            inventory[relative] = f"sha256:{hashlib.sha256(resolved.read_bytes()).hexdigest()}"
+            inventory[relative] = source_file_fingerprint(resolved)
     return tuple(
         {"path": path, "sha256": inventory[path]}
         for path in sorted(inventory)

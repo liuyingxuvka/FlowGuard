@@ -14,6 +14,8 @@ from pathlib import Path
 import re
 from typing import Any, Mapping, Sequence
 
+from .source_identity import source_file_fingerprint
+
 
 PURPOSE_CLOSURE_SCHEMA = "flowguard.model_purpose_closure.v1"
 DECLARATION_PHASE = "before_candidate"
@@ -42,7 +44,7 @@ def canonical_fingerprint(payload: Mapping[str, Any]) -> str:
 
 
 def file_fingerprint(path: str | Path) -> str:
-    return f"sha256:{hashlib.sha256(Path(path).read_bytes()).hexdigest()}"
+    return source_file_fingerprint(path)
 
 
 def _clean_id(value: Any, field_name: str) -> str:

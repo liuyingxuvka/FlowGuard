@@ -9,14 +9,38 @@ from pathlib import Path
 
 from flowguard.model_regressions import (
     MANIFEST_SCHEMA,
+    ModelRegressionEntry,
     ModelRegressionManifest,
     audit_manifest,
     discover_model_directories,
+    resolve_entry_input_inventory,
 )
 from flowguard.model_purpose import build_model_purpose_closure, file_fingerprint
 
 
 class ModelRegressionManifestTests(unittest.TestCase):
+    def test_text_source_identity_is_stable_across_line_endings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            model_dir = root / ".flowguard" / "sample"
+            model_dir.mkdir(parents=True)
+            model_path = model_dir / "model.py"
+            runner_path = model_dir / "run_checks.py"
+            model_path.write_bytes(b"first\r\nsecond\r\n")
+            runner_path.write_bytes(b"run\r\n")
+            entry = ModelRegressionEntry.from_dict(self.entry("sample", root))
+
+            windows_model = file_fingerprint(model_path)
+            windows_inventory = resolve_entry_input_inventory(root, entry)
+            model_path.write_bytes(b"first\nsecond\n")
+            runner_path.write_bytes(b"run\n")
+
+            self.assertEqual(windows_model, file_fingerprint(model_path))
+            self.assertEqual(
+                windows_inventory,
+                resolve_entry_input_inventory(root, entry),
+            )
+
     def test_repository_manifest_accounts_for_every_model(self):
         root = Path(__file__).resolve().parents[1]
         manifest = ModelRegressionManifest.load(root)

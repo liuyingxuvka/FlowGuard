@@ -92,22 +92,11 @@ This is still compact, but it must have teeth. A new or deepened model names the
 | Long-running model/test/regression check | `long_check_observability` | `flowguard` reference |
 | FlowGuard framework upgrade or benchmark/corpus claim | `framework_upgrade` | `flowguard` reference |
 ### Reference Handoff
-
-Use the matching satellite `references/*.md` file after selecting a route.
-Check-engine helpers such as `review_model_test_alignment()`,
-`review_development_process_flow()`, `review_test_mesh()`,
-`review_structure_mesh()`, `review_architecture_reduction()`,
-`review_existing_model_preflight()`, `review_model_angle_deliberations()`,
-`review_flowguard_self_maintenance()`, `review_model_similarity_consolidation()`,
-`review_plan_detail()`, `review_agent_workflow_rehearsal()`, templates, and
-starter CLIs are helpers, not separate Codex skills.
-When a change touches a feature that resembles another workflow, model,
-test family, or code path, feed Model Similarity Consolidation evidence into
-ExistingModelPreflight or the selected owner route before claiming maintenance
-coverage. Record whether the relation creates a maintenance group, which
-sibling models/code/tests must be checked, which tests are shared versus
-variant-specific, and whether shared-kernel/adapter work or false-friend
-separation applies.
+Use the selected satellite's `references/*.md`. Check-engine helpers,
+templates, and starter CLIs are helpers, not separate Codex skills.
+For similar workflows/models/tests/code, feed Model Similarity evidence into
+ExistingModelPreflight or the owner and record group, siblings, shared versus
+variant tests, shared-kernel/adapter work, or false-friend separation.
 
 Do not require ordinary project work to run FlowGuard's internal framework evidence suites; reserve them for FlowGuard upgrades, benchmark claims, or broad capability claims.
 ```

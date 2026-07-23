@@ -16,6 +16,8 @@ from pathlib import PurePosixPath, PureWindowsPath
 import re
 from typing import Any, Iterable, Mapping, Sequence
 
+from .source_identity import source_file_fingerprint
+
 
 MODEL_INPUT_SCHEMA = "flowguard.model_input_ref.v1"
 MODEL_INSTANCE_SCHEMA = "flowguard.model_instance_ref.v1"
@@ -154,7 +156,7 @@ def canonical_fingerprint(value: Any) -> str:
 
 
 def file_fingerprint(path: str | Path) -> str:
-    return f"sha256:{hashlib.sha256(Path(path).read_bytes()).hexdigest()}"
+    return source_file_fingerprint(path)
 
 
 def _text(value: Any, field_name: str, *, minimum: int = 1) -> str:
