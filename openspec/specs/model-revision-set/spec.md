@@ -1,7 +1,12 @@
 # model-revision-set Specification
 
 ## Purpose
-TBD - created by archiving change establish-authoritative-model-system. Update Purpose after archive.
+Define one atomic change transaction for replacing one or more members of an
+authoritative model system. The capability keeps candidates isolated from the
+observed head, closes every affected model, relation, commitment, field,
+contract, test, and implementation effect together, and permits activation or
+operational rollback only with exact fresh evidence.
+
 ## Requirements
 ### Requirement: A revision set changes one or more models as one unit
 A `ModelRevisionSet` SHALL generalize the existing task-local revision
@@ -239,4 +244,3 @@ data, or side-effect owners.
   owner reports failed or blocked evidence
 - **THEN** the process reports the revision set as not activatable
 - **AND** process completion is not treated as model-system correctness
-

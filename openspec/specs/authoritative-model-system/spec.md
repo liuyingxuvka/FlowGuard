@@ -1,7 +1,13 @@
 # authoritative-model-system Specification
 
 ## Purpose
-TBD - created by archiving change establish-authoritative-model-system. Update Purpose after archive.
+Define the sole project-level authority that identifies which exact model
+system describes the software that exists now. The capability separates
+observed implementation, normative target, and counterfactual experiment
+snapshots; binds them to exact source, model, relation, coverage, and evidence
+identities; and prevents a proposed or locally green model from being reported
+as the current software model.
+
 ## Requirements
 ### Requirement: Model-system snapshots declare one subject lane
 Every model-system snapshot SHALL declare exactly one subject lane:
@@ -149,4 +155,3 @@ evidence still match the software revision represented by the observed head.
 - **AND** it links the new observed snapshot to the target through typed
   realization and supersession relations instead of changing the target's
   subject lane
-
