@@ -73,17 +73,17 @@
 
 ## 11. Full Evidence, SkillGuard, and Installation
 
-- [ ] 11.1 Launch exactly one persistent all-model regression owner and exactly one persistent full-test owner for the frozen source snapshot
-- [ ] 11.2 Verify terminal result artifacts, exit codes, source fingerprints, skipped/not-run rows, and zero leftover descendants
-- [ ] 11.3 Use the then-current SkillGuard authority to maintain the changed FlowGuard suite and obtain exact terminal maintenance evidence
-- [ ] 11.4 Build and transactionally install a clean consumer skill projection and current Python package
-- [ ] 11.5 Verify source, installed package, installed skills, project record, observed snapshot, and target functionality parity
-- [ ] 11.6 Retire the old v0.55 checkout from active tool routing without deleting its parallel or historical work
+- [x] 11.1 Launch exactly one persistent all-model regression owner and exactly one persistent full-test owner for the frozen source snapshot
+- [x] 11.2 Verify terminal result artifacts, exit codes, source fingerprints, skipped/not-run rows, and zero leftover descendants
+- [x] 11.3 Use the then-current SkillGuard authority to maintain the changed FlowGuard suite and obtain exact terminal maintenance evidence
+- [x] 11.4 Build and transactionally install a clean consumer skill projection and current Python package
+- [x] 11.5 Verify source, installed package, installed skills, project record, observed snapshot, and target functionality parity
+- [x] 11.6 Retire the old v0.55 checkout from active tool routing without deleting its parallel or historical work
 
 ## 12. Version, GitHub Release, and Closure
 
 - [x] 12.1 Select and apply the next semantic version, release notes, changelog, project records, and source package metadata
-- [ ] 12.2 Validate OpenSpec implementation, reconcile delta specs, and archive the completed change
+- [x] 12.2 Validate OpenSpec implementation, reconcile delta specs, and archive the completed change
 - [ ] 12.3 Commit only owned and deliberately integrated paths, push the release branch, and publish the new tag and GitHub Release
 - [ ] 12.4 Verify the published source in a clean environment and rerun installation/currentness checks
 - [ ] 12.5 Perform the predictive-KB postflight, record any reusable miss or route lesson once, and close the goal with explicit evidence and bounded claims
