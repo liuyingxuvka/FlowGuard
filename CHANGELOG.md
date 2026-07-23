@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.61.0 - 2026-07-23
+
+- Added one durable authoritative observed-model system snapshot with explicit
+  separation between observed implementation, normative target, and isolated
+  counterfactual experiment lanes.
+- Added content-addressed model instances, typed cross-model relations, six
+  coverage dimensions, exact subject revisions, and authority-first existing
+  model preflight so discovery evidence can no longer masquerade as current
+  authority.
+- Added whole-revision-set activation and operational rollback with shared
+  compare-and-swap locking, pointer-last persistence, affected-closure
+  fingerprints, prediction/replay evidence, and required effect restoration or
+  forward repair for irreversible changes.
+- Integrated model authority into project audit, regression receipts, the
+  command line, public API, behavior commitment ownership, and the existing
+  FlowGuard skill routes without creating a parallel workflow.
+- Split the former oversized authority implementation into schema, revision,
+  persistence, and inventory owners; centralized the fixed skill-suite
+  inventory; and removed the absent lightweight model-miss-review ghost route.
+- Retained source-only release authority with an immutable tag and zero GitHub
+  Release assets.
+
 ## v0.60.0 - 2026-07-22
 
 - Added strict `flowguard.portable_system.v1` system definitions, verification

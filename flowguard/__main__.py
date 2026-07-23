@@ -118,6 +118,192 @@ def _run_schema_version() -> int:
     return 0
 
 
+def _read_json_object(path: str | Path) -> dict[str, object]:
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"cannot load JSON object {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise SystemExit(f"JSON artifact must be an object: {path}")
+    return payload
+
+
+def _emit_payload(payload: dict[str, object], *, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+        return
+    for key, value in payload.items():
+        print(f"{key}: {value}")
+
+
+def _run_model_system_command(args: argparse.Namespace) -> int:
+    from .model_authority import (
+        ModelRevisionSet,
+        ModelRollbackContract,
+        load_model_system_snapshot,
+    )
+    from .model_authority_store import (
+        activate_model_revision_set,
+        audit_model_authority,
+        bootstrap_model_authority,
+        rollback_observed_model_system,
+    )
+    from .model_system_inventory import (
+        build_manifest_model_system_snapshot,
+    )
+
+    try:
+        if args.model_system_action == "audit":
+            report = audit_model_authority(args.root)
+            _emit_payload(report.to_dict(), as_json=args.json)
+            return 0 if report.ok else 1
+        if args.model_system_action == "bootstrap":
+            snapshot = (
+                load_model_system_snapshot(args.snapshot)
+                if args.snapshot
+                else build_manifest_model_system_snapshot(
+                    args.root,
+                    snapshot_id=args.snapshot_id,
+                )
+            )
+            head = bootstrap_model_authority(
+                args.root,
+                snapshot,
+                bootstrap_evidence_fingerprint=args.evidence_fingerprint,
+            )
+            _emit_payload(
+                {
+                    "status": "pass",
+                    "head": head.to_dict(),
+                    "snapshot": snapshot.to_dict(),
+                },
+                as_json=args.json,
+            )
+            return 0
+        if args.model_system_action == "activate":
+            candidate = load_model_system_snapshot(args.candidate_snapshot)
+            revision = ModelRevisionSet.from_dict(
+                _read_json_object(args.revision_set)
+            )
+            head, receipt = activate_model_revision_set(
+                args.root,
+                candidate,
+                revision,
+                receipt_id=args.receipt_id,
+            )
+            _emit_payload(
+                {
+                    "status": "pass",
+                    "head": head.to_dict(),
+                    "receipt": receipt.to_dict(),
+                },
+                as_json=args.json,
+            )
+            return 0
+        contract = ModelRollbackContract.from_dict(
+            _read_json_object(args.contract)
+        )
+        head, receipt = rollback_observed_model_system(
+            args.root,
+            contract,
+            completed_evidence_fingerprints=(
+                args.completed_evidence_fingerprint
+            ),
+            requested_result=args.result,
+            receipt_id=args.receipt_id,
+            reason=args.reason,
+        )
+        _emit_payload(
+            {
+                "status": "pass",
+                "head": head.to_dict(),
+                "receipt": receipt.to_dict(),
+            },
+            as_json=args.json,
+        )
+        return 0
+    except (OSError, ValueError, RuntimeError) as exc:
+        _emit_payload(
+            {"status": "blocked", "error": str(exc)},
+            as_json=args.json,
+        )
+        return 1
+
+
+def _add_model_system_parsers(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    audit = subparsers.add_parser(
+        "model-system-audit",
+        help="Audit the sole observed model-system authority.",
+    )
+    audit.add_argument("--root", default=".")
+    audit.add_argument("--json", action="store_true")
+    audit.set_defaults(
+        handler=_run_model_system_command,
+        model_system_action="audit",
+    )
+
+    bootstrap = subparsers.add_parser(
+        "model-system-bootstrap",
+        help="Establish the first observed model-system authority.",
+    )
+    bootstrap.add_argument("--root", default=".")
+    bootstrap.add_argument(
+        "--snapshot",
+        default="",
+        help="Existing snapshot JSON; otherwise build from current owners.",
+    )
+    bootstrap.add_argument(
+        "--snapshot-id",
+        default="snapshot:observed-bootstrap",
+    )
+    bootstrap.add_argument("--evidence-fingerprint", required=True)
+    bootstrap.add_argument("--json", action="store_true")
+    bootstrap.set_defaults(
+        handler=_run_model_system_command,
+        model_system_action="bootstrap",
+    )
+
+    activate = subparsers.add_parser(
+        "model-revision-activate",
+        help="Activate one accepted whole-system revision set.",
+    )
+    activate.add_argument("--root", default=".")
+    activate.add_argument("--candidate-snapshot", required=True)
+    activate.add_argument("--revision-set", required=True)
+    activate.add_argument("--receipt-id", required=True)
+    activate.add_argument("--json", action="store_true")
+    activate.set_defaults(
+        handler=_run_model_system_command,
+        model_system_action="activate",
+    )
+
+    rollback = subparsers.add_parser(
+        "model-revision-rollback",
+        help="Restore or compensate real effects before rewinding authority.",
+    )
+    rollback.add_argument("--root", default=".")
+    rollback.add_argument("--contract", required=True)
+    rollback.add_argument(
+        "--completed-evidence-fingerprint",
+        action="append",
+        default=[],
+    )
+    rollback.add_argument(
+        "--result",
+        choices=("exact", "compensated", "forward_repair"),
+        required=True,
+    )
+    rollback.add_argument("--receipt-id", required=True)
+    rollback.add_argument("--reason", required=True)
+    rollback.add_argument("--json", action="store_true")
+    rollback.set_defaults(
+        handler=_run_model_system_command,
+        model_system_action="rollback",
+    )
+
+
 def _run_adoption_template() -> int:
     from .templates import ADOPTION_LOG_TEMPLATE
 
@@ -1114,6 +1300,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_portable_model_parsers(subparsers)
     _add_simulator_parser(subparsers)
     _add_evidence_lifecycle_parsers(subparsers)
+    _add_model_system_parsers(subparsers)
     _add_project_adoption_parser(
         subparsers,
         "project-audit",

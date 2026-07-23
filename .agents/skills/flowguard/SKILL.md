@@ -33,6 +33,9 @@ Read `references/route_index.md` for the parity-checked route map and `reference
 5. Preserve checked/unchecked/blocked/scoped evidence and close only at the requested current scope.
 
 ## Hard Gates
+- Model-system authority gate: for an existing modeled project, load and audit the sole observed `ModelSystemSnapshot` before treating any model as current. Keep `observed_implementation`, `normative_target`, and `counterfactual_experiment` as separate subject lanes. File discovery, a prompt label, or a green candidate check is candidate context only.
+- Whole-revision gate: a target or experiment becomes observed only through one accepted `ModelRevisionSet` whose base head, affected closure, changed models/relations/fields/contracts/tests, prediction replay, and current owner receipts match exactly. Persist immutable records first and update the sole project pointer last.
+- Rollback gate: restore or compensate real code, data, configuration, side effects, and old-snapshot conformance before rewinding authority. Irreversible effects require forward repair; pointer-only rollback is forbidden.
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; if import fails, connect the real toolchain or report blocked/partial and never create a fake mini-framework.
 - Represent every modeled block as `Input x State -> Set(Output x State)`; do not replace executable modeling with prose or weaken hard invariants to pass.

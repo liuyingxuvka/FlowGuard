@@ -197,6 +197,10 @@ Before trusting the route, make these known-bad variants fail:
 - expected same-intent candidate or similarity relation side omitted;
 - similarity/code-obligation ids left only in plan metadata;
 - retained facade able to succeed without the selected primary path.
+- target or experiment structure presented as current authority;
+- old model owner retained as an alternate current success path after its
+  commitment moved to the replacement owner;
+- reduction applied to only part of a multi-model revision set.
 
 ## Reporting
 

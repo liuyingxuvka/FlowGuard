@@ -38,7 +38,7 @@ Project FlowGuard record:
 <!-- flowguard-rule:project.rendered_versions -->
 
 Current adoption record:
-- FlowGuard check-engine version: `0.60.0`
+- FlowGuard check-engine version: `0.61.0`
 - FlowGuard schema version: `1.0`
 
 <!-- flowguard-rule:project.preflight_version_gate -->
@@ -66,6 +66,27 @@ Before non-trivial work:
 FlowGuard runtime guidance is latest-schema-first: old artifacts may be
 detected and upgraded at project/tool boundaries, but normal route logic should
 not keep long-lived old branches for obsolete fields, aliases, or wrappers.
+
+<!-- flowguard-rule:model_system.authority -->
+
+For an existing modeled project, one content-addressed
+`observed_implementation` ModelSystemSnapshot selected by the sole
+`[model_authority]` head in `.flowguard/project.toml` is current authority.
+`normative_target` and `counterfactual_experiment` snapshots remain isolated
+candidates. File discovery, names such as `current`, prompt claims, and green
+candidate checks never make a model current. Missing/invalid authority or
+unresolved required coverage blocks broad current-model confidence.
+
+<!-- flowguard-rule:model_system.revision_transaction -->
+
+A target or experiment may replace the observed model system only through one
+accepted ModelRevisionSet bound to the exact base head, candidate snapshot,
+changed models/relations/fields/effects/contracts/tests, affected closure,
+prediction/replay evidence, and current owner receipts. Persist immutable
+records first and update the sole pointer last under the shared project-manifest
+compare-and-swap lock. Operational rollback restores or compensates real
+implementation effects and revalidates the old snapshot before moving
+authority; irreversible effects require forward repair.
 
 <!-- flowguard-rule:lifecycle.default_replacement -->
 

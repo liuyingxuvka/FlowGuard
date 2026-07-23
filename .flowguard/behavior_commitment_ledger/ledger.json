@@ -444,7 +444,7 @@
         "preconditions": [
           "full behavior coverage is requested"
         ],
-        "primary_owner_model_id": "flowguard.behavior_commitment.default_behavior_commitment_coverage_universe",
+        "primary_owner_model_id": ".flowguard/behavior_commitment_ledger/model.py",
         "rationale": "FlowGuard self-maintenance external behavior promise",
         "relations": [
           {
@@ -471,9 +471,7 @@
         "state_writes": [
           "contract_coverage_universe"
         ],
-        "supporting_model_ids": [
-          ".flowguard/behavior_commitment_ledger/model.py"
-        ],
+        "supporting_model_ids": [],
         "surface_delegation_only": false,
         "trigger": "the behavior ledger claims full source-to-commitment coverage",
         "validation_boundary": "owner model, contract-exhaustion cases, current TestMesh receipts, and project model checks",
@@ -571,7 +569,7 @@
         "preconditions": [
           "a broad behavior claim is requested"
         ],
-        "primary_owner_model_id": "flowguard.behavior_commitment._review_change_lifecycle",
+        "primary_owner_model_id": ".flowguard/test_evidence_mesh/model.py",
         "rationale": "FlowGuard self-maintenance external behavior promise",
         "relations": [
           {
@@ -700,7 +698,7 @@
         "preconditions": [
           "observed failure evidence is available"
         ],
-        "primary_owner_model_id": "flowguard.behavior_commitment._review_change_lifecycle",
+        "primary_owner_model_id": ".flowguard/model_miss_review/model.py",
         "rationale": "FlowGuard self-maintenance external behavior promise",
         "relations": [
           {
@@ -731,9 +729,7 @@
           "affected_commitment_id",
           "primary_owner_model_id"
         ],
-        "supporting_model_ids": [
-          ".flowguard/model_miss_review/model.py"
-        ],
+        "supporting_model_ids": [],
         "surface_delegation_only": false,
         "trigger": "runtime, test, replay, log, or manual validation finds a miss after FlowGuard passed",
         "validation_boundary": "owner model, contract-exhaustion cases, current TestMesh receipts, and project model checks",
@@ -989,7 +985,7 @@
         "preconditions": [
           "one official OpenSpec change is explicitly selected under the current project root"
         ],
-        "primary_owner_model_id": ".flowguard/spec_context/model.py",
+        "primary_owner_model_id": ".flowguard/development_process_flow/model.py",
         "rationale": "FlowGuard read-only external-context promise",
         "relations": [],
         "replacement_state": "active",
@@ -1007,7 +1003,6 @@
           "read_only_spec_context_projection"
         ],
         "supporting_model_ids": [
-          ".flowguard/development_process_flow/model.py",
           ".flowguard/existing_model_preflight/model.py"
         ],
         "surface_delegation_only": false,
@@ -1260,7 +1255,7 @@
         "preconditions": [
           "an old path, alias, wrapper, field, or alternate success route is discovered"
         ],
-        "primary_owner_model_id": "flowguard.self_maintenance.default_field_layer_profiles",
+        "primary_owner_model_id": ".flowguard/default_replacement_field_lifecycle/model.py",
         "rationale": "FlowGuard self-maintenance external behavior promise",
         "relations": [
           {
@@ -1289,7 +1284,7 @@
           "replacement_disposition"
         ],
         "supporting_model_ids": [
-          "flowguard.primary_path_authority"
+          ".flowguard/self_maintenance_mesh/model.py"
         ],
         "surface_delegation_only": false,
         "trigger": "a FlowGuard change removes, replaces, or finds an old path or field",
@@ -1679,7 +1674,7 @@
           "scoped_out_reason": ""
         },
         "preconditions": [],
-        "primary_owner_model_id": ".flowguard/reduce_architecture_surface/model.py",
+        "primary_owner_model_id": ".flowguard/architecture_reduction/model.py",
         "rationale": "This is product-runtime API behavior and is separate from AI guidance or development-process ownership.",
         "relations": [],
         "replacement_state": "active",
@@ -1693,7 +1688,7 @@
         ],
         "state_writes": [],
         "supporting_model_ids": [
-          ".flowguard/simplify_flowguard_structure/model.py"
+          ".flowguard/structure_refactor_mesh/model.py"
         ],
         "surface_delegation_only": false,
         "trigger": "a developer imports a supported name from flowguard",
@@ -1806,7 +1801,7 @@
           "scoped_out_reason": ""
         },
         "preconditions": [],
-        "primary_owner_model_id": ".flowguard/simplify_flowguard_structure/model.py",
+        "primary_owner_model_id": ".flowguard/structure_refactor_mesh/model.py",
         "rationale": "This is product-runtime CLI behavior and remains distinct from agent-operation guidance.",
         "relations": [],
         "replacement_state": "active",
@@ -1824,9 +1819,180 @@
         "trigger": "a developer invokes a FlowGuard template command",
         "validation_boundary": "template registry, CLI facade, structure model, and current template tests",
         "variant_of_business_intent_id": ""
+      },
+      {
+        "actor": "FlowGuard model-system maintainer",
+        "actor_kind": "developer",
+        "behavior_plane": "product_runtime",
+        "business_intent_id": "intent:authoritative-model-system",
+        "child_model_ids": [],
+        "commitment_id": "commitment:authoritative-model-system",
+        "commitment_kind": "workflow",
+        "evidence": {
+          "code_contract_ids": [
+            "contract:model-system-authority:observed-head",
+            "contract:model-system-authority:revision-activation",
+            "contract:model-system-authority:operational-rollback"
+          ],
+          "coverage_case_ids": [
+            "model-authority.subject-lanes-distinct",
+            "model-authority.whole-revision-activation",
+            "model-authority.pointer-last-cas",
+            "model-authority.operational-rollback"
+          ],
+          "coverage_receipt_ids": [
+            "contract_coverage:authoritative-model-system"
+          ],
+          "coverage_shard_ids": [
+            "contract_shard:authoritative-model-system:model",
+            "contract_shard:authoritative-model-system:store",
+            "contract_shard:authoritative-model-system:integration"
+          ],
+          "current": true,
+          "evidence_state": "current_pass",
+          "metadata": {},
+          "model_obligation_ids": [
+            "obligation:.flowguard/authoritative_model_system/model.py:observed-authority",
+            "obligation:.flowguard/authoritative_model_system/model.py:revision-transaction",
+            "obligation:.flowguard/authoritative_model_system/model.py:rollback-reality"
+          ],
+          "proof_artifact_ids": [
+            "proof:authoritative-model-system-current"
+          ],
+          "risk_gate_ids": [
+            "risk_gate:authoritative-model-system"
+          ],
+          "test_evidence_ids": [
+            "tests/test_model_authority.py",
+            "tests/test_model_authority_store.py",
+            "tests/test_model_system_inventory.py",
+            "tests/test_model_authority_cli.py",
+            ".flowguard/authoritative_model_system/run_checks.py"
+          ],
+          "test_mesh_state": "shard_current"
+        },
+        "excluded_behavior_ids": [],
+        "expected_result": "exactly one content-addressed observed snapshot describes the current implementation while target and experiment snapshots stay isolated until one complete revision set is accepted",
+        "expected_terminal": "the authority audit reports one current observed head with finite closed coverage, or returns a visible blocker without promoting a candidate",
+        "external_differences": [],
+        "failure_boundary": "missing or stale authority, incomplete coverage, partial multi-model activation, stale-base writes, or pointer-only rollback block current-model confidence",
+        "in_scope": true,
+        "label": "FlowGuard keeps observed, target, and experiment model systems separate and changes authority only as one revision transaction",
+        "lookup_binding": {
+          "error_signatures": [
+            "model_authority_missing",
+            "model_authority_invalid",
+            "model_authority_coverage_gap",
+            "stale_authority_head"
+          ],
+          "metadata": {},
+          "path_patterns": [
+            "flowguard/model_authority.py",
+            "flowguard/model_revision_set.py",
+            "flowguard/model_authority_store.py",
+            ".flowguard/authoritative_model_system"
+          ],
+          "task_terms": [
+            "current model",
+            "target model",
+            "experiment model",
+            "model authority",
+            "model revision",
+            "rollback"
+          ],
+          "tool_ids": [
+            "model-system-audit",
+            "model-system-bootstrap",
+            "model-revision-activate",
+            "model-revision-rollback"
+          ],
+          "workflow_families": [
+            "model_authority",
+            "model_mesh",
+            "model_revision"
+          ]
+        },
+        "metadata": {
+          "authority_lane": "observed_implementation",
+          "behavior_plane_classification": "explicit_project_owner_review"
+        },
+        "miss_origin_state": "no_miss",
+        "model_sync_state": "owner_model_current",
+        "owner": "",
+        "path_authority": {
+          "behavior_commitment_id": "commitment:authoritative-model-system",
+          "business_intent": "maintain one truthful current software model system while safely evaluating replacements",
+          "business_intent_id": "intent:authoritative-model-system",
+          "evidence_current": true,
+          "evidence_refs": [
+            ".flowguard/authoritative_model_system/run_checks.py",
+            "tests/test_model_authority.py",
+            "tests/test_model_authority_store.py",
+            "tests/test_model_system_inventory.py",
+            "tests/test_model_authority_cli.py"
+          ],
+          "fallback_candidate_ids": [],
+          "metadata": {},
+          "path_sensitive": true,
+          "ppa_confidence": "full",
+          "ppa_coverage_receipt_ids": [
+            "contract_coverage:authoritative-model-system"
+          ],
+          "ppa_coverage_shard_ids": [
+            "contract_shard:authoritative-model-system:model",
+            "contract_shard:authoritative-model-system:store",
+            "contract_shard:authoritative-model-system:integration"
+          ],
+          "ppa_decision": "primary_path_authority_green",
+          "ppa_ok": true,
+          "ppa_report_id": "report:authoritative-model-system",
+          "ppa_risk_gate_ids": [
+            "risk_gate:authoritative-model-system"
+          ],
+          "primary_path_id": "path:model-system-authority:head-cas",
+          "proof_artifact_ids": [
+            "proof:authoritative-model-system-current"
+          ],
+          "runtime_observation_ids": [
+            "observation:authoritative-model-system-tests"
+          ],
+          "scoped_out_reason": ""
+        },
+        "preconditions": [
+          "the project has a current model regression manifest and behavior commitment ledger",
+          "model inputs and subject revision are content-addressed"
+        ],
+        "primary_owner_model_id": ".flowguard/authoritative_model_system/model.py",
+        "rationale": "This is the single product-runtime authority boundary for deciding which model system describes the current software.",
+        "relations": [],
+        "replacement_state": "active",
+        "scoped_out_reason": "",
+        "side_effects": [
+          "persist_immutable_model_revision_records",
+          "restore_or_compensate_implementation_effects"
+        ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_refs": [],
+        "source_surface_ids": [
+          "surface:model-system-authority-api",
+          "surface:model-system-authority-cli",
+          "surface:model-system-authority-model-tests"
+        ],
+        "state_writes": [
+          "model_authority_head"
+        ],
+        "supporting_model_ids": [
+          ".flowguard/behavior_commitment_ledger/model.py",
+          ".flowguard/development_process_flow/model.py"
+        ],
+        "surface_delegation_only": false,
+        "trigger": "a maintainer asks what model represents the current software, evaluates a target or experiment, activates a replacement, or rolls it back",
+        "validation_boundary": "authority model, durable store, exact manifest/ledger inventory, API/CLI, preflight integration, project audit, and current tests",
+        "variant_of_business_intent_id": ""
       }
     ],
-    "current_revision": "2026-07-16-portable-compositional-verification",
+    "current_revision": "2026-07-23-authoritative-model-system",
     "expected_business_intent_ids": [
       "intent:behavior-ledger-current",
       "intent:ordinary-ui-content-admission",
@@ -1840,7 +2006,8 @@
       "intent:flowguard-agent-guidance-route",
       "intent:portable-compositional-verification",
       "intent:flowguard-public-api-surface",
-      "intent:flowguard-template-cli-dispatch"
+      "intent:flowguard-template-cli-dispatch",
+      "intent:authoritative-model-system"
     ],
     "expected_commitment_ids": [
       "commitment:behavior-ledger-current",
@@ -1855,7 +2022,8 @@
       "commitment:flowguard-agent-guidance-route",
       "commitment:portable-compositional-verification",
       "commitment:flowguard-public-api-surface",
-      "commitment:flowguard-template-cli-dispatch"
+      "commitment:flowguard-template-cli-dispatch",
+      "commitment:authoritative-model-system"
     ],
     "ledger_id": "flowguard-self-maintenance-ledger",
     "metadata": {
@@ -2529,6 +2697,82 @@
         "surface_id": "surface:flowguard-template-cli",
         "surface_kind": "cli",
         "validation_boundary": "structure model, public-template tests, maintenance-template tests, and CLI checks"
+      },
+      {
+        "business_intent_ids": [
+          "intent:authoritative-model-system"
+        ],
+        "commitment_ids": [
+          "commitment:authoritative-model-system"
+        ],
+        "delegates_to_primary_path": true,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "FlowGuard model-system authority Python API",
+        "metadata": {
+          "behavior_plane": "product_runtime",
+          "schema_version": "flowguard.model_system_snapshot.v1"
+        },
+        "owner": "model_first_function_flow",
+        "primary_path_id": "path:model-system-authority:head-cas",
+        "rationale": "The public authority API delegates snapshot identity, activation, and rollback to one current persistence owner.",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "flowguard/model_authority.py; flowguard/model_revision_set.py; flowguard/model_authority_store.py; flowguard/model_system_inventory.py; flowguard/__init__.py",
+        "surface_id": "surface:model-system-authority-api",
+        "surface_kind": "api",
+        "validation_boundary": "strict schemas, typed relations, exact coverage, revision diff, shared-lock CAS, pointer-last writes, and operational rollback tests"
+      },
+      {
+        "business_intent_ids": [
+          "intent:authoritative-model-system"
+        ],
+        "commitment_ids": [
+          "commitment:authoritative-model-system"
+        ],
+        "delegates_to_primary_path": true,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "FlowGuard model-system authority CLI",
+        "metadata": {
+          "behavior_plane": "product_runtime"
+        },
+        "owner": "model_first_function_flow",
+        "primary_path_id": "path:model-system-authority:head-cas",
+        "rationale": "The four public commands are thin projections of the same authority store and never create another successful implementation.",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": "flowguard/__main__.py; tests/test_model_authority_cli.py",
+        "surface_id": "surface:model-system-authority-cli",
+        "surface_kind": "cli",
+        "validation_boundary": "bootstrap/audit/activate/rollback CLI dispatch, visible blockers, exact receipts, and public API parity"
+      },
+      {
+        "business_intent_ids": [
+          "intent:authoritative-model-system"
+        ],
+        "commitment_ids": [
+          "commitment:authoritative-model-system"
+        ],
+        "delegates_to_primary_path": true,
+        "freshness_state": "current",
+        "in_scope": true,
+        "label": "FlowGuard authoritative model, specification, and regression evidence",
+        "metadata": {
+          "behavior_plane": "product_runtime"
+        },
+        "owner": "model_first_function_flow",
+        "primary_path_id": "path:model-system-authority:head-cas",
+        "rationale": "The executable model and current tests bind the authority promise to declared bad cases, storage behavior, integration, and public commands.",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_ref": ".flowguard/authoritative_model_system/model.py; .flowguard/authoritative_model_system/run_checks.py; openspec/changes/establish-authoritative-model-system; tests/test_model_authority.py; tests/test_model_authority_store.py; tests/test_model_system_inventory.py; tests/test_model_authority_cli.py",
+        "surface_id": "surface:model-system-authority-model-tests",
+        "surface_kind": "test",
+        "validation_boundary": "strict OpenSpec validation, executable expected-counterexample review, and focused authority regression tests"
       }
     ],
     "validation_boundary": "behavior ledger review plus focused self-maintenance, API, template, and OpenSpec checks"

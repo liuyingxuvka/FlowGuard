@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping, Sequence
 
+from .suite_contract import FLOWGUARD_EXPECTED_MEMBER_COUNT
+
 
 DISTRIBUTION_SCHEMA = "flowguard.skill_distribution.v1"
 OWNERSHIP_SCHEMA = "flowguard.skill_distribution_ownership.v1"
@@ -41,7 +43,6 @@ CONSUMER_SUITE_AUTHORITY_CLAIM = (
 )
 CANONICAL_SKILL_ROOT = ".agents/skills"
 CANONICAL_SUITE_MAP = ".skillguard/flowguard-suite/suite-map.json"
-FLOWGUARD_EXPECTED_MEMBER_COUNT = 15
 PARITY_ROLE_AUTHOR_SOURCE = "author_source"
 PARITY_ROLE_CONSUMER_DISTRIBUTION = "consumer_distribution"
 PARITY_ROLES = frozenset(

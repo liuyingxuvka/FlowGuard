@@ -23,6 +23,14 @@ source refs, one primary owner model, subordinate supporting or child models,
 dependencies, evidence ids, validation boundary, and rationale. A scoped-out
 row still needs owner, reason, validation boundary, and rationale.
 
+For an existing modeled project, the ledger revision and every primary owner
+used for current confidence must be bound into the observed model-system
+snapshot. A ledger row pointing to an absent, target-only, experimental, or
+retired model is an authority gap. Supporting models remain subordinate and
+cannot silently replace an unavailable primary owner. A changed commitment,
+owner, relation, state write, or side effect belongs in the affected closure
+of the next whole-system revision set.
+
 Runtime relationships use typed `relations`, not legacy dependency ids.
 Same-plane dependencies/invocations/validations and the allowed agent/process
 cross-plane directions must reference registered targets. Every cross-plane

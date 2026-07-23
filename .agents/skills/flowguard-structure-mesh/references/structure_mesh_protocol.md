@@ -158,6 +158,13 @@ A StructureMesh is complete when:
   obligations so later scans can reopen StructureMesh when related files move;
 - known-bad hazards fail in executable evidence.
 
+When a structure change moves model-system authority, keep the observed
+facade/source map active while the target snapshot is candidate-only. Record
+all changed entrypoints, modules, configuration owners, and parity obligations
+in the same revision set as the model replacements. Do not switch a child
+module, public facade, or model pointer independently. Rollback restores the
+old structure and parity evidence before the observed pointer changes.
+
 ## Layered Boundary Handoff
 
 When a structure split is motivated by a leaf model being too large for full

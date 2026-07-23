@@ -79,3 +79,14 @@ A field lifecycle review is complete when:
 - downstream handoffs are named;
 - stale field rows are blocked or rerun;
 - full confidence is not claimed from inventory alone.
+
+## Model-system revision binding
+
+The observed snapshot binds the current field inventory owner artifact, not
+only a free-form hash. A target or experiment keeps its added, removed,
+renamed, migrated, replaced, externalized, state-bearing, and side-effect
+fields in its own candidate snapshot. Every field/side-effect diff must appear
+in the revision set's affected closure with one owner and old-field
+disposition. Activation blocks on unaccounted fields; rollback blocks until
+restore, compensation, or irreversible forward-repair disposition is
+evidenced.

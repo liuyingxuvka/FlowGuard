@@ -178,7 +178,6 @@
   "implementation_paths": [
     ".agents/skills/flowguard-model-miss-review",
     ".flowguard/model_miss_review",
-    ".flowguard/lightweight_model_miss_review",
     "flowguard/recurring_model_miss.py",
     "flowguard/skill_contract_model.py",
     "tests/test_recurring_model_miss.py"

@@ -343,7 +343,8 @@ class BehaviorCommitmentLookupTests(unittest.TestCase):
             )
             report = review_existing_model_preflight(preflight)
 
-            self.assertTrue(report.ok, report.format_text())
+            self.assertFalse(report.ok, report.format_text())
+            self.assertEqual("blocked", preflight.authority_status)
             self.assertEqual(BCL_LOOKUP_STATUS_PERFORMED, preflight.behavior_lookup_status)
             self.assertEqual(BCL_PLANE_AGENT_OPERATION, preflight.primary_behavior_plane)
             self.assertEqual(

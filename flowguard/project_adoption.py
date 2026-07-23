@@ -27,6 +27,14 @@ from .adoption import (
 from .artifact_upgrade import ArtifactUpgradeReport, review_artifact_upgrades
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
+from .model_authority_store import audit_model_authority
+from .project_manifest import (
+    ProjectManifestError,
+    manifest_text_fingerprint,
+    project_manifest_lock,
+    read_manifest_text,
+    replace_project_manifest_locked,
+)
 from .schema import SCHEMA_VERSION
 
 
@@ -161,6 +169,27 @@ process changes.""",
         """FlowGuard runtime guidance is latest-schema-first: old artifacts may be
 detected and upgraded at project/tool boundaries, but normal route logic should
 not keep long-lived old branches for obsolete fields, aliases, or wrappers.""",
+    ),
+    ManagedAdoptionRule(
+        "model_system.authority",
+        """For an existing modeled project, one content-addressed
+`observed_implementation` ModelSystemSnapshot selected by the sole
+`[model_authority]` head in `.flowguard/project.toml` is current authority.
+`normative_target` and `counterfactual_experiment` snapshots remain isolated
+candidates. File discovery, names such as `current`, prompt claims, and green
+candidate checks never make a model current. Missing/invalid authority or
+unresolved required coverage blocks broad current-model confidence.""",
+    ),
+    ManagedAdoptionRule(
+        "model_system.revision_transaction",
+        """A target or experiment may replace the observed model system only through one
+accepted ModelRevisionSet bound to the exact base head, candidate snapshot,
+changed models/relations/fields/effects/contracts/tests, affected closure,
+prediction/replay evidence, and current owner receipts. Persist immutable
+records first and update the sole pointer last under the shared project-manifest
+compare-and-swap lock. Operational rollback restores or compensates real
+implementation effects and revalidates the old snapshot before moving
+authority; irreversible effects require forward repair.""",
     ),
     ManagedAdoptionRule(
         "lifecycle.default_replacement",
@@ -545,12 +574,13 @@ def current_project_manifest_text(
     package_version: str | None = None,
     schema_version: str = SCHEMA_VERSION,
     verified_by: str = "FlowGuard project-adopt",
+    model_authority: Mapping[str, Any] | None = None,
 ) -> str:
     """Build the canonical ``.flowguard/project.toml`` text."""
 
     package = package_version if package_version is not None else installed_flowguard_package_version()
     verified_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-    return (
+    text = (
         "[flowguard]\n"
         f'repository = "{FLOWGUARD_REPOSITORY_URL}"\n'
         f'adopted_package_version = "{package}"\n'
@@ -566,6 +596,43 @@ def current_project_manifest_text(
         "require_adoption_log = true\n"
         "require_model_update_for_behavior_changes = true\n"
     )
+    if model_authority:
+        required = (
+            "system_id",
+            "observed_snapshot_path",
+            "observed_snapshot_fingerprint",
+            "subject_revision",
+            "coverage_status",
+            "generation",
+            "accepted_revision_set_fingerprint",
+            "previous_snapshot_fingerprint",
+            "activation_receipt_fingerprint",
+            "head_fingerprint",
+        )
+        missing = tuple(key for key in required if key not in model_authority)
+        if missing:
+            raise ValueError(
+                f"model_authority is missing required fields: {missing}"
+            )
+        text += (
+            "\n[model_authority]\n"
+            f"system_id = {json.dumps(str(model_authority['system_id']))}\n"
+            "observed_snapshot_path = "
+            f"{json.dumps(str(model_authority['observed_snapshot_path']))}\n"
+            "observed_snapshot_fingerprint = "
+            f"{json.dumps(str(model_authority['observed_snapshot_fingerprint']))}\n"
+            f"subject_revision = {json.dumps(str(model_authority['subject_revision']))}\n"
+            f"coverage_status = {json.dumps(str(model_authority['coverage_status']))}\n"
+            f"generation = {int(model_authority['generation'])}\n"
+            "accepted_revision_set_fingerprint = "
+            f"{json.dumps(str(model_authority['accepted_revision_set_fingerprint']))}\n"
+            "previous_snapshot_fingerprint = "
+            f"{json.dumps(str(model_authority['previous_snapshot_fingerprint']))}\n"
+            "activation_receipt_fingerprint = "
+            f"{json.dumps(str(model_authority['activation_receipt_fingerprint']))}\n"
+            f"head_fingerprint = {json.dumps(str(model_authority['head_fingerprint']))}\n"
+        )
+    return text
 
 
 def build_flowguard_agents_block(
@@ -687,6 +754,40 @@ def audit_project_adoption(root: str | Path = ".") -> ProjectAdoptionReport:
         expected_block,
         suite,
     )
+    manifest_document = _read_manifest_document(
+        root_path / FLOWGUARD_PROJECT_MANIFEST
+    )
+    if isinstance(manifest_document.get("model_authority"), Mapping):
+        authority_report = audit_model_authority(root_path)
+        if not authority_report.ok:
+            findings.append(
+                ProjectAdoptionFinding(
+                    "blocked",
+                    "model_authority_invalid",
+                    "The project model-authority pointer or snapshot is invalid.",
+                    "Repair the current authority head before claiming project adoption.",
+                    metadata=authority_report.to_dict(),
+                )
+            )
+        elif authority_report.status == "pass_with_gaps":
+            findings.append(
+                ProjectAdoptionFinding(
+                    "warning",
+                    "model_authority_coverage_gaps",
+                    "The current model-system authority is valid but retains explicit coverage gaps.",
+                    "Close or explicitly accept the bounded gaps before claiming full model coverage.",
+                    metadata=authority_report.to_dict(),
+                )
+            )
+    else:
+        findings.append(
+            ProjectAdoptionFinding(
+                "warning",
+                "model_authority_missing",
+                "The project has no authoritative observed model-system snapshot yet.",
+                "Bootstrap one observed snapshot before broad model-coverage claims.",
+            )
+        )
     rendered_package, rendered_schema = _rendered_versions(managed_block)
     observed_ids = managed_rule_ids_in_block(managed_block)
     missing_ids = tuple(rule_id for rule_id in FLOWGUARD_REQUIRED_RULE_IDS if rule_id not in observed_ids)
@@ -769,6 +870,14 @@ def _write_project_adoption(
     root_path = Path(root).resolve()
     package_version = installed_flowguard_package_version()
     manifest_path = root_path / FLOWGUARD_PROJECT_MANIFEST
+    existing_manifest_text = read_manifest_text(manifest_path)
+    existing_manifest_fingerprint = manifest_text_fingerprint(
+        existing_manifest_text
+    )
+    manifest_document = _read_manifest_document(manifest_path)
+    model_authority = manifest_document.get("model_authority")
+    if not isinstance(model_authority, Mapping):
+        model_authority = None
     manifest = _read_manifest(manifest_path)
     manifest_package = str(manifest.get("adopted_package_version", ""))
     manifest_schema = str(manifest.get("schema_version", ""))
@@ -784,6 +893,7 @@ def _write_project_adoption(
         package_version=package_version,
         schema_version=SCHEMA_VERSION,
         verified_by=verified_by,
+        model_authority=model_authority,
     )
     suite = _load_suite_evidence(root_path)
     audit_findings = _audit_findings(
@@ -840,7 +950,7 @@ def _write_project_adoption(
     proposed_files = _proposed_files(
         root_path=root_path,
         agents_changed=updated_agents != existing_agents,
-        manifest_changed=_read_text(manifest_path) != manifest_text,
+        manifest_changed=existing_manifest_text != manifest_text,
         artifact_report=artifact_upgrade_report,
         include_logs=True,
     )
@@ -926,19 +1036,37 @@ def _write_project_adoption(
             artifact_upgrade_report=artifact_upgrade_report,
         )
 
-    # Every hard gate above runs before this first possible mutation.
-    if action == PROJECT_ADOPTION_ACTION_UPGRADE and upgrade_needed and not records_only:
-        artifact_upgrade_report = review_artifact_upgrades(root_path, apply=True)
-
     written: list[str] = []
-    if updated_agents != existing_agents:
-        agents_path.write_text(updated_agents, encoding="utf-8")
-        written.append(str(agents_path))
-
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    if _read_text(manifest_path) != manifest_text:
-        manifest_path.write_text(manifest_text, encoding="utf-8")
-        written.append(str(manifest_path))
+    # Adoption, upgrade, activation, and rollback share one manifest owner.
+    # Recheck ownership while holding it before the first possible mutation.
+    with project_manifest_lock(manifest_path):
+        current_manifest_text = read_manifest_text(manifest_path)
+        if (
+            manifest_text_fingerprint(current_manifest_text)
+            != existing_manifest_fingerprint
+        ):
+            raise ProjectManifestError(
+                "project adoption lost project-manifest ownership before mutation"
+            )
+
+        if (
+            action == PROJECT_ADOPTION_ACTION_UPGRADE
+            and upgrade_needed
+            and not records_only
+        ):
+            artifact_upgrade_report = review_artifact_upgrades(
+                root_path,
+                apply=True,
+            )
+
+        if updated_agents != existing_agents:
+            agents_path.write_text(updated_agents, encoding="utf-8")
+            written.append(str(agents_path))
+
+        if existing_manifest_text != manifest_text:
+            replace_project_manifest_locked(manifest_path, manifest_text)
+            written.append(str(manifest_path))
 
     post_audit = audit_project_adoption(root_path)
     post_findings = list(post_audit.findings)
@@ -1632,16 +1760,21 @@ def _project_upgrade_scan_needed(package_version: str, manifest_package: str, ma
     return False
 
 
-def _read_manifest(path: Path) -> dict[str, Any]:
+def _read_manifest_document(path: Path) -> dict[str, Any]:
     text = _read_text(path)
     if not text:
         return {}
     try:
         payload = tomllib.loads(text)
-        flowguard_section = payload.get("flowguard", {})
-        return dict(flowguard_section) if isinstance(flowguard_section, dict) else {}
+        return dict(payload) if isinstance(payload, dict) else {}
     except (TypeError, tomllib.TOMLDecodeError):
         return {}
+
+
+def _read_manifest(path: Path) -> dict[str, Any]:
+    payload = _read_manifest_document(path)
+    flowguard_section = payload.get("flowguard", {})
+    return dict(flowguard_section) if isinstance(flowguard_section, dict) else {}
 
 
 def _read_text(path: Path) -> str:

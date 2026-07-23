@@ -30,8 +30,11 @@ Order modes, keep ordinary work light, compare hard-equivalent candidates condit
 4. Reuse TestMesh and Finding Ledger evidence; group only related findings, repair the primary owner/root cause, and revalidate affected obligations. Hard blockers stop invalid descendants; material evidence stales the decision.
 5. Route non-pass results, scan owners, preserve peer writes, track freshness domains separately, freeze final inputs, and use one owner per heavy check.
 6. For bounded-system delivery, require native API/CLI and benchmark evidence before prompt activation, synchronize source/package/fifteen-skill/Git identities, run one frozen final gate, then push/tag/source-only release and verify post-publish parity.
+7. For model-system changes, preserve the observed head while targets/experiments run, accept one whole `ModelRevisionSet`, persist immutable activation evidence, update the pointer last, and verify operational rollback or forward-repair readiness.
 
 ## Hard Gates
+- Project adopt/upgrade, model activation, and rollback share one manifest lock and compare-and-swap owner. A stale planned head stops before the first mutation.
+- Rollback is an execution workflow, not a label change: restore or compensate effects and revalidate the old snapshot before pointer rewind.
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Keep provider tasks and sibling semantics with native owners; progress is not proof.

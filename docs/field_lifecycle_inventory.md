@@ -4,33 +4,33 @@ Generated inventory of FlowGuard dataclass fields. It is a maintenance
 aid, not deletion authority: behavior-bearing, compatibility-looking,
 and evidence-bearing fields still need route-owned proof before edits.
 
-- Field rows: `5657`
-- Modules: `92`
+- Field rows: `5911`
+- Modules: `97`
 
 ## Lifecycle Layers
 
 | Layer | Fields |
 | --- | ---: |
-| `behavior_or_contract` | 733 |
-| `collection_metadata` | 1267 |
-| `compatibility_or_old_path` | 55 |
-| `display_or_metadata` | 229 |
-| `evidence_or_decision` | 1032 |
-| `unclassified` | 2341 |
+| `behavior_or_contract` | 762 |
+| `collection_metadata` | 1322 |
+| `compatibility_or_old_path` | 56 |
+| `display_or_metadata` | 230 |
+| `evidence_or_decision` | 1055 |
+| `unclassified` | 2486 |
 
 ## AI Surface Tiers
 
 | Tier | Fields |
 | --- | ---: |
-| `advanced` | 500 |
-| `internal` | 3872 |
-| `starter` | 1285 |
+| `advanced` | 502 |
+| `internal` | 4123 |
+| `starter` | 1286 |
 
 ## Route Owners
 
 | Route Owner | Fields |
 | --- | ---: |
-| `core_or_internal` | 2507 |
+| `core_or_internal` | 2756 |
 | `ui_flow_structure` | 830 |
 | `model_test_alignment` | 265 |
 | `model_similarity_consolidation` | 206 |
@@ -39,7 +39,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `plan_detailing_compiler` | 135 |
 | `model_miss_review` | 125 |
 | `development_process_flow` | 118 |
-| `existing_model_preflight` | 113 |
+| `existing_model_preflight` | 118 |
 | `architecture_reduction` | 99 |
 | `flowguard_closure_contract` | 94 |
 | `model_topology_hazard_review` | 93 |
@@ -73,7 +73,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `obligation_family` | 127 |
 | `recurring_model_miss` | 125 |
 | `development_process_flow` | 118 |
-| `existing_model_preflight` | 113 |
+| `existing_model_preflight` | 118 |
 | `layered_proof` | 103 |
 | `architecture_reduction` | 99 |
 | `primary_path_authority` | 99 |
@@ -84,20 +84,23 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `self_maintenance` | 76 |
 | `agent_workflow_rehearsal` | 75 |
 | `model_freshness` | 75 |
+| `model_revision_set` | 72 |
 | `maintenance_scan` | 70 |
+| `portable_system` | 66 |
 | `field_lifecycle` | 65 |
 | `runtime_gateway` | 65 |
 | `development_process_strategy` | 64 |
 | `distribution_sync` | 63 |
 | `risk_templates` | 61 |
 | `structuremesh` | 61 |
+| `model_authority` | 56 |
+| `model_regressions` | 53 |
 | `auto_split` | 52 |
 | `budgeted` | 52 |
 | `corpus` | 48 |
 | `executable` | 48 |
 | `risk_evidence_ledger` | 47 |
 | `code_structure` | 44 |
-| `model_regressions` | 44 |
 | `development_process_simulator` | 43 |
 | `project_adoption` | 42 |
 | `template_packs` | 41 |
@@ -107,6 +110,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `task_local_model` | 38 |
 | `route_topology` | 36 |
 | `plan` | 35 |
+| `system_composition` | 34 |
 | `model_angle_deliberation` | 32 |
 | `portable_checker` | 31 |
 | `report` | 30 |
@@ -143,6 +147,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `benchmark` | 13 |
 | `trace` | 13 |
 | `core` | 12 |
+| `model_authority_store` | 12 |
 | `skill_contracts` | 12 |
 | `release_verification` | 11 |
 | `adoption_audit` | 10 |
@@ -1707,6 +1712,11 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `existing_model_preflight` | `ExistingModelPreflight` | `task_summary` | `existing_model_preflight` | `advanced` | `evidence_or_decision` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflight` | `mode` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflight` | `existing_modeled_system` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `authority_required` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `authority_status` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `authority_snapshot_fingerprint` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `authority_subject_revision` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `authority_gap_ids` | `existing_model_preflight` | `advanced` | `evidence_or_decision` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflight` | `model_search_performed` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflight` | `search_paths` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflight` | `behavior_lookup_required` | `existing_model_preflight` | `advanced` | `evidence_or_decision` | `false` |
@@ -2308,6 +2318,74 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_angle_deliberation` | `ModelAngleReviewReport` | `findings` | `model_angle_deliberation` | `starter` | `evidence_or_decision` | `false` |
 | `model_angle_deliberation` | `ModelAngleReviewReport` | `unresolved_angle_ids` | `model_angle_deliberation` | `internal` | `collection_metadata` | `false` |
 | `model_angle_deliberation` | `ModelAngleReviewReport` | `summary` | `model_angle_deliberation` | `advanced` | `evidence_or_decision` | `false` |
+| `model_authority` | `ModelInputRef` | `path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelInputRef` | `sha256` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelInputRef` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelInstanceRef` | `logical_model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelInstanceRef` | `model_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelInstanceRef` | `model_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelInstanceRef` | `model_sha256` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelInstanceRef` | `runner_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelInstanceRef` | `runner_sha256` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelInstanceRef` | `purpose_closure_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelInstanceRef` | `subject_revision` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelInstanceRef` | `inputs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `model_authority` | `ModelInstanceRef` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `AuthorityEndpointRef` | `endpoint_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `AuthorityEndpointRef` | `endpoint_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `AuthorityEndpointRef` | `fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `AuthorityEndpointRef` | `owner_route` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `model_authority` | `AuthorityEndpointRef` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelRelation` | `relation_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelRelation` | `kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelRelation` | `source` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelRelation` | `target` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelRelation` | `evidence_fingerprints` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_authority` | `ModelRelation` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `CoverageDimension` | `dimension_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `CoverageDimension` | `required_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_authority` | `CoverageDimension` | `covered_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_authority` | `CoverageDimension` | `excluded_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_authority` | `CoverageDimension` | `unresolved_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_authority` | `CoverageDimension` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `CoverageUniverse` | `boundary_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `CoverageUniverse` | `source_inventory_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `CoverageUniverse` | `dimensions` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_authority` | `CoverageUniverse` | `claim_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `CoverageUniverse` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `snapshot_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `system_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `subject_lane` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `lifecycle` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `subject_revision` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `root_instance_fingerprints` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `model_instances` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `relations` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `coverage` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `owner_artifact_refs` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `unresolved_gap_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `claim_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelSystemSnapshot` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelAuthorityHead` | `system_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelAuthorityHead` | `snapshot_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelAuthorityHead` | `subject_revision` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelAuthorityHead` | `generation` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelAuthorityHead` | `accepted_revision_set_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelAuthorityHead` | `previous_snapshot_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelAuthorityHead` | `activation_receipt_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority` | `ModelAuthorityHead` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority_store` | `ModelAuthorityFinding` | `severity` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority_store` | `ModelAuthorityFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority_store` | `ModelAuthorityFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `model_authority_store` | `ModelAuthorityAuditReport` | `root` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority_store` | `ModelAuthorityAuditReport` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_authority_store` | `ModelAuthorityAuditReport` | `observed_source_revision` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority_store` | `ModelAuthorityAuditReport` | `observed_snapshot_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority_store` | `ModelAuthorityAuditReport` | `head_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_authority_store` | `ModelAuthorityAuditReport` | `coverage_status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_authority_store` | `ModelAuthorityAuditReport` | `unresolved_gap_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_authority_store` | `ModelAuthorityAuditReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_authority_store` | `ModelAuthorityAuditReport` | `claim_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_freshness` | `ModelFreshnessRecord` | `model_id` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
 | `model_freshness` | `ModelFreshnessRecord` | `model_path` | `model_impact_freshness` | `starter` | `unclassified` | `false` |
 | `model_freshness` | `ModelFreshnessRecord` | `dependency_artifact_ids` | `model_impact_freshness` | `internal` | `collection_metadata` | `false` |
@@ -2453,6 +2531,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_regressions` | `ModelRegressionEntry` | `exclusion_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `model_regressions` | `ModelRegressionEntry` | `distribution_policy` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionEntry` | `absence_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_regressions` | `ModelRegressionEntry` | `model_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionEntry` | `purpose_closure` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionManifest` | `path` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionManifest` | `entries` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
@@ -2472,8 +2551,15 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_regressions` | `ModelRunResult` | `finding_codes` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `model_regressions` | `ModelRunResult` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
 | `model_regressions` | `ModelRunResult` | `model_instance_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_regressions` | `ModelRunResult` | `model_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_regressions` | `ModelRunResult` | `subject_revision` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_regressions` | `ModelRunResult` | `model_instance_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_regressions` | `ModelRunResult` | `input_inventory_fingerprint` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `model_regressions` | `ModelRunResult` | `input_inventory` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `model_regressions` | `ModelRunResult` | `purpose_closure_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRunResult` | `purpose_claim_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_regressions` | `ModelRunResult` | `stdout` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_regressions` | `ModelRunResult` | `stderr` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `model_regressions` | `ModelRegressionReport` | `root` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionReport` | `tier` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionReport` | `output_dir` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
@@ -2485,6 +2571,79 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_regressions` | `ModelRegressionReport` | `mutation_paths` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `model_regressions` | `ModelRegressionReport` | `started_at_epoch` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_regressions` | `ModelRegressionReport` | `finished_at_epoch` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_regressions` | `ModelRegressionReport` | `command` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `RevisionEvidenceRef` | `receipt_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `RevisionEvidenceRef` | `receipt_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `RevisionEvidenceRef` | `owner_route` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `model_revision_set` | `RevisionEvidenceRef` | `subject_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `RevisionEvidenceRef` | `obligation_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `model_revision_set` | `RevisionEvidenceRef` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_revision_set` | `RevisionEvidenceRef` | `current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `RevisionEvidenceRef` | `eligible` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `RevisionEvidenceRef` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `PredictionReplayRef` | `replay_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `PredictionReplayRef` | `replay_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `PredictionReplayRef` | `prediction_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `PredictionReplayRef` | `prediction_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `PredictionReplayRef` | `observation_boundary_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `PredictionReplayRef` | `candidate_instance_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `PredictionReplayRef` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_revision_set` | `PredictionReplayRef` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `RevisionMemberChange` | `member_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `RevisionMemberChange` | `operation` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `RevisionMemberChange` | `base_instance_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `RevisionMemberChange` | `candidate_instance_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `RevisionMemberChange` | `changed_element_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_revision_set` | `RevisionMemberChange` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `revision_set_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `task_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `expected_head_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `base_snapshot_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `candidate_snapshot_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `members` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `affected_closure_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `affected_closure_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `changed_relation_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `changed_commitment_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `changed_field_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `changed_side_effect_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `model_revision_set` | `ModelRevisionSet` | `changed_contract_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `model_revision_set` | `ModelRevisionSet` | `changed_test_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `changed_system_property_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `required_evidence_refs` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `completed_evidence_refs` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `prediction_replay_refs` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `implementation_bundle_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `rollback_contract_fingerprint` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `model_revision_set` | `ModelRevisionSet` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `decision_reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelActivationReceipt` | `receipt_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelActivationReceipt` | `system_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelActivationReceipt` | `revision_set_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelActivationReceipt` | `expected_head_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelActivationReceipt` | `previous_snapshot_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelActivationReceipt` | `candidate_snapshot_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelActivationReceipt` | `subject_revision` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelActivationReceipt` | `next_generation` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelActivationReceipt` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRollbackEffect` | `effect_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `model_revision_set` | `ModelRollbackEffect` | `kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRollbackEffect` | `disposition` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRollbackEffect` | `required_evidence_fingerprints` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_revision_set` | `ModelRollbackEffect` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRollbackContract` | `contract_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `model_revision_set` | `ModelRollbackContract` | `from_snapshot_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRollbackContract` | `to_snapshot_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRollbackContract` | `effects` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `model_revision_set` | `ModelRollbackContract` | `old_snapshot_conformance_evidence_fingerprints` | `core_or_internal` | `advanced` | `compatibility_or_old_path` | `true` |
+| `model_revision_set` | `ModelRollbackContract` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRollbackReceipt` | `receipt_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `model_revision_set` | `ModelRollbackReceipt` | `contract_fingerprint` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `model_revision_set` | `ModelRollbackReceipt` | `result` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_revision_set` | `ModelRollbackReceipt` | `completed_evidence_fingerprints` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_revision_set` | `ModelRollbackReceipt` | `reason` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `model_revision_set` | `ModelRollbackReceipt` | `schema` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_similarity` | `ModelSignature` | `model_id` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
 | `model_similarity` | `ModelSignature` | `model_path` | `model_similarity_consolidation` | `starter` | `unclassified` | `false` |
 | `model_similarity` | `ModelSignature` | `workflow_family` | `model_similarity_consolidation` | `internal` | `unclassified` | `false` |
@@ -3499,6 +3658,72 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `portable_model` | `RefinementBinding` | `parent_model_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `portable_model` | `RefinementBinding` | `child_model_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `portable_model` | `RefinementBinding` | `schema_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemComponentRef` | `component_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemComponentRef` | `model_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemComponentRef` | `model_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemDependency` | `dependency_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemDependency` | `source_component_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemDependency` | `target_component_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemDependency` | `kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemEventPort` | `port_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemEventPort` | `component_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemEventPort` | `direction` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemEventPort` | `event_type` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_system` | `SystemEventBinding` | `binding_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemEventBinding` | `producer_port_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemEventBinding` | `consumer_port_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemEventBinding` | `delivery` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemEventBinding` | `ordering` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemEventBinding` | `identity_mapping` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `SystemEventBinding` | `queue_component_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemSharedResource` | `resource_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemSharedResource` | `owner_component_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemSharedResource` | `reader_component_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `SystemSharedResource` | `writer_component_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `SystemTransitionRef` | `component_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemTransitionRef` | `transition_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_system` | `SystemStep` | `step_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemStep` | `transition_refs` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_system` | `SystemStep` | `relation_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `SystemStep` | `code_targets` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `SystemStatePattern` | `pattern_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemStatePattern` | `component_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_system` | `SystemProperty` | `property_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemProperty` | `owner_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemProperty` | `kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemProperty` | `trigger_pattern_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `SystemProperty` | `target_pattern_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `SystemProperty` | `step_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `SystemProperty` | `max_steps` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `PortableSystemDefinition` | `system_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `PortableSystemDefinition` | `components` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `PortableSystemDefinition` | `dependencies` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `PortableSystemDefinition` | `ports` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `PortableSystemDefinition` | `bindings` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `PortableSystemDefinition` | `resources` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `PortableSystemDefinition` | `steps` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `PortableSystemDefinition` | `state_patterns` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_system` | `PortableSystemDefinition` | `properties` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `PortableSystemDefinition` | `unresolved_dependency_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `PortableSystemDefinition` | `discovery_evidence_id` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `portable_system` | `PortableSystemDefinition` | `scheduler_policy` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `PortableSystemDefinition` | `schema_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemCompositionRequest` | `request_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemCompositionRequest` | `system_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemCompositionRequest` | `system_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `SystemCompositionRequest` | `changed_component_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `SystemCompositionRequest` | `selected_property_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `SystemCompositionRequest` | `requested_component_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `SystemCompositionRequest` | `environment_guarantees` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `SystemCompositionRequest` | `max_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `portable_system` | `SystemCompositionRequest` | `schema_version` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `PortableSystemSlice` | `system_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `PortableSystemSlice` | `system_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `PortableSystemSlice` | `request_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `portable_system` | `PortableSystemSlice` | `included_component_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `PortableSystemSlice` | `excluded_component_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `PortableSystemSlice` | `selected_property_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `portable_system` | `PortableSystemSlice` | `blockers` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `primary_path_authority` | `PrimaryPathContract` | `business_path_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `primary_path_authority` | `PrimaryPathContract` | `business_intent` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `primary_path_authority` | `PrimaryPathContract` | `business_intent_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
@@ -4627,6 +4852,40 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `summary_report` | `FlowGuardSummaryReport` | `sections` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `summary_report` | `FlowGuardSummaryReport` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `summary_report` | `FlowGuardSummaryReport` | `metadata` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `system_composition` | `SystemTraceStep` | `system_step_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `system_composition` | `SystemTraceStep` | `compiled_transition_id` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `system_composition` | `SystemTraceStep` | `component_transition_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `system_composition` | `SystemTraceStep` | `before_component_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `system_composition` | `SystemTraceStep` | `after_component_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `system_composition` | `SystemTraceStep` | `relation_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `system_composition` | `SystemTraceStep` | `code_targets` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `system_composition` | `SystemCounterexample` | `initial_component_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `system_composition` | `SystemCounterexample` | `steps` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `system_composition` | `SystemCounterexample` | `terminal_component_states` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `system_composition` | `SystemCompositionReport` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `system_composition` | `SystemCompositionReport` | `system_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `system_composition` | `SystemCompositionReport` | `system_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `system_composition` | `SystemCompositionReport` | `request_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `system_composition` | `SystemCompositionReport` | `slice_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `system_composition` | `SystemCompositionReport` | `compiled_model_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `system_composition` | `SystemCompositionReport` | `stages` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `system_composition` | `SystemCompositionReport` | `component_reports` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `system_composition` | `SystemCompositionReport` | `contract_report` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `system_composition` | `SystemCompositionReport` | `system_report` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `system_composition` | `SystemCompositionReport` | `counterexamples` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `system_composition` | `SystemCompositionReport` | `blockers` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `system_composition` | `SystemCompositionReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `system_composition` | `SystemCompositionReport` | `explored_state_count` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `system_composition` | `SystemCompositionReport` | `frontier_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `system_composition` | `SystemCompositionReport` | `involved_component_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `system_composition` | `SystemCompositionReport` | `affected_component_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `system_composition` | `SystemCompositionReport` | `residual_risk` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `system_composition` | `SystemCompositionReport` | `claim_boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `system_composition` | `_Compilation` | `model` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `system_composition` | `_Compilation` | `state_vectors` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `system_composition` | `_Compilation` | `transition_metadata` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
+| `system_composition` | `_Compilation` | `complete` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `system_composition` | `_Compilation` | `frontier_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `task_local_model` | `TaskModelVersion` | `version_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `task_local_model` | `TaskModelVersion` | `model_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `task_local_model` | `TaskModelVersion` | `artifact_ref` | `core_or_internal` | `internal` | `unclassified` | `false` |

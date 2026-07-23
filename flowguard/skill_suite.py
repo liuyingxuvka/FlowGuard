@@ -20,6 +20,10 @@ from .distribution_sync import (
     OWNERSHIP_MANIFEST_NAME,
     OWNERSHIP_SCHEMA,
 )
+from .suite_contract import (
+    FLOWGUARD_EXPECTED_MEMBER_COUNT,
+    FLOWGUARD_EXPECTED_SATELLITE_COUNT,
+)
 
 
 FLOWGUARD_SUITE_MAP = ".skillguard/flowguard-suite/suite-map.json"
@@ -28,8 +32,6 @@ FLOWGUARD_SUITE_SCHEMA = "skillguard.suite_map.v2"
 FLOWGUARD_SUITE_NAME = "flowguard-agent-skill-suite"
 FLOWGUARD_KERNEL_ROLE = "kernel_router"
 FLOWGUARD_SATELLITE_ROLE = "public_satellite"
-FLOWGUARD_EXPECTED_MEMBER_COUNT = 15
-FLOWGUARD_EXPECTED_SATELLITE_COUNT = 14
 MODEL_PURPOSE_SKILL_MARKERS = (
     "Model-purpose gate",
     "task-specific failure(s)",

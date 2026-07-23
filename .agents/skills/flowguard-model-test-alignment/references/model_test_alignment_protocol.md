@@ -329,3 +329,12 @@ A model-test alignment review can support a coverage claim only when:
   `review_risk_evidence_ledger(...)`;
 - conservative source-audit output is not overclaimed as semantic proof or
   production conformance.
+
+## Revision evidence binding
+
+Revision evidence uses typed owner receipts, not arbitrary hashes. Each
+required receipt binds owner route, evidence subject, obligation ids, terminal
+pass status, freshness, and eligibility to the exact candidate snapshot.
+Prediction replay binds the same base and candidate fingerprints. A receipt
+for another snapshot, a stale or progress-only receipt, or evidence that omits
+one changed contract/test obligation cannot accept the revision set.

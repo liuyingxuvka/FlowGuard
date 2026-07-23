@@ -24,12 +24,14 @@ Accept a parent and bounded children; verify partitions/receipts; block overlap,
 - Do not split tests or code, trust child-local green as parent proof, or use for ordinary single-model work; return that work to `flowguard`.
 
 ## Required Workflow
-1. Inventory parent/children, risk boundaries, target split derivation, ownership partitions, evidence tiers, and freshness.
+1. Load the observed authority snapshot; inventory its parent/children, typed owner relations, risk boundaries, target split derivation, ownership partitions, evidence tiers, and freshness. Build targets and experiments as separate candidate snapshots.
 2. Review disjointness, reattachment, siblings, receipts, leaf boundaries, and closure/liveness. Portable claims require current parent/child fingerprints and an explicit `flowguard.portable_refinement.v1` binding.
 3. Preserve scoped/stale gaps and project cases/receipts to Model-Test Alignment, TestMesh, and closure owners.
 4. For hierarchical closure risk, hand exact child fingerprints, relations/roots, property owner, and current system/slice receipts to the portable-system owner; do not execute the joint graph here.
 
 ## Hard Gates
+- One logical model has at most one instance in a snapshot. Every relation endpoint is typed and bound to either a contained model instance or a current native-owner artifact.
+- A multi-model replacement activates as one accepted revision set. Partial child activation, stale base heads, omitted affected siblings, or incomplete relation/coverage diffs block.
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Parent confidence requires complete partition ownership, legal overlap, current child evidence/receipts, and current parent consumption.

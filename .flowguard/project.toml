@@ -1,6 +1,6 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.60.0"
+adopted_package_version = "0.61.0"
 schema_version = "1.0"
 last_verified_at = "2026-07-22T21:09:00+00:00"
 last_verified_by = "FlowGuard project-upgrade"
@@ -12,3 +12,15 @@ latest_schema_first = true
 upgrade_existing_artifacts_when_project_version_is_older = true
 require_adoption_log = true
 require_model_update_for_behavior_changes = true
+
+[model_authority]
+system_id = "flowguard"
+observed_snapshot_path = ".flowguard/model-mesh/snapshots/d13bebe578b6dffc1e85e1700eb844fa7dda0f576b61aca90433ba7310bc92e3.json"
+observed_snapshot_fingerprint = "sha256:d13bebe578b6dffc1e85e1700eb844fa7dda0f576b61aca90433ba7310bc92e3"
+subject_revision = "source-inventory:9ca16af881bb04ea12247ac185af2a9b751cf1b60c08baf115a3d2188afa5ed6"
+coverage_status = "complete_within_declared_boundary"
+generation = 1
+accepted_revision_set_fingerprint = "sha256:5c5bd3b3e18163a110280bf1ad5a35e733eb6bfa500546cc8ced07f1f187d55d"
+previous_snapshot_fingerprint = ""
+activation_receipt_fingerprint = "sha256:5c5bd3b3e18163a110280bf1ad5a35e733eb6bfa500546cc8ced07f1f187d55d"
+head_fingerprint = "sha256:13655251fb546aaebabec3b5801203c49807e6e3bc3b50f702db0b19e56dc25e"

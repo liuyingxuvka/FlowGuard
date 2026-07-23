@@ -2,6 +2,105 @@
   "default_mutation_policy": "none",
   "models": [
     {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/authoritative_model_system/model.py",
+        ".flowguard/authoritative_model_system/run_checks.py",
+        ".flowguard/behavior_commitment_ledger/ledger.json",
+        ".agents/skills/flowguard/SKILL.md",
+        ".agents/skills/flowguard-existing-model-preflight/SKILL.md",
+        ".agents/skills/flowguard-existing-model-preflight/references/existing_model_preflight_protocol.md",
+        ".agents/skills/flowguard-model-mesh/SKILL.md",
+        ".agents/skills/flowguard-model-mesh/references/model_mesh_protocol.md",
+        ".agents/skills/flowguard-development-process-flow/SKILL.md",
+        ".agents/skills/flowguard-development-process-flow/references/development_process_flow_protocol.md",
+        ".agents/skills/flowguard-behavior-commitment-ledger/references/behavior_commitment_ledger_protocol.md",
+        ".agents/skills/flowguard-field-lifecycle-mesh/references/field_lifecycle_mesh_protocol.md",
+        ".agents/skills/flowguard-model-test-alignment/references/model_test_alignment_protocol.md",
+        ".agents/skills/flowguard-test-mesh/references/test_mesh_protocol.md",
+    ".agents/skills/flowguard-architecture-reduction/references/architecture_reduction_protocol.md",
+    ".agents/skills/flowguard-structure-mesh/references/structure_mesh_protocol.md",
+    "AGENTS.md",
+    "README.md",
+    "docs/agents_snippet.md",
+    "docs/api_surface.md",
+    "docs/field_lifecycle_inventory.md",
+    "flowguard/__init__.py",
+        "flowguard/__main__.py",
+        "flowguard/existing_model_preflight.py",
+        "flowguard/model_authority.py",
+        "flowguard/model_authority_store.py",
+        "flowguard/model_regressions.py",
+        "flowguard/model_revision_set.py",
+        "flowguard/model_system_inventory.py",
+        "flowguard/project_adoption.py",
+        "flowguard/project_manifest.py",
+        "flowguard/task_local_model.py",
+        "tests/test_behavior_commitment_lookup.py",
+        "tests/test_existing_model_preflight.py",
+        "tests/test_model_authority.py",
+        "tests/test_model_authority_cli.py",
+        "tests/test_model_authority_store.py",
+        "tests/test_model_regression_manifest.py",
+        "tests/test_model_regression_orchestrator.py",
+    "tests/test_model_system_inventory.py",
+    "tests/test_project_manifest.py"
+      ],
+      "model_id": "authoritative_model_system",
+      "model_path": ".flowguard/authoritative_model_system/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/authoritative_model_system/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "fast",
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:authoritative_model_system:2758410c4661be47",
+        "reusable_model_type_id": "authoritative_model_system",
+        "task_intent_id": "flowguard-regression:authoritative-model-system",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent target or experimental models, incomplete multi-model replacements, stale coverage, and pointer-only rollback from being accepted as the current software model system.",
+        "protected_failure_ids": [
+          "model-authority:subject-lane-confusion",
+          "model-authority:partial-or-stale-activation",
+          "model-authority:pointer-only-rollback"
+        ],
+        "claim_boundary": "Current closure covers the declared finite authority, activation, coverage, and rollback scenarios only; it does not prove unenumerated software surfaces or production restoration without separate implementation evidence.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native-runner:authoritative-model-system:complete-transaction",
+        "failure_bindings": [
+          {
+            "failure_id": "model-authority:subject-lane-confusion",
+            "known_bad_case_id": "native-runner:authoritative-model-system:target-current-label",
+            "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:partial-or-stale-activation",
+            "known_bad_case_id": "native-runner:authoritative-model-system:partial-stale-activation",
+            "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:pointer-only-rollback",
+            "known_bad_case_id": "native-runner:authoritative-model-system:pointer-only-rollback",
+            "oracle_id": "native:authoritative-model-system:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:authoritative-model-system"
+        ],
+        "model_sha256": "sha256:2758410c4661be474821959858e55b4bdfc1c1b267df5ec3b5a5690ce44f886c",
+        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "declaration_fingerprint": "sha256:c94116131045bd8323b26202b258395c36a0de316cf4e64d78023666ad92aef0",
+        "closure_fingerprint": "sha256:5d4884b134c385cbe9d170f234a5f94f0c16bd284c124147117b08328b4075a4"
+      }
+    },
+    {
       "absence_reason": "This executable product-runtime owner is required in the public distribution.",
       "distribution_policy": "required_public",
       "exclusion_reason": "",
@@ -131,10 +230,10 @@
           {"failure_id": "portable-system:truncation-does-not-block", "known_bad_case_id": "benchmark:three-families:truncated", "oracle_id": "native:bounded-system-composition:run-checks"}
         ],
         "evidence_check_ids": ["check:model-regression:bounded_system_composition_benchmark"],
-        "model_sha256": "sha256:172ecbacb75bf9eccacf777a0f9992b0de98fe6f63842ae5fca94ceacf972bd0",
+        "model_sha256": "sha256:7ff5762e69fbad14ae9df4d573a4de2224416d0d5d15149a1ecb314b01583ce1",
         "runner_sha256": "sha256:fec460a2253405c27e5a87ca79528c477477e7861ea7a9d234b58abd9448e91c",
         "declaration_fingerprint": "sha256:f201b628e9a677ed7dcd389180bbaa81dac112b36883dea4b525cabe0790ab9d",
-        "closure_fingerprint": "sha256:e59337281063ebcce090187fd4ee3e44fe443482d78f6a64d05f8fd720bed6a5"
+        "closure_fingerprint": "sha256:31b29b994ea64c36aa2d6b10b04c56b88c259344c1b75046421c72c6d2af7bf6"
       }
     },
     {
@@ -1171,54 +1270,6 @@
       }
     },
     {
-      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
-      "distribution_policy": "optional_local",
-      "exclusion_reason": "",
-      "expected_artifacts": [],
-      "input_globs": [
-        ".flowguard/lightweight_model_miss_review/model.py",
-        ".flowguard/lightweight_model_miss_review/run_checks.py"
-      ],
-      "model_id": "lightweight_model_miss_review",
-      "model_path": ".flowguard/lightweight_model_miss_review/model.py",
-      "mutation_policy": "none",
-      "runner": [
-        "{python}",
-        ".flowguard/lightweight_model_miss_review/run_checks.py"
-      ],
-      "shard_safe": true,
-      "tier": "focused",
-      "timeout_seconds": 300,
-      "purpose_closure": {
-        "schema_version": "flowguard.model_purpose_closure.v1",
-        "model_instance_id": "regression:lightweight_model_miss_review:current",
-        "reusable_model_type_id": "lightweight_model_miss_review",
-        "task_intent_id": "flowguard-regression:lightweight_model_miss_review",
-        "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent the lightweight model miss review model from accepting an invalid, bypassed, stale, or incomplete lightweight model miss review outcome as current FlowGuard evidence.",
-        "protected_failure_ids": [
-          "lightweight_model_miss_review:invalid-or-incomplete-outcome"
-        ],
-        "claim_boundary": "Current closure proves only that the checked-in lightweight_model_miss_review candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
-        "adoption_scope": "current_candidate_only",
-        "known_good_case_id": "native-runner:lightweight_model_miss_review:declared-positive-suite",
-        "failure_bindings": [
-          {
-            "failure_id": "lightweight_model_miss_review:invalid-or-incomplete-outcome",
-            "known_bad_case_id": "native-runner:lightweight_model_miss_review:declared-negative-suite",
-            "oracle_id": "native:lightweight_model_miss_review:run-checks"
-          }
-        ],
-        "evidence_check_ids": [
-          "check:model-regression:lightweight_model_miss_review"
-        ],
-        "model_sha256": "sha256:52a7f2338b487b9983092c7e27080f32618124af1d8470ffaa8b5db1e9099c06",
-        "runner_sha256": "sha256:4392dbb40f0eba299559f010554cfb41b7c57355a98d148737e009379c085243",
-        "declaration_fingerprint": "sha256:b18d34d6f66323b172ad8346ee1786483c7cf9c8a72c5190d23fca3279cf70fa",
-        "closure_fingerprint": "sha256:a851d94b354320b072feae73cf733a437f9d899b49fcac3dd753324d4d01d7cd"
-      }
-    },
-    {
       "absence_reason": "",
       "distribution_policy": "required_public",
       "exclusion_reason": "",
@@ -1596,10 +1647,10 @@
         "evidence_check_ids": [
           "check:model-regression:model_miss_review"
         ],
-        "model_sha256": "sha256:895e9f79b25bfb99d23cf62eb8265b9efa7be9c11e2797baa8ffe0e0faf8130c",
-        "runner_sha256": "sha256:0e5eb01382343af4866ffb3e571c05802c121199062bf361fa050d361ace927c",
+        "model_sha256": "sha256:f5f73081de36621e10d97b1b33f1975027baf76498e8437836acf1672eab6ab2",
+        "runner_sha256": "sha256:d1c147c9818ef0b7ababb9398026d245cf77cddbbb5676aa4d71187dac739cd4",
         "declaration_fingerprint": "sha256:590e8d8b319d73492619a6f5e2ae27f2e559bbce4255d0f67191c1edb1637dde",
-        "closure_fingerprint": "sha256:77494e9aad1aa9d80850cbcf292f4edbc5182f8f4e465329db46bf7e55e462f4"
+        "closure_fingerprint": "sha256:d3253db57dcf6c710e92e589b234c3912f01edf2c5a9c5a490bd0025014c2c31"
       }
     },
     {

@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-07-23
+goal: FlowGuard can state exactly which model system describes the current
+  software, safely construct isolated target or experimental systems, replace
+  affected models atomically, and return to a verified observed system without
+  confusing candidate evidence with current authority.

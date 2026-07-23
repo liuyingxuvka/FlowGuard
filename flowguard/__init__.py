@@ -57,6 +57,22 @@ from .project_adoption import (
     update_agents_text,
     upgrade_project,
 )
+from .model_authority import (
+    CoverageUniverse,
+    ModelAuthorityHead,
+    ModelInstanceRef,
+    ModelRevisionSet,
+    ModelSystemSnapshot,
+    build_model_instance_ref,
+)
+from .model_authority_store import (
+    activate_model_revision_set,
+    audit_model_authority,
+    bootstrap_model_authority,
+    load_observed_model_system,
+    rollback_observed_model_system,
+)
+from .model_system_inventory import build_manifest_model_system_snapshot
 from .architecture_reduction import (
     ARCHITECTURE_REDUCTION_CANDIDATE_DISPOSITIONS,
     ARCHITECTURE_REDUCTION_CANDIDATE_TYPES,
@@ -1341,6 +1357,23 @@ FLOWGUARD_GOVERNANCE_API = tuple(
     for module in _GOVERNANCE_MODULES
     for name in module.__all__
     if name not in _GOVERNANCE_EXCLUDED_TOP_LEVEL_NAMES
+)
+MODEL_SYSTEM_AUTHORITY_API = (
+    "CoverageUniverse",
+    "ModelAuthorityHead",
+    "ModelInstanceRef",
+    "ModelRevisionSet",
+    "ModelSystemSnapshot",
+    "activate_model_revision_set",
+    "audit_model_authority",
+    "bootstrap_model_authority",
+    "build_manifest_model_system_snapshot",
+    "build_model_instance_ref",
+    "load_observed_model_system",
+    "rollback_observed_model_system",
+)
+FLOWGUARD_GOVERNANCE_API = tuple(
+    dict.fromkeys(FLOWGUARD_GOVERNANCE_API + MODEL_SYSTEM_AUTHORITY_API)
 )
 SPEC_CONTEXT_API = tuple(_spec_context.__all__)
 
@@ -3099,6 +3132,7 @@ _PUBLIC_API_SUPPLEMENT = (
     "MODEL_TEST_ALIGNMENT_ROUTE_API",
     "MODEL_IMPACT_FRESHNESS_API",
     "MODEL_MATURATION_API",
+    "MODEL_SYSTEM_AUTHORITY_API",
     "PLAN_DETAILING_ROUTE_API",
     "PLAN_INTAKE_ADVANCED_API",
     "PRIMARY_PATH_AUTHORITY_ROUTE_API",

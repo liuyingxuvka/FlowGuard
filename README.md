@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.60.0` | `1.0` | Python standard library only | MIT |
+| `v0.61.0` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -302,6 +302,43 @@ Process optimization is conditional, not a mandatory six-way strategy menu. When
 
 The table is parity-checked against `.skillguard/flowguard-suite/suite-map.json`; a missing or extra route fails the documentation test.
 
+### Current, Target, And Experiment Models
+
+FlowGuard now keeps three different things separate:
+
+- the **observed implementation model** describes the software that actually
+  exists now;
+- a **normative target model** describes a proposed replacement;
+- a **counterfactual experiment model** explores an alternative without
+  changing what counts as current.
+
+Names such as `current`, a prompt statement, a file discovery hit, or a passing
+candidate check do not grant authority. One content-addressed project snapshot,
+selected by the single head in `.flowguard/project.toml`, is the observed
+authority. Its finite coverage inventory joins model instances, behavior
+commitments, external surfaces, fields/state/effects, code contracts, and
+tests/evidence. Missing authority or unresolved required coverage blocks broad
+current-model claims.
+
+A target or experiment replaces the observed system only as one accepted
+`ModelRevisionSet`: the exact base, candidate, changed relations, affected
+sibling closure, prediction/replay evidence, and current owner receipts must
+match. Immutable records are written first and the single pointer is changed
+last under a shared compare-and-swap lock. Rollback restores or compensates
+real implementation effects and revalidates the old snapshot before moving the
+pointer; irreversible effects require forward repair.
+
+```powershell
+python -m flowguard model-system-bootstrap --root . --snapshot-id <id> --evidence-fingerprint <sha256>
+python -m flowguard model-system-audit --root . --json
+python -m flowguard model-revision-activate --root . --candidate-snapshot <snapshot.json> --revision-set <revision.json> --receipt-id <id>
+python -m flowguard model-revision-rollback --root . --contract <rollback.json> --completed-evidence-fingerprint <sha256> --result exact --receipt-id <id> --reason <reason>
+```
+
+These commands extend the existing model, preflight, ModelMesh, commitment,
+field-lifecycle, test, and development-process routes. They do not introduce a
+second product workflow or make OpenSpec part of FlowGuard.
+
 For ordinary UI, FlowGuard uses two conceptual groups and three executable
 values: `user_visible` and `user_on_demand` are user content; `internal` is not.
 Unclassified/internal content cannot render. On-demand content is hidden by
@@ -414,7 +451,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.60.0 is source-only: the immutable Git tag is the release
+FlowGuard v0.61.0 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -708,6 +745,36 @@ FlowGuard 有一个 model-first kernel 和多条 route-specific 技能。AI agen
 
 这张表会由测试和 `.skillguard/flowguard-suite/suite-map.json` 做一致性校验；少一项或多一项都会失败。Behavior Commitment Ledger 是正式的 15 项成员之一，不是隐藏 helper。
 
+### 当前模型、目标模型和实验模型
+
+FlowGuard 现在明确分开三件事：
+
+- **现状模型**只描述软件现在真实是什么样；
+- **目标模型**描述准备替换成什么样；
+- **实验模型**可以试另一种方案，但不会因此变成“当前事实”。
+
+文件名叫 `current`、提示词说“这是当前模型”、扫描到了某个模型，或者候选模型
+自己检查通过，都不算取得权威。项目只有一个由 `.flowguard/project.toml` 指向的
+内容寻址快照是现状权威。这个快照会把模型实例、行为承诺、外部入口、字段/状态/
+副作用、代码契约、测试/证据六类有限清单连起来。当前权威缺失或必需覆盖有缺口
+时，FlowGuard 会明确阻断“现状模型完整可信”的说法。
+
+目标或实验要真正替代现状，必须作为一个完整的 `ModelRevisionSet` 一次通过：
+基础版本、候选版本、关系变化、受影响的兄弟模型、预测/回放证据和当前负责人
+回执都必须精确匹配。系统先写不可变记录，最后才在共享的版本比较锁内切换唯一
+指针。回退也不是只把指针拨回去；代码、数据、配置和副作用必须先恢复或补偿，
+旧快照重新验证后才能恢复权威。不可逆副作用只能向前修复，不能伪称已经回滚。
+
+```powershell
+python -m flowguard model-system-bootstrap --root . --snapshot-id <id> --evidence-fingerprint <sha256>
+python -m flowguard model-system-audit --root . --json
+python -m flowguard model-revision-activate --root . --candidate-snapshot <snapshot.json> --revision-set <revision.json> --receipt-id <id>
+python -m flowguard model-revision-rollback --root . --contract <rollback.json> --completed-evidence-fingerprint <sha256> --result exact --receipt-id <id> --reason <reason>
+```
+
+这些入口升级的是原来的建模、预检、ModelMesh、行为承诺、字段生命周期、测试和
+开发流程；没有另造第二套产品流程，也没有把 OpenSpec 塞进 FlowGuard。
+
 对于普通 UI，FlowGuard 只有两个概念组、三个执行值：`user_visible` 和
 `user_on_demand` 属于用户内容，`internal` 不属于。未分类或内部内容不能
 渲染；按需内容默认隐藏，必须有显式 reveal、键盘/焦点等价操作和返回路径。
@@ -838,7 +905,7 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.60.0 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.61.0 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 ## Guard Family 关系

@@ -68,6 +68,31 @@ exact declared dependency closure, produces one stage-aware report, and never
 claims coverage of undeclared or unknown components. The command-line surface
 is `python -m flowguard portable-system-check`.
 
+## Model System Authority API
+
+`MODEL_SYSTEM_AUTHORITY_API` is the small public authority surface for an
+existing modeled project. It exposes `ModelSystemSnapshot`,
+`ModelInstanceRef`, `ModelAuthorityHead`, `CoverageUniverse`,
+`ModelRevisionSet`, `build_model_instance_ref()`,
+`build_manifest_model_system_snapshot()`, `audit_model_authority()`,
+`load_observed_model_system()`, `bootstrap_model_authority()`,
+`activate_model_revision_set()`, and `rollback_model_revision_set()`.
+
+Use this cohort to distinguish the one observed implementation snapshot from
+normative targets and counterfactual experiments. The observed head is a
+durable content-addressed project pointer, not a filename or mutable label.
+Target/experiment work stays isolated until one exact whole revision set
+passes affected-closure and evidence checks and is activated pointer-last
+under the shared project-manifest lock. Operational rollback restores or
+compensates implementation effects before moving authority.
+
+The corresponding thin command-line surfaces are
+`model-system-bootstrap`, `model-system-audit`,
+`model-revision-activate`, and `model-revision-rollback`. They preserve the
+existing ModelMesh, preflight, behavior-commitment, field-lifecycle,
+model-test-alignment, TestMesh, and DevelopmentProcessFlow ownership; this API
+does not create another modeling route.
+
 ## Governance And Distribution API
 
 `FLOWGUARD_GOVERNANCE_API` groups the release-facing control plane, including

@@ -160,6 +160,22 @@ its id.
 - Broad done/release/archive/publish claims require current proof artifacts,
   current Risk Evidence Ledger closure, and all required freshness domains.
 
+## Model-system activation and recovery
+
+Treat current authority, target construction, experiment execution, activation,
+and recovery as separate process states. A target or experiment never mutates
+the observed head. Freeze one revision set against the exact current head,
+recompute its complete base/candidate and affected-closure diff, consume
+current owner receipts, persist immutable records, then update the sole pointer
+last under the shared project-manifest lock.
+
+Before operational rollback, restore or compensate declared code, data,
+configuration, migration, and external effects and rerun old-snapshot
+conformance. Exact rollback is allowed only when every effect is restorable;
+compensation must remain visible; irreversible effects route to forward repair.
+Timeout, cancellation, stale head, or missing restoration evidence blocks the
+pointer update.
+
 ## Output
 
 Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`,

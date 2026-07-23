@@ -388,3 +388,20 @@ fingerprints still match. This is limited to parent/child, sibling
 reattachment, and hierarchical closure/freshness work. Ordinary peer-model
 composition bypasses ModelMesh, and no mesh path expands or checks the joint
 portable state graph.
+
+## Authoritative snapshot and revision-set boundary
+
+ModelMesh supplies hierarchy and affected-sibling semantics to the project
+model-system authority; it does not create a second current-model registry.
+The observed snapshot contains exact model instances and typed relations to
+BehaviorCommitmentLedger, FieldLifecycleMesh, Model-Test Alignment, TestMesh,
+and parent closure artifacts. Normative targets and counterfactual experiments
+are immutable candidate snapshots with distinct subject lanes.
+
+A proposed multi-model change declares an exact base head, candidate snapshot,
+member add/replace/remove rows, relation changes, affected closure, field,
+side-effect, contract, and test changes, plus prediction replay and current
+owner receipts. Recompute the full base/candidate diff and affected siblings;
+any undeclared change, stale head, missing evidence, or partial member switch
+blocks activation. The durable authority owner writes immutable snapshot,
+revision, and activation records before changing the sole project pointer.

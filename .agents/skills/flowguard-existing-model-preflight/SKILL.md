@@ -24,7 +24,7 @@ Accept boundary/root; query/search; choose reuse, extend, child, new, or none; b
 - Do not implement, split, or replace native validation; skip trivial/no-context work and return unclear scope to `flowguard`.
 
 ## Required Workflow
-1. Query canonical commitments from task plus exact id/path/tool/workflow/error clues before path discovery; select one grounded primary plane or preserve ambiguity.
+1. Audit the sole observed model-system authority, then query canonical commitments from task plus exact id/path/tool/workflow/error clues; select one grounded primary plane or preserve ambiguity.
 2. Search current models/specs/docs/surfaces/records, add exact owners, and classify old evidence. After plane-first lookup, attach current OpenSpec artifacts as read-only process context.
 3. Extract block/state/field/effect/entrypoint/commitment/intent/path/mesh ownership.
 4. Independently inventory every declared same-intent surface, not only caller candidates.
@@ -32,6 +32,8 @@ Accept boundary/root; query/search; choose reuse, extend, child, new, or none; b
 6. For cross-model composition, report current references, changed roots, discovery identity, and unresolved items through `compose_existing_models`; never duplicate the portable-system schema.
 
 ## Hard Gates
+- A model is current only when its exact instance fingerprint is contained by the observed authority snapshot for the current subject revision. Ledger/path/file discovery that is not bound to that snapshot is `candidate_only`, never current evidence.
+- Missing, invalid, stale, or ambiguous authority blocks full preflight. Target and experiment snapshots may inform comparison but cannot own current behavior or current evidence.
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework. Full mode precedes proposal/implementation.
 - Missing/stale search or ownership, duplicate owners, unresolved mesh proof, or omitted same-intent surfaces block full preflight; equivalent current semantics default to reuse.

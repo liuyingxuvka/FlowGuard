@@ -168,6 +168,22 @@ existing parent model, child models, leaf models, current evidence ids, and any
 duplicate-boundary risks before a new model or test boundary is added. A model
 reference plus ordinary test mention is not the same as complete finite leaf
 boundary proof.
+
+## Authority-first lookup
+
+Begin with `model-system-audit` and the sole observed
+`ModelSystemSnapshot`. A current hit binds logical model id, exact model and
+runner fingerprints, resolved input inventory, purpose closure, subject
+revision, and snapshot fingerprint. Behavior-ledger, path, source, docs, and
+OpenSpec discovery may add candidate context, but they cannot independently
+set `evidence_current=true`.
+
+Keep the observed implementation, normative target, and counterfactual
+experiment in separate subject lanes. Full preflight blocks when the observed
+head is missing or invalid, when a referenced current model is absent from the
+snapshot, or when a target/experiment is presented as current. Report explicit
+authority gaps and route target changes to ModelMesh plus
+DevelopmentProcessFlow.
 ## Executable composition handoff
 
 When two or more current portable models have a candidate event, identity,

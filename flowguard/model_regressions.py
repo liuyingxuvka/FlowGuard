@@ -23,6 +23,10 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from .evidence_lifecycle import ensure_new_run_directory, publish_run, store_text_object
+from .model_authority import (
+    ModelInstanceRef,
+    build_model_instance_ref,
+)
 from .model_purpose import ModelPurposeClosure, ModelPurposeError, validate_unique_model_instances
 
 from .validation_results import (
@@ -39,7 +43,7 @@ from .validation_results import (
 
 
 MANIFEST_SCHEMA = "flowguard.model_regression_manifest.v2"
-RECEIPT_SCHEMA = "flowguard.model_regression_receipt.v2"
+RECEIPT_SCHEMA = "flowguard.model_regression_receipt.v3"
 TIER_RANK = {"fast": 0, "focused": 1, "full": 2}
 TERMINAL_STATUSES = {
     VALIDATION_STATUS_PASS,
@@ -69,6 +73,7 @@ class ModelRegressionEntry:
     exclusion_reason: str = ""
     distribution_policy: str = "required_public"
     absence_reason: str = ""
+    model_kind: str = "executable_workflow"
     purpose_closure: ModelPurposeClosure | None = None
 
     @classmethod
@@ -91,6 +96,9 @@ class ModelRegressionEntry:
             exclusion_reason=str(payload.get("exclusion_reason", "")),
             distribution_policy=str(payload.get("distribution_policy", "required_public")),
             absence_reason=str(payload.get("absence_reason", "")),
+            model_kind=str(
+                payload.get("model_kind", "executable_workflow")
+            ),
             purpose_closure=purpose,
         )
 
@@ -154,6 +162,11 @@ class ModelRunResult:
     finding_codes: tuple[str, ...] = ()
     message: str = ""
     model_instance_id: str = ""
+    model_kind: str = ""
+    subject_revision: str = ""
+    model_instance_fingerprint: str = ""
+    input_inventory_fingerprint: str = ""
+    input_inventory: tuple[Mapping[str, str], ...] = ()
     purpose_closure_fingerprint: str = ""
     purpose_claim_boundary: str = ""
     stdout: Mapping[str, Any] = field(default_factory=dict, compare=False)
@@ -178,6 +191,11 @@ class ModelRunResult:
             "finding_codes": list(self.finding_codes),
             "message": self.message,
             "model_instance_id": self.model_instance_id,
+            "model_kind": self.model_kind,
+            "subject_revision": self.subject_revision,
+            "model_instance_fingerprint": self.model_instance_fingerprint,
+            "input_inventory_fingerprint": self.input_inventory_fingerprint,
+            "input_inventory": [dict(item) for item in self.input_inventory],
             "purpose_closure_fingerprint": self.purpose_closure_fingerprint,
             "purpose_claim_boundary": self.purpose_claim_boundary,
             "stdout": dict(self.stdout),
@@ -244,6 +262,8 @@ class ModelRegressionReport:
                     "seconds": item.seconds,
                     "finding_codes": list(item.finding_codes),
                     "model_instance_id": item.model_instance_id,
+                    "model_instance_fingerprint": item.model_instance_fingerprint,
+                    "input_inventory_fingerprint": item.input_inventory_fingerprint,
                 },
             )
             for item in self.results
@@ -344,8 +364,10 @@ def audit_manifest(root: str | Path, manifest: ModelRegressionManifest) -> Manif
             errors.append(f"{entry.model_id}: missing purpose_closure")
         elif purpose.reusable_model_type_id != entry.model_id:
             errors.append(f"{entry.model_id}: purpose reusable_model_type_id does not match model_id")
-        elif purpose.model_instance_id != f"regression:{entry.model_id}:current":
-            errors.append(f"{entry.model_id}: purpose model_instance_id is not the canonical current regression instance")
+        elif not purpose.model_instance_id.startswith(f"regression:{entry.model_id}:"):
+            errors.append(
+                f"{entry.model_id}: purpose model_instance_id is not scoped to its logical regression model"
+            )
         if not entry.model_id or entry.model_path != f".flowguard/{entry.model_id}/model.py":
             errors.append(f"{entry.model_id or '<empty>'}: model_path must match model_id")
         elif not (root_path / entry.model_path).is_file() and entry.distribution_policy == "required_public":
@@ -362,6 +384,16 @@ def audit_manifest(root: str | Path, manifest: ModelRegressionManifest) -> Manif
             errors.append(f"{entry.model_id}: optional-local absence reason is not reviewable")
         if not entry.input_globs:
             errors.append(f"{entry.model_id}: input_globs must not be empty")
+        elif entry.distribution_policy == "required_public":
+            unresolved_patterns = tuple(
+                pattern
+                for pattern in entry.input_globs
+                if not any(path.is_file() for path in root_path.glob(pattern))
+            )
+            errors.extend(
+                f"{entry.model_id}: input_glob resolves no files: {pattern}"
+                for pattern in unresolved_patterns
+            )
         if entry.excluded:
             if entry.runner:
                 errors.append(f"{entry.model_id}: excluded entry must not define a runner")
@@ -443,6 +475,111 @@ def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def resolve_entry_input_inventory(
+    root: str | Path,
+    entry: ModelRegressionEntry,
+) -> tuple[dict[str, str], ...]:
+    """Resolve manifest selectors to the exact immutable input inventory."""
+
+    root_path = Path(root).resolve()
+    inventory: dict[str, str] = {}
+    for pattern in entry.input_globs:
+        for path in root_path.glob(pattern):
+            if not path.is_file():
+                continue
+            resolved = path.resolve()
+            try:
+                relative = resolved.relative_to(root_path).as_posix()
+            except ValueError as exc:
+                raise ModelRegressionManifestError(
+                    f"{entry.model_id}: input resolves outside repository: {path}"
+                ) from exc
+            inventory[relative] = f"sha256:{hashlib.sha256(resolved.read_bytes()).hexdigest()}"
+    return tuple(
+        {"path": path, "sha256": inventory[path]}
+        for path in sorted(inventory)
+    )
+
+
+def input_inventory_fingerprint(
+    inventory: Sequence[Mapping[str, str]],
+) -> str:
+    encoded = json.dumps(
+        [dict(item) for item in inventory],
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def repository_subject_revision(
+    root: str | Path,
+    inventory: Sequence[Mapping[str, str]],
+) -> str:
+    """Return one reviewable revision identity for the exact worktree inputs."""
+
+    root_path = Path(root).resolve()
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root_path,
+            capture_output=True,
+            check=False,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        completed = None
+    if completed is not None and completed.returncode == 0:
+        head = completed.stdout.strip()
+        if len(head) == 40:
+            return f"git:{head}"
+    return f"unversioned:{input_inventory_fingerprint(inventory)}"
+
+
+def build_regression_model_instance(
+    root: str | Path,
+    entry: ModelRegressionEntry,
+    inventory: Sequence[Mapping[str, str]],
+    *,
+    subject_revision: str | None = None,
+) -> ModelInstanceRef:
+    """Build the canonical model instance used by snapshots and receipts."""
+
+    root_path = Path(root).resolve()
+    runner_path = entry.runner[1] if len(entry.runner) >= 2 else ""
+    if entry.purpose_closure is None:
+        raise ModelRegressionManifestError(
+            f"{entry.model_id}: canonical model instance requires purpose closure"
+        )
+    return build_model_instance_ref(
+        root_path,
+        logical_model_id=entry.model_id,
+        model_kind=entry.model_kind,
+        model_path=entry.model_path,
+        runner_path=runner_path,
+        purpose_closure_fingerprint=(
+            entry.purpose_closure.closure_fingerprint
+        ),
+        subject_revision=subject_revision
+        or repository_subject_revision(root_path, inventory),
+        input_paths=tuple(item["path"] for item in inventory),
+    )
+
+
+def model_instance_fingerprint(
+    root: str | Path,
+    entry: ModelRegressionEntry,
+    inventory: Sequence[Mapping[str, str]],
+) -> str:
+    """Compatibility-free projection of the canonical instance fingerprint."""
+
+    return build_regression_model_instance(root, entry, inventory).fingerprint
+
+
 def _terminate_process(process: subprocess.Popen[str]) -> None:
     try:
         process.terminate()
@@ -464,6 +601,14 @@ def _run_entry(
     progress: ProgressCallback | None,
 ) -> ModelRunResult:
     started = time.monotonic()
+    input_inventory = resolve_entry_input_inventory(root, entry)
+    inventory_fingerprint = input_inventory_fingerprint(input_inventory)
+    instance = build_regression_model_instance(
+        root,
+        entry,
+        input_inventory,
+    )
+    instance_fingerprint = instance.fingerprint
     artifact_dir = _safe_artifact_dir(output_dir, entry.model_id)
     receipt_path = artifact_dir / "receipt.json"
     command = entry.command(root=root)
@@ -568,6 +713,11 @@ def _run_entry(
         finding_codes=finding_codes,
         message=message,
         model_instance_id=entry.purpose_closure.model_instance_id if entry.purpose_closure else "",
+        model_kind=instance.model_kind,
+        subject_revision=instance.subject_revision,
+        model_instance_fingerprint=instance_fingerprint,
+        input_inventory_fingerprint=inventory_fingerprint,
+        input_inventory=input_inventory,
         purpose_closure_fingerprint=(entry.purpose_closure.closure_fingerprint if entry.purpose_closure else ""),
         purpose_claim_boundary=entry.purpose_closure.claim_boundary if entry.purpose_closure else "",
         stdout=stdout_descriptor,
@@ -577,7 +727,13 @@ def _run_entry(
         "schema_version": RECEIPT_SCHEMA,
         "receipt_id": hashlib.sha256(
             json.dumps(
-                {"model_id": entry.model_id, "command": command, "status": status, "started": started},
+                {
+                    "model_id": entry.model_id,
+                    "model_instance_fingerprint": instance_fingerprint,
+                    "command": command,
+                    "status": status,
+                    "started": started,
+                },
                 sort_keys=True,
             ).encode("utf-8")
         ).hexdigest(),
@@ -590,7 +746,13 @@ def _run_entry(
         "seconds": elapsed_seconds,
         "finding_codes": list(finding_codes),
         "input_globs": list(entry.input_globs),
+        "input_inventory": [dict(item) for item in input_inventory],
+        "input_inventory_fingerprint": inventory_fingerprint,
         "model_instance_id": result.model_instance_id,
+        "model_kind": result.model_kind,
+        "subject_revision": result.subject_revision,
+        "model_instance": instance.to_dict(),
+        "model_instance_fingerprint": instance_fingerprint,
         "purpose_closure_fingerprint": result.purpose_closure_fingerprint,
         "protected_failure_ids": list(entry.purpose_closure.protected_failure_ids) if entry.purpose_closure else [],
         "known_good_case_id": entry.purpose_closure.known_good_case_id if entry.purpose_closure else "",
@@ -777,8 +939,13 @@ __all__ = [
     "ModelRegressionReport",
     "ModelRunResult",
     "audit_manifest",
+    "build_regression_model_instance",
     "discover_model_directories",
+    "input_inventory_fingerprint",
+    "model_instance_fingerprint",
     "parse_shard",
+    "repository_subject_revision",
+    "resolve_entry_input_inventory",
     "run_manifest_regressions",
     "select_entries",
 ]

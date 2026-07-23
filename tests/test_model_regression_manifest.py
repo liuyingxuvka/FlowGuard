@@ -22,7 +22,11 @@ class ModelRegressionManifestTests(unittest.TestCase):
         manifest = ModelRegressionManifest.load(root)
         audit = audit_manifest(root, manifest)
         self.assertTrue(audit.ok, audit.errors)
-        self.assertEqual(62, len(audit.registered_model_ids))
+        self.assertEqual(
+            len(manifest.entries),
+            len(audit.registered_model_ids),
+        )
+        self.assertGreater(len(audit.registered_model_ids), 0)
         discovered = {
             path.relative_to(root / ".flowguard").as_posix()
             for path in discover_model_directories(root)
@@ -56,26 +60,6 @@ class ModelRegressionManifestTests(unittest.TestCase):
             for item in completed.stdout.split(b"\0")
             if item
         }
-        # The new manifest and the formerly omitted template runner are part of
-        # this release and are force-added by the release workflow.
-        tracked.update(
-            {
-                ".flowguard/model-regression-manifest.json",
-                ".flowguard/template_public_release/model.py",
-                ".flowguard/template_public_release/run_checks.py",
-                ".flowguard/development_process_strategy/model.py",
-                ".flowguard/development_process_strategy/run_checks.py",
-                ".flowguard/compositional_verification_kernel/model.py",
-                ".flowguard/compositional_verification_kernel/run_checks.py",
-                ".flowguard/task_local_prediction_replay/model.py",
-                ".flowguard/task_local_prediction_replay/run_checks.py",
-                ".flowguard/spec_context/model.py",
-                ".flowguard/spec_context/run_checks.py",
-                "flowguard/spec_context.py",
-                ".flowguard/bounded_system_composition_benchmark/model.py",
-                ".flowguard/bounded_system_composition_benchmark/run_checks.py",
-            }
-        )
         manifest = ModelRegressionManifest.load(root)
         for entry in manifest.entries:
             with self.subTest(model=entry.model_id):

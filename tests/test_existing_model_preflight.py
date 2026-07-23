@@ -508,7 +508,7 @@ class ExistingModelPreflightTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual("preflight_skipped_with_reason", report.decision)
 
-    def test_project_inventory_helper_finds_flowguard_model_context(self):
+    def test_project_inventory_without_authority_is_candidate_only(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             model_dir = root / ".flowguard" / "router"
@@ -530,9 +530,11 @@ class ExistingModelPreflightTests(unittest.TestCase):
             )
             report = review_existing_model_preflight(preflight)
 
-            self.assertTrue(report.ok, report.format_text())
+            self.assertFalse(report.ok, report.format_text())
             self.assertEqual(REUSE_DECISION_REUSE_EXISTING, preflight.reuse_decision)
             self.assertEqual(("RouteTask",), preflight.relevant_models[0].function_blocks)
+            self.assertFalse(preflight.relevant_models[0].evidence_current)
+            self.assertEqual("blocked", preflight.authority_status)
             self.assertIn(".flowguard", preflight.search_paths)
 
     def test_project_inventory_helper_records_no_model_found(self):
@@ -547,8 +549,9 @@ class ExistingModelPreflightTests(unittest.TestCase):
             )
             report = review_existing_model_preflight(preflight)
 
-            self.assertTrue(report.ok, report.format_text())
+            self.assertFalse(report.ok, report.format_text())
             self.assertEqual(REUSE_DECISION_NO_MODEL_FOUND, preflight.reuse_decision)
+            self.assertEqual("blocked", preflight.authority_status)
             self.assertIn("No relevant FlowGuard model files", preflight.no_model_found_reason)
 
 

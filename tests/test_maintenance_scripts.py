@@ -1,3 +1,5 @@
+import contextlib
+import io
 import tempfile
 import textwrap
 import unittest
@@ -5,7 +7,7 @@ from pathlib import Path
 
 import importlib.metadata as metadata
 
-from scripts.run_flowguard_model_regressions import discover_runners, run_regressions
+from scripts.run_flowguard_model_regressions import main as run_model_regressions
 from scripts.generate_field_lifecycle_inventory import (
     collect_field_inventory,
     infer_ai_surface_tier,
@@ -16,23 +18,17 @@ from scripts.sync_shadow_workspace import sync_workspace, verify_workspace
 
 
 class MaintenanceScriptTests(unittest.TestCase):
-    def test_model_regression_runner_reports_failure(self):
+    def test_model_regression_runner_requires_manifest_authority(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            passing = root / ".flowguard" / "passing" / "run_checks.py"
-            failing = root / ".flowguard" / "failing" / "run_checks.py"
-            passing.parent.mkdir(parents=True)
-            failing.parent.mkdir(parents=True)
-            passing.write_text("print('pass')\n", encoding="utf-8")
-            failing.write_text("print('fail')\nraise SystemExit(3)\n", encoding="utf-8")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                exit_code = run_model_regressions(
+                    ["--root", str(root), "--json"]
+                )
 
-            runners = discover_runners(root)
-            results = run_regressions(root)
-
-            self.assertEqual(2, len(runners))
-            self.assertEqual(2, len(results))
-            self.assertEqual(1, sum(not result.ok for result in results))
-            self.assertEqual(3, [result.exit_code for result in results if not result.ok][0])
+            self.assertEqual(3, exit_code)
+            self.assertIn("missing model regression manifest", output.getvalue())
 
     def test_shadow_sync_preserves_shadow_only_files(self):
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as target_dir:

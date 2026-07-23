@@ -916,6 +916,7 @@ class ApiSurfaceTests(unittest.TestCase):
             "MODEL_TEST_ALIGNMENT_ROUTE_API",
             "MODEL_IMPACT_FRESHNESS_API",
             "MODEL_MATURATION_API",
+            "MODEL_SYSTEM_AUTHORITY_API",
             "PLAN_DETAILING_ROUTE_API",
             "PLAN_INTAKE_ADVANCED_API",
             "PRIMARY_PATH_AUTHORITY_ROUTE_API",

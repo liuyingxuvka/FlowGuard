@@ -72,8 +72,30 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
         self.assertEqual("timeout", report.status)
         receipt = json.loads(Path(report.results[0].receipt_path).read_text(encoding="utf-8"))
         self.assertTrue(receipt["terminal"])
+        self.assertEqual(
+            "flowguard.model_regression_receipt.v3",
+            receipt["schema_version"],
+        )
         self.assertEqual("timeout", receipt["status"])
         self.assertEqual("regression:slow:current", receipt["model_instance_id"])
+        self.assertTrue(receipt["model_instance_fingerprint"].startswith("sha256:"))
+        self.assertEqual(
+            receipt["model_instance_fingerprint"],
+            receipt["model_instance"]["fingerprint"],
+        )
+        self.assertEqual("executable_workflow", receipt["model_kind"])
+        self.assertTrue(receipt["subject_revision"])
+        self.assertTrue(receipt["input_inventory_fingerprint"].startswith("sha256:"))
+        self.assertEqual(
+            [
+                ".flowguard/slow/model.py",
+                ".flowguard/slow/run_checks.py",
+            ],
+            [item["path"] for item in receipt["input_inventory"]],
+        )
+        self.assertTrue(
+            all(item["sha256"].startswith("sha256:") for item in receipt["input_inventory"])
+        )
         self.assertTrue(receipt["purpose_closure_fingerprint"].startswith("sha256:"))
         self.assertEqual(["slow:invalid"], receipt["protected_failure_ids"])
 

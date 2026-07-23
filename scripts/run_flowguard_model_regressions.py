@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import threading
-import time
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
@@ -21,64 +18,6 @@ from flowguard.model_regressions import (
     audit_manifest,
     run_manifest_regressions,
 )
-
-
-@dataclass(frozen=True)
-class RunnerResult:
-    """Compatibility result for callers that use a repository without a manifest."""
-
-    path: str
-    exit_code: int
-    seconds: float
-    stdout_tail: tuple[str, ...] = ()
-    stderr_tail: tuple[str, ...] = ()
-
-    @property
-    def ok(self) -> bool:
-        return self.exit_code == 0
-
-
-def discover_runners(root: str | Path = ".") -> tuple[Path, ...]:
-    base = Path(root).resolve() / ".flowguard"
-    return tuple(sorted(base.rglob("run_checks.py"))) if base.is_dir() else ()
-
-
-def run_regressions(
-    root: str | Path = ".",
-    *,
-    fail_fast: bool = False,
-    tail_lines: int = 20,
-) -> tuple[RunnerResult, ...]:
-    """Preserve the pre-manifest helper for small external fixtures.
-
-    Repository release execution goes through :func:`run_manifest_regressions`.
-    """
-
-    root_path = Path(root).resolve()
-    rows: list[RunnerResult] = []
-    for runner in discover_runners(root_path):
-        started = time.monotonic()
-        completed = subprocess.run(
-            [sys.executable, str(runner)],
-            cwd=root_path,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            capture_output=True,
-            check=False,
-        )
-        rows.append(
-            RunnerResult(
-                path=runner.relative_to(root_path).as_posix(),
-                exit_code=completed.returncode,
-                seconds=round(time.monotonic() - started, 3),
-                stdout_tail=tuple(completed.stdout.splitlines()[-tail_lines:]),
-                stderr_tail=tuple(completed.stderr.splitlines()[-tail_lines:]),
-            )
-        )
-        if fail_fast and completed.returncode:
-            break
-    return tuple(rows)
 
 
 def _progress(payload: dict[str, object]) -> None:

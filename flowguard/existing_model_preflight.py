@@ -37,6 +37,10 @@ from .model_angle_deliberation import (
     review_model_angle_deliberations,
 )
 from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
+from .model_authority_store import (
+    audit_model_authority,
+    load_observed_model_system,
+)
 
 
 PREFLIGHT_MODE_LIGHT = "light"
@@ -359,6 +363,11 @@ class ExistingModelPreflight:
     task_summary: str
     mode: str = PREFLIGHT_MODE_FULL
     existing_modeled_system: bool = True
+    authority_required: bool = False
+    authority_status: str = "not_checked"
+    authority_snapshot_fingerprint: str = ""
+    authority_subject_revision: str = ""
+    authority_gap_ids: tuple[str, ...] = ()
     model_search_performed: bool = False
     search_paths: tuple[str, ...] = ()
     behavior_lookup_required: bool = False
@@ -403,6 +412,23 @@ class ExistingModelPreflight:
         object.__setattr__(self, "preflight_id", str(self.preflight_id))
         object.__setattr__(self, "task_summary", str(self.task_summary))
         object.__setattr__(self, "mode", str(self.mode))
+        object.__setattr__(self, "authority_required", bool(self.authority_required))
+        object.__setattr__(self, "authority_status", str(self.authority_status))
+        object.__setattr__(
+            self,
+            "authority_snapshot_fingerprint",
+            str(self.authority_snapshot_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "authority_subject_revision",
+            str(self.authority_subject_revision),
+        )
+        object.__setattr__(
+            self,
+            "authority_gap_ids",
+            _as_tuple(self.authority_gap_ids),
+        )
         object.__setattr__(self, "search_paths", _as_tuple(self.search_paths))
         object.__setattr__(self, "behavior_lookup_required", bool(self.behavior_lookup_required))
         object.__setattr__(self, "behavior_lookup_status", str(self.behavior_lookup_status))
@@ -483,6 +509,13 @@ class ExistingModelPreflight:
             "task_summary": self.task_summary,
             "mode": self.mode,
             "existing_modeled_system": self.existing_modeled_system,
+            "authority_required": self.authority_required,
+            "authority_status": self.authority_status,
+            "authority_snapshot_fingerprint": (
+                self.authority_snapshot_fingerprint
+            ),
+            "authority_subject_revision": self.authority_subject_revision,
+            "authority_gap_ids": list(self.authority_gap_ids),
             "model_search_performed": self.model_search_performed,
             "search_paths": list(self.search_paths),
             "behavior_lookup_required": self.behavior_lookup_required,
@@ -865,7 +898,51 @@ def existing_model_preflight_from_project(
         except ValueError:
             searched_path_values.insert(0, str(canonical_ledger_path))
     searched_paths = tuple(dict.fromkeys(searched_path_values))
+    authority_report = audit_model_authority(root_path)
+    authority_status = authority_report.status
+    authority_snapshot_fingerprint = ""
+    authority_subject_revision = ""
+    authority_gap_ids: tuple[str, ...] = ()
     hits: list[ModelContextHit] = []
+    if authority_report.ok:
+        _, authority_snapshot = load_observed_model_system(root_path)
+        authority_snapshot_fingerprint = authority_snapshot.fingerprint
+        authority_subject_revision = authority_snapshot.subject_revision
+        authority_gap_ids = authority_snapshot.unresolved_gap_ids
+        for instance in authority_snapshot.model_instances:
+            model_path = root_path / instance.model_path
+            model_text = (
+                model_path.read_text(encoding="utf-8", errors="replace")
+                if model_path.is_file()
+                else ""
+            )
+            if changed_paths and not _matches_changed_paths(
+                model_path,
+                model_text,
+                changed_paths,
+            ):
+                continue
+            hits.append(
+                ModelContextHit(
+                    model_id=instance.logical_model_id,
+                    model_path=instance.model_path,
+                    evidence_id=(
+                        f"model-authority:{instance.fingerprint}"
+                    ),
+                    evidence_tier="authoritative_observed",
+                    evidence_current=True,
+                    responsibilities=_purpose_lines(model_text)
+                    or (instance.logical_model_id,),
+                    function_blocks=_class_names(model_text),
+                    validation_evidence=(
+                        authority_snapshot.fingerprint,
+                        instance.purpose_closure_fingerprint,
+                    ),
+                    rationale=(
+                        "Selected from the sole observed model-system authority."
+                    ),
+                )
+            )
     primary_lookup_hits = lookup_report.primary_hits if lookup_report else ()
     related_lookup_hits = lookup_report.related_hits if lookup_report else ()
     candidate_lookup_hits = lookup_report.candidate_hits if lookup_report else ()
@@ -900,12 +977,15 @@ def existing_model_preflight_from_project(
                     model_id=model_id,
                     model_path=relative_path,
                     evidence_tier="project_inventory",
-                    evidence_current=True,
+                    evidence_current=False,
                     responsibilities=responsibilities,
                     function_blocks=classes,
                     fields_owned=fields_owned,
                     validation_evidence=(relative_path,),
-                    rationale="Discovered from project FlowGuard inventory.",
+                    rationale=(
+                        "Discovered from project files as candidate context; "
+                        "it is not current authority evidence."
+                    ),
                 )
             )
             seen_model_ids.add(model_id)
@@ -948,6 +1028,11 @@ def existing_model_preflight_from_project(
         task_summary,
         mode=mode,
         existing_modeled_system=True,
+        authority_required=True,
+        authority_status=authority_status,
+        authority_snapshot_fingerprint=authority_snapshot_fingerprint,
+        authority_subject_revision=authority_subject_revision,
+        authority_gap_ids=authority_gap_ids,
         model_search_performed=True,
         search_paths=searched_paths,
         behavior_lookup_required=behavior_lookup_required,
@@ -974,6 +1059,26 @@ def review_existing_model_preflight(
     """Review an existing-model preflight report."""
 
     findings: list[ExistingModelPreflightFinding] = []
+
+    if preflight.authority_required:
+        if preflight.authority_status not in {"pass", "pass_with_gaps"}:
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "model_authority_missing_or_invalid",
+                    "Project inventory cannot establish current model ownership "
+                    "without one valid observed model-system authority.",
+                )
+            )
+        elif (
+            not preflight.authority_snapshot_fingerprint
+            or not preflight.authority_subject_revision
+        ):
+            findings.append(
+                ExistingModelPreflightFinding(
+                    "model_authority_identity_missing",
+                    "The observed model authority lacks snapshot or source identity.",
+                )
+            )
 
     inventory_required = bool(
         preflight.require_complete_surface_inventory

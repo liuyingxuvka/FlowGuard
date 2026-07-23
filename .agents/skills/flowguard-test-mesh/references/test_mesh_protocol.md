@@ -250,6 +250,13 @@ A TestMesh review can support the parent only when:
   evidence status and parent consumption;
 - release-only obligations are either current or explicitly deferred only under
   routine scope.
+
+For a model-system revision, TestMesh freezes the exact affected models,
+relations, commitments, fields, contracts, tests, and affected siblings. Its
+terminal receipts bind the candidate snapshot fingerprint and cannot be reused
+for another revision set. Background progress never makes the candidate
+current. Parent full validation begins only after source and the whole
+affected-closure plan are frozen.
 ## OpenSpec is not TestMesh evidence
 
 Official OpenSpec proposal, design, specifications, tasks, and status may enter
