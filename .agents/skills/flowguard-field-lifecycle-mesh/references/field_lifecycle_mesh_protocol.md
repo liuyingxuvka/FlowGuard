@@ -23,11 +23,15 @@ attribute, payload column, or public field-like surface is in scope.
 
 Collect:
 
-- the field boundary and discovered field ids;
+- the field boundary, independently discovered field ids, immutable inventory
+  revision/fingerprint, and discovery evidence;
 - parent groups such as entity, payload, schema, config, public entrypoint, or
   prompt/config surface;
 - leaf rows for every discovered field;
-- role, lifecycle, behavior impacts, readers, writers, and owner routes;
+- one owner, exact locations, role, lifecycle, behavior impacts, readers,
+  writers, default semantics, absence/null semantics, serialization semantics,
+  privacy classification, and content fingerprint;
+- exactly one `modeled`, `delegated`, or `scoped` coverage disposition;
 - projection rows for behavior-bearing fields;
 - every field id or grouped source id whose readers reach an ordinary UI adapter, view model, display, text, or output boundary;
 - old-field disposition and evidence refs for old, replaced, deprecated,
@@ -72,7 +76,12 @@ FieldLifecycleMesh does not prove behavior alone. Send:
 
 A field lifecycle review is complete when:
 
-- every discovered field has a leaf row or the discovery boundary is narrowed;
+- the independently frozen expected field set exactly equals the leaf-row set;
+- every leaf row has one owner/location and explicit default, absence,
+  serialization, privacy, and content-fingerprint semantics;
+- every field has exactly one modeled/delegated/scoped disposition, with
+  specialist owner/current native evidence for delegation or a bounded reason
+  for scope;
 - every behavior-bearing field has a projection or a scoped-out reason;
 - every field whose reader reaches an ordinary UI boundary is handed to UI Flow Structure, while fields with no ordinary-UI reader remain internally accounted without UI rows;
 - old/replaced/deprecated/compatibility-like fields have a closing disposition;

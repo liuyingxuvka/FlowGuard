@@ -12,6 +12,7 @@ content follow the modeled UI topology instead of ad hoc styling.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
@@ -39,6 +40,10 @@ def _as_int(value: Any, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _is_sha256_fingerprint(value: str) -> bool:
+    return bool(re.fullmatch(r"sha256:[0-9a-f]{64}", str(value)))
 
 
 UI_CONTENT_VISIBILITY_USER_VISIBLE = "user_visible"
@@ -1907,6 +1912,7 @@ class UIObservedSurfaceItem:
     blindspot_id: str = ""
     evidence_ref: str = ""
     evidence_kind: str = "manual_observation"
+    content_fingerprint: str = ""
     observed_value: str = ""
     options: tuple[str, ...] = ()
     table_columns: tuple[str, ...] = ()
@@ -1928,6 +1934,7 @@ class UIObservedSurfaceItem:
         object.__setattr__(self, "blindspot_id", str(self.blindspot_id))
         object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
         object.__setattr__(self, "evidence_kind", str(self.evidence_kind))
+        object.__setattr__(self, "content_fingerprint", str(self.content_fingerprint))
         object.__setattr__(self, "observed_value", str(self.observed_value))
         object.__setattr__(self, "options", _as_tuple(self.options))
         object.__setattr__(self, "table_columns", _as_tuple(self.table_columns))
@@ -1962,6 +1969,7 @@ class UIObservedSurfaceItem:
             "blindspot_id": self.blindspot_id,
             "evidence_ref": self.evidence_ref,
             "evidence_kind": self.evidence_kind,
+            "content_fingerprint": self.content_fingerprint,
             "observed_value": self.observed_value,
             "options": list(self.options),
             "table_columns": list(self.table_columns),
@@ -1981,6 +1989,9 @@ class UIObservedSurfaceInventory:
     source_visible_surface_id: str = ""
     content_visibility_plan_id: str = ""
     evidence_ref: str = ""
+    inventory_fingerprint: str = ""
+    discovery_evidence_ids: tuple[str, ...] = ()
+    require_complete_inventory: bool = False
     items: tuple[UIObservedSurfaceItem, ...] = ()
     scoped_blindspots: tuple[UIBlindspot, ...] = ()
     validation_boundaries: tuple[str, ...] = ()
@@ -1995,6 +2006,9 @@ class UIObservedSurfaceInventory:
         object.__setattr__(self, "source_visible_surface_id", str(self.source_visible_surface_id))
         object.__setattr__(self, "content_visibility_plan_id", str(self.content_visibility_plan_id))
         object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
+        object.__setattr__(self, "inventory_fingerprint", str(self.inventory_fingerprint))
+        object.__setattr__(self, "discovery_evidence_ids", _as_tuple(self.discovery_evidence_ids))
+        object.__setattr__(self, "require_complete_inventory", bool(self.require_complete_inventory))
         object.__setattr__(self, "items", tuple(self.items))
         object.__setattr__(self, "scoped_blindspots", tuple(self.scoped_blindspots))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
@@ -2016,6 +2030,9 @@ class UIObservedSurfaceInventory:
             "source_visible_surface_id": self.source_visible_surface_id,
             "content_visibility_plan_id": self.content_visibility_plan_id,
             "evidence_ref": self.evidence_ref,
+            "inventory_fingerprint": self.inventory_fingerprint,
+            "discovery_evidence_ids": list(self.discovery_evidence_ids),
+            "require_complete_inventory": self.require_complete_inventory,
             "items": [item.to_dict() for item in self.items],
             "scoped_blindspots": [blindspot.to_dict() for blindspot in self.scoped_blindspots],
             "validation_boundaries": list(self.validation_boundaries),
@@ -6398,6 +6415,28 @@ def review_ui_observed_surface_inventory(
         findings.append(UIFlowStructureFinding("missing_observation_method", "observed UI inventory has no observation method"))
     if not inventory.evidence_ref:
         findings.append(UIFlowStructureFinding("missing_observation_evidence_ref", "observed UI inventory has no evidence reference"))
+    if inventory.require_complete_inventory:
+        if not inventory.inventory_fingerprint:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_observed_inventory_fingerprint",
+                    "complete observed UI inventory has no frozen content fingerprint",
+                )
+            )
+        elif not _is_sha256_fingerprint(inventory.inventory_fingerprint):
+            findings.append(
+                UIFlowStructureFinding(
+                    "invalid_observed_inventory_fingerprint",
+                    "complete observed UI inventory fingerprint is not a canonical sha256 fingerprint",
+                )
+            )
+        if not inventory.discovery_evidence_ids:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_observed_inventory_discovery_evidence",
+                    "complete observed UI inventory has no independent discovery evidence",
+                )
+            )
     if not inventory.items:
         findings.append(UIFlowStructureFinding("missing_observed_items", "observed UI inventory has no real visible items"))
     if not inventory.validation_boundaries:
@@ -6566,6 +6605,19 @@ def review_ui_observed_surface_inventory(
                     metadata={"item_kind": item.item_kind},
                 )
             )
+        if item.visible and item.blindspot_id and (
+            item.mapped_control_id
+            or item.mapped_display_id
+            or item.mapped_visible_item_id
+        ):
+            findings.append(
+                UIFlowStructureFinding(
+                    "observed_item_conflicting_coverage_disposition",
+                    f"observed visible item {item.item_id} is both modeled and scoped as a blindspot",
+                    item_id=item.item_id,
+                    metadata={"owners": list(item.owner_ids())},
+                )
+            )
         if item.enabled and item.item_kind in OBSERVED_UI_ACTIONABLE_KINDS and not (item.mapped_control_id or item.blindspot_id):
             findings.append(
                 UIFlowStructureFinding(
@@ -6583,6 +6635,23 @@ def review_ui_observed_surface_inventory(
                     item_id=item.item_id,
                 )
             )
+        if inventory.require_complete_inventory:
+            if not item.content_fingerprint:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "missing_observed_item_content_fingerprint",
+                        f"observed UI item {item.item_id} has no frozen content fingerprint",
+                        item_id=item.item_id,
+                    )
+                )
+            elif not _is_sha256_fingerprint(item.content_fingerprint):
+                findings.append(
+                    UIFlowStructureFinding(
+                        "invalid_observed_item_content_fingerprint",
+                        f"observed UI item {item.item_id} fingerprint is not a canonical sha256 fingerprint",
+                        item_id=item.item_id,
+                    )
+                )
         if item.evidence_kind and item.evidence_kind not in supported_kinds:
             findings.append(
                 UIFlowStructureFinding(

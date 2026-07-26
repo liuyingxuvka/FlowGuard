@@ -28,17 +28,17 @@ Current native and parent receipts belong under:
 
 Those receipts are environment-local. The distribution inventory reports their exclusion explicitly instead of copying them into an installed skill package.
 
-## Read-only OpenSpec Context
+## Provider-neutral WorkContext
 
-Official OpenSpec remains the sole owner of its proposal, design,
-specifications, tasks, validation, status lifecycle, and archive operations.
-FlowGuard may read the current authoring files and derive checkbox status as
-project-bounded planning context. It does not write OpenSpec, execute or wrap
-its checks, open sessions, create caches or receipts, reconcile OpenSpec tasks
-into FlowGuard execution owners, or decide archive readiness.
+Every external planning provider retains sole ownership of its native files,
+validation, status lifecycle, and finalization operations. FlowGuard may read
+only explicitly declared, project-bounded artifacts through a registered
+WorkContext adapter. It does not write provider content, execute or wrap
+provider checks, open sessions, create caches or receipts, turn provider tasks
+into FlowGuard execution owners, or decide provider lifecycle readiness.
 
-FlowGuard models and tests keep their own native owners and evidence. An
-OpenSpec checkbox or derived context status is never FlowGuard test proof.
+FlowGuard models and tests keep their own native owners and evidence. Provider
+status is planning context, never FlowGuard test proof.
 
 SkillGuard V2 contract source, compiled contract, and check manifest are the
 runtime authority for the current `v2-migration` lifecycle. Former V1 files are
@@ -224,7 +224,7 @@ A distribution pass proves file-tree parity and ownership safety. It does not pr
 
 ## Release Closure
 
-FlowGuard v0.61.0 is source-only. Bind local release readiness to the current
+FlowGuard v0.62.0 is source-only. Bind local release readiness to the current
 eight-child unified result and verify that no matching wheel or source archive
 exists:
 
@@ -236,7 +236,7 @@ After pushing the immutable tag and creating an asset-free GitHub Release,
 verify the remote tag and release metadata:
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.61.0 --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.62.0 --repository liuyingxuvka/FlowGuard --json
 ```
 
 The published phase reuses the local checks and additionally requires the
@@ -456,7 +456,7 @@ Distribution pass 只证明文件树一致性和 ownership 安全。它不证明
 
 ### 发布闭环
 
-FlowGuard v0.61.0 只发布源码。把本地发布结论绑定到当前统一门禁的 8 个子结果，
+FlowGuard v0.62.0 只发布源码。把本地发布结论绑定到当前统一门禁的 8 个子结果，
 并确认不存在对应版本的 wheel 或源码包：
 
 ```powershell
@@ -466,7 +466,7 @@ python scripts/verify_flowguard_release.py --root . --phase local --json
 推送不可变 tag 并创建零资产 GitHub Release 后，再验证远端 tag 和 Release 元数据：
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.61.0 --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.62.0 --repository liuyingxuvka/FlowGuard --json
 ```
 
 published 阶段会重新检查本地条件，并要求远端 tag 指向同一提交、Release 已发布且不是 draft、资产列表为空。若发布后验证失败，应发布新的修正版，不能移动已有 tag。

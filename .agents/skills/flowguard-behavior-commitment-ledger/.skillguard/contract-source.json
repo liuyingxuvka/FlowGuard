@@ -98,7 +98,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "The ledger proves only current registered plane-partitioned exact-intent, behavior/source, typed-relation, single-owner, lookup, and singular-path accounting; runtime proof, sibling evidence, and final release authority remain separate.",
+  "claim_boundary": "The ledger proves only exact independently derived source-inventory accounting, one modeled/delegated/scoped disposition per source, current plane-partitioned exact-intent, typed-relation, single-owner, lookup, and singular-path accounting; runtime proof, sibling evidence, and final release authority remain separate.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -231,7 +231,7 @@
     {
       "action": {
         "kind": "inventory",
-        "summary": "Classify the external promise by plane and query the canonical ledger before broad discovery."
+        "summary": "Freeze the independent WorkContext/UI/field expected-source inventory before classifying modeled external promises by plane."
       },
       "check_ids": [
         "check:flowguard-behavior-commitment-ledger:plane-boundary"
@@ -242,7 +242,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Run the existing Behavior Commitment Ledger owner model and its same-plane boundaries."
+        "summary": "Run the existing Behavior Commitment Ledger owner against exact expected source ids, fingerprints, authority roles, and one coverage disposition per source."
       },
       "check_ids": [
         "check:flowguard-behavior-commitment-ledger:native-authority"
@@ -253,7 +253,7 @@
     {
       "action": {
         "kind": "verifier",
-        "summary": "Keep typed related-plane context separate and block broad confidence without current owner evidence."
+        "summary": "Keep typed related-plane context separate and block broad confidence on inventory mismatch, disposition conflict, authority displacement, or missing current owner evidence."
       },
       "check_ids": [
         "check:flowguard-behavior-commitment-ledger:evidence-closure"

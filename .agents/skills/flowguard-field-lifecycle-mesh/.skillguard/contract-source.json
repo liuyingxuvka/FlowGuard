@@ -101,7 +101,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "The route proves field inventory, projections, and disposition only; behavior implementation and test closure require downstream current evidence.",
+  "claim_boundary": "The route proves the independently frozen exact field inventory, per-field ownership/semantics/fingerprints, projections, and modeled/delegated/scoped plus old-field dispositions only; behavior implementation and test closure require downstream current evidence.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -232,7 +232,7 @@
     {
       "action": {
         "kind": "inventory",
-        "summary": "Declare the bounded field inventory, change intent, compatibility policy, and ordinary-UI-reader boundary."
+        "summary": "Independently freeze the bounded field inventory revision/fingerprint/evidence, exact rows, field semantics, change intent, compatibility policy, and ordinary-UI-reader boundary."
       },
       "check_ids": [
         "check:flowguard-field-lifecycle-mesh:plane-boundary"
@@ -243,7 +243,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Run the existing field-lifecycle owner to materialize leaf rows, behavior projections, owners, readers, writers, and dispositions."
+        "summary": "Run the existing field-lifecycle owner to materialize exact leaf rows, owners/locations, readers/writers, default/absence/serialization/privacy semantics, content fingerprints, behavior projections, and modeled/delegated/scoped dispositions."
       },
       "check_ids": [
         "check:flowguard-field-lifecycle-mesh:native-authority"
@@ -254,7 +254,7 @@
     {
       "action": {
         "kind": "verifier",
-        "summary": "Reject missing fields, projection gaps, duplicate owners, UI-reader handoff gaps, or unknown old-field dispositions."
+        "summary": "Reject missing/unexpected/duplicate fields, semantic or fingerprint gaps, invalid delegation/scope, projection gaps, duplicate owners, UI-reader handoff gaps, or unknown old-field dispositions."
       },
       "check_ids": [
         "check:flowguard-field-lifecycle-mesh:evidence-closure"

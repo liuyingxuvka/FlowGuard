@@ -98,7 +98,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "The route proves only the declared three-value content-admission boundary, product-scope semantic UI consistency boundary, UI states, tasks, paths, and current observed/implementation evidence; it does not certify unvisited behavior, authorization roles, future AI behavior, brand styling, or pixel-level visual quality.",
+  "claim_boundary": "The route proves only the independently frozen rendered-surface inventory, one modeled/scoped disposition per visible item, declared three-value content-admission boundary, product-scope semantic UI consistency boundary, UI states, tasks, paths, and current observed/implementation evidence; it does not certify unvisited behavior, authorization roles, future AI behavior, brand styling, or pixel-level visual quality.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -229,7 +229,7 @@
     {
       "action": {
         "kind": "inventory",
-        "summary": "Declare UI work mode, product surface scope, candidate content boundary, source authority, and requested UI claim."
+        "summary": "Declare UI work mode, independently discovered rendered-surface revision/fingerprint/evidence, exact visible item ids/fingerprints, product surface scope, content boundary, source authority, and requested UI claim."
       },
       "check_ids": [
         "check:flowguard-ui-flow-structure:plane-boundary"
@@ -251,7 +251,7 @@
     {
       "action": {
         "kind": "verifier",
-        "summary": "Reject internal leaks, unclassified content, invalid on-demand paths, semantic or typography drift, authority drift, and design-only runnable claims."
+        "summary": "Reject inventory/item fingerprint gaps, unmapped or conflicting modeled/blindspot dispositions, internal leaks, unclassified content, invalid on-demand paths, semantic or typography drift, authority drift, and design-only runnable claims."
       },
       "check_ids": [
         "check:flowguard-ui-flow-structure:evidence-closure"

@@ -10,6 +10,7 @@ routes can consume.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
@@ -112,6 +113,15 @@ PASSING_FIELD_DISPOSITIONS = (
     FIELD_DISPOSITION_OUT_OF_SCOPE,
 )
 
+FIELD_COVERAGE_MODELED = "modeled"
+FIELD_COVERAGE_DELEGATED = "delegated"
+FIELD_COVERAGE_SCOPED = "scoped"
+FIELD_COVERAGE_DISPOSITIONS = (
+    FIELD_COVERAGE_MODELED,
+    FIELD_COVERAGE_DELEGATED,
+    FIELD_COVERAGE_SCOPED,
+)
+
 FIELD_CONFIDENCE_FULL = "full"
 FIELD_CONFIDENCE_SCOPED = "scoped"
 FIELD_CONFIDENCE_BLOCKED = "blocked"
@@ -171,6 +181,10 @@ def _unique(values: Sequence[str]) -> tuple[str, ...]:
             result.append(text)
             seen.add(text)
     return tuple(result)
+
+
+def _is_sha256_fingerprint(value: str) -> bool:
+    return bool(re.fullmatch(r"sha256:[0-9a-f]{64}", str(value)))
 
 
 def _field_claim_scope_requires_route_refs(claim_scope: str) -> bool:
@@ -336,6 +350,7 @@ class FieldLifecycleRow:
 
     field_id: str
     field_name: str = ""
+    owner_id: str = ""
     locations: tuple[str, ...] = ()
     group_id: str = ""
     role: str = FIELD_ROLE_METADATA
@@ -343,6 +358,14 @@ class FieldLifecycleRow:
     behavior_impacts: tuple[str, ...] = ()
     reader_ids: tuple[str, ...] = ()
     writer_ids: tuple[str, ...] = ()
+    default_semantics: str = ""
+    absence_semantics: str = ""
+    serialization_semantics: str = ""
+    privacy_classification: str = ""
+    content_fingerprint: str = ""
+    coverage_disposition: str = FIELD_COVERAGE_MODELED
+    delegated_owner_id: str = ""
+    coverage_evidence_refs: tuple[str, ...] = ()
     replacement_field_id: str = ""
     old_field_ids: tuple[str, ...] = ()
     disposition: str = FIELD_DISPOSITION_UNKNOWN
@@ -357,6 +380,7 @@ class FieldLifecycleRow:
     def __post_init__(self) -> None:
         object.__setattr__(self, "field_id", str(self.field_id))
         object.__setattr__(self, "field_name", str(self.field_name or self.field_id))
+        object.__setattr__(self, "owner_id", str(self.owner_id))
         object.__setattr__(self, "locations", _as_tuple(self.locations))
         object.__setattr__(self, "group_id", str(self.group_id))
         role = str(self.role or FIELD_ROLE_METADATA)
@@ -366,6 +390,14 @@ class FieldLifecycleRow:
         object.__setattr__(self, "behavior_impacts", _as_tuple(self.behavior_impacts))
         object.__setattr__(self, "reader_ids", _as_tuple(self.reader_ids))
         object.__setattr__(self, "writer_ids", _as_tuple(self.writer_ids))
+        object.__setattr__(self, "default_semantics", str(self.default_semantics))
+        object.__setattr__(self, "absence_semantics", str(self.absence_semantics))
+        object.__setattr__(self, "serialization_semantics", str(self.serialization_semantics))
+        object.__setattr__(self, "privacy_classification", str(self.privacy_classification))
+        object.__setattr__(self, "content_fingerprint", str(self.content_fingerprint))
+        object.__setattr__(self, "coverage_disposition", str(self.coverage_disposition))
+        object.__setattr__(self, "delegated_owner_id", str(self.delegated_owner_id))
+        object.__setattr__(self, "coverage_evidence_refs", _as_tuple(self.coverage_evidence_refs))
         object.__setattr__(self, "replacement_field_id", str(self.replacement_field_id))
         object.__setattr__(self, "old_field_ids", _as_tuple(self.old_field_ids))
         disposition = str(self.disposition or FIELD_DISPOSITION_UNKNOWN)
@@ -413,6 +445,7 @@ class FieldLifecycleRow:
         return {
             "field_id": self.field_id,
             "field_name": self.field_name,
+            "owner_id": self.owner_id,
             "locations": list(self.locations),
             "group_id": self.group_id,
             "role": self.role,
@@ -420,6 +453,14 @@ class FieldLifecycleRow:
             "behavior_impacts": list(self.behavior_impacts),
             "reader_ids": list(self.reader_ids),
             "writer_ids": list(self.writer_ids),
+            "default_semantics": self.default_semantics,
+            "absence_semantics": self.absence_semantics,
+            "serialization_semantics": self.serialization_semantics,
+            "privacy_classification": self.privacy_classification,
+            "content_fingerprint": self.content_fingerprint,
+            "coverage_disposition": self.coverage_disposition,
+            "delegated_owner_id": self.delegated_owner_id,
+            "coverage_evidence_refs": list(self.coverage_evidence_refs),
             "replacement_field_id": self.replacement_field_id,
             "old_field_ids": list(self.old_field_ids),
             "disposition": self.disposition,
@@ -444,6 +485,10 @@ class FieldLifecyclePlan:
     discovered_field_ids: tuple[str, ...] = ()
     groups: tuple[FieldLifecycleGroup, ...] = ()
     fields: tuple[FieldLifecycleRow, ...] = ()
+    inventory_revision: str = ""
+    inventory_fingerprint: str = ""
+    discovery_evidence_ids: tuple[str, ...] = ()
+    require_complete_inventory: bool = False
     claim_scope: str = "bounded"
     allow_scoped_confidence: bool = True
     notes: str = ""
@@ -453,6 +498,10 @@ class FieldLifecyclePlan:
         object.__setattr__(self, "discovered_field_ids", _as_tuple(self.discovered_field_ids))
         object.__setattr__(self, "groups", tuple(self.groups))
         object.__setattr__(self, "fields", tuple(self.fields))
+        object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(self, "inventory_fingerprint", str(self.inventory_fingerprint))
+        object.__setattr__(self, "discovery_evidence_ids", _as_tuple(self.discovery_evidence_ids))
+        object.__setattr__(self, "require_complete_inventory", bool(self.require_complete_inventory))
         object.__setattr__(self, "claim_scope", str(self.claim_scope))
         object.__setattr__(self, "notes", str(self.notes))
 
@@ -462,6 +511,10 @@ class FieldLifecyclePlan:
             "discovered_field_ids": list(self.discovered_field_ids),
             "groups": [group.to_dict() for group in self.groups],
             "fields": [field_row.to_dict() for field_row in self.fields],
+            "inventory_revision": self.inventory_revision,
+            "inventory_fingerprint": self.inventory_fingerprint,
+            "discovery_evidence_ids": list(self.discovery_evidence_ids),
+            "require_complete_inventory": self.require_complete_inventory,
             "claim_scope": self.claim_scope,
             "allow_scoped_confidence": self.allow_scoped_confidence,
             "notes": self.notes,
@@ -562,6 +615,74 @@ def review_field_lifecycle(plan: FieldLifecyclePlan) -> FieldLifecycleReport:
     rows_by_id = {row.field_id: row for row in plan.fields}
     group_ids = {group.group_id for group in plan.groups}
     broad_claim = _field_claim_scope_requires_route_refs(plan.claim_scope)
+    discovered_ids = set(plan.discovered_field_ids)
+    row_ids = {row.field_id for row in plan.fields}
+
+    if plan.require_complete_inventory:
+        inventory_requirements = (
+            ("field_inventory_revision_missing", plan.inventory_revision, "record the immutable field inventory revision"),
+            (
+                "field_inventory_fingerprint_missing",
+                plan.inventory_fingerprint,
+                "record the sha256 fingerprint of the independently discovered field inventory",
+            ),
+            (
+                "field_inventory_discovery_evidence_missing",
+                plan.discovery_evidence_ids,
+                "record the discovery evidence used to derive the field inventory",
+            ),
+            (
+                "field_inventory_empty",
+                plan.discovered_field_ids,
+                "discover the bounded field set before making a complete-coverage claim",
+            ),
+        )
+        for code, value, action in inventory_requirements:
+            if not value:
+                findings.append(
+                    FieldLifecycleFinding(
+                        code,
+                        "complete field coverage requires an independently identified inventory",
+                        FIELD_FINDING_BLOCKER,
+                        owner_route=FIELD_ROUTE_MODEL_FIRST,
+                        action=action,
+                    )
+                )
+        if plan.inventory_fingerprint and not _is_sha256_fingerprint(plan.inventory_fingerprint):
+            findings.append(
+                FieldLifecycleFinding(
+                    "field_inventory_fingerprint_invalid",
+                    "field inventory fingerprint is not a canonical sha256 fingerprint",
+                    FIELD_FINDING_BLOCKER,
+                    owner_route=FIELD_ROUTE_DEVELOPMENT_PROCESS_FLOW,
+                    action="recompute the inventory fingerprint from the frozen discovered field set",
+                )
+            )
+        duplicate_field_ids = sorted(
+            field_id for field_id in row_ids if sum(row.field_id == field_id for row in plan.fields) > 1
+        )
+        for field_id in duplicate_field_ids:
+            findings.append(
+                FieldLifecycleFinding(
+                    "field_inventory_duplicate_row",
+                    "complete field inventory contains more than one row for the same field id",
+                    FIELD_FINDING_BLOCKER,
+                    field_id=field_id,
+                    owner_route=FIELD_ROUTE_MODEL_FIRST,
+                    action="retain exactly one lifecycle row and one coverage disposition for this field",
+                )
+            )
+        for field_id in sorted(row_ids - discovered_ids):
+            findings.append(
+                FieldLifecycleFinding(
+                    "field_inventory_unexpected_row",
+                    "field lifecycle row is not present in the independently discovered inventory",
+                    FIELD_FINDING_BLOCKER,
+                    field_id=field_id,
+                    owner_route=FIELD_ROUTE_MODEL_FIRST,
+                    action="add the field to discovery evidence or remove the unsupported lifecycle row",
+                )
+            )
 
     for field_id in plan.discovered_field_ids:
         if field_id not in rows_by_id:
@@ -593,6 +714,98 @@ def review_field_lifecycle(plan: FieldLifecyclePlan) -> FieldLifecycleReport:
 
     projections: list[FieldProjection] = []
     for row in plan.fields:
+        if row.coverage_disposition not in FIELD_COVERAGE_DISPOSITIONS:
+            findings.append(
+                FieldLifecycleFinding(
+                    "field_coverage_disposition_invalid",
+                    "field has no recognized coverage disposition",
+                    FIELD_FINDING_BLOCKER,
+                    field_id=row.field_id,
+                    owner_route=FIELD_ROUTE_MODEL_FIRST,
+                    action="choose exactly one of modeled, delegated, or scoped",
+                    metadata=row.to_dict(),
+                )
+            )
+        if plan.require_complete_inventory:
+            required_semantics = (
+                ("field_owner_missing", row.owner_id, "record the single owner for this field"),
+                ("field_location_missing", row.locations, "record at least one exact field-bearing location"),
+                (
+                    "field_default_semantics_missing",
+                    row.default_semantics,
+                    "state the default behavior, including that no default exists when applicable",
+                ),
+                (
+                    "field_absence_semantics_missing",
+                    row.absence_semantics,
+                    "state what omission, null, or absence means",
+                ),
+                (
+                    "field_serialization_semantics_missing",
+                    row.serialization_semantics,
+                    "state how this field enters or leaves its external or persisted representation",
+                ),
+                (
+                    "field_privacy_classification_missing",
+                    row.privacy_classification,
+                    "classify the field as public, internal, sensitive, secret, or another declared class",
+                ),
+                (
+                    "field_content_fingerprint_missing",
+                    row.content_fingerprint,
+                    "record the sha256 fingerprint of the frozen field semantics",
+                ),
+            )
+            for code, value, action in required_semantics:
+                if not value:
+                    findings.append(
+                        FieldLifecycleFinding(
+                            code,
+                            "complete field coverage requires explicit field semantics and ownership",
+                            FIELD_FINDING_BLOCKER,
+                            field_id=row.field_id,
+                            owner_route=FIELD_ROUTE_MODEL_FIRST,
+                            action=action,
+                            metadata=row.to_dict(),
+                        )
+                    )
+            if row.content_fingerprint and not _is_sha256_fingerprint(row.content_fingerprint):
+                findings.append(
+                    FieldLifecycleFinding(
+                        "field_content_fingerprint_invalid",
+                        "field content fingerprint is not a canonical sha256 fingerprint",
+                        FIELD_FINDING_BLOCKER,
+                        field_id=row.field_id,
+                        owner_route=FIELD_ROUTE_DEVELOPMENT_PROCESS_FLOW,
+                        action="recompute the fingerprint from the frozen field semantics",
+                        metadata=row.to_dict(),
+                    )
+                )
+        if row.coverage_disposition == FIELD_COVERAGE_DELEGATED:
+            if not row.delegated_owner_id or not row.coverage_evidence_refs:
+                findings.append(
+                    FieldLifecycleFinding(
+                        "field_delegation_incomplete",
+                        "delegated field coverage requires one native owner and current native evidence",
+                        FIELD_FINDING_BLOCKER,
+                        field_id=row.field_id,
+                        owner_route=FIELD_ROUTE_MODEL_FIRST,
+                        action="record the specialist owner and its current coverage evidence",
+                        metadata=row.to_dict(),
+                    )
+                )
+        elif row.coverage_disposition == FIELD_COVERAGE_SCOPED and not row.scoped_out_reason:
+            findings.append(
+                FieldLifecycleFinding(
+                    "field_scope_reason_missing",
+                    "scoped field coverage requires an explicit bounded reason",
+                    FIELD_FINDING_BLOCKER,
+                    field_id=row.field_id,
+                    owner_route=FIELD_ROUTE_MODEL_FIRST,
+                    action="record why the field is outside this coverage claim",
+                    metadata=row.to_dict(),
+                )
+            )
         if row.group_id and row.group_id not in group_ids:
             findings.append(
                 FieldLifecycleFinding(
@@ -618,7 +831,7 @@ def review_field_lifecycle(plan: FieldLifecyclePlan) -> FieldLifecycleReport:
                     metadata=row.to_dict(),
                 )
             )
-        if row.behavior_bearing:
+        if row.behavior_bearing and row.coverage_disposition == FIELD_COVERAGE_MODELED:
             if row.projection is None and not row.scoped_out_reason:
                 findings.append(
                     FieldLifecycleFinding(
@@ -701,10 +914,14 @@ def review_field_lifecycle(plan: FieldLifecyclePlan) -> FieldLifecycleReport:
                                 metadata=row.projection.to_dict(),
                             )
                         )
-        elif not row.scoped_out_reason and row.role in {
+        elif (
+            row.coverage_disposition == FIELD_COVERAGE_MODELED
+            and not row.scoped_out_reason
+            and row.role in {
             FIELD_ROLE_PRESENTATION,
             FIELD_ROLE_METADATA,
-        }:
+            }
+        ):
             findings.append(
                 FieldLifecycleFinding(
                     "non_behavior_field_scope_missing",
@@ -791,6 +1008,10 @@ __all__ = [
     "FIELD_CONFIDENCE_BLOCKED",
     "FIELD_CONFIDENCE_FULL",
     "FIELD_CONFIDENCE_SCOPED",
+    "FIELD_COVERAGE_DELEGATED",
+    "FIELD_COVERAGE_DISPOSITIONS",
+    "FIELD_COVERAGE_MODELED",
+    "FIELD_COVERAGE_SCOPED",
     "FIELD_DECISION_BLOCKED",
     "FIELD_DECISION_FULL",
     "FIELD_DECISION_SCOPED",

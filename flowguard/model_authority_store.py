@@ -295,7 +295,18 @@ def audit_model_authority(
     root_path = Path(root).resolve()
     try:
         head, snapshot = load_observed_model_system(root_path)
-    except (ModelAuthorityError, ProjectManifestError) as exc:
+        from .model_system_inventory import (
+            build_manifest_model_system_snapshot,
+        )
+
+        live_snapshot = build_manifest_model_system_snapshot(
+            root_path,
+            snapshot_id=snapshot.snapshot_id,
+            system_id=snapshot.system_id,
+            subject_lane=SUBJECT_OBSERVED_IMPLEMENTATION,
+            lifecycle=LIFECYCLE_ACTIVE,
+        )
+    except (ModelAuthorityError, ProjectManifestError, ValueError) as exc:
         return ModelAuthorityAuditReport(
             root=str(root_path),
             status=MODEL_AUTHORITY_STATUS_BLOCKED,
@@ -306,6 +317,94 @@ def audit_model_authority(
                     str(exc),
                 ),
             ),
+        )
+    stale_findings: list[ModelAuthorityFinding] = []
+    stored_models = {
+        item.logical_model_id: item.fingerprint
+        for item in snapshot.model_instances
+    }
+    live_models = {
+        item.logical_model_id: item.fingerprint
+        for item in live_snapshot.model_instances
+    }
+    if stored_models != live_models:
+        added = sorted(set(live_models) - set(stored_models))
+        removed = sorted(set(stored_models) - set(live_models))
+        changed = sorted(
+            model_id
+            for model_id in set(stored_models) & set(live_models)
+            if stored_models[model_id] != live_models[model_id]
+        )
+        stale_findings.append(
+            ModelAuthorityFinding(
+                "blocked",
+                "observed_model_inventory_stale",
+                "stored observed model inventory differs from the live manifest: "
+                f"added={added}, removed={removed}, changed={changed}",
+            )
+        )
+    if (
+        snapshot.subject_revision != live_snapshot.subject_revision
+        or snapshot.coverage.source_inventory_fingerprint
+        != live_snapshot.coverage.source_inventory_fingerprint
+    ):
+        stale_findings.append(
+            ModelAuthorityFinding(
+                "blocked",
+                "observed_source_inventory_stale",
+                "stored observed source revision or coverage inventory fingerprint "
+                "does not match the live checkout",
+            )
+        )
+    stored_dimensions = {
+        item.dimension_id: item.to_dict()
+        for item in snapshot.coverage.dimensions
+    }
+    live_dimensions = {
+        item.dimension_id: item.to_dict()
+        for item in live_snapshot.coverage.dimensions
+    }
+    changed_dimensions = sorted(
+        dimension_id
+        for dimension_id in set(stored_dimensions) | set(live_dimensions)
+        if stored_dimensions.get(dimension_id)
+        != live_dimensions.get(dimension_id)
+    )
+    if changed_dimensions:
+        stale_findings.append(
+            ModelAuthorityFinding(
+                "blocked",
+                "observed_coverage_dimensions_stale",
+                "stored observed coverage differs from live owners in dimensions: "
+                + ", ".join(changed_dimensions),
+            )
+        )
+    stored_owner_refs = {
+        (item.endpoint_kind, item.endpoint_id): item.fingerprint
+        for item in snapshot.owner_artifact_refs
+    }
+    live_owner_refs = {
+        (item.endpoint_kind, item.endpoint_id): item.fingerprint
+        for item in live_snapshot.owner_artifact_refs
+    }
+    if stored_owner_refs != live_owner_refs:
+        stale_findings.append(
+            ModelAuthorityFinding(
+                "blocked",
+                "observed_owner_artifacts_stale",
+                "stored owner-artifact identity set differs from current canonical owners",
+            )
+        )
+    if stale_findings:
+        return ModelAuthorityAuditReport(
+            root=str(root_path),
+            status=MODEL_AUTHORITY_STATUS_BLOCKED,
+            observed_source_revision=snapshot.subject_revision,
+            observed_snapshot_fingerprint=snapshot.fingerprint,
+            head_fingerprint=head.fingerprint,
+            coverage_status=snapshot.coverage_status,
+            unresolved_gap_ids=snapshot.unresolved_gap_ids,
+            findings=tuple(stale_findings),
         )
     status = (
         MODEL_AUTHORITY_STATUS_PASS

@@ -31,6 +31,7 @@ from .behavior_plane import (
     BCL_PLANE_UNCLASSIFIED,
 )
 from .schema import SCHEMA_VERSION
+from .model_authority import SUBJECT_LANES, SUBJECT_NORMATIVE_TARGET
 from .primary_path_authority import (
     PPA_CONFIDENCE_BLOCKED,
     PPA_CONFIDENCE_FULL,
@@ -150,10 +151,11 @@ BCL_SOURCE_CODE = "code"
 BCL_SOURCE_API = "api"
 BCL_SOURCE_CLI = "cli"
 BCL_SOURCE_UI = "ui"
+BCL_SOURCE_FIELD = "field"
 BCL_SOURCE_DOC = "doc"
 BCL_SOURCE_SKILL = "skill"
 BCL_SOURCE_TEST = "test"
-BCL_SOURCE_OPENSPEC = "openspec"
+BCL_SOURCE_WORK_CONTEXT = "work_context"
 BCL_SOURCE_RELEASE = "release"
 BCL_SOURCE_PROCESS = "process"
 BCL_SOURCE_KINDS = (
@@ -161,10 +163,11 @@ BCL_SOURCE_KINDS = (
     BCL_SOURCE_API,
     BCL_SOURCE_CLI,
     BCL_SOURCE_UI,
+    BCL_SOURCE_FIELD,
     BCL_SOURCE_DOC,
     BCL_SOURCE_SKILL,
     BCL_SOURCE_TEST,
-    BCL_SOURCE_OPENSPEC,
+    BCL_SOURCE_WORK_CONTEXT,
     BCL_SOURCE_RELEASE,
     BCL_SOURCE_PROCESS,
 )
@@ -208,6 +211,26 @@ BCL_SOURCE_FRESHNESS_STATES = (
     BCL_SOURCE_FRESHNESS_CHANGED,
     BCL_SOURCE_FRESHNESS_MISSING,
     BCL_SOURCE_FRESHNESS_UNCHECKED,
+)
+
+BCL_SOURCE_AUTHORITY_NORMATIVE = "normative"
+BCL_SOURCE_AUTHORITY_OBSERVED = "observed"
+BCL_SOURCE_AUTHORITY_SUPPORTING = "supporting"
+BCL_SOURCE_AUTHORITY_HISTORICAL = "historical"
+BCL_SOURCE_AUTHORITY_ROLES = (
+    BCL_SOURCE_AUTHORITY_NORMATIVE,
+    BCL_SOURCE_AUTHORITY_OBSERVED,
+    BCL_SOURCE_AUTHORITY_SUPPORTING,
+    BCL_SOURCE_AUTHORITY_HISTORICAL,
+)
+
+BCL_DISPOSITION_MODELED = "modeled"
+BCL_DISPOSITION_DELEGATED = "delegated"
+BCL_DISPOSITION_SCOPED = "scoped"
+BCL_COVERAGE_DISPOSITIONS = (
+    BCL_DISPOSITION_MODELED,
+    BCL_DISPOSITION_DELEGATED,
+    BCL_DISPOSITION_SCOPED,
 )
 
 BCL_REPLACEMENT_ACTIVE = "active"
@@ -344,13 +367,24 @@ class BehaviorSourceSurface:
     surface_kind: str = BCL_SOURCE_CODE
     label: str = ""
     source_ref: str = ""
+    source_system_id: str = ""
+    native_artifact_id: str = ""
+    content_fingerprint: str = ""
+    inventory_revision: str = ""
+    discovery_evidence_ids: tuple[str, ...] = ()
+    source_authority_role: str = BCL_SOURCE_AUTHORITY_NORMATIVE
+    declared_semantics_fingerprint: str = ""
+    coverage_disposition: str = BCL_DISPOSITION_MODELED
+    delegated_owner_inventory_id: str = ""
+    delegation_relation_type: str = ""
+    native_evidence_ids: tuple[str, ...] = ()
     commitment_ids: tuple[str, ...] = ()
     business_intent_ids: tuple[str, ...] = ()
     primary_path_id: str = ""
     delegates_to_primary_path: bool = False
     similarity_relation_ids: tuple[str, ...] = ()
     similarity_obligation_ids: tuple[str, ...] = ()
-    freshness_state: str = BCL_SOURCE_FRESHNESS_CURRENT
+    freshness_state: str = BCL_SOURCE_FRESHNESS_UNCHECKED
     in_scope: bool = True
     scoped_out_reason: str = ""
     owner: str = ""
@@ -363,13 +397,56 @@ class BehaviorSourceSurface:
         object.__setattr__(self, "surface_kind", str(self.surface_kind or BCL_SOURCE_CODE))
         object.__setattr__(self, "label", str(self.label))
         object.__setattr__(self, "source_ref", str(self.source_ref))
+        object.__setattr__(self, "source_system_id", str(self.source_system_id))
+        object.__setattr__(self, "native_artifact_id", str(self.native_artifact_id))
+        object.__setattr__(self, "content_fingerprint", str(self.content_fingerprint))
+        object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(
+            self,
+            "discovery_evidence_ids",
+            _as_tuple(self.discovery_evidence_ids),
+        )
+        object.__setattr__(
+            self,
+            "source_authority_role",
+            str(self.source_authority_role or BCL_SOURCE_AUTHORITY_NORMATIVE),
+        )
+        object.__setattr__(
+            self,
+            "declared_semantics_fingerprint",
+            str(self.declared_semantics_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "coverage_disposition",
+            str(self.coverage_disposition or BCL_DISPOSITION_MODELED),
+        )
+        object.__setattr__(
+            self,
+            "delegated_owner_inventory_id",
+            str(self.delegated_owner_inventory_id),
+        )
+        object.__setattr__(
+            self,
+            "delegation_relation_type",
+            str(self.delegation_relation_type),
+        )
+        object.__setattr__(
+            self,
+            "native_evidence_ids",
+            _as_tuple(self.native_evidence_ids),
+        )
         object.__setattr__(self, "commitment_ids", _as_tuple(self.commitment_ids))
         object.__setattr__(self, "business_intent_ids", _as_tuple(self.business_intent_ids))
         object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
         object.__setattr__(self, "delegates_to_primary_path", bool(self.delegates_to_primary_path))
         object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
         object.__setattr__(self, "similarity_obligation_ids", _as_tuple(self.similarity_obligation_ids))
-        object.__setattr__(self, "freshness_state", str(self.freshness_state or BCL_SOURCE_FRESHNESS_CURRENT))
+        object.__setattr__(
+            self,
+            "freshness_state",
+            str(self.freshness_state or BCL_SOURCE_FRESHNESS_UNCHECKED),
+        )
         object.__setattr__(self, "in_scope", bool(self.in_scope))
         object.__setattr__(self, "scoped_out_reason", str(self.scoped_out_reason))
         object.__setattr__(self, "owner", str(self.owner))
@@ -386,6 +463,17 @@ class BehaviorSourceSurface:
             "surface_kind": self.surface_kind,
             "label": self.label,
             "source_ref": self.source_ref,
+            "source_system_id": self.source_system_id,
+            "native_artifact_id": self.native_artifact_id,
+            "content_fingerprint": self.content_fingerprint,
+            "inventory_revision": self.inventory_revision,
+            "discovery_evidence_ids": list(self.discovery_evidence_ids),
+            "source_authority_role": self.source_authority_role,
+            "declared_semantics_fingerprint": self.declared_semantics_fingerprint,
+            "coverage_disposition": self.coverage_disposition,
+            "delegated_owner_inventory_id": self.delegated_owner_inventory_id,
+            "delegation_relation_type": self.delegation_relation_type,
+            "native_evidence_ids": list(self.native_evidence_ids),
             "commitment_ids": list(self.commitment_ids),
             "business_intent_ids": list(self.business_intent_ids),
             "primary_path_id": self.primary_path_id,
@@ -930,6 +1018,12 @@ class BehaviorCommitmentLedger:
     current_revision: str = ""
     commitments: tuple[BehaviorCommitment | Mapping[str, Any], ...] = ()
     source_surfaces: tuple[BehaviorSourceSurface | Mapping[str, Any], ...] = ()
+    subject_lane: str = SUBJECT_NORMATIVE_TARGET
+    expected_source_surface_ids: tuple[str, ...] = ()
+    source_inventory_revision: str = ""
+    source_inventory_fingerprint: str = ""
+    source_inventory_evidence_ids: tuple[str, ...] = ()
+    require_complete_source_inventory: bool = False
     expected_commitment_ids: tuple[str, ...] = ()
     expected_business_intent_ids: tuple[str, ...] = ()
     claim_scope: str = BCL_SCOPE_ROUTINE
@@ -947,6 +1041,32 @@ class BehaviorCommitmentLedger:
         object.__setattr__(self, "current_revision", str(self.current_revision))
         object.__setattr__(self, "commitments", tuple(_coerce_commitment(item) for item in self.commitments))
         object.__setattr__(self, "source_surfaces", tuple(_coerce_surface(item) for item in self.source_surfaces))
+        object.__setattr__(self, "subject_lane", str(self.subject_lane))
+        object.__setattr__(
+            self,
+            "expected_source_surface_ids",
+            _as_tuple(self.expected_source_surface_ids),
+        )
+        object.__setattr__(
+            self,
+            "source_inventory_revision",
+            str(self.source_inventory_revision),
+        )
+        object.__setattr__(
+            self,
+            "source_inventory_fingerprint",
+            str(self.source_inventory_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "source_inventory_evidence_ids",
+            _as_tuple(self.source_inventory_evidence_ids),
+        )
+        object.__setattr__(
+            self,
+            "require_complete_source_inventory",
+            bool(self.require_complete_source_inventory),
+        )
         object.__setattr__(self, "expected_commitment_ids", _as_tuple(self.expected_commitment_ids))
         object.__setattr__(self, "expected_business_intent_ids", _as_tuple(self.expected_business_intent_ids))
         object.__setattr__(self, "claim_scope", str(self.claim_scope or BCL_SCOPE_ROUTINE))
@@ -968,6 +1088,12 @@ class BehaviorCommitmentLedger:
             "current_revision": self.current_revision,
             "commitments": [commitment.to_dict() for commitment in self.commitments],
             "source_surfaces": [surface.to_dict() for surface in self.source_surfaces],
+            "subject_lane": self.subject_lane,
+            "expected_source_surface_ids": list(self.expected_source_surface_ids),
+            "source_inventory_revision": self.source_inventory_revision,
+            "source_inventory_fingerprint": self.source_inventory_fingerprint,
+            "source_inventory_evidence_ids": list(self.source_inventory_evidence_ids),
+            "require_complete_source_inventory": self.require_complete_source_inventory,
             "expected_commitment_ids": list(self.expected_commitment_ids),
             "expected_business_intent_ids": list(self.expected_business_intent_ids),
             "claim_scope": self.claim_scope,
@@ -1125,6 +1251,8 @@ class BehaviorCommitmentCoverageReport:
     covered_commitment_ids: tuple[str, ...] = ()
     covered_business_intent_ids: tuple[str, ...] = ()
     missing_business_intent_ids: tuple[str, ...] = ()
+    missing_source_surface_ids: tuple[str, ...] = ()
+    unexpected_source_surface_ids: tuple[str, ...] = ()
     unmapped_surface_ids: tuple[str, ...] = ()
     extra_commitment_ids: tuple[str, ...] = ()
     path_sensitive_commitment_ids: tuple[str, ...] = ()
@@ -1140,6 +1268,16 @@ class BehaviorCommitmentCoverageReport:
         object.__setattr__(self, "covered_commitment_ids", _as_tuple(self.covered_commitment_ids))
         object.__setattr__(self, "covered_business_intent_ids", _as_tuple(self.covered_business_intent_ids))
         object.__setattr__(self, "missing_business_intent_ids", _as_tuple(self.missing_business_intent_ids))
+        object.__setattr__(
+            self,
+            "missing_source_surface_ids",
+            _as_tuple(self.missing_source_surface_ids),
+        )
+        object.__setattr__(
+            self,
+            "unexpected_source_surface_ids",
+            _as_tuple(self.unexpected_source_surface_ids),
+        )
         object.__setattr__(self, "unmapped_surface_ids", _as_tuple(self.unmapped_surface_ids))
         object.__setattr__(self, "extra_commitment_ids", _as_tuple(self.extra_commitment_ids))
         object.__setattr__(self, "path_sensitive_commitment_ids", _as_tuple(self.path_sensitive_commitment_ids))
@@ -1169,6 +1307,8 @@ class BehaviorCommitmentCoverageReport:
             f"covered_commitments: {len(self.covered_commitment_ids)}",
             f"path_sensitive_commitments: {len(self.path_sensitive_commitment_ids)}",
             f"ppa_blocked_commitments: {len(self.ppa_blocked_commitment_ids)}",
+            f"missing_source_surfaces: {len(self.missing_source_surface_ids)}",
+            f"unexpected_source_surfaces: {len(self.unexpected_source_surface_ids)}",
             f"unmapped_surfaces: {len(self.unmapped_surface_ids)}",
             f"extra_commitments: {len(self.extra_commitment_ids)}",
             f"findings: {len(self.findings)}",
@@ -1196,6 +1336,8 @@ class BehaviorCommitmentCoverageReport:
             "covered_commitment_ids": list(self.covered_commitment_ids),
             "covered_business_intent_ids": list(self.covered_business_intent_ids),
             "missing_business_intent_ids": list(self.missing_business_intent_ids),
+            "missing_source_surface_ids": list(self.missing_source_surface_ids),
+            "unexpected_source_surface_ids": list(self.unexpected_source_surface_ids),
             "unmapped_surface_ids": list(self.unmapped_surface_ids),
             "extra_commitment_ids": list(self.extra_commitment_ids),
             "path_sensitive_commitment_ids": list(self.path_sensitive_commitment_ids),
@@ -1227,6 +1369,140 @@ def _finding(
     )
 
 
+def _review_complete_source_identity(
+    surface: BehaviorSourceSurface,
+    ledger: BehaviorCommitmentLedger,
+    findings: list[BehaviorCommitmentFinding],
+) -> None:
+    """Require one exact identity and one non-overlapping coverage disposition."""
+
+    required_values = {
+        "source_system_id": surface.source_system_id,
+        "native_artifact_id": surface.native_artifact_id,
+        "content_fingerprint": surface.content_fingerprint,
+        "inventory_revision": surface.inventory_revision,
+        "declared_semantics_fingerprint": surface.declared_semantics_fingerprint,
+    }
+    missing = tuple(
+        field_name
+        for field_name, value in required_values.items()
+        if not str(value)
+    )
+    if missing:
+        findings.append(
+            _finding(
+                "source_surface_identity_incomplete",
+                "expected source item is missing stable native, content, inventory, or semantic identity",
+                surface_id=surface.surface_id,
+                metadata={"missing_fields": list(missing)},
+            )
+        )
+    if surface.content_fingerprint and not surface.content_fingerprint.startswith(
+        "sha256:"
+    ):
+        findings.append(
+            _finding(
+                "source_surface_content_fingerprint_invalid",
+                "source content identity must use a sha256 fingerprint",
+                surface_id=surface.surface_id,
+            )
+        )
+    if (
+        surface.declared_semantics_fingerprint
+        and not surface.declared_semantics_fingerprint.startswith("sha256:")
+    ):
+        findings.append(
+            _finding(
+                "source_surface_semantics_fingerprint_invalid",
+                "source semantic identity must use a sha256 fingerprint",
+                surface_id=surface.surface_id,
+            )
+        )
+    if surface.inventory_revision != ledger.source_inventory_revision:
+        findings.append(
+            _finding(
+                "source_surface_inventory_revision_stale",
+                "source row does not match the current immutable inventory revision",
+                surface_id=surface.surface_id,
+                metadata={
+                    "surface_revision": surface.inventory_revision,
+                    "ledger_revision": ledger.source_inventory_revision,
+                },
+            )
+        )
+    if not surface.discovery_evidence_ids:
+        findings.append(
+            _finding(
+                "source_surface_discovery_evidence_missing",
+                "expected source item requires current discovery evidence",
+                surface_id=surface.surface_id,
+            )
+        )
+    if surface.source_authority_role not in BCL_SOURCE_AUTHORITY_ROLES:
+        findings.append(
+            _finding(
+                "source_surface_authority_role_invalid",
+                "expected source item must declare a normative, observed, supporting, or historical role",
+                surface_id=surface.surface_id,
+            )
+        )
+    if surface.coverage_disposition not in BCL_COVERAGE_DISPOSITIONS:
+        findings.append(
+            _finding(
+                "source_surface_disposition_invalid",
+                "expected source item must have exactly one modeled, delegated, or scoped disposition",
+                surface_id=surface.surface_id,
+            )
+        )
+        return
+
+    modeled_fields = bool(surface.commitment_ids)
+    delegated_fields = bool(
+        surface.delegated_owner_inventory_id
+        or surface.delegation_relation_type
+        or surface.native_evidence_ids
+    )
+    scoped_fields = surface.has_scoped_disposition()
+    if surface.coverage_disposition == BCL_DISPOSITION_MODELED:
+        if len(surface.commitment_ids) != 1 or delegated_fields or scoped_fields:
+            findings.append(
+                _finding(
+                    "source_surface_modeled_disposition_incomplete",
+                    "modeled disposition needs exactly one commitment and no delegated or scoped success path",
+                    surface_id=surface.surface_id,
+                )
+            )
+    elif surface.coverage_disposition == BCL_DISPOSITION_DELEGATED:
+        if (
+            modeled_fields
+            or scoped_fields
+            or not surface.delegated_owner_inventory_id
+            or not surface.delegation_relation_type
+            or not surface.native_evidence_ids
+        ):
+            findings.append(
+                _finding(
+                    "source_surface_delegated_disposition_incomplete",
+                    "delegated disposition needs one native owner, typed relation, and native evidence only",
+                    surface_id=surface.surface_id,
+                )
+            )
+    elif surface.coverage_disposition == BCL_DISPOSITION_SCOPED:
+        if (
+            surface.in_scope
+            or modeled_fields
+            or delegated_fields
+            or not scoped_fields
+        ):
+            findings.append(
+                _finding(
+                    "source_surface_scoped_disposition_incomplete",
+                    "scoped disposition needs owner, reason, boundary, and rationale only",
+                    surface_id=surface.surface_id,
+                )
+            )
+
+
 def review_behavior_commitment_ledger(
     ledger: BehaviorCommitmentLedger | Mapping[str, Any],
 ) -> BehaviorCommitmentCoverageReport:
@@ -1255,6 +1531,56 @@ def review_behavior_commitment_ledger(
                 metadata={"change_mode": ledger.change_mode},
             )
         )
+    if ledger.subject_lane not in SUBJECT_LANES:
+        findings.append(
+            _finding(
+                "ledger_subject_lane_invalid",
+                "ledger must bind exactly one current model-system subject lane",
+                metadata={"subject_lane": ledger.subject_lane},
+            )
+        )
+
+    complete_inventory_required = bool(
+        ledger.require_complete_source_inventory or ledger.broad_claim()
+    )
+    if complete_inventory_required:
+        if not ledger.expected_source_surface_ids:
+            findings.append(
+                _finding(
+                    "expected_source_inventory_missing",
+                    "broad coverage requires an independently derived expected source inventory",
+                )
+            )
+        if len(set(ledger.expected_source_surface_ids)) != len(
+            ledger.expected_source_surface_ids
+        ):
+            findings.append(
+                _finding(
+                    "expected_source_inventory_duplicate_id",
+                    "expected source inventory contains duplicate identities",
+                )
+            )
+        if not ledger.source_inventory_revision:
+            findings.append(
+                _finding(
+                    "source_inventory_revision_missing",
+                    "complete source inventory requires one immutable revision",
+                )
+            )
+        if not ledger.source_inventory_fingerprint.startswith("sha256:"):
+            findings.append(
+                _finding(
+                    "source_inventory_fingerprint_missing",
+                    "complete source inventory requires one content fingerprint",
+                )
+            )
+        if not ledger.source_inventory_evidence_ids:
+            findings.append(
+                _finding(
+                    "source_inventory_evidence_missing",
+                    "complete source inventory requires current discovery evidence",
+                )
+            )
 
     stable_identity_required = bool(
         ledger.broad_claim()
@@ -1349,6 +1675,73 @@ def review_behavior_commitment_ledger(
                 )
             )
         surface_by_id[surface.surface_id] = surface
+
+    expected_surface_ids = set(ledger.expected_source_surface_ids)
+    actual_surface_ids = set(surface_by_id)
+    missing_source_surface_ids = tuple(
+        sorted(expected_surface_ids - actual_surface_ids)
+    )
+    unexpected_source_surface_ids = tuple(
+        sorted(actual_surface_ids - expected_surface_ids)
+    )
+    if complete_inventory_required:
+        for surface_id in missing_source_surface_ids:
+            findings.append(
+                _finding(
+                    "expected_source_surface_missing",
+                    "expected source item has no modeled, delegated, or scoped disposition",
+                    surface_id=surface_id,
+                )
+            )
+        for surface_id in unexpected_source_surface_ids:
+            findings.append(
+                _finding(
+                    "unexpected_source_surface",
+                    "ledger contains a source row outside the immutable expected inventory",
+                    surface_id=surface_id,
+                )
+            )
+
+    normative_by_intent: dict[str, set[str]] = {}
+    observed_by_intent: dict[str, set[str]] = {}
+    for surface in ledger.source_surfaces:
+        if complete_inventory_required:
+            _review_complete_source_identity(surface, ledger, findings)
+        target = (
+            normative_by_intent
+            if surface.source_authority_role == BCL_SOURCE_AUTHORITY_NORMATIVE
+            else observed_by_intent
+            if surface.source_authority_role == BCL_SOURCE_AUTHORITY_OBSERVED
+            else None
+        )
+        if target is not None and surface.declared_semantics_fingerprint:
+            for intent_id in surface.business_intent_ids:
+                target.setdefault(intent_id, set()).add(
+                    surface.declared_semantics_fingerprint
+                )
+    for intent_id, fingerprints in normative_by_intent.items():
+        if len(fingerprints) > 1:
+            findings.append(
+                _finding(
+                    "incompatible_normative_sources",
+                    "current normative sources disagree for one exact business intent",
+                    commitment_id=intent_id,
+                    metadata={"semantic_fingerprints": sorted(fingerprints)},
+                )
+            )
+        observed = observed_by_intent.get(intent_id, set())
+        if observed and not observed.issubset(fingerprints):
+            findings.append(
+                _finding(
+                    "normative_observed_mismatch",
+                    "observed behavior differs from the normative source and requires the existing miss or repair route",
+                    commitment_id=intent_id,
+                    metadata={
+                        "normative_fingerprints": sorted(fingerprints),
+                        "observed_fingerprints": sorted(observed),
+                    },
+                )
+            )
 
     for expected_id in ledger.expected_commitment_ids:
         if expected_id not in commitment_by_id:
@@ -1447,6 +1840,8 @@ def review_behavior_commitment_ledger(
         covered_commitment_ids=tuple(dict.fromkeys(covered_commitment_ids)),
         covered_business_intent_ids=covered_business_intent_ids,
         missing_business_intent_ids=missing_business_intent_ids,
+        missing_source_surface_ids=missing_source_surface_ids,
+        unexpected_source_surface_ids=unexpected_source_surface_ids,
         unmapped_surface_ids=tuple(dict.fromkeys(unmapped_surface_ids)),
         extra_commitment_ids=tuple(dict.fromkeys(extra_commitment_ids)),
         path_sensitive_commitment_ids=tuple(dict.fromkeys(path_sensitive_commitment_ids)),
@@ -1504,7 +1899,10 @@ def _review_surface(
                 metadata={"surface": surface.to_dict()},
             )
         )
-    if not surface.commitment_ids:
+    if (
+        surface.coverage_disposition == BCL_DISPOSITION_MODELED
+        and not surface.commitment_ids
+    ):
         unmapped_surface_ids.append(surface.surface_id)
         findings.append(
             _finding(
@@ -2336,6 +2734,10 @@ __all__ = [
     "BCL_DECISION_BLOCKED",
     "BCL_DECISION_GREEN",
     "BCL_DECISION_SCOPED",
+    "BCL_DISPOSITION_DELEGATED",
+    "BCL_DISPOSITION_MODELED",
+    "BCL_DISPOSITION_SCOPED",
+    "BCL_COVERAGE_DISPOSITIONS",
     "BCL_EVIDENCE_BLOCKED",
     "BCL_EVIDENCE_CURRENT_PASS",
     "BCL_EVIDENCE_MISSING",
@@ -2407,6 +2809,11 @@ __all__ = [
     "BCL_SEVERITY_BLOCKER",
     "BCL_SEVERITY_WARNING",
     "BCL_SOURCE_API",
+    "BCL_SOURCE_AUTHORITY_HISTORICAL",
+    "BCL_SOURCE_AUTHORITY_NORMATIVE",
+    "BCL_SOURCE_AUTHORITY_OBSERVED",
+    "BCL_SOURCE_AUTHORITY_ROLES",
+    "BCL_SOURCE_AUTHORITY_SUPPORTING",
     "BCL_SOURCE_CLI",
     "BCL_SOURCE_CODE",
     "BCL_SOURCE_DOC",
@@ -2415,8 +2822,9 @@ __all__ = [
     "BCL_SOURCE_FRESHNESS_MISSING",
     "BCL_SOURCE_FRESHNESS_STATES",
     "BCL_SOURCE_FRESHNESS_UNCHECKED",
+    "BCL_SOURCE_FIELD",
     "BCL_SOURCE_KINDS",
-    "BCL_SOURCE_OPENSPEC",
+    "BCL_SOURCE_WORK_CONTEXT",
     "BCL_SOURCE_PROCESS",
     "BCL_SOURCE_RELEASE",
     "BCL_SOURCE_SKILL",

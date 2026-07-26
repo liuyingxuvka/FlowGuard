@@ -28,8 +28,8 @@ from .behavior_commitment_lookup import (
     BehaviorLookupQuery,
     query_behavior_commitments_from_path,
 )
-from .behavior_plane import BCL_PLANE_DEVELOPMENT_PROCESS
 from .export import to_jsonable
+from .model_authority import SUBJECT_LANES
 from .model_angle_deliberation import (
     MODEL_ANGLE_CONFIDENCE_BLOCKED,
     MODEL_ANGLE_CONFIDENCE_SCOPED,
@@ -406,7 +406,7 @@ class ExistingModelPreflight:
     typed_external_difference_ids: tuple[str, ...] = ()
     require_complete_surface_inventory: bool = False
     skip_reason: str = ""
-    spec_context: Mapping[str, Any] = field(default_factory=dict)
+    work_contexts: tuple[Mapping[str, Any], ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "preflight_id", str(self.preflight_id))
@@ -501,7 +501,11 @@ class ExistingModelPreflight:
         object.__setattr__(self, "typed_external_difference_ids", _as_tuple(self.typed_external_difference_ids))
         object.__setattr__(self, "require_complete_surface_inventory", bool(self.require_complete_surface_inventory))
         object.__setattr__(self, "skip_reason", str(self.skip_reason))
-        object.__setattr__(self, "spec_context", dict(self.spec_context))
+        object.__setattr__(
+            self,
+            "work_contexts",
+            tuple(dict(item) for item in self.work_contexts),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -558,7 +562,9 @@ class ExistingModelPreflight:
             "typed_external_difference_ids": list(self.typed_external_difference_ids),
             "require_complete_surface_inventory": self.require_complete_surface_inventory,
             "skip_reason": self.skip_reason,
-            "spec_context": to_jsonable(dict(self.spec_context)),
+            "work_contexts": [
+                to_jsonable(dict(item)) for item in self.work_contexts
+            ],
         }
 
 
@@ -1139,93 +1145,94 @@ def review_existing_model_preflight(
                 metadata={"behavior_lookup_status": preflight.behavior_lookup_status},
             )
         )
-    if preflight.spec_context:
-        context = preflight.spec_context
+    for context in preflight.work_contexts:
         missing = tuple(
             field_name
-            for field_name in ("provider_id", "context_id", "change_id")
+            for field_name in (
+                "adapter_id",
+                "context_id",
+                "native_work_id",
+                "native_owner_id",
+            )
             if not str(context.get(field_name, ""))
         )
         if missing:
             findings.append(
                 ExistingModelPreflightFinding(
-                    "spec_context_identity_missing",
-                    "OpenSpec context must preserve provider, context, and change identities",
+                    "work_context_identity_missing",
+                    "WorkContext must preserve adapter, context, native work, and native owner identities",
                     metadata={"missing": list(missing)},
                 )
             )
-        if context.get("behavior_plane") != BCL_PLANE_DEVELOPMENT_PROCESS:
+        if context.get("subject_lane") not in SUBJECT_LANES:
             findings.append(
                 ExistingModelPreflightFinding(
-                    "spec_context_wrong_plane",
-                    "OpenSpec context belongs only to development_process",
-                    metadata=dict(context),
-                )
-            )
-        if context.get("provider_id") != "openspec":
-            findings.append(
-                ExistingModelPreflightFinding(
-                    "spec_context_provider_unsupported",
-                    "only official OpenSpec context is supported",
+                    "work_context_subject_lane_invalid",
+                    "WorkContext must preserve one current model-system subject lane",
                     metadata=dict(context),
                 )
             )
         if context.get("read_only") is not True:
             findings.append(
                 ExistingModelPreflightFinding(
-                    "spec_context_write_authority_forbidden",
-                    "OpenSpec may be used only as read-only external context",
+                    "work_context_write_authority_forbidden",
+                    "every external WorkContext must be read-only",
                     metadata=dict(context),
                 )
             )
         if context.get("provider_owns_product_behavior") is not False:
             findings.append(
                 ExistingModelPreflightFinding(
-                    "spec_provider_takes_product_ownership",
-                    "provider tasks may target but cannot own product-runtime commitments",
+                    "work_context_takes_product_ownership",
+                    "native provider artifacts may source but cannot own product-runtime commitments",
                     metadata=dict(context),
                 )
             )
         if context.get("current") is not True:
             findings.append(
                 ExistingModelPreflightFinding(
-                    "spec_context_not_current",
-                    "OpenSpec context must be current before it can support model selection",
+                    "work_context_not_current",
+                    "WorkContext must be current before it can support model selection",
                     metadata=dict(context),
                 )
             )
-        if not str(context.get("context_hash", "")).startswith("sha256:"):
+        if not str(context.get("context_fingerprint", "")).startswith("sha256:"):
             findings.append(
                 ExistingModelPreflightFinding(
-                    "spec_context_fingerprint_missing",
-                    "OpenSpec context needs one current content identity",
+                    "work_context_fingerprint_missing",
+                    "WorkContext needs one current content identity",
                     metadata=dict(context),
                 )
             )
         if not context.get("artifact_ids"):
             findings.append(
                 ExistingModelPreflightFinding(
-                    "spec_context_artifacts_missing",
-                    "OpenSpec context needs proposal/design/spec/tasks/status artifact identities",
+                    "work_context_artifacts_missing",
+                    "WorkContext needs native artifact identities and generic roles",
                     metadata=dict(context),
                 )
             )
         if preflight.behavior_lookup_status != BCL_LOOKUP_STATUS_PERFORMED:
             findings.append(
                 ExistingModelPreflightFinding(
-                    "spec_context_before_plane_lookup",
-                    "OpenSpec context may be consumed only after canonical plane-first lookup",
+                    "work_context_before_plane_lookup",
+                    "WorkContext may be consumed only after canonical plane-first lookup",
                     metadata=dict(context),
                 )
             )
-        elif preflight.primary_behavior_plane != BCL_PLANE_DEVELOPMENT_PROCESS:
+        mapped_surface_ids = set(context.get("behavior_source_surface_ids", ()))
+        if (
+            preflight.selected_commitment_id
+            and not mapped_surface_ids
+        ):
             findings.append(
                 ExistingModelPreflightFinding(
-                    "spec_context_lookup_plane_mismatch",
-                    "OpenSpec context cannot merge into a primary owner from another plane",
+                    "work_context_behavior_mapping_missing",
+                    "selected behavior ownership requires WorkContext source-surface mapping",
                     metadata={
                         "primary_behavior_plane": preflight.primary_behavior_plane,
-                        "spec_context": dict(context),
+                        "selected_commitment_id": preflight.selected_commitment_id,
+                        "context": dict(context),
                     },
                 )
             )

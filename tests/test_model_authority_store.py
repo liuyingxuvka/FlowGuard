@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from unittest.mock import patch
 from dataclasses import replace
 from pathlib import Path
 
@@ -262,11 +263,42 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                 bootstrap_evidence_fingerprint=SHA_D,
             )
 
-            report = audit_model_authority(root)
+            with patch(
+                "flowguard.model_system_inventory.build_manifest_model_system_snapshot",
+                return_value=base,
+            ):
+                report = audit_model_authority(root)
 
             self.assertTrue(report.ok)
             self.assertEqual("pass", report.status)
             self.assertEqual(base.fingerprint, report.observed_snapshot_fingerprint)
+
+    def test_audit_blocks_when_live_manifest_differs_from_stored_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / ".flowguard" / "project.toml"
+            manifest.parent.mkdir()
+            manifest.write_text("[flowguard]\n", encoding="utf-8")
+            base = snapshot("git:" + "a" * 40, SHA_A, "observed-a")
+            live = snapshot("git:" + "b" * 40, SHA_B, "observed-a")
+            bootstrap_model_authority(
+                root,
+                base,
+                bootstrap_evidence_fingerprint=SHA_D,
+            )
+
+            with patch(
+                "flowguard.model_system_inventory.build_manifest_model_system_snapshot",
+                return_value=live,
+            ):
+                report = audit_model_authority(root)
+
+            self.assertFalse(report.ok)
+            self.assertEqual("blocked", report.status)
+            self.assertIn(
+                "observed_model_inventory_stale",
+                {finding.code for finding in report.findings},
+            )
 
     def test_existing_model_preflight_reads_observed_authority_first(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -281,11 +313,15 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                 bootstrap_evidence_fingerprint=SHA_D,
             )
 
-            preflight = existing_model_preflight_from_project(
-                root,
-                "Review authority ownership",
-                downstream_routes=("development_process_flow",),
-            )
+            with patch(
+                "flowguard.model_system_inventory.build_manifest_model_system_snapshot",
+                return_value=base,
+            ):
+                preflight = existing_model_preflight_from_project(
+                    root,
+                    "Review authority ownership",
+                    downstream_routes=("development_process_flow",),
+                )
             report = review_existing_model_preflight(preflight)
 
             self.assertTrue(report.ok, report.format_text())

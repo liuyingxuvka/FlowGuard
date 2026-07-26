@@ -38,34 +38,35 @@ def model_hit(**kwargs) -> ModelContextHit:
 
 
 class ExistingModelPreflightTests(unittest.TestCase):
-    def test_stale_or_mutable_spec_context_is_scoped_gap(self):
+    def test_stale_or_mutable_work_context_is_scoped_gap(self):
         context = {
-            "provider_id": "openspec",
+            "adapter_id": "openspec",
             "context_id": "openspec:change-one",
-            "change_id": "change-one",
-            "behavior_plane": "development_process",
+            "native_work_id": "change-one",
+            "native_owner_id": "openspec",
+            "subject_lane": "development_process",
             "provider_owns_product_behavior": False,
             "read_only": False,
             "current": False,
-            "context_hash": "sha256:context",
+            "context_fingerprint": "sha256:context",
             "artifact_ids": ["proposal", "design", "spec", "tasks", "status"],
         }
         preflight = ExistingModelPreflight(
-            "spec-context",
+            "work-context",
             "Review a provider work package",
             behavior_lookup_required=True,
             behavior_lookup_status="performed",
             primary_behavior_plane="development_process",
             ledger_fingerprint="sha256:ledger",
-            spec_context=context,
+            work_contexts=(context,),
         )
         report = review_existing_model_preflight(preflight)
         self.assertIn(
-            "spec_context_not_current",
+            "work_context_not_current",
             {finding.code for finding in report.findings},
         )
         self.assertIn(
-            "spec_context_write_authority_forbidden",
+            "work_context_write_authority_forbidden",
             {finding.code for finding in report.findings},
         )
     def test_same_intent_surface_inventory_reuses_one_commitment_and_primary_path(self):

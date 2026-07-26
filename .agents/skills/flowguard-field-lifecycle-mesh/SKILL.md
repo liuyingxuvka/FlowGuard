@@ -24,14 +24,16 @@ Accept a bounded field inventory; create leaf rows and behavior projections; blo
 - Do not put every field in the high-level model, treat inventory as behavior proof, or replace alignment/testing; return missing behavior models to `flowguard`.
 
 ## Required Workflow
-1. Define the field boundary, parent groups, and every discovered `FieldLifecycleRow`.
-2. Add `FieldProjection` rows only for behavior-bearing fields and route invalid/old cases to ContractExhaustionMesh.
-3. Close replacement disposition and send owners, readers/writers, projections, cases, and gaps downstream.
+1. Independently discover and freeze the exact field inventory revision, fingerprint, and discovery evidence before lifecycle disposition.
+2. For every field record one owner, exact locations, readers/writers, default semantics, absence/null semantics, serialization, privacy classification, content fingerprint, and exactly one modeled/delegated/scoped coverage disposition.
+3. Add `FieldProjection` rows only for locally modeled behavior-bearing fields; delegated rows name a specialist owner and current native evidence, while scoped rows carry a bounded reason.
+4. Route invalid/old cases to ContractExhaustionMesh, close replacement disposition, and send owners, projections, cases, and gaps downstream.
 
 ## Hard Gates
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Default replacement requires delete, block, migrate, delegate, repair, explicit preserve, or scoped reason; unknown disposition blocks full confidence.
+- A complete claim blocks on empty/stale inventory identity, missing or unexpected rows, duplicate field ids, missing semantics/fingerprints, or incomplete delegated/scoped dispositions.
 - Behavior claims still require current obligations, owner code contracts, tests, freshness, and template harvest closure where the model deepens.
 
 ## Output Requirements

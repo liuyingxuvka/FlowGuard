@@ -4,9 +4,19 @@ Use this protocol whenever a UI exists, has been migrated, or can run. The obser
 
 ## Inventory
 
-Record each visible button, icon button, menu item, input, picker, dropdown, tab, toggle, table, displayed field, status/helper/placeholder text, dialog, toolbar, panel, and region with stable id, kind, label/text, enabled state, region, revision, and evidence reference.
+Independently discover and freeze the complete rendered-surface revision,
+inventory SHA-256 fingerprint, and discovery evidence. Record each visible
+button, icon button, menu item, input, picker, dropdown, tab, toggle, table,
+displayed field, status/helper/placeholder text, dialog, toolbar, panel,
+overlay, recovery path, and region with stable id, kind, label/text, enabled
+state, region, item SHA-256 fingerprint, and evidence reference.
 
 Use `UIObservedSurfaceInventory`, `UIObservedSurfaceItem`, and `review_ui_observed_surface_inventory(...)` when available. Map every item to a `UIControl`, `UIDisplayElement`, or `UIVisibleSurfaceItem`, or create a blindspot with owner, reason, validation boundary, and rationale. Every non-action observed content item also resolves to an approved `UIContentVisibilityItem`; direct display mapping proves ownership, not admission.
+
+Every visible item has exactly one coverage disposition at this layer:
+modeled by one or more typed UI model owners, or scoped through one blindspot.
+The same item cannot be both modeled and scoped. The inventory candidate cannot
+define the discovery universe used to judge its own completeness.
 
 ## Content admission comparison
 

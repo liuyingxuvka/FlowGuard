@@ -141,9 +141,9 @@ class MaintenanceEvidence:
     covers_signal_ids: tuple[str, ...] = ()
     result_path: str = ""
     description: str = ""
-    spec_context_id: str = ""
-    spec_context_hash: str = ""
-    spec_context_read_only: bool = True
+    work_context_id: str = ""
+    work_context_hash: str = ""
+    work_context_read_only: bool = True
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -155,20 +155,20 @@ class MaintenanceEvidence:
         object.__setattr__(self, "covers_signal_ids", _as_tuple(self.covers_signal_ids))
         object.__setattr__(self, "result_path", str(self.result_path))
         object.__setattr__(self, "description", str(self.description))
-        object.__setattr__(self, "spec_context_id", str(self.spec_context_id))
-        object.__setattr__(self, "spec_context_hash", str(self.spec_context_hash))
-        object.__setattr__(self, "spec_context_read_only", bool(self.spec_context_read_only))
+        object.__setattr__(self, "work_context_id", str(self.work_context_id))
+        object.__setattr__(self, "work_context_hash", str(self.work_context_hash))
+        object.__setattr__(self, "work_context_read_only", bool(self.work_context_read_only))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def is_current_pass(self) -> bool:
         return self.current and self.status in PASSING_EVIDENCE_GATE_STATUSES
 
-    def is_current_spec_context(self, context_id: str) -> bool:
+    def is_current_work_context(self, context_id: str) -> bool:
         return (
-            self.spec_context_id == context_id
+            self.work_context_id == context_id
             and self.is_current_pass()
-            and bool(self.spec_context_hash)
-            and self.spec_context_read_only
+            and bool(self.work_context_hash)
+            and self.work_context_read_only
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -181,9 +181,9 @@ class MaintenanceEvidence:
             "covers_signal_ids": list(self.covers_signal_ids),
             "result_path": self.result_path,
             "description": self.description,
-            "spec_context_id": self.spec_context_id,
-            "spec_context_hash": self.spec_context_hash,
-            "spec_context_read_only": self.spec_context_read_only,
+            "work_context_id": self.work_context_id,
+            "work_context_hash": self.work_context_hash,
+            "work_context_read_only": self.work_context_read_only,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -338,7 +338,7 @@ class MaintenanceScanPlan:
     prior_obligations: tuple[MaintenanceObligation, ...] = ()
     claim_scope: str = "bounded"
     allow_scoped_confidence: bool = True
-    required_spec_context_ids: tuple[str, ...] = ()
+    required_work_context_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
@@ -355,8 +355,8 @@ class MaintenanceScanPlan:
         object.__setattr__(self, "allow_scoped_confidence", bool(self.allow_scoped_confidence))
         object.__setattr__(
             self,
-            "required_spec_context_ids",
-            _as_tuple(self.required_spec_context_ids),
+            "required_work_context_ids",
+            _as_tuple(self.required_work_context_ids),
         )
 
     def broad_claim(self) -> bool:
@@ -372,7 +372,7 @@ class MaintenanceScanPlan:
             "prior_obligations": [obligation.to_dict() for obligation in self.prior_obligations],
             "claim_scope": self.claim_scope,
             "allow_scoped_confidence": self.allow_scoped_confidence,
-            "required_spec_context_ids": list(self.required_spec_context_ids),
+            "required_work_context_ids": list(self.required_work_context_ids),
         }
 
 
@@ -600,24 +600,24 @@ def review_maintenance_scan(plan: MaintenanceScanPlan) -> MaintenanceScanReport:
         for artifact in artifacts
     )
 
-    for context_id in plan.required_spec_context_ids:
+    for context_id in plan.required_work_context_ids:
         matching = [
-            item for item in plan.evidence if item.is_current_spec_context(context_id)
+            item for item in plan.evidence if item.is_current_work_context(context_id)
         ]
         actions.append(
             _make_action(
                 route_id=MAINTENANCE_ROUTE_DEVELOPMENT_PROCESS_FLOW,
                 strength=MAINTENANCE_ACTION_REQUIRED,
-                reason_code=f"spec_context:{context_id}",
+                reason_code=f"work_context:{context_id}",
                 message=(
-                    f"OpenSpec context {context_id} must be current and read-only before "
+                    f"Work context {context_id} must be current and read-only before "
                     "FlowGuard uses it for planning."
                 ),
                 signal_ids=(context_id,),
                 evidence_ids=tuple(item.evidence_id for item in matching),
-                required_input_kinds=("spec_context",),
-                proof_gap_codes=(() if matching else ("spec_context_missing_or_stale",)),
-                claim_effect="blocks planning claims that rely on missing or stale OpenSpec context",
+                required_input_kinds=("work_context",),
+                proof_gap_codes=(() if matching else ("work_context_missing_or_stale",)),
+                claim_effect="blocks planning claims that rely on a missing or stale work context",
             )
         )
 

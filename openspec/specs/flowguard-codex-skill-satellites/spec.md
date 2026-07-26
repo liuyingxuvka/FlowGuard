@@ -450,17 +450,6 @@ The installed DevelopmentProcessFlow skill SHALL activate internal process optim
 - **WHEN** no optimizer activation reason exists
 - **THEN** the skill performs ordinary lifecycle governance without outputting optimizer ceremony
 
-### Requirement: Native skills route spec reconciliation through existing owners
-FlowGuard's maintained skills SHALL direct spec work-package planning and verification through DevelopmentProcessFlow, PlanDetailing, ExistingModelPreflight, and TestMesh native routes with SkillGuard as contract supervisor only.
-
-#### Scenario: Agent plans a multi-spec workflow
-- **WHEN** an agent uses OpenSpec or Spec Kit with FlowGuard in one non-trivial change
-- **THEN** skill guidance SHALL require provider authority, bidirectional mapping, begin/post freshness, terminal receipts, and explicit reuse boundaries without creating a second spec workflow
-
-#### Scenario: Product UI guidance is rendered
-- **WHEN** the task concerns internal spec-tool orchestration
-- **THEN** the skill guidance SHALL NOT project work-package fields into product UI content or visibility rules
-
 ### Requirement: Existing skills distinguish observed, target, and experiment
 The installed FlowGuard entry and affected satellite skills SHALL begin
 non-trivial modeled-system work by identifying the observed source revision and
@@ -479,4 +468,34 @@ promotion, rollback, or current-model authority.
 #### Scenario: Several skills participate in one change
 - **WHEN** ModelMesh, Behavior Commitment Ledger, FieldLifecycleMesh, Model-Test Alignment, TestMesh, and DevelopmentProcessFlow all contribute
 - **THEN** each retains its existing owner role while one revision set and one observed-head pointer join their evidence
+
+### Requirement: Five maintained prompts use provider-neutral WorkContext guidance
+The maintained `flowguard`, `flowguard-behavior-commitment-ledger`, `flowguard-existing-model-preflight`, `flowguard-development-process-flow`, and `flowguard-test-mesh` prompt surfaces SHALL use the same provider-neutral WorkContext vocabulary and generic artifact roles. They SHALL route WorkContext through the existing Behavior Commitment Ledger, ExistingModelPreflight, DevelopmentProcessFlow, PlanDetailing, and TestMesh owners without creating a provider-specific satellite, parallel workflow, or OpenSpec-default path.
+
+#### Scenario: Any supported provider supplies work artifacts
+- **WHEN** OpenSpec, declared files, a Spec Kit profile, a Superpowers profile, or another registered provider supplies requirements, plans, designs, tasks, or status artifacts
+- **THEN** the five maintained prompt surfaces SHALL describe those artifacts through the same WorkContext roles and SHALL preserve the provider's native artifact and lifecycle authority
+
+#### Scenario: No provider is selected
+- **WHEN** a FlowGuard task has no external work-context provider
+- **THEN** the existing FlowGuard routes SHALL remain usable as a standalone workflow without inventing provider artifacts or selecting OpenSpec by default
+
+#### Scenario: A prompt treats provider completion as test evidence
+- **WHEN** any maintained prompt proposes that provider status, task checkboxes, or artifact completion proves model or test execution
+- **THEN** its native semantic checks and SkillGuard-supervised maintenance SHALL reject that guidance
+
+#### Scenario: Internal work context reaches product UI guidance
+- **WHEN** the task concerns provider orchestration, artifact discovery, or internal status
+- **THEN** the maintained prompts SHALL keep that information internal and SHALL NOT project it into product UI content or visibility rules
+
+### Requirement: Provider integrations remain outside FlowGuard skill authority
+FlowGuard's maintained prompts SHALL describe adapter boundaries and generic roles but SHALL NOT take maintenance, execution, installation, or lifecycle ownership of official OpenSpec, Spec Kit, Superpowers, or other third-party provider skills. SkillGuard supervision SHALL apply only to the five declared FlowGuard prompt surfaces and their existing maintenance unit.
+
+#### Scenario: A third-party provider skill changes
+- **WHEN** an official or third-party provider skill changes its commands, artifacts, or lifecycle
+- **THEN** FlowGuard SHALL preserve that skill as an external native owner and SHALL update only its own adapter or prompt contract when the generic WorkContext boundary is affected
+
+#### Scenario: FlowGuard prompt maintenance is performed
+- **WHEN** one of the five declared FlowGuard prompt surfaces is changed
+- **THEN** the existing SkillGuard maintenance unit SHALL supervise the FlowGuard-owned change without enrolling, copying, or validating the provider skill itself
 

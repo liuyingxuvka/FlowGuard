@@ -81,8 +81,9 @@ co-occurrence in one test run is not relation evidence.
 - TestMesh owns the diagnostic boundary, planned/executed/failed/not-run
   counts, not-run reasons, and finding references.
 - Finding Ledger owns raw finding identity and source evidence.
-- Official OpenSpec owns its authoring and lifecycle. FlowGuard receives only
-  read-only `SpecContext`; it creates no provider dependency or receipt owner.
+- Each external planning provider owns its native authoring and lifecycle.
+  FlowGuard receives only read-only `WorkContext` values; it creates no
+  provider dependency, execution owner, or receipt owner.
 - Model-Test Alignment owns ordinary obligation, primary code owner, and test
   evidence closure.
 - PlanDetail carries only the plan-level activation reasons and current

@@ -833,6 +833,7 @@ from .runtime_gateway import (
 from . import agent_workflow_rehearsal as _agent_workflow_rehearsal
 from . import closure_contract as _closure_contract
 from . import contract_exhaustion as _contract_exhaustion
+from . import coverage_inventory as _coverage_inventory
 from . import development_process_flow as _development_process_flow
 from . import development_process_strategy as _development_process_strategy
 from . import development_process_simulator as _development_process_simulator
@@ -863,7 +864,10 @@ from . import evidence_receipts as _evidence_receipts
 from . import model_regressions as _model_regressions
 from . import model_purpose as _model_purpose
 from . import release_verification as _release_verification
-from . import spec_context as _spec_context
+from . import work_context as _work_context
+from .work_context_adapters import register_builtin_work_context_adapters
+
+register_builtin_work_context_adapters()
 from . import skill_contracts as _skill_contracts
 from . import skill_native_checks as _skill_native_checks
 from . import skill_self_governance as _skill_self_governance
@@ -1321,7 +1325,7 @@ from .templates import (
     risk_intent_template_files,
     risk_template_library_template_files,
     runtime_path_evidence_template_files,
-    spec_context_template_files,
+    work_context_template_files,
     structure_mesh_template_files,
     test_mesh_template_files,
     topology_hazard_template_files,
@@ -1344,7 +1348,8 @@ _GOVERNANCE_MODULES = (
     _model_purpose,
     _distribution_sync,
     _release_verification,
-    _spec_context,
+    _coverage_inventory,
+    _work_context,
 )
 _GOVERNANCE_EXCLUDED_TOP_LEVEL_NAMES = {"MANIFEST_SCHEMA"}
 for _governance_module in _GOVERNANCE_MODULES:
@@ -1375,7 +1380,8 @@ MODEL_SYSTEM_AUTHORITY_API = (
 FLOWGUARD_GOVERNANCE_API = tuple(
     dict.fromkeys(FLOWGUARD_GOVERNANCE_API + MODEL_SYSTEM_AUTHORITY_API)
 )
-SPEC_CONTEXT_API = tuple(_spec_context.__all__)
+WORK_CONTEXT_API = tuple(_work_context.__all__)
+COVERAGE_INVENTORY_API = tuple(_coverage_inventory.__all__)
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
 for _name in _primary_path_authority.__all__:
@@ -2571,7 +2577,7 @@ EVIDENCE_API = (
     "behavior_commitment_ledger_template_files",
     "primary_path_authority_template_files",
     "project_adoption_template_files",
-    "spec_context_template_files",
+    "work_context_template_files",
     "project_template_files",
     "risk_evidence_ledger_template_files",
     "risk_intent_template_files",
@@ -3075,7 +3081,8 @@ API_SURFACE = {
     "reporting_helpers_full": REPORTING_HELPER_API,
     "evidence": EVIDENCE_API,
     "governance_and_distribution": FLOWGUARD_GOVERNANCE_API,
-    "spec_context": SPEC_CONTEXT_API,
+    "coverage_inventory": COVERAGE_INVENTORY_API,
+    "work_context": WORK_CONTEXT_API,
     "portable_verification": (
         "PORTABLE_MODEL_SCHEMA_VERSION",
         "PORTABLE_REFINEMENT_SCHEMA_VERSION",
@@ -3145,7 +3152,8 @@ _PUBLIC_API_SUPPLEMENT = (
     "PLAN_INTAKE_STARTER_API",
     "PORTABLE_VERIFICATION_API",
     "STATE_CLOSURE_ROUTE_API",
-    "SPEC_CONTEXT_API",
+    "WORK_CONTEXT_API",
+    "COVERAGE_INVENTORY_API",
     "STRUCTURE_MESH_ROUTE_API",
     "TEST_MESH_ROUTE_API",
     "TOPOLOGY_HAZARD_ROUTE_API",

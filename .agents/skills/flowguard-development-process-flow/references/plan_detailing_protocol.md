@@ -42,13 +42,14 @@ both fields empty.
    `agent_workflow` route when multiple capabilities or external actions apply.
 5. UI and payload obligations go to their public native owners.
 
-## Read-only OpenSpec Boundary
+## Read-only WorkContext boundary
 
-An official OpenSpec change enters as one current read-only source row with a
-context id, change id, context hash, and exact proposal, design, specification,
-task, and status artifact ids. Missing, stale, mutable, or unknown context
-blocks the route. The route never creates provider checks, sessions, caches,
-receipts, owner mappings, or product-runtime authority.
+Each external planning source enters as one current read-only WorkContext row
+with context/adapter/native-owner ids, context fingerprint, subject lane, and
+exact generic artifact ids/roles/source refs/content fingerprints. Missing,
+stale, mutable, unknown, unbounded, or role-incomplete context blocks the
+route. The route never creates provider checks, sessions, caches, receipts,
+owner mappings, or product-runtime authority.
 
 ## Completion Boundary
 

@@ -106,7 +106,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "Only the current route decision, executable model boundary, and consumed current evidence are claimed; no future behavior or unrun route is certified.",
+  "claim_boundary": "Only the current route decision, independently derived exact expected-source boundary, executable model boundary, and consumed current evidence are claimed; provider planning context, future behavior, and unrun routes are not certified.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -241,7 +241,7 @@
     {
       "action": {
         "kind": "inventory",
-        "summary": "Classify the primary behavior plane and perform lightweight commitment/model recall before creating a model."
+        "summary": "Classify the primary behavior plane, read declared provider-neutral WorkContexts, and derive the independent expected-source inventory before creating a model."
       },
       "check_ids": [
         "check:flowguard:plane-boundary"

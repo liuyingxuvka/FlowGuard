@@ -42,9 +42,10 @@ records, repair groups, or optimization evidence gate.
 - TestMesh owns diagnostic boundaries, actual execution accounting, findings,
   skips, and terminal test receipts.
 - Finding Ledger owns stable raw finding ids.
-- Official OpenSpec owns its proposal, design, specifications, tasks, status,
-  validation, and archive lifecycle. DevelopmentProcessFlow may consume only a
-  current read-only `SpecContext`; it owns no OpenSpec execution bridge.
+- Every external planning provider owns its native artifacts, status,
+  validation, and lifecycle. DevelopmentProcessFlow may consume only current
+  declared read-only `WorkContext` values; it owns no provider execution
+  bridge.
 - Model-Test Alignment owns ordinary obligation, primary CodeContract owner,
   and TestEvidence closure.
 - Product models retain product-runtime behavior; process references are typed
@@ -68,7 +69,7 @@ Capture grouped rows for:
 - final claim: routine versus release/archive/publish scope and consuming Risk
   Evidence Ledger evidence.
 
-Keep the read-only OpenSpec context/change/artifact ids distinct from
+Keep read-only WorkContext adapter/native/artifact/fingerprint ids distinct from
 FlowGuard's own obligation, validation, execution, and receipt ids.
 
 ## Execution Shape
@@ -115,18 +116,19 @@ separate. A source-only release follows one frozen final validation; post-push
 parity verifies every identity. If governed source changes after publication,
 the correction uses a new immutable version rather than moving the tag.
 
-## Read-only OpenSpec context
+## Read-only WorkContext
 
-For an active official OpenSpec change, read only its proposal, design,
-specifications, tasks, and derived status as one current `SpecContext`.
-FlowGuard may use that material to understand scope and order its own work. It
-must not write OpenSpec artifacts, execute OpenSpec checks, open sessions,
-create caches or receipts for OpenSpec, claim provider execution ownership, or
-fan one provider result out to FlowGuard consumers.
+Read external requirements, plans, designs, tasks, status, and history only
+through explicitly registered, project-bounded WorkContext adapters. Preserve
+adapter id, native owner/work id, artifact roles/ids/source refs/fingerprints,
+subject lane, and context fingerprint. FlowGuard may use that material to
+understand scope and order its own work.
 
-FlowGuard validations remain ordinary FlowGuard validations with their own
-owners and evidence. OpenSpec validation and archive decisions remain entirely
-with official OpenSpec.
+It must not write provider artifacts, execute provider checks, open sessions,
+create caches or receipts, claim provider execution ownership, or fan one
+provider status into FlowGuard evidence consumers. FlowGuard validations
+remain ordinary FlowGuard validations with native owners/evidence, and every
+provider retains its own lifecycle decisions.
 
 ## Failure Routing
 

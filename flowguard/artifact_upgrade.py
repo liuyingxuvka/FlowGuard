@@ -14,6 +14,7 @@ from .behavior_commitment import (
     BCL_LEDGER_ARTIFACT_TYPE,
     BCL_LEDGER_FORMAT_VERSION,
     BCL_RELATION_DEPENDS_ON,
+    BehaviorCommitmentLedger,
     behavior_commitment_ledger_from_mapping,
     behavior_commitment_ledger_to_mapping,
 )
@@ -994,7 +995,7 @@ def upgrade_behavior_commitment_ledger_mapping(
     }
     try:
         upgraded = behavior_commitment_ledger_to_mapping(
-            behavior_commitment_ledger_from_mapping(upgraded_candidate)
+            BehaviorCommitmentLedger(**current_ledger)
         )
     except (AttributeError, KeyError, TypeError, ValueError) as exc:
         return BehaviorLedgerMigrationResult(

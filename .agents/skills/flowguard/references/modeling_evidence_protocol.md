@@ -53,11 +53,12 @@ For real project use, record task/trigger/status, model files, commands/results,
 ## Output
 
 Return route decision, evidence, failures, blockers, skipped checks, residual risk, claim boundary, typed next actions, model/counterexample snapshot, and current validation scope. Diagrams explain the active semantics; they are not validation evidence and must not flatten other Guard-family edge meanings.
-## Read-only OpenSpec context boundary
+## Read-only WorkContext boundary
 
-Official OpenSpec keeps proposal, design, specification, task, status,
-validation, and archive authority. DevelopmentProcessFlow may read those
-authoring artifacts as one current `SpecContext` for planning. FlowGuard must
-not write them, execute OpenSpec checks, create provider sessions, caches, or
-receipts, reconcile provider tasks into test owners, or expose this
-development-process context as product UI content.
+OpenSpec, Spec Kit, Superpowers, custom skills, declared files, and other
+external planning sources keep native authoring, execution, validation,
+status, and lifecycle authority. DevelopmentProcessFlow may read explicitly
+declared, project-bounded artifacts through peer `WorkContext` adapters.
+FlowGuard must not write provider content, execute provider checks, create
+provider sessions/caches/receipts, reconcile provider tasks into test owners,
+or expose planning context as product UI or test evidence.

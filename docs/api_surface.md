@@ -904,12 +904,13 @@ When repeated issues or broad completion claims depend on upstream plan
 construction, first run the plan-intake, adapter-conformance,
 false-negative-backpropagation, mutation, and typed claim-chain helpers so
 omitted surfaces or narrow reports cannot be silently upgraded.
-## Read-only OpenSpec context API
+## Provider-neutral WorkContext API
 
-`SPEC_CONTEXT_API` exposes the project-bounded official OpenSpec context
-reader, discovery helper, and review. It reads proposal, design,
-specifications, tasks, and derived status without provider writes, sessions,
-caches, receipts, check execution, task-owner reconciliation, or archive
-authority. See [`spec_context.md`](spec_context.md). The context belongs to
-development-process planning and is intentionally absent from product UI
-content projection.
+`WORK_CONTEXT_API` exposes the adapter registry, project-bounded read and
+discovery helpers, and current review. Built-in OpenSpec and declared-files
+adapters are peers; declared files can represent Spec Kit, Superpowers, custom
+skills, or ordinary repository documents. The common layer preserves native
+identity and content fingerprints without provider writes, sessions, caches,
+receipts, check execution, or lifecycle authority. See
+[`work_context.md`](work_context.md). WorkContext belongs to planning and is
+intentionally absent from product UI and test-evidence projection.

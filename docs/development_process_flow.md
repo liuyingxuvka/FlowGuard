@@ -306,11 +306,13 @@ results can be reused only when a `TestResultReuseTicket` and matching
 dependencies, environment, result fingerprint, and covered obligation scope are
 current. Later writes that touch any of those fields stale the reuse proof and
 force a rerun or refreshed ticket before done confidence.
-## Read-only OpenSpec context
+## Read-only WorkContext
 
-An official OpenSpec change may enter this route only as one current,
-project-bounded `SpecContext` containing proposal, design, specification, task,
-and derived-status identities. DevelopmentProcessFlow uses it to understand
-scope and order its own work; it never writes or executes OpenSpec, creates a
-provider session/cache/receipt, reconciles provider tasks into test owners, or
-decides OpenSpec archive readiness. See [`spec_context.md`](spec_context.md).
+External planning sources enter this route as one or more current,
+project-bounded `WorkContext` values. Each preserves its adapter, native owner,
+artifact roles, source references, and content fingerprints.
+DevelopmentProcessFlow may use them to understand scope and order its own work,
+but it never writes or executes the provider, creates provider
+sessions/caches/receipts, converts provider status into test evidence, or
+decides provider lifecycle operations. See
+[`work_context.md`](work_context.md).

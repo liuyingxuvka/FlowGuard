@@ -11,6 +11,13 @@ from flowguard.model_regressions import MANIFEST_SCHEMA
 from flowguard.model_system_inventory import (
     build_manifest_model_system_snapshot,
 )
+from flowguard.behavior_commitment import (
+    BehaviorCommitment,
+    BehaviorCommitmentLedger,
+    BehaviorEvidenceBinding,
+    BehaviorSourceSurface,
+    write_behavior_commitment_ledger,
+)
 
 
 class ModelSystemInventoryTests(unittest.TestCase):
@@ -93,34 +100,50 @@ class ModelSystemInventoryTests(unittest.TestCase):
             )
             ledger_dir = root / ".flowguard" / "behavior_commitment_ledger"
             ledger_dir.mkdir()
-            (ledger_dir / "ledger.json").write_text(
-                json.dumps(
-                    {
-                        "ledger": {
-                            "commitments": [
-                                {
-                                    "commitment_id": "commitment:owner",
-                                    "primary_owner_model_id": (
-                                        ".flowguard/owner/model.py"
-                                    ),
-                                    "source_surface_ids": ("surface:owner",),
-                                    "state_writes": ("state:owner",),
-                                    "side_effects": (),
-                                    "evidence": {
-                                        "code_contract_ids": (
-                                            "contract:owner",
-                                        ),
-                                        "test_evidence_ids": ("test:owner",),
-                                    },
-                                }
-                            ],
-                            "source_surfaces": [
-                                {"surface_id": "surface:owner"}
-                            ],
-                        }
-                    }
+            write_behavior_commitment_ledger(
+                ledger_dir / "ledger.json",
+                BehaviorCommitmentLedger(
+                    "ledger:owner",
+                    project_boundary="temporary owner fixture",
+                    current_revision="git:" + "a" * 40,
+                    subject_lane="observed_implementation",
+                    expected_source_surface_ids=("surface:owner",),
+                    source_inventory_revision="inventory:owner",
+                    source_inventory_fingerprint="sha256:" + "1" * 64,
+                    source_inventory_evidence_ids=("discovery:owner",),
+                    require_complete_source_inventory=True,
+                    expected_commitment_ids=("commitment:owner",),
+                    expected_business_intent_ids=("intent:owner",),
+                    source_surfaces=(
+                        BehaviorSourceSurface(
+                            "surface:owner",
+                            source_system_id="fixture",
+                            native_artifact_id="owner",
+                            content_fingerprint="sha256:" + "2" * 64,
+                            inventory_revision="inventory:owner",
+                            discovery_evidence_ids=("discovery:owner",),
+                            source_authority_role="observed",
+                            declared_semantics_fingerprint="sha256:" + "3" * 64,
+                            coverage_disposition="modeled",
+                            commitment_ids=("commitment:owner",),
+                            business_intent_ids=("intent:owner",),
+                            freshness_state="current",
+                        ),
+                    ),
+                    commitments=(
+                        BehaviorCommitment(
+                            "commitment:owner",
+                            business_intent_id="intent:owner",
+                            source_surface_ids=("surface:owner",),
+                            primary_owner_model_id=".flowguard/owner/model.py",
+                            state_writes=("state:owner",),
+                            evidence=BehaviorEvidenceBinding(
+                                code_contract_ids=("contract:owner",),
+                                test_evidence_ids=("test:owner",),
+                            ),
+                        ),
+                    ),
                 ),
-                encoding="utf-8",
             )
 
             snapshot = build_manifest_model_system_snapshot(

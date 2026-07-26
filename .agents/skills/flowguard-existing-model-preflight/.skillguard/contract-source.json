@@ -101,7 +101,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "The report proves only current ownership and affected-surface inventory understanding plus reuse/route selection; it does not validate the downstream proposal, runtime path, or implementation.",
+  "claim_boundary": "The report proves only current ownership, affected-surface inventory understanding, and current provider-neutral read-only WorkContext attachment plus reuse/route selection; it does not validate provider status, the downstream proposal, runtime path, or implementation.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -244,7 +244,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Run the existing preflight owner and preserve typed related-plane context as non-owning context."
+        "summary": "Run the existing preflight owner, preserve typed related-plane context, and attach exact declared WorkContext adapter/native/artifact/fingerprint identities as non-owning context."
       },
       "check_ids": [
         "check:flowguard-existing-model-preflight:native-authority"

@@ -38,7 +38,7 @@ Project FlowGuard record:
 <!-- flowguard-rule:project.rendered_versions -->
 
 Current adoption record:
-- FlowGuard check-engine version: `0.61.0`
+- FlowGuard check-engine version: `0.62.0`
 - FlowGuard schema version: `1.0`
 
 <!-- flowguard-rule:project.preflight_version_gate -->
@@ -98,9 +98,11 @@ route.
 <!-- flowguard-rule:behavior.commitment_ledger -->
 
 Broad behavior work should use or update BehaviorCommitmentLedger before
-claiming full coverage: register external behavior promises, map source
-surfaces to commitments, assign exactly one primary owner model per
-commitment, classify plane and actor kind, record typed relations/evidence,
+claiming full coverage: independently derive an exact expected-source
+inventory from declared WorkContexts and native UI/field inventories; give
+every source exactly one modeled, delegated, or scoped disposition; register
+external behavior promises; assign exactly one primary owner model per
+commitment; classify plane and actor kind; record typed relations/evidence;
 and hand `path_sensitive=true`
 commitments to Primary Path Authority. Do not treat every helper function,
 file, field, or model as a behavior commitment.
@@ -135,8 +137,10 @@ external behavior was not registered in that plane.
 
 Field-bearing work should use or update FieldLifecycleMesh: high-level behavior
 models include behavior-bearing fields, while child/leaf field rows account all
-discovered fields and record owner, readers, writers, projection, lifecycle,
-and old-field disposition.
+independently discovered fields and record one owner, exact locations,
+readers/writers, default and absence semantics, serialization, privacy,
+content fingerprint, one modeled/delegated/scoped coverage disposition,
+projection, lifecycle, and old-field disposition.
 
 <!-- flowguard-rule:evidence.ui_and_payload -->
 
@@ -165,7 +169,11 @@ language across declared surfaces: typography hierarchy, components,
 navigation, interaction, feedback, recovery, and transition semantics. Equal
 semantic roles reuse the same rule or token; any exception is bounded,
 presentation-only, and cannot change the business intent, commitment, path,
-visibility class, or user-visible result.
+visibility class, or user-visible result. A complete UI claim first freezes an
+independently discovered rendered-surface inventory with stable item ids,
+content fingerprints, discovery evidence, and exactly one modeled or scoped
+coverage disposition for every visible control, display, transition, overlay,
+recovery path, and blindspot.
 
 <!-- flowguard-rule:ui.content_admission -->
 
@@ -198,14 +206,18 @@ the decision. TestMesh owns diagnostic accounting; relation-backed repair
 groups use ordinary primary-owner evidence and affected revalidation.
 Estimated comparison may support a preference, never a global optimum.
 
-<!-- flowguard-rule:process.spec_context_read_only -->
+<!-- flowguard-rule:process.work_context_read_only -->
 
-When official OpenSpec is in scope, FlowGuard may read only the current
-proposal, design, specifications, tasks, and task status as external planning
-context. FlowGuard must not write OpenSpec files, execute provider checks,
-create provider sessions/caches/receipts, claim provider execution ownership,
-or place provider-internal fields in product UI. OpenSpec retains validation
-and archive authority.
+External requirements, plans, designs, tasks, status, and other planning
+inputs enter FlowGuard only through explicitly registered, project-bounded,
+read-only WorkContext adapters. OpenSpec, Spec Kit, Superpowers, custom skills,
+declared files, or another source remain peer providers and retain their native
+ownership. FlowGuard preserves adapter id, native artifact id, owner, role,
+source reference, content fingerprint, and subject lane; it rejects unknown
+adapters, path escape, stale fingerprints, missing required roles, provider
+execution or receipt authority, provider writes, and provider-internal product
+UI. FlowGuard remains fully usable when no external planning provider is
+selected.
 
 <!-- flowguard-rule:process.post_change_scan -->
 

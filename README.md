@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.61.0` | `1.0` | Python standard library only | MIT |
+| `v0.62.0` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -108,7 +108,7 @@ The important output is often the counterexample: a concrete sequence of states 
 | Repeated functional paths | downloading or submitting the same kind of result quietly grows a different handler per page, API, command, alias, or wrapper | one stable exact intent, one active behavior commitment, one selected current path, and evidence that extra surfaces delegate |
 | Refactors | a new module split loses the real state or side-effect owner | facade boundaries, state owners, side-effect owners, and parity evidence |
 | Tests and releases | an old passing test is treated as proof after code, docs, models, or fixtures changed | evidence freshness and minimum revalidation requirements |
-| Feature or behavior inventory | AI fixes one local path while missing, duplicating, or inventing external behavior | a Behavior Commitment Ledger: source surfaces, commitments, one primary owner model, dependencies, evidence, and PPA handoff for path-sensitive behavior |
+| Feature or behavior inventory | AI fixes one local path while missing, duplicating, or inventing external behavior | an independently derived WorkContext/UI/field source inventory, exactly one modeled/delegated/scoped disposition per source, then a Behavior Commitment Ledger with one primary owner model and PPA handoff |
 | Model-code-test binding | a model, a code contract, and a test all exist, but they do not prove the same behavior | binding rows that connect obligations, owner code, source audit, runtime evidence, bad-case replay, and open gaps |
 | Parent and child models | one local green check is treated as whole-system confidence | child evidence, parent reattachment, sibling impact, and scoped confidence |
 | Public claims | a README, release note, or "done" message says more than current evidence supports | the claim boundary and the missing proof |
@@ -178,9 +178,18 @@ Escalate only when the risk needs it. A retry bug may need a small model. A rele
 
 For broad feature, release, UI/API/CLI, skill, workflow, or project-confidence
 claims, start with the Behavior Commitment Ledger. It registers external
-behavior promises, maps them to source surfaces, assigns exactly one primary
-owner model, and sends `path_sensitive=true` rows to Primary Path Authority so
-the work does not accumulate hidden fallback paths.
+behavior promises only after FlowGuard independently freezes the exact expected
+source inventory from declared WorkContexts plus native UI and field
+inventories. Every source is modeled, delegated to one native specialist with
+evidence, or explicitly scoped. Modeled promises receive exactly one primary
+owner and `path_sensitive=true` rows go to Primary Path Authority.
+
+External requirements, plans, designs, tasks, and status enter through
+provider-neutral read-only `WorkContext` adapters. OpenSpec, Spec Kit,
+Superpowers, custom skills, declared files, or no provider at all are supported
+as peers. Their native identity and content fingerprints are preserved, but
+their commands, sessions, receipts, validation status, and lifecycle never
+become FlowGuard execution or test authority.
 
 Surface shape is not behavior identity. When a page control, API, CLI, alias,
 adapter, wrapper, or compatibility facade has the same actor, preconditions,
@@ -337,7 +346,7 @@ python -m flowguard model-revision-rollback --root . --contract <rollback.json> 
 
 These commands extend the existing model, preflight, ModelMesh, commitment,
 field-lifecycle, test, and development-process routes. They do not introduce a
-second product workflow or make OpenSpec part of FlowGuard.
+second product workflow or make any specification provider part of FlowGuard.
 
 For ordinary UI, FlowGuard uses two conceptual groups and three executable
 values: `user_visible` and `user_on_demand` are user content; `internal` is not.
@@ -451,7 +460,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.61.0 is source-only: the immutable Git tag is the release
+FlowGuard v0.62.0 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -773,7 +782,13 @@ python -m flowguard model-revision-rollback --root . --contract <rollback.json> 
 ```
 
 这些入口升级的是原来的建模、预检、ModelMesh、行为承诺、字段生命周期、测试和
-开发流程；没有另造第二套产品流程，也没有把 OpenSpec 塞进 FlowGuard。
+开发流程；没有另造第二套产品流程，也没有把任何规格工具塞进 FlowGuard。
+
+外部需求、方案、设计、任务和状态统一通过只读 `WorkContext` 进入。OpenSpec、
+Spec Kit、Superpowers、自定义技能、显式文件，或者完全不使用外部规格工具，
+都是平级选择。FlowGuard 会保留来源工具、原生负责人、文件身份和内容指纹，
+但不会代替它们写文件、执行命令、建 session/cache/receipt，也不会把它们的
+完成状态当成 FlowGuard 测试证据。
 
 对于普通 UI，FlowGuard 只有两个概念组、三个执行值：`user_visible` 和
 `user_on_demand` 属于用户内容，`internal` 不属于。未分类或内部内容不能
@@ -905,7 +920,7 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.61.0 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.62.0 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 ## Guard Family 关系

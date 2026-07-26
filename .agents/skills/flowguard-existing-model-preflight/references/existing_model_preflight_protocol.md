@@ -197,14 +197,15 @@ preflight blocks broad executable-composition confidence when required relation
 or freshness facts remain ambiguous; it does not copy ports, bindings,
 resources, steps, or properties into a second authoritative preflight schema.
 
-## Read-only OpenSpec context
+## Read-only WorkContext
 
-Attach official OpenSpec context only after canonical plane-first commitment
-lookup. Preserve one context id, change id, current context hash, read-only
-flag, and proposal/design/specification/task/status artifact ids. The context
-belongs to `development_process` and cannot own product behavior.
+Attach all declared WorkContexts only after canonical plane-first commitment
+lookup. Preserve context id, adapter id, native work id, native owner, subject
+lane, current fingerprint, read-only flag, generic artifact roles, artifact
+ids, source references, and content fingerprints. Planning context cannot own
+product behavior.
 
-Missing lookup, stale context, mutable access, missing artifact identities, a
-wrong-plane primary owner, or any OpenSpec execution/session/cache/receipt
-bridge blocks full preflight. No provider-task-to-test-owner reconciliation is
-performed here.
+Missing lookup, unknown adapter, path escape, stale context, mutable access,
+missing required roles/artifact identities, a wrong subject lane/primary
+owner, or any provider execution/session/cache/receipt bridge blocks full
+preflight. No provider-task-to-test-owner reconciliation is performed here.

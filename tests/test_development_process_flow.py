@@ -174,36 +174,40 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
                 "openspec:change-one:proposal",
                 artifact_type="spec",
                 owner="openspec",
-                spec_context_id="openspec:change-one",
+                work_context_id="openspec:change-one",
+                work_context_adapter_id="openspec",
+                work_context_fingerprint="sha256:current-context",
                 read_only_external=True,
             ),
         )
         actions = (
             ProcessAction(
                 "spec:read",
-                action_type="spec_context_read",
+                action_type="work_context_read",
                 reads_artifacts=("openspec:change-one:proposal",),
-                spec_context_id="openspec:change-one",
-                spec_context_artifact_ids=("openspec:change-one:proposal",),
-                spec_context_read_only=True,
+                work_context_id="openspec:change-one",
+                work_context_artifact_ids=("openspec:change-one:proposal",),
+                work_context_adapter_id="openspec",
+                work_context_fingerprint="sha256:current-context",
+                work_context_read_only=True,
             ),
         )
         return DevelopmentProcessPlan(
             "spec-process",
             artifacts=artifacts,
             actions=actions,
-            spec_context_ids=("openspec:change-one",),
-            require_current_spec_context=True,
+            work_context_ids=("openspec:change-one",),
+            require_current_work_context=True,
         )
 
     def test_spec_process_requires_read_only_context_and_forbids_provider_writes(self):
         plan = self.spec_process_plan()
         self.assertTrue(review_development_process_flow(plan).ok)
 
-        writable = replace(plan.actions[0], spec_context_read_only=False)
+        writable = replace(plan.actions[0], work_context_read_only=False)
         report = review_development_process_flow(replace(plan, actions=(writable,)))
         codes = {finding.code for finding in report.findings}
-        self.assertIn("spec_context_write_authority_forbidden", codes)
+        self.assertIn("work_context_write_authority_forbidden", codes)
 
         writer = replace(
             plan.actions[0],
@@ -211,7 +215,7 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
         )
         report = review_development_process_flow(replace(plan, actions=(writer,)))
         self.assertIn(
-            "spec_context_artifact_write_forbidden",
+            "work_context_artifact_write_forbidden",
             {finding.code for finding in report.findings},
         )
     def test_current_v_model_plan_is_green(self):

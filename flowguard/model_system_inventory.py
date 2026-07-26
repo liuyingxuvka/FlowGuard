@@ -27,6 +27,11 @@ from .model_regressions import (
     input_inventory_fingerprint,
     resolve_entry_input_inventory,
 )
+from .behavior_commitment import (
+    BehaviorCommitmentLedger,
+    load_behavior_commitment_ledger,
+    review_behavior_commitment_ledger,
+)
 
 
 class ModelSystemInventoryError(ValueError):
@@ -90,7 +95,7 @@ def _owner_model_id(
 
 def _commitment_records(
     root: Path,
-) -> tuple[Path | None, tuple[Mapping[str, Any], ...], tuple[Mapping[str, Any], ...]]:
+) -> tuple[Path | None, BehaviorCommitmentLedger | None]:
     path = (
         root
         / ".flowguard"
@@ -98,24 +103,14 @@ def _commitment_records(
         / "ledger.json"
     )
     if not path.is_file():
-        return None, (), ()
-    payload = _load_json_object(path)
-    ledger = payload.get("ledger")
-    if not isinstance(ledger, Mapping):
+        return None, None
+    try:
+        ledger = load_behavior_commitment_ledger(path)
+    except (OSError, ValueError) as exc:
         raise ModelSystemInventoryError(
-            "behavior commitment artifact has no ledger object"
-        )
-    commitments = tuple(
-        item
-        for item in ledger.get("commitments", ())
-        if isinstance(item, Mapping)
-    )
-    surfaces = tuple(
-        item
-        for item in ledger.get("source_surfaces", ())
-        if isinstance(item, Mapping)
-    )
-    return path, commitments, surfaces
+            f"behavior commitment artifact is not exact current format: {exc}"
+        ) from exc
+    return path, ledger
 
 
 def _evidence_values(
@@ -314,7 +309,18 @@ def build_manifest_model_system_snapshot(
         purpose_covered.append(f"contract:purpose:{entry.model_id}")
         test_required.extend(entry.purpose_closure.evidence_check_ids)
 
-    ledger_path, commitments, surfaces = _commitment_records(root_path)
+    ledger_path, behavior_ledger = _commitment_records(root_path)
+    commitments = tuple(
+        item.to_dict() for item in behavior_ledger.commitments
+    ) if behavior_ledger is not None else ()
+    surfaces = tuple(
+        item.to_dict() for item in behavior_ledger.source_surfaces
+    ) if behavior_ledger is not None else ()
+    ledger_review = (
+        review_behavior_commitment_ledger(behavior_ledger)
+        if behavior_ledger is not None
+        else None
+    )
     surfaces_by_id = {
         str(item.get("surface_id", "")).strip(): item
         for item in surfaces
@@ -490,6 +496,12 @@ def build_manifest_model_system_snapshot(
         for item in surfaces
         if str(item.get("surface_id", "")).strip()
     )
+    expected_surface_ids = (
+        behavior_ledger.expected_source_surface_ids
+        if behavior_ledger is not None
+        and behavior_ledger.expected_source_surface_ids
+        else surface_ids
+    )
     commitment_ids = tuple(
         str(item.get("commitment_id", "")).strip()
         for item in commitments
@@ -509,10 +521,33 @@ def build_manifest_model_system_snapshot(
     dimensions = (
         CoverageDimension(
             "external_surfaces",
-            required_ids=surface_ids,
-            covered_ids=tuple(sorted(set(surface_ids) & linked_surface_ids)),
+            required_ids=expected_surface_ids,
+            covered_ids=tuple(
+                sorted(
+                    set(expected_surface_ids)
+                    & set(surface_ids)
+                    & linked_surface_ids
+                )
+            ),
             unresolved_ids=tuple(
-                sorted(set(surface_ids) - linked_surface_ids)
+                sorted(
+                    (set(expected_surface_ids) - linked_surface_ids)
+                    | (set(surface_ids) - set(expected_surface_ids))
+                    | (
+                        set(
+                            ledger_review.missing_source_surface_ids
+                            if ledger_review is not None
+                            else ()
+                        )
+                    )
+                    | (
+                        set(
+                            ledger_review.unexpected_source_surface_ids
+                            if ledger_review is not None
+                            else ()
+                        )
+                    )
+                )
             ),
         ),
         CoverageDimension(
@@ -557,6 +592,17 @@ def build_manifest_model_system_snapshot(
     inventory_payload = {
         "manifest_fingerprint": manifest_fingerprint,
         "ledger_fingerprint": ledger_fingerprint,
+        "behavior_source_inventory_fingerprint": (
+            behavior_ledger.source_inventory_fingerprint
+            if behavior_ledger is not None
+            else ""
+        ),
+        "behavior_source_inventory_revision": (
+            behavior_ledger.source_inventory_revision
+            if behavior_ledger is not None
+            else ""
+        ),
+        "expected_behavior_source_ids": list(expected_surface_ids),
         "model_instances": {
             entry.model_id: input_inventory_fingerprint(
                 inventories[entry.model_id]

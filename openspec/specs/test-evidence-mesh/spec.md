@@ -291,24 +291,6 @@ TestMesh SHALL require `planned_count == executed_count + not_run_count` and `fa
 - **WHEN** `diagnostic_boundary=declared_complete` and `not_run_count` is nonzero
 - **THEN** TestMesh rejects the completeness claim even when the executed tests passed
 
-### Requirement: TestMesh governs spec-check receipt children
-TestMesh SHALL represent each required spec verification check as a child evidence owner with explicit consumers, execution status, reuse boundary, coverage, and freshness.
-
-#### Scenario: Identical check has several consumers
-- **WHEN** one current receipt satisfies several mapped tasks or obligations
-- **THEN** TestMesh SHALL count one child execution and preserve all consumer references without duplicating evidence
-
-#### Scenario: Unsafe cache hit is proposed
-- **WHEN** a receipt lacks exact command/input/tool/environment/coverage identity or explicit cross-change permission
-- **THEN** TestMesh SHALL report a reuse-proof blocker
-
-### Requirement: TestMesh keeps spec-check states visible
-Spec-check child evidence SHALL preserve `executed`, `reused-current`, `stale`, `not-run`, `blocked`, failed, skipped, timeout, and progress-only states.
-
-#### Scenario: Parent summary is green with a hidden stale child
-- **WHEN** any required child is stale, not-run, blocked, failed, skipped, timed out, or progress-only
-- **THEN** the parent spec verification gate SHALL NOT claim current pass
-
 ### Requirement: TestMesh preserves composite execution identity and completeness
 TestMesh SHALL preserve system-definition, request, slice, component, compiled-model, scheduler/bound, truncation, and trace identities through the existing `ProofArtifactRef.artifact_fingerprints` map plus stable case/shard ids, explored-state count, terminal artifacts, and exactly one execution owner for long or background executable-composition checks. New system-specific generic receipt fields SHALL be added only if focused evidence proves the existing fingerprint map cannot represent the identity.
 
@@ -342,4 +324,37 @@ terminal receipts and MUST NOT launch equivalent duplicate owners.
 #### Scenario: A background owner is still running
 - **WHEN** the process is live but no terminal receipt exists
 - **THEN** TestMesh reports running rather than passed and downstream release gates remain blocked
+
+### Requirement: Test evidence binds the complete coverage inventory
+Before broad behavior confidence, TestMesh SHALL bind its parent gate to the exact current coverage inventory identity, revision, and fingerprint produced by the shared behavior reconciliation. Every required test or evidence identity derived from a `modeled` or `delegated` expected item SHALL have exactly one native child owner and an explicit current state. A caller-selected green subset SHALL NOT establish complete evidence coverage.
+
+#### Scenario: A green subset omits a required child
+- **WHEN** all selected tests pass but the bound coverage inventory requires an additional test or evidence child
+- **THEN** TestMesh SHALL keep the parent gate incomplete and SHALL identify the missing child owner
+
+#### Scenario: The coverage inventory changes
+- **WHEN** the expected inventory or any modeled, delegated, or scoped disposition changes after a TestMesh result
+- **THEN** the affected TestMesh parent and child evidence SHALL become stale according to their declared dependency edges
+
+### Requirement: Coverage dispositions determine evidence ownership
+TestMesh SHALL preserve the evidence consequence of every shared coverage disposition. `modeled` items SHALL bind to current model and test evidence, `delegated` items SHALL bind to the exact current evidence owned by the delegated native route, and `scoped` items SHALL remain visible with their boundary and SHALL NOT be projected as passed tests.
+
+#### Scenario: A delegated item lacks native evidence
+- **WHEN** an expected item is delegated to a specialist inventory but its required native evidence is missing, stale, skipped, blocked, or not run
+- **THEN** TestMesh SHALL preserve that state and SHALL NOT synthesize a passing child from the delegation itself
+
+#### Scenario: An item is intentionally scoped
+- **WHEN** an expected item has a valid scoped disposition
+- **THEN** TestMesh SHALL retain the scope boundary in the parent accounting without manufacturing an executed test result
+
+### Requirement: Work context and provider status are not test evidence
+WorkContext artifacts, provider status, proposals, plans, tasks, checkboxes, and completion markers SHALL be treated as read-only planning context rather than test execution evidence, execution-owner receipts, or reuse authority. An actual provider-native validator MAY appear as ordinary TestMesh evidence only when it ran under a separately declared native execution owner with exact terminal identity, inputs, and freshness.
+
+#### Scenario: A provider task list is complete
+- **WHEN** OpenSpec, Spec Kit, Superpowers, a declared-file profile, or another provider reports that all planning tasks are complete
+- **THEN** TestMesh SHALL NOT mark any FlowGuard model, test, replay, or native validation child as passed solely from that status
+
+#### Scenario: A provider-native validator executes
+- **WHEN** a provider-native validator runs under its own declared execution owner and produces current terminal evidence
+- **THEN** TestMesh MAY reference that evidence as an ordinary native child while WorkContext itself remains non-executing and receipt-free
 

@@ -1,0 +1,1136 @@
+{
+  "affected_closure_fingerprint": "sha256:b78a03f69b11b565ff44f31bba93120d29767c11682c32c7e36e1a9832b077cf",
+  "affected_closure_ids": [
+    "model:adversarial_scenario_synthesis",
+    "model:ai_entry_surface_reduction",
+    "model:ai_route_handoffs",
+    "model:ai_surface_streamlining",
+    "model:architecture_reduction",
+    "model:authoritative_model_system",
+    "model:behavior_commitment_ledger",
+    "model:bounded_system_composition_benchmark",
+    "model:code_boundary_conformance",
+    "model:codex_skill_satellites",
+    "model:compositional_verification_kernel",
+    "model:contract_source_audit",
+    "model:default_replacement_field_lifecycle",
+    "model:development_process_flow",
+    "model:development_process_strategy",
+    "model:existing_model_preflight",
+    "model:field_prompt_reduction",
+    "model:flowguard_closure_contract",
+    "model:guard_closure_contract",
+    "model:guidance_compression",
+    "model:harden_ui_content_visibility_validation",
+    "model:harden_ui_real_surface_validation",
+    "model:hierarchical_model_mesh",
+    "model:legacy_compatibility_cleanup",
+    "model:maintenance_obligation_memory",
+    "model:maintenance_scan_router",
+    "model:mesh_target_split_derivation",
+    "model:minimum_valuable_model_entry",
+    "model:model_angle_deliberation",
+    "model:model_impact_freshness_gate",
+    "model:model_mesh_closure_model",
+    "model:model_miss_review",
+    "model:model_similarity_consolidation",
+    "model:model_test_code_alignment",
+    "model:model_topology_hazard_review",
+    "model:model_visibility",
+    "model:openspec_archive_cleanup",
+    "model:plan_detailing_compiler",
+    "model:primary_path_authority",
+    "model:readme_positioning_20260602",
+    "model:reduce_architecture_surface",
+    "model:release_visibility_process",
+    "model:risk_purpose_header",
+    "model:runtime_gateway_adoption",
+    "model:runtime_path_evidence",
+    "model:self_maintenance_mesh",
+    "model:simplify_field_schema",
+    "model:simplify_flowguard_structure",
+    "model:skill_kernel_modularization",
+    "model:state_closure_gate",
+    "model:structure_refactor_mesh",
+    "model:structure_surface_simplification",
+    "model:task_local_prediction_replay",
+    "model:template_harvest_closure",
+    "model:template_public_release",
+    "model:test_evidence_mesh",
+    "model:ui_flow_structure_skill",
+    "model:ui_human_operability_gate",
+    "model:user_facing_model_diagrams",
+    "model:validation_evidence_gates",
+    "model:work_context",
+    "relation:relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+    "relation:relation:model-realizes-code_contract:model_instance:model:authoritative_model_system--code_contract:contract:contract:model-system-authority:observed-head",
+    "relation:relation:model-realizes-code_contract:model_instance:model:authoritative_model_system--code_contract:contract:contract:model-system-authority:operational-rollback",
+    "relation:relation:model-realizes-code_contract:model_instance:model:authoritative_model_system--code_contract:contract:contract:model-system-authority:revision-activation",
+    "relation:relation:model-realizes-code_contract:model_instance:model:behavior_commitment_ledger--code_contract:contract:contract:behavior-dcar-full-axis",
+    "relation:relation:model-realizes-code_contract:model_instance:model:behavior_commitment_ledger--code_contract:contract:contract:behavior-ledger-current",
+    "relation:relation:model-realizes-code_contract:model_instance:model:compositional_verification_kernel--code_contract:contract:contract:portable-compositional-verification",
+    "relation:relation:model-realizes-code_contract:model_instance:model:default_replacement_field_lifecycle--code_contract:contract:contract:single-path-replacement-disposition",
+    "relation:relation:model-realizes-code_contract:model_instance:model:development_process_flow--code_contract:contract:contract:spec-context-read-only",
+    "relation:relation:model-realizes-code_contract:model_instance:model:development_process_strategy--code_contract:contract:contract:development-process-strategy-selection",
+    "relation:relation:model-realizes-code_contract:model_instance:model:minimum_valuable_model_entry--code_contract:contract:contract:flowguard:route-guidance",
+    "relation:relation:model-realizes-code_contract:model_instance:model:model_miss_review--code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+    "relation:relation:model-realizes-code_contract:model_instance:model:self_maintenance_mesh--code_contract:contract:contract:self-maintenance-child-gates",
+    "relation:relation:model-realizes-code_contract:model_instance:model:structure_refactor_mesh--code_contract:contract:contract:flowguard-template-cli-dispatch",
+    "relation:relation:model-realizes-code_contract:model_instance:model:test_evidence_mesh--code_contract:contract:contract:test-mesh-current-for-bcl",
+    "relation:relation:model-realizes-code_contract:model_instance:model:ui_flow_structure_skill--code_contract:contract:contract:review-ui-content-visibility",
+    "relation:relation:model-realizes-commitment:commitment:authoritative-model-system",
+    "relation:relation:model-realizes-commitment:commitment:behavior-dcar-full-axis",
+    "relation:relation:model-realizes-commitment:commitment:behavior-ledger-current",
+    "relation:relation:model-realizes-commitment:commitment:development-process-strategy-selection",
+    "relation:relation:model-realizes-commitment:commitment:flowguard-agent-guidance-route",
+    "relation:relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+    "relation:relation:model-realizes-commitment:commitment:flowguard-template-cli-dispatch",
+    "relation:relation:model-realizes-commitment:commitment:model-miss-backfeeds-existing-commitment",
+    "relation:relation:model-realizes-commitment:commitment:ordinary-ui-content-admission",
+    "relation:relation:model-realizes-commitment:commitment:portable-compositional-verification",
+    "relation:relation:model-realizes-commitment:commitment:self-maintenance-child-gates",
+    "relation:relation:model-realizes-commitment:commitment:single-path-replacement-disposition",
+    "relation:relation:model-realizes-commitment:commitment:spec-context-read-only",
+    "relation:relation:model-realizes-commitment:commitment:test-mesh-current-for-bcl",
+    "relation:relation:model-realizes-field_inventory:model_instance:model:authoritative_model_system--field_inventory:field-or-effect:model_authority_head",
+    "relation:relation:model-realizes-field_inventory:model_instance:model:behavior_commitment_ledger--field_inventory:field-or-effect:contract_coverage_universe",
+    "relation:relation:model-realizes-field_inventory:model_instance:model:default_replacement_field_lifecycle--field_inventory:field-or-effect:replacement_disposition",
+    "relation:relation:model-realizes-field_inventory:model_instance:model:development_process_flow--field_inventory:field-or-effect:read_only_spec_context_projection",
+    "relation:relation:model-realizes-field_inventory:model_instance:model:development_process_strategy--field_inventory:field-or-effect:process_optimization_decision",
+    "relation:relation:model-realizes-field_inventory:model_instance:model:development_process_strategy--field_inventory:field-or-effect:repair_group_references",
+    "relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:affected_commitment_id",
+    "relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:miss_origin_state",
+    "relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:primary_owner_model_id",
+    "relation:relation:model-realizes-field_inventory:model_instance:model:self_maintenance_mesh--field_inventory:field-or-effect:self_maintenance_closure_state",
+    "relation:relation:model-realizes-field_inventory:model_instance:model:test_evidence_mesh--field_inventory:field-or-effect:test_mesh_evidence_state",
+    "relation:relation:model-realizes-purpose:adversarial_scenario_synthesis",
+    "relation:relation:model-realizes-purpose:ai_entry_surface_reduction",
+    "relation:relation:model-realizes-purpose:ai_route_handoffs",
+    "relation:relation:model-realizes-purpose:ai_surface_streamlining",
+    "relation:relation:model-realizes-purpose:architecture_reduction",
+    "relation:relation:model-realizes-purpose:authoritative_model_system",
+    "relation:relation:model-realizes-purpose:behavior_commitment_ledger",
+    "relation:relation:model-realizes-purpose:bounded_system_composition_benchmark",
+    "relation:relation:model-realizes-purpose:code_boundary_conformance",
+    "relation:relation:model-realizes-purpose:codex_skill_satellites",
+    "relation:relation:model-realizes-purpose:compositional_verification_kernel",
+    "relation:relation:model-realizes-purpose:contract_source_audit",
+    "relation:relation:model-realizes-purpose:default_replacement_field_lifecycle",
+    "relation:relation:model-realizes-purpose:development_process_flow",
+    "relation:relation:model-realizes-purpose:development_process_strategy",
+    "relation:relation:model-realizes-purpose:existing_model_preflight",
+    "relation:relation:model-realizes-purpose:field_prompt_reduction",
+    "relation:relation:model-realizes-purpose:flowguard_closure_contract",
+    "relation:relation:model-realizes-purpose:guard_closure_contract",
+    "relation:relation:model-realizes-purpose:guidance_compression",
+    "relation:relation:model-realizes-purpose:harden_ui_content_visibility_validation",
+    "relation:relation:model-realizes-purpose:harden_ui_real_surface_validation",
+    "relation:relation:model-realizes-purpose:hierarchical_model_mesh",
+    "relation:relation:model-realizes-purpose:legacy_compatibility_cleanup",
+    "relation:relation:model-realizes-purpose:maintenance_obligation_memory",
+    "relation:relation:model-realizes-purpose:maintenance_scan_router",
+    "relation:relation:model-realizes-purpose:mesh_target_split_derivation",
+    "relation:relation:model-realizes-purpose:minimum_valuable_model_entry",
+    "relation:relation:model-realizes-purpose:model_angle_deliberation",
+    "relation:relation:model-realizes-purpose:model_impact_freshness_gate",
+    "relation:relation:model-realizes-purpose:model_mesh_closure_model",
+    "relation:relation:model-realizes-purpose:model_miss_review",
+    "relation:relation:model-realizes-purpose:model_similarity_consolidation",
+    "relation:relation:model-realizes-purpose:model_test_code_alignment",
+    "relation:relation:model-realizes-purpose:model_topology_hazard_review",
+    "relation:relation:model-realizes-purpose:model_visibility",
+    "relation:relation:model-realizes-purpose:openspec_archive_cleanup",
+    "relation:relation:model-realizes-purpose:plan_detailing_compiler",
+    "relation:relation:model-realizes-purpose:primary_path_authority",
+    "relation:relation:model-realizes-purpose:readme_positioning_20260602",
+    "relation:relation:model-realizes-purpose:reduce_architecture_surface",
+    "relation:relation:model-realizes-purpose:release_visibility_process",
+    "relation:relation:model-realizes-purpose:risk_purpose_header",
+    "relation:relation:model-realizes-purpose:runtime_gateway_adoption",
+    "relation:relation:model-realizes-purpose:runtime_path_evidence",
+    "relation:relation:model-realizes-purpose:self_maintenance_mesh",
+    "relation:relation:model-realizes-purpose:simplify_field_schema",
+    "relation:relation:model-realizes-purpose:simplify_flowguard_structure",
+    "relation:relation:model-realizes-purpose:skill_kernel_modularization",
+    "relation:relation:model-realizes-purpose:state_closure_gate",
+    "relation:relation:model-realizes-purpose:structure_refactor_mesh",
+    "relation:relation:model-realizes-purpose:structure_surface_simplification",
+    "relation:relation:model-realizes-purpose:task_local_prediction_replay",
+    "relation:relation:model-realizes-purpose:template_harvest_closure",
+    "relation:relation:model-realizes-purpose:template_public_release",
+    "relation:relation:model-realizes-purpose:test_evidence_mesh",
+    "relation:relation:model-realizes-purpose:ui_flow_structure_skill",
+    "relation:relation:model-realizes-purpose:ui_human_operability_gate",
+    "relation:relation:model-realizes-purpose:user_facing_model_diagrams",
+    "relation:relation:model-realizes-purpose:validation_evidence_gates",
+    "relation:relation:model-realizes-purpose:work_context",
+    "relation:relation:model-realizes-side_effect_inventory:model_instance:model:authoritative_model_system--side_effect_inventory:field-or-effect:persist_immutable_model_revision_records",
+    "relation:relation:model-realizes-side_effect_inventory:model_instance:model:authoritative_model_system--side_effect_inventory:field-or-effect:restore_or_compensate_implementation_effects",
+    "relation:relation:model-realizes-side_effect_inventory:model_instance:model:behavior_commitment_ledger--side_effect_inventory:field-or-effect:generate_behavior_contract_cases",
+    "relation:relation:model-realizes-side_effect_inventory:model_instance:model:default_replacement_field_lifecycle--side_effect_inventory:field-or-effect:delete_block_migrate_delegate_or_scope_old_path",
+    "relation:relation:model-realizes-side_effect_inventory:model_instance:model:development_process_strategy--side_effect_inventory:field-or-effect:record_process_optimization_decision",
+    "relation:relation:model-realizes-side_effect_inventory:model_instance:model:development_process_strategy--side_effect_inventory:field-or-effect:record_repair_group_references",
+    "relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+    "relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:query_behavior_commitments",
+    "relation:relation:model-realizes-side_effect_inventory:model_instance:model:self_maintenance_mesh--side_effect_inventory:field-or-effect:block_incomplete_done_claim",
+    "relation:relation:model-realizes-side_effect_inventory:model_instance:model:test_evidence_mesh--side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims",
+    "relation:relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:.flowguard/authoritative_model_system/run_checks.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_authority.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_authority_cli.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_authority_store.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_system_inventory.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:behavior_commitment_ledger--test_evidence:test:.flowguard/behavior_commitment_ledger/run_checks.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:behavior_commitment_ledger--test_evidence:test:test:behavior-dcar-full-axis",
+    "relation:relation:model-validates-test_evidence:model_instance:model:behavior_commitment_ledger--test_evidence:test:tests.test_behavior_commitment_ledger",
+    "relation:relation:model-validates-test_evidence:model_instance:model:behavior_commitment_ledger--test_evidence:test:tests.test_behavior_commitment_primary_path",
+    "relation:relation:model-validates-test_evidence:model_instance:model:compositional_verification_kernel--test_evidence:test:tests/test_compositional_verification.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:compositional_verification_kernel--test_evidence:test:tests/test_portable_checker.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:compositional_verification_kernel--test_evidence:test:tests/test_portable_model.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:compositional_verification_kernel--test_evidence:test:tests/test_portable_model_cli.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:compositional_verification_kernel--test_evidence:test:tests/test_portable_system.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:compositional_verification_kernel--test_evidence:test:tests/test_system_composition_benchmark.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:default_replacement_field_lifecycle--test_evidence:test:test:single-path-replacement-disposition",
+    "relation:relation:model-validates-test_evidence:model_instance:model:development_process_flow--test_evidence:test:test:spec-context-read-only",
+    "relation:relation:model-validates-test_evidence:model_instance:model:development_process_strategy--test_evidence:test:tests/test_development_process_flow.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:development_process_strategy--test_evidence:test:tests/test_development_process_strategy.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:development_process_strategy--test_evidence:test:tests/test_development_process_strategy_benchmark.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:minimum_valuable_model_entry--test_evidence:test:tests/test_skill_contract_v2_projection.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:minimum_valuable_model_entry--test_evidence:test:tests/test_skill_docs.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:model_miss_review--test_evidence:test:test:model-miss-backfeeds-existing-commitment",
+    "relation:relation:model-validates-test_evidence:model_instance:model:self_maintenance_mesh--test_evidence:test:test:self-maintenance-child-gates",
+    "relation:relation:model-validates-test_evidence:model_instance:model:structure_refactor_mesh--test_evidence:test:tests/test_maintenance_template.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:structure_refactor_mesh--test_evidence:test:tests/test_public_templates.py",
+    "relation:relation:model-validates-test_evidence:model_instance:model:test_evidence_mesh--test_evidence:test:test:test-mesh-current-for-bcl",
+    "relation:relation:model-validates-test_evidence:model_instance:model:ui_flow_structure_skill--test_evidence:test:test:ui-content-admission:failure",
+    "relation:relation:model-validates-test_evidence:model_instance:model:ui_flow_structure_skill--test_evidence:test:test:ui-content-admission:happy",
+    "relation:relation:system-contains:adversarial_scenario_synthesis",
+    "relation:relation:system-contains:ai_entry_surface_reduction",
+    "relation:relation:system-contains:ai_route_handoffs",
+    "relation:relation:system-contains:ai_surface_streamlining",
+    "relation:relation:system-contains:architecture_reduction",
+    "relation:relation:system-contains:authoritative_model_system",
+    "relation:relation:system-contains:behavior_commitment_ledger",
+    "relation:relation:system-contains:bounded_system_composition_benchmark",
+    "relation:relation:system-contains:code_boundary_conformance",
+    "relation:relation:system-contains:codex_skill_satellites",
+    "relation:relation:system-contains:compositional_verification_kernel",
+    "relation:relation:system-contains:contract_source_audit",
+    "relation:relation:system-contains:default_replacement_field_lifecycle",
+    "relation:relation:system-contains:development_process_flow",
+    "relation:relation:system-contains:development_process_strategy",
+    "relation:relation:system-contains:existing_model_preflight",
+    "relation:relation:system-contains:field_prompt_reduction",
+    "relation:relation:system-contains:flowguard_closure_contract",
+    "relation:relation:system-contains:guard_closure_contract",
+    "relation:relation:system-contains:guidance_compression",
+    "relation:relation:system-contains:harden_ui_content_visibility_validation",
+    "relation:relation:system-contains:harden_ui_real_surface_validation",
+    "relation:relation:system-contains:hierarchical_model_mesh",
+    "relation:relation:system-contains:legacy_compatibility_cleanup",
+    "relation:relation:system-contains:maintenance_obligation_memory",
+    "relation:relation:system-contains:maintenance_scan_router",
+    "relation:relation:system-contains:mesh_target_split_derivation",
+    "relation:relation:system-contains:minimum_valuable_model_entry",
+    "relation:relation:system-contains:model_angle_deliberation",
+    "relation:relation:system-contains:model_impact_freshness_gate",
+    "relation:relation:system-contains:model_mesh_closure_model",
+    "relation:relation:system-contains:model_miss_review",
+    "relation:relation:system-contains:model_similarity_consolidation",
+    "relation:relation:system-contains:model_test_code_alignment",
+    "relation:relation:system-contains:model_topology_hazard_review",
+    "relation:relation:system-contains:model_visibility",
+    "relation:relation:system-contains:openspec_archive_cleanup",
+    "relation:relation:system-contains:plan_detailing_compiler",
+    "relation:relation:system-contains:primary_path_authority",
+    "relation:relation:system-contains:readme_positioning_20260602",
+    "relation:relation:system-contains:reduce_architecture_surface",
+    "relation:relation:system-contains:release_visibility_process",
+    "relation:relation:system-contains:risk_purpose_header",
+    "relation:relation:system-contains:runtime_gateway_adoption",
+    "relation:relation:system-contains:runtime_path_evidence",
+    "relation:relation:system-contains:self_maintenance_mesh",
+    "relation:relation:system-contains:simplify_field_schema",
+    "relation:relation:system-contains:simplify_flowguard_structure",
+    "relation:relation:system-contains:skill_kernel_modularization",
+    "relation:relation:system-contains:state_closure_gate",
+    "relation:relation:system-contains:structure_refactor_mesh",
+    "relation:relation:system-contains:structure_surface_simplification",
+    "relation:relation:system-contains:task_local_prediction_replay",
+    "relation:relation:system-contains:template_harvest_closure",
+    "relation:relation:system-contains:template_public_release",
+    "relation:relation:system-contains:test_evidence_mesh",
+    "relation:relation:system-contains:ui_flow_structure_skill",
+    "relation:relation:system-contains:ui_human_operability_gate",
+    "relation:relation:system-contains:user_facing_model_diagrams",
+    "relation:relation:system-contains:validation_evidence_gates",
+    "relation:relation:system-contains:work_context"
+  ],
+  "base_snapshot_fingerprint": "sha256:a4fccf4e8abaff41fc452f9a542d6eae6e10f734209fbbabbfb85163a7575ac6",
+  "candidate_snapshot_fingerprint": "sha256:3554646adeed5275f5d897ac44b5c44062dc7829d7816e1d06e3819fe258712a",
+  "changed_commitment_ids": [],
+  "changed_contract_ids": [],
+  "changed_field_ids": [],
+  "changed_relation_ids": [
+    "relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+    "relation:model-realizes-code_contract:model_instance:model:authoritative_model_system--code_contract:contract:contract:model-system-authority:observed-head",
+    "relation:model-realizes-code_contract:model_instance:model:authoritative_model_system--code_contract:contract:contract:model-system-authority:operational-rollback",
+    "relation:model-realizes-code_contract:model_instance:model:authoritative_model_system--code_contract:contract:contract:model-system-authority:revision-activation",
+    "relation:model-realizes-code_contract:model_instance:model:behavior_commitment_ledger--code_contract:contract:contract:behavior-dcar-full-axis",
+    "relation:model-realizes-code_contract:model_instance:model:behavior_commitment_ledger--code_contract:contract:contract:behavior-ledger-current",
+    "relation:model-realizes-code_contract:model_instance:model:compositional_verification_kernel--code_contract:contract:contract:portable-compositional-verification",
+    "relation:model-realizes-code_contract:model_instance:model:default_replacement_field_lifecycle--code_contract:contract:contract:single-path-replacement-disposition",
+    "relation:model-realizes-code_contract:model_instance:model:development_process_flow--code_contract:contract:contract:spec-context-read-only",
+    "relation:model-realizes-code_contract:model_instance:model:development_process_strategy--code_contract:contract:contract:development-process-strategy-selection",
+    "relation:model-realizes-code_contract:model_instance:model:minimum_valuable_model_entry--code_contract:contract:contract:flowguard:route-guidance",
+    "relation:model-realizes-code_contract:model_instance:model:model_miss_review--code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+    "relation:model-realizes-code_contract:model_instance:model:self_maintenance_mesh--code_contract:contract:contract:self-maintenance-child-gates",
+    "relation:model-realizes-code_contract:model_instance:model:structure_refactor_mesh--code_contract:contract:contract:flowguard-template-cli-dispatch",
+    "relation:model-realizes-code_contract:model_instance:model:test_evidence_mesh--code_contract:contract:contract:test-mesh-current-for-bcl",
+    "relation:model-realizes-code_contract:model_instance:model:ui_flow_structure_skill--code_contract:contract:contract:review-ui-content-visibility",
+    "relation:model-realizes-commitment:commitment:authoritative-model-system",
+    "relation:model-realizes-commitment:commitment:behavior-dcar-full-axis",
+    "relation:model-realizes-commitment:commitment:behavior-ledger-current",
+    "relation:model-realizes-commitment:commitment:development-process-strategy-selection",
+    "relation:model-realizes-commitment:commitment:flowguard-agent-guidance-route",
+    "relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+    "relation:model-realizes-commitment:commitment:flowguard-template-cli-dispatch",
+    "relation:model-realizes-commitment:commitment:model-miss-backfeeds-existing-commitment",
+    "relation:model-realizes-commitment:commitment:ordinary-ui-content-admission",
+    "relation:model-realizes-commitment:commitment:portable-compositional-verification",
+    "relation:model-realizes-commitment:commitment:self-maintenance-child-gates",
+    "relation:model-realizes-commitment:commitment:single-path-replacement-disposition",
+    "relation:model-realizes-commitment:commitment:spec-context-read-only",
+    "relation:model-realizes-commitment:commitment:test-mesh-current-for-bcl",
+    "relation:model-realizes-field_inventory:model_instance:model:authoritative_model_system--field_inventory:field-or-effect:model_authority_head",
+    "relation:model-realizes-field_inventory:model_instance:model:behavior_commitment_ledger--field_inventory:field-or-effect:contract_coverage_universe",
+    "relation:model-realizes-field_inventory:model_instance:model:default_replacement_field_lifecycle--field_inventory:field-or-effect:replacement_disposition",
+    "relation:model-realizes-field_inventory:model_instance:model:development_process_flow--field_inventory:field-or-effect:read_only_spec_context_projection",
+    "relation:model-realizes-field_inventory:model_instance:model:development_process_strategy--field_inventory:field-or-effect:process_optimization_decision",
+    "relation:model-realizes-field_inventory:model_instance:model:development_process_strategy--field_inventory:field-or-effect:repair_group_references",
+    "relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:affected_commitment_id",
+    "relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:miss_origin_state",
+    "relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:primary_owner_model_id",
+    "relation:model-realizes-field_inventory:model_instance:model:self_maintenance_mesh--field_inventory:field-or-effect:self_maintenance_closure_state",
+    "relation:model-realizes-field_inventory:model_instance:model:test_evidence_mesh--field_inventory:field-or-effect:test_mesh_evidence_state",
+    "relation:model-realizes-purpose:adversarial_scenario_synthesis",
+    "relation:model-realizes-purpose:ai_entry_surface_reduction",
+    "relation:model-realizes-purpose:ai_route_handoffs",
+    "relation:model-realizes-purpose:ai_surface_streamlining",
+    "relation:model-realizes-purpose:architecture_reduction",
+    "relation:model-realizes-purpose:authoritative_model_system",
+    "relation:model-realizes-purpose:behavior_commitment_ledger",
+    "relation:model-realizes-purpose:bounded_system_composition_benchmark",
+    "relation:model-realizes-purpose:code_boundary_conformance",
+    "relation:model-realizes-purpose:codex_skill_satellites",
+    "relation:model-realizes-purpose:compositional_verification_kernel",
+    "relation:model-realizes-purpose:contract_source_audit",
+    "relation:model-realizes-purpose:default_replacement_field_lifecycle",
+    "relation:model-realizes-purpose:development_process_flow",
+    "relation:model-realizes-purpose:development_process_strategy",
+    "relation:model-realizes-purpose:existing_model_preflight",
+    "relation:model-realizes-purpose:field_prompt_reduction",
+    "relation:model-realizes-purpose:flowguard_closure_contract",
+    "relation:model-realizes-purpose:guard_closure_contract",
+    "relation:model-realizes-purpose:guidance_compression",
+    "relation:model-realizes-purpose:harden_ui_content_visibility_validation",
+    "relation:model-realizes-purpose:harden_ui_real_surface_validation",
+    "relation:model-realizes-purpose:hierarchical_model_mesh",
+    "relation:model-realizes-purpose:legacy_compatibility_cleanup",
+    "relation:model-realizes-purpose:maintenance_obligation_memory",
+    "relation:model-realizes-purpose:maintenance_scan_router",
+    "relation:model-realizes-purpose:mesh_target_split_derivation",
+    "relation:model-realizes-purpose:minimum_valuable_model_entry",
+    "relation:model-realizes-purpose:model_angle_deliberation",
+    "relation:model-realizes-purpose:model_impact_freshness_gate",
+    "relation:model-realizes-purpose:model_mesh_closure_model",
+    "relation:model-realizes-purpose:model_miss_review",
+    "relation:model-realizes-purpose:model_similarity_consolidation",
+    "relation:model-realizes-purpose:model_test_code_alignment",
+    "relation:model-realizes-purpose:model_topology_hazard_review",
+    "relation:model-realizes-purpose:model_visibility",
+    "relation:model-realizes-purpose:openspec_archive_cleanup",
+    "relation:model-realizes-purpose:plan_detailing_compiler",
+    "relation:model-realizes-purpose:primary_path_authority",
+    "relation:model-realizes-purpose:readme_positioning_20260602",
+    "relation:model-realizes-purpose:reduce_architecture_surface",
+    "relation:model-realizes-purpose:release_visibility_process",
+    "relation:model-realizes-purpose:risk_purpose_header",
+    "relation:model-realizes-purpose:runtime_gateway_adoption",
+    "relation:model-realizes-purpose:runtime_path_evidence",
+    "relation:model-realizes-purpose:self_maintenance_mesh",
+    "relation:model-realizes-purpose:simplify_field_schema",
+    "relation:model-realizes-purpose:simplify_flowguard_structure",
+    "relation:model-realizes-purpose:skill_kernel_modularization",
+    "relation:model-realizes-purpose:state_closure_gate",
+    "relation:model-realizes-purpose:structure_refactor_mesh",
+    "relation:model-realizes-purpose:structure_surface_simplification",
+    "relation:model-realizes-purpose:task_local_prediction_replay",
+    "relation:model-realizes-purpose:template_harvest_closure",
+    "relation:model-realizes-purpose:template_public_release",
+    "relation:model-realizes-purpose:test_evidence_mesh",
+    "relation:model-realizes-purpose:ui_flow_structure_skill",
+    "relation:model-realizes-purpose:ui_human_operability_gate",
+    "relation:model-realizes-purpose:user_facing_model_diagrams",
+    "relation:model-realizes-purpose:validation_evidence_gates",
+    "relation:model-realizes-purpose:work_context",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:authoritative_model_system--side_effect_inventory:field-or-effect:persist_immutable_model_revision_records",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:authoritative_model_system--side_effect_inventory:field-or-effect:restore_or_compensate_implementation_effects",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:behavior_commitment_ledger--side_effect_inventory:field-or-effect:generate_behavior_contract_cases",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:default_replacement_field_lifecycle--side_effect_inventory:field-or-effect:delete_block_migrate_delegate_or_scope_old_path",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:development_process_strategy--side_effect_inventory:field-or-effect:record_process_optimization_decision",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:development_process_strategy--side_effect_inventory:field-or-effect:record_repair_group_references",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:query_behavior_commitments",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:self_maintenance_mesh--side_effect_inventory:field-or-effect:block_incomplete_done_claim",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:test_evidence_mesh--side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims",
+    "relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:.flowguard/authoritative_model_system/run_checks.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_authority.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_authority_cli.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_authority_store.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_system_inventory.py",
+    "relation:model-validates-test_evidence:model_instance:model:behavior_commitment_ledger--test_evidence:test:.flowguard/behavior_commitment_ledger/run_checks.py",
+    "relation:model-validates-test_evidence:model_instance:model:behavior_commitment_ledger--test_evidence:test:test:behavior-dcar-full-axis",
+    "relation:model-validates-test_evidence:model_instance:model:behavior_commitment_ledger--test_evidence:test:tests.test_behavior_commitment_ledger",
+    "relation:model-validates-test_evidence:model_instance:model:behavior_commitment_ledger--test_evidence:test:tests.test_behavior_commitment_primary_path",
+    "relation:model-validates-test_evidence:model_instance:model:compositional_verification_kernel--test_evidence:test:tests/test_compositional_verification.py",
+    "relation:model-validates-test_evidence:model_instance:model:compositional_verification_kernel--test_evidence:test:tests/test_portable_checker.py",
+    "relation:model-validates-test_evidence:model_instance:model:compositional_verification_kernel--test_evidence:test:tests/test_portable_model.py",
+    "relation:model-validates-test_evidence:model_instance:model:compositional_verification_kernel--test_evidence:test:tests/test_portable_model_cli.py",
+    "relation:model-validates-test_evidence:model_instance:model:compositional_verification_kernel--test_evidence:test:tests/test_portable_system.py",
+    "relation:model-validates-test_evidence:model_instance:model:compositional_verification_kernel--test_evidence:test:tests/test_system_composition_benchmark.py",
+    "relation:model-validates-test_evidence:model_instance:model:default_replacement_field_lifecycle--test_evidence:test:test:single-path-replacement-disposition",
+    "relation:model-validates-test_evidence:model_instance:model:development_process_flow--test_evidence:test:test:spec-context-read-only",
+    "relation:model-validates-test_evidence:model_instance:model:development_process_strategy--test_evidence:test:tests/test_development_process_flow.py",
+    "relation:model-validates-test_evidence:model_instance:model:development_process_strategy--test_evidence:test:tests/test_development_process_strategy.py",
+    "relation:model-validates-test_evidence:model_instance:model:development_process_strategy--test_evidence:test:tests/test_development_process_strategy_benchmark.py",
+    "relation:model-validates-test_evidence:model_instance:model:minimum_valuable_model_entry--test_evidence:test:tests/test_skill_contract_v2_projection.py",
+    "relation:model-validates-test_evidence:model_instance:model:minimum_valuable_model_entry--test_evidence:test:tests/test_skill_docs.py",
+    "relation:model-validates-test_evidence:model_instance:model:model_miss_review--test_evidence:test:test:model-miss-backfeeds-existing-commitment",
+    "relation:model-validates-test_evidence:model_instance:model:self_maintenance_mesh--test_evidence:test:test:self-maintenance-child-gates",
+    "relation:model-validates-test_evidence:model_instance:model:structure_refactor_mesh--test_evidence:test:tests/test_maintenance_template.py",
+    "relation:model-validates-test_evidence:model_instance:model:structure_refactor_mesh--test_evidence:test:tests/test_public_templates.py",
+    "relation:model-validates-test_evidence:model_instance:model:test_evidence_mesh--test_evidence:test:test:test-mesh-current-for-bcl",
+    "relation:model-validates-test_evidence:model_instance:model:ui_flow_structure_skill--test_evidence:test:test:ui-content-admission:failure",
+    "relation:model-validates-test_evidence:model_instance:model:ui_flow_structure_skill--test_evidence:test:test:ui-content-admission:happy",
+    "relation:system-contains:adversarial_scenario_synthesis",
+    "relation:system-contains:ai_entry_surface_reduction",
+    "relation:system-contains:ai_route_handoffs",
+    "relation:system-contains:ai_surface_streamlining",
+    "relation:system-contains:architecture_reduction",
+    "relation:system-contains:authoritative_model_system",
+    "relation:system-contains:behavior_commitment_ledger",
+    "relation:system-contains:bounded_system_composition_benchmark",
+    "relation:system-contains:code_boundary_conformance",
+    "relation:system-contains:codex_skill_satellites",
+    "relation:system-contains:compositional_verification_kernel",
+    "relation:system-contains:contract_source_audit",
+    "relation:system-contains:default_replacement_field_lifecycle",
+    "relation:system-contains:development_process_flow",
+    "relation:system-contains:development_process_strategy",
+    "relation:system-contains:existing_model_preflight",
+    "relation:system-contains:field_prompt_reduction",
+    "relation:system-contains:flowguard_closure_contract",
+    "relation:system-contains:guard_closure_contract",
+    "relation:system-contains:guidance_compression",
+    "relation:system-contains:harden_ui_content_visibility_validation",
+    "relation:system-contains:harden_ui_real_surface_validation",
+    "relation:system-contains:hierarchical_model_mesh",
+    "relation:system-contains:legacy_compatibility_cleanup",
+    "relation:system-contains:maintenance_obligation_memory",
+    "relation:system-contains:maintenance_scan_router",
+    "relation:system-contains:mesh_target_split_derivation",
+    "relation:system-contains:minimum_valuable_model_entry",
+    "relation:system-contains:model_angle_deliberation",
+    "relation:system-contains:model_impact_freshness_gate",
+    "relation:system-contains:model_mesh_closure_model",
+    "relation:system-contains:model_miss_review",
+    "relation:system-contains:model_similarity_consolidation",
+    "relation:system-contains:model_test_code_alignment",
+    "relation:system-contains:model_topology_hazard_review",
+    "relation:system-contains:model_visibility",
+    "relation:system-contains:openspec_archive_cleanup",
+    "relation:system-contains:plan_detailing_compiler",
+    "relation:system-contains:primary_path_authority",
+    "relation:system-contains:readme_positioning_20260602",
+    "relation:system-contains:reduce_architecture_surface",
+    "relation:system-contains:release_visibility_process",
+    "relation:system-contains:risk_purpose_header",
+    "relation:system-contains:runtime_gateway_adoption",
+    "relation:system-contains:runtime_path_evidence",
+    "relation:system-contains:self_maintenance_mesh",
+    "relation:system-contains:simplify_field_schema",
+    "relation:system-contains:simplify_flowguard_structure",
+    "relation:system-contains:skill_kernel_modularization",
+    "relation:system-contains:state_closure_gate",
+    "relation:system-contains:structure_refactor_mesh",
+    "relation:system-contains:structure_surface_simplification",
+    "relation:system-contains:task_local_prediction_replay",
+    "relation:system-contains:template_harvest_closure",
+    "relation:system-contains:template_public_release",
+    "relation:system-contains:test_evidence_mesh",
+    "relation:system-contains:ui_flow_structure_skill",
+    "relation:system-contains:ui_human_operability_gate",
+    "relation:system-contains:user_facing_model_diagrams",
+    "relation:system-contains:validation_evidence_gates",
+    "relation:system-contains:work_context"
+  ],
+  "changed_side_effect_ids": [],
+  "changed_source_surface_ids": [],
+  "changed_system_property_ids": [],
+  "changed_test_ids": [],
+  "completed_evidence_refs": [
+    {
+      "current": true,
+      "eligible": true,
+      "obligation_ids": [
+        "obligation:model-regression-full"
+      ],
+      "owner_route": "development_process_flow",
+      "receipt_fingerprint": "sha256:3883e201ff30668bfef3df3a6eec812815931b9e36c31e0e7808ffe9287eb34a",
+      "receipt_id": "receipt:model-regression-v0.62.0-final",
+      "schema": "flowguard.model_revision_evidence.v1",
+      "status": "pass",
+      "subject_fingerprint": "sha256:3554646adeed5275f5d897ac44b5c44062dc7829d7816e1d06e3819fe258712a"
+    }
+  ],
+  "decision_reason": "Full single-owner model regression passed for the v0.62.0 complete-coverage snapshot.",
+  "evidence_complete": true,
+  "expected_head_fingerprint": "sha256:9f82feb292985d74dc48e74ef5e2856673b02ee4dad4f08d03002dc9b0a18536",
+  "fingerprint": "sha256:52ca24066519badd8aa6db1254488af206f7e9a1089a6c6dc593a53bed1b7008",
+  "implementation_bundle_fingerprint": "",
+  "members": [
+    {
+      "base_instance_fingerprint": "sha256:f1b9ddea8d021078f839c57d380de724dfbfe6507fcac443da4cbad5ed1d3f2a",
+      "candidate_instance_fingerprint": "sha256:e76679a01ef483cf1afeac7beed16115e466912db35fb04bc1475a5b0022bfdb",
+      "changed_element_ids": [
+        "model:adversarial_scenario_synthesis"
+      ],
+      "member_id": "adversarial_scenario_synthesis",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:6912113f3ea87df15a3dc2ba3fcffbbc9f0c889652a5823af974f64293e1e3e5",
+      "candidate_instance_fingerprint": "sha256:79d4aff4db82f1ac634934cb6bdd9eff2d8d9d0620692383f47c83c08d8af923",
+      "changed_element_ids": [
+        "model:ai_entry_surface_reduction"
+      ],
+      "member_id": "ai_entry_surface_reduction",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:41e7a5052115066e9b6594de459487002394393737a7460f9c1d15ce4da875fd",
+      "candidate_instance_fingerprint": "sha256:5c58c25f61cc56be7c0050e79f3a544ba3fda442126b54d49e3003b7dd6078af",
+      "changed_element_ids": [
+        "model:ai_route_handoffs"
+      ],
+      "member_id": "ai_route_handoffs",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:83f2d7b6df95787c8eb3542c25b9b766748dee6ad5cd9951916d83abd073ebf1",
+      "candidate_instance_fingerprint": "sha256:7d6c901377b3b7b5ca50d91982b7c70de4d4a27f14e58809e3ae0104be5ebb8d",
+      "changed_element_ids": [
+        "model:ai_surface_streamlining"
+      ],
+      "member_id": "ai_surface_streamlining",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:6fd7694bbba161e03306dffe589f2da7cbb39b6f7b87cb6090e5ec0557d07b10",
+      "candidate_instance_fingerprint": "sha256:d434ba5d23385a4975fb5f75eab913a4857217d643ade21d1f985bed5ddfb868",
+      "changed_element_ids": [
+        "model:architecture_reduction"
+      ],
+      "member_id": "architecture_reduction",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:e70910cc8f7c28b825f3e79df04fce33b0ea09ba19989bc946346743cc06d835",
+      "candidate_instance_fingerprint": "sha256:368ce2d7f4869a2d9122460e04d82789b075299d89bf77ef63689dab87a777c0",
+      "changed_element_ids": [
+        "model:authoritative_model_system"
+      ],
+      "member_id": "authoritative_model_system",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:ce70887eee72be0af00c565d3fd0d97cfb6bc3b260ca690a5ebaaee261b30610",
+      "candidate_instance_fingerprint": "sha256:fdedf0f9af1c1af3ce2c84fc4cd0f5e6f34d3f117e9033d04650a01a38f790fb",
+      "changed_element_ids": [
+        "model:behavior_commitment_ledger"
+      ],
+      "member_id": "behavior_commitment_ledger",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:3b48bb742b81bca193b239fe5e41eae97d96bdb45a48a363854c065b02b70eb1",
+      "candidate_instance_fingerprint": "sha256:c14e10b0f334c24e4e95ee6495fc79d4d044585a08e5a40be9421b9d19af9f3f",
+      "changed_element_ids": [
+        "model:bounded_system_composition_benchmark"
+      ],
+      "member_id": "bounded_system_composition_benchmark",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:a670777ba8a118f19e571a2f7e7c780aa02420cf8b87ec18dc90167a2485dc67",
+      "candidate_instance_fingerprint": "sha256:e3efe20e898c60957630cc05ba47ebb02db13e4850cb4ff054f5e1374e50cc34",
+      "changed_element_ids": [
+        "model:code_boundary_conformance"
+      ],
+      "member_id": "code_boundary_conformance",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:d66f7647fe30dd007b488a63d63d694a68a7b29b77cfa7c98362077177e1b529",
+      "candidate_instance_fingerprint": "sha256:2460cc94a104b4f542a6b8b54853c403d9d4b02a6d4484480f542258ca4f220f",
+      "changed_element_ids": [
+        "model:codex_skill_satellites"
+      ],
+      "member_id": "codex_skill_satellites",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:17c4adec4b3f885b36c57233768ab1ff7d328290345b1c874c107a3475a189ca",
+      "candidate_instance_fingerprint": "sha256:e30e3a68a63c2ff60c8a9ca2b3c21c75b1b4c52e5bd6a41ddf8519824da2f2eb",
+      "changed_element_ids": [
+        "model:compositional_verification_kernel"
+      ],
+      "member_id": "compositional_verification_kernel",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:82c714a368a9b1be3dba90a8712ac70be1e718024279529fb54fb2f184779c24",
+      "candidate_instance_fingerprint": "sha256:d9add4a21b9b76161f81fca9e0302432b6d4accf9888767e427c6b47a4641527",
+      "changed_element_ids": [
+        "model:contract_source_audit"
+      ],
+      "member_id": "contract_source_audit",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:0bfa370e7d8a20c2a4b016db038b270e4a19d52dff1fbc083e624d5e501ffc84",
+      "candidate_instance_fingerprint": "sha256:7931c67bec79dcc0af2dde0460f7b83de0c579850c534794da5c238cb251d59d",
+      "changed_element_ids": [
+        "model:default_replacement_field_lifecycle"
+      ],
+      "member_id": "default_replacement_field_lifecycle",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:f89c8f1b19229207583e195a1522dee71a9a03748441f94f7d5ca6973f5baab5",
+      "candidate_instance_fingerprint": "sha256:2ffdd2fc828dea2477ba3c8219822d1a1a3d97d364452c1aaedef5cc028a1c7c",
+      "changed_element_ids": [
+        "model:development_process_flow"
+      ],
+      "member_id": "development_process_flow",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:45d671c257715082a4147a0a57b83e22b80c9018e923752481625c037f10cd56",
+      "candidate_instance_fingerprint": "sha256:afdabbf321ce33e5ecd308afdb577bef229e124114ca08fa46755e4d175998cc",
+      "changed_element_ids": [
+        "model:development_process_strategy"
+      ],
+      "member_id": "development_process_strategy",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:340f35a66f401e7c8148557a894443009ff8ce7a05b16a6f31392400b89649fc",
+      "candidate_instance_fingerprint": "sha256:d59cda22795cb7a6109fff967a2d5fdad70662f98d6bc1f5a8ca5047d458820b",
+      "changed_element_ids": [
+        "model:existing_model_preflight"
+      ],
+      "member_id": "existing_model_preflight",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:314bad3008bc05738912ab0862a307c766d0194edb7eb65fd3637de6c81c488f",
+      "candidate_instance_fingerprint": "sha256:19cd44e5e8a17f5eeb315436b46e455ae834863a56cdf18e3bdabace127060c0",
+      "changed_element_ids": [
+        "model:field_prompt_reduction"
+      ],
+      "member_id": "field_prompt_reduction",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:21774262f87b182bdc2652e250754fe3def5c0bff9b58ee02ef81e46ec7a2519",
+      "candidate_instance_fingerprint": "sha256:e8f1990d3e07038411b2326899fef1b4e8c22dc44904b08f39909e1389f7e51a",
+      "changed_element_ids": [
+        "model:flowguard_closure_contract"
+      ],
+      "member_id": "flowguard_closure_contract",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:22a4184586d377c45429381c33c59f1a8ff9c3d9f02e98b5c69688fdb21f67f4",
+      "candidate_instance_fingerprint": "sha256:e64913fc22c4993b2edf9bbe4023397c79ee7f1a50d72c3632ddd294dd6c1fa8",
+      "changed_element_ids": [
+        "model:guard_closure_contract"
+      ],
+      "member_id": "guard_closure_contract",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:4dbe6c55e389efacb14ed8e6761c8793bb221e40053014f9f4c8d433f17fcdd1",
+      "candidate_instance_fingerprint": "sha256:1204e14c53239d04ab94ca1187788c5a670b2df9dd5f80d5cce0dac5679f6397",
+      "changed_element_ids": [
+        "model:guidance_compression"
+      ],
+      "member_id": "guidance_compression",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:18d3096dba85e2cdadc087108879110111215d012632c2513a48c9a186a713f1",
+      "candidate_instance_fingerprint": "sha256:4364c3e8c2bbacf486792c83ca564f0bf538cf9f411eed89a80aff4a8c533aef",
+      "changed_element_ids": [
+        "model:harden_ui_content_visibility_validation"
+      ],
+      "member_id": "harden_ui_content_visibility_validation",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:8d358c0ebc00d6877a062399e69cb6b2123544c09c49b8396735597cdd26e42b",
+      "candidate_instance_fingerprint": "sha256:e2f12941d9ddd0fba0116f6fd740dd835da3a62585663b835a83a80d1e0b22fa",
+      "changed_element_ids": [
+        "model:harden_ui_real_surface_validation"
+      ],
+      "member_id": "harden_ui_real_surface_validation",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:9ea0f393328cbbb1443191f2b3c40d952f3ef13543055e13738adec5578bd76c",
+      "candidate_instance_fingerprint": "sha256:0d38bd91847ad9a0d4cf3c97c7bfc075307f699cbfea934d32958f37e60742f2",
+      "changed_element_ids": [
+        "model:hierarchical_model_mesh"
+      ],
+      "member_id": "hierarchical_model_mesh",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:a96c9085eb199de2c94f1a761755015a33bc332dab15a77b8bed7c0d62563466",
+      "candidate_instance_fingerprint": "sha256:417255587b26f984e9b89a62456eb8cc35e04a0ce2fdf7daf9159ab88a3c394d",
+      "changed_element_ids": [
+        "model:legacy_compatibility_cleanup"
+      ],
+      "member_id": "legacy_compatibility_cleanup",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:2b55ad09a05f6e9955ffac1c1a21c1e7ccc1c02d361c93d5709d843ecb5e2558",
+      "candidate_instance_fingerprint": "sha256:402b34b361fd323443e9a5dc3294bd375e8dad34d3f521f2891c94311fbbdd18",
+      "changed_element_ids": [
+        "model:maintenance_obligation_memory"
+      ],
+      "member_id": "maintenance_obligation_memory",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:d4cee53191416ddbcd93810543b31a15c4f327d7746847365aea9adfbd300e74",
+      "candidate_instance_fingerprint": "sha256:5ef3f3353bb188a66acf1fb4b1380b6e895cde27c841b6945a8b18faf6469f4a",
+      "changed_element_ids": [
+        "model:maintenance_scan_router"
+      ],
+      "member_id": "maintenance_scan_router",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:4cf66bd6963bdebc1127b06bfe1a35f947b9615b2640002c2056ee462892e383",
+      "candidate_instance_fingerprint": "sha256:259e7cfe4e6e15b93d5f461a82541acea41fb1e9d213f42040374b8293174f7d",
+      "changed_element_ids": [
+        "model:mesh_target_split_derivation"
+      ],
+      "member_id": "mesh_target_split_derivation",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:96ea4c73bd6ca3fb648a7ba1c0531822e44359cd95d4ea77b63d32d258ef007a",
+      "candidate_instance_fingerprint": "sha256:490974c8fbc759b132029d9824b7c225a8bb83e3c5e99f8146ee44f7e07e57f3",
+      "changed_element_ids": [
+        "model:minimum_valuable_model_entry"
+      ],
+      "member_id": "minimum_valuable_model_entry",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:34b95c4b5e90420afcaffcf201a13290f1cdc83811b48098a7df570452570c68",
+      "candidate_instance_fingerprint": "sha256:dd04c413b0f988a2762ed59f97d8cd98cd63e7e825831988e7202e904a210d59",
+      "changed_element_ids": [
+        "model:model_angle_deliberation"
+      ],
+      "member_id": "model_angle_deliberation",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:b42a23eb5eebda0f22c24abe51f1b251df93788f750e15e096d494190ad814db",
+      "candidate_instance_fingerprint": "sha256:83c49bce07c3e769b30434b87604a0e7d6592fb97db162e546cc40f8c46c4bbb",
+      "changed_element_ids": [
+        "model:model_impact_freshness_gate"
+      ],
+      "member_id": "model_impact_freshness_gate",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:493f2e44c0687240ab2b3f0ee2d3caffce87125ed3c9f62258b0180e5ea886e8",
+      "candidate_instance_fingerprint": "sha256:be54c07c7614cc93b30d8325a022730d7b956f58ff011b999c8ad2ce84124ec3",
+      "changed_element_ids": [
+        "model:model_mesh_closure_model"
+      ],
+      "member_id": "model_mesh_closure_model",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:c5ab576646d69ffb748c78d27e5cccf96b96c61fbe5d4584873846308b999592",
+      "candidate_instance_fingerprint": "sha256:dfa65b44e875e8bf6639fabf14bc081bf725181baf8fb89f0bf84f786b97d862",
+      "changed_element_ids": [
+        "model:model_miss_review"
+      ],
+      "member_id": "model_miss_review",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:eaaffc59f3ad4f4a8d933afbbeee44568cd62296bb79e351a95a9f5b6dab9620",
+      "candidate_instance_fingerprint": "sha256:1d59487a88374099adb092d3be5865ddeb3a2431e0837acb814791bcff6f6e89",
+      "changed_element_ids": [
+        "model:model_similarity_consolidation"
+      ],
+      "member_id": "model_similarity_consolidation",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:554a40175781196be8ea0bce472fdc52fcdc35483970ae44fb50c84669f4f567",
+      "candidate_instance_fingerprint": "sha256:294a667af3ed3d047dcb192fc8a80966aad9723d112fc877d31b901b04e4c0dc",
+      "changed_element_ids": [
+        "model:model_test_code_alignment"
+      ],
+      "member_id": "model_test_code_alignment",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:1f7979d7787ac515f10af85933b803e4fc575e6ca2b8bc08f12f5974ba6f787d",
+      "candidate_instance_fingerprint": "sha256:a18202d2b5bddc9cbb7af8f8f4fa1a92f2031f27dae66928a693460f9773b14b",
+      "changed_element_ids": [
+        "model:model_topology_hazard_review"
+      ],
+      "member_id": "model_topology_hazard_review",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:25dce0a28e9dde78e983a07c721a86a9c3b236c7de6cc665733788508dfe7fc8",
+      "candidate_instance_fingerprint": "sha256:83f760bbf04039da9434b862a37efda975e138bc62a9855432a3c317e65ec5ba",
+      "changed_element_ids": [
+        "model:model_visibility"
+      ],
+      "member_id": "model_visibility",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:850271e3f8e67e4d00e6147d086bd58082ba19bf7c6c0401d0f421959574b668",
+      "candidate_instance_fingerprint": "sha256:390843221b2eadf0a35c660bb2d471c6c4b009b16b19e4ea61956f08f16f4f7a",
+      "changed_element_ids": [
+        "model:openspec_archive_cleanup"
+      ],
+      "member_id": "openspec_archive_cleanup",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:b11d9563f0957ab6fe9b56c19ceec3a9fc22f717c201d12a1208940c646d0c18",
+      "candidate_instance_fingerprint": "sha256:37aee122a2bcf8c37186e3f3ecdcfca19fa7a9b0a3ca254d14718298e1453ef2",
+      "changed_element_ids": [
+        "model:plan_detailing_compiler"
+      ],
+      "member_id": "plan_detailing_compiler",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:81445c609d0261220309b41ce07da022defb8b9fb0ba221b73ac8bd4b4dcae93",
+      "candidate_instance_fingerprint": "sha256:9e9944a2f0c213b7a68b80225f345c2f2182b81581d06fd53b6ceea2fe8a1a0d",
+      "changed_element_ids": [
+        "model:primary_path_authority"
+      ],
+      "member_id": "primary_path_authority",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:68f0d31de6f9d88e7560728f243c28ef1f18d29047cca3de79d1d62ae5d0bc5e",
+      "candidate_instance_fingerprint": "sha256:7c2eac6029f7d787de745a05e69dfb1ff17a901471d707e978831e548fcd8a24",
+      "changed_element_ids": [
+        "model:readme_positioning_20260602"
+      ],
+      "member_id": "readme_positioning_20260602",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:09a07f25553836a5bc43e024711b7c51c69426ff8d9910ef3df1732ac91d7caa",
+      "candidate_instance_fingerprint": "sha256:5608cc964aa2686aefeea9875d9a033f48b6eebec6d06b65e959a3943818b7c6",
+      "changed_element_ids": [
+        "model:reduce_architecture_surface"
+      ],
+      "member_id": "reduce_architecture_surface",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:71bca0f871928bc3ec5e5dacd348b4638920b4a05692591a0347ca36a72cf4f7",
+      "candidate_instance_fingerprint": "sha256:ba4a5d585272ee129f84718c6d3668e874e90e3c912691518eb89ce418318230",
+      "changed_element_ids": [
+        "model:release_visibility_process"
+      ],
+      "member_id": "release_visibility_process",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:98cc106c045d4c3b69a32065a050b88debfc3712532d1a579e4c4890b9f1c4fd",
+      "candidate_instance_fingerprint": "sha256:4e6faee2c719c868fa6e8c0f31b4fc4b7b05a8de67d361b0c7f41e072112944d",
+      "changed_element_ids": [
+        "model:risk_purpose_header"
+      ],
+      "member_id": "risk_purpose_header",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:34add210311d0795aa7103d8ecf165094d59147427a15909a2176b9c0efcafed",
+      "candidate_instance_fingerprint": "sha256:689928690a959858783f013b76452f0f7cf7a434f854b905195e4c6db01a0288",
+      "changed_element_ids": [
+        "model:runtime_gateway_adoption"
+      ],
+      "member_id": "runtime_gateway_adoption",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:3eaf8a07482a0dffba5e9a8a164584043ef2e2da6f1d96b9e71a06314373c854",
+      "candidate_instance_fingerprint": "sha256:29455ded8db344cb889fa1b91ddb3c13d7216f0cb866d4ea233e18b7a6a985b6",
+      "changed_element_ids": [
+        "model:runtime_path_evidence"
+      ],
+      "member_id": "runtime_path_evidence",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:c1345e660e2b80a0297a3516fe1488fccb31a42b4874d9de0a340ce7c7685ee4",
+      "candidate_instance_fingerprint": "sha256:6bdda5009cb433791a360a5a9048d3df9b92bd111737ae515a90377fd6897486",
+      "changed_element_ids": [
+        "model:self_maintenance_mesh"
+      ],
+      "member_id": "self_maintenance_mesh",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:2b0bf158231b9187fa2297e3b6d2d496520a1e6c67958bf02df1828d1580f23e",
+      "candidate_instance_fingerprint": "sha256:c2fb2deedc25e853307f4856d89e513092a3eba903c04ea2750b8c17be2a0d46",
+      "changed_element_ids": [
+        "model:simplify_field_schema"
+      ],
+      "member_id": "simplify_field_schema",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:d8076581652018b48ced6f5ba3e3d2ae25b15cf642dedb1f2afdfe053d249abf",
+      "candidate_instance_fingerprint": "sha256:74207f2310527b09600da4bc695d8c0de4a41efd8113579329079b11f58a450f",
+      "changed_element_ids": [
+        "model:simplify_flowguard_structure"
+      ],
+      "member_id": "simplify_flowguard_structure",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:7234f12ce532f0474f385dd972e5ebcaed7aaf68755ea7d6bbe5d2683a59c519",
+      "candidate_instance_fingerprint": "sha256:a44b8c80e5c1356ba2ce2dce8bcc24d1a96553050d8ea265008015b2191e5b91",
+      "changed_element_ids": [
+        "model:skill_kernel_modularization"
+      ],
+      "member_id": "skill_kernel_modularization",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:32baddd7d8eeaf1a94e72b0688a109d3096d081083b504089ceb0450bf5d6584",
+      "candidate_instance_fingerprint": "sha256:ca2eb410853e2d8fb790408169ed82cddff0a3d330f7cb6cef96a62fe576a00f",
+      "changed_element_ids": [
+        "model:state_closure_gate"
+      ],
+      "member_id": "state_closure_gate",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:37a0d1809b86473995e56350a162c8780b2aea9a615dd56859157b7fa97325ca",
+      "candidate_instance_fingerprint": "sha256:050102dc8dc6050b890c9b2717b4b915ec2f35ddca38201cf9d7ef6b16869f2f",
+      "changed_element_ids": [
+        "model:structure_refactor_mesh"
+      ],
+      "member_id": "structure_refactor_mesh",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:83f43c2669484483d73ef8f26bfff5ec1a299599a4ea2915c93378e6af911bd9",
+      "candidate_instance_fingerprint": "sha256:dff5218064b952bfdcda784c0d63f71f3127335cfcd3e8e5d748785cbf1af38e",
+      "changed_element_ids": [
+        "model:structure_surface_simplification"
+      ],
+      "member_id": "structure_surface_simplification",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:81b7bcfa556ccaaeacba06621884d2902e7f55960d7fc55454e492992080284d",
+      "candidate_instance_fingerprint": "sha256:c32482662eda9209bd75a9a0d750369e648cc7c4c87328937752c7aade87c87a",
+      "changed_element_ids": [
+        "model:task_local_prediction_replay"
+      ],
+      "member_id": "task_local_prediction_replay",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:9dbe41c9c8dd5f5c242f542a8cd71d7a29245ff7800008911094cfab16bed200",
+      "candidate_instance_fingerprint": "sha256:213990f3850f447a00253879cacf6f12a5fd41307ca57819dd0732d58df7e9ce",
+      "changed_element_ids": [
+        "model:template_harvest_closure"
+      ],
+      "member_id": "template_harvest_closure",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:b8cef274f1ad89155f61a944a7a97194a8cfc1cab2635bb9d77f3a7421abbb70",
+      "candidate_instance_fingerprint": "sha256:86c1d56d90d7bb800fd2a9964b3ad72f4977ca3d65157e08bc91078990dcd13b",
+      "changed_element_ids": [
+        "model:template_public_release"
+      ],
+      "member_id": "template_public_release",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:a18d5c761c722c8cc05aa835c15acee296a859fee2ff4ab3b0dc92e1c8492bd7",
+      "candidate_instance_fingerprint": "sha256:c8d1ece3322734d94cdeb821999d1c43e3c9e7877711262215ae2144c0f427bd",
+      "changed_element_ids": [
+        "model:test_evidence_mesh"
+      ],
+      "member_id": "test_evidence_mesh",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:2bb01747f7aedc1847f328f90d12fe3cfc0323c0637fad839257496337119a34",
+      "candidate_instance_fingerprint": "sha256:7be1ab8304476fd5a7b3bfd116d6e8044b93ffcbd58a87bf92b358ca50fa5a1f",
+      "changed_element_ids": [
+        "model:ui_flow_structure_skill"
+      ],
+      "member_id": "ui_flow_structure_skill",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:d540faba02ea2f1bd4a7f91b20226259abf725b59eb71c500f86e8e4661c72bd",
+      "candidate_instance_fingerprint": "sha256:f74dd956600b79841af627d5cd52c3ba2c1fc7570deedcb09979c8fb74d82a2e",
+      "changed_element_ids": [
+        "model:ui_human_operability_gate"
+      ],
+      "member_id": "ui_human_operability_gate",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:c314a6316d6b37ad238982e18da54c7681387e90bc474543c098ed7bd8aef4b4",
+      "candidate_instance_fingerprint": "sha256:0318dd8694de5d7b62191cbec6e153bea568c62c9d63afb94750d43e5ef5ef55",
+      "changed_element_ids": [
+        "model:user_facing_model_diagrams"
+      ],
+      "member_id": "user_facing_model_diagrams",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:33b3d487fad53fec02ba83dc74cb65c93ad858eaa8ec1947581ae09ec92dfcb5",
+      "candidate_instance_fingerprint": "sha256:f650a2b4b6e0ee83e98b8d6b44c550ced2624056ec6b1ea7286e50ce0f72c5f6",
+      "changed_element_ids": [
+        "model:validation_evidence_gates"
+      ],
+      "member_id": "validation_evidence_gates",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:d9a93524afb53f016acc2bfaeef3e0d3864d8c35792813de6662241c391eb307",
+      "candidate_instance_fingerprint": "sha256:0c9ea0e06e0c53052f4b6e586903961be851f2ebcda3a536ec9ca0ed90a2877b",
+      "changed_element_ids": [
+        "model:work_context"
+      ],
+      "member_id": "work_context",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    }
+  ],
+  "prediction_replay_refs": [],
+  "required_evidence_refs": [
+    {
+      "current": true,
+      "eligible": true,
+      "obligation_ids": [
+        "obligation:model-regression-full"
+      ],
+      "owner_route": "development_process_flow",
+      "receipt_fingerprint": "sha256:3883e201ff30668bfef3df3a6eec812815931b9e36c31e0e7808ffe9287eb34a",
+      "receipt_id": "receipt:model-regression-v0.62.0-final",
+      "schema": "flowguard.model_revision_evidence.v1",
+      "status": "required",
+      "subject_fingerprint": "sha256:3554646adeed5275f5d897ac44b5c44062dc7829d7816e1d06e3819fe258712a"
+    }
+  ],
+  "revision_set_id": "revision:flowguard-v0.62.0-final",
+  "rollback_contract_fingerprint": "",
+  "schema": "flowguard.model_revision_set.v1",
+  "status": "accepted",
+  "task_id": "task:complete-modeling-coverage-v0.62.0"
+}

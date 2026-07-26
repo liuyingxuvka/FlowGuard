@@ -21,14 +21,14 @@
         ".agents/skills/flowguard-field-lifecycle-mesh/references/field_lifecycle_mesh_protocol.md",
         ".agents/skills/flowguard-model-test-alignment/references/model_test_alignment_protocol.md",
         ".agents/skills/flowguard-test-mesh/references/test_mesh_protocol.md",
-    ".agents/skills/flowguard-architecture-reduction/references/architecture_reduction_protocol.md",
-    ".agents/skills/flowguard-structure-mesh/references/structure_mesh_protocol.md",
-    "AGENTS.md",
-    "README.md",
-    "docs/agents_snippet.md",
-    "docs/api_surface.md",
-    "docs/field_lifecycle_inventory.md",
-    "flowguard/__init__.py",
+        ".agents/skills/flowguard-architecture-reduction/references/architecture_reduction_protocol.md",
+        ".agents/skills/flowguard-structure-mesh/references/structure_mesh_protocol.md",
+        "AGENTS.md",
+        "README.md",
+        "docs/agents_snippet.md",
+        "docs/api_surface.md",
+        "docs/field_lifecycle_inventory.md",
+        "flowguard/__init__.py",
         "flowguard/__main__.py",
         "flowguard/existing_model_preflight.py",
         "flowguard/model_authority.py",
@@ -48,8 +48,8 @@
         "tests/test_model_authority_store.py",
         "tests/test_model_regression_manifest.py",
         "tests/test_model_regression_orchestrator.py",
-    "tests/test_model_system_inventory.py",
-    "tests/test_project_manifest.py"
+        "tests/test_model_system_inventory.py",
+        "tests/test_project_manifest.py"
       ],
       "model_id": "authoritative_model_system",
       "model_path": ".flowguard/authoritative_model_system/model.py",
@@ -194,7 +194,9 @@
       "absence_reason": "This executable product-runtime benchmark owner is required in the public distribution.",
       "distribution_policy": "required_public",
       "exclusion_reason": "",
-      "expected_artifacts": ["benchmark-report.json"],
+      "expected_artifacts": [
+        "benchmark-report.json"
+      ],
       "input_globs": [
         ".flowguard/bounded_system_composition_benchmark/model.py",
         ".flowguard/bounded_system_composition_benchmark/run_checks.py",
@@ -205,7 +207,10 @@
       "model_id": "bounded_system_composition_benchmark",
       "model_path": ".flowguard/bounded_system_composition_benchmark/model.py",
       "mutation_policy": "isolated_output",
-      "runner": ["{python}", ".flowguard/bounded_system_composition_benchmark/run_checks.py"],
+      "runner": [
+        "{python}",
+        ".flowguard/bounded_system_composition_benchmark/run_checks.py"
+      ],
       "shard_safe": true,
       "tier": "focused",
       "timeout_seconds": 300,
@@ -226,12 +231,30 @@
         "adoption_scope": "current_candidate_only",
         "known_good_case_id": "native:bounded-system-composition:three-repaired-families",
         "failure_bindings": [
-          {"failure_id": "portable-system:local-token-green-emergent-failure-missed", "known_bad_case_id": "benchmark:three-families:bad", "oracle_id": "native:bounded-system-composition:run-checks"},
-          {"failure_id": "portable-system:repair-does-not-pass", "known_bad_case_id": "benchmark:three-families:repaired", "oracle_id": "native:bounded-system-composition:run-checks"},
-          {"failure_id": "portable-system:missing-semantics-does-not-block", "known_bad_case_id": "benchmark:three-families:missing-semantics", "oracle_id": "native:bounded-system-composition:run-checks"},
-          {"failure_id": "portable-system:truncation-does-not-block", "known_bad_case_id": "benchmark:three-families:truncated", "oracle_id": "native:bounded-system-composition:run-checks"}
+          {
+            "failure_id": "portable-system:local-token-green-emergent-failure-missed",
+            "known_bad_case_id": "benchmark:three-families:bad",
+            "oracle_id": "native:bounded-system-composition:run-checks"
+          },
+          {
+            "failure_id": "portable-system:repair-does-not-pass",
+            "known_bad_case_id": "benchmark:three-families:repaired",
+            "oracle_id": "native:bounded-system-composition:run-checks"
+          },
+          {
+            "failure_id": "portable-system:missing-semantics-does-not-block",
+            "known_bad_case_id": "benchmark:three-families:missing-semantics",
+            "oracle_id": "native:bounded-system-composition:run-checks"
+          },
+          {
+            "failure_id": "portable-system:truncation-does-not-block",
+            "known_bad_case_id": "benchmark:three-families:truncated",
+            "oracle_id": "native:bounded-system-composition:run-checks"
+          }
         ],
-        "evidence_check_ids": ["check:model-regression:bounded_system_composition_benchmark"],
+        "evidence_check_ids": [
+          "check:model-regression:bounded_system_composition_benchmark"
+        ],
         "model_sha256": "sha256:7ff5762e69fbad14ae9df4d573a4de2224416d0d5d15149a1ecb314b01583ce1",
         "runner_sha256": "sha256:fec460a2253405c27e5a87ca79528c477477e7861ea7a9d234b58abd9448e91c",
         "declaration_fingerprint": "sha256:f201b628e9a677ed7dcd389180bbaa81dac112b36883dea4b525cabe0790ab9d",
@@ -3026,69 +3049,99 @@
       }
     },
     {
-      "absence_reason": "This executable model is a checkout-local adoption record and is run when present but is not required in a clean public distribution.",
-      "distribution_policy": "optional_local",
+      "absence_reason": "",
+      "distribution_policy": "required_public",
       "exclusion_reason": "",
       "expected_artifacts": [],
       "input_globs": [
-        ".flowguard/spec_context/model.py",
-        ".flowguard/spec_context/run_checks.py"
+        ".flowguard/work_context/model.py",
+        ".flowguard/work_context/run_checks.py"
       ],
-      "model_id": "spec_context",
-      "model_path": ".flowguard/spec_context/model.py",
+      "model_id": "work_context",
+      "model_path": ".flowguard/work_context/model.py",
       "mutation_policy": "none",
       "runner": [
         "{python}",
-        ".flowguard/spec_context/run_checks.py"
+        ".flowguard/work_context/run_checks.py"
       ],
       "shard_safe": true,
       "tier": "focused",
       "timeout_seconds": 300,
       "purpose_closure": {
         "schema_version": "flowguard.model_purpose_closure.v1",
-        "model_instance_id": "regression:spec_context:current",
-        "reusable_model_type_id": "spec_context",
-        "task_intent_id": "flowguard-regression:spec_context",
+        "model_instance_id": "regression:work_context:current",
+        "reusable_model_type_id": "work_context",
+        "task_intent_id": "flowguard-regression:work_context",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent read-only OpenSpec context projection from writing provider artifacts, executing provider checks, or creating FlowGuard-owned session, cache, or receipt authority.",
+        "guarded_purpose": "Prevent provider-neutral WorkContext projection from omitting required artifacts, accepting an unregistered adapter, writing or executing provider work, creating authority bridges, or preferring one planning provider.",
         "protected_failure_ids": [
-          "spec-context:provider-write",
-          "spec-context:provider-execution",
-          "spec-context:receipt-bridge",
-          "spec-context:session-cache"
+          "work-context:unregistered-adapter",
+          "work-context:unbounded-root",
+          "work-context:missing-role",
+          "work-context:stale-fingerprint",
+          "work-context:duplicate-context",
+          "work-context:provider-write",
+          "work-context:provider-execution",
+          "work-context:provider-validation",
+          "work-context:authority-bridge"
         ],
-        "claim_boundary": "Current closure covers the local read-only specification-context model and its native known-good and known-bad checks; it does not prove OpenSpec execution, verification, or archive status.",
+        "claim_boundary": "Current closure covers the public provider-neutral WorkContext model and native positive and negative checks; it does not prove provider authoring, execution, validation, status, completion, receipt, or archive authority.",
         "adoption_scope": "current_candidate_only",
-        "known_good_case_id": "native:spec-context:complete-read-only-projection",
+        "known_good_case_id": "native:work-context:multiple-peer-read-only-projection",
         "failure_bindings": [
           {
-            "failure_id": "spec-context:provider-write",
-            "known_bad_case_id": "native:spec-context:provider-write",
-            "oracle_id": "native:spec_context:run-checks"
+            "failure_id": "work-context:unregistered-adapter",
+            "known_bad_case_id": "native:work-context:unregistered-adapter",
+            "oracle_id": "native:work_context:run-checks"
           },
           {
-            "failure_id": "spec-context:provider-execution",
-            "known_bad_case_id": "native:spec-context:provider-execution",
-            "oracle_id": "native:spec_context:run-checks"
+            "failure_id": "work-context:unbounded-root",
+            "known_bad_case_id": "native:work-context:unbounded-root",
+            "oracle_id": "native:work_context:run-checks"
           },
           {
-            "failure_id": "spec-context:receipt-bridge",
-            "known_bad_case_id": "native:spec-context:receipt-bridge",
-            "oracle_id": "native:spec_context:run-checks"
+            "failure_id": "work-context:missing-role",
+            "known_bad_case_id": "native:work-context:missing-role",
+            "oracle_id": "native:work_context:run-checks"
           },
           {
-            "failure_id": "spec-context:session-cache",
-            "known_bad_case_id": "native:spec-context:session-cache",
-            "oracle_id": "native:spec_context:run-checks"
+            "failure_id": "work-context:stale-fingerprint",
+            "known_bad_case_id": "native:work-context:stale-fingerprint",
+            "oracle_id": "native:work_context:run-checks"
+          },
+          {
+            "failure_id": "work-context:duplicate-context",
+            "known_bad_case_id": "native:work-context:duplicate-context",
+            "oracle_id": "native:work_context:run-checks"
+          },
+          {
+            "failure_id": "work-context:provider-write",
+            "known_bad_case_id": "native:work-context:provider-write",
+            "oracle_id": "native:work_context:run-checks"
+          },
+          {
+            "failure_id": "work-context:provider-execution",
+            "known_bad_case_id": "native:work-context:provider-execution",
+            "oracle_id": "native:work_context:run-checks"
+          },
+          {
+            "failure_id": "work-context:provider-validation",
+            "known_bad_case_id": "native:work-context:provider-validation",
+            "oracle_id": "native:work_context:run-checks"
+          },
+          {
+            "failure_id": "work-context:authority-bridge",
+            "known_bad_case_id": "native:work-context:authority-bridge",
+            "oracle_id": "native:work_context:run-checks"
           }
         ],
         "evidence_check_ids": [
-          "check:model-regression:spec_context"
+          "check:model-regression:work_context"
         ],
-        "model_sha256": "sha256:7c728e6694bbd740e45de4178061bbd189c281e906f7e14a43104f0a9d5f76ea",
-        "runner_sha256": "sha256:5679042e761f84e84f672e72fda0ea9a81c41efab28429cb553a1561075291d9",
-        "declaration_fingerprint": "sha256:802b935bc7bc02983732a34518746d7e2b72dd239afffa1efffcd747b6c52b88",
-        "closure_fingerprint": "sha256:2ccfc720da1eb81c93307073a949e0adb959c18ddbdc20036b1fc0a06134e665"
+        "model_sha256": "sha256:921939f8bac2b473aeb1e156e82104195ee52c706bda11bd505247ec958cc972",
+        "runner_sha256": "sha256:38cc45ffa69cac91f3263f0375cc68ddc322427095d1c3fa7954c7445088081e",
+        "declaration_fingerprint": "sha256:c36ccf16feb1e74b5052a0e43305026ed64f35e2649ffcde066e6ad9af8246c5",
+        "closure_fingerprint": "sha256:14e782beac7b08c76d6af8a887d97a23f7b64ba3436221357d70c95929503e6b"
       }
     },
     {

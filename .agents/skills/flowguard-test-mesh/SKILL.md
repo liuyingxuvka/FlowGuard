@@ -1,6 +1,6 @@
 ---
 name: flowguard-test-mesh
-description: Use when tests, checks, transition cells, payload cases, or evidence are large, slow, layered, stale, skipped, backgrounded, release-only, or require parent/child ownership and freshness proof.
+description: Use when tests or evidence are large, layered, stale, skipped, release-only, or need parent/child ownership.
 ---
 
 # FlowGuard Test Mesh
@@ -26,8 +26,8 @@ Review a model-derived parent/child validation mesh; block stale, skipped, incom
 ## Required Workflow
 1. Define the parent gate and derive child suites/scripts from a FlowGuard validation-structure model.
 2. Declare an independent inventory revision and every required surface, obligation, member, cell, case, and shard; map each id to one owner.
-3. Attach status, freshness, artifacts, reuse tickets, skips/timeouts, terminal identity, fingerprint, covered ids, and versions. Diagnostics add `diagnostic_boundary`, planned/executed/failed/not-run counts, not-run reason, campaign id, and stable Finding Ledger ids. OpenSpec context never becomes a test receipt or execution owner.
-4. For long/background system-composition checks, preserve definition/request/slice/component/compiled-model/scheduler/bound/truncation/trace identities in the existing `ProofArtifactRef.artifact_fingerprints`; progress remains liveness and no system-specific generic receipt fields are invented without a proven gap.
+3. Attach status, freshness, artifacts, reuse, terminal identity, fingerprints, coverage, and versions. Record planned/executed/failed/not-run counts and stable finding ids. Provider context is never test evidence.
+4. For long checks, bind inputs and traces in `ProofArtifactRef.artifact_fingerprints`; progress is liveness only.
 5. Review routine/release scope and return child evidence plus typed handoffs.
 
 ## Hard Gates
@@ -37,9 +37,8 @@ Review a model-derived parent/child validation mesh; block stale, skipped, incom
 - One ordinary test receipt may fan out only within its declared test boundary and cannot be copied or counted as several executions.
 - Require `planned = executed + not_run`, `failed <= executed`, no not-run under `declared_complete`, visible reasons elsewhere, and stable finding ids for failures.
 - Locally green subsets cannot prove an independently declared complete inventory.
+- Every required inventory item has exactly one executed or delegated test disposition. Delegation requires one native owner and current native evidence; scoped items cannot appear as executed partitions.
 
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, a validation mesh diagram, and child freshness.
 
-
-<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

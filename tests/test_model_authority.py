@@ -517,6 +517,71 @@ class ModelAuthorityTests(unittest.TestCase):
         with self.assertRaisesRegex(ModelAuthorityError, "model diff"):
             validate_revision_set_snapshots(base, candidate, revision)
 
+    def test_revision_set_rejects_undeclared_changed_source_surface(self):
+        alpha_a = instance("alpha", "a")
+        alpha_b = instance("alpha", "b")
+        base = replace(
+            snapshot(
+                SUBJECT_OBSERVED_IMPLEMENTATION,
+                LIFECYCLE_ACTIVE,
+                alpha_a,
+                snapshot_id="observed-a",
+            ),
+            owner_artifact_refs=(
+                AuthorityEndpointRef(
+                    endpoint_kind="external_surface",
+                    endpoint_id="surface:alpha",
+                    fingerprint=SHA_A,
+                    owner_route="behavior_commitment_ledger",
+                ),
+            ),
+        )
+        candidate = replace(
+            snapshot(
+                SUBJECT_OBSERVED_IMPLEMENTATION,
+                LIFECYCLE_ACTIVE,
+                alpha_b,
+                snapshot_id="observed-b",
+            ),
+            owner_artifact_refs=(
+                AuthorityEndpointRef(
+                    endpoint_kind="external_surface",
+                    endpoint_id="surface:alpha",
+                    fingerprint=SHA_B,
+                    owner_route="behavior_commitment_ledger",
+                ),
+            ),
+        )
+        change = RevisionMemberChange(
+            member_id="alpha",
+            operation="replace",
+            base_instance_fingerprint=alpha_a.fingerprint,
+            candidate_instance_fingerprint=alpha_b.fingerprint,
+            changed_element_ids=("state:alpha",),
+        )
+        revision = ModelRevisionSet(
+            revision_set_id="revision:missing-source",
+            task_id="task:missing-source",
+            expected_head_fingerprint=self._head(base).fingerprint,
+            base_snapshot_fingerprint=base.fingerprint,
+            candidate_snapshot_fingerprint=candidate.fingerprint,
+            members=(change,),
+            affected_closure_ids=("model:alpha", "surface:alpha"),
+            affected_closure_fingerprint=derive_affected_closure_fingerprint(
+                affected_closure_ids=("model:alpha", "surface:alpha"),
+                members=(change,),
+            ),
+            required_evidence_refs=(
+                evidence_ref(candidate.fingerprint, status="required"),
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            ModelAuthorityError,
+            "changed_source_surface_ids",
+        ):
+            validate_revision_set_snapshots(base, candidate, revision)
+
     def test_activation_is_atomic_compare_and_swap(self):
         base = snapshot(
             SUBJECT_OBSERVED_IMPLEMENTATION,

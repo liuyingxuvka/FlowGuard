@@ -284,8 +284,8 @@ dependency authority, and execution-owner authority.
 
 Choose `targeted`, `declared_complete`, or `budgeted` diagnosis, then
 `sequential` or isolation-proven `safe_parallel` execution. Keep diagnostic
-counts in TestMesh, raw findings in the Finding Ledger, dependency graphs in
-    read-only OpenSpec context, and model/code/test ownership in ordinary Model-Test
+counts in TestMesh, raw findings in the Finding Ledger, external planning
+inputs in read-only provider-neutral WorkContexts, and model/code/test ownership in ordinary Model-Test
 Alignment. Group findings only with relation evidence, repair the root cause,
 and revalidate every affected obligation.
 

@@ -372,10 +372,10 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "project_adoption_template_files",
     ),
     FileTemplateCommand(
-        "spec-context-template",
-        "Print or write a read-only official OpenSpec context example.",
-        "spec_context",
-        "spec_context_template_files",
+        "work-context-template",
+        "Print or write a provider-neutral read-only WorkContext example.",
+        "work_context",
+        "work_context_template_files",
     ),
     FileTemplateCommand(
         "risk-intent-template",
@@ -711,10 +711,22 @@ def _run_risk_template_harvest_review_command(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
-def _run_spec_context_command(args: argparse.Namespace) -> int:
-    from .spec_context import read_openspec_context, review_spec_context
+def _run_work_context_command(args: argparse.Namespace) -> int:
+    from .work_context import read_work_context, review_work_context
 
-    review = review_spec_context(read_openspec_context(args.root, args.change))
+    declaration = (
+        json.loads(args.declaration_json)
+        if args.declaration_json
+        else {}
+    )
+    review = review_work_context(
+        read_work_context(
+            args.root,
+            args.work_id,
+            adapter_id=args.adapter,
+            declaration=declaration,
+        )
+    )
     print(json.dumps(review.to_dict(), indent=2, sort_keys=True))
     return 0 if review.ok else 1
 
@@ -1167,17 +1179,19 @@ def _add_risk_template_harvest_review_parser(subparsers: argparse._SubParsersAct
     parser.set_defaults(handler=_run_risk_template_harvest_review_command)
 
 
-def _add_spec_context_parser(
+def _add_work_context_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     parser = subparsers.add_parser(
-        "spec-context",
-        help="Read proposal, design, specs, tasks, and status from one official OpenSpec change.",
+        "work-context",
+        help="Read one declared provider work unit through a registered read-only adapter.",
     )
     parser.add_argument("--root", default=".")
-    parser.add_argument("--change", required=True)
+    parser.add_argument("--adapter", required=True)
+    parser.add_argument("--work-id", required=True)
+    parser.add_argument("--declaration-json", default="")
     parser.add_argument("--json", action="store_true", help="Canonical JSON is always emitted.")
-    parser.set_defaults(handler=_run_spec_context_command)
+    parser.set_defaults(handler=_run_work_context_command)
 
 
 def _add_portable_model_parsers(
@@ -1296,7 +1310,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_risk_template_search_parser(subparsers)
     _add_risk_template_harvest_parser(subparsers)
     _add_risk_template_harvest_review_parser(subparsers)
-    _add_spec_context_parser(subparsers)
+    _add_work_context_parser(subparsers)
     _add_portable_model_parsers(subparsers)
     _add_simulator_parser(subparsers)
     _add_evidence_lifecycle_parsers(subparsers)

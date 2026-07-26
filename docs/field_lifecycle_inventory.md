@@ -4,51 +4,51 @@ Generated inventory of FlowGuard dataclass fields. It is a maintenance
 aid, not deletion authority: behavior-bearing, compatibility-looking,
 and evidence-bearing fields still need route-owned proof before edits.
 
-- Field rows: `5911`
-- Modules: `97`
+- Field rows: `5993`
+- Modules: `98`
 
 ## Lifecycle Layers
 
 | Layer | Fields |
 | --- | ---: |
 | `behavior_or_contract` | 762 |
-| `collection_metadata` | 1322 |
+| `collection_metadata` | 1333 |
 | `compatibility_or_old_path` | 56 |
-| `display_or_metadata` | 230 |
-| `evidence_or_decision` | 1055 |
-| `unclassified` | 2486 |
+| `display_or_metadata` | 231 |
+| `evidence_or_decision` | 1066 |
+| `unclassified` | 2545 |
 
 ## AI Surface Tiers
 
 | Tier | Fields |
 | --- | ---: |
 | `advanced` | 502 |
-| `internal` | 4123 |
-| `starter` | 1286 |
+| `internal` | 4192 |
+| `starter` | 1299 |
 
 ## Route Owners
 
 | Route Owner | Fields |
 | --- | ---: |
-| `core_or_internal` | 2756 |
-| `ui_flow_structure` | 830 |
+| `core_or_internal` | 2804 |
+| `ui_flow_structure` | 834 |
 | `model_test_alignment` | 265 |
 | `model_similarity_consolidation` | 206 |
 | `plan_intake_claims` | 177 |
 | `model_mesh_maintenance` | 155 |
-| `plan_detailing_compiler` | 135 |
+| `plan_detailing_compiler` | 139 |
 | `model_miss_review` | 125 |
-| `development_process_flow` | 118 |
+| `development_process_flow` | 122 |
 | `existing_model_preflight` | 118 |
+| `test_mesh_maintenance` | 102 |
 | `architecture_reduction` | 99 |
 | `flowguard_closure_contract` | 94 |
 | `model_topology_hazard_review` | 93 |
-| `test_mesh_maintenance` | 93 |
+| `field_lifecycle_mesh` | 78 |
 | `flowguard_self_maintenance` | 76 |
 | `agent_workflow_rehearsal` | 75 |
 | `model_impact_freshness` | 75 |
 | `maintenance_scan_router` | 70 |
-| `field_lifecycle_mesh` | 65 |
 | `structure_mesh_maintenance` | 61 |
 | `risk_evidence_ledger` | 47 |
 | `code_structure_recommendation` | 44 |
@@ -61,33 +61,33 @@ and evidence-bearing fields still need route-owned proof before edits.
 
 | Module | Fields |
 | --- | ---: |
-| `ui_structure` | 830 |
+| `ui_structure` | 834 |
 | `model_test_alignment` | 265 |
 | `contract_exhaustion` | 238 |
 | `model_similarity` | 206 |
 | `plan_intake` | 177 |
+| `behavior_commitment` | 161 |
 | `hierarchy` | 155 |
-| `behavior_commitment` | 142 |
+| `plan_detailing` | 139 |
 | `runtime_path` | 137 |
-| `plan_detailing` | 135 |
 | `obligation_family` | 127 |
 | `recurring_model_miss` | 125 |
-| `development_process_flow` | 118 |
+| `development_process_flow` | 122 |
 | `existing_model_preflight` | 118 |
 | `layered_proof` | 103 |
+| `testmesh` | 102 |
 | `architecture_reduction` | 99 |
 | `primary_path_authority` | 99 |
 | `closure_contract` | 94 |
-| `testmesh` | 93 |
 | `topology_hazard` | 93 |
 | `evidence_receipts` | 84 |
+| `field_lifecycle` | 78 |
 | `self_maintenance` | 76 |
 | `agent_workflow_rehearsal` | 75 |
 | `model_freshness` | 75 |
-| `model_revision_set` | 72 |
+| `model_revision_set` | 73 |
 | `maintenance_scan` | 70 |
 | `portable_system` | 66 |
-| `field_lifecycle` | 65 |
 | `runtime_gateway` | 65 |
 | `development_process_strategy` | 64 |
 | `distribution_sync` | 63 |
@@ -118,6 +118,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `summary_report` | 30 |
 | `step_contracts` | 29 |
 | `loop` | 28 |
+| `work_context` | 28 |
 | `artifact_upgrade` | 27 |
 | `behavior_commitment_lookup` | 26 |
 | `maintenance_obligation` | 25 |
@@ -126,9 +127,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `skill_suite` | 24 |
 | `transition_coverage` | 24 |
 | `adoption` | 23 |
+| `coverage_inventory` | 23 |
 | `risk` | 23 |
 | `skill_self_governance` | 23 |
-| `spec_context` | 23 |
 | `contract` | 22 |
 | `test_reuse` | 21 |
 | `conformance` | 20 |
@@ -499,6 +500,17 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `behavior_commitment` | `BehaviorSourceSurface` | `surface_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `behavior_commitment` | `BehaviorSourceSurface` | `label` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
 | `behavior_commitment` | `BehaviorSourceSurface` | `source_ref` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorSourceSurface` | `source_system_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorSourceSurface` | `native_artifact_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorSourceSurface` | `content_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorSourceSurface` | `inventory_revision` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorSourceSurface` | `discovery_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `behavior_commitment` | `BehaviorSourceSurface` | `source_authority_role` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorSourceSurface` | `declared_semantics_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorSourceSurface` | `coverage_disposition` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorSourceSurface` | `delegated_owner_inventory_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorSourceSurface` | `delegation_relation_type` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorSourceSurface` | `native_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `behavior_commitment` | `BehaviorSourceSurface` | `commitment_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `behavior_commitment` | `BehaviorSourceSurface` | `business_intent_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `behavior_commitment` | `BehaviorSourceSurface` | `primary_path_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
@@ -604,6 +616,12 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `behavior_commitment` | `BehaviorCommitmentLedger` | `current_revision` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `behavior_commitment` | `BehaviorCommitmentLedger` | `commitments` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `behavior_commitment` | `BehaviorCommitmentLedger` | `source_surfaces` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `behavior_commitment` | `BehaviorCommitmentLedger` | `subject_lane` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorCommitmentLedger` | `expected_source_surface_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `behavior_commitment` | `BehaviorCommitmentLedger` | `source_inventory_revision` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorCommitmentLedger` | `source_inventory_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `behavior_commitment` | `BehaviorCommitmentLedger` | `source_inventory_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `behavior_commitment` | `BehaviorCommitmentLedger` | `require_complete_source_inventory` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `behavior_commitment` | `BehaviorCommitmentLedger` | `expected_commitment_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `behavior_commitment` | `BehaviorCommitmentLedger` | `expected_business_intent_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `behavior_commitment` | `BehaviorCommitmentLedger` | `claim_scope` | `core_or_internal` | `internal` | `unclassified` | `false` |
@@ -628,6 +646,8 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `behavior_commitment` | `BehaviorCommitmentCoverageReport` | `covered_commitment_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `behavior_commitment` | `BehaviorCommitmentCoverageReport` | `covered_business_intent_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `behavior_commitment` | `BehaviorCommitmentCoverageReport` | `missing_business_intent_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `behavior_commitment` | `BehaviorCommitmentCoverageReport` | `missing_source_surface_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `behavior_commitment` | `BehaviorCommitmentCoverageReport` | `unexpected_source_surface_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `behavior_commitment` | `BehaviorCommitmentCoverageReport` | `unmapped_surface_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `behavior_commitment` | `BehaviorCommitmentCoverageReport` | `extra_commitment_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `behavior_commitment` | `BehaviorCommitmentCoverageReport` | `path_sensitive_commitment_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
@@ -1225,6 +1245,29 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `coverage` | `BenchmarkCoverageAudit` | `production_conformance_family_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `coverage` | `BenchmarkCoverageAudit` | `production_conformance_families` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `coverage` | `BenchmarkCoverageAudit` | `summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `coverage_inventory` | `ExpectedCoverageItem` | `item_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageItem` | `source_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageItem` | `source_role` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageItem` | `source_system_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageItem` | `native_artifact_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageItem` | `native_owner_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageItem` | `content_ref` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageItem` | `content_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageItem` | `semantics_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageItem` | `discovery_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `coverage_inventory` | `ExpectedCoverageItem` | `recommended_disposition` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageItem` | `metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `coverage_inventory` | `ExpectedCoverageInventory` | `inventory_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageInventory` | `boundary` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageInventory` | `revision` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageInventory` | `items` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `coverage_inventory` | `ExpectedCoverageInventory` | `discovery_evidence_ids` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `coverage_inventory` | `ExpectedCoverageInventory` | `inventory_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `coverage_inventory` | `ExpectedCoverageFinding` | `item_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageReview` | `inventory` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `coverage_inventory` | `ExpectedCoverageReview` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `ProcessArtifact` | `artifact_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
 | `development_process_flow` | `ProcessArtifact` | `artifact_type` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `ProcessArtifact` | `current_version` | `development_process_flow` | `starter` | `unclassified` | `false` |
@@ -1232,7 +1275,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_flow` | `ProcessArtifact` | `owner` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `ProcessArtifact` | `upstream_artifact_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
 | `development_process_flow` | `ProcessArtifact` | `description` | `development_process_flow` | `internal` | `display_or_metadata` | `false` |
-| `development_process_flow` | `ProcessArtifact` | `spec_context_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessArtifact` | `work_context_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessArtifact` | `work_context_adapter_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessArtifact` | `work_context_fingerprint` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `ProcessArtifact` | `read_only_external` | `development_process_flow` | `advanced` | `behavior_or_contract` | `true` |
 | `development_process_flow` | `ActionEffect` | `target_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
 | `development_process_flow` | `ActionEffect` | `effect_type` | `development_process_flow` | `advanced` | `behavior_or_contract` | `true` |
@@ -1256,9 +1301,11 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_flow` | `ProcessAction` | `target_behavior_planes` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
 | `development_process_flow` | `ProcessAction` | `target_commitment_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
 | `development_process_flow` | `ProcessAction` | `typed_commitment_relation_refs` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessAction` | `spec_context_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
-| `development_process_flow` | `ProcessAction` | `spec_context_artifact_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
-| `development_process_flow` | `ProcessAction` | `spec_context_read_only` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessAction` | `work_context_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessAction` | `work_context_adapter_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessAction` | `work_context_fingerprint` | `development_process_flow` | `internal` | `unclassified` | `false` |
+| `development_process_flow` | `ProcessAction` | `work_context_artifact_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `ProcessAction` | `work_context_read_only` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `ProcessAction` | `description` | `development_process_flow` | `internal` | `display_or_metadata` | `false` |
 | `development_process_flow` | `ProcessEvidence` | `evidence_id` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `ProcessEvidence` | `evidence_kind` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
@@ -1307,8 +1354,8 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `development_process_flow` | `DevelopmentProcessPlan` | `release_deferred_allowed` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `DevelopmentProcessPlan` | `behavior_plane` | `development_process_flow` | `internal` | `unclassified` | `false` |
 | `development_process_flow` | `DevelopmentProcessPlan` | `require_behavior_plane_boundary` | `development_process_flow` | `internal` | `unclassified` | `false` |
-| `development_process_flow` | `DevelopmentProcessPlan` | `spec_context_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
-| `development_process_flow` | `DevelopmentProcessPlan` | `require_current_spec_context` | `development_process_flow` | `starter` | `unclassified` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `work_context_ids` | `development_process_flow` | `internal` | `collection_metadata` | `false` |
+| `development_process_flow` | `DevelopmentProcessPlan` | `require_current_work_context` | `development_process_flow` | `starter` | `unclassified` | `false` |
 | `development_process_flow` | `DevelopmentProcessPlan` | `process_optimization_reasons` | `development_process_flow` | `advanced` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `DevelopmentProcessPlan` | `required_process_optimization_evidence_ids` | `development_process_flow` | `starter` | `evidence_or_decision` | `false` |
 | `development_process_flow` | `RevalidationRecommendation` | `requirement_id` | `development_process_flow` | `starter` | `unclassified` | `false` |
@@ -1755,7 +1802,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `existing_model_preflight` | `ExistingModelPreflight` | `typed_external_difference_ids` | `existing_model_preflight` | `advanced` | `behavior_or_contract` | `true` |
 | `existing_model_preflight` | `ExistingModelPreflight` | `require_complete_surface_inventory` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflight` | `skip_reason` | `existing_model_preflight` | `starter` | `evidence_or_decision` | `false` |
-| `existing_model_preflight` | `ExistingModelPreflight` | `spec_context` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
+| `existing_model_preflight` | `ExistingModelPreflight` | `work_contexts` | `existing_model_preflight` | `internal` | `collection_metadata` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflightFinding` | `code` | `existing_model_preflight` | `starter` | `unclassified` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflightFinding` | `message` | `existing_model_preflight` | `internal` | `display_or_metadata` | `false` |
 | `existing_model_preflight` | `ExistingModelPreflightFinding` | `severity` | `existing_model_preflight` | `internal` | `unclassified` | `false` |
@@ -1813,6 +1860,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `field_lifecycle` | `FieldProjection` | `rationale` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
 | `field_lifecycle` | `FieldLifecycleRow` | `field_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
 | `field_lifecycle` | `FieldLifecycleRow` | `field_name` | `field_lifecycle_mesh` | `internal` | `display_or_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `owner_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
 | `field_lifecycle` | `FieldLifecycleRow` | `locations` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
 | `field_lifecycle` | `FieldLifecycleRow` | `group_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
 | `field_lifecycle` | `FieldLifecycleRow` | `role` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
@@ -1820,6 +1868,14 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `field_lifecycle` | `FieldLifecycleRow` | `behavior_impacts` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
 | `field_lifecycle` | `FieldLifecycleRow` | `reader_ids` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
 | `field_lifecycle` | `FieldLifecycleRow` | `writer_ids` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `default_semantics` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `absence_semantics` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `serialization_semantics` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `privacy_classification` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `content_fingerprint` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `coverage_disposition` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `delegated_owner_id` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecycleRow` | `coverage_evidence_refs` | `field_lifecycle_mesh` | `starter` | `evidence_or_decision` | `false` |
 | `field_lifecycle` | `FieldLifecycleRow` | `replacement_field_id` | `field_lifecycle_mesh` | `advanced` | `compatibility_or_old_path` | `true` |
 | `field_lifecycle` | `FieldLifecycleRow` | `old_field_ids` | `field_lifecycle_mesh` | `advanced` | `compatibility_or_old_path` | `true` |
 | `field_lifecycle` | `FieldLifecycleRow` | `disposition` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
@@ -1834,6 +1890,10 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `field_lifecycle` | `FieldLifecyclePlan` | `discovered_field_ids` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
 | `field_lifecycle` | `FieldLifecyclePlan` | `groups` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
 | `field_lifecycle` | `FieldLifecyclePlan` | `fields` | `field_lifecycle_mesh` | `internal` | `collection_metadata` | `false` |
+| `field_lifecycle` | `FieldLifecyclePlan` | `inventory_revision` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecyclePlan` | `inventory_fingerprint` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
+| `field_lifecycle` | `FieldLifecyclePlan` | `discovery_evidence_ids` | `field_lifecycle_mesh` | `starter` | `evidence_or_decision` | `false` |
+| `field_lifecycle` | `FieldLifecyclePlan` | `require_complete_inventory` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
 | `field_lifecycle` | `FieldLifecyclePlan` | `claim_scope` | `field_lifecycle_mesh` | `starter` | `unclassified` | `false` |
 | `field_lifecycle` | `FieldLifecyclePlan` | `allow_scoped_confidence` | `field_lifecycle_mesh` | `advanced` | `evidence_or_decision` | `false` |
 | `field_lifecycle` | `FieldLifecyclePlan` | `notes` | `field_lifecycle_mesh` | `internal` | `unclassified` | `false` |
@@ -2216,9 +2276,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `maintenance_scan` | `MaintenanceEvidence` | `covers_signal_ids` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
 | `maintenance_scan` | `MaintenanceEvidence` | `result_path` | `maintenance_scan_router` | `starter` | `evidence_or_decision` | `false` |
 | `maintenance_scan` | `MaintenanceEvidence` | `description` | `maintenance_scan_router` | `internal` | `display_or_metadata` | `false` |
-| `maintenance_scan` | `MaintenanceEvidence` | `spec_context_id` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceEvidence` | `spec_context_hash` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
-| `maintenance_scan` | `MaintenanceEvidence` | `spec_context_read_only` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `work_context_id` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `work_context_hash` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
+| `maintenance_scan` | `MaintenanceEvidence` | `work_context_read_only` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
 | `maintenance_scan` | `MaintenanceEvidence` | `metadata` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
 | `maintenance_scan` | `MaintenanceSignal` | `signal_id` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
 | `maintenance_scan` | `MaintenanceSignal` | `signal_type` | `maintenance_scan_router` | `internal` | `unclassified` | `false` |
@@ -2260,7 +2320,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `maintenance_scan` | `MaintenanceScanPlan` | `prior_obligations` | `maintenance_scan_router` | `advanced` | `behavior_or_contract` | `true` |
 | `maintenance_scan` | `MaintenanceScanPlan` | `claim_scope` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
 | `maintenance_scan` | `MaintenanceScanPlan` | `allow_scoped_confidence` | `maintenance_scan_router` | `advanced` | `evidence_or_decision` | `false` |
-| `maintenance_scan` | `MaintenanceScanPlan` | `required_spec_context_ids` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
+| `maintenance_scan` | `MaintenanceScanPlan` | `required_work_context_ids` | `maintenance_scan_router` | `internal` | `collection_metadata` | `false` |
 | `maintenance_scan` | `MaintenanceScanReport` | `ok` | `maintenance_scan_router` | `starter` | `evidence_or_decision` | `false` |
 | `maintenance_scan` | `MaintenanceScanReport` | `plan_id` | `maintenance_scan_router` | `starter` | `unclassified` | `false` |
 | `maintenance_scan` | `MaintenanceScanReport` | `decision` | `maintenance_scan_router` | `advanced` | `evidence_or_decision` | `false` |
@@ -2604,6 +2664,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `model_revision_set` | `ModelRevisionSet` | `affected_closure_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `model_revision_set` | `ModelRevisionSet` | `affected_closure_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `model_revision_set` | `ModelRevisionSet` | `changed_relation_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `model_revision_set` | `ModelRevisionSet` | `changed_source_surface_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `model_revision_set` | `ModelRevisionSet` | `changed_commitment_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `model_revision_set` | `ModelRevisionSet` | `changed_field_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `model_revision_set` | `ModelRevisionSet` | `changed_side_effect_ids` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
@@ -3283,9 +3344,11 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `plan_detailing` | `PlanDetailSource` | `supports_surface_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
 | `plan_detailing` | `PlanDetailSource` | `summary` | `plan_detailing_compiler` | `advanced` | `evidence_or_decision` | `false` |
 | `plan_detailing` | `PlanDetailSource` | `metadata` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailSource` | `spec_context_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailSource` | `spec_context_artifact_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailSource` | `spec_context_read_only` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `work_context_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `work_context_adapter_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `work_context_fingerprint` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `work_context_artifact_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailSource` | `work_context_read_only` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailSurface` | `surface_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailSurface` | `surface_kind` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailSurface` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
@@ -3337,9 +3400,11 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `plan_detailing` | `PlanDetailStep` | `target_behavior_planes` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
 | `plan_detailing` | `PlanDetailStep` | `target_commitment_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
 | `plan_detailing` | `PlanDetailStep` | `typed_commitment_relation_refs` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `spec_context_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `spec_context_artifact_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
-| `plan_detailing` | `PlanDetailStep` | `spec_context_read_only` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `work_context_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `work_context_adapter_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `work_context_fingerprint` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `work_context_artifact_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
+| `plan_detailing` | `PlanDetailStep` | `work_context_read_only` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailStep` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
 | `plan_detailing` | `PlanDetailValidation` | `validation_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailValidation` | `required_artifact_ids` | `plan_detailing_compiler` | `internal` | `collection_metadata` | `false` |
@@ -3348,7 +3413,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `plan_detailing` | `PlanDetailValidation` | `command` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailValidation` | `scope` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailValidation` | `release_required` | `plan_detailing_compiler` | `internal` | `unclassified` | `false` |
-| `plan_detailing` | `PlanDetailValidation` | `spec_context_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
+| `plan_detailing` | `PlanDetailValidation` | `work_context_id` | `plan_detailing_compiler` | `starter` | `unclassified` | `false` |
 | `plan_detailing` | `PlanDetailValidation` | `description` | `plan_detailing_compiler` | `internal` | `display_or_metadata` | `false` |
 | `plan_detailing` | `PlanDetailEvidence` | `evidence_id` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
 | `plan_detailing` | `PlanDetailEvidence` | `evidence_kind` | `plan_detailing_compiler` | `starter` | `evidence_or_decision` | `false` |
@@ -4588,8 +4653,8 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `self_maintenance` | `SelfMaintenancePlan` | `child_reports` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
 | `self_maintenance` | `SelfMaintenancePlan` | `broad_claim` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
 | `self_maintenance` | `SelfMaintenancePlan` | `allow_scoped_confidence` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
-| `self_maintenance` | `SelfMaintenancePlan` | `required_spec_context_ids` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
-| `self_maintenance` | `SelfMaintenancePlan` | `spec_context_hashes` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
+| `self_maintenance` | `SelfMaintenancePlan` | `required_work_context_ids` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
+| `self_maintenance` | `SelfMaintenancePlan` | `work_context_hashes` | `flowguard_self_maintenance` | `internal` | `collection_metadata` | `false` |
 | `self_maintenance` | `SelfMaintenanceReport` | `ok` | `flowguard_self_maintenance` | `starter` | `evidence_or_decision` | `false` |
 | `self_maintenance` | `SelfMaintenanceReport` | `plan_id` | `flowguard_self_maintenance` | `starter` | `unclassified` | `false` |
 | `self_maintenance` | `SelfMaintenanceReport` | `decision` | `flowguard_self_maintenance` | `advanced` | `evidence_or_decision` | `false` |
@@ -4671,29 +4736,6 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `skill_suite` | `SkillSuiteReport` | `members` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `skill_suite` | `SkillSuiteReport` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `skill_suite` | `SkillSuiteReport` | `co_located_skill_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
-| `spec_context` | `SpecContextArtifact` | `artifact_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContextArtifact` | `artifact_kind` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContextArtifact` | `relative_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContextArtifact` | `content_hash` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContextArtifact` | `size` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContext` | `context_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContext` | `change_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContext` | `project_root` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContext` | `change_root` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContext` | `status` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
-| `spec_context` | `SpecContext` | `task_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContext` | `completed_task_count` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContext` | `artifacts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
-| `spec_context` | `SpecContext` | `provider_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContext` | `provider_role` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContext` | `read_only` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContext` | `current` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContext` | `context_hash` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContextFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContextFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
-| `spec_context` | `SpecContextFinding` | `relative_path` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContextReview` | `context` | `core_or_internal` | `internal` | `unclassified` | `false` |
-| `spec_context` | `SpecContextReview` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `state_closure` | `StateClosureCase` | `case_id` | `state_closure` | `starter` | `unclassified` | `false` |
 | `state_closure` | `StateClosureCase` | `dimension_id` | `state_closure` | `starter` | `unclassified` | `false` |
 | `state_closure` | `StateClosureCase` | `case_kind` | `state_closure` | `starter` | `unclassified` | `false` |
@@ -4995,6 +5037,10 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `testmesh` | `TestPartitionItem` | `description` | `test_mesh_maintenance` | `internal` | `display_or_metadata` | `false` |
 | `testmesh` | `TestPartitionItem` | `touched_paths` | `test_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
 | `testmesh` | `TestPartitionItem` | `inventory_revision` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestPartitionItem` | `coverage_disposition` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestPartitionItem` | `native_owner_id` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestPartitionItem` | `required_native_evidence_ids` | `test_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestPartitionItem` | `planning_context_only` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
 | `testmesh` | `TestSuiteEvidence` | `suite_id` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
 | `testmesh` | `TestSuiteEvidence` | `command` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
 | `testmesh` | `TestSuiteEvidence` | `layer` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
@@ -5060,6 +5106,11 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `testmesh` | `TestMeshPlan` | `allowed_shared_state` | `test_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
 | `testmesh` | `TestMeshPlan` | `allowed_shared_side_effects` | `test_mesh_maintenance` | `advanced` | `behavior_or_contract` | `true` |
 | `testmesh` | `TestMeshPlan` | `inventory_revision` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestMeshPlan` | `coverage_inventory_id` | `test_mesh_maintenance` | `starter` | `unclassified` | `false` |
+| `testmesh` | `TestMeshPlan` | `coverage_inventory_revision` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestMeshPlan` | `coverage_inventory_fingerprint` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
+| `testmesh` | `TestMeshPlan` | `coverage_inventory_evidence_ids` | `test_mesh_maintenance` | `starter` | `evidence_or_decision` | `false` |
+| `testmesh` | `TestMeshPlan` | `planning_context_ids` | `test_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
 | `testmesh` | `TestMeshPlan` | `required_inventory_item_ids` | `test_mesh_maintenance` | `internal` | `collection_metadata` | `false` |
 | `testmesh` | `TestMeshPlan` | `scoped_inventory_item_reasons` | `test_mesh_maintenance` | `advanced` | `evidence_or_decision` | `false` |
 | `testmesh` | `TestMeshPlan` | `require_complete_inventory` | `test_mesh_maintenance` | `internal` | `unclassified` | `false` |
@@ -5580,6 +5631,7 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `ui_structure` | `UIObservedSurfaceItem` | `blindspot_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
 | `ui_structure` | `UIObservedSurfaceItem` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
 | `ui_structure` | `UIObservedSurfaceItem` | `evidence_kind` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIObservedSurfaceItem` | `content_fingerprint` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
 | `ui_structure` | `UIObservedSurfaceItem` | `observed_value` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
 | `ui_structure` | `UIObservedSurfaceItem` | `options` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UIObservedSurfaceItem` | `table_columns` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
@@ -5592,6 +5644,9 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `ui_structure` | `UIObservedSurfaceInventory` | `source_visible_surface_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
 | `ui_structure` | `UIObservedSurfaceInventory` | `content_visibility_plan_id` | `ui_flow_structure` | `starter` | `unclassified` | `false` |
 | `ui_structure` | `UIObservedSurfaceInventory` | `evidence_ref` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `inventory_fingerprint` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `discovery_evidence_ids` | `ui_flow_structure` | `starter` | `evidence_or_decision` | `false` |
+| `ui_structure` | `UIObservedSurfaceInventory` | `require_complete_inventory` | `ui_flow_structure` | `internal` | `unclassified` | `false` |
 | `ui_structure` | `UIObservedSurfaceInventory` | `items` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UIObservedSurfaceInventory` | `scoped_blindspots` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
 | `ui_structure` | `UIObservedSurfaceInventory` | `validation_boundaries` | `ui_flow_structure` | `internal` | `collection_metadata` | `false` |
@@ -6066,6 +6121,34 @@ and evidence-bearing fields still need route-owned proof before edits.
 | `validation_results` | `ValidationResult` | `progress_summary` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
 | `validation_results` | `ValidationResult` | `artifact_paths` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
 | `validation_results` | `ValidationResult` | `children` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `work_context` | `WorkContextArtifact` | `artifact_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContextArtifact` | `artifact_role` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContextArtifact` | `source_ref` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContextArtifact` | `content_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContextArtifact` | `size` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContext` | `context_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContext` | `adapter_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContext` | `native_work_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContext` | `native_owner_id` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContext` | `project_root` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContext` | `context_root` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContext` | `artifacts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `work_context` | `WorkContext` | `required_artifact_roles` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `work_context` | `WorkContext` | `behavior_source_surface_ids` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `work_context` | `WorkContext` | `subject_lane` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContext` | `read_only` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContext` | `current` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContext` | `context_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContext` | `native_metadata` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `work_context` | `WorkContextFinding` | `code` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContextFinding` | `message` | `core_or_internal` | `internal` | `display_or_metadata` | `false` |
+| `work_context` | `WorkContextFinding` | `source_ref` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContextReview` | `context` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `WorkContextReview` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `work_context` | `ProjectWorkContextReview` | `project_root` | `core_or_internal` | `internal` | `unclassified` | `false` |
+| `work_context` | `ProjectWorkContextReview` | `contexts` | `core_or_internal` | `internal` | `collection_metadata` | `false` |
+| `work_context` | `ProjectWorkContextReview` | `findings` | `core_or_internal` | `internal` | `evidence_or_decision` | `false` |
+| `work_context` | `ProjectWorkContextReview` | `declaration_fingerprint` | `core_or_internal` | `internal` | `unclassified` | `false` |
 | `workflow` | `WorkflowPath` | `current_input` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `workflow` | `WorkflowPath` | `state` | `core_or_internal` | `internal` | `behavior_or_contract` | `true` |
 | `workflow` | `WorkflowPath` | `trace` | `core_or_internal` | `internal` | `unclassified` | `false` |

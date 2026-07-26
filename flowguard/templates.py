@@ -143,10 +143,10 @@ from .template_text.workflow_step_contracts import (
     WORKFLOW_STEP_CONTRACTS_RUN_CHECKS_TEMPLATE,
     WORKFLOW_STEP_CONTRACTS_NOTES_TEMPLATE,
 )
-from .template_text.spec_context import (
-    SPEC_CONTEXT_MODEL_TEMPLATE,
-    SPEC_CONTEXT_NOTES_TEMPLATE,
-    SPEC_CONTEXT_RUN_CHECKS_TEMPLATE,
+from .template_text.work_context import (
+    WORK_CONTEXT_MODEL_TEMPLATE,
+    WORK_CONTEXT_NOTES_TEMPLATE,
+    WORK_CONTEXT_RUN_CHECKS_TEMPLATE,
 )
 
 
@@ -187,11 +187,11 @@ def risk_intent_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def spec_context_template_files() -> tuple[TemplateFile, ...]:
+def work_context_template_files() -> tuple[TemplateFile, ...]:
     return (
-        TemplateFile(".flowguard/spec_context/model.py", SPEC_CONTEXT_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/spec_context/run_checks.py", SPEC_CONTEXT_RUN_CHECKS_TEMPLATE),
-        TemplateFile("docs/flowguard_spec_context.md", SPEC_CONTEXT_NOTES_TEMPLATE),
+        TemplateFile(".flowguard/work_context/model.py", WORK_CONTEXT_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/work_context/run_checks.py", WORK_CONTEXT_RUN_CHECKS_TEMPLATE),
+        TemplateFile("docs/flowguard_work_context.md", WORK_CONTEXT_NOTES_TEMPLATE),
     )
 
 
@@ -509,10 +509,6 @@ __all__ = [
     "RUNTIME_PATH_EVIDENCE_MODEL_TEMPLATE",
     "RUNTIME_PATH_EVIDENCE_NOTES_TEMPLATE",
     "RUNTIME_PATH_EVIDENCE_RUN_CHECKS_TEMPLATE",
-    "SPEC_WORK_PACKAGE_BINDINGS_TEMPLATE",
-    "SPEC_WORK_PACKAGE_MODEL_TEMPLATE",
-    "SPEC_WORK_PACKAGE_NOTES_TEMPLATE",
-    "SPEC_WORK_PACKAGE_RUN_CHECKS_TEMPLATE",
     "STRUCTURE_MESH_MODEL_TEMPLATE",
     "STRUCTURE_MESH_NOTES_TEMPLATE",
     "STRUCTURE_MESH_RUN_CHECKS_TEMPLATE",
@@ -552,7 +548,7 @@ __all__ = [
     "risk_evidence_ledger_template_files",
     "risk_intent_template_files",
     "risk_template_library_template_files",
-    "spec_context_template_files",
+    "work_context_template_files",
     "runtime_path_evidence_template_files",
     "structure_mesh_template_files",
     "test_mesh_template_files",

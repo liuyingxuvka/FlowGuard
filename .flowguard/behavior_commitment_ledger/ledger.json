@@ -142,11 +142,11 @@
         "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
-          "surface:project-rules",
+          "surface:project-rules:behavior-ledger-current",
           "surface:bcl-skill",
-          "surface:bcl-open-spec",
-          "surface:bcl-code",
-          "surface:bcl-tests"
+          "surface:bcl-work-context:behavior-ledger-current",
+          "surface:bcl-code:behavior-ledger-current",
+          "surface:bcl-tests:behavior-ledger-current"
         ],
         "state_writes": [],
         "supporting_model_ids": [
@@ -339,7 +339,7 @@
         "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
-          "surface:ui-content-visibility-openspec",
+          "surface:ui-content-visibility-work-context",
           "surface:ui-flow-structure-skill",
           "surface:ui-content-visibility-models",
           "surface:ui-content-visibility-tests"
@@ -464,9 +464,9 @@
         "source_refs": [],
         "source_surface_ids": [
           "surface:contract-exhaustion-skill",
-          "surface:bcl-open-spec",
-          "surface:bcl-code",
-          "surface:bcl-tests"
+          "surface:bcl-work-context:behavior-dcar-full-axis",
+          "surface:bcl-code:behavior-dcar-full-axis",
+          "surface:bcl-tests:behavior-dcar-full-axis"
         ],
         "state_writes": [
           "contract_coverage_universe"
@@ -589,8 +589,8 @@
         "source_refs": [],
         "source_surface_ids": [
           "surface:test-mesh-skill",
-          "surface:bcl-code",
-          "surface:bcl-tests"
+          "surface:bcl-code:test-mesh-current-for-bcl",
+          "surface:bcl-tests:test-mesh-current-for-bcl"
         ],
         "state_writes": [
           "test_mesh_evidence_state"
@@ -720,9 +720,9 @@
         "source_surface_ids": [
           "surface:model-miss-skill",
           "surface:existing-model-preflight-skill",
-          "surface:bcl-open-spec",
-          "surface:bcl-code",
-          "surface:bcl-tests"
+          "surface:bcl-work-context:model-miss-backfeeds-existing-commitment",
+          "surface:bcl-code:model-miss-backfeeds-existing-commitment",
+          "surface:bcl-tests:model-miss-backfeeds-existing-commitment"
         ],
         "state_writes": [
           "miss_origin_state",
@@ -869,10 +869,10 @@
         "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
-          "surface:bcl-open-spec",
-          "surface:self-maintenance-code",
+          "surface:bcl-work-context:self-maintenance-child-gates",
+          "surface:self-maintenance-code:self-maintenance-child-gates",
           "surface:self-maintenance-model",
-          "surface:self-maintenance-tests"
+          "surface:self-maintenance-tests:self-maintenance-child-gates"
         ],
         "state_writes": [
           "self_maintenance_closure_state"
@@ -995,9 +995,9 @@
         "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
-          "surface:spec-context-model",
-          "surface:spec-context-code",
-          "surface:spec-context-tests"
+          "surface:work-context-model",
+          "surface:work-context-code",
+          "surface:work-context-tests"
         ],
         "state_writes": [
           "read_only_spec_context_projection"
@@ -1096,9 +1096,9 @@
         },
         "metadata": {
           "behavior_plane_classification": "explicit_project_owner_review",
+          "optimizer_activation": "conditional",
           "public_route_owner": "development_process_flow",
-          "strategy_child_is_internal": true,
-          "optimizer_activation": "conditional"
+          "strategy_child_is_internal": true
         },
         "miss_origin_state": "no_miss",
         "model_sync_state": "owner_model_current",
@@ -1274,11 +1274,11 @@
         "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
-          "surface:project-rules",
+          "surface:project-rules:single-path-replacement-disposition",
           "surface:agents-snippet",
-          "surface:bcl-open-spec",
-          "surface:self-maintenance-code",
-          "surface:self-maintenance-tests"
+          "surface:bcl-work-context:single-path-replacement-disposition",
+          "surface:self-maintenance-code:single-path-replacement-disposition",
+          "surface:self-maintenance-tests:single-path-replacement-disposition"
         ],
         "state_writes": [
           "replacement_disposition"
@@ -1472,8 +1472,8 @@
           "error_signatures": [
             "portable_model_invalid",
             "refinement_transition_unmapped",
-            "composition_assumption_unprovided"
-            ,"joint exploration reached max_states"
+            "composition_assumption_unprovided",
+            "joint exploration reached max_states"
           ],
           "metadata": {},
           "path_patterns": [
@@ -1489,19 +1489,19 @@
             "reference checker",
             "compositional verification",
             "refinement",
-            "assume guarantee"
-            ,"bounded system composition"
-            ,"affected system slice"
+            "assume guarantee",
+            "bounded system composition",
+            "affected system slice"
           ],
           "tool_ids": [
             "flowguard.portable-model-check",
-            "flowguard.portable-model-refinement"
-            ,"flowguard.portable-system-check"
+            "flowguard.portable-model-refinement",
+            "flowguard.portable-system-check"
           ],
           "workflow_families": [
             "portable_model_verification",
-            "compositional_refinement"
-            ,"bounded_system_composition"
+            "compositional_refinement",
+            "bounded_system_composition"
           ]
         },
         "metadata": {
@@ -1992,7 +1992,7 @@
         "variant_of_business_intent_id": ""
       }
     ],
-    "current_revision": "2026-07-23-authoritative-model-system",
+    "current_revision": "2026-07-26-complete-coverage",
     "expected_business_intent_ids": [
       "intent:behavior-ledger-current",
       "intent:ordinary-ui-content-admission",
@@ -2025,6 +2025,51 @@
       "commitment:flowguard-template-cli-dispatch",
       "commitment:authoritative-model-system"
     ],
+    "expected_source_surface_ids": [
+      "surface:project-rules:behavior-ledger-current",
+      "surface:project-rules:single-path-replacement-disposition",
+      "surface:agents-snippet",
+      "surface:bcl-skill",
+      "surface:ui-content-visibility-work-context",
+      "surface:ui-flow-structure-skill",
+      "surface:ui-content-visibility-models",
+      "surface:work-context-model",
+      "surface:work-context-code",
+      "surface:work-context-tests",
+      "surface:development-process-strategy-model",
+      "surface:development-process-strategy-code",
+      "surface:development-process-strategy-tests",
+      "surface:ui-content-visibility-tests",
+      "surface:contract-exhaustion-skill",
+      "surface:test-mesh-skill",
+      "surface:model-miss-skill",
+      "surface:existing-model-preflight-skill",
+      "surface:bcl-work-context:behavior-ledger-current",
+      "surface:bcl-work-context:behavior-dcar-full-axis",
+      "surface:bcl-work-context:model-miss-backfeeds-existing-commitment",
+      "surface:bcl-work-context:self-maintenance-child-gates",
+      "surface:bcl-work-context:single-path-replacement-disposition",
+      "surface:bcl-code:behavior-ledger-current",
+      "surface:bcl-code:behavior-dcar-full-axis",
+      "surface:bcl-code:test-mesh-current-for-bcl",
+      "surface:bcl-code:model-miss-backfeeds-existing-commitment",
+      "surface:self-maintenance-code:self-maintenance-child-gates",
+      "surface:self-maintenance-code:single-path-replacement-disposition",
+      "surface:self-maintenance-model",
+      "surface:bcl-tests:behavior-ledger-current",
+      "surface:bcl-tests:behavior-dcar-full-axis",
+      "surface:bcl-tests:test-mesh-current-for-bcl",
+      "surface:bcl-tests:model-miss-backfeeds-existing-commitment",
+      "surface:self-maintenance-tests:self-maintenance-child-gates",
+      "surface:self-maintenance-tests:single-path-replacement-disposition",
+      "surface:flowguard-agent-guidance",
+      "surface:portable-compositional-verification",
+      "surface:flowguard-public-api",
+      "surface:flowguard-template-cli",
+      "surface:model-system-authority-api",
+      "surface:model-system-authority-cli",
+      "surface:model-system-authority-model-tests"
+    ],
     "ledger_id": "flowguard-self-maintenance-ledger",
     "metadata": {
       "behavior_plane_partition": [
@@ -2038,31 +2083,48 @@
     "owner": "flowguard_self_maintenance",
     "project_boundary": "FlowGuard self-maintenance behavior registration hardening",
     "rationale": "FlowGuard should maintain its own behavior registration using the same hard gates it teaches agents",
+    "require_complete_source_inventory": true,
     "require_current_evidence": true,
     "require_risk_gates_for_broad_claim": true,
+    "source_inventory_evidence_ids": [
+      "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+    ],
+    "source_inventory_fingerprint": "sha256:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+    "source_inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
     "source_surfaces": [
       {
         "business_intent_ids": [
-          "intent:behavior-ledger-current",
-          "intent:single-path-replacement-disposition"
+          "intent:behavior-ledger-current"
         ],
         "commitment_ids": [
-          "commitment:behavior-ledger-current",
-          "commitment:single-path-replacement-disposition"
+          "commitment:behavior-ledger-current"
         ],
+        "content_fingerprint": "sha256:06fdc84b35fe818deaf48ff8ad5c4d4190240e9e9c008582d62cba6d490269de",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:6398f9fbb1b3c317148a8b942a8997beecd946c5213bd0262788f4bd5a9bb255",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "project rules",
         "metadata": {},
+        "native_artifact_id": "AGENTS.md#FlowGuard Project Rules",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "normative",
         "source_ref": "AGENTS.md#FlowGuard Project Rules",
-        "surface_id": "surface:project-rules",
+        "source_system_id": "flowguard:process",
+        "surface_id": "surface:project-rules:behavior-ledger-current",
         "surface_kind": "process",
         "validation_boundary": "source reviewed during self-maintenance hardening"
       },
@@ -2073,18 +2135,67 @@
         "commitment_ids": [
           "commitment:single-path-replacement-disposition"
         ],
+        "content_fingerprint": "sha256:06fdc84b35fe818deaf48ff8ad5c4d4190240e9e9c008582d62cba6d490269de",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:36ea7b9f7bf8d05919f31b691e921e7364bc443629029b25959f32d59e86d37b",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
-        "label": "agents snippet",
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "project rules",
         "metadata": {},
+        "native_artifact_id": "AGENTS.md#FlowGuard Project Rules",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "normative",
+        "source_ref": "AGENTS.md#FlowGuard Project Rules",
+        "source_system_id": "flowguard:process",
+        "surface_id": "surface:project-rules:single-path-replacement-disposition",
+        "surface_kind": "process",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:single-path-replacement-disposition"
+        ],
+        "commitment_ids": [
+          "commitment:single-path-replacement-disposition"
+        ],
+        "content_fingerprint": "sha256:defe4f442273a06ff1b2e9d952100a02abe59cb158c121af78325a238fe682a5",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:36ea7b9f7bf8d05919f31b691e921e7364bc443629029b25959f32d59e86d37b",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "agents snippet",
+        "metadata": {},
+        "native_artifact_id": "docs/agents_snippet.md#Hard Gates",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "normative",
         "source_ref": "docs/agents_snippet.md#Hard Gates",
+        "source_system_id": "flowguard:doc",
         "surface_id": "surface:agents-snippet",
         "surface_kind": "doc",
         "validation_boundary": "source reviewed during self-maintenance hardening"
@@ -2096,18 +2207,31 @@
         "commitment_ids": [
           "commitment:behavior-ledger-current"
         ],
+        "content_fingerprint": "sha256:91ad8cf00ebcd996cfa4312c94ab10ab96334bbe81e297883a5169a5242a5c00",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:6398f9fbb1b3c317148a8b942a8997beecd946c5213bd0262788f4bd5a9bb255",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "bcl skill",
         "metadata": {},
+        "native_artifact_id": ".agents/skills/flowguard-behavior-commitment-ledger/SKILL.md",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "normative",
         "source_ref": ".agents/skills/flowguard-behavior-commitment-ledger/SKILL.md",
+        "source_system_id": "flowguard:skill",
         "surface_id": "surface:bcl-skill",
         "surface_kind": "skill",
         "validation_boundary": "source reviewed during self-maintenance hardening"
@@ -2119,20 +2243,33 @@
         "commitment_ids": [
           "commitment:ordinary-ui-content-admission"
         ],
+        "content_fingerprint": "sha256:9190629e6ac0eb86b68c6c07b2e1c0847eb08d42f38042b6258f08591d74ea01",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:ad2e0cfdc4363f4668032a6e9d108634c7d2a345da47dd8ef9ee880e5fb647c1",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "ui content visibility openspec",
         "metadata": {},
+        "native_artifact_id": "openspec/specs/flowguard-ui-flow-structure/spec.md",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "openspec/changes/harden-ui-content-visibility/specs/flowguard-ui-flow-structure/spec.md; openspec/changes/harden-ui-content-visibility/verification-contract.yaml",
-        "surface_id": "surface:ui-content-visibility-openspec",
-        "surface_kind": "openspec",
+        "source_authority_role": "normative",
+        "source_ref": "openspec/specs/flowguard-ui-flow-structure/spec.md",
+        "source_system_id": "flowguard:work_context",
+        "surface_id": "surface:ui-content-visibility-work-context",
+        "surface_kind": "work_context",
         "validation_boundary": "source reviewed during self-maintenance hardening"
       },
       {
@@ -2142,18 +2279,31 @@
         "commitment_ids": [
           "commitment:ordinary-ui-content-admission"
         ],
+        "content_fingerprint": "sha256:0eb2330098cb7a0bf6196b4403b21bc186b797de6c9aa75749701a3a619bb191",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:ad2e0cfdc4363f4668032a6e9d108634c7d2a345da47dd8ef9ee880e5fb647c1",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "ui flow structure skill",
         "metadata": {},
+        "native_artifact_id": ".agents/skills/flowguard-ui-flow-structure/SKILL.md",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "normative",
         "source_ref": ".agents/skills/flowguard-ui-flow-structure/SKILL.md",
+        "source_system_id": "flowguard:skill",
         "surface_id": "surface:ui-flow-structure-skill",
         "surface_kind": "skill",
         "validation_boundary": "source reviewed during self-maintenance hardening"
@@ -2165,18 +2315,31 @@
         "commitment_ids": [
           "commitment:ordinary-ui-content-admission"
         ],
+        "content_fingerprint": "sha256:f800ab255b48707a5634e53cc258d3d9d66120297411924a343fbaa463f292d6",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:ad2e0cfdc4363f4668032a6e9d108634c7d2a345da47dd8ef9ee880e5fb647c1",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "ui content visibility models",
         "metadata": {},
+        "native_artifact_id": ".flowguard/ui_flow_structure_skill/model.py; .flowguard/harden_ui_real_surface_validation/model.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "observed",
         "source_ref": ".flowguard/ui_flow_structure_skill/model.py; .flowguard/harden_ui_real_surface_validation/model.py",
+        "source_system_id": "flowguard:code",
         "surface_id": "surface:ui-content-visibility-models",
         "surface_kind": "code",
         "validation_boundary": "source reviewed during self-maintenance hardening"
@@ -2188,19 +2351,32 @@
         "commitment_ids": [
           "commitment:spec-context-read-only"
         ],
+        "content_fingerprint": "sha256:3a0bf975788bb4d4dac5afe6cf9f392724ec9359812c974d9ca7d0ba538559dc",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:945db63adb65b710ac8ff01bd7aed3275b17afc3f14819835c3209da42261789",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "read-only official OpenSpec context executable model",
         "metadata": {},
+        "native_artifact_id": ".flowguard/work_context/model.py; .flowguard/work_context/run_checks.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface models project-bounded official OpenSpec reading and rejects provider writes, other providers, and execution/evidence bridges",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": ".flowguard/spec_context/model.py; .flowguard/spec_context/run_checks.py",
-        "surface_id": "surface:spec-context-model",
+        "source_authority_role": "observed",
+        "source_ref": ".flowguard/work_context/model.py; .flowguard/work_context/run_checks.py",
+        "source_system_id": "flowguard:code",
+        "surface_id": "surface:work-context-model",
         "surface_kind": "code",
         "validation_boundary": "registered executable model and declared known-bad provider-authority cases"
       },
@@ -2211,19 +2387,32 @@
         "commitment_ids": [
           "commitment:spec-context-read-only"
         ],
+        "content_fingerprint": "sha256:2890b93be4dec590b64b99926b8ff7c82f1c1a29a95daac35107c628d3705f59",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:945db63adb65b710ac8ff01bd7aed3275b17afc3f14819835c3209da42261789",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "read-only official OpenSpec context implementation",
         "metadata": {},
+        "native_artifact_id": "flowguard/work_context.py; flowguard/work_context_adapters/openspec.py; flowguard/work_context_adapters/declared_files.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface implements one official OpenSpec reader, stable artifact identities, derived task status, and explicit no-authority claim boundary",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "flowguard/spec_context.py",
-        "surface_id": "surface:spec-context-code",
+        "source_authority_role": "observed",
+        "source_ref": "flowguard/work_context.py; flowguard/work_context_adapters/openspec.py; flowguard/work_context_adapters/declared_files.py",
+        "source_system_id": "flowguard:code",
+        "surface_id": "surface:work-context-code",
         "surface_kind": "code",
         "validation_boundary": "public read/review/discovery API, read-only CLI, safe paths, unique identities, and zero provider writes"
       },
@@ -2234,19 +2423,32 @@
         "commitment_ids": [
           "commitment:spec-context-read-only"
         ],
+        "content_fingerprint": "sha256:e12bca4d990b990e2dcf96f49f55973adbc8786f247c6fd64dd1b70e4f202075",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:945db63adb65b710ac8ff01bd7aed3275b17afc3f14819835c3209da42261789",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "read-only official OpenSpec context and CLI tests",
         "metadata": {},
+        "native_artifact_id": "tests/test_work_context.py; tests/test_existing_model_preflight.py; tests/test_plan_detailing.py; tests/test_development_process_flow.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface proves unsafe ids, unsupported providers, missing materials, duplicate spec names, mutable authority, and retired execution commands remain blocked",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "tests/test_spec_context.py; tests/test_existing_model_preflight.py; tests/test_development_process_flow.py; tests/test_plan_detailing.py; tests/test_test_mesh.py",
-        "surface_id": "surface:spec-context-tests",
+        "source_authority_role": "supporting",
+        "source_ref": "tests/test_work_context.py; tests/test_existing_model_preflight.py; tests/test_plan_detailing.py; tests/test_development_process_flow.py",
+        "source_system_id": "flowguard:test",
+        "surface_id": "surface:work-context-tests",
         "surface_kind": "test",
         "validation_boundary": "focused read-only context, model, public API, CLI, and no-bridge regression tests"
       },
@@ -2257,18 +2459,31 @@
         "commitment_ids": [
           "commitment:development-process-strategy-selection"
         ],
+        "content_fingerprint": "sha256:640ea045ff4df4346993c156e35c66c20326d1b4302d96c918ee9e4572d24335",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:77761d6f7ef3dfd7ba513648e432d190f520384c3ab33fdf5b1107e25c04fc07",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "conditional development-process optimization executable model",
         "metadata": {},
+        "native_artifact_id": ".flowguard/development_process_strategy/model.py; .flowguard/development_process_strategy/run_checks.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "models the lightweight inactive path, six hard equivalence dimensions, TestMesh evidence reuse, related root-cause repair, hard blockers, freshness, and bounded claims",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "observed",
         "source_ref": ".flowguard/development_process_strategy/model.py; .flowguard/development_process_strategy/run_checks.py",
+        "source_system_id": "flowguard:code",
         "surface_id": "surface:development-process-strategy-model",
         "surface_kind": "code",
         "validation_boundary": "focused executable model regression and expected counterexamples"
@@ -2280,18 +2495,31 @@
         "commitment_ids": [
           "commitment:development-process-strategy-selection"
         ],
+        "content_fingerprint": "sha256:0804591f1791119c79b54cfec15b88328cd57520b14e8f4c7ca1ce17f66a64d1",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:77761d6f7ef3dfd7ba513648e432d190f520384c3ab33fdf5b1107e25c04fc07",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "development-process optimization implementation and owner projections",
         "metadata": {},
+        "native_artifact_id": "flowguard/development_process_strategy.py; flowguard/development_process_flow.py; flowguard/work_context.py; flowguard/plan_detailing.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "implements the small conditional DPF decision while preserving TestMesh, PlanDetailing, Model-Test Alignment, and provider authority",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "flowguard/development_process_strategy.py; flowguard/development_process_flow.py; flowguard/development_process_simulator.py; flowguard/testmesh.py; flowguard/summary_report.py; flowguard/plan_detailing.py; flowguard/model_test_alignment.py; flowguard/spec_context.py",
+        "source_authority_role": "observed",
+        "source_ref": "flowguard/development_process_strategy.py; flowguard/development_process_flow.py; flowguard/work_context.py; flowguard/plan_detailing.py",
+        "source_system_id": "flowguard:code",
         "surface_id": "surface:development-process-strategy-code",
         "surface_kind": "code",
         "validation_boundary": "canonical API review, owner-boundary checks, and current focused integration evidence"
@@ -2303,18 +2531,31 @@
         "commitment_ids": [
           "commitment:development-process-strategy-selection"
         ],
+        "content_fingerprint": "sha256:49da8322ddb9c1aed8bcf6d4de1781abe508f90978b57a8f60f841f0fe36acfc",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:77761d6f7ef3dfd7ba513648e432d190f520384c3ab33fdf5b1107e25c04fc07",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "development-process optimization focused and trajectory tests",
         "metadata": {},
+        "native_artifact_id": "tests/test_development_process_strategy.py; tests/test_development_process_flow.py; tests/test_work_context.py; tests/test_plan_detailing.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "proves the ordinary inactive path, hard gates, bounded comparison, related repair grouping, owner projections, and no universal collect-all rule",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "tests/test_development_process_strategy.py; tests/test_development_process_strategy_benchmark.py; tests/test_development_process_flow.py; tests/test_development_process_simulator.py; tests/test_test_mesh.py; tests/test_summary_report.py; tests/test_plan_detailing.py; tests/test_model_test_alignment.py; tests/test_spec_context.py; tests/test_api_surface.py",
+        "source_authority_role": "supporting",
+        "source_ref": "tests/test_development_process_strategy.py; tests/test_development_process_flow.py; tests/test_work_context.py; tests/test_plan_detailing.py",
+        "source_system_id": "flowguard:test",
         "surface_id": "surface:development-process-strategy-tests",
         "surface_kind": "test",
         "validation_boundary": "focused unit, benchmark, integration, API, and route-topology tests"
@@ -2326,18 +2567,31 @@
         "commitment_ids": [
           "commitment:ordinary-ui-content-admission"
         ],
+        "content_fingerprint": "sha256:9a16b64413f52fe72ab98fe6d784b413b65bf50101c7606d920fa0ad99ce8aeb",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:ad2e0cfdc4363f4668032a6e9d108634c7d2a345da47dd8ef9ee880e5fb647c1",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "ui content visibility tests",
         "metadata": {},
+        "native_artifact_id": ".flowguard/ui_flow_structure_skill/run_checks.py; .flowguard/harden_ui_real_surface_validation/run_checks.py; tests/test_ui_structure.py; tests/test_behavior_commitment_ledger.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "supporting",
         "source_ref": ".flowguard/ui_flow_structure_skill/run_checks.py; .flowguard/harden_ui_real_surface_validation/run_checks.py; tests/test_ui_structure.py; tests/test_behavior_commitment_ledger.py",
+        "source_system_id": "flowguard:test",
         "surface_id": "surface:ui-content-visibility-tests",
         "surface_kind": "test",
         "validation_boundary": "source reviewed during self-maintenance hardening"
@@ -2349,18 +2603,31 @@
         "commitment_ids": [
           "commitment:behavior-dcar-full-axis"
         ],
+        "content_fingerprint": "sha256:3da31ac45b9c0dd5c55d063182f1ed6ab8320b5cc7eb71b86e04fcfe5b17d1db",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:1d226f32d386fd2a06ebfd569c359d74b4987f9ec8502610f7bfc8f0289e9c93",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "contract exhaustion skill",
         "metadata": {},
+        "native_artifact_id": ".agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "normative",
         "source_ref": ".agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md",
+        "source_system_id": "flowguard:skill",
         "surface_id": "surface:contract-exhaustion-skill",
         "surface_kind": "skill",
         "validation_boundary": "source reviewed during self-maintenance hardening"
@@ -2372,18 +2639,31 @@
         "commitment_ids": [
           "commitment:test-mesh-current-for-bcl"
         ],
+        "content_fingerprint": "sha256:c4b4db23bd2c3c659707f2259968571e16c911b4560da4d344a3e7d463df0f63",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:83bfa09535dbac8144f2d9ced490039bf776727a4f3243c3b140c0902746f12a",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "test mesh skill",
         "metadata": {},
+        "native_artifact_id": ".agents/skills/flowguard-test-mesh/SKILL.md",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "normative",
         "source_ref": ".agents/skills/flowguard-test-mesh/SKILL.md",
+        "source_system_id": "flowguard:skill",
         "surface_id": "surface:test-mesh-skill",
         "surface_kind": "skill",
         "validation_boundary": "source reviewed during self-maintenance hardening"
@@ -2395,18 +2675,31 @@
         "commitment_ids": [
           "commitment:model-miss-backfeeds-existing-commitment"
         ],
+        "content_fingerprint": "sha256:73506f9790db7b7cca9829ae059583124d549e4d61452f128243790840335835",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:8ebd1736cbb707b7765d465d4dafdedd5dd42dd67fa943182d78c0b0b7fe8ff4",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "model miss skill",
         "metadata": {},
+        "native_artifact_id": ".agents/skills/flowguard-model-miss-review/SKILL.md",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "normative",
         "source_ref": ".agents/skills/flowguard-model-miss-review/SKILL.md",
+        "source_system_id": "flowguard:skill",
         "surface_id": "surface:model-miss-skill",
         "surface_kind": "skill",
         "validation_boundary": "source reviewed during self-maintenance hardening"
@@ -2418,104 +2711,356 @@
         "commitment_ids": [
           "commitment:model-miss-backfeeds-existing-commitment"
         ],
+        "content_fingerprint": "sha256:51609400b36d583690fbe45d1107d9d4be8fd9bc43c2fd3295f4555ef1e0a0c5",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:8ebd1736cbb707b7765d465d4dafdedd5dd42dd67fa943182d78c0b0b7fe8ff4",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "existing model preflight skill",
         "metadata": {},
+        "native_artifact_id": ".agents/skills/flowguard-existing-model-preflight/SKILL.md",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "normative",
         "source_ref": ".agents/skills/flowguard-existing-model-preflight/SKILL.md",
+        "source_system_id": "flowguard:skill",
         "surface_id": "surface:existing-model-preflight-skill",
         "surface_kind": "skill",
         "validation_boundary": "source reviewed during self-maintenance hardening"
       },
       {
         "business_intent_ids": [
-          "intent:behavior-ledger-current",
-          "intent:behavior-dcar-full-axis",
-          "intent:model-miss-backfeeds-existing-commitment",
-          "intent:self-maintenance-child-gates",
-          "intent:single-path-replacement-disposition"
+          "intent:behavior-ledger-current"
         ],
         "commitment_ids": [
-          "commitment:behavior-ledger-current",
-          "commitment:behavior-dcar-full-axis",
-          "commitment:model-miss-backfeeds-existing-commitment",
-          "commitment:self-maintenance-child-gates",
-          "commitment:single-path-replacement-disposition"
+          "commitment:behavior-ledger-current"
         ],
+        "content_fingerprint": "sha256:382d5382291a5cef9ecfb4697143476d093a7489405cdf8abba247f04e7a2e37",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:6398f9fbb1b3c317148a8b942a8997beecd946c5213bd0262788f4bd5a9bb255",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "bcl open spec",
         "metadata": {},
+        "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "openspec/changes/add-behavior-commitment-ledger/specs",
-        "surface_id": "surface:bcl-open-spec",
-        "surface_kind": "openspec",
+        "source_authority_role": "normative",
+        "source_ref": "openspec/specs/behavior-commitment-ledger/spec.md",
+        "source_system_id": "flowguard:work_context",
+        "surface_id": "surface:bcl-work-context:behavior-ledger-current",
+        "surface_kind": "work_context",
         "validation_boundary": "source reviewed during self-maintenance hardening"
       },
       {
         "business_intent_ids": [
-          "intent:behavior-ledger-current",
-          "intent:behavior-dcar-full-axis",
-          "intent:test-mesh-current-for-bcl",
-          "intent:model-miss-backfeeds-existing-commitment"
+          "intent:behavior-dcar-full-axis"
         ],
         "commitment_ids": [
-          "commitment:behavior-ledger-current",
-          "commitment:behavior-dcar-full-axis",
-          "commitment:test-mesh-current-for-bcl",
-          "commitment:model-miss-backfeeds-existing-commitment"
+          "commitment:behavior-dcar-full-axis"
         ],
+        "content_fingerprint": "sha256:382d5382291a5cef9ecfb4697143476d093a7489405cdf8abba247f04e7a2e37",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:1d226f32d386fd2a06ebfd569c359d74b4987f9ec8502610f7bfc8f0289e9c93",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
-        "label": "bcl code",
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "bcl open spec",
         "metadata": {},
+        "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "normative",
+        "source_ref": "openspec/specs/behavior-commitment-ledger/spec.md",
+        "source_system_id": "flowguard:work_context",
+        "surface_id": "surface:bcl-work-context:behavior-dcar-full-axis",
+        "surface_kind": "work_context",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:model-miss-backfeeds-existing-commitment"
+        ],
+        "commitment_ids": [
+          "commitment:model-miss-backfeeds-existing-commitment"
+        ],
+        "content_fingerprint": "sha256:382d5382291a5cef9ecfb4697143476d093a7489405cdf8abba247f04e7a2e37",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:8ebd1736cbb707b7765d465d4dafdedd5dd42dd67fa943182d78c0b0b7fe8ff4",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "bcl open spec",
+        "metadata": {},
+        "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "normative",
+        "source_ref": "openspec/specs/behavior-commitment-ledger/spec.md",
+        "source_system_id": "flowguard:work_context",
+        "surface_id": "surface:bcl-work-context:model-miss-backfeeds-existing-commitment",
+        "surface_kind": "work_context",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:self-maintenance-child-gates"
+        ],
+        "commitment_ids": [
+          "commitment:self-maintenance-child-gates"
+        ],
+        "content_fingerprint": "sha256:382d5382291a5cef9ecfb4697143476d093a7489405cdf8abba247f04e7a2e37",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:ad3be556e4bf05a1a0de09485cb2a06bd56c5811923f2c43e0e2770478784d5c",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "bcl open spec",
+        "metadata": {},
+        "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "normative",
+        "source_ref": "openspec/specs/behavior-commitment-ledger/spec.md",
+        "source_system_id": "flowguard:work_context",
+        "surface_id": "surface:bcl-work-context:self-maintenance-child-gates",
+        "surface_kind": "work_context",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:single-path-replacement-disposition"
+        ],
+        "commitment_ids": [
+          "commitment:single-path-replacement-disposition"
+        ],
+        "content_fingerprint": "sha256:382d5382291a5cef9ecfb4697143476d093a7489405cdf8abba247f04e7a2e37",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:36ea7b9f7bf8d05919f31b691e921e7364bc443629029b25959f32d59e86d37b",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "bcl open spec",
+        "metadata": {},
+        "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "normative",
+        "source_ref": "openspec/specs/behavior-commitment-ledger/spec.md",
+        "source_system_id": "flowguard:work_context",
+        "surface_id": "surface:bcl-work-context:single-path-replacement-disposition",
+        "surface_kind": "work_context",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:behavior-ledger-current"
+        ],
+        "commitment_ids": [
+          "commitment:behavior-ledger-current"
+        ],
+        "content_fingerprint": "sha256:72201eefa8cbed5ce871be52d73eb2fddc64d803b26a9910ef33a977e4ef7386",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:6398f9fbb1b3c317148a8b942a8997beecd946c5213bd0262788f4bd5a9bb255",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "bcl code",
+        "metadata": {},
+        "native_artifact_id": "flowguard/behavior_commitment.py",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "observed",
         "source_ref": "flowguard/behavior_commitment.py",
-        "surface_id": "surface:bcl-code",
+        "source_system_id": "flowguard:code",
+        "surface_id": "surface:bcl-code:behavior-ledger-current",
         "surface_kind": "code",
         "validation_boundary": "source reviewed during self-maintenance hardening"
       },
       {
         "business_intent_ids": [
-          "intent:self-maintenance-child-gates",
-          "intent:single-path-replacement-disposition"
+          "intent:behavior-dcar-full-axis"
         ],
         "commitment_ids": [
-          "commitment:self-maintenance-child-gates",
-          "commitment:single-path-replacement-disposition"
+          "commitment:behavior-dcar-full-axis"
         ],
+        "content_fingerprint": "sha256:72201eefa8cbed5ce871be52d73eb2fddc64d803b26a9910ef33a977e4ef7386",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:1d226f32d386fd2a06ebfd569c359d74b4987f9ec8502610f7bfc8f0289e9c93",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
-        "label": "self maintenance code",
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "bcl code",
         "metadata": {},
+        "native_artifact_id": "flowguard/behavior_commitment.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "flowguard/self_maintenance.py",
-        "surface_id": "surface:self-maintenance-code",
+        "source_authority_role": "observed",
+        "source_ref": "flowguard/behavior_commitment.py",
+        "source_system_id": "flowguard:code",
+        "surface_id": "surface:bcl-code:behavior-dcar-full-axis",
+        "surface_kind": "code",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:test-mesh-current-for-bcl"
+        ],
+        "commitment_ids": [
+          "commitment:test-mesh-current-for-bcl"
+        ],
+        "content_fingerprint": "sha256:72201eefa8cbed5ce871be52d73eb2fddc64d803b26a9910ef33a977e4ef7386",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:83bfa09535dbac8144f2d9ced490039bf776727a4f3243c3b140c0902746f12a",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "bcl code",
+        "metadata": {},
+        "native_artifact_id": "flowguard/behavior_commitment.py",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "observed",
+        "source_ref": "flowguard/behavior_commitment.py",
+        "source_system_id": "flowguard:code",
+        "surface_id": "surface:bcl-code:test-mesh-current-for-bcl",
+        "surface_kind": "code",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:model-miss-backfeeds-existing-commitment"
+        ],
+        "commitment_ids": [
+          "commitment:model-miss-backfeeds-existing-commitment"
+        ],
+        "content_fingerprint": "sha256:72201eefa8cbed5ce871be52d73eb2fddc64d803b26a9910ef33a977e4ef7386",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:8ebd1736cbb707b7765d465d4dafdedd5dd42dd67fa943182d78c0b0b7fe8ff4",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "bcl code",
+        "metadata": {},
+        "native_artifact_id": "flowguard/behavior_commitment.py",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "observed",
+        "source_ref": "flowguard/behavior_commitment.py",
+        "source_system_id": "flowguard:code",
+        "surface_id": "surface:bcl-code:model-miss-backfeeds-existing-commitment",
         "surface_kind": "code",
         "validation_boundary": "source reviewed during self-maintenance hardening"
       },
@@ -2526,73 +3071,320 @@
         "commitment_ids": [
           "commitment:self-maintenance-child-gates"
         ],
+        "content_fingerprint": "sha256:2e282f765cbd2188c219a7935faeb0ad955cb79d1bd3c79f34fa4b29f5d68ec3",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:ad3be556e4bf05a1a0de09485cb2a06bd56c5811923f2c43e0e2770478784d5c",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
-        "label": "self maintenance model",
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "self maintenance code",
         "metadata": {},
+        "native_artifact_id": "flowguard/self_maintenance.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "observed",
+        "source_ref": "flowguard/self_maintenance.py",
+        "source_system_id": "flowguard:code",
+        "surface_id": "surface:self-maintenance-code:self-maintenance-child-gates",
+        "surface_kind": "code",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:single-path-replacement-disposition"
+        ],
+        "commitment_ids": [
+          "commitment:single-path-replacement-disposition"
+        ],
+        "content_fingerprint": "sha256:2e282f765cbd2188c219a7935faeb0ad955cb79d1bd3c79f34fa4b29f5d68ec3",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:36ea7b9f7bf8d05919f31b691e921e7364bc443629029b25959f32d59e86d37b",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "self maintenance code",
+        "metadata": {},
+        "native_artifact_id": "flowguard/self_maintenance.py",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "observed",
+        "source_ref": "flowguard/self_maintenance.py",
+        "source_system_id": "flowguard:code",
+        "surface_id": "surface:self-maintenance-code:single-path-replacement-disposition",
+        "surface_kind": "code",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:self-maintenance-child-gates"
+        ],
+        "commitment_ids": [
+          "commitment:self-maintenance-child-gates"
+        ],
+        "content_fingerprint": "sha256:1633e1a692d018296c4894eb8f7b4a9b84e3198aab9a5af91e3bf04cad39fc07",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:ad3be556e4bf05a1a0de09485cb2a06bd56c5811923f2c43e0e2770478784d5c",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "self maintenance model",
+        "metadata": {},
+        "native_artifact_id": ".flowguard/self_maintenance_mesh/model.py",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "observed",
         "source_ref": ".flowguard/self_maintenance_mesh/model.py",
+        "source_system_id": "flowguard:code",
         "surface_id": "surface:self-maintenance-model",
         "surface_kind": "code",
         "validation_boundary": "source reviewed during self-maintenance hardening"
       },
       {
         "business_intent_ids": [
-          "intent:behavior-ledger-current",
-          "intent:behavior-dcar-full-axis",
-          "intent:test-mesh-current-for-bcl",
-          "intent:model-miss-backfeeds-existing-commitment"
+          "intent:behavior-ledger-current"
         ],
         "commitment_ids": [
-          "commitment:behavior-ledger-current",
-          "commitment:behavior-dcar-full-axis",
-          "commitment:test-mesh-current-for-bcl",
-          "commitment:model-miss-backfeeds-existing-commitment"
+          "commitment:behavior-ledger-current"
         ],
+        "content_fingerprint": "sha256:b52c44a2c379e56cf4c1f06cc4f55346c303c8e37b153fa4922b4c98f28c8936",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:6398f9fbb1b3c317148a8b942a8997beecd946c5213bd0262788f4bd5a9bb255",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "bcl tests",
         "metadata": {},
+        "native_artifact_id": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "supporting",
         "source_ref": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
-        "surface_id": "surface:bcl-tests",
+        "source_system_id": "flowguard:test",
+        "surface_id": "surface:bcl-tests:behavior-ledger-current",
         "surface_kind": "test",
         "validation_boundary": "source reviewed during self-maintenance hardening"
       },
       {
         "business_intent_ids": [
-          "intent:self-maintenance-child-gates",
-          "intent:single-path-replacement-disposition"
+          "intent:behavior-dcar-full-axis"
         ],
         "commitment_ids": [
-          "commitment:self-maintenance-child-gates",
-          "commitment:single-path-replacement-disposition"
+          "commitment:behavior-dcar-full-axis"
         ],
+        "content_fingerprint": "sha256:b52c44a2c379e56cf4c1f06cc4f55346c303c8e37b153fa4922b4c98f28c8936",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:1d226f32d386fd2a06ebfd569c359d74b4987f9ec8502610f7bfc8f0289e9c93",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
-        "label": "self maintenance tests",
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "bcl tests",
         "metadata": {},
+        "native_artifact_id": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_self_maintenance",
         "primary_path_id": "",
         "rationale": "surface can create or change external FlowGuard maintenance promises",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "supporting",
+        "source_ref": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
+        "source_system_id": "flowguard:test",
+        "surface_id": "surface:bcl-tests:behavior-dcar-full-axis",
+        "surface_kind": "test",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:test-mesh-current-for-bcl"
+        ],
+        "commitment_ids": [
+          "commitment:test-mesh-current-for-bcl"
+        ],
+        "content_fingerprint": "sha256:b52c44a2c379e56cf4c1f06cc4f55346c303c8e37b153fa4922b4c98f28c8936",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:83bfa09535dbac8144f2d9ced490039bf776727a4f3243c3b140c0902746f12a",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "bcl tests",
+        "metadata": {},
+        "native_artifact_id": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "supporting",
+        "source_ref": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
+        "source_system_id": "flowguard:test",
+        "surface_id": "surface:bcl-tests:test-mesh-current-for-bcl",
+        "surface_kind": "test",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:model-miss-backfeeds-existing-commitment"
+        ],
+        "commitment_ids": [
+          "commitment:model-miss-backfeeds-existing-commitment"
+        ],
+        "content_fingerprint": "sha256:b52c44a2c379e56cf4c1f06cc4f55346c303c8e37b153fa4922b4c98f28c8936",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:8ebd1736cbb707b7765d465d4dafdedd5dd42dd67fa943182d78c0b0b7fe8ff4",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "bcl tests",
+        "metadata": {},
+        "native_artifact_id": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "supporting",
+        "source_ref": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
+        "source_system_id": "flowguard:test",
+        "surface_id": "surface:bcl-tests:model-miss-backfeeds-existing-commitment",
+        "surface_kind": "test",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:self-maintenance-child-gates"
+        ],
+        "commitment_ids": [
+          "commitment:self-maintenance-child-gates"
+        ],
+        "content_fingerprint": "sha256:c8c24e8f5fc1818916b573cafe8f8c47d9adea386414f6839a36bb2cfb14c869",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:ad3be556e4bf05a1a0de09485cb2a06bd56c5811923f2c43e0e2770478784d5c",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "self maintenance tests",
+        "metadata": {},
+        "native_artifact_id": "tests/test_api_surface.py; .flowguard/self_maintenance_mesh/run_checks.py",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "supporting",
         "source_ref": "tests/test_api_surface.py; .flowguard/self_maintenance_mesh/run_checks.py",
-        "surface_id": "surface:self-maintenance-tests",
+        "source_system_id": "flowguard:test",
+        "surface_id": "surface:self-maintenance-tests:self-maintenance-child-gates",
+        "surface_kind": "test",
+        "validation_boundary": "source reviewed during self-maintenance hardening"
+      },
+      {
+        "business_intent_ids": [
+          "intent:single-path-replacement-disposition"
+        ],
+        "commitment_ids": [
+          "commitment:single-path-replacement-disposition"
+        ],
+        "content_fingerprint": "sha256:c8c24e8f5fc1818916b573cafe8f8c47d9adea386414f6839a36bb2cfb14c869",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:36ea7b9f7bf8d05919f31b691e921e7364bc443629029b25959f32d59e86d37b",
+        "delegated_owner_inventory_id": "",
+        "delegates_to_primary_path": false,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
+        "freshness_state": "current",
+        "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
+        "label": "self maintenance tests",
+        "metadata": {},
+        "native_artifact_id": "tests/test_api_surface.py; .flowguard/self_maintenance_mesh/run_checks.py",
+        "native_evidence_ids": [],
+        "owner": "flowguard_self_maintenance",
+        "primary_path_id": "",
+        "rationale": "surface can create or change external FlowGuard maintenance promises",
+        "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
+        "source_authority_role": "supporting",
+        "source_ref": "tests/test_api_surface.py; .flowguard/self_maintenance_mesh/run_checks.py",
+        "source_system_id": "flowguard:test",
+        "surface_id": "surface:self-maintenance-tests:single-path-replacement-disposition",
         "surface_kind": "test",
         "validation_boundary": "source reviewed during self-maintenance hardening"
       },
@@ -2603,20 +3395,33 @@
         "commitment_ids": [
           "commitment:flowguard-agent-guidance-route"
         ],
+        "content_fingerprint": "sha256:666bbf31f785130a297d8aa43391eab9954e5aa52cf03421a2ee4536a7bfb72b",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:1cc4f4202048072ccfef49707ff49c1c926132aa322d1e1637f51e5e1311d1ae",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": true,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "FlowGuard kernel and satellite agent guidance",
         "metadata": {
           "behavior_plane": "agent_operation"
         },
+        "native_artifact_id": ".agents/skills/flowguard/SKILL.md; .agents/skills/flowguard-*/SKILL.md; docs/agents_snippet.md",
+        "native_evidence_ids": [],
         "owner": "model_first_function_flow",
         "primary_path_id": "path:flowguard:plane-first-route-selection",
         "rationale": "Public skill shells delegate detailed work to one selected same-plane owner route.",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "normative",
         "source_ref": ".agents/skills/flowguard/SKILL.md; .agents/skills/flowguard-*/SKILL.md; docs/agents_snippet.md",
+        "source_system_id": "flowguard:skill",
         "surface_id": "surface:flowguard-agent-guidance",
         "surface_kind": "skill",
         "validation_boundary": "guidance compression model, skill docs, contract parity, and installed layout"
@@ -2628,22 +3433,35 @@
         "commitment_ids": [
           "commitment:portable-compositional-verification"
         ],
+        "content_fingerprint": "sha256:b82296f1531f3733125aab3ed1b9b4e51c41b6d701067406cb3243f7788cd83a",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:61578601a73ea1bfb6d71636a35cf23ffc8a4710f39128b04ccec51e76c862ae",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": true,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "FlowGuard portable verification API and CLI cohort",
         "metadata": {
           "behavior_plane": "product_runtime",
           "schema_version": "flowguard.portable_model.v1",
           "system_schema_version": "flowguard.portable_system.v1"
         },
+        "native_artifact_id": "flowguard/portable_model.py; flowguard/portable_checker.py; flowguard/portable_system.py; flowguard/system_composition.py; flowguard/__init__.py; flowguard/__main__.py; .flowguard/compositional_verification_kernel/model.py; .flowguard/bounded_system_composition_benchmark/model.py; tests/test_portable_model.py; tests/test_portable_checker.py; tests/test_compositional_verification.py; tests/test_portable_model_cli.py; tests/test_portable_system.py; tests/test_system_composition_benchmark.py",
+        "native_evidence_ids": [],
         "owner": "portable_compositional_verification",
         "primary_path_id": "path:portable-compositional-verification:canonical-checker",
         "rationale": "Python imports and the portable CLI cohort delegate model and bounded-system verdicts to the same canonical portable checker authority.",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "observed",
         "source_ref": "flowguard/portable_model.py; flowguard/portable_checker.py; flowguard/portable_system.py; flowguard/system_composition.py; flowguard/__init__.py; flowguard/__main__.py; .flowguard/compositional_verification_kernel/model.py; .flowguard/bounded_system_composition_benchmark/model.py; tests/test_portable_model.py; tests/test_portable_checker.py; tests/test_compositional_verification.py; tests/test_portable_model_cli.py; tests/test_portable_system.py; tests/test_system_composition_benchmark.py",
+        "source_system_id": "flowguard:api",
         "surface_id": "surface:portable-compositional-verification",
         "surface_kind": "api",
         "validation_boundary": "portable IR, strict system definition/request/slice, canonical checker delegation, refinement/token/executable composition, API/CLI, native model/benchmark, and regression-manifest checks"
@@ -2655,20 +3473,33 @@
         "commitment_ids": [
           "commitment:flowguard-public-api-surface"
         ],
+        "content_fingerprint": "sha256:e6b9af5ebdffb4f37b17c85a3bcabe93d4f0fe9def51e914516a65bb2315e527",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:de68357468fbf6a3057f94fce30053a5e96ca92b0244a7a0454d02b3642b8828",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": true,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "FlowGuard public import facade",
         "metadata": {
           "behavior_plane": "product_runtime"
         },
+        "native_artifact_id": "flowguard/__init__.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_public_api",
         "primary_path_id": "path:flowguard-public-api:api-surface-facade",
         "rationale": "The import facade delegates its public name set to the canonical API_SURFACE authority.",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": "flowguard/__init__.py; flowguard/api_surface.py",
+        "source_authority_role": "observed",
+        "source_ref": "flowguard/__init__.py",
+        "source_system_id": "flowguard:api",
         "surface_id": "surface:flowguard-public-api",
         "surface_kind": "api",
         "validation_boundary": "API surface model, architecture reduction, import tests, and install parity"
@@ -2680,20 +3511,33 @@
         "commitment_ids": [
           "commitment:flowguard-template-cli-dispatch"
         ],
+        "content_fingerprint": "sha256:56f839c4e38349613a4a23078dceec9e8cbe7b5f610a6eb058d05ac84a08a4f8",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:80185ebc7233a381e39a992d7f0ee31890296a55ebb7a5bdd2c6a6da363f4893",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": true,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "FlowGuard template CLI facade",
         "metadata": {
           "behavior_plane": "product_runtime"
         },
+        "native_artifact_id": "flowguard/__main__.py; flowguard/templates.py",
+        "native_evidence_ids": [],
         "owner": "flowguard_template_cli",
         "primary_path_id": "path:flowguard-template-cli:registry-dispatch",
         "rationale": "Public template command names delegate to one registry dispatch implementation.",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "observed",
         "source_ref": "flowguard/__main__.py; flowguard/templates.py",
+        "source_system_id": "flowguard:cli",
         "surface_id": "surface:flowguard-template-cli",
         "surface_kind": "cli",
         "validation_boundary": "structure model, public-template tests, maintenance-template tests, and CLI checks"
@@ -2705,21 +3549,34 @@
         "commitment_ids": [
           "commitment:authoritative-model-system"
         ],
+        "content_fingerprint": "sha256:e8f33c342d98bd5744d615b73427674c7b38bd6754e628cdfde149b1dfeba5c7",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:f9f946dc3731dc5c60bf867ac5e705fc888dda28c8a87c2db04733cb035f495c",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": true,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "FlowGuard model-system authority Python API",
         "metadata": {
           "behavior_plane": "product_runtime",
           "schema_version": "flowguard.model_system_snapshot.v1"
         },
+        "native_artifact_id": "flowguard/model_authority.py; flowguard/model_revision_set.py; flowguard/model_authority_store.py; flowguard/model_system_inventory.py; flowguard/__init__.py",
+        "native_evidence_ids": [],
         "owner": "model_first_function_flow",
         "primary_path_id": "path:model-system-authority:head-cas",
         "rationale": "The public authority API delegates snapshot identity, activation, and rollback to one current persistence owner.",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "observed",
         "source_ref": "flowguard/model_authority.py; flowguard/model_revision_set.py; flowguard/model_authority_store.py; flowguard/model_system_inventory.py; flowguard/__init__.py",
+        "source_system_id": "flowguard:api",
         "surface_id": "surface:model-system-authority-api",
         "surface_kind": "api",
         "validation_boundary": "strict schemas, typed relations, exact coverage, revision diff, shared-lock CAS, pointer-last writes, and operational rollback tests"
@@ -2731,20 +3588,33 @@
         "commitment_ids": [
           "commitment:authoritative-model-system"
         ],
+        "content_fingerprint": "sha256:acceabaaea79343065a3e580dcbe5c046e88c4cc20b06918a45a52e32662d2d9",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:f9f946dc3731dc5c60bf867ac5e705fc888dda28c8a87c2db04733cb035f495c",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": true,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "FlowGuard model-system authority CLI",
         "metadata": {
           "behavior_plane": "product_runtime"
         },
+        "native_artifact_id": "flowguard/__main__.py; tests/test_model_authority_cli.py",
+        "native_evidence_ids": [],
         "owner": "model_first_function_flow",
         "primary_path_id": "path:model-system-authority:head-cas",
         "rationale": "The four public commands are thin projections of the same authority store and never create another successful implementation.",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
+        "source_authority_role": "observed",
         "source_ref": "flowguard/__main__.py; tests/test_model_authority_cli.py",
+        "source_system_id": "flowguard:cli",
         "surface_id": "surface:model-system-authority-cli",
         "surface_kind": "cli",
         "validation_boundary": "bootstrap/audit/activate/rollback CLI dispatch, visible blockers, exact receipts, and public API parity"
@@ -2756,25 +3626,39 @@
         "commitment_ids": [
           "commitment:authoritative-model-system"
         ],
+        "content_fingerprint": "sha256:c01c5cc1f2c49cc6d7660e4f3e8910a1d1669d88c1a240327122f947055a1a9c",
+        "coverage_disposition": "modeled",
+        "declared_semantics_fingerprint": "sha256:f9f946dc3731dc5c60bf867ac5e705fc888dda28c8a87c2db04733cb035f495c",
+        "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": true,
+        "delegation_relation_type": "",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e"
+        ],
         "freshness_state": "current",
         "in_scope": true,
+        "inventory_revision": "source-inventory:1e6d110b01e84a022ae6b50f210f7cebdcd22c9c9438328328a0134124af187e",
         "label": "FlowGuard authoritative model, specification, and regression evidence",
         "metadata": {
           "behavior_plane": "product_runtime"
         },
+        "native_artifact_id": ".flowguard/authoritative_model_system/model.py; .flowguard/authoritative_model_system/run_checks.py; tests/test_model_authority.py; openspec/specs/authoritative-model-system/spec.md",
+        "native_evidence_ids": [],
         "owner": "model_first_function_flow",
         "primary_path_id": "path:model-system-authority:head-cas",
         "rationale": "The executable model and current tests bind the authority promise to declared bad cases, storage behavior, integration, and public commands.",
         "scoped_out_reason": "",
         "similarity_obligation_ids": [],
         "similarity_relation_ids": [],
-        "source_ref": ".flowguard/authoritative_model_system/model.py; .flowguard/authoritative_model_system/run_checks.py; openspec/changes/establish-authoritative-model-system; tests/test_model_authority.py; tests/test_model_authority_store.py; tests/test_model_system_inventory.py; tests/test_model_authority_cli.py",
+        "source_authority_role": "supporting",
+        "source_ref": ".flowguard/authoritative_model_system/model.py; .flowguard/authoritative_model_system/run_checks.py; tests/test_model_authority.py; openspec/specs/authoritative-model-system/spec.md",
+        "source_system_id": "flowguard:test",
         "surface_id": "surface:model-system-authority-model-tests",
         "surface_kind": "test",
         "validation_boundary": "strict OpenSpec validation, executable expected-counterexample review, and focused authority regression tests"
       }
     ],
+    "subject_lane": "normative_target",
     "validation_boundary": "behavior ledger review plus focused self-maintenance, API, template, and OpenSpec checks"
   },
   "schema_version": "1.0"

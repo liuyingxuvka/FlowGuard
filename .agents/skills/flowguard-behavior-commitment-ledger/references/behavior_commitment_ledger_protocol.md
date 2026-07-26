@@ -1,9 +1,23 @@
 # Behavior Commitment Ledger Protocol
 
-Use the ledger as the upstream behavior inventory. Source surfaces are docs,
-APIs, commands, UI capabilities, skills, tests, OpenSpec requirements, release
-notes, or process docs that promise behavior. Commitments are the external
-promises those surfaces make.
+Use the ledger against an upstream expected-source inventory that was derived
+independently of the ledger candidate. Source surfaces come from declared
+WorkContexts, native UI observed-surface inventories, native field inventories,
+APIs, commands, skills, tests, release notes, process docs, or another bounded
+discovery owner. Commitments are the external promises those surfaces make.
+
+Freeze the exact expected source ids, source-inventory revision/fingerprint,
+and discovery evidence before assigning dispositions. Every expected source
+has exactly one disposition:
+
+- `modeled`: maps to exactly one active commitment;
+- `delegated`: names one specialist owner, typed relation, and current native
+  evidence without creating another commitment;
+- `scoped`: records a bounded reason, owner, and validation boundary.
+
+Missing, unexpected, duplicated, stale, or self-declared-only inventory rows
+block broad coverage. Supporting, observed, and historical sources inform the
+ledger but cannot displace a declared normative target.
 
 The ledger has one structure and three production owner planes:
 `product_runtime` for application promises, `agent_operation` for AI/tool-use

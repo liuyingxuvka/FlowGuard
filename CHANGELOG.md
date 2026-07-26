@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.62.0 - 2026-07-26
+
+- Replaced the OpenSpec-specific `SpecContext` surface with a provider-neutral,
+  content-addressed, project-bounded read-only `WorkContext` registry and peer
+  adapters for OpenSpec and explicitly declared files such as Spec Kit,
+  Superpowers, custom skills, and ordinary planning documents.
+- Added an independently derived exact expected-coverage inventory that joins
+  WorkContext, observed UI, and field discovery before the Behavior Commitment
+  Ledger assigns exactly one modeled, delegated, or scoped disposition.
+- Strengthened UI and field completeness with immutable inventory revisions,
+  discovery evidence, content fingerprints, exact ownership, field default /
+  absence / serialization / privacy semantics, and conflicting-disposition
+  rejection.
+- Made TestMesh distinguish executed, delegated, and scoped coverage without
+  treating provider status as test evidence, and made model-authority audits
+  compare the selected snapshot with the current live manifest and exact
+  owner/source inventories.
+- Extended whole-system revision sets to account exact changed source-surface
+  ids and every owner-artifact coverage dimension before atomic activation.
+- Upgraded the existing FlowGuard skill routes and SkillGuard contracts in
+  place, removed provider execution/session/cache/receipt bridges and retired
+  SpecContext aliases, and retained source-only immutable release authority.
+
 ## v0.61.0 - 2026-07-23
 
 - Added one durable authoritative observed-model system snapshot with explicit

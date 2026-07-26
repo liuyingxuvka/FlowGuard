@@ -354,6 +354,7 @@ class ModelRevisionSet:
     affected_closure_ids: tuple[str, ...]
     affected_closure_fingerprint: str
     changed_relation_ids: tuple[str, ...] = ()
+    changed_source_surface_ids: tuple[str, ...] = ()
     changed_commitment_ids: tuple[str, ...] = ()
     changed_field_ids: tuple[str, ...] = ()
     changed_side_effect_ids: tuple[str, ...] = ()
@@ -399,6 +400,7 @@ class ModelRevisionSet:
         for name in (
             "affected_closure_ids",
             "changed_relation_ids",
+            "changed_source_surface_ids",
             "changed_commitment_ids",
             "changed_field_ids",
             "changed_side_effect_ids",
@@ -534,6 +536,9 @@ class ModelRevisionSet:
             "affected_closure_ids": list(self.affected_closure_ids),
             "affected_closure_fingerprint": self.affected_closure_fingerprint,
             "changed_relation_ids": list(self.changed_relation_ids),
+            "changed_source_surface_ids": list(
+                self.changed_source_surface_ids
+            ),
             "changed_commitment_ids": list(self.changed_commitment_ids),
             "changed_field_ids": list(self.changed_field_ids),
             "changed_side_effect_ids": list(self.changed_side_effect_ids),
@@ -643,6 +648,7 @@ class ModelRevisionSet:
                 "affected_closure_ids",
                 "affected_closure_fingerprint",
                 "changed_relation_ids",
+                "changed_source_surface_ids",
                 "changed_commitment_ids",
                 "changed_field_ids",
                 "changed_side_effect_ids",
@@ -680,6 +686,12 @@ class ModelRevisionSet:
             ],
             changed_relation_ids=tuple(
                 _array(data["changed_relation_ids"], "changed_relation_ids")
+            ),
+            changed_source_surface_ids=tuple(
+                _array(
+                    data["changed_source_surface_ids"],
+                    "changed_source_surface_ids",
+                )
             ),
             changed_commitment_ids=tuple(
                 _array(
@@ -751,6 +763,7 @@ def derive_affected_closure_fingerprint(
     affected_closure_ids: Iterable[str],
     members: Iterable[RevisionMemberChange],
     changed_relation_ids: Iterable[str] = (),
+    changed_source_surface_ids: Iterable[str] = (),
     changed_commitment_ids: Iterable[str] = (),
     changed_field_ids: Iterable[str] = (),
     changed_side_effect_ids: Iterable[str] = (),
@@ -768,6 +781,9 @@ def derive_affected_closure_fingerprint(
         ],
         "changed_relation_ids": list(
             _ids(changed_relation_ids, "changed_relation_id")
+        ),
+        "changed_source_surface_ids": list(
+            _ids(changed_source_surface_ids, "changed_source_surface_id")
         ),
         "changed_commitment_ids": list(
             _ids(changed_commitment_ids, "changed_commitment_id")
@@ -865,10 +881,80 @@ def validate_revision_set_snapshots(
         raise ModelAuthorityError(
             "revision changed_relation_ids do not match the snapshot relation diff"
         )
+    base_owners = {
+        (item.endpoint_kind, item.endpoint_id): item.to_dict()
+        for item in base_snapshot.owner_artifact_refs
+    }
+    candidate_owners = {
+        (item.endpoint_kind, item.endpoint_id): item.to_dict()
+        for item in candidate_snapshot.owner_artifact_refs
+    }
+
+    def changed_owner_ids(*endpoint_kinds: str) -> tuple[str, ...]:
+        kinds = set(endpoint_kinds)
+        return tuple(
+            sorted(
+                endpoint_id
+                for endpoint_kind, endpoint_id in (
+                    set(base_owners) | set(candidate_owners)
+                )
+                if endpoint_kind in kinds
+                and base_owners.get((endpoint_kind, endpoint_id))
+                != candidate_owners.get((endpoint_kind, endpoint_id))
+            )
+        )
+
+    declared_owner_diffs = (
+        (
+            "changed_source_surface_ids",
+            revision_set.changed_source_surface_ids,
+            changed_owner_ids("external_surface"),
+        ),
+        (
+            "changed_commitment_ids",
+            revision_set.changed_commitment_ids,
+            changed_owner_ids("behavior_commitment"),
+        ),
+        (
+            "changed_field_ids",
+            revision_set.changed_field_ids,
+            changed_owner_ids("field_inventory"),
+        ),
+        (
+            "changed_side_effect_ids",
+            revision_set.changed_side_effect_ids,
+            changed_owner_ids("side_effect_inventory"),
+        ),
+        (
+            "changed_contract_ids",
+            revision_set.changed_contract_ids,
+            changed_owner_ids("code_contract"),
+        ),
+        (
+            "changed_test_ids",
+            revision_set.changed_test_ids,
+            changed_owner_ids("test_evidence"),
+        ),
+        (
+            "changed_system_property_ids",
+            revision_set.changed_system_property_ids,
+            changed_owner_ids(
+                "parent_closure",
+                "portable_system",
+                "development_process",
+            ),
+        ),
+    )
+    for field_name, declared_ids, derived_ids in declared_owner_diffs:
+        if declared_ids != derived_ids:
+            raise ModelAuthorityError(
+                f"revision {field_name} do not match the snapshot owner-artifact diff"
+            )
     expected_closure_fingerprint = derive_affected_closure_fingerprint(
         affected_closure_ids=revision_set.affected_closure_ids,
         members=revision_set.members,
         changed_relation_ids=revision_set.changed_relation_ids,
+        changed_source_surface_ids=revision_set.changed_source_surface_ids,
         changed_commitment_ids=revision_set.changed_commitment_ids,
         changed_field_ids=revision_set.changed_field_ids,
         changed_side_effect_ids=revision_set.changed_side_effect_ids,

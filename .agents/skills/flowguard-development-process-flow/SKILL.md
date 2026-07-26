@@ -24,12 +24,12 @@ Order modes, enforce freshness, compare only triggered equivalent candidates, an
 - Do not replace specialists; return unclear routing to `flowguard`.
 
 ## Required Workflow
-1. Register modes, artifacts, actions, writes, evidence, peer changes, and any bounded provider package.
+1. Register modes, artifacts, writes, evidence, peer changes, and read-only WorkContexts with exact identities.
 2. Activate optimization only for a declared optimization trigger; otherwise return `not_needed`.
 3. When active, prove equivalence, then choose diagnosis (including `diagnostic_boundary_choice`) and sequential or `safe_parallel` execution.
 4. Reuse TestMesh/Finding Ledger evidence; group related findings, repair the primary owner, and revalidate affected obligations.
 5. Route non-pass results, preserve peer writes, track freshness, freeze inputs, and use one owner per heavy check.
-6. For bounded-system delivery, require native API/CLI and benchmark evidence, synchronize source/package/skill/Git identities, run one frozen final gate, and verify the source-only release.
+6. For delivery, synchronize source/package/skill/Git identities, run one frozen gate, and verify the release.
 7. For model-system changes, preserve the observed head, accept one whole `ModelRevisionSet`, write evidence before the pointer, and prove rollback or forward repair.
 
 ## Hard Gates
@@ -38,11 +38,10 @@ Order modes, enforce freshness, compare only triggered equivalent candidates, an
 - Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Keep provider tasks and sibling semantics with native owners; progress is not proof.
+- WorkContexts inform scope/order only; they never authorize writes, execution, receipts, validation, archive, or TestMesh evidence.
 - Estimated comparison supports a preference; finite measurement may support only a bounded minimum.
 - Ordinary work has no optimizer records; repairs need relation, owner, and affected-revalidation evidence.
 
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, modes, freshness, and revalidation; edges mean order, invalidation, or required revalidation.
 
-
-<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

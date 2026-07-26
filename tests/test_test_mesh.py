@@ -168,6 +168,10 @@ class TestMeshTests(unittest.TestCase):
                 ("controller", "packets"),
             ),
             inventory_revision="inventory:v1",
+            coverage_inventory_id="coverage:router-runtime",
+            coverage_inventory_revision="inventory:v1",
+            coverage_inventory_fingerprint="sha256:coverage-v1",
+            coverage_inventory_evidence_ids=("inventory-discovery:v1",),
             required_inventory_item_ids=("controller", "packets"),
             require_complete_inventory=True,
             require_final_receipts=True,
@@ -192,6 +196,10 @@ class TestMeshTests(unittest.TestCase):
                 ("controller",),
             ),
             inventory_revision="inventory:v2",
+            coverage_inventory_id="coverage:router-runtime",
+            coverage_inventory_revision="inventory:v2",
+            coverage_inventory_fingerprint="sha256:coverage-v2",
+            coverage_inventory_evidence_ids=("inventory-discovery:v2",),
             required_inventory_item_ids=("controller", "packets"),
             require_complete_inventory=True,
         )
@@ -202,6 +210,81 @@ class TestMeshTests(unittest.TestCase):
         self.assertEqual("test_inventory_required", report.decision)
         self.assertIn("required_inventory_item_missing", [finding.code for finding in report.findings])
         self.assertEqual(("packets",), report.missing_inventory_item_ids)
+
+    def test_work_context_status_cannot_become_test_evidence(self):
+        context_id = "work-context:planner:status"
+        report = review_test_mesh(
+            TestMeshPlan(
+                parent_suite_id="context-is-not-evidence",
+                partition_items=(
+                    TestPartitionItem(
+                        context_id,
+                        owner_suite_id="provider-status",
+                        planning_context_only=True,
+                    ),
+                ),
+                child_suites=(
+                    suite(
+                        "provider-status",
+                        owned_inventory_item_ids=(context_id,),
+                        covered_obligation_ids=(context_id,),
+                    ),
+                ),
+                planning_context_ids=(context_id,),
+                inventory_revision="inventory:v1",
+                coverage_inventory_id="coverage:context",
+                coverage_inventory_revision="inventory:v1",
+                coverage_inventory_fingerprint="sha256:coverage-context",
+                coverage_inventory_evidence_ids=("discovery:context",),
+                required_inventory_item_ids=(context_id,),
+                require_complete_inventory=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "planning_context_not_test_evidence",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_delegated_item_requires_current_native_evidence(self):
+        item_id = "ui:observed:button"
+        report = review_test_mesh(
+            TestMeshPlan(
+                parent_suite_id="delegated-native-evidence",
+                partition_items=(
+                    TestPartitionItem(
+                        item_id,
+                        owner_suite_id="ui-validator",
+                        inventory_revision="inventory:v1",
+                        coverage_disposition="delegated",
+                        native_owner_id="ui:observed",
+                        required_native_evidence_ids=("evidence:browser-click",),
+                    ),
+                ),
+                child_suites=(
+                    final_suite(
+                        "ui-validator",
+                        item_id,
+                        covered_obligation_ids=(item_id,),
+                    ),
+                ),
+                inventory_revision="inventory:v1",
+                coverage_inventory_id="coverage:ui",
+                coverage_inventory_revision="inventory:v1",
+                coverage_inventory_fingerprint="sha256:coverage-ui",
+                coverage_inventory_evidence_ids=("discovery:ui",),
+                required_inventory_item_ids=(item_id,),
+                require_complete_inventory=True,
+                require_final_receipts=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "delegated_inventory_native_evidence_not_current",
+            {finding.code for finding in report.findings},
+        )
 
     def test_leaf_matrix_cell_evidence_can_support_parent_gate(self):
         plan = TestMeshPlan(

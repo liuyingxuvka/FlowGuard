@@ -70,6 +70,7 @@ TEST_SCOPE_ROUTINE = "routine"
 TEST_SCOPE_RELEASE = "release"
 
 _DIAGNOSTIC_BOUNDARIES = {"targeted", "declared_complete", "budgeted"}
+_COVERAGE_DISPOSITIONS = {"modeled", "delegated", "scoped"}
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -91,6 +92,10 @@ class TestPartitionItem:
     description: str = ""
     touched_paths: tuple[str, ...] = ()
     inventory_revision: str = ""
+    coverage_disposition: str = "modeled"
+    native_owner_id: str = ""
+    required_native_evidence_ids: tuple[str, ...] = ()
+    planning_context_only: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "item_id", str(self.item_id))
@@ -100,6 +105,22 @@ class TestPartitionItem:
         object.__setattr__(self, "description", str(self.description))
         object.__setattr__(self, "touched_paths", _as_tuple(self.touched_paths))
         object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(
+            self,
+            "coverage_disposition",
+            str(self.coverage_disposition),
+        )
+        object.__setattr__(self, "native_owner_id", str(self.native_owner_id))
+        object.__setattr__(
+            self,
+            "required_native_evidence_ids",
+            _as_tuple(self.required_native_evidence_ids),
+        )
+        object.__setattr__(
+            self,
+            "planning_context_only",
+            bool(self.planning_context_only),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -110,6 +131,12 @@ class TestPartitionItem:
             "description": self.description,
             "touched_paths": list(self.touched_paths),
             "inventory_revision": self.inventory_revision,
+            "coverage_disposition": self.coverage_disposition,
+            "native_owner_id": self.native_owner_id,
+            "required_native_evidence_ids": list(
+                self.required_native_evidence_ids
+            ),
+            "planning_context_only": self.planning_context_only,
         }
 
 
@@ -347,6 +374,11 @@ class TestMeshPlan:
     allowed_shared_state: tuple[str, ...] = ()
     allowed_shared_side_effects: tuple[str, ...] = ()
     inventory_revision: str = ""
+    coverage_inventory_id: str = ""
+    coverage_inventory_revision: str = ""
+    coverage_inventory_fingerprint: str = ""
+    coverage_inventory_evidence_ids: tuple[str, ...] = ()
+    planning_context_ids: tuple[str, ...] = ()
     required_inventory_item_ids: tuple[str, ...] = ()
     scoped_inventory_item_reasons: Mapping[str, str] = field(default_factory=dict)
     require_complete_inventory: bool = False
@@ -364,6 +396,31 @@ class TestMeshPlan:
         object.__setattr__(self, "allowed_shared_state", _as_tuple(self.allowed_shared_state))
         object.__setattr__(self, "allowed_shared_side_effects", _as_tuple(self.allowed_shared_side_effects))
         object.__setattr__(self, "inventory_revision", str(self.inventory_revision))
+        object.__setattr__(
+            self,
+            "coverage_inventory_id",
+            str(self.coverage_inventory_id),
+        )
+        object.__setattr__(
+            self,
+            "coverage_inventory_revision",
+            str(self.coverage_inventory_revision),
+        )
+        object.__setattr__(
+            self,
+            "coverage_inventory_fingerprint",
+            str(self.coverage_inventory_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "coverage_inventory_evidence_ids",
+            _as_tuple(self.coverage_inventory_evidence_ids),
+        )
+        object.__setattr__(
+            self,
+            "planning_context_ids",
+            _as_tuple(self.planning_context_ids),
+        )
         object.__setattr__(self, "required_inventory_item_ids", _as_tuple(self.required_inventory_item_ids))
         object.__setattr__(
             self,
@@ -392,6 +449,13 @@ class TestMeshPlan:
             "allowed_shared_state": list(self.allowed_shared_state),
             "allowed_shared_side_effects": list(self.allowed_shared_side_effects),
             "inventory_revision": self.inventory_revision,
+            "coverage_inventory_id": self.coverage_inventory_id,
+            "coverage_inventory_revision": self.coverage_inventory_revision,
+            "coverage_inventory_fingerprint": self.coverage_inventory_fingerprint,
+            "coverage_inventory_evidence_ids": list(
+                self.coverage_inventory_evidence_ids
+            ),
+            "planning_context_ids": list(self.planning_context_ids),
             "required_inventory_item_ids": list(self.required_inventory_item_ids),
             "scoped_inventory_item_reasons": to_jsonable(dict(self.scoped_inventory_item_reasons)),
             "require_complete_inventory": self.require_complete_inventory,
@@ -760,6 +824,50 @@ def _inventory_findings(
                 suite_id=plan.parent_suite_id,
             )
         )
+    if plan.require_complete_inventory:
+        if not plan.coverage_inventory_id:
+            findings.append(
+                TestMeshFinding(
+                    "coverage_inventory_id_missing",
+                    "complete TestMesh parent must bind the shared coverage inventory id",
+                    suite_id=plan.parent_suite_id,
+                )
+            )
+        if not plan.coverage_inventory_revision:
+            findings.append(
+                TestMeshFinding(
+                    "coverage_inventory_revision_missing",
+                    "complete TestMesh parent must bind the shared coverage inventory revision",
+                    suite_id=plan.parent_suite_id,
+                )
+            )
+        elif (
+            plan.inventory_revision
+            and plan.coverage_inventory_revision != plan.inventory_revision
+        ):
+            findings.append(
+                TestMeshFinding(
+                    "coverage_inventory_revision_mismatch",
+                    "TestMesh inventory revision differs from the shared coverage inventory",
+                    suite_id=plan.parent_suite_id,
+                )
+            )
+        if not plan.coverage_inventory_fingerprint.startswith("sha256:"):
+            findings.append(
+                TestMeshFinding(
+                    "coverage_inventory_fingerprint_missing",
+                    "complete TestMesh parent must bind the shared coverage inventory fingerprint",
+                    suite_id=plan.parent_suite_id,
+                )
+            )
+        if not plan.coverage_inventory_evidence_ids:
+            findings.append(
+                TestMeshFinding(
+                    "coverage_inventory_evidence_missing",
+                    "complete TestMesh parent requires current inventory discovery evidence",
+                    suite_id=plan.parent_suite_id,
+                )
+            )
     if plan.require_complete_inventory and not required:
         findings.append(
             TestMeshFinding(
@@ -782,6 +890,45 @@ def _inventory_findings(
     partitions_by_id: dict[str, list[TestPartitionItem]] = {}
     for item in plan.partition_items:
         partitions_by_id.setdefault(item.item_id, []).append(item)
+        if item.coverage_disposition not in _COVERAGE_DISPOSITIONS:
+            findings.append(
+                TestMeshFinding(
+                    "test_partition_disposition_invalid",
+                    "test partition item must preserve modeled, delegated, or scoped disposition",
+                    suite_id=plan.parent_suite_id,
+                    item_id=item.item_id,
+                )
+            )
+        if item.planning_context_only:
+            findings.append(
+                TestMeshFinding(
+                    "planning_context_not_test_evidence",
+                    "WorkContext and provider status cannot be projected as test execution evidence",
+                    suite_id=plan.parent_suite_id,
+                    item_id=item.item_id,
+                )
+            )
+        if item.coverage_disposition == "delegated" and (
+            not item.native_owner_id
+            or not item.required_native_evidence_ids
+        ):
+            findings.append(
+                TestMeshFinding(
+                    "delegated_inventory_native_evidence_missing",
+                    "delegated item requires exact native owner and evidence identities",
+                    suite_id=plan.parent_suite_id,
+                    item_id=item.item_id,
+                )
+            )
+        if item.coverage_disposition == "scoped":
+            findings.append(
+                TestMeshFinding(
+                    "scoped_inventory_projected_as_test",
+                    "scoped coverage belongs in parent accounting and cannot be an executed test partition",
+                    suite_id=plan.parent_suite_id,
+                    item_id=item.item_id,
+                )
+            )
         if plan.inventory_revision and item.inventory_revision != plan.inventory_revision:
             findings.append(
                 TestMeshFinding(
@@ -852,7 +999,56 @@ def _inventory_findings(
                 )
             )
         else:
+            delegated_required_evidence = {
+                evidence_id
+                for partition in partitions
+                if partition.coverage_disposition == "delegated"
+                for evidence_id in partition.required_native_evidence_ids
+            }
+            if delegated_required_evidence and not any(
+                delegated_required_evidence.issubset(
+                    set(suite.covered_obligation_ids)
+                )
+                for suite in valid_owners
+            ):
+                missing.append(item_id)
+                findings.append(
+                    TestMeshFinding(
+                        "delegated_inventory_native_evidence_not_current",
+                        "delegated item lacks a current native child receipt covering its required evidence",
+                        suite_id=next(iter(declared_owner_ids), ""),
+                        item_id=item_id,
+                        metadata={
+                            "required_native_evidence_ids": sorted(
+                                delegated_required_evidence
+                            )
+                        },
+                    )
+                )
+                continue
             covered.append(item_id)
+    planning_context_ids = set(plan.planning_context_ids)
+    projected_context_ids = planning_context_ids & (
+        required
+        | set(partitions_by_id)
+        | {
+            item_id
+            for suite in plan.child_suites
+            for item_id in (
+                *suite.owned_inventory_item_ids,
+                *suite.covered_obligation_ids,
+            )
+        }
+    )
+    for item_id in sorted(projected_context_ids):
+        findings.append(
+            TestMeshFinding(
+                "planning_context_not_test_evidence",
+                "planning context or provider status was used as a test/evidence identity",
+                suite_id=plan.parent_suite_id,
+                item_id=item_id,
+            )
+        )
     if plan.require_complete_inventory:
         for item_id in sorted(set(partitions_by_id) - required - scoped):
             findings.append(

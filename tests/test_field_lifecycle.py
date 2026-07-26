@@ -252,6 +252,67 @@ class FieldLifecycleTests(unittest.TestCase):
         )
         self.assertNotIn("field:audit_trace", candidate_ids)
 
+    def test_complete_inventory_requires_exact_rows_and_explicit_semantics(self):
+        report = flowguard.review_field_lifecycle(
+            flowguard.FieldLifecyclePlan(
+                "checkout-fields",
+                discovered_field_ids=("field:mode",),
+                fields=(
+                    flowguard.FieldLifecycleRow(
+                        "field:mode",
+                        role=flowguard.FIELD_ROLE_ROUTING,
+                        behavior_impacts=(flowguard.FIELD_IMPACT_ROUTING,),
+                        projection=self._projection(),
+                    ),
+                    flowguard.FieldLifecycleRow("field:unexpected"),
+                ),
+                inventory_revision="fields:checkout:r1",
+                inventory_fingerprint="not-a-sha256",
+                discovery_evidence_ids=("scan:checkout-schema:r1",),
+                require_complete_inventory=True,
+            )
+        )
+
+        codes = {finding.code for finding in report.findings}
+        self.assertFalse(report.ok)
+        self.assertIn("field_inventory_unexpected_row", codes)
+        self.assertIn("field_inventory_fingerprint_invalid", codes)
+        self.assertIn("field_owner_missing", codes)
+        self.assertIn("field_default_semantics_missing", codes)
+        self.assertIn("field_content_fingerprint_missing", codes)
+
+    def test_complete_inventory_accepts_delegated_field_with_native_evidence(self):
+        report = flowguard.review_field_lifecycle(
+            flowguard.FieldLifecyclePlan(
+                "checkout-fields",
+                discovered_field_ids=("field:mode",),
+                fields=(
+                    flowguard.FieldLifecycleRow(
+                        "field:mode",
+                        owner_id="schema:checkout",
+                        locations=("checkout/schema.py:mode",),
+                        role=flowguard.FIELD_ROLE_ROUTING,
+                        behavior_impacts=(flowguard.FIELD_IMPACT_ROUTING,),
+                        default_semantics="standard mode is selected when omitted",
+                        absence_semantics="omission selects the standard mode",
+                        serialization_semantics="serialized as the mode string",
+                        privacy_classification="public",
+                        content_fingerprint="sha256:" + "1" * 64,
+                        coverage_disposition=flowguard.FIELD_COVERAGE_DELEGATED,
+                        delegated_owner_id="model:checkout-routing",
+                        coverage_evidence_refs=("model-run:checkout-routing:r1",),
+                    ),
+                ),
+                inventory_revision="fields:checkout:r1",
+                inventory_fingerprint="sha256:" + "2" * 64,
+                discovery_evidence_ids=("scan:checkout-schema:r1",),
+                require_complete_inventory=True,
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(flowguard.FIELD_DECISION_FULL, report.decision)
+
     def test_field_lifecycle_api_is_route_scoped_not_core(self):
         for name in ("FieldLifecyclePlan", "FieldLifecycleRow", "review_field_lifecycle"):
             self.assertIn(name, flowguard.FIELD_LIFECYCLE_MESH_API)

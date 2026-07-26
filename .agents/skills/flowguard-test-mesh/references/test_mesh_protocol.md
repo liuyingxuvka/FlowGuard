@@ -257,13 +257,14 @@ terminal receipts bind the candidate snapshot fingerprint and cannot be reused
 for another revision set. Background progress never makes the candidate
 current. Parent full validation begins only after source and the whole
 affected-closure plan are frozen.
-## OpenSpec is not TestMesh evidence
+## WorkContext is not TestMesh evidence
 
-Official OpenSpec proposal, design, specifications, tasks, and status may enter
-DevelopmentProcessFlow as read-only context. They do not become TestMesh
-children, sessions, caches, receipts, execution owners, or consumer fan-out
-rows. OpenSpec keeps its own validation and archive authority.
+External requirements, plans, designs, tasks, and status may enter
+DevelopmentProcessFlow through read-only WorkContexts. They do not become
+TestMesh children, sessions, caches, receipts, execution owners, or consumer
+fan-out rows. Every provider keeps its native validation and lifecycle
+authority.
 
 Any FlowGuard test prompted by that context is a normal FlowGuard-owned test
-with its own declared boundary and evidence. Never treat an OpenSpec checkbox
-or status projection as proof that a FlowGuard check ran.
+with its own declared boundary and evidence. Never treat provider task/status
+projection as proof that a FlowGuard check ran.

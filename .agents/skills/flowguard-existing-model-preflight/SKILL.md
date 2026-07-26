@@ -6,7 +6,7 @@ description: Use before non-trivial existing-system work to identify current own
 # FlowGuard Existing Model Preflight
 
 ## Purpose
-Ground new work in current existing model boundaries before another route changes them.
+Ground work in current model boundaries before another route changes them.
 
 ## Entrypoint Scope
 This standalone FlowGuard satellite skill is the companion public lookup owner, not the downstream change owner.
@@ -25,7 +25,7 @@ Accept boundary/root; choose reuse, extend, child, new, or none; block duplicate
 
 ## Required Workflow
 1. Audit the observed authority, query canonical commitments from exact task clues, and select one primary plane or preserve ambiguity.
-2. Search current models/specs/docs/surfaces/records, bind owners, classify old evidence, then attach OpenSpec as read-only process context.
+2. Search models/specs/docs/surfaces, bind owners, classify old evidence, then attach WorkContexts with exact identities and lanes.
 3. Extract block/state/field/effect/entrypoint/commitment/intent/path/mesh ownership.
 4. Independently inventory every declared same-intent surface, not only caller candidates.
 5. Record lookup/fingerprint, primary/related hits, reuse, unknown/scoped surfaces, duplicate/stale risks, and typed handoff.
@@ -38,10 +38,8 @@ Accept boundary/root; choose reuse, extend, child, new, or none; block duplicate
 - Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework. Full mode precedes proposal/implementation.
 - Missing/stale search or ownership, duplicate owners, unresolved mesh proof, or omitted same-intent surfaces block full preflight; equivalent current semantics default to reuse.
 - Shared words cannot promote a wrong-plane hit. Missing/stale lookup falls back explicitly; ambiguity blocks full-confidence selection.
-- OpenSpec is read-only process context, never product-runtime ownership; wrong-plane or mutable provider context blocks full preflight.
+- WorkContext is read-only context, never runtime ownership or evidence. Unknown adapters, stale fingerprints, missing roles, wrong lanes, path escape, or provider authority block.
 
 ## Output Requirements
 - Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, hits, ownership, plane lookup, reuse, and duplicate risks.
 
-
-<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->

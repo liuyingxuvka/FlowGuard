@@ -320,7 +320,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "The route proves current lifecycle ordering, lightweight inactive optimization, bounded hard-equivalent process choice when activated, post-change routing, and independent source/shadow/formal/install/skill/Git freshness; sibling semantics, global optimality, and external publication authority remain separate.",
+  "claim_boundary": "The route proves current lifecycle ordering, read-only WorkContext planning identity, lightweight inactive optimization, bounded hard-equivalent process choice when activated, post-change routing, and independent source/shadow/formal/install/skill/Git freshness; provider execution/status proof, sibling semantics, global optimality, and external publication authority remain separate.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -500,7 +500,7 @@
     {
       "action": {
         "kind": "inventory",
-        "summary": "Classify development-process ownership and retain product or agent commitments only as typed targets."
+        "summary": "Classify development-process ownership, retain product or agent commitments only as typed targets, and bind zero or more provider-neutral read-only WorkContexts."
       },
       "check_ids": [
         "check:flowguard-development-process-flow:plane-boundary"

@@ -114,7 +114,9 @@ class ProcessArtifact:
     owner: str = ""
     upstream_artifact_ids: tuple[str, ...] = ()
     description: str = ""
-    spec_context_id: str = ""
+    work_context_id: str = ""
+    work_context_adapter_id: str = ""
+    work_context_fingerprint: str = ""
     read_only_external: bool = False
 
     def __post_init__(self) -> None:
@@ -125,7 +127,17 @@ class ProcessArtifact:
         object.__setattr__(self, "owner", str(self.owner))
         object.__setattr__(self, "upstream_artifact_ids", _as_tuple(self.upstream_artifact_ids))
         object.__setattr__(self, "description", str(self.description))
-        object.__setattr__(self, "spec_context_id", str(self.spec_context_id))
+        object.__setattr__(self, "work_context_id", str(self.work_context_id))
+        object.__setattr__(
+            self,
+            "work_context_adapter_id",
+            str(self.work_context_adapter_id),
+        )
+        object.__setattr__(
+            self,
+            "work_context_fingerprint",
+            str(self.work_context_fingerprint),
+        )
         object.__setattr__(self, "read_only_external", bool(self.read_only_external))
 
     def to_dict(self) -> dict[str, Any]:
@@ -137,7 +149,9 @@ class ProcessArtifact:
             "owner": self.owner,
             "upstream_artifact_ids": list(self.upstream_artifact_ids),
             "description": self.description,
-            "spec_context_id": self.spec_context_id,
+            "work_context_id": self.work_context_id,
+            "work_context_adapter_id": self.work_context_adapter_id,
+            "work_context_fingerprint": self.work_context_fingerprint,
             "read_only_external": self.read_only_external,
         }
 
@@ -188,9 +202,11 @@ class ProcessAction:
     target_behavior_planes: tuple[str, ...] = ()
     target_commitment_ids: tuple[str, ...] = ()
     typed_commitment_relation_refs: tuple[str, ...] = ()
-    spec_context_id: str = ""
-    spec_context_artifact_ids: tuple[str, ...] = ()
-    spec_context_read_only: bool = True
+    work_context_id: str = ""
+    work_context_adapter_id: str = ""
+    work_context_fingerprint: str = ""
+    work_context_artifact_ids: tuple[str, ...] = ()
+    work_context_read_only: bool = True
     description: str = ""
 
     def __post_init__(self) -> None:
@@ -216,13 +232,23 @@ class ProcessAction:
             "typed_commitment_relation_refs",
             _as_tuple(self.typed_commitment_relation_refs),
         )
-        object.__setattr__(self, "spec_context_id", str(self.spec_context_id))
+        object.__setattr__(self, "work_context_id", str(self.work_context_id))
         object.__setattr__(
             self,
-            "spec_context_artifact_ids",
-            _as_tuple(self.spec_context_artifact_ids),
+            "work_context_adapter_id",
+            str(self.work_context_adapter_id),
         )
-        object.__setattr__(self, "spec_context_read_only", bool(self.spec_context_read_only))
+        object.__setattr__(
+            self,
+            "work_context_fingerprint",
+            str(self.work_context_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "work_context_artifact_ids",
+            _as_tuple(self.work_context_artifact_ids),
+        )
+        object.__setattr__(self, "work_context_read_only", bool(self.work_context_read_only))
         object.__setattr__(self, "description", str(self.description))
 
     def is_claim(self) -> bool:
@@ -258,9 +284,11 @@ class ProcessAction:
             "target_behavior_planes": list(self.target_behavior_planes),
             "target_commitment_ids": list(self.target_commitment_ids),
             "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
-            "spec_context_id": self.spec_context_id,
-            "spec_context_artifact_ids": list(self.spec_context_artifact_ids),
-            "spec_context_read_only": self.spec_context_read_only,
+            "work_context_id": self.work_context_id,
+            "work_context_adapter_id": self.work_context_adapter_id,
+            "work_context_fingerprint": self.work_context_fingerprint,
+            "work_context_artifact_ids": list(self.work_context_artifact_ids),
+            "work_context_read_only": self.work_context_read_only,
             "description": self.description,
         }
 
@@ -433,8 +461,8 @@ class DevelopmentProcessPlan:
     release_deferred_allowed: bool = True
     behavior_plane: str = ""
     require_behavior_plane_boundary: bool = False
-    spec_context_ids: tuple[str, ...] = ()
-    require_current_spec_context: bool = False
+    work_context_ids: tuple[str, ...] = ()
+    require_current_work_context: bool = False
     process_optimization_reasons: tuple[str, ...] = ()
     required_process_optimization_evidence_ids: tuple[str, ...] = ()
 
@@ -452,11 +480,11 @@ class DevelopmentProcessPlan:
             "require_behavior_plane_boundary",
             bool(self.require_behavior_plane_boundary),
         )
-        object.__setattr__(self, "spec_context_ids", _as_tuple(self.spec_context_ids))
+        object.__setattr__(self, "work_context_ids", _as_tuple(self.work_context_ids))
         object.__setattr__(
             self,
-            "require_current_spec_context",
-            bool(self.require_current_spec_context),
+            "require_current_work_context",
+            bool(self.require_current_work_context),
         )
         object.__setattr__(self, "process_optimization_reasons", _as_tuple(self.process_optimization_reasons))
         object.__setattr__(
@@ -480,8 +508,8 @@ class DevelopmentProcessPlan:
             "release_deferred_allowed": self.release_deferred_allowed,
             "behavior_plane": self.behavior_plane,
             "require_behavior_plane_boundary": self.require_behavior_plane_boundary,
-            "spec_context_ids": list(self.spec_context_ids),
-            "require_current_spec_context": self.require_current_spec_context,
+            "work_context_ids": list(self.work_context_ids),
+            "require_current_work_context": self.require_current_work_context,
             "process_optimization_reasons": list(self.process_optimization_reasons),
             "required_process_optimization_evidence_ids": list(
                 self.required_process_optimization_evidence_ids
@@ -1033,62 +1061,79 @@ def _evidence_quality_findings(evidence: ProcessEvidence, *, require_proof_artif
     return findings
 
 
-def _spec_context_findings(plan: DevelopmentProcessPlan) -> list[ProcessFlowFinding]:
-    if not plan.spec_context_ids:
+def _work_context_findings(plan: DevelopmentProcessPlan) -> list[ProcessFlowFinding]:
+    if not plan.work_context_ids:
         return []
     findings: list[ProcessFlowFinding] = []
     external_artifacts = {
         artifact.artifact_id
         for artifact in plan.artifacts
-        if artifact.spec_context_id or artifact.read_only_external
+        if artifact.work_context_id or artifact.read_only_external
     }
     context_actions = [
-        action for action in plan.actions if action.spec_context_id
+        action for action in plan.actions if action.work_context_id
     ]
-    observed_ids = {action.spec_context_id for action in context_actions}
-    for context_id in sorted(set(plan.spec_context_ids) - observed_ids):
+    observed_ids = {action.work_context_id for action in context_actions}
+    for context_id in sorted(set(plan.work_context_ids) - observed_ids):
         findings.append(
             ProcessFlowFinding(
-                "required_spec_context_missing",
-                f"read-only spec context {context_id} is not referenced by any action",
+                "required_work_context_missing",
+                f"read-only WorkContext {context_id} is not referenced by any action",
             )
         )
     for action in context_actions:
-        if not action.spec_context_read_only:
+        if not action.work_context_read_only:
             findings.append(
                 ProcessFlowFinding(
-                    "spec_context_write_authority_forbidden",
-                    "OpenSpec context must remain read-only external input",
+                    "work_context_write_authority_forbidden",
+                    "every WorkContext must remain read-only external input",
                     action_id=action.action_id,
                     metadata=action.to_dict(),
                 )
             )
-        touched = set(action.spec_context_artifact_ids)
+        touched = set(action.work_context_artifact_ids)
         written = touched & set(action.all_written_artifacts())
         if written:
             findings.append(
                 ProcessFlowFinding(
-                    "spec_context_artifact_write_forbidden",
-                    "FlowGuard actions may read but never write OpenSpec artifacts",
+                    "work_context_artifact_write_forbidden",
+                    "FlowGuard actions may read but never write native provider artifacts",
                     action_id=action.action_id,
                     metadata={"artifact_ids": sorted(written)},
                 )
             )
-        if plan.require_current_spec_context and not action.spec_context_artifact_ids:
-            findings.append(
-                ProcessFlowFinding(
-                    "spec_context_artifacts_missing",
-                    "current OpenSpec context requires proposal/design/spec/tasks/status artifact ids",
-                    action_id=action.action_id,
+        if plan.require_current_work_context:
+            if not action.work_context_artifact_ids:
+                findings.append(
+                    ProcessFlowFinding(
+                        "work_context_artifacts_missing",
+                        "current WorkContext requires native artifact ids and generic roles",
+                        action_id=action.action_id,
+                    )
                 )
-            )
+            if not action.work_context_adapter_id:
+                findings.append(
+                    ProcessFlowFinding(
+                        "work_context_adapter_missing",
+                        "current WorkContext requires an explicit registered adapter id",
+                        action_id=action.action_id,
+                    )
+                )
+            if not action.work_context_fingerprint.startswith("sha256:"):
+                findings.append(
+                    ProcessFlowFinding(
+                        "work_context_fingerprint_missing",
+                        "current WorkContext requires a content fingerprint",
+                        action_id=action.action_id,
+                    )
+                )
     for action in plan.actions:
         written = external_artifacts & set(action.all_written_artifacts())
         if written:
             findings.append(
                 ProcessFlowFinding(
-                    "spec_context_artifact_write_forbidden",
-                    "FlowGuard actions may read but never write OpenSpec artifacts",
+                    "work_context_artifact_write_forbidden",
+                    "FlowGuard actions may read but never write native provider artifacts",
                     action_id=action.action_id,
                     metadata={"artifact_ids": sorted(written)},
                 )
@@ -1554,7 +1599,7 @@ def review_development_process_flow(plan: DevelopmentProcessPlan) -> Development
     """Review a development lifecycle plan without running its checks."""
 
     artifacts, findings = _artifact_maps(plan)
-    findings.extend(_spec_context_findings(plan))
+    findings.extend(_work_context_findings(plan))
     findings.extend(_behavior_plane_boundary_findings(plan))
     findings.extend(_validate_references(plan, artifacts))
     stale_by_evidence: dict[str, dict[str, tuple[str, str]]] = {}

@@ -185,9 +185,11 @@ class PlanDetailSource:
     supports_surface_ids: tuple[str, ...] = ()
     summary: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
-    spec_context_id: str = ""
-    spec_context_artifact_ids: tuple[str, ...] = ()
-    spec_context_read_only: bool = True
+    work_context_id: str = ""
+    work_context_adapter_id: str = ""
+    work_context_fingerprint: str = ""
+    work_context_artifact_ids: tuple[str, ...] = ()
+    work_context_read_only: bool = True
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source_id", str(self.source_id))
@@ -195,13 +197,23 @@ class PlanDetailSource:
         object.__setattr__(self, "supports_surface_ids", _as_tuple(self.supports_surface_ids))
         object.__setattr__(self, "summary", str(self.summary))
         object.__setattr__(self, "metadata", _as_mapping(self.metadata))
-        object.__setattr__(self, "spec_context_id", str(self.spec_context_id))
+        object.__setattr__(self, "work_context_id", str(self.work_context_id))
         object.__setattr__(
             self,
-            "spec_context_artifact_ids",
-            _as_tuple(self.spec_context_artifact_ids),
+            "work_context_adapter_id",
+            str(self.work_context_adapter_id),
         )
-        object.__setattr__(self, "spec_context_read_only", bool(self.spec_context_read_only))
+        object.__setattr__(
+            self,
+            "work_context_fingerprint",
+            str(self.work_context_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "work_context_artifact_ids",
+            _as_tuple(self.work_context_artifact_ids),
+        )
+        object.__setattr__(self, "work_context_read_only", bool(self.work_context_read_only))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -211,9 +223,11 @@ class PlanDetailSource:
             "supports_surface_ids": list(self.supports_surface_ids),
             "summary": self.summary,
             "metadata": to_jsonable(dict(self.metadata)),
-            "spec_context_id": self.spec_context_id,
-            "spec_context_artifact_ids": list(self.spec_context_artifact_ids),
-            "spec_context_read_only": self.spec_context_read_only,
+            "work_context_id": self.work_context_id,
+            "work_context_adapter_id": self.work_context_adapter_id,
+            "work_context_fingerprint": self.work_context_fingerprint,
+            "work_context_artifact_ids": list(self.work_context_artifact_ids),
+            "work_context_read_only": self.work_context_read_only,
         }
 
 
@@ -362,9 +376,11 @@ class PlanDetailStep:
     target_behavior_planes: tuple[str, ...] = ()
     target_commitment_ids: tuple[str, ...] = ()
     typed_commitment_relation_refs: tuple[str, ...] = ()
-    spec_context_id: str = ""
-    spec_context_artifact_ids: tuple[str, ...] = ()
-    spec_context_read_only: bool = True
+    work_context_id: str = ""
+    work_context_adapter_id: str = ""
+    work_context_fingerprint: str = ""
+    work_context_artifact_ids: tuple[str, ...] = ()
+    work_context_read_only: bool = True
     description: str = ""
 
     def __post_init__(self) -> None:
@@ -393,13 +409,23 @@ class PlanDetailStep:
             "typed_commitment_relation_refs",
             _as_tuple(self.typed_commitment_relation_refs),
         )
-        object.__setattr__(self, "spec_context_id", str(self.spec_context_id))
+        object.__setattr__(self, "work_context_id", str(self.work_context_id))
         object.__setattr__(
             self,
-            "spec_context_artifact_ids",
-            _as_tuple(self.spec_context_artifact_ids),
+            "work_context_adapter_id",
+            str(self.work_context_adapter_id),
         )
-        object.__setattr__(self, "spec_context_read_only", bool(self.spec_context_read_only))
+        object.__setattr__(
+            self,
+            "work_context_fingerprint",
+            str(self.work_context_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "work_context_artifact_ids",
+            _as_tuple(self.work_context_artifact_ids),
+        )
+        object.__setattr__(self, "work_context_read_only", bool(self.work_context_read_only))
         object.__setattr__(self, "description", str(self.description))
 
     def completion_receipts(self) -> tuple[str, ...]:
@@ -429,9 +455,11 @@ class PlanDetailStep:
             "target_behavior_planes": list(self.target_behavior_planes),
             "target_commitment_ids": list(self.target_commitment_ids),
             "typed_commitment_relation_refs": list(self.typed_commitment_relation_refs),
-            "spec_context_id": self.spec_context_id,
-            "spec_context_artifact_ids": list(self.spec_context_artifact_ids),
-            "spec_context_read_only": self.spec_context_read_only,
+            "work_context_id": self.work_context_id,
+            "work_context_adapter_id": self.work_context_adapter_id,
+            "work_context_fingerprint": self.work_context_fingerprint,
+            "work_context_artifact_ids": list(self.work_context_artifact_ids),
+            "work_context_read_only": self.work_context_read_only,
             "description": self.description,
         }
 
@@ -447,7 +475,7 @@ class PlanDetailValidation:
     command: str = ""
     scope: str = "routine"
     release_required: bool = False
-    spec_context_id: str = ""
+    work_context_id: str = ""
     description: str = ""
 
     def __post_init__(self) -> None:
@@ -457,7 +485,7 @@ class PlanDetailValidation:
         object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
         object.__setattr__(self, "command", str(self.command))
         object.__setattr__(self, "scope", str(self.scope))
-        object.__setattr__(self, "spec_context_id", str(self.spec_context_id))
+        object.__setattr__(self, "work_context_id", str(self.work_context_id))
         object.__setattr__(self, "description", str(self.description))
 
     def to_dict(self) -> dict[str, Any]:
@@ -469,7 +497,7 @@ class PlanDetailValidation:
             "command": self.command,
             "scope": self.scope,
             "release_required": self.release_required,
-            "spec_context_id": self.spec_context_id,
+            "work_context_id": self.work_context_id,
             "description": self.description,
         }
 
@@ -940,87 +968,87 @@ def review_plan_detail(plan: PlanDetail) -> PlanDetailReviewReport:
                     row_id=source.source_id,
                 )
             )
-        spec_bound = source.source_kind == "spec_context" or bool(source.spec_context_id)
-        if spec_bound and not source.spec_context_id:
+        context_bound = source.source_kind == "work_context" or bool(source.work_context_id)
+        if context_bound and not source.work_context_id:
             findings.append(
                 _finding(
-                    "spec_context_identity_missing",
-                    "OpenSpec planning source needs one read-only context identity",
+                    "work_context_identity_missing",
+                    "external planning source needs one read-only WorkContext identity",
                     row_id=source.source_id,
                 )
             )
-        if spec_bound and not source.spec_context_read_only:
+        if context_bound and not source.work_context_read_only:
             findings.append(
                 _finding(
-                    "spec_context_write_authority_forbidden",
-                    "OpenSpec may be used only as read-only external context",
+                    "work_context_write_authority_forbidden",
+                    "every WorkContext must be read-only external context",
                     row_id=source.source_id,
                 )
             )
-        if spec_bound and not source.spec_context_artifact_ids:
+        if context_bound and not source.work_context_artifact_ids:
             findings.append(
                 _finding(
-                    "spec_context_artifacts_missing",
-                    "OpenSpec context needs proposal/design/spec/tasks/status artifact identities",
+                    "work_context_artifacts_missing",
+                    "WorkContext needs native artifact identities and generic roles",
                     row_id=source.source_id,
                 )
             )
 
     source_context_ids = {
-        source.spec_context_id
+        source.work_context_id
         for source in plan.sources
-        if source.spec_context_id
+        if source.work_context_id
     }
     step_context_ids = {
-        step.spec_context_id for step in plan.steps if step.spec_context_id
+        step.work_context_id for step in plan.steps if step.work_context_id
     }
     for context_id in sorted(source_context_ids - step_context_ids):
         findings.append(
             _finding(
-                "spec_context_step_mapping_missing",
-                "read-only OpenSpec context is not consumed by any plan step",
+                "work_context_step_mapping_missing",
+                "read-only WorkContext is not consumed by any plan step",
                 severity=PLAN_DETAIL_SEVERITY_BLOCKED,
                 metadata={"context_id": context_id},
             )
         )
     for step in plan.steps:
-        if step.spec_context_id and step.spec_context_id not in source_context_ids:
+        if step.work_context_id and step.work_context_id not in source_context_ids:
             findings.append(
                 _finding(
-                    "spec_step_context_unknown",
-                    "plan step references OpenSpec context absent from sources",
+                    "work_context_step_unknown",
+                    "plan step references WorkContext absent from sources",
                     severity=PLAN_DETAIL_SEVERITY_BLOCKED,
                     row_id=step.step_id,
                 )
             )
-        if step.spec_context_id and not step.spec_context_read_only:
+        if step.work_context_id and not step.work_context_read_only:
             findings.append(
                 _finding(
-                    "spec_context_write_authority_forbidden",
-                    "plan step must consume OpenSpec context read-only",
+                    "work_context_write_authority_forbidden",
+                    "plan step must consume WorkContext read-only",
                     severity=PLAN_DETAIL_SEVERITY_BLOCKED,
                     row_id=step.step_id,
                 )
             )
-        forbidden_writes = set(step.spec_context_artifact_ids) & (
+        forbidden_writes = set(step.work_context_artifact_ids) & (
             set(step.writes_artifacts) | set(step.invalidates_artifacts)
         )
         if forbidden_writes:
             findings.append(
                 _finding(
-                    "spec_context_artifact_write_forbidden",
-                    "plan step may read but never write OpenSpec artifacts",
+                    "work_context_artifact_write_forbidden",
+                    "plan step may read but never write native provider artifacts",
                     severity=PLAN_DETAIL_SEVERITY_BLOCKED,
                     row_id=step.step_id,
                     metadata={"artifact_ids": sorted(forbidden_writes)},
                 )
             )
     for validation in plan.validations:
-        if validation.spec_context_id and validation.spec_context_id not in source_context_ids:
+        if validation.work_context_id and validation.work_context_id not in source_context_ids:
             findings.append(
                 _finding(
-                    "spec_validation_context_unknown",
-                    "validation references OpenSpec context absent from sources",
+                    "work_context_validation_unknown",
+                    "validation references WorkContext absent from sources",
                     severity=PLAN_DETAIL_SEVERITY_BLOCKED,
                     row_id=validation.validation_id,
                 )
@@ -1404,9 +1432,11 @@ def plan_detail_to_development_process(plan: PlanDetail) -> DevelopmentProcessPl
             target_behavior_planes=step.target_behavior_planes,
             target_commitment_ids=step.target_commitment_ids,
             typed_commitment_relation_refs=step.typed_commitment_relation_refs,
-            spec_context_id=step.spec_context_id,
-            spec_context_artifact_ids=step.spec_context_artifact_ids,
-            spec_context_read_only=step.spec_context_read_only,
+            work_context_id=step.work_context_id,
+            work_context_artifact_ids=step.work_context_artifact_ids,
+            work_context_adapter_id=step.work_context_adapter_id,
+            work_context_fingerprint=step.work_context_fingerprint,
+            work_context_read_only=step.work_context_read_only,
             description=step.description or step.action,
         )
         for step in plan.steps
@@ -1475,15 +1505,15 @@ def plan_detail_to_development_process(plan: PlanDetail) -> DevelopmentProcessPl
             else ""
         ),
         require_behavior_plane_boundary=plan.require_behavior_plane_boundary,
-        spec_context_ids=tuple(
+        work_context_ids=tuple(
             dict.fromkeys(
-                source.spec_context_id
+                source.work_context_id
                 for source in plan.sources
-                if source.spec_context_id
+                if source.work_context_id
             )
         ),
-        require_current_spec_context=any(
-            source.spec_context_id for source in plan.sources
+        require_current_work_context=any(
+            source.work_context_id for source in plan.sources
         ),
         process_optimization_reasons=plan.process_optimization_reasons,
         required_process_optimization_evidence_ids=(

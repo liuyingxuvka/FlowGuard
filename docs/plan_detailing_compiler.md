@@ -56,10 +56,10 @@ The template writes:
 
 The generated model includes one complete plan and broken variants for missing
 failure branches, missing rework gates, and missing validation.
-## Read-only OpenSpec sources
+## Read-only WorkContext sources
 
-PlanDetail may cite one current `spec_context_id`, its content hash, and the
-exact proposal/design/specification/task/status artifact ids that informed the
-plan. It projects scope and order to DevelopmentProcessFlow only. It creates no
-provider bindings, TestMesh children, sessions, caches, receipts, or execution
-authority. See [`spec_context.md`](spec_context.md).
+PlanDetail may cite one or more current `work_context_id` values, their adapter
+ids, content fingerprints, and the exact generic artifact ids that informed
+the plan. It projects scope and order to DevelopmentProcessFlow only. It
+creates no provider bindings, TestMesh evidence children, sessions, caches,
+receipts, or execution authority. See [`work_context.md`](work_context.md).

@@ -1395,6 +1395,89 @@ class UIVisibleSurfaceEvidenceTests(unittest.TestCase):
         self.assertEqual(4, len(report.observed_item_ids))
         self.assertEqual(4, len(report.mapped_item_ids))
 
+    def test_complete_observed_inventory_requires_frozen_discovery_identity(self):
+        inventory = observed_inventory(require_complete_inventory=True)
+
+        report = review_ui_observed_surface_inventory(
+            inventory,
+            interaction_model=ui_model(),
+            visible_surface=visible_surface(),
+        )
+        codes = finding_codes(report)
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_observed_inventory_fingerprint", codes)
+        self.assertIn("missing_observed_inventory_discovery_evidence", codes)
+        self.assertIn("missing_observed_item_content_fingerprint", codes)
+
+    def test_complete_observed_inventory_accepts_exact_modeled_item(self):
+        inventory = observed_inventory(
+            items=(
+                UIObservedSurfaceItem(
+                    "observed_import_button",
+                    "button",
+                    label="Import",
+                    state_id="empty",
+                    selector="#import",
+                    enabled=True,
+                    mapped_control_id="import",
+                    evidence_ref="evidence://browser/import-button.json",
+                    evidence_kind="browser_click",
+                    content_fingerprint="sha256:" + "1" * 64,
+                    rationale="The discovered button has one modeled control owner.",
+                ),
+            ),
+            inventory_fingerprint="sha256:" + "2" * 64,
+            discovery_evidence_ids=("evidence://browser/dom-scan.json",),
+            require_complete_inventory=True,
+        )
+
+        report = review_ui_observed_surface_inventory(
+            inventory,
+            interaction_model=ui_model(),
+            visible_surface=visible_surface(),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_observed_item_cannot_be_both_modeled_and_scoped(self):
+        inventory = observed_inventory(
+            items=(
+                UIObservedSurfaceItem(
+                    "observed_import_button",
+                    "button",
+                    label="Import",
+                    state_id="empty",
+                    enabled=True,
+                    mapped_control_id="import",
+                    blindspot_id="browser-gap",
+                    evidence_ref="evidence://browser/import-button.json",
+                    rationale="Deliberate conflicting coverage regression.",
+                ),
+            ),
+            scoped_blindspots=(
+                UIBlindspot(
+                    "browser-gap",
+                    reason="Browser state is unavailable.",
+                    owner="browser validation",
+                    validation_boundaries=("browser",),
+                    rationale="Regression blindspot.",
+                ),
+            ),
+        )
+
+        report = review_ui_observed_surface_inventory(
+            inventory,
+            interaction_model=ui_model(),
+            visible_surface=visible_surface(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "observed_item_conflicting_coverage_disposition",
+            finding_codes(report),
+        )
+
     def test_observed_inventory_blocks_unmapped_real_visible_controls(self):
         inventory = observed_inventory(
             items=(

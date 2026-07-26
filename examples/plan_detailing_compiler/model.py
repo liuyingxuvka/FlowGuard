@@ -180,36 +180,40 @@ SPEC_MAPPED_PLAN = replace(
     sources=(
         PlanDetailSource(
             "source:openspec:change-one",
-            "spec_context",
+            "work_context",
             supports_surface_ids=("rough-plan-detail",),
-            spec_context_id="openspec:change-one",
-            spec_context_artifact_ids=(
+            work_context_id="openspec:change-one",
+            work_context_artifact_ids=(
                 "openspec:change-one:proposal",
                 "openspec:change-one:design",
                 "openspec:change-one:specification",
                 "openspec:change-one:tasks",
                 "openspec:change-one:status",
             ),
+            work_context_adapter_id="openspec",
+            work_context_fingerprint="sha256:example-current-work-context",
         ),
     ),
     steps=(
         replace(
             GOOD_PLAN.steps[0],
-            spec_context_id="openspec:change-one",
-            spec_context_artifact_ids=(
+            work_context_id="openspec:change-one",
+            work_context_artifact_ids=(
                 "openspec:change-one:proposal",
                 "openspec:change-one:design",
                 "openspec:change-one:specification",
                 "openspec:change-one:tasks",
                 "openspec:change-one:status",
             ),
+            work_context_adapter_id="openspec",
+            work_context_fingerprint="sha256:example-current-work-context",
         ),
     )
     + GOOD_PLAN.steps[1:],
     validations=(
         replace(
             GOOD_PLAN.validations[0],
-            spec_context_id="openspec:change-one",
+            work_context_id="openspec:change-one",
         ),
     ),
 )

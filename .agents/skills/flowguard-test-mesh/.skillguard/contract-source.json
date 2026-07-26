@@ -101,7 +101,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "The route proves current complete required-inventory parent/child ownership, diagnostic-boundary accounting, stable finding references, and terminal evidence freshness; it does not execute tests, choose DPF process optimization, group root causes, or decide semantic behavior coverage.",
+  "claim_boundary": "The route proves current complete required-inventory parent/child ownership, exact executed/delegated dispositions, diagnostic-boundary accounting, stable finding references, and terminal evidence freshness; WorkContext/provider status is planning only, and the route does not execute tests, choose DPF process optimization, group root causes, or decide semantic behavior coverage.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -232,7 +232,7 @@
     {
       "action": {
         "kind": "inventory",
-        "summary": "Declare the parent claim, revisioned required inventory, child ownership, scope, timeouts, freshness rules, and terminal receipt contract."
+        "summary": "Declare the parent claim, revisioned required inventory, one executed or delegated disposition per id, child/native ownership, scope, timeouts, freshness rules, and terminal receipt contract."
       },
       "check_ids": [
         "check:flowguard-test-mesh:plane-boundary"
@@ -254,7 +254,7 @@
     {
       "action": {
         "kind": "verifier",
-        "summary": "Reject subsets, hidden skips, timeout ambiguity, progress-only background state, incomplete receipts, stale reuse, or unowned ids."
+        "summary": "Reject subsets, conflicting/scoped execution rows, unsupported delegation, provider-status evidence, hidden skips, timeout ambiguity, progress-only background state, incomplete receipts, stale reuse, or unowned ids."
       },
       "check_ids": [
         "check:flowguard-test-mesh:evidence-closure"
