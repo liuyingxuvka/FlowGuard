@@ -26,6 +26,7 @@ def main() -> int:
             "wrong-plane-promotion",
             "stale-spec-context",
             "mutable-spec-context",
+            "over-materialized-selection",
         }
     )
     exact_ok = run_exact_workflow_case(

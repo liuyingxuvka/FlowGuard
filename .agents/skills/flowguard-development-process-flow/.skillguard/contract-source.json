@@ -522,7 +522,7 @@
     {
       "action": {
         "kind": "verifier",
-        "summary": "Accept closure only from current final receipts; progress-only evidence remains liveness."
+        "summary": "Accept closure only from compact artifact-backed terminal receipts with visible non-pass children; progress-only evidence remains liveness."
       },
       "check_ids": [
         "check:flowguard-development-process-flow:evidence-closure"

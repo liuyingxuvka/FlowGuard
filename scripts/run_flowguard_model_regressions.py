@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import threading
@@ -85,7 +86,19 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     validation = report.to_validation_result()
     if args.json:
-        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
+        result_path = Path(report.output_dir) / "report.json"
+        result_sha256 = (
+            "sha256:" + hashlib.sha256(result_path.read_bytes()).hexdigest()
+            if result_path.is_file()
+            else ""
+        )
+        print(
+            validation.terminal_json_text(
+                run_id=Path(report.output_dir).name,
+                result_path=str(result_path),
+                result_sha256=result_sha256,
+            )
+        )
     else:
         print(validation.format_text(full=args.full))
     return validation.exit_code

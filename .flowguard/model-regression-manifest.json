@@ -850,7 +850,10 @@
       "expected_artifacts": [],
       "input_globs": [
         ".flowguard/existing_model_preflight/model.py",
-        ".flowguard/existing_model_preflight/run_checks.py"
+        ".flowguard/existing_model_preflight/run_checks.py",
+        "flowguard/existing_model_preflight.py",
+        "tests/test_existing_model_preflight.py",
+        ".agents/skills/flowguard-existing-model-preflight/references/existing_model_preflight_protocol.md"
       ],
       "model_id": "existing_model_preflight",
       "model_path": ".flowguard/existing_model_preflight/model.py",
@@ -885,10 +888,10 @@
         "evidence_check_ids": [
           "check:model-regression:existing_model_preflight"
         ],
-        "model_sha256": "sha256:5d24d703a301557caec6f8d0bb27a2636e9d7448c2ce7b68f77e31b170fc53ff",
-        "runner_sha256": "sha256:a4af744733e8f7aed6705274500d1d2cd367d80b4c2404ed6f12611c66853462",
+        "model_sha256": "sha256:66791e7efec77cd2ed99c1919ad5c35d7a8d09a1b763f65d48d39684ef752017",
+        "runner_sha256": "sha256:1c44e2dc420c104d8a19cf6bba3794641e4b0852a2ff3c8fc34c9b22d9ca627b",
         "declaration_fingerprint": "sha256:2d43b2f5745416c9249d0a1837514fe2632ac900721eec67543473871b2bbd7e",
-        "closure_fingerprint": "sha256:33cc72b5caed8f559beb12b67a34a2741f5c0225f1fe46f0f6a5b2fe1cd81f74"
+        "closure_fingerprint": "sha256:828bc64b1bddde0716793109ae312a93853b27fe59489011c8c8775fd92f55c0"
       }
     },
     {
@@ -1042,7 +1045,13 @@
       "expected_artifacts": [],
       "input_globs": [
         ".flowguard/guidance_compression/model.py",
-        ".flowguard/guidance_compression/run_checks.py"
+        ".flowguard/guidance_compression/run_checks.py",
+        "AGENTS.md",
+        "flowguard/project_adoption.py",
+        "flowguard/prompt_budget.py",
+        "flowguard/prompt_bundle_manifest.json",
+        "scripts/check_prompt_budgets.py",
+        "tests/test_skill_docs.py"
       ],
       "model_id": "guidance_compression",
       "model_path": ".flowguard/guidance_compression/model.py",
@@ -1077,10 +1086,10 @@
         "evidence_check_ids": [
           "check:model-regression:guidance_compression"
         ],
-        "model_sha256": "sha256:4d789ebaa4d84b24273ad60ca5a35e4d4b1acee409efd37f5aa25d9ea0172a40",
+        "model_sha256": "sha256:92230f17471f260f68d7c6ba012c8648ebfd90fb702be8ac8b1f137bc9b31359",
         "runner_sha256": "sha256:c22be2d2a9afc3bde07cf6892b0b381d2c40e513c3a9fbfa4668f93055c9f5bf",
         "declaration_fingerprint": "sha256:2b6f94fe2f0de2880dfbfdc15f43251ccd46f711f2f55b64b31b005bff02677e",
-        "closure_fingerprint": "sha256:911a9a1d25a451eac4779f833a916362ac05bae83ac093adc22ec4179c3f3cae"
+        "closure_fingerprint": "sha256:de11fe6957e8249ace8dc251d7a0ce1774502f312a990a3a92871e082d504bb8"
       }
     },
     {
@@ -1101,13 +1110,17 @@
         ".flowguard/behavior_commitment_ledger/run_checks.py",
         ".flowguard/default_replacement_field_lifecycle/model.py",
         ".flowguard/default_replacement_field_lifecycle/run_checks.py",
+        "flowguard/model_regressions.py",
+        "flowguard/shard_safety.py",
         "flowguard/template_text/behavior_commitment_ledger.py",
         "flowguard/ui_structure.py",
+        "scripts/prove_model_shard_safety.py",
         "tests/test_ui_structure.py",
         "tests/test_api_surface.py",
         "tests/test_behavior_commitment_ledger.py",
         "tests/test_field_lifecycle.py",
-        "tests/test_public_templates.py"
+        "tests/test_public_templates.py",
+        "tests/test_model_shard_safety.py"
       ],
       "model_id": "harden_ui_content_visibility_validation",
       "model_path": ".flowguard/harden_ui_content_visibility_validation/model.py",
@@ -1116,7 +1129,20 @@
         "{python}",
         ".flowguard/harden_ui_content_visibility_validation/run_checks.py"
       ],
-      "shard_safe": false,
+      "shard_safe": true,
+      "shard_safety_proof": {
+        "schema_version": "flowguard.model_shard_safety_contract.v1",
+        "proof_id": "proof:harden_ui_content_visibility_validation:serial-parallel-equivalence",
+        "parallel_copies": 2,
+        "output_isolation": "FLOWGUARD_OUTPUT_DIR",
+        "shared_mutation_policy": "zero_repository_mutation",
+        "required_checks": [
+          "serial_parallel_semantic_equivalence",
+          "disjoint_artifact_ownership",
+          "stable_input_inventory",
+          "zero_repository_mutation"
+        ]
+      },
       "tier": "full",
       "timeout_seconds": 300,
       "purpose_closure": {
@@ -1142,10 +1168,10 @@
         "evidence_check_ids": [
           "check:model-regression:harden_ui_content_visibility_validation"
         ],
-        "model_sha256": "sha256:253698dc5b11139409ea90c9ec61b1b5006ee12bdaf4f8bf298a8ba0c43f753b",
+        "model_sha256": "sha256:1609ef390679d894176968f777a8c58c8ec72c9ce179bc9afdfd69a0413b24a0",
         "runner_sha256": "sha256:1955cda7d0a5676bbd1855a6f7eace7fd0703e2b0d9218a7ad23143ed3ed395b",
         "declaration_fingerprint": "sha256:a49722186374e391d00db8e3d29c37f5481be3e582d743389024a2812eebe132",
-        "closure_fingerprint": "sha256:dc9419d95464b6b684c44145e194fccdd23c854f61d8357e1ffa3b030ea1ca0b"
+        "closure_fingerprint": "sha256:26e84daffab90b009704df9712aec2d805b91e73c113b70ffe6423d1ab046ee7"
       }
     },
     {
@@ -2811,7 +2837,17 @@
       "expected_artifacts": [],
       "input_globs": [
         ".flowguard/test_evidence_mesh/model.py",
-        ".flowguard/test_evidence_mesh/run_checks.py"
+        ".flowguard/test_evidence_mesh/run_checks.py",
+        "flowguard/model_regressions.py",
+        "flowguard/test_reuse.py",
+        "flowguard/validation_results.py",
+        "scripts/check_flowguard_skill_suite.py",
+        "scripts/run_flowguard_model_regressions.py",
+        "tests/test_model_simulator_command.py",
+        "tests/test_model_test_alignment.py",
+        "tests/test_test_mesh.py",
+        "tests/test_test_reuse.py",
+        "tests/test_validation_command_surface.py"
       ],
       "model_id": "test_evidence_mesh",
       "model_path": ".flowguard/test_evidence_mesh/model.py",
@@ -2846,10 +2882,10 @@
         "evidence_check_ids": [
           "check:model-regression:test_evidence_mesh"
         ],
-        "model_sha256": "sha256:4351f66c2ba2fd2ab63caf5b8e7bf871c8653db328d163e10196e076d6805127",
+        "model_sha256": "sha256:f7b5573445df2493d882db0c36ecc23494b645daf288621b2b8f472ef1c5013a",
         "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
         "declaration_fingerprint": "sha256:bb6882342199234e456eadd9a1b276a71c4a9d158a914013ac686c0eef9e374b",
-        "closure_fingerprint": "sha256:21a389ddd0baca22e00aaee9a877125fa0d75dba9ceac21ae0e106c523810929"
+        "closure_fingerprint": "sha256:2253a588ec63ae61b60519f002a8a81b35705e335a52e805a94b7b696424d694"
       }
     },
     {
@@ -3055,7 +3091,10 @@
       "expected_artifacts": [],
       "input_globs": [
         ".flowguard/work_context/model.py",
-        ".flowguard/work_context/run_checks.py"
+        ".flowguard/work_context/run_checks.py",
+        "flowguard/coverage_inventory.py",
+        "tests/test_coverage_inventory.py",
+        "tests/test_work_context.py"
       ],
       "model_id": "work_context",
       "model_path": ".flowguard/work_context/model.py",
@@ -3138,10 +3177,10 @@
         "evidence_check_ids": [
           "check:model-regression:work_context"
         ],
-        "model_sha256": "sha256:921939f8bac2b473aeb1e156e82104195ee52c706bda11bd505247ec958cc972",
+        "model_sha256": "sha256:15be83d2c5684c42ecafe625522da69bc8c183bfe9cbbd0f6ca6be7358f50dd9",
         "runner_sha256": "sha256:38cc45ffa69cac91f3263f0375cc68ddc322427095d1c3fa7954c7445088081e",
         "declaration_fingerprint": "sha256:c36ccf16feb1e74b5052a0e43305026ed64f35e2649ffcde066e6ad9af8246c5",
-        "closure_fingerprint": "sha256:14e782beac7b08c76d6af8a887d97a23f7b64ba3436221357d70c95929503e6b"
+        "closure_fingerprint": "sha256:e62ffe6148d50c3347e70f084b6224bee62a7344836bb402b8e8d29a6dfe870f"
       }
     },
     {

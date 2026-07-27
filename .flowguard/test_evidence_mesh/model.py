@@ -42,6 +42,9 @@ class TestMeshCase:
     spec_consumer_fanout_complete: bool = True
     spec_cross_change_reuse_authorized: bool = True
     spec_receipt_not_duplicated: bool = True
+    producer_receipt_terminal_pass: bool = True
+    producer_owner_matches: bool = True
+    producer_fingerprints_match: bool = True
 
 
 @dataclass(frozen=True)
@@ -65,6 +68,9 @@ class TestMeshPolicy:
     spec_consumer_fanout_complete: bool = False
     spec_cross_change_reuse_authorized: bool = False
     spec_receipt_not_duplicated: bool = False
+    producer_receipt_terminal_pass: bool = False
+    producer_owner_matches: bool = False
+    producer_fingerprints_match: bool = False
 
 
 GOOD_PLAN = TestMeshCase("good_test_mesh_plan")
@@ -103,6 +109,10 @@ BROKEN_INCOMPLETE_FINAL_RECEIPT = TestMeshCase(
 BROKEN_SPEC_CONSUMER_FANOUT = TestMeshCase("broken_spec_consumer_fanout", spec_consumer_fanout_complete=False)
 BROKEN_SPEC_CROSS_CHANGE = TestMeshCase("broken_spec_cross_change", spec_cross_change_reuse_authorized=False)
 BROKEN_SPEC_RECEIPT_DUPLICATE = TestMeshCase("broken_spec_receipt_duplicate", spec_receipt_not_duplicated=False)
+BROKEN_REUSE_PRODUCER_MISMATCH = TestMeshCase(
+    "broken_reuse_producer_mismatch",
+    producer_fingerprints_match=False,
+)
 
 
 class EvaluateTestMeshPlan:
@@ -128,6 +138,9 @@ class EvaluateTestMeshPlan:
         "spec_consumer_fanout_complete",
         "spec_cross_change_reuse_authorized",
         "spec_receipt_not_duplicated",
+        "producer_receipt_terminal_pass",
+        "producer_owner_matches",
+        "producer_fingerprints_match",
     )
     accepted_input_type = TestMeshCase
     input_description = "test mesh rollout case"
@@ -155,6 +168,9 @@ class EvaluateTestMeshPlan:
             spec_consumer_fanout_complete=input_obj.spec_consumer_fanout_complete,
             spec_cross_change_reuse_authorized=input_obj.spec_cross_change_reuse_authorized,
             spec_receipt_not_duplicated=input_obj.spec_receipt_not_duplicated,
+            producer_receipt_terminal_pass=input_obj.producer_receipt_terminal_pass,
+            producer_owner_matches=input_obj.producer_owner_matches,
+            producer_fingerprints_match=input_obj.producer_fingerprints_match,
         )
         return (
             FunctionResult(
@@ -292,6 +308,29 @@ def spec_receipt_topology_is_exact(state: TestMeshPolicy, _trace: object) -> Inv
     return _pass()
 
 
+def reuse_requires_independent_producer_proof(
+    state: TestMeshPolicy, _trace: object
+) -> InvariantResult:
+    if _empty(state):
+        return _pass()
+    if not state.producer_receipt_terminal_pass:
+        return _fail(
+            "reuse_requires_independent_producer_proof",
+            "reused result lacks an independently produced terminal-pass receipt",
+        )
+    if not state.producer_owner_matches:
+        return _fail(
+            "reuse_requires_independent_producer_proof",
+            "producer execution owner does not match the current request",
+        )
+    if not state.producer_fingerprints_match:
+        return _fail(
+            "reuse_requires_independent_producer_proof",
+            "producer/current command, source, artifact, dependency, environment, result, or scope fingerprints differ",
+        )
+    return _pass()
+
+
 INVARIANTS = (
     Invariant(
         "parent_child_partitions_exist",
@@ -342,6 +381,11 @@ INVARIANTS = (
         "spec_receipt_topology_is_exact",
         "One receipt fans out to complete consumers and cross-change reuse is explicitly authorized.",
         spec_receipt_topology_is_exact,
+    ),
+    Invariant(
+        "reuse_requires_independent_producer_proof",
+        "Reused evidence requires an independently produced terminal receipt with matching owner and fingerprints.",
+        reuse_requires_independent_producer_proof,
     ),
 )
 
@@ -487,6 +531,15 @@ SCENARIOS = (
         "One immutable receipt cannot masquerade as several child executions.",
         BROKEN_SPEC_RECEIPT_DUPLICATE,
         _expect_violation("duplicated spec receipt fails", ("spec_receipt_topology_is_exact",)),
+    ),
+    scenario(
+        "reuse_producer_mismatch_fails",
+        "A copied current flag cannot replace producer/current fingerprint comparison.",
+        BROKEN_REUSE_PRODUCER_MISMATCH,
+        _expect_violation(
+            "producer/current mismatch fails",
+            ("reuse_requires_independent_producer_proof",),
+        ),
     ),
 )
 

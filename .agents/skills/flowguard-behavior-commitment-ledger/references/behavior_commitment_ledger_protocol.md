@@ -6,6 +6,12 @@ WorkContexts, native UI observed-surface inventories, native field inventories,
 APIs, commands, skills, tests, release notes, process docs, or another bounded
 discovery owner. Commitments are the external promises those surfaces make.
 
+Discovery breadth follows the declared ledger mode. `bootstrap_ledger` and
+`coverage_gap_backfill` require broad source discovery. `add_behavior`,
+`change_behavior`, `remove_or_replace_behavior`, and `model_miss_check` stay
+bounded to the affected commitment, its owner, and typed relations unless a
+concrete unregistered external behavior is found.
+
 Freeze the exact expected source ids, source-inventory revision/fingerprint,
 and discovery evidence before assigning dispositions. Every expected source
 has exactly one disposition:

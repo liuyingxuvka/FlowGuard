@@ -254,7 +254,7 @@
     {
       "action": {
         "kind": "verifier",
-        "summary": "Reject subsets, conflicting/scoped execution rows, unsupported delegation, provider-status evidence, hidden skips, timeout ambiguity, progress-only background state, incomplete receipts, stale reuse, or unowned ids."
+        "summary": "Reject subsets, conflicting/scoped execution rows, unsupported delegation, provider-status evidence, hidden skips, timeout ambiguity, progress-only background state, incomplete producer receipts, owner/fingerprint-mismatched reuse, or unowned ids."
       },
       "check_ids": [
         "check:flowguard-test-mesh:evidence-closure"

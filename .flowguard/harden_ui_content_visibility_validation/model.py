@@ -94,6 +94,8 @@ def _artifact_path(path: Path) -> str:
 CORE_PYTEST_ARGS = (
     "-m",
     "pytest",
+    "-p",
+    "no:cacheprovider",
     "tests/test_ui_structure.py",
     "tests/test_api_surface.py",
     "tests/test_behavior_commitment_ledger.py",
@@ -104,6 +106,8 @@ CORE_PYTEST_ARGS = (
 TEMPLATE_PYTEST_ARGS = (
     "-m",
     "pytest",
+    "-p",
+    "no:cacheprovider",
     "tests/test_public_templates.py",
     "-q",
     "-k",
@@ -113,6 +117,8 @@ TEMPLATE_PYTEST_ARGS = (
 MATRIX_PYTEST_ARGS = (
     "-m",
     "pytest",
+    "-p",
+    "no:cacheprovider",
     "tests/test_ui_structure.py",
     "-q",
     "-k",

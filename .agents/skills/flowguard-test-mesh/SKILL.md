@@ -38,7 +38,7 @@ Review a model-derived parent/child validation mesh; block stale, skipped, incom
 - Require `planned = executed + not_run`, `failed <= executed`, no not-run under `declared_complete`, visible reasons elsewhere, and stable finding ids for failures.
 - Locally green subsets cannot prove an independently declared complete inventory.
 - Every required inventory item has exactly one executed or delegated test disposition. Delegation requires one native owner and current native evidence; scoped items cannot appear as executed partitions.
+- Reuse requires an independent terminal producer receipt whose owner and current fingerprints match.
 
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, a validation mesh diagram, and child freshness.
-

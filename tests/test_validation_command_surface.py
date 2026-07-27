@@ -49,6 +49,49 @@ class ValidationCommandSurfaceTests(unittest.TestCase):
         result = self.result(skipped_checks=(SkippedValidation("native", "not run", "no full confidence", True),))
         self.assertFalse(result.broad_success)
 
+    def test_terminal_envelope_omits_success_payloads_and_keeps_artifact_identity(self):
+        child = ValidationChildResult(
+            "models",
+            VALIDATION_STATUS_PASS,
+            payload={"large": "x" * 10000},
+        )
+        result = self.result(children=(child,))
+
+        payload = result.terminal_envelope(
+            run_id="run-1",
+            result_path="results/full.json",
+            result_sha256="sha256:result",
+        )
+
+        self.assertEqual([], payload["non_pass_child_ids"])
+        self.assertNotIn("children", payload)
+        self.assertNotIn("large", json.dumps(payload))
+        self.assertLess(len(json.dumps(payload, sort_keys=True)), 2000)
+        self.assertEqual("results/full.json", payload["result_path"])
+        self.assertEqual("sha256:result", payload["result_sha256"])
+
+    def test_terminal_envelope_keeps_every_non_pass_child_class_visible(self):
+        children = (
+            ValidationChildResult("failed", VALIDATION_STATUS_FAIL),
+            ValidationChildResult("blocked", VALIDATION_STATUS_BLOCKED),
+            ValidationChildResult("passed", VALIDATION_STATUS_PASS),
+        )
+        result = self.result(
+            status=VALIDATION_STATUS_BLOCKED,
+            children=children,
+            failures=({"code": "failure", "child_id": "failed"},),
+            blockers=({"code": "blocker", "child_id": "blocked"},),
+        )
+
+        payload = result.terminal_envelope()
+
+        self.assertEqual(["failed"], payload["failed_child_ids"])
+        self.assertEqual(["blocked"], payload["blocked_child_ids"])
+        self.assertEqual(
+            {"failed", "blocked"},
+            set(payload["non_pass_child_ids"]),
+        )
+
     def test_partial_has_nonzero_distinct_exit(self):
         result = self.result(status=VALIDATION_STATUS_PARTIAL)
         self.assertNotEqual(0, result.exit_code)

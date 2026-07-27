@@ -54,6 +54,29 @@ def reuse_ticket(suite_id: str) -> TestResultReuseTicket:
         dependency_fingerprints={"flowguard": "template"},
         environment_fingerprint="python:template",
         result_fingerprint="sha256:result",
+        producer_receipt_id=f"receipt:{suite_id}",
+        producer_terminal=True,
+        producer_status="pass",
+        producer_execution_owner_id="owner:test-mesh",
+        current_execution_owner_id="owner:test-mesh",
+        producer_fingerprints={
+            "command": "sha256:command",
+            "test_source": "sha256:test-source",
+            "tested_artifact": "sha256:tested-artifact",
+            "dependencies": "sha256:dependencies",
+            "environment": "python:template",
+            "result": "sha256:result",
+            "coverage_scope": "sha256:coverage",
+        },
+        current_fingerprints={
+            "command": "sha256:command",
+            "test_source": "sha256:test-source",
+            "tested_artifact": "sha256:tested-artifact",
+            "dependencies": "sha256:dependencies",
+            "environment": "python:template",
+            "result": "sha256:result",
+            "coverage_scope": "sha256:coverage",
+        },
     )
 
 

@@ -38,6 +38,13 @@ class TestResultReuseTicket:
     environment_fingerprint: str = ""
     result_fingerprint: str = ""
     covered_obligation_ids: tuple[str, ...] = ()
+    producer_receipt_id: str = ""
+    producer_terminal: bool = False
+    producer_status: str = ""
+    producer_execution_owner_id: str = ""
+    current_execution_owner_id: str = ""
+    producer_fingerprints: Mapping[str, str] = field(default_factory=dict)
+    current_fingerprints: Mapping[str, str] = field(default_factory=dict)
     ticket_current: bool = True
     command_current: bool = True
     test_source_current: bool = True
@@ -61,6 +68,28 @@ class TestResultReuseTicket:
         object.__setattr__(self, "environment_fingerprint", str(self.environment_fingerprint))
         object.__setattr__(self, "result_fingerprint", str(self.result_fingerprint))
         object.__setattr__(self, "covered_obligation_ids", _as_tuple(self.covered_obligation_ids))
+        object.__setattr__(self, "producer_receipt_id", str(self.producer_receipt_id))
+        object.__setattr__(self, "producer_status", str(self.producer_status))
+        object.__setattr__(
+            self,
+            "producer_execution_owner_id",
+            str(self.producer_execution_owner_id),
+        )
+        object.__setattr__(
+            self,
+            "current_execution_owner_id",
+            str(self.current_execution_owner_id),
+        )
+        object.__setattr__(
+            self,
+            "producer_fingerprints",
+            _as_str_map(self.producer_fingerprints),
+        )
+        object.__setattr__(
+            self,
+            "current_fingerprints",
+            _as_str_map(self.current_fingerprints),
+        )
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def has_current_reuse_proof(self) -> bool:
@@ -85,6 +114,13 @@ class TestResultReuseTicket:
             "environment_fingerprint": self.environment_fingerprint,
             "result_fingerprint": self.result_fingerprint,
             "covered_obligation_ids": list(self.covered_obligation_ids),
+            "producer_receipt_id": self.producer_receipt_id,
+            "producer_terminal": self.producer_terminal,
+            "producer_status": self.producer_status,
+            "producer_execution_owner_id": self.producer_execution_owner_id,
+            "current_execution_owner_id": self.current_execution_owner_id,
+            "producer_fingerprints": dict(self.producer_fingerprints),
+            "current_fingerprints": dict(self.current_fingerprints),
             "ticket_current": self.ticket_current,
             "command_current": self.command_current,
             "test_source_current": self.test_source_current,
@@ -146,6 +182,83 @@ def test_result_reuse_gap_codes(
         gaps.append(("test_reuse_missing_dependency_fingerprints", "reuse ticket has no dependency fingerprints"))
     if not ticket.environment_fingerprint:
         gaps.append(("test_reuse_missing_environment_fingerprint", "reuse ticket has no environment fingerprint"))
+    if not ticket.producer_receipt_id:
+        gaps.append(
+            (
+                "test_reuse_missing_producer_receipt",
+                "reuse ticket has no immutable producer receipt id",
+            )
+        )
+    if not ticket.producer_terminal or ticket.producer_status != "pass":
+        gaps.append(
+            (
+                "test_reuse_producer_not_terminal_pass",
+                "reuse producer receipt is not terminal success",
+            )
+        )
+    if (
+        not ticket.producer_execution_owner_id
+        or not ticket.current_execution_owner_id
+    ):
+        gaps.append(
+            (
+                "test_reuse_execution_owner_missing",
+                "reuse verification requires producer and current execution owner ids",
+            )
+        )
+    elif (
+        ticket.producer_execution_owner_id
+        != ticket.current_execution_owner_id
+    ):
+        gaps.append(
+            (
+                "test_reuse_execution_owner_mismatch",
+                "reuse producer execution owner differs from the current owner",
+            )
+        )
+    required_fingerprint_keys = {
+        "command",
+        "test_source",
+        "tested_artifact",
+        "dependencies",
+        "environment",
+        "result",
+        "coverage_scope",
+    }
+    missing_producer_keys = sorted(
+        required_fingerprint_keys - set(ticket.producer_fingerprints)
+    )
+    missing_current_keys = sorted(
+        required_fingerprint_keys - set(ticket.current_fingerprints)
+    )
+    if missing_producer_keys or missing_current_keys:
+        gaps.append(
+            (
+                "test_reuse_verifier_fingerprints_missing",
+                "reuse verification is missing producer/current fingerprint keys: "
+                + ", ".join(
+                    [
+                        *(f"producer:{item}" for item in missing_producer_keys),
+                        *(f"current:{item}" for item in missing_current_keys),
+                    ]
+                ),
+            )
+        )
+    else:
+        mismatches = sorted(
+            key
+            for key in required_fingerprint_keys
+            if ticket.producer_fingerprints.get(key)
+            != ticket.current_fingerprints.get(key)
+        )
+        if mismatches:
+            gaps.append(
+                (
+                    "test_reuse_verifier_fingerprint_mismatch",
+                    "reuse producer/current fingerprints differ for: "
+                    + ", ".join(mismatches),
+                )
+            )
     if not ticket.ticket_current:
         gaps.append(("test_reuse_ticket_not_current", "reuse ticket is not marked current"))
     if not ticket.command_current:

@@ -152,6 +152,9 @@ An old `passed` result is not reusable parent evidence unless
 `TestResultReuseTicket` and `ProofArtifactRef` are both current for the command,
 test source, tested artifact, dependency, environment, result fingerprint, and
 coverage scope.
+The receipt must be independently produced: producer status is terminal
+success, execution owner matches the current request, and the producer/current
+fingerprints match exactly. A copied `current=true` flag is not proof.
 When a final confidence claim depends on the parent gate, export child evidence
 ids, status, freshness, and release-scope gaps to the Risk Evidence Ledger.
 Background runs need final exit/result artifacts before a parent gate can treat

@@ -1,6 +1,8 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from flowguard import (
     DuplicateBoundaryRisk,
@@ -17,7 +19,10 @@ from flowguard import (
     existing_model_preflight_from_project,
     review_existing_model_preflight,
 )
-from flowguard.existing_model_preflight import ExistingIntentSurface
+from flowguard.existing_model_preflight import (
+    ExistingIntentSurface,
+    PREFLIGHT_INVENTORY_BROAD,
+)
 
 
 def model_hit(**kwargs) -> ModelContextHit:
@@ -38,6 +43,72 @@ def model_hit(**kwargs) -> ModelContextHit:
 
 
 class ExistingModelPreflightTests(unittest.TestCase):
+    def test_project_inventory_selects_before_materializing(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            model_root = root / ".flowguard"
+            instances = []
+            for model_id in ("token_guidance", "unrelated_ui", "unrelated_fields"):
+                model_dir = model_root / model_id
+                model_dir.mkdir(parents=True)
+                model_path = model_dir / "model.py"
+                model_path.write_text(
+                    f'"""Purpose: {model_id} behavior."""\nclass {model_id.title().replace("_", "")}: pass\n',
+                    encoding="utf-8",
+                )
+                instances.append(
+                    SimpleNamespace(
+                        logical_model_id=model_id,
+                        model_path=model_path.relative_to(root).as_posix(),
+                        fingerprint=f"sha256:{model_id}",
+                        purpose_closure_fingerprint=f"sha256:purpose-{model_id}",
+                    )
+                )
+            snapshot = SimpleNamespace(
+                fingerprint="sha256:snapshot",
+                subject_revision="source-inventory:test",
+                unresolved_gap_ids=(),
+                model_instances=tuple(instances),
+                root_instance_fingerprints=("sha256:unrelated_ui",),
+                relations=(),
+            )
+            authority = SimpleNamespace(ok=True, status="pass")
+
+            with (
+                patch(
+                    "flowguard.existing_model_preflight.audit_model_authority",
+                    return_value=authority,
+                ),
+                patch(
+                    "flowguard.existing_model_preflight.load_observed_model_system",
+                    return_value=(None, snapshot),
+                ),
+            ):
+                light = existing_model_preflight_from_project(
+                    root,
+                    "reduce token guidance cost",
+                    mode="light",
+                )
+                full = existing_model_preflight_from_project(
+                    root,
+                    "reduce token guidance cost",
+                    mode="full",
+                )
+                broad = existing_model_preflight_from_project(
+                    root,
+                    "audit authority",
+                    mode="full",
+                    inventory_scope=PREFLIGHT_INVENTORY_BROAD,
+                )
+
+            self.assertEqual(
+                ("token_guidance",),
+                tuple(item.model_id for item in light.relevant_models),
+            )
+            self.assertEqual((), light.relevant_models[0].function_blocks)
+            self.assertTrue(full.relevant_models[0].function_blocks)
+            self.assertEqual(3, len(broad.relevant_models))
+
     def test_stale_or_mutable_work_context_is_scoped_gap(self):
         context = {
             "adapter_id": "openspec",

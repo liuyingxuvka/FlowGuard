@@ -40,6 +40,7 @@ class ExpectedCoverageInventoryTests(unittest.TestCase):
                 ),
             ),
             context_fingerprint="sha256:context",
+            behavior_source_surface_ids=("surface:requirement:one",),
         )
         ui = UIObservedSurfaceInventory(
             "ui:observed",
@@ -100,6 +101,36 @@ class ExpectedCoverageInventoryTests(unittest.TestCase):
             set(inventory.item_ids()),
         )
         self.assertTrue(inventory.inventory_fingerprint.startswith("sha256:"))
+
+    def test_unmapped_work_context_remains_context_only(self):
+        context = WorkContext(
+            context_id="planner:context-only",
+            adapter_id="declared-files",
+            native_work_id="context-only",
+            native_owner_id="planner",
+            project_root="C:/project",
+            context_root="C:/project/plans",
+            artifacts=(
+                WorkContextArtifact(
+                    "task:one",
+                    "task",
+                    "plans/task.md",
+                    "sha256:task-content",
+                    8,
+                ),
+            ),
+            context_fingerprint="sha256:context-only",
+        )
+
+        inventory = build_expected_coverage_inventory(
+            "expected:context-only",
+            boundary="application",
+            revision="rev-1",
+            discovery_evidence_ids=("discovery:rev-1",),
+            work_contexts=(context,),
+        )
+
+        self.assertEqual((), inventory.items)
 
     def test_missing_expected_item_blocks_ledger_even_when_remaining_row_is_green(self):
         inventory = self.inventory()

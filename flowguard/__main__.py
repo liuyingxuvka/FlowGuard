@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import hashlib
 import json
 import threading
 from dataclasses import dataclass
@@ -904,7 +905,22 @@ def _run_simulator_command(args: argparse.Namespace) -> int:
             command="flowguard-simulator",
         )
         validation = report.to_validation_result()
-        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2, sort_keys=True) if args.json else validation.format_text(full=args.full))
+        if args.json:
+            result_path = Path(report.output_dir) / "report.json"
+            result_sha256 = (
+                "sha256:" + hashlib.sha256(result_path.read_bytes()).hexdigest()
+                if result_path.is_file()
+                else ""
+            )
+            print(
+                validation.terminal_json_text(
+                    run_id=Path(report.output_dir).name,
+                    result_path=str(result_path),
+                    result_sha256=result_sha256,
+                )
+            )
+        else:
+            print(validation.format_text(full=args.full))
         return validation.exit_code
     except (ValueError, OSError) as exc:
         payload = {

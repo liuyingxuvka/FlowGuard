@@ -1027,7 +1027,7 @@ class BehaviorCommitmentLedger:
     expected_commitment_ids: tuple[str, ...] = ()
     expected_business_intent_ids: tuple[str, ...] = ()
     claim_scope: str = BCL_SCOPE_ROUTINE
-    change_mode: str = BCL_CHANGE_BOOTSTRAP_LEDGER
+    change_mode: str = BCL_CHANGE_CHANGE_BEHAVIOR
     require_current_evidence: bool = False
     require_risk_gates_for_broad_claim: bool = True
     owner: str = ""
@@ -1070,7 +1070,11 @@ class BehaviorCommitmentLedger:
         object.__setattr__(self, "expected_commitment_ids", _as_tuple(self.expected_commitment_ids))
         object.__setattr__(self, "expected_business_intent_ids", _as_tuple(self.expected_business_intent_ids))
         object.__setattr__(self, "claim_scope", str(self.claim_scope or BCL_SCOPE_ROUTINE))
-        object.__setattr__(self, "change_mode", str(self.change_mode or BCL_CHANGE_BOOTSTRAP_LEDGER))
+        object.__setattr__(
+            self,
+            "change_mode",
+            str(self.change_mode or BCL_CHANGE_CHANGE_BEHAVIOR),
+        )
         object.__setattr__(self, "require_current_evidence", bool(self.require_current_evidence))
         object.__setattr__(self, "require_risk_gates_for_broad_claim", bool(self.require_risk_gates_for_broad_claim))
         object.__setattr__(self, "owner", str(self.owner))
@@ -1541,7 +1545,12 @@ def review_behavior_commitment_ledger(
         )
 
     complete_inventory_required = bool(
-        ledger.require_complete_source_inventory or ledger.broad_claim()
+        ledger.require_complete_source_inventory
+        or ledger.change_mode
+        in {
+            BCL_CHANGE_BOOTSTRAP_LEDGER,
+            BCL_CHANGE_COVERAGE_GAP_BACKFILL,
+        }
     )
     if complete_inventory_required:
         if not ledger.expected_source_surface_ids:

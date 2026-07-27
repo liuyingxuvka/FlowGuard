@@ -41,7 +41,7 @@ Order modes, enforce freshness, compare only triggered equivalent candidates, an
 - WorkContexts inform scope/order only; they never authorize writes, execution, receipts, validation, archive, or TestMesh evidence.
 - Estimated comparison supports a preference; finite measurement may support only a bounded minimum.
 - Ordinary work has no optimizer records; repairs need relation, owner, and affected-revalidation evidence.
+- Machine-facing success is a compact terminal envelope backed by a complete artifact; non-pass children remain visible.
 
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, modes, freshness, and revalidation; edges mean order, invalidation, or required revalidation.
-

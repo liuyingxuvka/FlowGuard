@@ -199,6 +199,20 @@ def build_expected_coverage_inventory(
     evidence_ids = _tuple(discovery_evidence_ids)
 
     for context in work_contexts:
+        admitted_behavior_source_ids = tuple(
+            str(item)
+            for item in getattr(
+                context,
+                "behavior_source_surface_ids",
+                (),
+            )
+            if str(item)
+        )
+        if not admitted_behavior_source_ids:
+            # WorkContext remains a fingerprinted planning/freshness input.
+            # Only explicit behavior-source admission places its artifacts in
+            # the independent behavior coverage universe.
+            continue
         for artifact in context.artifacts:
             item_id = f"work-context:{context.context_id}:{artifact.artifact_id}"
             items.append(
@@ -234,6 +248,9 @@ def build_expected_coverage_inventory(
                         "artifact_role": artifact.artifact_role,
                         "context_id": context.context_id,
                         "subject_lane": context.subject_lane,
+                        "behavior_source_surface_ids": list(
+                            admitted_behavior_source_ids
+                        ),
                     },
                 )
             )

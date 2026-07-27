@@ -152,6 +152,82 @@ class ValidationResult:
     def to_json_text(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent, sort_keys=True)
 
+    def terminal_envelope(
+        self,
+        *,
+        run_id: str = "",
+        result_path: str = "",
+        result_sha256: str = "",
+    ) -> dict[str, Any]:
+        """Return the compact terminal projection for routine AI/CLI output.
+
+        The complete canonical result remains in ``result_path``.  This
+        projection keeps every non-pass class visible without repeating
+        successful child payloads or captured streams.
+        """
+
+        non_pass_children = tuple(
+            child.child_id
+            for child in self.children
+            if child.status != VALIDATION_STATUS_PASS
+        )
+        return {
+            "schema_version": "flowguard.validation_terminal.v1",
+            "command": self.command,
+            "status": self.status,
+            "ok": self.ok,
+            "broad_success": self.broad_success,
+            "exit_code": self.exit_code,
+            "scope": self.scope,
+            "tier": self.tier,
+            "counts": dict(self.counts),
+            "run_id": str(run_id),
+            "result_path": str(result_path),
+            "result_sha256": str(result_sha256),
+            "failed_child_ids": [
+                child.child_id
+                for child in self.children
+                if child.status == VALIDATION_STATUS_FAIL
+            ],
+            "blocked_child_ids": [
+                child.child_id
+                for child in self.children
+                if child.status == VALIDATION_STATUS_BLOCKED
+            ],
+            "non_pass_child_ids": list(non_pass_children),
+            "skipped_check_ids": [
+                item.check_id for item in self.skipped_checks
+            ],
+            "failures": [
+                dict(item) if isinstance(item, Mapping) else str(item)
+                for item in self.failures
+            ],
+            "blockers": [
+                dict(item) if isinstance(item, Mapping) else str(item)
+                for item in self.blockers
+            ],
+            "claim_boundary": self.claim_boundary,
+        }
+
+    def terminal_json_text(
+        self,
+        *,
+        run_id: str = "",
+        result_path: str = "",
+        result_sha256: str = "",
+        indent: int = 2,
+    ) -> str:
+        return json.dumps(
+            self.terminal_envelope(
+                run_id=run_id,
+                result_path=result_path,
+                result_sha256=result_sha256,
+            ),
+            ensure_ascii=False,
+            indent=indent,
+            sort_keys=True,
+        )
+
     def format_text(self, *, full: bool = False, max_findings: int = 5) -> str:
         lines = [
             f"status: {self.status}",

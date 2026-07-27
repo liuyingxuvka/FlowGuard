@@ -184,6 +184,15 @@ head is missing or invalid, when a referenced current model is absent from the
 snapshot, or when a target/experiment is presented as current. Report explicit
 authority gaps and route target changes to ModelMesh plus
 DevelopmentProcessFlow.
+
+Use select-before-materialize for ordinary lookup. First select same-plane
+commitment owners, changed-path owners, identity matches, and one-hop declared
+relations. Read only that bounded closure. An omitted changed path never means
+"read every model"; broad authority inventory requires an explicit broad
+scope. Light mode returns identities, paths, fingerprints, and ownership
+without loading model bodies or class inventories. Full mode adds those details
+only for the selected closure.
+
 ## Executable composition handoff
 
 When two or more current portable models have a candidate event, identity,

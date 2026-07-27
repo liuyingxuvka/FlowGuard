@@ -1,8 +1,8 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.62.0"
+adopted_package_version = "0.63.0"
 schema_version = "1.0"
-last_verified_at = "2026-07-22T21:09:00+00:00"
+last_verified_at = "2026-07-27T13:56:39+00:00"
 last_verified_by = "FlowGuard project-upgrade"
 agents_path = "AGENTS.md"
 
@@ -15,12 +15,12 @@ require_model_update_for_behavior_changes = true
 
 [model_authority]
 system_id = "flowguard"
-observed_snapshot_path = ".flowguard/model-mesh/snapshots/3554646adeed5275f5d897ac44b5c44062dc7829d7816e1d06e3819fe258712a.json"
-observed_snapshot_fingerprint = "sha256:3554646adeed5275f5d897ac44b5c44062dc7829d7816e1d06e3819fe258712a"
-subject_revision = "source-inventory:bd1f5309dba51b3d2a0c3060b3ce50bae564c9fd22dd990f2558293398e95801"
+observed_snapshot_path = ".flowguard/model-mesh/snapshots/5fdabad84e9b88992299ff2048ff5770c95e0fba9d8ebd8428d213946f327ae3.json"
+observed_snapshot_fingerprint = "sha256:5fdabad84e9b88992299ff2048ff5770c95e0fba9d8ebd8428d213946f327ae3"
+subject_revision = "source-inventory:7d23efe71c773627327e8a68af154e4426a9c4a8e96ca5fa8175b15d926b1c50"
 coverage_status = "complete_within_declared_boundary"
-generation = 3
-accepted_revision_set_fingerprint = "sha256:52ca24066519badd8aa6db1254488af206f7e9a1089a6c6dc593a53bed1b7008"
-previous_snapshot_fingerprint = "sha256:a4fccf4e8abaff41fc452f9a542d6eae6e10f734209fbbabbfb85163a7575ac6"
-activation_receipt_fingerprint = "sha256:24f9d29947ba9efae248406d120f1e8df806a42faae75bea3ad4701ad044e5f0"
-head_fingerprint = "sha256:e57e336eafa1c5e32b012ec96e80880daf382afca3bd984b1010488f40dea25b"
+generation = 6
+accepted_revision_set_fingerprint = "sha256:b65a37dd378f648564832f537b9fe76de645d2428cc52284e73b8034f2203242"
+previous_snapshot_fingerprint = "sha256:d33638b6632e4584bcdf0cd6fed9b02b101eba952ef4b7a373ae29cad8cea808"
+activation_receipt_fingerprint = "sha256:d73a15d807eb4b609fd6cf6c68b5056ca92639e09e4d16be2e494c314fdf466a"
+head_fingerprint = "sha256:fe3d1a76b860d16dda64bae417b38442c5609568c2535da95788c121bc824155"

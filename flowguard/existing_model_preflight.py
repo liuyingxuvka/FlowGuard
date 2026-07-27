@@ -47,6 +47,13 @@ PREFLIGHT_MODE_LIGHT = "light"
 PREFLIGHT_MODE_FULL = "full"
 PREFLIGHT_MODES = {PREFLIGHT_MODE_LIGHT, PREFLIGHT_MODE_FULL}
 
+PREFLIGHT_INVENTORY_SELECTED = "selected_owner_closure"
+PREFLIGHT_INVENTORY_BROAD = "broad_authority_inventory"
+PREFLIGHT_INVENTORY_SCOPES = {
+    PREFLIGHT_INVENTORY_SELECTED,
+    PREFLIGHT_INVENTORY_BROAD,
+}
+
 REUSE_DECISION_REUSE_EXISTING = "reuse_existing"
 REUSE_DECISION_EXTEND_EXISTING = "extend_existing"
 REUSE_DECISION_ADD_CHILD_MODEL = "add_child_model"
@@ -362,6 +369,7 @@ class ExistingModelPreflight:
     preflight_id: str
     task_summary: str
     mode: str = PREFLIGHT_MODE_FULL
+    inventory_scope: str = PREFLIGHT_INVENTORY_SELECTED
     existing_modeled_system: bool = True
     authority_required: bool = False
     authority_status: str = "not_checked"
@@ -412,6 +420,7 @@ class ExistingModelPreflight:
         object.__setattr__(self, "preflight_id", str(self.preflight_id))
         object.__setattr__(self, "task_summary", str(self.task_summary))
         object.__setattr__(self, "mode", str(self.mode))
+        object.__setattr__(self, "inventory_scope", str(self.inventory_scope))
         object.__setattr__(self, "authority_required", bool(self.authority_required))
         object.__setattr__(self, "authority_status", str(self.authority_status))
         object.__setattr__(
@@ -512,6 +521,7 @@ class ExistingModelPreflight:
             "preflight_id": self.preflight_id,
             "task_summary": self.task_summary,
             "mode": self.mode,
+            "inventory_scope": self.inventory_scope,
             "existing_modeled_system": self.existing_modeled_system,
             "authority_required": self.authority_required,
             "authority_status": self.authority_status,
@@ -845,6 +855,47 @@ def _lookup_model_hit(
     )
 
 
+def _normalized_model_path(value: str) -> str:
+    normalized = str(value).replace("\\", "/").removeprefix("./")
+    return normalized
+
+
+def _lookup_owner_instance_fingerprints(snapshot, lookup_hits) -> set[str]:
+    owner_ids = {
+        _normalized_model_path(hit.primary_owner_model_id)
+        for hit in lookup_hits
+        if hit.primary_owner_model_id
+    }
+    selected: set[str] = set()
+    for instance in snapshot.model_instances:
+        model_path = _normalized_model_path(instance.model_path)
+        logical_id = _normalized_model_path(instance.logical_model_id)
+        if any(
+            owner_id in {model_path, logical_id}
+            or owner_id.endswith("/" + model_path)
+            or model_path.endswith("/" + owner_id)
+            for owner_id in owner_ids
+        ):
+            selected.add(instance.fingerprint)
+    return selected
+
+
+def _relation_neighbor_fingerprints(snapshot, selected: set[str]) -> set[str]:
+    neighbors: set[str] = set()
+    for relation in snapshot.relations:
+        source = relation.source
+        target = relation.target
+        if (
+            source.endpoint_kind == "model_instance"
+            and target.endpoint_kind == "model_instance"
+        ):
+            if source.fingerprint in selected:
+                neighbors.add(target.fingerprint)
+            if target.fingerprint in selected:
+                neighbors.add(source.fingerprint)
+    return neighbors
+
+
 def existing_model_preflight_from_project(
     root: str | Path,
     task_summary: str,
@@ -853,6 +904,7 @@ def existing_model_preflight_from_project(
     changed_paths: Sequence[str] = (),
     downstream_routes: Sequence[str] = (),
     mode: str = PREFLIGHT_MODE_FULL,
+    inventory_scope: str = PREFLIGHT_INVENTORY_SELECTED,
     behavior_plane: str = "",
     canonical_terms: Sequence[str] = (),
     tool_ids: Sequence[str] = (),
@@ -915,19 +967,69 @@ def existing_model_preflight_from_project(
         authority_snapshot_fingerprint = authority_snapshot.fingerprint
         authority_subject_revision = authority_snapshot.subject_revision
         authority_gap_ids = authority_snapshot.unresolved_gap_ids
+        lookup_hits = (
+            (*lookup_report.primary_hits, *lookup_report.related_hits)
+            if lookup_report
+            else ()
+        )
+        selected_fingerprints = _lookup_owner_instance_fingerprints(
+            authority_snapshot,
+            lookup_hits,
+        )
+        if changed_paths:
+            for instance in authority_snapshot.model_instances:
+                model_path = root_path / instance.model_path
+                model_text = (
+                    model_path.read_text(encoding="utf-8", errors="replace")
+                    if model_path.is_file()
+                    else ""
+                )
+                if _matches_changed_paths(model_path, model_text, changed_paths):
+                    selected_fingerprints.add(instance.fingerprint)
+        if inventory_scope == PREFLIGHT_INVENTORY_BROAD:
+            selected_fingerprints = {
+                instance.fingerprint
+                for instance in authority_snapshot.model_instances
+            }
+        elif not selected_fingerprints:
+            task_tokens = {
+                token
+                for token in re.findall(r"[A-Za-z0-9]+", task_summary.lower())
+                if len(token) >= 4
+            }
+            for instance in authority_snapshot.model_instances:
+                identity_tokens = set(
+                    re.findall(
+                        r"[A-Za-z0-9]+",
+                        (
+                            instance.logical_model_id
+                            + " "
+                            + instance.model_path
+                        ).lower().replace("_", " "),
+                    )
+                )
+                if task_tokens & identity_tokens:
+                    selected_fingerprints.add(instance.fingerprint)
+        if not selected_fingerprints:
+            selected_fingerprints.update(
+                authority_snapshot.root_instance_fingerprints
+            )
+        if inventory_scope == PREFLIGHT_INVENTORY_SELECTED:
+            selected_fingerprints.update(
+                _relation_neighbor_fingerprints(
+                    authority_snapshot,
+                    selected_fingerprints,
+                )
+            )
         for instance in authority_snapshot.model_instances:
+            if instance.fingerprint not in selected_fingerprints:
+                continue
             model_path = root_path / instance.model_path
             model_text = (
                 model_path.read_text(encoding="utf-8", errors="replace")
-                if model_path.is_file()
+                if mode == PREFLIGHT_MODE_FULL and model_path.is_file()
                 else ""
             )
-            if changed_paths and not _matches_changed_paths(
-                model_path,
-                model_text,
-                changed_paths,
-            ):
-                continue
             hits.append(
                 ModelContextHit(
                     model_id=instance.logical_model_id,
@@ -937,9 +1039,17 @@ def existing_model_preflight_from_project(
                     ),
                     evidence_tier="authoritative_observed",
                     evidence_current=True,
-                    responsibilities=_purpose_lines(model_text)
+                    responsibilities=(
+                        _purpose_lines(model_text)
+                        if mode == PREFLIGHT_MODE_FULL
+                        else (instance.logical_model_id,)
+                    )
                     or (instance.logical_model_id,),
-                    function_blocks=_class_names(model_text),
+                    function_blocks=(
+                        _class_names(model_text)
+                        if mode == PREFLIGHT_MODE_FULL
+                        else ()
+                    ),
                     validation_evidence=(
                         authority_snapshot.fingerprint,
                         instance.purpose_closure_fingerprint,
@@ -954,7 +1064,11 @@ def existing_model_preflight_from_project(
     candidate_lookup_hits = lookup_report.candidate_hits if lookup_report else ()
     for lookup_hit in (*primary_lookup_hits, *related_lookup_hits):
         model_hit = _lookup_model_hit(root_path, lookup_hit, ledger_path=canonical_ledger_path)
-        if model_hit is not None:
+        if model_hit is not None and not any(
+            _normalized_model_path(hit.model_path)
+            == _normalized_model_path(model_hit.model_path)
+            for hit in hits
+        ):
             hits.append(model_hit)
     seen_model_ids = {hit.model_id for hit in hits}
     seen_model_paths = {hit.model_path.replace("\\", "/") for hit in hits if hit.model_path}
@@ -1033,6 +1147,7 @@ def existing_model_preflight_from_project(
         preflight_id or "project-inventory-preflight",
         task_summary,
         mode=mode,
+        inventory_scope=inventory_scope,
         existing_modeled_system=True,
         authority_required=True,
         authority_status=authority_status,
@@ -1128,6 +1243,16 @@ def review_existing_model_preflight(
             ExistingModelPreflightFinding(
                 "invalid_preflight_mode",
                 f"existing-model preflight mode {preflight.mode!r} is not recognized",
+            )
+        )
+    if preflight.inventory_scope not in PREFLIGHT_INVENTORY_SCOPES:
+        findings.append(
+            ExistingModelPreflightFinding(
+                "invalid_preflight_inventory_scope",
+                (
+                    "existing-model preflight inventory scope "
+                    f"{preflight.inventory_scope!r} is not recognized"
+                ),
             )
         )
     if preflight.reuse_decision and preflight.reuse_decision not in REUSE_DECISIONS:
@@ -1838,6 +1963,9 @@ __all__ = [
     "ExistingOwnershipSnapshot",
     "DuplicateBoundaryRisk",
     "ModelContextHit",
+    "PREFLIGHT_INVENTORY_BROAD",
+    "PREFLIGHT_INVENTORY_SCOPES",
+    "PREFLIGHT_INVENTORY_SELECTED",
     "PREFLIGHT_MODE_FULL",
     "PREFLIGHT_MODE_LIGHT",
     "PREFLIGHT_MODES",

@@ -5,6 +5,8 @@ from pathlib import Path
 
 from flowguard import (
     BCL_ACTOR_END_USER,
+    BCL_CHANGE_BOOTSTRAP_LEDGER,
+    BCL_CHANGE_CHANGE_BEHAVIOR,
     BCL_COMMITMENT_WORKFLOW,
     BCL_EVIDENCE_CURRENT_PASS,
     BCL_MISS_ORIGIN_OBSERVED,
@@ -13,6 +15,7 @@ from flowguard import (
     BCL_RELATION_DEPENDS_ON,
     BCL_REPLACEMENT_REPLACED,
     BCL_SCOPE_FULL,
+    BCL_SCOPE_ROUTINE,
     BCL_SOURCE_DOC,
     BCL_SOURCE_FRESHNESS_CHANGED,
     BCL_TEST_MESH_SHARD_MISSING,
@@ -128,6 +131,32 @@ def load_repo_model(relative_path: str, module_name: str):
 
 
 class BehaviorCommitmentLedgerTests(unittest.TestCase):
+    def test_change_mode_does_not_require_bootstrap_wide_inventory(self):
+        affected = ledger(
+            claim_scope=BCL_SCOPE_ROUTINE,
+            change_mode=BCL_CHANGE_CHANGE_BEHAVIOR,
+            require_complete_source_inventory=False,
+            expected_source_surface_ids=(),
+            source_inventory_revision="",
+            source_inventory_fingerprint="",
+            source_inventory_evidence_ids=(),
+        )
+        bootstrap = ledger(
+            claim_scope=BCL_SCOPE_ROUTINE,
+            change_mode=BCL_CHANGE_BOOTSTRAP_LEDGER,
+            require_complete_source_inventory=False,
+            expected_source_surface_ids=(),
+            source_inventory_revision="",
+            source_inventory_fingerprint="",
+            source_inventory_evidence_ids=(),
+        )
+
+        affected_codes = codes(review_behavior_commitment_ledger(affected))
+        bootstrap_codes = codes(review_behavior_commitment_ledger(bootstrap))
+
+        self.assertNotIn("expected_source_inventory_missing", affected_codes)
+        self.assertIn("expected_source_inventory_missing", bootstrap_codes)
+
     def test_complete_ledger_passes_and_exposes_downstream_ids(self):
         report = review_behavior_commitment_ledger(ledger())
 

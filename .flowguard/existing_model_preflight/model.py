@@ -51,6 +51,9 @@ class ChangeIdea:
     spec_context_present: bool = False
     spec_context_current: bool = True
     spec_context_read_only: bool = True
+    inventory_scope: str = "selected_owner_closure"
+    selected_model_count: int = 1
+    materialized_model_count: int = 1
 
 
 @dataclass(frozen=True)
@@ -75,6 +78,9 @@ class ClassifiedNeed:
     spec_context_present: bool = False
     spec_context_current: bool = True
     spec_context_read_only: bool = True
+    inventory_scope: str = "selected_owner_closure"
+    selected_model_count: int = 1
+    materialized_model_count: int = 1
 
 
 @dataclass(frozen=True)
@@ -133,6 +139,9 @@ class State:
     unsafe_related_plane_promoted: tuple[str, ...] = ()
     spec_context_required: tuple[str, ...] = ()
     spec_context_current: tuple[str, ...] = ()
+    selected_inventory_required: tuple[str, ...] = ()
+    selected_inventory_bounded: tuple[str, ...] = ()
+    over_materialized: tuple[str, ...] = ()
 
 
 FULL_ACTIONS = {"implementation", "proposal", "restructure", "high_risk_change"}
@@ -157,7 +166,13 @@ def _route_for(action_class: str) -> str:
 class ClassifyNeed:
     name = "ClassifyNeed"
     reads = ()
-    writes = ("classified", "full_required", "skipped", "lookup_required")
+    writes = (
+        "classified",
+        "full_required",
+        "skipped",
+        "lookup_required",
+        "selected_inventory_required",
+    )
     accepted_input_type = ChangeIdea
     input_description = "existing-system change idea"
     output_description = "ClassifiedNeed or SkippedNeed"
@@ -197,6 +212,11 @@ class ClassifyNeed:
             spec_context_required=_add_once(state.spec_context_required, input_obj.task_id)
             if input_obj.spec_context_present
             else state.spec_context_required,
+            selected_inventory_required=_add_once(
+                state.selected_inventory_required, input_obj.task_id
+            )
+            if input_obj.inventory_scope == "selected_owner_closure"
+            else state.selected_inventory_required,
         )
         yield FunctionResult(
             ClassifiedNeed(
@@ -220,6 +240,9 @@ class ClassifyNeed:
                 input_obj.spec_context_present,
                 input_obj.spec_context_current,
                 input_obj.spec_context_read_only,
+                input_obj.inventory_scope,
+                input_obj.selected_model_count,
+                input_obj.materialized_model_count,
             ),
             new_state,
             label=f"classified_{level}_preflight",
@@ -229,7 +252,16 @@ class ClassifyNeed:
 class SearchExistingModels:
     name = "SearchExistingModels"
     reads = ("classified",)
-    writes = ("searched", "light_grounded", "full_grounded", "no_model_found", "blocked", "lookup_complete")
+    writes = (
+        "searched",
+        "light_grounded",
+        "full_grounded",
+        "no_model_found",
+        "blocked",
+        "lookup_complete",
+        "selected_inventory_bounded",
+        "over_materialized",
+    )
     accepted_input_type = (ClassifiedNeed, SkippedNeed)
     input_description = "ClassifiedNeed or SkippedNeed"
     output_description = "GroundedNeed or BlockedNeed"
@@ -250,6 +282,32 @@ class SearchExistingModels:
                 BlockedNeed(input_obj.task_id, "related_plane_context_promoted_to_primary"),
                 replace(state, blocked=_add_once(state.blocked, input_obj.task_id)),
                 label="blocked_related_plane_promotion",
+            )
+            return
+        if input_obj.inventory_scope not in {
+            "selected_owner_closure",
+            "broad_authority_inventory",
+        }:
+            yield FunctionResult(
+                BlockedNeed(input_obj.task_id, "invalid_inventory_scope"),
+                replace(state, blocked=_add_once(state.blocked, input_obj.task_id)),
+                label="blocked_invalid_inventory_scope",
+            )
+            return
+        if (
+            input_obj.inventory_scope == "selected_owner_closure"
+            and input_obj.materialized_model_count > input_obj.selected_model_count
+        ):
+            yield FunctionResult(
+                BlockedNeed(input_obj.task_id, "unselected_models_materialized"),
+                replace(
+                    state,
+                    blocked=_add_once(state.blocked, input_obj.task_id),
+                    over_materialized=_add_once(
+                        state.over_materialized, input_obj.task_id
+                    ),
+                ),
+                label="blocked_unselected_models_materialized",
             )
             return
         if input_obj.spec_context_present and not (
@@ -312,6 +370,11 @@ class SearchExistingModels:
             spec_context_current=_add_once(state.spec_context_current, input_obj.task_id)
             if input_obj.spec_context_present
             else state.spec_context_current,
+            selected_inventory_bounded=_add_once(
+                state.selected_inventory_bounded, input_obj.task_id
+            )
+            if input_obj.inventory_scope == "selected_owner_closure"
+            else state.selected_inventory_bounded,
         )
         if input_obj.required_level == "full":
             grounded_state = replace(
@@ -548,6 +611,24 @@ def spec_context_requires_current_read_only_snapshot(state: State, trace) -> Inv
     return InvariantResult.pass_()
 
 
+def selected_inventory_materializes_only_selected_models(
+    state: State, trace
+) -> InvariantResult:
+    del trace
+    bad = tuple(
+        sorted(
+            (set(state.route_selected) & set(state.selected_inventory_required))
+            - set(state.selected_inventory_bounded)
+        )
+    )
+    if bad or state.over_materialized:
+        return InvariantResult.fail(
+            "selected-owner preflight materialized models outside the selected closure: "
+            f"{tuple(sorted(set(bad) | set(state.over_materialized)))!r}"
+        )
+    return InvariantResult.pass_()
+
+
 INVARIANTS = (
     Invariant(
         "no_route_without_grounding",
@@ -583,6 +664,11 @@ INVARIANTS = (
         "spec_context_requires_current_read_only_snapshot",
         "Official OpenSpec context can support routing only as a current read-only snapshot.",
         spec_context_requires_current_read_only_snapshot,
+    ),
+    Invariant(
+        "selected_inventory_materializes_only_selected_models",
+        "Ordinary preflight selects owners before materializing model bodies; broad inventory is explicit.",
+        selected_inventory_materializes_only_selected_models,
     ),
 )
 
@@ -662,6 +748,13 @@ EXTERNAL_INPUTS = (
         spec_context_present=True,
         spec_context_current=True,
         spec_context_read_only=False,
+    ),
+    ChangeIdea(
+        "over-materialized-selection",
+        True,
+        action_class="implementation",
+        selected_model_count=1,
+        materialized_model_count=3,
     ),
 )
 

@@ -38,7 +38,7 @@ Accept a bounded inventory/mode; register one owner per commitment; block covera
 - Missing/duplicate sources, identity/evidence gaps, conflicting dispositions, owner overlap, stale PPA/shards, and untyped cross-plane relations block broad confidence.
 - Supporting, observed, and historical sources cannot displace a declared normative target. Provider status and the ledger's own candidate rows cannot prove expected-inventory completeness.
 - Cross-plane language never merges owners. `unclassified`, legacy dependencies, and ambiguous plural paths are upgrade-only blockers.
+- Broad discovery is for bootstrap or coverage-gap backfill; ordinary changes stay in the affected commitment closure.
 
 ## Output Requirements
 - Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, and commitment/source/owner/lookup/PPA status.
-

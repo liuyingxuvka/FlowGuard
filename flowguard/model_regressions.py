@@ -76,6 +76,7 @@ class ModelRegressionEntry:
     absence_reason: str = ""
     model_kind: str = "executable_workflow"
     purpose_closure: ModelPurposeClosure | None = None
+    shard_safety_proof: Mapping[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "ModelRegressionEntry":
@@ -101,6 +102,7 @@ class ModelRegressionEntry:
                 payload.get("model_kind", "executable_workflow")
             ),
             purpose_closure=purpose,
+            shard_safety_proof=dict(payload.get("shard_safety_proof", {})),
         )
 
     @property
@@ -379,6 +381,37 @@ def audit_manifest(root: str | Path, manifest: ModelRegressionManifest) -> Manif
             errors.append(f"{entry.model_id}: timeout_seconds must be positive")
         if entry.mutation_policy not in {"none", "isolated_output", "mutating"}:
             errors.append(f"{entry.model_id}: invalid mutation_policy {entry.mutation_policy!r}")
+        if entry.shard_safety_proof:
+            proof = entry.shard_safety_proof
+            if entry.mutation_policy != "isolated_output":
+                errors.append(
+                    f"{entry.model_id}: shard_safety_proof requires isolated_output mutation policy"
+                )
+            if proof.get("schema_version") != "flowguard.model_shard_safety_contract.v1":
+                errors.append(f"{entry.model_id}: invalid shard_safety_proof schema")
+            if int(proof.get("parallel_copies", 0)) < 2:
+                errors.append(f"{entry.model_id}: shard_safety_proof requires at least two parallel copies")
+            if proof.get("output_isolation") != "FLOWGUARD_OUTPUT_DIR":
+                errors.append(f"{entry.model_id}: shard_safety_proof must bind FLOWGUARD_OUTPUT_DIR")
+            if proof.get("shared_mutation_policy") != "zero_repository_mutation":
+                errors.append(f"{entry.model_id}: shard_safety_proof must reject repository mutation")
+            required_checks = {
+                "serial_parallel_semantic_equivalence",
+                "disjoint_artifact_ownership",
+                "stable_input_inventory",
+                "zero_repository_mutation",
+            }
+            declared_checks = {str(item) for item in proof.get("required_checks", ())}
+            missing_checks = sorted(required_checks - declared_checks)
+            if missing_checks:
+                errors.append(
+                    f"{entry.model_id}: shard_safety_proof missing checks: {', '.join(missing_checks)}"
+                )
+        if entry.shard_safe and entry.model_id == "harden_ui_content_visibility_validation":
+            if not entry.shard_safety_proof:
+                errors.append(
+                    f"{entry.model_id}: shard-safe UI aggregate requires executable shard_safety_proof"
+                )
         if entry.distribution_policy not in {"required_public", "optional_local"}:
             errors.append(f"{entry.model_id}: invalid distribution_policy {entry.distribution_policy!r}")
         if entry.distribution_policy == "optional_local" and len(entry.absence_reason.strip()) < 12:
@@ -690,8 +723,17 @@ def _run_entry(
     # legitimately replace its isolated FLOWGUARD_OUTPUT_DIR while producing
     # artifacts, so restore the parent-owned directory before retaining logs.
     artifact_dir.mkdir(parents=True, exist_ok=True)
-    stdout_descriptor = store_text_object(output_dir, stdout)
-    stderr_descriptor = store_text_object(output_dir, stderr)
+    diagnostic_tail_chars = 0 if status == VALIDATION_STATUS_PASS else 4000
+    stdout_descriptor = store_text_object(
+        output_dir,
+        stdout,
+        tail_chars=diagnostic_tail_chars,
+    )
+    stderr_descriptor = store_text_object(
+        output_dir,
+        stderr,
+        tail_chars=diagnostic_tail_chars,
+    )
     stdout_path = (output_dir / str(stdout_descriptor["object_path"])).resolve()
     stderr_path = (output_dir / str(stderr_descriptor["object_path"])).resolve()
     expected_paths = tuple(str((artifact_dir / item).resolve()) for item in entry.expected_artifacts)
@@ -852,6 +894,25 @@ def run_manifest_regressions(
     else:
         output_path = Path(output_dir).resolve()
     ensure_new_run_directory(output_path)
+    if jobs > 1:
+        # A declaration alone cannot authorize parallel execution for an
+        # isolated-output aggregate. Execute its bound serial/parallel proof
+        # inside this validation owner before launching the shard pool.
+        from .shard_safety import prove_model_shard_safety
+
+        for entry in selected:
+            if not entry.shard_safety_proof:
+                continue
+            proof = prove_model_shard_safety(
+                root_path,
+                entry,
+                output_dir=output_path / "shard-safety" / entry.model_id,
+            )
+            if not proof["ok"]:
+                raise ValueError(
+                    f"parallel execution proof failed for {entry.model_id}; "
+                    f"see {output_path / 'shard-safety' / entry.model_id / 'result.json'}"
+                )
     cancel = cancel_event or threading.Event()
     tracked = _tracked_paths(root_path)
     before = _snapshot(tracked)

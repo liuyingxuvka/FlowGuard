@@ -244,7 +244,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Run the existing preflight owner, preserve typed related-plane context, and attach exact declared WorkContext adapter/native/artifact/fingerprint identities as non-owning context."
+        "summary": "Run the existing preflight owner with select-before-materialize, preserve typed related-plane context, and attach exact declared WorkContext adapter/native/artifact/fingerprint identities as non-owning context."
       },
       "check_ids": [
         "check:flowguard-existing-model-preflight:native-authority"
@@ -255,7 +255,7 @@
     {
       "action": {
         "kind": "verifier",
-        "summary": "Require an explainable owner selection or an explicit missing, stale, or ambiguous fallback."
+        "summary": "Require an explainable bounded owner closure, distinct light/full projection, or explicit broad, missing, stale, or ambiguous disposition."
       },
       "check_ids": [
         "check:flowguard-existing-model-preflight:evidence-closure"

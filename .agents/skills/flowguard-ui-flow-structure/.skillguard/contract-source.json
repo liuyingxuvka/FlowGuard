@@ -229,7 +229,7 @@
     {
       "action": {
         "kind": "inventory",
-        "summary": "Declare UI work mode, independently discovered rendered-surface revision/fingerprint/evidence, exact visible item ids/fingerprints, product surface scope, content boundary, source authority, and requested UI claim."
+        "summary": "Declare UI work mode, explicit behavior-source admission, independently discovered rendered-surface revision/fingerprint/evidence, exact visible item ids/fingerprints, product surface scope, content boundary, source authority, and requested UI claim."
       },
       "check_ids": [
         "check:flowguard-ui-flow-structure:plane-boundary"

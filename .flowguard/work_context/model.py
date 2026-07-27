@@ -45,6 +45,7 @@ class WorkContextInput:
     execute_requested: bool = False
     validation_requested: bool = False
     authority_bridge_requested: bool = False
+    behavior_source_surface_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,7 @@ class WorkContextState:
     provider_execution_count: int = 0
     provider_validation_count: int = 0
     authority_bridge_count: int = 0
+    behavior_admitted: bool = False
 
 
 class SelectAdapter:
@@ -145,7 +147,7 @@ class ReadArtifacts:
 class ProjectContext:
     name = "project_work_context"
     reads = ("artifacts_read",)
-    writes = ("context_projected", "blocked")
+    writes = ("context_projected", "behavior_admitted", "blocked")
     input_description = "Read-only current WorkContext"
     output_description = "Planning-context projection without native authority"
     idempotency = "idempotent"
@@ -170,7 +172,11 @@ class ProjectContext:
         return (
             FunctionResult(
                 "projected",
-                replace(state, context_projected=True),
+                replace(
+                    state,
+                    context_projected=True,
+                    behavior_admitted=bool(input_obj.behavior_source_surface_ids),
+                ),
                 "read_only_context_projected",
             ),
         )
@@ -256,8 +262,20 @@ def run_model_checks() -> dict[str, object]:
         context_read.output != "context-read"
         or projected.output != "projected"
         or not projected.new_state.context_projected
+        or projected.new_state.behavior_admitted
     ):
         findings.append("current_context_not_projected")
+
+    admitted = _run(
+        WorkContextInput(
+            "project",
+            behavior_source_surface_ids=("surface:explicit-requirement",),
+        ),
+        context_read.new_state,
+        2,
+    )
+    if not admitted.new_state.behavior_admitted:
+        findings.append("explicit_behavior_source_not_admitted")
 
     second_context = _run(
         WorkContextInput(

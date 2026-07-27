@@ -88,6 +88,29 @@ def reuse_ticket(evidence_id, *covered, **kwargs):
         "environment_fingerprint": "python:3.12",
         "result_fingerprint": "sha256:result",
         "covered_obligation_ids": covered,
+        "producer_receipt_id": f"receipt:{evidence_id}",
+        "producer_terminal": True,
+        "producer_status": "pass",
+        "producer_execution_owner_id": "owner:model-test-alignment",
+        "current_execution_owner_id": "owner:model-test-alignment",
+        "producer_fingerprints": {
+            "command": "sha256:command",
+            "test_source": "sha256:test-source",
+            "tested_artifact": "sha256:tested-artifact",
+            "dependencies": "sha256:dependencies",
+            "environment": "python:3.12",
+            "result": "sha256:result",
+            "coverage_scope": "sha256:coverage",
+        },
+        "current_fingerprints": {
+            "command": "sha256:command",
+            "test_source": "sha256:test-source",
+            "tested_artifact": "sha256:tested-artifact",
+            "dependencies": "sha256:dependencies",
+            "environment": "python:3.12",
+            "result": "sha256:result",
+            "coverage_scope": "sha256:coverage",
+        },
     }
     defaults.update(kwargs)
     return TestResultReuseTicket(evidence_id, **defaults)

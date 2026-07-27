@@ -231,7 +231,7 @@
     {
       "action": {
         "kind": "inventory",
-        "summary": "Freeze the independent WorkContext/UI/field expected-source inventory before classifying modeled external promises by plane."
+        "summary": "Select discovery breadth from the ledger change mode, then freeze the required independent WorkContext/UI/field expected-source inventory before classifying modeled external promises by plane."
       },
       "check_ids": [
         "check:flowguard-behavior-commitment-ledger:plane-boundary"

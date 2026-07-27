@@ -62,6 +62,12 @@ class GuidanceOutput:
 @dataclass(frozen=True)
 class GuidanceState:
     hot_path_compressed: bool = False
+    selected_prompt_bundles_budgeted: bool = False
+    context_admission_enforced: bool = False
+    compact_success_summary: bool = False
+    complete_artifact_pointer: bool = False
+    failure_details_visible: bool = False
+    producer_reuse_verified: bool = False
     hard_gates_preserved: bool = False
     reference_handoffs_available: bool = False
     duplicate_reference_detail_folded: bool = False
@@ -77,6 +83,12 @@ class GuidanceState:
     def ready_for_done(self) -> bool:
         return (
             self.hot_path_compressed
+            and self.selected_prompt_bundles_budgeted
+            and self.context_admission_enforced
+            and self.compact_success_summary
+            and self.complete_artifact_pointer
+            and self.failure_details_visible
+            and self.producer_reuse_verified
             and self.hard_gates_preserved
             and self.reference_handoffs_available
             and self.duplicate_reference_detail_folded
@@ -94,6 +106,12 @@ class CorrectGuidanceCompression:
     name = "CorrectGuidanceCompression"
     reads = (
         "hot_path_compressed",
+        "selected_prompt_bundles_budgeted",
+        "context_admission_enforced",
+        "compact_success_summary",
+        "complete_artifact_pointer",
+        "failure_details_visible",
+        "producer_reuse_verified",
         "hard_gates_preserved",
         "reference_handoffs_available",
         "duplicate_reference_detail_folded",
@@ -120,6 +138,8 @@ class CorrectGuidanceCompression:
                 replace(
                     state,
                     hot_path_compressed=True,
+                    selected_prompt_bundles_budgeted=True,
+                    context_admission_enforced=True,
                     hard_gates_preserved=True,
                     reference_handoffs_available=True,
                     duplicate_reference_detail_folded=True,
@@ -136,7 +156,14 @@ class CorrectGuidanceCompression:
         elif action == "run_validations":
             yield FunctionResult(
                 GuidanceOutput("validations_passed"),
-                replace(state, validations_passed=True),
+                replace(
+                    state,
+                    validations_passed=True,
+                    compact_success_summary=True,
+                    complete_artifact_pointer=True,
+                    failure_details_visible=True,
+                    producer_reuse_verified=True,
+                ),
                 label="validations_passed",
             )
         elif action == "sync_local_surfaces":
@@ -185,7 +212,7 @@ def no_done_without_full_sync(state: GuidanceState, trace) -> InvariantResult:
     del trace
     if state.done_claim == "accepted" and not state.ready_for_done():
         return InvariantResult.fail(
-            "done accepted before compressed prompts, hard gates, folded references, lazy templates, validation, install, shadow, and git evidence aligned"
+            "done accepted before bounded prompt/context admission, compact artifact-backed evidence, producer reuse proof, hard gates, validation, install, shadow, and git evidence aligned"
         )
     return InvariantResult.pass_()
 
@@ -193,7 +220,7 @@ def no_done_without_full_sync(state: GuidanceState, trace) -> InvariantResult:
 INVARIANTS = (
     Invariant(
         "no_done_without_full_sync",
-        "Guidance compression completion requires folded references, lazy templates, current validation, editable install, installed skill, shadow workspace, and git evidence.",
+        "Guidance compression completion requires budgeted selected prompt bundles, context admission, compact artifact-backed evidence, producer reuse proof, current validation, installed surfaces, and git evidence.",
         no_done_without_full_sync,
     ),
 )

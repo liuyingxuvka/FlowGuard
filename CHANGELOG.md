@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.63.0 - 2026-07-27
+
+- Made Existing Model Preflight select the same-plane owner closure before
+  materializing model bodies, with distinct light/full projections and an
+  explicit broad-authority mode.
+- Added combined first-read prompt-bundle budgets and reduced the always-loaded
+  project guidance while preserving each consumer skill's independent hard
+  gates and route ownership.
+- Added artifact-backed compact terminal envelopes for model and skill
+  validation so successful child payloads and stream tails are not repeated,
+  while failed, blocked, skipped, and not-run children remain visible.
+- Required explicit behavior-source admission for WorkContext coverage, made
+  Behavior Commitment Ledger discovery breadth follow its change mode, and
+  prevented ordinary existing-ledger work from silently becoming bootstrap.
+- Strengthened test-result reuse with independent producer terminal receipts,
+  execution-owner matching, and exact producer/current fingerprints for
+  command, source, artifact, dependencies, environment, result, and scope.
+- Updated the existing FlowGuard models and maintained skill routes in place,
+  retained source-only immutable release authority, and synchronized the clean
+  fifteen-skill consumer projection.
+
 ## v0.62.0 - 2026-07-26
 
 - Replaced the OpenSpec-specific `SpecContext` surface with a provider-neutral,

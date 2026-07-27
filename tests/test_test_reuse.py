@@ -18,6 +18,29 @@ def reuse_ticket(evidence_id="test:fast", **kwargs):
         "environment_fingerprint": "python:3.12",
         "result_fingerprint": "sha256:result",
         "covered_obligation_ids": ("accept_valid_order",),
+        "producer_receipt_id": "receipt:test:fast",
+        "producer_terminal": True,
+        "producer_status": "pass",
+        "producer_execution_owner_id": "owner:test",
+        "current_execution_owner_id": "owner:test",
+        "producer_fingerprints": {
+            "command": "sha256:command",
+            "test_source": "sha256:test-source",
+            "tested_artifact": "sha256:tested-artifact",
+            "dependencies": "sha256:dependencies",
+            "environment": "python:3.12",
+            "result": "sha256:result",
+            "coverage_scope": "sha256:coverage",
+        },
+        "current_fingerprints": {
+            "command": "sha256:command",
+            "test_source": "sha256:test-source",
+            "tested_artifact": "sha256:tested-artifact",
+            "dependencies": "sha256:dependencies",
+            "environment": "python:3.12",
+            "result": "sha256:result",
+            "coverage_scope": "sha256:coverage",
+        },
     }
     defaults.update(kwargs)
     return TestResultReuseTicket(evidence_id, **defaults)
@@ -37,6 +60,15 @@ class TestResultReuseTicketTests(unittest.TestCase):
 
         self.assertIsInstance(ticket, TestResultReuseTicket)
         self.assertEqual((), reuse_gap_codes(ticket))
+
+    def test_consumer_rejects_self_report_when_producer_fingerprint_differs(self):
+        current = dict(reuse_ticket().current_fingerprints)
+        current["tested_artifact"] = "sha256:changed"
+        ticket = reuse_ticket(current_fingerprints=current)
+
+        codes = {code for code, _ in reuse_gap_codes(ticket)}
+
+        self.assertIn("test_reuse_verifier_fingerprint_mismatch", codes)
 
     def test_missing_ticket_is_gap(self):
         self.assertEqual(

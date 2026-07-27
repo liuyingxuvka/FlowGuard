@@ -1,6 +1,8 @@
 import unittest
 from pathlib import Path
 
+from flowguard.prompt_budget import review_prompt_bundles
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS_ROOT = ROOT / ".agents" / "skills"
@@ -92,6 +94,23 @@ class SkillDocsTests(unittest.TestCase):
                 text = self.read(SKILLS_ROOT / skill_name / "SKILL.md")
                 self.assertLessEqual(len(text.splitlines()), 65)
                 self.assertLess(len(text), 3400)
+
+    def test_representative_first_read_bundles_are_budgeted(self):
+        report = review_prompt_bundles(ROOT)
+
+        self.assertTrue(report["ok"], report["failed_route_ids"])
+        self.assertEqual(15, report["bundle_count"])
+        for bundle in report["bundles"]:
+            with self.subTest(route=bundle["route_id"]):
+                self.assertEqual(3, len(bundle["components"]))
+                self.assertLessEqual(
+                    bundle["utf8_bytes"],
+                    bundle["max_utf8_bytes"],
+                )
+                self.assertEqual(
+                    (bundle["utf8_bytes"] + 2) // 3,
+                    bundle["conservative_token_estimate"],
+                )
 
     def test_active_openspec_specs_have_real_purpose_text(self):
         for path in sorted((ROOT / "openspec" / "specs").glob("*/spec.md")):

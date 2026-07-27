@@ -10,6 +10,7 @@ semantics without turning a scoped or incomplete child into success.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import subprocess
@@ -302,9 +303,72 @@ def run_static_suite(
     }
 
 
-def _print_static(payload: Mapping[str, Any], *, as_json: bool) -> None:
+def _write_static_result(
+    payload: Mapping[str, Any],
+    output_dir: str | None,
+) -> tuple[str, str, str]:
+    if output_dir:
+        run_dir = Path(output_dir).expanduser().resolve()
+    else:
+        run_dir = Path(
+            tempfile.mkdtemp(prefix="flowguard-skill-suite-static-")
+        ).resolve()
+    ensure_new_run_directory(run_dir)
+    result_path = run_dir / "result.json"
+    result_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    publish_run(
+        run_dir,
+        kind="skill-suite-static",
+        status=str(payload.get("status", "blocked")),
+        result_path=result_path,
+    )
+    result_sha256 = "sha256:" + hashlib.sha256(result_path.read_bytes()).hexdigest()
+    return run_dir.name, str(result_path), result_sha256
+
+
+def _print_static(
+    payload: Mapping[str, Any],
+    *,
+    as_json: bool,
+    run_id: str = "",
+    result_path: str = "",
+    result_sha256: str = "",
+) -> None:
     if as_json:
-        print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "schema_version": "flowguard.validation_terminal.v1",
+                    "command": "check-flowguard-skill-suite",
+                    "scope": "static",
+                    "status": payload.get("status", "blocked"),
+                    "ok": bool(payload.get("ok")),
+                    "counts": {
+                        "passed": int(payload.get("passed_members", 0)),
+                        "total": int(payload.get("total_members", 0)),
+                    },
+                    "run_id": run_id,
+                    "result_path": result_path,
+                    "result_sha256": result_sha256,
+                    "failed_member_ids": [
+                        str(row.get("skill_id"))
+                        for row in payload.get("members", ())
+                        if not row.get("ok")
+                    ],
+                    "blockers": list(payload.get("blockers", ())),
+                    "skipped_checks": list(
+                        payload.get("skipped_checks", ())
+                    ),
+                    "claim_boundary": payload.get("claim_boundary", ""),
+                },
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
         return
     print("status: pass" if payload.get("ok") else "status: blocked")
     print(f"members: {payload.get('passed_members', 0)}/{payload.get('total_members', 0)}")
@@ -339,6 +403,8 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
         str(root),
         "--skillguard",
         args.skillguard,
+        "--output-dir",
+        str(Path(args.output_dir).expanduser().resolve() / "static-suite"),
         "--json",
     ]
     model_command = [
@@ -501,8 +567,22 @@ def _write_child_artifacts(
     child_dir.mkdir(parents=True, exist_ok=True)
     run_dir = child_dir.parent
     result_path = child_dir / "result.json"
-    stdout = store_text_object(run_dir, outcome.stdout, media_type="application/json; charset=utf-8" if outcome.payload is not None else "text/plain; charset=utf-8")
-    stderr = store_text_object(run_dir, outcome.stderr)
+    diagnostic_tail_chars = 0 if status == VALIDATION_STATUS_PASS else 4000
+    stdout = store_text_object(
+        run_dir,
+        outcome.stdout,
+        media_type=(
+            "application/json; charset=utf-8"
+            if outcome.payload is not None
+            else "text/plain; charset=utf-8"
+        ),
+        tail_chars=diagnostic_tail_chars,
+    )
+    stderr = store_text_object(
+        run_dir,
+        outcome.stderr,
+        tail_chars=diagnostic_tail_chars,
+    )
     payload = dict(outcome.payload) if outcome.payload is not None else None
     result_payload = {
         "schema_version": "flowguard.unified_validation_child.v2",
@@ -772,7 +852,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             skillguard=args.skillguard,
             members=args.member,
         )
-        _print_static(payload, as_json=args.json)
+        run_id, result_path, result_sha256 = _write_static_result(
+            payload,
+            args.output_dir,
+        )
+        _print_static(
+            payload,
+            as_json=args.json,
+            run_id=run_id,
+            result_path=result_path,
+            result_sha256=result_sha256,
+        )
         return 0 if payload["ok"] else 1
     invalid_reason = ""
     if args.model_jobs < 1:
@@ -783,7 +873,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         invalid_reason = "--member is static-only; full scope always requires all 15 members"
     if invalid_reason:
         result = _command_error(VALIDATION_STATUS_INVALID_INPUT, invalid_reason, scope="full")
-        print(result.to_json_text() if args.json else result.format_text(full=args.full))
+        print(
+            result.terminal_json_text()
+            if args.json
+            else result.format_text(full=args.full)
+        )
         return result.exit_code
     try:
         result = run_full_validation(args)
@@ -793,7 +887,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"{type(exc).__name__}: {exc}",
             scope="full",
         )
-    print(result.to_json_text() if args.json else result.format_text(full=args.full))
+    if args.json:
+        result_path = Path(result.artifact_paths[0]) if result.artifact_paths else None
+        result_sha256 = (
+            "sha256:" + hashlib.sha256(result_path.read_bytes()).hexdigest()
+            if result_path is not None and result_path.is_file()
+            else ""
+        )
+        print(
+            result.terminal_json_text(
+                run_id=result_path.parent.name if result_path is not None else "",
+                result_path=str(result_path) if result_path is not None else "",
+                result_sha256=result_sha256,
+            )
+        )
+    else:
+        print(result.format_text(full=args.full))
     return result.exit_code
 
 

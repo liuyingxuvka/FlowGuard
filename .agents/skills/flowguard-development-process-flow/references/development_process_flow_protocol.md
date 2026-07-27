@@ -186,6 +186,11 @@ required affected revalidation. Include process-optimization details only when
 the mode is active. A diagram should show order, invalidation, hard stops, and
 required revalidation rather than decorative detail.
 
+For machine-facing validation, write the complete report to an immutable
+artifact and return a compact terminal envelope. Successful child payloads and
+stream tails stay out of the terminal envelope; failed, blocked, and skipped
+child identities remain visible with the artifact path and content hash.
+
 ## Completion
 
 The process claim is supported only when references and owners resolve,
