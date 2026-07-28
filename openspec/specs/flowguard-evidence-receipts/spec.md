@@ -3,7 +3,6 @@
 ## Purpose
 
 Define immutable, privacy-safe evidence receipts whose freshness is derived from exact inputs, commands, contracts, proof artifacts, and consumed child receipts, so parent governance claims cannot rely on synthetic or stale pass flags.
-
 ## Requirements
 ### Requirement: Immutable Evidence Receipt Schema
 Every governance evidence receipt SHALL identify its schema, receipt id, subject id and kind, producer id and version, claim scope, exact command, tokenized working directory, start/end time, exit code, environment fingerprint, contract/check/suite hashes, input snapshots, proof result and fingerprint, covered obligations, required and consumed child receipts, skipped checks, blockers, and claim boundary.
@@ -44,3 +43,17 @@ Receipts SHALL store hashes and allowlisted normalized environment metadata rath
 #### Scenario: Absolute user path is emitted
 - **WHEN** a command uses a workspace path containing a user profile
 - **THEN** canonical receipt output contains a path token and no raw private user path
+
+### Requirement: Evidence reachability is explicit
+Repository evidence SHALL distinguish immutable run identity from mutable scope-local current heads and named release pins. A run is current or retained only through exact validated bindings; directory names and modification times MUST NOT provide authority.
+
+#### Scenario: Current head references a changed result
+- **WHEN** the result fingerprint no longer matches the current-head binding
+- **THEN** the head is invalid and the run cannot support a current claim
+
+### Requirement: Evidence disposal preserves receipt authority
+Evidence lifecycle operations SHALL never mutate a retained receipt in place. Quarantine and purge receipts SHALL identify the exact audit, plan, candidate fingerprints, head/pin replay, moved or deleted paths, and claim boundary.
+
+#### Scenario: Collectible run is quarantined
+- **WHEN** an exact current GC plan is applied
+- **THEN** the original run bytes move together without receipt rewriting and the quarantine receipt records their prior identities

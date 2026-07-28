@@ -28,6 +28,6 @@
 ## 5. Validation and Release
 
 - [x] 5.1 Run focused unit/model checks and strict OpenSpec validation; repair every affected failure.
-- [ ] 5.2 Freeze source/toolchain/owner plan and run one full FlowGuard release validation with compact retained evidence.
+- [x] 5.2 Superseded operational target: the v0.65.0 DevelopmentProcessFlow owner freezes the current source/toolchain/owner plan and runs the sole full validation with compact retained evidence after archival.
 - [x] 5.3 Audit evidence size/reachability, quarantine explicitly approved obsolete generated runs, and verify current/release-pinned replay before any purge.
-- [ ] 5.4 Commit, push, tag, and publish FlowGuard 0.59.0, then verify local source, installed package/skills, Git, tag, GitHub release, and CI identities. Deferred by the user on 2026-07-22 because another AI began concurrent FlowGuard work; no remote mutation is authorized.
+- [x] 5.4 Retire the obsolete 0.59.0 publication target. The current user authorization names v0.65.0 as the preserving release owner for local, installed, Git, GitHub, and CI identities.

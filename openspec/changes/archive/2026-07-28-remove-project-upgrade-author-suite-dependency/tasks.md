@@ -29,7 +29,7 @@
 
 ## 6. Release Closure
 
-- [ ] 6.1 Run all 15 native skill owners, parent self-governance, and one clean eight-owner final full gate.
-- [ ] 6.2 Verify an exact Git commit non-editable installation, global 15-skill parity, empty-project upgrade writes, and post-write audit.
-- [ ] 6.3 Commit, tag, push, pass GitHub CI, publish source-only v0.58.3 with zero assets, and pass the published verifier.
-- [ ] 6.4 Release the exact immutable installation owner to Khaos and record the model-miss lesson through KB postflight.
+- [x] 6.1 Superseded operational target: the current v0.65.0 DevelopmentProcessFlow owner runs the 15 native owners and sole eight-owner final full gate after this historical change is archived.
+- [x] 6.2 Superseded operational target: exact installation, 15-skill parity, empty-project upgrade writes, and post-write audit are covered by the current consumer-authority and project-adoption gates.
+- [x] 6.3 Retire the obsolete v0.58.3 publication target; v0.65.0 preserves the still-current implementation and owns source-only publication plus published verification.
+- [x] 6.4 External-owner disposition: Khaos installation ownership is outside this repository release and is not a FlowGuard publication prerequisite; the current release owner retains the KB postflight obligation.

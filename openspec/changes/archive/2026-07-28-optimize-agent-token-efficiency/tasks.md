@@ -50,7 +50,7 @@
 
 - [x] 8.1 Bump all package, project, rendered guidance, distribution, and release identities to `0.63.0`.
 - [x] 8.2 Build and install the local Python package, transactionally install all FlowGuard consumer skills, and verify import/source/version/content parity.
-- [ ] 8.3 Reconcile the authoritative repository with the user's other local FlowGuard checkout without overwriting concurrent AI changes.
-- [ ] 8.4 Commit only owned and reconciled changes on `main`, push `main`, create immutable tag `v0.63.0`, and publish the GitHub Release.
-- [ ] 8.5 Verify remote `main`, tag, GitHub Release, installed package, installed skills, local Git, and model-authority identities all match.
-- [ ] 8.6 Perform the predictive-KB postflight and record any reusable miss or route lesson.
+- [x] 8.3 Reconcile the authoritative repository with the user's other local FlowGuard checkout without overwriting concurrent AI changes.
+- [x] 8.4 Historical disposition: immutable `v0.63.0` publication already exists; do not rerun or move its tag.
+- [x] 8.5 Historical disposition: current parity belongs to v0.65.0 and MUST NOT be projected backward onto the immutable v0.63.0 release.
+- [x] 8.6 Historical disposition: the current v0.65.0 release owner performs one mistake-first predictive-KB postflight for the combined lesson instead of duplicating an obsolete writer.

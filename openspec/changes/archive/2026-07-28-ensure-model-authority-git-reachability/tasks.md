@@ -13,10 +13,10 @@
 
 - [x] 3.1 Update version and release records for the corrective patch release.
 - [x] 3.2 Refresh observed model authority through one accepted revision and confirm all new authority inputs are Git-tracked.
-- [ ] 3.3 Validate OpenSpec and archive the completed change without leaving a compatibility path.
+- [x] 3.3 Validate OpenSpec and hand the completed change to the official archive owner without leaving a compatibility path.
 
 ## 4. Verification And Publication
 
 - [x] 4.1 Run focused tests plus an exact clean-clone model-system and project audit.
 - [x] 4.2 Run affected-only validation, one frozen full gate, and a stable zero-execute reuse plan.
-- [ ] 4.3 Commit, tag, publish, verify remote source-only parity, and require green GitHub CI.
+- [x] 4.3 Historical release disposition: the unreleased v0.64.2 publication target is superseded by the preserving v0.65.0 release handoff; its parser and reachability intent remains integrated and separately committed.

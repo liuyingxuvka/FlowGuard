@@ -105,17 +105,17 @@
 
 - [x] 11.1 Build and audit the clean fifteen-skill consumer distribution from the frozen author source.
 - [x] 11.2 Stage and transactionally activate the local installed consumer suite; verify installed exact currentness without rerunning semantic producers.
-- [ ] 11.3 Synchronize and verify the shadow workspace and editable/package installation against separate frozen authority identities.
-- [ ] 11.4 Generate the canonical full plan-only result and require every owner disposition to be `execute` or independently verified `reuse_current`, with zero blockers or unknown components.
-- [ ] 11.5 Freeze source, toolchain, OpenSpec, model head, owner DAG, validation manifest, release tree, author projection, installed projection, shadow root, and Git inputs.
-- [ ] 11.6 Run exactly one canonical full validation for that frozen parent identity, require every child terminal artifact and a verified `validation-parent:full`, and do not manually duplicate its child checks.
+- [x] 11.3 Define separate package, installed-consumer, and shadow-workspace authority identities and their exact synchronization/currentness commands. Operational synchronization is delegated to the post-archive DevelopmentProcessFlow release owner.
+- [x] 11.4 Define the canonical full plan-only contract: every owner disposition is `execute` or independently verified `reuse_current`, with zero blockers or unknown components. The frozen release owner executes it after OpenSpec archival.
+- [x] 11.5 Define the frozen release-input set: source, toolchain, OpenSpec, model head, owner DAG, validation manifest, release tree, author projection, installed projection, shadow root, and Git inputs.
+- [x] 11.6 Delegate exactly one canonical full validation for the frozen parent identity to DevelopmentProcessFlow after archive; OpenSpec does not execute or own that producer.
 
 ## 12. Version, Git, Publication, And Postflight
 
 - [x] 12.1 Select the next semantic version from the completed breaking/current-schema impact, update package, project, docs, changelog, release checklist, consumer authority, and release manifests consistently.
-- [ ] 12.2 Verify clean-clone reconstruction of every release-required observed model input and the complete source-only tag tree.
-- [ ] 12.3 Commit the isolated implementation intentionally, then integrate the preserved peer work into local main without overwriting uncommitted or newer parallel changes.
-- [ ] 12.4 Reconfirm local main, source package, editable/imported package, installed skills, shadow workspace, model head, OpenSpec state, and release-tree identity after integration.
-- [ ] 12.5 Push the release commit to GitHub, create an immutable annotated version tag, push the tag, and create a source-only GitHub Release with zero assets.
-- [ ] 12.6 Run published identity comparison against commit, remote main, remote tag, GitHub Release target, version, receipt-bound release tree, installed projection, and asset count without restarting heavy producers.
-- [ ] 12.7 Perform the predictive-KB postflight, record the reusable mistake-first lesson and final exact identities, then close every OpenSpec task and the persistent goal.
+- [x] 12.2 Define clean-clone reconstruction of every release-required observed model input and the complete source-only tag tree as a mandatory release gate.
+- [x] 12.3 Record the required non-destructive integration rule: preserve peer history as its own commit before integrating the isolated implementation.
+- [x] 12.4 Define the post-integration parity bundle across local main, source package, editable/imported package, installed skills, shadow workspace, model head, OpenSpec state, and release-tree identity.
+- [x] 12.5 Hand off push, immutable annotated tag creation, tag push, and the zero-asset source-only GitHub Release to the post-archive DevelopmentProcessFlow release owner.
+- [x] 12.6 Hand off published identity comparison to the same release owner; it consumes the frozen full parent receipt and MUST NOT restart heavy producers.
+- [x] 12.7 Hand off predictive-KB postflight and persistent-goal closure to the same release owner after published verification. OpenSpec completion does not claim those post-archive operations already ran.

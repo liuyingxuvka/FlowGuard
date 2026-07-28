@@ -66,6 +66,41 @@ class MaintenanceScriptTests(unittest.TestCase):
             self.assertIn(".skillguard/flowguard-suite/suite-map.json", result.copied_files)
             self.assertEqual(suite_map.read_bytes(), (target / ".skillguard" / "flowguard-suite" / "suite-map.json").read_bytes())
 
+    def test_default_shadow_sync_excludes_runtime_evidence_but_keeps_model_authority(self):
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as target_dir:
+            source = Path(source_dir)
+            target = Path(target_dir)
+            evidence = source / ".flowguard" / "evidence" / "run-1" / "receipt.json"
+            evidence.parent.mkdir(parents=True)
+            evidence.write_text('{"status":"pass"}\n', encoding="utf-8")
+            snapshot = source / ".flowguard" / "model-mesh" / "snapshots" / "current.json"
+            snapshot.parent.mkdir(parents=True)
+            snapshot.write_text('{"snapshot":"current"}\n', encoding="utf-8")
+
+            result = sync_workspace(source, target)
+
+            self.assertNotIn(
+                ".flowguard/evidence/run-1/receipt.json",
+                result.copied_files,
+            )
+            self.assertFalse(
+                (target / ".flowguard" / "evidence" / "run-1" / "receipt.json").exists()
+            )
+            self.assertIn(
+                ".flowguard/model-mesh/snapshots/current.json",
+                result.copied_files,
+            )
+            self.assertEqual(
+                snapshot.read_bytes(),
+                (
+                    target
+                    / ".flowguard"
+                    / "model-mesh"
+                    / "snapshots"
+                    / "current.json"
+                ).read_bytes(),
+            )
+
     def test_shadow_verify_checks_import_path_version_and_helper(self):
         with tempfile.TemporaryDirectory() as target_dir:
             target = Path(target_dir)
