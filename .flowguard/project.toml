@@ -1,8 +1,8 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.65.0"
+adopted_package_version = "0.65.1"
 schema_version = "1.0"
-last_verified_at = "2026-07-28T09:57:14+00:00"
+last_verified_at = "2026-07-28T22:31:31+00:00"
 last_verified_by = "FlowGuard project-upgrade"
 agents_path = "AGENTS.md"
 
@@ -15,12 +15,12 @@ require_model_update_for_behavior_changes = true
 
 [model_authority]
 system_id = "flowguard"
-observed_snapshot_path = ".flowguard/model-mesh/snapshots/211634f6cae08d0e6bb428aa1462f4fe8693e7674a1cacb77034b4412da85006.json"
-observed_snapshot_fingerprint = "sha256:211634f6cae08d0e6bb428aa1462f4fe8693e7674a1cacb77034b4412da85006"
-subject_revision = "source-inventory:ebee178436e10e05f666bb84c5279119b354f0fdc922f516870badd02f5a7407"
+observed_snapshot_path = ".flowguard/model-mesh/snapshots/33e0a2383a1ca74d1e0f3fd615183a178abdfb697f0cb0257e88de4f9e35c331.json"
+observed_snapshot_fingerprint = "sha256:33e0a2383a1ca74d1e0f3fd615183a178abdfb697f0cb0257e88de4f9e35c331"
+subject_revision = "source-inventory:32828576b0e8c89c2b0cc3417e300406b53552adea34803d9d932b7bc7f490a9"
 coverage_status = "complete_within_declared_boundary"
-generation = 10
-accepted_revision_set_fingerprint = "sha256:597f6f76ed7d2cfcfb609891790a7273cb4292e32ead107310d2206bc3473ace"
-previous_snapshot_fingerprint = "sha256:76c53234e0f9b2f5b8f63355a1f9079bf105706e150a7cf6d712d390d51db679"
-activation_receipt_fingerprint = "sha256:c9982e48814a38f557e0b9529355237e20bc9cc5cd0c7cf432a919a242d366ca"
-head_fingerprint = "sha256:274b1c05c47cdc0ab6e87d37bd4731f7e502f128a5fcce8f474666b158126498"
+generation = 11
+accepted_revision_set_fingerprint = "sha256:3a8dec7d97822919042089a76d50c207cc1476bb1b18b1bba090811e9b6b89a9"
+previous_snapshot_fingerprint = "sha256:211634f6cae08d0e6bb428aa1462f4fe8693e7674a1cacb77034b4412da85006"
+activation_receipt_fingerprint = "sha256:a495471e528dc7b572c3c00e452970e766ded32de23a3bef831a072924c435c7"
+head_fingerprint = "sha256:514a042730aa36821e5593c57d076407471c8a9281e87010056c03b22aff5d6e"

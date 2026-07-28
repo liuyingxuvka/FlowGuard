@@ -1,0 +1,12 @@
+{
+  "candidate_snapshot_fingerprint": "sha256:33e0a2383a1ca74d1e0f3fd615183a178abdfb697f0cb0257e88de4f9e35c331",
+  "expected_head_fingerprint": "sha256:274b1c05c47cdc0ab6e87d37bd4731f7e502f128a5fcce8f474666b158126498",
+  "fingerprint": "sha256:a495471e528dc7b572c3c00e452970e766ded32de23a3bef831a072924c435c7",
+  "next_generation": 11,
+  "previous_snapshot_fingerprint": "sha256:211634f6cae08d0e6bb428aa1462f4fe8693e7674a1cacb77034b4412da85006",
+  "receipt_id": "receipt:activation:flowguard:v0.65.1-openspec-ci-parity",
+  "revision_set_fingerprint": "sha256:3a8dec7d97822919042089a76d50c207cc1476bb1b18b1bba090811e9b6b89a9",
+  "schema": "flowguard.model_activation_receipt.v1",
+  "subject_revision": "source-inventory:32828576b0e8c89c2b0cc3417e300406b53552adea34803d9d932b7bc7f490a9",
+  "system_id": "flowguard"
+}

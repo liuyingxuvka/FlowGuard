@@ -288,8 +288,8 @@ When a project declares behavior, UI, field, or external work-context inventorie
 - **THEN** the project audit SHALL report the affected coverage evidence as stale without executing UI validation on behalf of its native owner
 
 ### Requirement: Project adoption is FlowGuard-only
-FlowGuard project adoption, audit, installed-currentness checking, and upgrade
-SHALL operate without discovering, installing, validating, executing, or
+FlowGuard project adoption, audit, installed-currentness checking, and upgrade SHALL
+operate without discovering, installing, validating, executing, or
 modifying SkillGuard, SkillGuard Global Router, `.skillguard`, private
 maintenance contracts, receipts, router state, run stores, or author prompts.
 
@@ -355,8 +355,8 @@ author-maintenance dependency.
   authority without alias, fallback, or dual reader
 
 ### Requirement: Ordinary project zero-write behavior
-FlowGuard project use, read-only audit, installed-currentness checking, and
-adoption MUST NOT create or mutate SkillGuard files, prompts, processes,
+FlowGuard project use, read-only audit, installed-currentness checking, and adoption MUST NOT
+create or mutate SkillGuard files, prompts, processes,
 receipts, router state, or project records.
 
 #### Scenario: Empty project is adopted

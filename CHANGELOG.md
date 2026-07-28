@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.65.1 - 2026-07-28
+
+- Restored strict-validation parity between the CI-pinned OpenSpec `1.3.1`
+  parser and the current `1.6.0` parser for four wrapped requirement openings
+  across three canonical specs without changing their requirement semantics.
+- Preserved immutable `v0.65.0` history and published this correction as a
+  source-only patch release after both parsers passed all 99 current specs.
+
 ## v0.65.0 - 2026-07-28
 
 - Replaced broad, self-reported freshness with a frozen validation-owner DAG,
