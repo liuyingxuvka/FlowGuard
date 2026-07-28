@@ -73,6 +73,25 @@ class FullValidationCompositionTests(unittest.TestCase):
             ]
         )
 
+    def test_external_consumer_fingerprint_ignores_unrelated_installed_skills(self):
+        initial = suite_command._external_tree_fingerprint(self.installed)
+        unrelated = self.installed / "unrelated-plugin" / "large.bin"
+        unrelated.parent.mkdir(parents=True)
+        unrelated.write_bytes(b"x" * 4096)
+
+        self.assertEqual(
+            initial,
+            suite_command._external_tree_fingerprint(self.installed),
+        )
+
+        managed = self.installed / "flowguard" / "SKILL.md"
+        managed.parent.mkdir(parents=True)
+        managed.write_text("# current FlowGuard\n", encoding="utf-8")
+        self.assertNotEqual(
+            initial,
+            suite_command._external_tree_fingerprint(self.installed),
+        )
+
     @staticmethod
     def child_id(command):
         joined = " ".join(command)

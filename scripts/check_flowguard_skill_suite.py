@@ -29,7 +29,11 @@ if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
 from flowguard.skill_contracts import compile_skill_suite
-from flowguard.skill_suite import FLOWGUARD_SKILL_ROOT, validate_skill_suite
+from flowguard.skill_suite import (
+    FLOWGUARD_SKILL_ROOT,
+    FLOWGUARD_SUITE_MAP,
+    validate_skill_suite,
+)
 from flowguard.evidence_lifecycle import (
     EvidenceLifecycleError,
     ensure_new_run_directory,
@@ -122,30 +126,48 @@ class ChildSpec:
     missing_reason: str = ""
 
 
+def _canonical_flowguard_member_ids() -> tuple[str, ...]:
+    payload = json.loads((SCRIPT_ROOT / FLOWGUARD_SUITE_MAP).read_text(encoding="utf-8"))
+    members = payload.get("included_skills", ())
+    return tuple(
+        sorted(
+            str(row.get("name", "")).strip()
+            for row in members
+            if isinstance(row, Mapping) and str(row.get("name", "")).strip()
+        )
+    )
+
+
 def _external_tree_fingerprint(path: Path) -> str:
     if not path.is_dir():
         return fingerprint_payload({"state": "missing", "path_kind": "directory"})
     skill_root = path / ".agents" / "skills"
     scanned_root = skill_root if skill_root.is_dir() else path
     rows = []
-    for file_path in sorted(
-        (item for item in scanned_root.rglob("*") if item.is_file()),
-        key=lambda item: item.relative_to(scanned_root).as_posix(),
-    ):
-        relative = file_path.relative_to(scanned_root).as_posix()
-        if (
-            ".git" in file_path.parts
-            or "__pycache__" in file_path.parts
-            or relative.endswith(".pyc")
-            or "/.flowguard/evidence/" in f"/{relative}/"
-        ):
+    for member_id in _canonical_flowguard_member_ids():
+        member_root = scanned_root / member_id
+        if not member_root.is_dir():
+            rows.append({"member_id": member_id, "state": "missing"})
             continue
-        rows.append(
-            {
-                "path": relative,
-                "sha256": "sha256:" + hashlib.sha256(file_path.read_bytes()).hexdigest(),
-            }
-        )
+        for file_path in sorted(
+            (item for item in member_root.rglob("*") if item.is_file()),
+            key=lambda item: item.relative_to(scanned_root).as_posix(),
+        ):
+            relative = file_path.relative_to(scanned_root).as_posix()
+            if (
+                ".git" in file_path.parts
+                or "__pycache__" in file_path.parts
+                or relative.endswith(".pyc")
+            ):
+                continue
+            rows.append(
+                {
+                    "path": relative,
+                    "sha256": (
+                        "sha256:" + hashlib.sha256(file_path.read_bytes()).hexdigest()
+                    ),
+                }
+            )
     return fingerprint_payload(rows)
 
 
@@ -612,6 +634,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
             (
                 ".agents/skills/**/*",
                 ".skillguard/**/*",
+                "flowguard/consumer-suite-authority.json",
                 "flowguard/distribution_sync.py",
                 "flowguard/skill_suite.py",
                 "scripts/install_flowguard_skills.py",
@@ -629,6 +652,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
             (
                 ".agents/skills/**/*",
                 ".skillguard/**/*",
+                "flowguard/consumer-suite-authority.json",
                 "flowguard/distribution_sync.py",
                 "flowguard/skill_suite.py",
                 "scripts/install_flowguard_skills.py",
