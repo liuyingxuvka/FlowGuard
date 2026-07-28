@@ -43,6 +43,7 @@ from flowguard.evidence_lifecycle import (
     store_text_object,
 )
 from flowguard.process_supervision import run_supervised, write_terminal_artifact
+from flowguard.model_regressions import ModelRegressionManifest
 from flowguard.validation_ownership import (
     OWNER_BLOCKED,
     OWNER_EXECUTE,
@@ -169,6 +170,26 @@ def _external_tree_fingerprint(path: Path) -> str:
                 }
             )
     return fingerprint_payload(rows)
+
+
+def _model_regression_input_patterns(root: Path) -> tuple[str, ...]:
+    """Use the manifest's exact owned inputs instead of scanning runtime stores."""
+
+    manifest_path = root / ".flowguard" / "model-regression-manifest.json"
+    patterns = {
+        ".flowguard/model-regression-manifest.json",
+        "flowguard/model_regressions.py",
+        "scripts/run_flowguard_model_regressions.py",
+    }
+    if not manifest_path.is_file():
+        return tuple(sorted(patterns))
+    manifest = ModelRegressionManifest.load(root)
+    for entry in manifest.entries:
+        if not entry.excluded:
+            patterns.update(entry.input_globs)
+    for group in manifest.shared_input_groups:
+        patterns.update(group.globs)
+    return tuple(sorted(patterns))
 
 
 def _skillguard_cli(value: str) -> Path:
@@ -583,15 +604,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
         ChildSpec(
             "model_regressions_full",
             tuple(model_command),
-            (
-                ".flowguard/model-regression-manifest.json",
-                ".flowguard/**/*.py",
-                ".flowguard/**/*.json",
-                "flowguard/model_*.py",
-                "flowguard/source_identity.py",
-                "flowguard/validation_results.py",
-                "scripts/run_flowguard_model_regressions.py",
-            ),
+            _model_regression_input_patterns(root),
             ("validation:model_regressions_full",),
             required_path=model_script,
             missing_reason="manifest model-regression runner is required for full closure",

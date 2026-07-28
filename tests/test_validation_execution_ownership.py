@@ -10,6 +10,7 @@ from flowguard.validation_ownership import (
     build_validation_owner_plan,
     build_validation_parent_current,
     manifest_fingerprint,
+    resolve_input_manifest,
     topological_owner_contracts,
     validation_input_manifest,
 )
@@ -101,6 +102,38 @@ class ValidationExecutionOwnershipTests(unittest.TestCase):
             output.write_text('{"status":"pass"}\n', encoding="utf-8")
             after = manifest_fingerprint(validation_input_manifest(root))
             self.assertEqual(before, after)
+
+    def test_git_candidates_preserve_recursive_globs_without_walking_ignored_evidence(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self._repository(Path(temporary))
+            direct = root / "flowguard" / "direct.py"
+            nested = root / "flowguard" / "nested" / "deep.py"
+            ignored = root / ".flowguard" / "evidence" / "run" / "noise.py"
+            direct.parent.mkdir(parents=True)
+            nested.parent.mkdir(parents=True)
+            ignored.parent.mkdir(parents=True)
+            direct.write_text("DIRECT = True\n", encoding="utf-8")
+            nested.write_text("DEEP = True\n", encoding="utf-8")
+            ignored.write_text("NOISE = True\n", encoding="utf-8")
+            (root / ".gitignore").write_text(
+                ".flowguard/evidence/\n",
+                encoding="utf-8",
+            )
+
+            rows = resolve_input_manifest(
+                root,
+                ("flowguard/**/*.py", ".flowguard/**/*.py"),
+            )
+            paths = {row["path"] for row in rows}
+
+            self.assertIn("flowguard/direct.py", paths)
+            self.assertIn("flowguard/nested/deep.py", paths)
+            self.assertNotIn(
+                ".flowguard/evidence/run/noise.py",
+                paths,
+            )
 
     @staticmethod
     def _repository(root: Path) -> Path:

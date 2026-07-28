@@ -52,7 +52,14 @@ def _atomic_write(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     temporary.write_bytes(data)
-    os.replace(temporary, path)
+    try:
+        os.replace(temporary, path)
+    except OSError:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
 
 def _extended_windows_path(path: Path) -> str:
@@ -104,7 +111,22 @@ def store_text_object(
         if object_path.read_bytes() != compressed:
             raise EvidenceLifecycleError(f"stored object conflicts with logical identity: {logical_sha}")
     else:
-        _atomic_write(object_path, compressed)
+        try:
+            _atomic_write(object_path, compressed)
+        except OSError as exc:
+            # Another model owner may atomically publish the same
+            # content-addressed object between the existence check and replace.
+            # Windows can report this benign winner as AccessDenied.
+            try:
+                concurrent_value = object_path.read_bytes()
+            except OSError:
+                raise EvidenceLifecycleError(
+                    f"cannot publish evidence object: {logical_sha}"
+                ) from exc
+            if concurrent_value != compressed:
+                raise EvidenceLifecycleError(
+                    f"stored object conflicts with logical identity: {logical_sha}"
+                ) from exc
     return {
         "schema_version": OBJECT_SCHEMA,
         "logical_sha256": logical_sha,

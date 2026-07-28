@@ -1,0 +1,12 @@
+{
+  "candidate_snapshot_fingerprint": "sha256:e7a5b02edff8a04ee2ccfd2200eae1030137694c4d7a9add1d41482342e14182",
+  "expected_head_fingerprint": "sha256:bbbf536f96dda9b0f86eec1bc2b34c1a7d3c0ccbe5bb92c28672da758b41877b",
+  "fingerprint": "sha256:c93a606d14e6cfa90922258be75df10570b00f1afb8dbda806bffdfcf2c9490b",
+  "next_generation": 8,
+  "previous_snapshot_fingerprint": "sha256:bf8c0f96ab3a6b809e77aa89b8f8cd73ff1151f449c268a23cf0e54ebc80f7b1",
+  "receipt_id": "receipt:activation:flowguard:v0.65.0-currentness-planner-pruning",
+  "revision_set_fingerprint": "sha256:6de69ca6dc1bf0c8410f99666865974f32d884ab52adfb41481573d36c9806ab",
+  "schema": "flowguard.model_activation_receipt.v1",
+  "subject_revision": "source-inventory:39e280af0db574a014be9930bcbfb489410a9d36fa1bebe9ec31429e1d0843d6",
+  "system_id": "flowguard"
+}
