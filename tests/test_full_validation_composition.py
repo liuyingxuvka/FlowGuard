@@ -180,7 +180,12 @@ class FullValidationCompositionTests(unittest.TestCase):
         for relative in required:
             path = self.root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("{}\n", encoding="utf-8")
+            payload = (
+                '{"model_instances":[]}\n'
+                if relative == required[0]
+                else "{}\n"
+            )
+            path.write_text(payload, encoding="utf-8")
 
         with self.assertRaisesRegex(
             ValueError,

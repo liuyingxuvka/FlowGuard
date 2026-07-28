@@ -15,6 +15,7 @@ from flowguard.release_verification import (
     RELEASE_PHASE_TAG,
     RELEASE_VERIFICATION_SCHEMA,
     _command_runner,
+    _model_authority_git_reachability_check,
     _remote_tag_commit,
     verify_local_candidate,
     verify_published_release,
@@ -38,6 +39,11 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         (self.root / ".flowguard").mkdir()
+        (self.root / ".flowguard" / "fixture-model").mkdir()
+        (self.root / ".flowguard" / "model-mesh" / "snapshots").mkdir(
+            parents=True
+        )
+        (self.root / ".flowguard" / "model-mesh" / "bootstraps").mkdir()
         (self.root / "dist").mkdir()
         (self.root / "flowguard").mkdir()
         (self.root / "flowguard" / "__init__.py").write_bytes(
@@ -48,7 +54,54 @@ class ReleaseVerificationTests(unittest.TestCase):
         )
         (self.root / ".flowguard" / "project.toml").write_bytes(
             b'[flowguard]\npackage_version="1.2.3"\nschema_version="1.0"\n'
+            b'\n[model_authority]\n'
+            b'observed_snapshot_path=".flowguard/model-mesh/snapshots/'
+            + (b"a" * 64)
+            + b'.json"\n'
+            + b'observed_snapshot_fingerprint="sha256:'
+            + (b"a" * 64)
+            + b'"\n'
+            + b'generation=1\n'
+            + b'accepted_revision_set_fingerprint="sha256:'
+            + (b"b" * 64)
+            + b'"\n'
+            + b'activation_receipt_fingerprint="sha256:'
+            + (b"b" * 64)
+            + b'"\n'
+            + b'previous_snapshot_fingerprint=""\n'
         )
+        model_path = ".flowguard/fixture-model/model.py"
+        runner_path = ".flowguard/fixture-model/run_checks.py"
+        (self.root / model_path).write_bytes(b"MODEL = 'fixture'\n")
+        (self.root / runner_path).write_bytes(b"print('fixture')\n")
+        (
+            self.root
+            / ".flowguard"
+            / "model-mesh"
+            / "snapshots"
+            / (("a" * 64) + ".json")
+        ).write_text(
+            json.dumps(
+                {
+                    "model_instances": [
+                        {
+                            "inputs": [
+                                {"path": model_path},
+                                {"path": runner_path},
+                            ]
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        (
+            self.root
+            / ".flowguard"
+            / "model-mesh"
+            / "bootstraps"
+            / (("b" * 64) + ".json")
+        ).write_text("{}\n", encoding="utf-8")
         (self.root / "README.md").write_bytes(b"FlowGuard 1.2.3\n")
         (self.root / "CHANGELOG.md").write_bytes(b"## [1.2.3]\n")
         subprocess.run(("git", "init", "-q"), cwd=self.root, check=True)
@@ -309,6 +362,92 @@ class ReleaseVerificationTests(unittest.TestCase):
             receipt.to_dict()["blockers"],
         )
 
+    def test_untracked_observed_model_input_blocks_local_candidate(self) -> None:
+        model_path = ".flowguard/fixture-model/model.py"
+        subprocess.run(
+            ("git", "rm", "--cached", "--quiet", model_path),
+            cwd=self.root,
+            check=True,
+        )
+
+        receipt = self._local()
+
+        self.assertFalse(receipt.ok)
+        self.assertIn(
+            "release.model_authority_git_reachability",
+            receipt.to_dict()["blockers"],
+        )
+        check = next(
+            item
+            for item in receipt.checks
+            if item.check_id == "release.model_authority_git_reachability"
+        )
+        self.assertEqual([model_path], check.details["missing_paths"])
+
+    def test_untracked_observed_runner_input_blocks_same_class(self) -> None:
+        runner_path = ".flowguard/fixture-model/run_checks.py"
+        subprocess.run(
+            ("git", "rm", "--cached", "--quiet", runner_path),
+            cwd=self.root,
+            check=True,
+        )
+
+        receipt = self._local()
+
+        self.assertFalse(receipt.ok)
+        check = next(
+            item
+            for item in receipt.checks
+            if item.check_id == "release.model_authority_git_reachability"
+        )
+        self.assertEqual([runner_path], check.details["missing_paths"])
+
+    def test_model_authority_reachability_does_not_put_inputs_on_command_line(
+        self,
+    ) -> None:
+        snapshot = (
+            self.root
+            / ".flowguard"
+            / "model-mesh"
+            / "snapshots"
+            / (("a" * 64) + ".json")
+        )
+        input_paths = [f".flowguard/models/model-{index}.py" for index in range(1000)]
+        snapshot.write_text(
+            json.dumps(
+                {
+                    "model_instances": [
+                        {"inputs": [{"path": path} for path in input_paths]}
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        tracked = "\0".join(
+            [
+                f".flowguard/model-mesh/snapshots/{'a' * 64}.json",
+                f".flowguard/model-mesh/bootstraps/{'b' * 64}.json",
+                *input_paths,
+                "",
+            ]
+        )
+        runner = mock.Mock(
+            return_value=SimpleNamespace(
+                returncode=0,
+                stdout=tracked,
+                stderr="",
+            )
+        )
+
+        with mock.patch(
+            "flowguard.release_verification._command_runner",
+            runner,
+        ):
+            check = _model_authority_git_reachability_check(self.root)
+
+        self.assertEqual("pass", check.status)
+        runner.assert_called_once_with(("git", "ls-files", "-z"), self.root)
+
     def test_tag_phase_compares_committed_tree_to_parent_manifest(self) -> None:
         local = self._local()
         commit = self._tag()
@@ -414,6 +553,16 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.assertFalse(
             any("check_flowguard_skill_suite" in " ".join(command) for command in commands)
         )
+        remote_query = next(
+            command
+            for command in commands
+            if command[:4] == ("git", "ls-remote", "--tags", "origin")
+        )
+        self.assertEqual(
+            ("git", "ls-remote", "--tags", "origin", "refs/tags/v1.2.3*"),
+            remote_query,
+        )
+        self.assertNotIn("^", " ".join(remote_query))
 
     def test_published_phase_rejects_unpeeled_remote_tag(self) -> None:
         commit = self._tag()

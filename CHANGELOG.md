@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.64.1 - 2026-07-28
+
+- Closed a clean-clone authority gap by requiring the selected observed
+  snapshot and every resolved model input to be Git-tracked before local
+  release confidence.
+- Added the 49 model and runner inputs that v0.64.0 referenced from the ignored
+  local `.flowguard/` tree but did not include in its committed source tree.
+- Added observed missing-model and same-class missing-runner regressions and
+  made published annotated-tag lookup safe across Windows command wrappers.
+- Preserved immutable `v0.64.0` history and published the correction as a
+  source-only patch release after clean-clone project audit and green CI.
+
 ## v0.64.0 - 2026-07-28
 
 - Replaced unconditional full validation with a deterministic native owner

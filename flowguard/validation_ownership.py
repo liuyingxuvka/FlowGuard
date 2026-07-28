@@ -243,7 +243,7 @@ def _git_worktree_blob_id(
     ).decode("ascii").strip()
 
 
-def _model_authority_release_paths(root: Path) -> tuple[str, ...]:
+def model_authority_release_paths(root: Path) -> tuple[str, ...]:
     """Return the public files needed to replay the current authority head."""
 
     manifest_path = root / ".flowguard" / "project.toml"
@@ -294,7 +294,49 @@ def _model_authority_release_paths(root: Path) -> tuple[str, ...]:
     if previous and not re.fullmatch(r"sha256:[0-9a-f]{64}", previous):
         raise ValueError("model authority previous snapshot fingerprint is invalid")
 
+    snapshot_file = root / expected_observed_path
+    try:
+        snapshot_payload = json.loads(snapshot_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("model authority observed snapshot is unreadable") from exc
+    if not isinstance(snapshot_payload, Mapping):
+        raise ValueError("model authority observed snapshot must be a JSON object")
+    model_instances = snapshot_payload.get("model_instances")
+    if not isinstance(model_instances, list):
+        raise ValueError(
+            "model authority observed snapshot model_instances must be an array"
+        )
+
     paths = [expected_observed_path]
+    for model_index, model_instance in enumerate(model_instances):
+        if not isinstance(model_instance, Mapping):
+            raise ValueError(
+                f"model authority model_instances[{model_index}] must be an object"
+            )
+        inputs = model_instance.get("inputs")
+        if not isinstance(inputs, list):
+            raise ValueError(
+                "model authority input inventory must be an array: "
+                f"model_instances[{model_index}]"
+            )
+        for input_index, input_row in enumerate(inputs):
+            if not isinstance(input_row, Mapping):
+                raise ValueError(
+                    "model authority input row must be an object: "
+                    f"model_instances[{model_index}].inputs[{input_index}]"
+                )
+            relative = str(input_row.get("path", "")).replace("\\", "/")
+            relative_path = Path(relative)
+            if (
+                not relative
+                or relative_path.is_absolute()
+                or ".." in relative_path.parts
+            ):
+                raise ValueError(
+                    "model authority input path is invalid: "
+                    f"model_instances[{model_index}].inputs[{input_index}]"
+                )
+            paths.append(relative)
     if previous:
         paths.append(
             ".flowguard/model-mesh/snapshots/"
@@ -378,7 +420,7 @@ def release_tree_manifest(
         if stage != "0":
             raise ValueError(f"release tree has an unresolved index stage: {path}")
         index_rows[path] = (mode, object_id)
-    required_authority_paths = _model_authority_release_paths(root_path)
+    required_authority_paths = model_authority_release_paths(root_path)
     missing_authority_paths = tuple(
         path for path in required_authority_paths if path not in index_rows
     )
@@ -1175,6 +1217,7 @@ __all__ = [
     "find_reusable_owner_receipt",
     "governed_source_manifest",
     "manifest_fingerprint",
+    "model_authority_release_paths",
     "plan_validation_owners",
     "release_tree_manifest",
     "resolve_input_manifest",

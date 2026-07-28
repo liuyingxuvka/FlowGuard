@@ -21,6 +21,7 @@ from .evidence_receipts import (
 )
 from .validation_ownership import (
     manifest_fingerprint,
+    model_authority_release_paths,
     release_tree_manifest,
     validation_input_manifest,
     verify_parent_receipt,
@@ -528,6 +529,59 @@ def _local_candidate_checks(
     )
 
 
+def _model_authority_git_reachability_check(root: Path) -> ReleaseCheck:
+    try:
+        required_paths = model_authority_release_paths(root)
+        extraction_error = ""
+    except (OSError, KeyError, TypeError, ValueError) as error:
+        required_paths = ()
+        extraction_error = f"{type(error).__name__}: {error}"
+    if extraction_error:
+        return _check(
+            "release.model_authority_git_reachability",
+            False,
+            "the selected observed model authority must expose a valid input closure",
+            required_paths=[],
+            missing_paths=[],
+            error=extraction_error,
+        )
+    if not required_paths:
+        return _check(
+            "release.model_authority_git_reachability",
+            True,
+            "the project declares no observed model-authority input closure",
+            required_paths=[],
+            missing_paths=[],
+            error="",
+        )
+
+    tracked_result = _command_runner(
+        ("git", "ls-files", "-z"),
+        root,
+    )
+    tracked_paths = {
+        path.replace("\\", "/")
+        for path in tracked_result.stdout.split("\0")
+        if path
+    }
+    missing_paths = tuple(
+        path for path in required_paths if path not in tracked_paths
+    )
+    git_error = (
+        tracked_result.stderr.strip()
+        if tracked_result.returncode != 0
+        else ""
+    )
+    return _check(
+        "release.model_authority_git_reachability",
+        tracked_result.returncode == 0 and not missing_paths,
+        "the selected observed snapshot and every resolved input are Git-tracked",
+        required_paths=list(required_paths),
+        missing_paths=list(missing_paths),
+        error=git_error,
+    )
+
+
 def verify_local_candidate(
     root: str | Path,
     *,
@@ -558,7 +612,7 @@ def verify_local_candidate(
         installed_version=installed_version,
         schema_version=schema_version,
         source_path=source_path,
-    )
+    ) + (_model_authority_git_reachability_check(root_path),)
     if version_error:
         checks = checks + (
             _check(
@@ -755,8 +809,7 @@ def verify_published_release(
             "ls-remote",
             "--tags",
             "origin",
-            tag_ref,
-            peeled_ref,
+            f"{tag_ref}*",
         ),
         root_path,
     )
