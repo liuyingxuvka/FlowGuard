@@ -1,7 +1,10 @@
 # flowguard-model-simulator Specification
 
 ## Purpose
-TBD - created by archiving change bound-model-evidence-and-unify-simulator. Update Purpose after archive.
+Define one manifest-backed simulator that lists and executes registered FlowGuard
+models through their native runners without creating a second catalog, semantic
+owner, or implicit run-all path.
+
 ## Requirements
 ### Requirement: One manifest-backed model simulator
 FlowGuard SHALL provide one public simulator command that audits and consumes the canonical model-regression manifest rather than maintaining a second model catalog or discovering an alternate executable owner.

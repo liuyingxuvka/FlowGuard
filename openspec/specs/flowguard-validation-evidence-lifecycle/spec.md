@@ -1,7 +1,10 @@
 # flowguard-validation-evidence-lifecycle Specification
 
 ## Purpose
-TBD - created by archiving change bound-model-evidence-and-unify-simulator. Update Purpose after archive.
+Define how validation streams, terminal run heads, pins, audits, and garbage
+collection retain one content-addressed evidence identity while keeping
+currentness explicit, bounded, and recoverable.
+
 ## Requirements
 ### Requirement: Complete stream evidence has one logical owner
 FlowGuard validation writers SHALL hash complete stdout/stderr bytes, store deterministic compressed objects by content identity, and expose separate logical and stored hashes, byte counts, media type, and relative object path. Parent and child summaries MUST NOT embed a second full copy of the stream or parsed payload.

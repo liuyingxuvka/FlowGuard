@@ -62,6 +62,39 @@ def _atomic_write(path: Path, data: bytes) -> None:
         raise
 
 
+def _publish_content_addressed_object(
+    path: Path,
+    data: bytes,
+    *,
+    logical_sha: str,
+) -> None:
+    """Converge concurrent identical publishers without hiding conflicts."""
+
+    last_error: OSError | None = None
+    for attempt in range(50):
+        try:
+            existing = path.read_bytes()
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            last_error = exc
+        else:
+            if existing != data:
+                raise EvidenceLifecycleError(
+                    f"stored object conflicts with logical identity: {logical_sha}"
+                )
+            return
+        try:
+            _atomic_write(path, data)
+            return
+        except OSError as exc:
+            last_error = exc
+        time.sleep(min(0.005 * (attempt + 1), 0.05))
+    raise EvidenceLifecycleError(
+        f"cannot publish evidence object: {logical_sha}"
+    ) from last_error
+
+
 def _extended_windows_path(path: Path) -> str:
     value = str(path.resolve())
     if os.name != "nt" or value.startswith("\\\\?\\"):
@@ -107,26 +140,11 @@ def store_text_object(
     compressed = _gzip_deterministic(logical)
     digest = logical_sha.removeprefix("sha256:")
     object_path = run_path / "objects" / "sha256" / f"{digest}.txt.gz"
-    if object_path.is_file():
-        if object_path.read_bytes() != compressed:
-            raise EvidenceLifecycleError(f"stored object conflicts with logical identity: {logical_sha}")
-    else:
-        try:
-            _atomic_write(object_path, compressed)
-        except OSError as exc:
-            # Another model owner may atomically publish the same
-            # content-addressed object between the existence check and replace.
-            # Windows can report this benign winner as AccessDenied.
-            try:
-                concurrent_value = object_path.read_bytes()
-            except OSError:
-                raise EvidenceLifecycleError(
-                    f"cannot publish evidence object: {logical_sha}"
-                ) from exc
-            if concurrent_value != compressed:
-                raise EvidenceLifecycleError(
-                    f"stored object conflicts with logical identity: {logical_sha}"
-                ) from exc
+    _publish_content_addressed_object(
+        object_path,
+        compressed,
+        logical_sha=logical_sha,
+    )
     return {
         "schema_version": OBJECT_SCHEMA,
         "logical_sha256": logical_sha,

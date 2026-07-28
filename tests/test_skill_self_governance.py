@@ -144,26 +144,31 @@ class SkillSelfGovernanceTests(unittest.TestCase):
             {item.obligation_id for item in requirements},
             {item.obligation_ids[0] for item in parent.required_child_receipts},
         )
-        parent_context = ReceiptVerificationContext(
-            input_snapshots={item.artifact_id: item for item in parent.input_snapshots},
-            contract_hash=parent.contract_hash,
-            check_manifest_hash=parent.check_manifest_hash,
-            suite_map_hash=parent.suite_map_hash,
-            producer_id=parent.producer_id,
-            producer_version=parent.producer_version,
-            environment_fingerprint=parent.environment_fingerprint,
-            proof_artifact_fingerprint=parent.proof_artifact_fingerprint,
-            result_fingerprint=parent.result_fingerprint,
-            command=parent.command,
-            working_directory_token=parent.working_directory_token,
-            proof_artifact_id=parent.proof_artifact_id,
-            required_obligation_ids=parent.covered_obligations,
-            eligible_claim_scopes=("full",),
-            child_receipts={item.receipt_id: item for item in receipts},
-            child_verification_results={item.receipt_id: item for item in report.child_verification_results},
-            latest_child_receipt_ids={item.subject_id: item.receipt_id for item in receipts},
-        )
-        self.assertTrue(verify_evidence_receipt(parent, parent_context).ok)
+        with tempfile.TemporaryDirectory() as directory:
+            receipt_store = Path(directory)
+            for receipt in receipts:
+                save_evidence_receipt(receipt, receipt_store)
+            parent_context = ReceiptVerificationContext(
+                input_snapshots={item.artifact_id: item for item in parent.input_snapshots},
+                contract_hash=parent.contract_hash,
+                check_manifest_hash=parent.check_manifest_hash,
+                suite_map_hash=parent.suite_map_hash,
+                producer_id=parent.producer_id,
+                producer_version=parent.producer_version,
+                environment_fingerprint=parent.environment_fingerprint,
+                proof_artifact_fingerprint=parent.proof_artifact_fingerprint,
+                result_fingerprint=parent.result_fingerprint,
+                command=parent.command,
+                working_directory_token=parent.working_directory_token,
+                proof_artifact_id=parent.proof_artifact_id,
+                required_obligation_ids=parent.covered_obligations,
+                eligible_claim_scopes=("full",),
+                child_receipts={item.receipt_id: item for item in receipts},
+                child_verification_results={item.receipt_id: item for item in report.child_verification_results},
+                latest_child_receipt_ids={item.subject_id: item.receipt_id for item in receipts},
+                receipt_store_repository_root=str(receipt_store),
+            )
+            self.assertTrue(verify_evidence_receipt(parent, parent_context).ok)
 
     def test_missing_child_blocks_full_and_names_minimum_revalidation(self):
         requirements, receipts, contexts = full_children()
