@@ -252,6 +252,43 @@ class FullValidationCompositionTests(unittest.TestCase):
             row["blob_id"],
         )
 
+    def test_release_tree_rehashes_only_an_unstaged_worktree_change(self):
+        source = self.root / "changed.txt"
+        source.write_text("staged\n", encoding="utf-8")
+        subprocess.run(
+            ("git", "add", "changed.txt"),
+            cwd=self.root,
+            check=True,
+        )
+        staged_blob = subprocess.check_output(
+            ("git", "ls-files", "--stage", "--", "changed.txt"),
+            cwd=self.root,
+            text=True,
+        ).split()[1]
+        source.write_text("unstaged\n", encoding="utf-8")
+
+        row = next(
+            item
+            for item in release_tree_manifest(self.root)
+            if item["path"] == "changed.txt"
+        )
+
+        self.assertNotEqual(staged_blob, row["blob_id"])
+        self.assertEqual(
+            subprocess.check_output(
+                (
+                    "git",
+                    "hash-object",
+                    "--path=changed.txt",
+                    "--",
+                    "changed.txt",
+                ),
+                cwd=self.root,
+                text=True,
+            ).strip(),
+            row["blob_id"],
+        )
+
     def test_v2_contract_projection_reuses_exact_depth_parity_hash(self):
         compiler = SimpleNamespace(ok=True, contract_hashes={"target": "ABC123"})
         depth = {

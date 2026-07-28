@@ -504,6 +504,16 @@ def release_tree_manifest(
         if stage != "0":
             raise ValueError(f"release tree has an unresolved index stage: {path}")
         index_rows[path] = (mode, object_id)
+    worktree_changed_paths = {
+        item.decode("utf-8")
+        for item in _git_bytes(
+            root_path,
+            "diff-files",
+            "--name-only",
+            "-z",
+        ).split(b"\0")
+        if item
+    }
     required_authority_paths = model_authority_release_paths(root_path)
     missing_authority_paths = tuple(
         path for path in required_authority_paths if path not in index_rows
@@ -534,6 +544,8 @@ def release_tree_manifest(
         if mode == "160000":
             if not index_object_id:
                 raise ValueError(f"untracked submodule entry is unsupported: {relative}")
+            blob_id = index_object_id
+        elif relative in index_rows and relative not in worktree_changed_paths:
             blob_id = index_object_id
         else:
             if not path.exists():
