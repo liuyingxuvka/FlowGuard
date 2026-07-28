@@ -77,6 +77,7 @@ from flowguard.validation_results import (
 FULL_CHILD_IDS = (
     "project_audit",
     "skill_suite_static",
+    "skill_native_checks",
     "skill_self_governance",
     "model_regressions_full",
     "pytest",
@@ -504,6 +505,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
         else Path.home() / ".codex" / "skills"
     )
     self_script = root / "scripts" / "check_flowguard_self_governance.py"
+    native_script = root / "scripts" / "run_flowguard_skill_native_checks.py"
     model_script = root / "scripts" / "run_flowguard_model_regressions.py"
     distribution_script = root / "scripts" / "install_flowguard_skills.py"
 
@@ -577,6 +579,32 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "scripts/check_flowguard_skill_suite.py",
             ),
             ("validation:skill_suite_static",),
+        ),
+        ChildSpec(
+            "skill_native_checks",
+            (
+                sys.executable,
+                str(native_script),
+                "--root",
+                str(root),
+                "--output-dir",
+                str(root / ".flowguard" / "evidence" / "skill-suite"),
+                "--json",
+            ),
+            (
+                ".agents/skills/**/*",
+                ".skillguard/**/*",
+                "flowguard/evidence_receipts.py",
+                "flowguard/process_supervision.py",
+                "flowguard/skill_native_checks.py",
+                "scripts/run_flowguard_skill_native_checks.py",
+            ),
+            ("validation:skill_native_checks",),
+            required_path=native_script,
+            missing_reason=(
+                "skill-native check producer is required before "
+                "self-governance can consume current child receipts"
+            ),
         ),
         ChildSpec(
             "skill_self_governance",
