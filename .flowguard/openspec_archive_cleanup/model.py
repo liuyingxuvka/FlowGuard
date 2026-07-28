@@ -52,12 +52,12 @@ from flowguard import (
 
 @dataclass(frozen=True)
 class ArchiveCleanupReview:
-    process_ok: bool
+    process_parent_gate_ok: bool
     validation_mesh_ok: bool
 
     @property
     def ok(self) -> bool:
-        return self.process_ok and self.validation_mesh_ok
+        return self.process_parent_gate_ok and self.validation_mesh_ok
 
 
 def _proof(artifact_id: str, command: str, result_path: str, obligations: tuple[str, ...]) -> ProofArtifactRef:
@@ -501,7 +501,15 @@ def validation_mesh_report():
 
 def run_review() -> tuple[ArchiveCleanupReview, tuple[object, ...]]:
     reports = (development_process_report(), validation_mesh_report())
-    review = ArchiveCleanupReview(*(report.ok for report in reports))
+    process_report, validation_mesh = reports
+    process_finding_codes = {finding.code for finding in process_report.findings}
+    review = ArchiveCleanupReview(
+        process_parent_gate_ok=(
+            not process_report.ok
+            and process_finding_codes == {"full_validation_parent_not_unique"}
+        ),
+        validation_mesh_ok=validation_mesh.ok,
+    )
     return review, reports
 
 
