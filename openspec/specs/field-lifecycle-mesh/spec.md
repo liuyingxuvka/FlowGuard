@@ -184,8 +184,8 @@ and migration fields that can replace a primary field after failure.
   projection, lifecycle, evidence, and closing disposition
 
 ### Requirement: Field and side-effect changes join the revision set
-Every added, changed, replaced, removed, externalized, or compensated
-behavior-bearing field or side effect SHALL be declared in the owning model
+FieldLifecycleMesh SHALL require every added, changed, replaced, removed,
+externalized, or compensated behavior-bearing field or side effect in the owning model
 revision set and bound to its base and candidate snapshots.
 
 #### Scenario: Two models share a replaced field
@@ -254,4 +254,3 @@ Migration-only fields such as `unclassified` plane status and manual-conversion 
 #### Scenario: Unclassified row reaches runtime ledger
 - **WHEN** a canonical runtime ledger contains a migration-only unclassified value
 - **THEN** field lifecycle and ledger review SHALL block broad confidence
-

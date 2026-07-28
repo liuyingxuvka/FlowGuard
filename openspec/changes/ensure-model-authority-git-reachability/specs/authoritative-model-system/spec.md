@@ -1,9 +1,9 @@
 ## ADDED Requirements
 
 ### Requirement: Published observed authority is reconstructable from the release tree
-When a project publishes a source revision that declares an observed
-model-system head, every file in the selected snapshot's resolved model input
-inventory SHALL be reachable from that exact committed source tree. A local
+The release verifier SHALL require every file in the selected snapshot's
+resolved model input inventory to be reachable from the exact committed source
+tree when a project publishes an observed model-system head. A local
 working-tree file, ignored file, untracked file, alternate checkout, or
 historical evidence artifact SHALL NOT satisfy release authority.
 

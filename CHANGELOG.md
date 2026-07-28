@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.64.2 - 2026-07-28
+
+- Made the affected OpenSpec requirement statements valid under both the CI-
+  pinned OpenSpec `1.3.1` parser and the current local `1.6.0` parser by
+  placing the normative `SHALL` clause in each requirement's opening line.
+- Kept the v0.64.1 runtime and release-authority behavior unchanged; this
+  patch closes only the validator-toolchain parity gap exposed by GitHub CI.
+- Preserved immutable `v0.64.0` and `v0.64.1` history and published the
+  correction as a new source-only patch release.
+
 ## v0.64.1 - 2026-07-28
 
 - Closed a clean-clone authority gap by requiring the selected observed
@@ -10,7 +20,8 @@
 - Added observed missing-model and same-class missing-runner regressions and
   made published annotated-tag lookup safe across Windows command wrappers.
 - Preserved immutable `v0.64.0` history and published the correction as a
-  source-only patch release after clean-clone project audit and green CI.
+  source-only patch release after clean-clone project audit; CI later exposed
+  the OpenSpec `1.3.1` parsing gap corrected in v0.64.2.
 
 ## v0.64.0 - 2026-07-28
 

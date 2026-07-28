@@ -32,7 +32,7 @@ Project FlowGuard record:
 <!-- flowguard-rule:project.rendered_versions -->
 
 Current adoption record:
-- FlowGuard check-engine version: `0.64.1`
+- FlowGuard check-engine version: `0.64.2`
 - FlowGuard schema version: `1.0`
 
 <!-- flowguard-rule:project.preflight_version_gate -->
