@@ -18,11 +18,16 @@ import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from .evidence_lifecycle import ensure_new_run_directory, publish_run, store_text_object
+from .evidence_receipts import (
+    fingerprint_value,
+    receipt_path as evidence_receipt_path,
+)
 from .model_authority import (
     ModelInstanceRef,
     build_model_instance_ref,
@@ -41,21 +46,19 @@ from .validation_results import (
     ValidationResult,
     aggregate_status,
 )
+from .validation_ownership import (
+    OWNER_BLOCKED,
+    OWNER_EXECUTE,
+    OWNER_REUSE_CURRENT,
+    ValidationOwnerContract,
+    child_from_owner_receipt,
+    plan_validation_owners,
+    save_owner_receipt,
+)
 
 
-MANIFEST_SCHEMA = "flowguard.model_regression_manifest.v2"
-RECEIPT_SCHEMA = "flowguard.model_regression_receipt.v3"
+MANIFEST_SCHEMA = "flowguard.model_regression_manifest.v3"
 TIER_RANK = {"fast": 0, "focused": 1, "full": 2}
-TERMINAL_STATUSES = {
-    VALIDATION_STATUS_PASS,
-    VALIDATION_STATUS_FAIL,
-    VALIDATION_STATUS_BLOCKED,
-    VALIDATION_STATUS_TIMEOUT,
-    VALIDATION_STATUS_CANCELLED,
-    VALIDATION_STATUS_INTERNAL_ERROR,
-}
-
-
 class ModelRegressionManifestError(ValueError):
     """Raised when the checked-in model inventory is incomplete or invalid."""
 
@@ -80,6 +83,28 @@ class ModelRegressionEntry:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "ModelRegressionEntry":
+        allowed = {
+            "model_id",
+            "model_path",
+            "runner",
+            "tier",
+            "timeout_seconds",
+            "shard_safe",
+            "mutation_policy",
+            "input_globs",
+            "expected_artifacts",
+            "exclusion_reason",
+            "distribution_policy",
+            "absence_reason",
+            "model_kind",
+            "purpose_closure",
+            "shard_safety_proof",
+        }
+        unknown = sorted(set(payload) - allowed)
+        if unknown:
+            raise ModelRegressionManifestError(
+                "unknown model entry fields: " + ", ".join(unknown)
+            )
         runner = payload.get("runner", ())
         if isinstance(runner, str):
             runner = (runner,)
@@ -115,9 +140,33 @@ class ModelRegressionEntry:
 
 
 @dataclass(frozen=True)
+class SharedInputGroup:
+    component_id: str
+    globs: tuple[str, ...]
+    consumers: tuple[str, ...]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SharedInputGroup":
+        allowed = {"component_id", "globs", "consumers"}
+        unknown = sorted(set(payload) - allowed)
+        if unknown:
+            raise ModelRegressionManifestError(
+                "unknown shared input group fields: " + ", ".join(unknown)
+            )
+        return cls(
+            component_id=str(payload.get("component_id", "")),
+            globs=tuple(str(item) for item in payload.get("globs", ())),
+            consumers=tuple(str(item) for item in payload.get("consumers", ())),
+        )
+
+
+@dataclass(frozen=True)
 class ModelRegressionManifest:
     path: Path
     entries: tuple[ModelRegressionEntry, ...]
+    governed_input_globs: tuple[str, ...]
+    snapshot_only_input_globs: tuple[str, ...]
+    shared_input_groups: tuple[SharedInputGroup, ...]
 
     @classmethod
     def load(cls, root: str | Path = ".", *, path: str | Path | None = None) -> "ModelRegressionManifest":
@@ -131,8 +180,93 @@ class ModelRegressionManifest:
             raise ModelRegressionManifestError(f"cannot read model regression manifest: {exc}") from exc
         if payload.get("schema_version") != MANIFEST_SCHEMA:
             raise ModelRegressionManifestError(f"unsupported manifest schema: {payload.get('schema_version')!r}")
+        allowed = {
+            "schema_version",
+            "models",
+            "governed_input_globs",
+            "snapshot_only_input_globs",
+            "shared_input_groups",
+        }
+        unknown = sorted(set(payload) - allowed)
+        if unknown:
+            raise ModelRegressionManifestError(
+                "unknown manifest fields: " + ", ".join(unknown)
+            )
         entries = tuple(ModelRegressionEntry.from_dict(item) for item in payload.get("models", ()))
-        return cls(path=manifest_path, entries=entries)
+        return cls(
+            path=manifest_path,
+            entries=entries,
+            governed_input_globs=tuple(
+                str(item) for item in payload.get("governed_input_globs", ())
+            ),
+            snapshot_only_input_globs=tuple(
+                str(item)
+                for item in payload.get("snapshot_only_input_globs", ())
+            ),
+            shared_input_groups=tuple(
+                SharedInputGroup.from_dict(item)
+                for item in payload.get("shared_input_groups", ())
+            ),
+        )
+
+    def shared_patterns_for(self, model_id: str) -> tuple[str, ...]:
+        return tuple(
+            pattern
+            for group in self.shared_input_groups
+            if model_id in group.consumers
+            for pattern in group.globs
+        )
+
+    def owner_projection_fingerprint(
+        self,
+        entry: ModelRegressionEntry,
+    ) -> str:
+        """Project only the manifest semantics consumed by one model owner."""
+
+        purpose = (
+            entry.purpose_closure.to_dict()
+            if entry.purpose_closure is not None
+            else None
+        )
+        entry_payload = {
+            "model_id": entry.model_id,
+            "model_path": entry.model_path,
+            "runner": list(entry.runner),
+            "tier": entry.tier,
+            "timeout_seconds": entry.timeout_seconds,
+            "shard_safe": entry.shard_safe,
+            "mutation_policy": entry.mutation_policy,
+            "input_globs": list(entry.input_globs),
+            "expected_artifacts": list(entry.expected_artifacts),
+            "exclusion_reason": entry.exclusion_reason,
+            "distribution_policy": entry.distribution_policy,
+            "absence_reason": entry.absence_reason,
+            "model_kind": entry.model_kind,
+            "purpose_closure": purpose,
+            "shard_safety_proof": dict(entry.shard_safety_proof),
+        }
+        shared_groups = tuple(
+            {
+                "component_id": group.component_id,
+                "globs": list(group.globs),
+            }
+            for group in sorted(
+                self.shared_input_groups,
+                key=lambda item: item.component_id,
+            )
+            if entry.model_id in group.consumers
+        )
+        return fingerprint_value(
+            {
+                "schema_version": MANIFEST_SCHEMA,
+                "entry": entry_payload,
+                "governed_input_globs": list(self.governed_input_globs),
+                "snapshot_only_input_globs": list(
+                    self.snapshot_only_input_globs
+                ),
+                "shared_input_groups": shared_groups,
+            }
+        )
 
 
 @dataclass(frozen=True)
@@ -152,6 +286,94 @@ class ManifestAudit:
 
 
 @dataclass(frozen=True)
+class ModelImpactMap:
+    owners_by_path: Mapping[str, tuple[str, ...]]
+    governed_paths: tuple[str, ...]
+    snapshot_only_paths: tuple[str, ...]
+    errors: tuple[str, ...] = ()
+
+    @property
+    def ok(self) -> bool:
+        return not self.errors
+
+
+def _resolve_relative_files(
+    root: Path,
+    patterns: Sequence[str],
+) -> tuple[str, ...]:
+    values: set[str] = set()
+    for pattern in patterns:
+        for path in root.glob(pattern):
+            if not path.is_file():
+                continue
+            resolved = path.resolve()
+            try:
+                values.add(resolved.relative_to(root).as_posix())
+            except ValueError as exc:
+                raise ModelRegressionManifestError(
+                    f"impact-map input escapes repository: {path}"
+                ) from exc
+    return tuple(sorted(values))
+
+
+def compile_model_impact_map(
+    root: str | Path,
+    manifest: ModelRegressionManifest,
+) -> ModelImpactMap:
+    """Compile exact local/shared ownership and fail closed on unknown inputs."""
+
+    root_path = Path(root).resolve()
+    errors: list[str] = []
+    registered = {entry.model_id for entry in manifest.entries}
+    if not manifest.governed_input_globs:
+        errors.append("governed_input_globs must not be empty")
+    component_ids = [item.component_id for item in manifest.shared_input_groups]
+    for duplicate in sorted(
+        {item for item in component_ids if component_ids.count(item) > 1}
+    ):
+        errors.append(f"duplicate shared component_id: {duplicate}")
+    for group in manifest.shared_input_groups:
+        if not group.component_id or not group.globs or not group.consumers:
+            errors.append(
+                "shared input group requires component_id, globs, and consumers"
+            )
+        for consumer in sorted(set(group.consumers) - registered):
+            errors.append(
+                f"{group.component_id}: unknown shared-input consumer: {consumer}"
+            )
+    governed = _resolve_relative_files(
+        root_path,
+        manifest.governed_input_globs,
+    )
+    snapshot_only = _resolve_relative_files(
+        root_path,
+        manifest.snapshot_only_input_globs,
+    )
+    overlap = sorted(set(governed) & set(snapshot_only))
+    errors.extend(
+        f"impact path is both governed and snapshot-only: {path}"
+        for path in overlap
+    )
+    owners: dict[str, set[str]] = {}
+    for entry in manifest.entries:
+        for path in _resolve_relative_files(root_path, entry.input_globs):
+            owners.setdefault(path, set()).add(entry.model_id)
+    for group in manifest.shared_input_groups:
+        for path in _resolve_relative_files(root_path, group.globs):
+            owners.setdefault(path, set()).update(group.consumers)
+    for path in sorted(set(governed) - set(owners)):
+        errors.append(f"governed model input has no declared owner: {path}")
+    return ModelImpactMap(
+        owners_by_path={
+            path: tuple(sorted(values)) for path, values in sorted(owners.items())
+        },
+        governed_paths=governed,
+        snapshot_only_paths=snapshot_only,
+        errors=tuple(errors),
+    )
+
+
+@dataclass(frozen=True)
 class ModelRunResult:
     model_id: str
     status: str
@@ -166,14 +388,17 @@ class ModelRunResult:
     message: str = ""
     model_instance_id: str = ""
     model_kind: str = ""
-    subject_revision: str = ""
     model_instance_fingerprint: str = ""
     input_inventory_fingerprint: str = ""
     input_inventory: tuple[Mapping[str, str], ...] = ()
+    artifact_fingerprints: Mapping[str, str] = field(default_factory=dict)
     purpose_closure_fingerprint: str = ""
     purpose_claim_boundary: str = ""
     stdout: Mapping[str, Any] = field(default_factory=dict, compare=False)
     stderr: Mapping[str, Any] = field(default_factory=dict, compare=False)
+    execution_disposition: str = "execute"
+    producer_invocations: int = 1
+    receipt_fingerprint: str = ""
 
     @property
     def ok(self) -> bool:
@@ -195,14 +420,17 @@ class ModelRunResult:
             "message": self.message,
             "model_instance_id": self.model_instance_id,
             "model_kind": self.model_kind,
-            "subject_revision": self.subject_revision,
             "model_instance_fingerprint": self.model_instance_fingerprint,
             "input_inventory_fingerprint": self.input_inventory_fingerprint,
             "input_inventory": [dict(item) for item in self.input_inventory],
+            "artifact_fingerprints": dict(self.artifact_fingerprints),
             "purpose_closure_fingerprint": self.purpose_closure_fingerprint,
             "purpose_claim_boundary": self.purpose_claim_boundary,
             "stdout": dict(self.stdout),
             "stderr": dict(self.stderr),
+            "execution_disposition": self.execution_disposition,
+            "producer_invocations": self.producer_invocations,
+            "receipt_fingerprint": self.receipt_fingerprint,
         }
 
 
@@ -251,6 +479,9 @@ class ModelRegressionReport:
             "failed": sum(not item.ok for item in self.results),
             "skipped": len(self.skipped_model_ids),
             "unavailable_optional": len(self.unavailable_optional_model_ids),
+            "executed": sum(item.execution_disposition == "execute" for item in self.results),
+            "reused": sum(item.execution_disposition == "reuse_current" for item in self.results),
+            "producer_invocations": sum(item.producer_invocations for item in self.results),
         }
         children = tuple(
             ValidationChildResult(
@@ -267,6 +498,8 @@ class ModelRegressionReport:
                     "model_instance_id": item.model_instance_id,
                     "model_instance_fingerprint": item.model_instance_fingerprint,
                     "input_inventory_fingerprint": item.input_inventory_fingerprint,
+                    "execution_disposition": item.execution_disposition,
+                    "receipt_fingerprint": item.receipt_fingerprint,
                 },
             )
             for item in self.results
@@ -361,6 +594,11 @@ def audit_manifest(root: str | Path, manifest: ModelRegressionManifest) -> Manif
         for item in sorted(set(registered) - set(discovered))
         if by_id[item].distribution_policy == "required_public"
     )
+    try:
+        impact_map = compile_model_impact_map(root_path, manifest)
+        errors.extend(impact_map.errors)
+    except ModelRegressionManifestError as exc:
+        errors.append(str(exc))
     for entry in manifest.entries:
         purpose = entry.purpose_closure
         if purpose is None:
@@ -547,39 +785,22 @@ def input_inventory_fingerprint(
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
-def repository_subject_revision(
-    root: str | Path,
-    inventory: Sequence[Mapping[str, str]],
-) -> str:
-    """Return one reviewable revision identity for the exact worktree inputs."""
+def _file_sha256(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
-    root_path = Path(root).resolve()
-    try:
-        completed = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=root_path,
-            capture_output=True,
-            check=False,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=5,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        completed = None
-    if completed is not None and completed.returncode == 0:
-        head = completed.stdout.strip()
-        if len(head) == 40:
-            return f"git:{head}"
-    return f"unversioned:{input_inventory_fingerprint(inventory)}"
+
+def _artifact_fingerprints(paths: Sequence[str]) -> dict[str, str]:
+    return {
+        str(index): _file_sha256(Path(path))
+        for index, path in enumerate(paths)
+        if Path(path).is_file()
+    }
 
 
 def build_regression_model_instance(
     root: str | Path,
     entry: ModelRegressionEntry,
     inventory: Sequence[Mapping[str, str]],
-    *,
-    subject_revision: str | None = None,
 ) -> ModelInstanceRef:
     """Build the canonical model instance used by snapshots and receipts."""
 
@@ -598,8 +819,6 @@ def build_regression_model_instance(
         purpose_closure_fingerprint=(
             entry.purpose_closure.closure_fingerprint
         ),
-        subject_revision=subject_revision
-        or repository_subject_revision(root_path, inventory),
         input_paths=tuple(item["path"] for item in inventory),
     )
 
@@ -644,7 +863,6 @@ def _run_entry(
     )
     instance_fingerprint = instance.fingerprint
     artifact_dir = _safe_artifact_dir(output_dir, entry.model_id)
-    receipt_path = artifact_dir / "receipt.json"
     command = entry.command(root=root)
     timeout = timeout_override if timeout_override is not None else entry.timeout_seconds
     if progress:
@@ -751,62 +969,21 @@ def _run_entry(
         command=command,
         stdout_path=str(stdout_path),
         stderr_path=str(stderr_path),
-        receipt_path=str(receipt_path),
+        receipt_path="",
         artifact_paths=expected_paths,
         finding_codes=finding_codes,
         message=message,
         model_instance_id=entry.purpose_closure.model_instance_id if entry.purpose_closure else "",
         model_kind=instance.model_kind,
-        subject_revision=instance.subject_revision,
         model_instance_fingerprint=instance_fingerprint,
         input_inventory_fingerprint=inventory_fingerprint,
         input_inventory=input_inventory,
+        artifact_fingerprints=_artifact_fingerprints(expected_paths),
         purpose_closure_fingerprint=(entry.purpose_closure.closure_fingerprint if entry.purpose_closure else ""),
         purpose_claim_boundary=entry.purpose_closure.claim_boundary if entry.purpose_closure else "",
         stdout=stdout_descriptor,
         stderr=stderr_descriptor,
     )
-    receipt = {
-        "schema_version": RECEIPT_SCHEMA,
-        "receipt_id": hashlib.sha256(
-            json.dumps(
-                {
-                    "model_id": entry.model_id,
-                    "model_instance_fingerprint": instance_fingerprint,
-                    "command": command,
-                    "status": status,
-                    "started": started,
-                },
-                sort_keys=True,
-            ).encode("utf-8")
-        ).hexdigest(),
-        "model_id": entry.model_id,
-        "status": status,
-        "terminal": status in TERMINAL_STATUSES,
-        "repository_root": str(root),
-        "source_precedence": "repository_root_before_existing_pythonpath",
-        "exit_code": exit_code,
-        "seconds": elapsed_seconds,
-        "finding_codes": list(finding_codes),
-        "input_globs": list(entry.input_globs),
-        "input_inventory": [dict(item) for item in input_inventory],
-        "input_inventory_fingerprint": inventory_fingerprint,
-        "model_instance_id": result.model_instance_id,
-        "model_kind": result.model_kind,
-        "subject_revision": result.subject_revision,
-        "model_instance": instance.to_dict(),
-        "model_instance_fingerprint": instance_fingerprint,
-        "purpose_closure_fingerprint": result.purpose_closure_fingerprint,
-        "protected_failure_ids": list(entry.purpose_closure.protected_failure_ids) if entry.purpose_closure else [],
-        "known_good_case_id": entry.purpose_closure.known_good_case_id if entry.purpose_closure else "",
-        "known_bad_case_ids": [item.known_bad_case_id for item in entry.purpose_closure.failure_bindings] if entry.purpose_closure else [],
-        "native_oracle_ids": [item.oracle_id for item in entry.purpose_closure.failure_bindings] if entry.purpose_closure else [],
-        "artifact_paths": [str(stdout_path), str(stderr_path), *expected_paths],
-        "stdout": stdout_descriptor,
-        "stderr": stderr_descriptor,
-        "claim_boundary": result.purpose_claim_boundary or "Current invocation of one manifest-owned model runner only.",
-    }
-    _write_json(receipt_path, receipt)
     if progress:
         progress({"event": "finished", "model_id": entry.model_id, "status": status, "seconds": elapsed_seconds})
     return result
@@ -856,6 +1033,126 @@ def _mutation_paths(before: Mapping[str, str], after: Mapping[str, str], root: P
     return tuple(values)
 
 
+def _model_owner_contract(
+    root: Path,
+    manifest: ModelRegressionManifest,
+    entry: ModelRegressionEntry,
+) -> ValidationOwnerContract:
+    return ValidationOwnerContract(
+        owner_id=f"model:{entry.model_id}",
+        command=entry.command(root=root),
+        input_patterns=tuple(
+            dict.fromkeys(
+                (
+                    *entry.input_globs,
+                    *(
+                        pattern
+                        for pattern in manifest.shared_patterns_for(
+                            entry.model_id
+                        )
+                        if pattern
+                        != ".flowguard/model-regression-manifest.json"
+                    ),
+                )
+            )
+        ),
+        obligation_ids=(f"model-regression:{entry.model_id}",),
+        projected_inputs=(
+            (
+                f"model-regression-manifest:{entry.model_id}",
+                manifest.owner_projection_fingerprint(entry),
+            ),
+        ),
+    )
+
+
+def _model_result_from_reused_child(
+    entry: ModelRegressionEntry,
+    child: ValidationChildResult,
+) -> ModelRunResult:
+    raw = child.payload.get("model_result")
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"model receipt proof is missing result: {entry.model_id}")
+    return ModelRunResult(
+        model_id=entry.model_id,
+        status=str(raw.get("status", "")),
+        exit_code=raw.get("exit_code"),
+        seconds=0.0,
+        command=tuple(str(item) for item in raw.get("command", ())),
+        stdout_path=str(raw.get("stdout_path", "")),
+        stderr_path=str(raw.get("stderr_path", "")),
+        receipt_path=child.receipt_id,
+        artifact_paths=tuple(str(item) for item in raw.get("artifact_paths", ())),
+        finding_codes=tuple(str(item) for item in raw.get("finding_codes", ())),
+        message="reused independently verified exact-current terminal receipt",
+        model_instance_id=str(raw.get("model_instance_id", "")),
+        model_kind=str(raw.get("model_kind", "")),
+        model_instance_fingerprint=str(raw.get("model_instance_fingerprint", "")),
+        input_inventory_fingerprint=str(raw.get("input_inventory_fingerprint", "")),
+        input_inventory=tuple(
+            dict(item) for item in raw.get("input_inventory", ())
+            if isinstance(item, Mapping)
+        ),
+        artifact_fingerprints=dict(raw.get("artifact_fingerprints", {})),
+        purpose_closure_fingerprint=str(raw.get("purpose_closure_fingerprint", "")),
+        purpose_claim_boundary=str(raw.get("purpose_claim_boundary", "")),
+        stdout=dict(raw.get("stdout", {})),
+        stderr=dict(raw.get("stderr", {})),
+        execution_disposition=OWNER_REUSE_CURRENT,
+        producer_invocations=0,
+        receipt_fingerprint=str(
+            child.payload.get("owner_receipt_fingerprint", "")
+        ),
+    )
+
+
+def _persist_model_owner_result(
+    root: Path,
+    receipt_root: Path,
+    current: Any,
+    result: ModelRunResult,
+    *,
+    started_at: str,
+) -> ModelRunResult:
+    child = ValidationChildResult(
+        child_id=current.contract.owner_id,
+        status=result.status,
+        summary=result.message,
+        receipt_id=Path(result.receipt_path).name,
+        artifact_paths=(
+            result.stdout_path,
+            result.stderr_path,
+            *(item for item in (result.receipt_path,) if item),
+            *result.artifact_paths,
+        ),
+        claim_boundary=(
+            result.purpose_claim_boundary
+            or "One manifest-owned model runner and its exact declared inputs."
+        ),
+        payload={"model_result": result.to_dict()},
+    )
+    receipt = save_owner_receipt(
+        current,
+        child,
+        root,
+        receipt_root,
+        started_at=started_at,
+        finished_at=datetime.now(timezone.utc).isoformat(),
+    )
+    path = evidence_receipt_path(
+        receipt.receipt_id,
+        root,
+        output_directory=receipt_root,
+    )
+    return replace(
+        result,
+        receipt_path=str(path),
+        execution_disposition=OWNER_EXECUTE,
+        producer_invocations=1,
+        receipt_fingerprint=receipt.fingerprint,
+    )
+
+
 def run_manifest_regressions(
     root: str | Path = ".",
     *,
@@ -869,6 +1166,8 @@ def run_manifest_regressions(
     progress: ProgressCallback | None = None,
     allow_mutating: bool = False,
     command: str = "flowguard-model-regressions",
+    reuse_current: bool = True,
+    receipt_dir: str | Path | None = None,
 ) -> ModelRegressionReport:
     root_path = Path(root).resolve()
     manifest = ModelRegressionManifest.load(root_path)
@@ -886,8 +1185,78 @@ def run_manifest_regressions(
             audit.registered_model_ids,
             audit.errors + tuple(f"mutating model blocked by default: {item}" for item in blocked),
         )
-    if jobs > 1 and any(not entry.shard_safe for entry in selected):
-        unsafe = tuple(entry.model_id for entry in selected if not entry.shard_safe)
+    receipt_root = (
+        Path(receipt_dir).resolve()
+        if receipt_dir is not None
+        else root_path / ".flowguard" / "evidence" / "model-owner-receipts"
+    )
+    contracts = tuple(
+        _model_owner_contract(root_path, manifest, entry) for entry in selected
+    )
+    plan_rows, currents, reusable_receipts = plan_validation_owners(
+        root_path,
+        contracts,
+        receipt_root=receipt_root,
+    )
+    if not reuse_current:
+        plan_rows = tuple(
+            replace(
+                row,
+                disposition=OWNER_EXECUTE,
+                reason="caller explicitly requested fresh execution",
+                receipt_id="",
+                receipt_fingerprint="",
+            )
+            if row.disposition == OWNER_REUSE_CURRENT
+            else row
+            for row in plan_rows
+        )
+        reusable_receipts = {}
+    blocked_rows = tuple(
+        row for row in plan_rows if row.disposition == OWNER_BLOCKED
+    )
+    if blocked_rows:
+        audit = ManifestAudit(
+            False,
+            audit.discovered_model_ids,
+            audit.registered_model_ids,
+            audit.errors
+            + tuple(
+                f"validation owner blocked for {row.owner_id}: {row.reason}"
+                for row in blocked_rows
+            ),
+        )
+    entries_by_owner = {
+        f"model:{entry.model_id}": entry for entry in selected
+    }
+    reused_results: dict[str, ModelRunResult] = {}
+    if audit.ok:
+        for row in plan_rows:
+            if row.disposition != OWNER_REUSE_CURRENT:
+                continue
+            entry = entries_by_owner[row.owner_id]
+            child = child_from_owner_receipt(
+                reusable_receipts[row.owner_id],
+                receipt_root,
+            )
+            reusable = _model_result_from_reused_child(entry, child)
+            reused_results[entry.model_id] = reusable
+            if progress:
+                progress(
+                    {
+                        "event": "reused",
+                        "model_id": entry.model_id,
+                        "status": reusable.status,
+                        "seconds": 0.0,
+                    }
+                )
+    pending = tuple(
+        entries_by_owner[row.owner_id]
+        for row in plan_rows
+        if row.disposition == OWNER_EXECUTE
+    )
+    if jobs > 1 and any(not entry.shard_safe for entry in pending):
+        unsafe = tuple(entry.model_id for entry in pending if not entry.shard_safe)
         raise ValueError("parallel execution includes non-shard-safe models: " + ", ".join(unsafe))
     if output_dir is None:
         output_path = Path(tempfile.mkdtemp(prefix="flowguard-model-regressions-"))
@@ -900,7 +1269,7 @@ def run_manifest_regressions(
         # inside this validation owner before launching the shard pool.
         from .shard_safety import prove_model_shard_safety
 
-        for entry in selected:
+        for entry in pending:
             if not entry.shard_safety_proof:
                 continue
             proof = prove_model_shard_safety(
@@ -917,18 +1286,26 @@ def run_manifest_regressions(
     tracked = _tracked_paths(root_path)
     before = _snapshot(tracked)
     started_at = time.time()
-    results: list[ModelRunResult] = []
+    results: list[ModelRunResult] = list(reused_results.values())
     if audit.ok:
         if jobs == 1:
-            for entry in selected:
+            for entry in pending:
+                owner_started_at = datetime.now(timezone.utc).isoformat()
+                result = _run_entry(
+                    root_path,
+                    entry,
+                    output_path,
+                    timeout_override=timeout,
+                    cancel_event=cancel,
+                    progress=progress,
+                )
                 results.append(
-                    _run_entry(
+                    _persist_model_owner_result(
                         root_path,
-                        entry,
-                        output_path,
-                        timeout_override=timeout,
-                        cancel_event=cancel,
-                        progress=progress,
+                        receipt_root,
+                        currents[f"model:{entry.model_id}"],
+                        result,
+                        started_at=owner_started_at,
                     )
                 )
                 if cancel.is_set():
@@ -944,11 +1321,23 @@ def run_manifest_regressions(
                         timeout_override=timeout,
                         cancel_event=cancel,
                         progress=progress,
-                    ): entry
-                    for entry in selected
+                    ): (
+                        entry,
+                        datetime.now(timezone.utc).isoformat(),
+                    )
+                    for entry in pending
                 }
                 for future in as_completed(futures):
-                    results.append(future.result())
+                    entry, owner_started_at = futures[future]
+                    results.append(
+                        _persist_model_owner_result(
+                            root_path,
+                            receipt_root,
+                            currents[f"model:{entry.model_id}"],
+                            future.result(),
+                            started_at=owner_started_at,
+                        )
+                    )
     results.sort(key=lambda item: item.model_id)
     after = _snapshot(tracked)
     mutations = _mutation_paths(before, after, root_path)
@@ -995,6 +1384,7 @@ def run_manifest_regressions(
 __all__ = [
     "MANIFEST_SCHEMA",
     "ManifestAudit",
+    "ModelImpactMap",
     "ModelRegressionEntry",
     "ModelRegressionManifest",
     "ModelRegressionManifestError",
@@ -1002,11 +1392,11 @@ __all__ = [
     "ModelRunResult",
     "audit_manifest",
     "build_regression_model_instance",
+    "compile_model_impact_map",
     "discover_model_directories",
     "input_inventory_fingerprint",
     "model_instance_fingerprint",
     "parse_shard",
-    "repository_subject_revision",
     "resolve_entry_input_inventory",
     "run_manifest_regressions",
     "select_entries",

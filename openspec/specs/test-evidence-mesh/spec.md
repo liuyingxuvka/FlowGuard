@@ -358,3 +358,96 @@ WorkContext artifacts, provider status, proposals, plans, tasks, checkboxes, and
 - **WHEN** a provider-native validator runs under its own declared execution owner and produces current terminal evidence
 - **THEN** TestMesh MAY reference that evidence as an ordinary native child while WorkContext itself remains non-executing and receipt-free
 
+### Requirement: Same-intent validation inventories require complete current evidence
+FlowGuard TestMesh SHALL treat the complete required inventory for a stable
+business intent as the parent evidence boundary. The inventory SHALL include
+every required same-intent surface, materialized model/test obligation, family
+member, transition cell, contract-exhaustion case, and coverage shard routed to
+TestMesh. A caller-selected subset or a broad parent command SHALL NOT support
+green confidence for the complete inventory.
+
+#### Scenario: Complete inventory has current child evidence
+- **WHEN** every required inventory item is owned by a registered child suite or
+  shard with current passing evidence for the same inventory revision
+- **THEN** TestMesh MAY treat the inventory evidence boundary as current
+- **AND** semantic coverage remains owned by the corresponding Model-Test
+  Alignment, ObligationFamily, Primary Path Authority, or ContractExhaustionMesh
+  reviewer
+
+#### Scenario: Required inventory item is omitted
+- **WHEN** a same-intent validation inventory omits a required surface,
+  materialized obligation, family member, transition cell, case, or shard
+- **THEN** TestMesh MUST report incomplete required inventory evidence
+- **AND** the parent gate MUST NOT return full green confidence
+
+#### Scenario: Locally green subset is not complete coverage
+- **WHEN** all declared child suites pass but the declared inventory does not
+  prove completeness against its required source inventory
+- **THEN** TestMesh MUST keep the parent confidence blocked or scoped instead
+  of promoting the locally green subset
+
+#### Scenario: Inventory changes after evidence
+- **WHEN** the required inventory revision changes after child or shard evidence
+  was produced
+- **THEN** TestMesh MUST mark the affected evidence stale and require current
+  evidence for the revised inventory
+
+### Requirement: Background regressions provide liveness until a final receipt passes
+TestMesh SHALL record background regression progress as liveness only. A
+background run MUST NOT satisfy current passing evidence until a final receipt
+records the run identity, terminal status or exit code, result artifact,
+artifact fingerprint, covered inventory or shard ids, and covered artifact and
+verifier versions.
+
+#### Scenario: Background regression is still running
+- **WHEN** a background regression emits progress, logs, a process id, or a
+  heartbeat but has no final receipt
+- **THEN** TestMesh MUST report liveness without counting the run as passed
+- **AND** done, release, archive, and publish confidence MUST remain unsupported
+  by that run
+
+#### Scenario: Final receipt is incomplete or non-passing
+- **WHEN** a background run has a receipt that lacks a terminal result artifact,
+  fingerprint, covered required ids, or passing terminal status
+- **THEN** TestMesh MUST treat the run as incomplete, failed, or stale according
+  to the receipt instead of treating prior progress as completion
+
+#### Scenario: Current final receipt covers the complete inventory
+- **WHEN** a final receipt has a passing terminal status and current proof for
+  every required inventory item or shard under the current artifact versions
+- **THEN** TestMesh MAY count the run as current passing evidence for that
+  declared TestMesh boundary
+
+### Requirement: Plane-upgrade validation has explicit child partitions
+The parent validation gate SHALL track focused schema/lookup tests, migration tests, model regressions, skill/install parity, OpenSpec verification, and the full test suite as explicit child evidence partitions.
+
+#### Scenario: Focused tests pass while full suite runs
+- **WHEN** focused plane tests pass and a full suite is still running in the background
+- **THEN** routine implementation MAY continue using the focused evidence
+- **AND** full completion SHALL remain pending until final full-suite artifacts and exit status exist
+
+### Requirement: Background model regressions expose liveness and final receipts separately
+Background model-regression output SHALL be liveness-only until the registered runner writes final result/receipt artifacts with current source fingerprints and exit status.
+
+#### Scenario: Background log is growing
+- **WHEN** a regression process emits progress but has no final receipt
+- **THEN** TestMesh SHALL report the child as running, not passed
+
+#### Scenario: Peer write occurs during regression
+- **WHEN** a watched source/model/test/prompt file changes after a background run starts
+- **THEN** the affected result SHALL be stale and rerun or explicitly scoped before parent confidence
+
+### Requirement: Installation parity is a distinct validation child
+Canonical skill source, compiled contracts, shadow installation, and formal installed layout SHALL have explicit parity evidence separate from skill source tests.
+
+#### Scenario: Source skill passes but installed hash differs
+- **WHEN** source checks pass and installed content differs from canonical content
+- **THEN** the installation child SHALL fail or block parent completion
+
+### Requirement: Parent completion consumes every required child
+The parent plane-upgrade validation gate SHALL consume current passing evidence for every required child partition and SHALL preserve failures, timeouts, skips, not-run states, and stale results.
+
+#### Scenario: One affected model regression fails
+- **WHEN** the full parent test command is green but an affected registered model child has a current failure
+- **THEN** the parent SHALL remain blocked until the owning failure is repaired and rerun
+

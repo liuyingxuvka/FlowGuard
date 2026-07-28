@@ -16,6 +16,7 @@ from .model_authority import (
     CoverageUniverse,
     ModelRelation,
     ModelSystemSnapshot,
+    build_model_instance_ref,
     canonical_fingerprint,
     file_fingerprint,
 )
@@ -23,7 +24,6 @@ from .model_regressions import (
     ModelRegressionEntry,
     ModelRegressionManifest,
     audit_manifest,
-    build_regression_model_instance,
     input_inventory_fingerprint,
     resolve_entry_input_inventory,
 )
@@ -177,15 +177,28 @@ def build_manifest_model_system_snapshot(
             "source-inventory:"
             + input_inventory_fingerprint(combined_inventory).split(":", 1)[1]
         )
-    instances = tuple(
-        build_regression_model_instance(
-            root_path,
-            entry,
-            inventories[entry.model_id],
-            subject_revision=subject_revision,
+    instances = []
+    for entry in entries:
+        if entry.purpose_closure is None:
+            raise ModelSystemInventoryError(
+                f"{entry.model_id}: canonical model instance requires purpose closure"
+            )
+        instances.append(
+            build_model_instance_ref(
+                root_path,
+                logical_model_id=entry.model_id,
+                model_kind=entry.model_kind,
+                model_path=entry.model_path,
+                runner_path=entry.runner[1],
+                purpose_closure_fingerprint=(
+                    entry.purpose_closure.closure_fingerprint
+                ),
+                input_paths=tuple(
+                    item["path"] for item in inventories[entry.model_id]
+                ),
+            )
         )
-        for entry in entries
-    )
+    instances = tuple(instances)
     by_id = {item.logical_model_id: item for item in instances}
     model_ids = set(by_id)
     path_to_model_id = {

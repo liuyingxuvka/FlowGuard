@@ -3,12 +3,14 @@ import contextlib
 import gzip
 import io
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from flowguard.validation_ownership import release_tree_manifest
 from scripts import check_flowguard_skill_suite as suite_command
 
 
@@ -31,6 +33,23 @@ class FullValidationCompositionTests(unittest.TestCase):
             path = self.root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("# fixture\n", encoding="utf-8")
+        subprocess.run(("git", "init", "-q"), cwd=self.root, check=True)
+        subprocess.run(
+            ("git", "config", "user.email", "fixture@example.invalid"),
+            cwd=self.root,
+            check=True,
+        )
+        subprocess.run(
+            ("git", "config", "user.name", "FlowGuard Fixture"),
+            cwd=self.root,
+            check=True,
+        )
+        subprocess.run(("git", "add", "."), cwd=self.root, check=True)
+        subprocess.run(
+            ("git", "commit", "-q", "-m", "fixture"),
+            cwd=self.root,
+            check=True,
+        )
 
     def args(self) -> argparse.Namespace:
         return suite_command.build_parser().parse_args(
@@ -106,6 +125,108 @@ class FullValidationCompositionTests(unittest.TestCase):
                 exit_code = suite_command.main(["--root", str(self.root)])
         self.assertEqual(0, exit_code)
         run.assert_called_once()
+
+    def test_release_tree_blocks_ignored_model_authority_until_tracked(self):
+        snapshot_digest = "1" * 64
+        previous_digest = "2" * 64
+        revision_digest = "3" * 64
+        activation_digest = "4" * 64
+        project_manifest = self.root / ".flowguard" / "project.toml"
+        project_manifest.parent.mkdir(parents=True)
+        project_manifest.write_text(
+            "\n".join(
+                (
+                    "[flowguard]",
+                    'adopted_package_version = "0.64.0"',
+                    "",
+                    "[model_authority]",
+                    'system_id = "fixture"',
+                    "observed_snapshot_path = "
+                    f'".flowguard/model-mesh/snapshots/{snapshot_digest}.json"',
+                    "observed_snapshot_fingerprint = "
+                    f'"sha256:{snapshot_digest}"',
+                    'subject_revision = "source-inventory:fixture"',
+                    'coverage_status = "complete_within_declared_boundary"',
+                    "generation = 2",
+                    "accepted_revision_set_fingerprint = "
+                    f'"sha256:{revision_digest}"',
+                    "previous_snapshot_fingerprint = "
+                    f'"sha256:{previous_digest}"',
+                    "activation_receipt_fingerprint = "
+                    f'"sha256:{activation_digest}"',
+                    'head_fingerprint = "sha256:' + "5" * 64 + '"',
+                    "",
+                )
+            ),
+            encoding="utf-8",
+        )
+        required = (
+            f".flowguard/model-mesh/snapshots/{snapshot_digest}.json",
+            f".flowguard/model-mesh/snapshots/{previous_digest}.json",
+            f".flowguard/model-mesh/revisions/{revision_digest}.json",
+            f".flowguard/model-mesh/activations/{activation_digest}.json",
+        )
+        (self.root / ".gitignore").write_text(".flowguard/\n", encoding="utf-8")
+        subprocess.run(
+            ("git", "add", ".gitignore"),
+            cwd=self.root,
+            check=True,
+        )
+        subprocess.run(
+            ("git", "add", "-f", ".flowguard/project.toml"),
+            cwd=self.root,
+            check=True,
+        )
+        for relative in required:
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("{}\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "required public model authority paths are not tracked",
+        ):
+            release_tree_manifest(self.root)
+
+        subprocess.run(
+            ("git", "add", "-f", *required),
+            cwd=self.root,
+            check=True,
+        )
+        paths = {row["path"] for row in release_tree_manifest(self.root)}
+        self.assertTrue(set(required).issubset(paths))
+
+    def test_release_tree_applies_git_clean_filters_to_worktree_content(self):
+        attributes = self.root / ".gitattributes"
+        source = self.root / "filtered.txt"
+        attributes.write_text("*.txt text eol=lf\n", encoding="utf-8")
+        source.write_bytes(b"first\r\nsecond\r\n")
+        subprocess.run(
+            ("git", "add", ".gitattributes", "filtered.txt"),
+            cwd=self.root,
+            check=True,
+        )
+        staged_blob = subprocess.check_output(
+            ("git", "ls-files", "--stage", "--", "filtered.txt"),
+            cwd=self.root,
+            text=True,
+        ).split()[1]
+
+        row = next(
+            item
+            for item in release_tree_manifest(self.root)
+            if item["path"] == "filtered.txt"
+        )
+
+        self.assertEqual(staged_blob, row["blob_id"])
+        self.assertNotEqual(
+            subprocess.check_output(
+                ("git", "hash-object", "--no-filters", "filtered.txt"),
+                cwd=self.root,
+                text=True,
+            ).strip(),
+            row["blob_id"],
+        )
 
     def test_v2_contract_projection_reuses_exact_depth_parity_hash(self):
         compiler = SimpleNamespace(ok=True, contract_hashes={"target": "ABC123"})
@@ -209,6 +330,135 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertTrue((self.output / "evidence-run.json").is_file())
         self.assertTrue((self.output.parent / "CURRENT.json").is_file())
         self.assertTrue(gzip.decompress(Path(model_child.artifact_paths[0]).read_bytes()))
+
+    def test_plan_only_executes_no_producer_and_writes_no_evidence(self):
+        args = self.args()
+        args.plan_only = True
+        with patch.object(suite_command, "_execute_command") as execute:
+            result = suite_command.run_full_validation(args)
+
+        execute.assert_not_called()
+        self.assertEqual("full-plan-only", result.scope)
+        self.assertEqual(0, result.progress_summary["completed"])
+        self.assertEqual((), result.artifact_paths)
+        self.assertFalse(self.output.exists())
+        self.assertFalse((self.output.parent / "CURRENT.json").exists())
+
+    def test_identical_second_full_request_reuses_all_eight_owners(self):
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor(),
+        ) as first_execute:
+            first = suite_command.run_full_validation(self.args())
+        second_args = self.args()
+        second_args.output_dir = str(Path(self.temporary.name) / "artifacts-second")
+        with patch.object(suite_command, "_execute_command") as second_execute:
+            second = suite_command.run_full_validation(second_args)
+
+        self.assertTrue(first.broad_success)
+        self.assertTrue(second.broad_success)
+        self.assertEqual(8, first_execute.call_count)
+        second_execute.assert_not_called()
+        self.assertEqual(8, second.counts["reused"])
+        self.assertEqual(0, second.counts["executed"])
+        self.assertEqual(0, second.progress_summary["producer_invocations"])
+        self.assertEqual(8, second.progress_summary["avoided_producer_invocations"])
+        self.assertEqual(1.0, second.progress_summary["estimated_work_avoided_fraction"])
+        self.assertGreaterEqual(second.progress_summary["elapsed_seconds"], 0.0)
+
+    def test_one_changed_input_executes_only_its_declared_owner(self):
+        openspec = self.root / "openspec" / "changes" / "fixture"
+        openspec.mkdir(parents=True)
+        source = openspec / "spec.md"
+        source.write_text("# v1\n", encoding="utf-8")
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor(),
+        ):
+            first = suite_command.run_full_validation(self.args())
+        source.write_text("# v2\n", encoding="utf-8")
+        second_args = self.args()
+        second_args.output_dir = str(Path(self.temporary.name) / "artifacts-second")
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor(),
+        ) as execute:
+            second = suite_command.run_full_validation(second_args)
+
+        self.assertTrue(first.broad_success)
+        self.assertTrue(second.broad_success)
+        self.assertEqual(1, execute.call_count)
+        self.assertEqual(
+            "openspec_strict",
+            self.child_id(execute.call_args.args[0]),
+        )
+        self.assertEqual(7, second.counts["reused"])
+        self.assertEqual(1, second.counts["executed"])
+        self.assertEqual(1, second.progress_summary["producer_invocations"])
+        self.assertEqual(7, second.progress_summary["avoided_producer_invocations"])
+        self.assertEqual(0.875, second.progress_summary["estimated_work_avoided_fraction"])
+
+    def test_failed_parent_preserves_successful_children_for_next_run(self):
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor({"distribution_parity": "fail"}),
+        ):
+            first = suite_command.run_full_validation(self.args())
+        second_args = self.args()
+        second_args.output_dir = str(Path(self.temporary.name) / "artifacts-second")
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor(),
+        ) as execute:
+            second = suite_command.run_full_validation(second_args)
+
+        self.assertEqual("fail", first.status)
+        self.assertTrue(second.broad_success)
+        self.assertEqual(1, execute.call_count)
+        self.assertEqual(
+            "distribution_parity",
+            self.child_id(execute.call_args.args[0]),
+        )
+        self.assertEqual(7, second.counts["reused"])
+
+    def test_tampered_owner_receipt_blocks_before_any_producer_starts(self):
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor(),
+        ):
+            first = suite_command.run_full_validation(self.args())
+        self.assertTrue(first.broad_success)
+        receipt_root = (
+            self.root / ".flowguard" / "evidence" / "validation-owners"
+        )
+        target = None
+        for path in receipt_root.glob("*.json"):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if payload.get("subject_id") == "validation-owner:openspec_strict":
+                target = path
+                payload["claim_boundary"] = "tampered"
+                path.write_text(json.dumps(payload), encoding="utf-8")
+                break
+        self.assertIsNotNone(target)
+        second_args = self.args()
+        second_args.output_dir = str(Path(self.temporary.name) / "artifacts-second")
+        with patch.object(suite_command, "_execute_command") as execute:
+            second = suite_command.run_full_validation(second_args)
+
+        execute.assert_not_called()
+        self.assertEqual("blocked", second.status)
+        blocked = next(
+            child
+            for child in second.children
+            if child.child_id == "openspec_strict"
+        )
+        self.assertIn("content address mismatch", blocked.summary)
 
     def test_large_child_payload_is_retained_once_as_compressed_evidence(self):
         child = self.output / "01-large"

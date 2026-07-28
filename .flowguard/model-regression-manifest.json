@@ -1,5 +1,159 @@
 {
-  "default_mutation_policy": "none",
+  "governed_input_globs": [
+    ".flowguard/**/*.py",
+    "flowguard/**/*.py",
+    "scripts/run_flowguard_model_regressions.py",
+    "pyproject.toml"
+  ],
+  "snapshot_only_input_globs": [
+    ".flowguard/evidence/**/*",
+    ".flowguard/model-mesh/**/*.json",
+    ".flowguard/model-system/**/*.json",
+    ".flowguard/run_artifacts/**/*"
+  ],
+  "shared_input_groups": [
+    {
+      "component_id": "flowguard-model-runtime",
+      "globs": [
+        "flowguard/**/*.py",
+        "pyproject.toml"
+      ],
+      "consumers": [
+        "authoritative_model_system",
+        "compositional_verification_kernel",
+        "bounded_system_composition_benchmark",
+        "adversarial_scenario_synthesis",
+        "ai_entry_surface_reduction",
+        "ai_route_handoffs",
+        "ai_surface_streamlining",
+        "architecture_reduction",
+        "behavior_commitment_ledger",
+        "code_boundary_conformance",
+        "codex_skill_satellites",
+        "contract_source_audit",
+        "default_replacement_field_lifecycle",
+        "development_process_flow",
+        "development_process_strategy",
+        "existing_model_preflight",
+        "field_prompt_reduction",
+        "flowguard_closure_contract",
+        "guard_closure_contract",
+        "guidance_compression",
+        "harden_ui_content_visibility_validation",
+        "harden_ui_real_surface_validation",
+        "hierarchical_model_mesh",
+        "legacy_compatibility_cleanup",
+        "maintenance_obligation_memory",
+        "maintenance_scan_router",
+        "mesh_target_split_derivation",
+        "minimum_valuable_model_entry",
+        "model_angle_deliberation",
+        "model_impact_freshness_gate",
+        "model_mesh_closure_model",
+        "model_miss_review",
+        "model_similarity_consolidation",
+        "model_test_code_alignment",
+        "model_topology_hazard_review",
+        "model_visibility",
+        "openspec_archive_cleanup",
+        "plan_detailing_compiler",
+        "primary_path_authority",
+        "project_adoption_version_gate",
+        "readme_positioning_20260602",
+        "reduce_architecture_surface",
+        "release_visibility_process",
+        "risk_purpose_header",
+        "runtime_gateway_adoption",
+        "runtime_path_evidence",
+        "self_maintenance_mesh",
+        "simplify_field_schema",
+        "simplify_flowguard_structure",
+        "skill_kernel_modularization",
+        "state_closure_gate",
+        "structure_refactor_mesh",
+        "structure_surface_simplification",
+        "template_harvest_closure",
+        "template_public_release",
+        "test_evidence_mesh",
+        "ui_flow_structure_skill",
+        "ui_human_operability_gate",
+        "user_facing_model_diagrams",
+        "validation_evidence_gates",
+        "work_context",
+        "task_local_prediction_replay"
+      ]
+    },
+    {
+      "component_id": "model-regression-runner",
+      "globs": [
+        "scripts/run_flowguard_model_regressions.py"
+      ],
+      "consumers": [
+        "authoritative_model_system",
+        "compositional_verification_kernel",
+        "bounded_system_composition_benchmark",
+        "adversarial_scenario_synthesis",
+        "ai_entry_surface_reduction",
+        "ai_route_handoffs",
+        "ai_surface_streamlining",
+        "architecture_reduction",
+        "behavior_commitment_ledger",
+        "code_boundary_conformance",
+        "codex_skill_satellites",
+        "contract_source_audit",
+        "default_replacement_field_lifecycle",
+        "development_process_flow",
+        "development_process_strategy",
+        "existing_model_preflight",
+        "field_prompt_reduction",
+        "flowguard_closure_contract",
+        "guard_closure_contract",
+        "guidance_compression",
+        "harden_ui_content_visibility_validation",
+        "harden_ui_real_surface_validation",
+        "hierarchical_model_mesh",
+        "legacy_compatibility_cleanup",
+        "maintenance_obligation_memory",
+        "maintenance_scan_router",
+        "mesh_target_split_derivation",
+        "minimum_valuable_model_entry",
+        "model_angle_deliberation",
+        "model_impact_freshness_gate",
+        "model_mesh_closure_model",
+        "model_miss_review",
+        "model_similarity_consolidation",
+        "model_test_code_alignment",
+        "model_topology_hazard_review",
+        "model_visibility",
+        "openspec_archive_cleanup",
+        "plan_detailing_compiler",
+        "primary_path_authority",
+        "project_adoption_version_gate",
+        "readme_positioning_20260602",
+        "reduce_architecture_surface",
+        "release_visibility_process",
+        "risk_purpose_header",
+        "runtime_gateway_adoption",
+        "runtime_path_evidence",
+        "self_maintenance_mesh",
+        "simplify_field_schema",
+        "simplify_flowguard_structure",
+        "skill_kernel_modularization",
+        "state_closure_gate",
+        "structure_refactor_mesh",
+        "structure_surface_simplification",
+        "template_harvest_closure",
+        "template_public_release",
+        "test_evidence_mesh",
+        "ui_flow_structure_skill",
+        "ui_human_operability_gate",
+        "user_facing_model_diagrams",
+        "validation_evidence_gates",
+        "work_context",
+        "task_local_prediction_replay"
+      ]
+    }
+  ],
   "models": [
     {
       "absence_reason": "",
@@ -60,7 +214,7 @@
       ],
       "shard_safe": true,
       "tier": "fast",
-      "timeout_seconds": 300,
+      "timeout_seconds": 330,
       "purpose_closure": {
         "schema_version": "flowguard.model_purpose_closure.v1",
         "model_instance_id": "regression:authoritative_model_system:2758410c4661be47",
@@ -71,7 +225,8 @@
         "protected_failure_ids": [
           "model-authority:subject-lane-confusion",
           "model-authority:partial-or-stale-activation",
-          "model-authority:pointer-only-rollback"
+          "model-authority:pointer-only-rollback",
+          "model-authority:legacy-schema-dual-authority"
         ],
         "claim_boundary": "Current closure covers the declared finite authority, activation, coverage, and rollback scenarios only; it does not prove unenumerated software surfaces or production restoration without separate implementation evidence.",
         "adoption_scope": "current_candidate_only",
@@ -91,15 +246,20 @@
             "failure_id": "model-authority:pointer-only-rollback",
             "known_bad_case_id": "native-runner:authoritative-model-system:pointer-only-rollback",
             "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:legacy-schema-dual-authority",
+            "known_bad_case_id": "native-runner:authoritative-model-system:legacy-authority-dual-reader",
+            "oracle_id": "native:authoritative-model-system:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:authoritative-model-system"
         ],
-        "model_sha256": "sha256:2758410c4661be474821959858e55b4bdfc1c1b267df5ec3b5a5690ce44f886c",
+        "model_sha256": "sha256:3cd77f42f9d588dcf69b2d258c0a7e6df980aedca2da6c0f0297862553abb656",
         "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
-        "declaration_fingerprint": "sha256:c94116131045bd8323b26202b258395c36a0de316cf4e64d78023666ad92aef0",
-        "closure_fingerprint": "sha256:5d4884b134c385cbe9d170f234a5f94f0c16bd284c124147117b08328b4075a4"
+        "declaration_fingerprint": "sha256:f9dd77474e136730617d984dcf28bb208a7ba89bfaf049ce65fc37c67e4a2124",
+        "closure_fingerprint": "sha256:cef711db9a575bca2f4066d9a8c957e02a66c1a89cb519ca8ce3b6f54c76dbb4"
       }
     },
     {
@@ -1602,10 +1762,10 @@
         "evidence_check_ids": [
           "check:model-regression:model_impact_freshness_gate"
         ],
-        "model_sha256": "sha256:cf2bc70f9e53baf39ff5e187412b580084bcfb238e24a736231a2c604c5d3b0e",
-        "runner_sha256": "sha256:c7e6a544f74116ffd3ec5392b682c42350289ce4db0566b4608f55dfeadd8f17",
+        "model_sha256": "sha256:700e88b1bcd91ee1b9a5ca5a35ba8a3e48f52efd91089437d281dc2aa6847d0a",
+        "runner_sha256": "sha256:a9e20a9ce829d2747de4e09bf5c19a267b340c2d2b1fc9107eb0382d9acd10a1",
         "declaration_fingerprint": "sha256:74db004c002e7fde7f178857ab46522012ddce0a1279dd94f064a4d4ae743f68",
-        "closure_fingerprint": "sha256:35ea4a9485a3509c81be1c1a62f664a934b9425b5c989dac05644c679dcf6cd4"
+        "closure_fingerprint": "sha256:3aaee6cdf288a7192f9543be7475ff152b881451dd16dddd10f170003082f905"
       }
     },
     {
@@ -1614,6 +1774,7 @@
       "exclusion_reason": "",
       "expected_artifacts": [],
       "input_globs": [
+        ".flowguard/model_mesh_closure_model/__init__.py",
         ".flowguard/model_mesh_closure_model/model.py",
         ".flowguard/model_mesh_closure_model/run_checks.py"
       ],
@@ -2438,10 +2599,10 @@
         "evidence_check_ids": [
           "check:model-regression:self_maintenance_mesh"
         ],
-        "model_sha256": "sha256:cf61ce14d226d3e6685f86612b5cf7cfe81037f59896d394357dd8c0e3ecbedb",
-        "runner_sha256": "sha256:fdd904e890adbcdff53ddade065ef7defff4e94afa5cfeb5e7dbe93bd6c7b586",
+        "model_sha256": "sha256:75186d82eb603335ff0740ecd2426e8170c9db53d28d90f02c1c6f00f8fcd66e",
+        "runner_sha256": "sha256:34088eacc01eef071258d7286cbe027f20444333eaafb24936eba82d036a563d",
         "declaration_fingerprint": "sha256:a02cbef5dff567145b77d292b750ecc6d2ed5276609b5b3c61a9f39bbffc9545",
-        "closure_fingerprint": "sha256:60c08749c11ca50a765d595c32c217a651aa56c8f9c30c76e829c40e3990716f"
+        "closure_fingerprint": "sha256:65a2ebc29681340e189dc59bad3070c74d9119b9d5daa04a9bca3702b34fc9f2"
       }
     },
     {
@@ -3250,10 +3411,5 @@
       }
     }
   ],
-  "schema_version": "flowguard.model_regression_manifest.v2",
-  "tier_semantics": {
-    "fast": "fast entries only",
-    "focused": "fast plus focused entries",
-    "full": "all non-excluded entries"
-  }
+  "schema_version": "flowguard.model_regression_manifest.v3"
 }

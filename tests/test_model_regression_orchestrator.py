@@ -54,7 +54,16 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
                 }
             )
         (root / ".flowguard" / "model-regression-manifest.json").write_text(
-            json.dumps({"schema_version": MANIFEST_SCHEMA, "models": models}), encoding="utf-8"
+            json.dumps(
+                {
+                    "schema_version": MANIFEST_SCHEMA,
+                    "governed_input_globs": [".flowguard/**/*.py"],
+                    "snapshot_only_input_globs": [],
+                    "shared_input_groups": [],
+                    "models": models,
+                }
+            ),
+            encoding="utf-8",
         )
         return root
 
@@ -71,33 +80,25 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
         report = run_manifest_regressions(root, tier="full", output_dir=root / "outputs" / "out-timeout")
         self.assertEqual("timeout", report.status)
         receipt = json.loads(Path(report.results[0].receipt_path).read_text(encoding="utf-8"))
-        self.assertTrue(receipt["terminal"])
-        self.assertEqual(
-            "flowguard.model_regression_receipt.v3",
-            receipt["schema_version"],
-        )
-        self.assertEqual("timeout", receipt["status"])
-        self.assertEqual("regression:slow:current", receipt["model_instance_id"])
-        self.assertTrue(receipt["model_instance_fingerprint"].startswith("sha256:"))
-        self.assertEqual(
-            receipt["model_instance_fingerprint"],
-            receipt["model_instance"]["fingerprint"],
-        )
-        self.assertEqual("executable_workflow", receipt["model_kind"])
-        self.assertTrue(receipt["subject_revision"])
-        self.assertTrue(receipt["input_inventory_fingerprint"].startswith("sha256:"))
+        self.assertEqual("1.0", receipt["schema_version"])
+        self.assertEqual("error", receipt["result_status"])
+        self.assertIn("owner_status:timeout", receipt["blockers"])
+        result = report.results[0]
+        self.assertEqual("regression:slow:current", result.model_instance_id)
+        self.assertTrue(result.model_instance_fingerprint.startswith("sha256:"))
+        self.assertEqual("executable_workflow", result.model_kind)
+        self.assertTrue(result.input_inventory_fingerprint.startswith("sha256:"))
         self.assertEqual(
             [
                 ".flowguard/slow/model.py",
                 ".flowguard/slow/run_checks.py",
             ],
-            [item["path"] for item in receipt["input_inventory"]],
+            [item["path"] for item in result.input_inventory],
         )
         self.assertTrue(
-            all(item["sha256"].startswith("sha256:") for item in receipt["input_inventory"])
+            all(item["sha256"].startswith("sha256:") for item in result.input_inventory)
         )
-        self.assertTrue(receipt["purpose_closure_fingerprint"].startswith("sha256:"))
-        self.assertEqual(["slow:invalid"], receipt["protected_failure_ids"])
+        self.assertTrue(result.purpose_closure_fingerprint.startswith("sha256:"))
 
     def test_cancellation_is_propagated_to_child_receipt(self):
         root = self.make_repo([{"model_id": "slow", "script": "import time\ntime.sleep(10)\n"}])
@@ -202,6 +203,138 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
             report = run_manifest_regressions(root, tier="full", output_dir=root / "outputs" / "out-mutation")
         self.assertEqual("blocked", report.status)
         self.assertEqual(("tracked.txt",), report.mutation_paths)
+
+    def test_identical_second_run_reuses_receipt_without_invoking_runner(self):
+        script = (
+            "from pathlib import Path\n"
+            "path = Path('invocations.txt')\n"
+            "count = int(path.read_text() if path.exists() else '0')\n"
+            "path.write_text(str(count + 1), encoding='utf-8')\n"
+        )
+        root = self.make_repo([{"model_id": "cached", "script": script}])
+        with patch("flowguard.model_regressions._tracked_paths", return_value=()):
+            first = run_manifest_regressions(
+                root,
+                tier="full",
+                output_dir=root / "outputs" / "out-first",
+            )
+            second = run_manifest_regressions(
+                root,
+                tier="full",
+                output_dir=root / "outputs" / "out-second",
+            )
+        self.assertTrue(first.ok, first.to_dict())
+        self.assertTrue(second.ok, second.to_dict())
+        self.assertEqual("1", (root / "invocations.txt").read_text(encoding="utf-8"))
+        self.assertEqual("execute", first.results[0].execution_disposition)
+        self.assertEqual("reuse_current", second.results[0].execution_disposition)
+        self.assertEqual(0, second.results[0].producer_invocations)
+        self.assertEqual(
+            first.results[0].receipt_fingerprint,
+            second.results[0].receipt_fingerprint,
+        )
+
+    def test_one_model_input_change_executes_only_that_model(self):
+        script = (
+            "from pathlib import Path\n"
+            "model_id = __import__('os').environ['FLOWGUARD_MODEL_ID']\n"
+            "path = Path(f'{model_id}-invocations.txt')\n"
+            "count = int(path.read_text() if path.exists() else '0')\n"
+            "path.write_text(str(count + 1), encoding='utf-8')\n"
+        )
+        root = self.make_repo(
+            [
+                {"model_id": "alpha", "script": script},
+                {"model_id": "beta", "script": script},
+            ]
+        )
+        alpha_config = root / ".flowguard" / "alpha" / "config.json"
+        alpha_config.write_text('{"value": 1}\n', encoding="utf-8")
+        manifest_path = root / ".flowguard" / "model-regression-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["models"][0]["input_globs"].append(
+            ".flowguard/alpha/config.json"
+        )
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with patch("flowguard.model_regressions._tracked_paths", return_value=()):
+            first = run_manifest_regressions(
+                root,
+                tier="full",
+                output_dir=root / "outputs" / "out-first",
+            )
+            alpha_config.write_text('{"value": 2}\n', encoding="utf-8")
+            second = run_manifest_regressions(
+                root,
+                tier="full",
+                output_dir=root / "outputs" / "out-second",
+            )
+        self.assertTrue(first.ok, first.to_dict())
+        self.assertTrue(second.ok, second.to_dict())
+        by_id = {item.model_id: item for item in second.results}
+        self.assertEqual("execute", by_id["alpha"].execution_disposition)
+        self.assertEqual("reuse_current", by_id["beta"].execution_disposition)
+        self.assertEqual("2", (root / "alpha-invocations.txt").read_text(encoding="utf-8"))
+        self.assertEqual("1", (root / "beta-invocations.txt").read_text(encoding="utf-8"))
+
+    def test_one_manifest_entry_change_executes_only_that_model(self):
+        script = (
+            "from pathlib import Path\n"
+            "model_id = __import__('os').environ['FLOWGUARD_MODEL_ID']\n"
+            "path = Path(f'{model_id}-manifest-invocations.txt')\n"
+            "count = int(path.read_text() if path.exists() else '0')\n"
+            "path.write_text(str(count + 1), encoding='utf-8')\n"
+        )
+        root = self.make_repo(
+            [
+                {"model_id": "alpha", "script": script},
+                {"model_id": "beta", "script": script},
+            ]
+        )
+        with patch("flowguard.model_regressions._tracked_paths", return_value=()):
+            first = run_manifest_regressions(
+                root,
+                tier="full",
+                output_dir=root / "outputs" / "out-first",
+            )
+            manifest_path = (
+                root / ".flowguard" / "model-regression-manifest.json"
+            )
+            manifest = json.loads(
+                manifest_path.read_text(encoding="utf-8")
+            )
+            beta = next(
+                item
+                for item in manifest["models"]
+                if item["model_id"] == "beta"
+            )
+            beta["timeout_seconds"] = 6
+            manifest_path.write_text(
+                json.dumps(manifest),
+                encoding="utf-8",
+            )
+            second = run_manifest_regressions(
+                root,
+                tier="full",
+                output_dir=root / "outputs" / "out-second",
+            )
+
+        self.assertTrue(first.ok, first.to_dict())
+        self.assertTrue(second.ok, second.to_dict())
+        by_id = {item.model_id: item for item in second.results}
+        self.assertEqual("reuse_current", by_id["alpha"].execution_disposition)
+        self.assertEqual("execute", by_id["beta"].execution_disposition)
+        self.assertEqual(
+            "1",
+            (root / "alpha-manifest-invocations.txt").read_text(
+                encoding="utf-8"
+            ),
+        )
+        self.assertEqual(
+            "2",
+            (root / "beta-manifest-invocations.txt").read_text(
+                encoding="utf-8"
+            ),
+        )
 
 
 if __name__ == "__main__":

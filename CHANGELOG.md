@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.64.0 - 2026-07-28
+
+- Replaced unconditional full validation with a deterministic native owner
+  plan whose rows are `execute`, `reuse_current`, or `blocked`, backed by
+  immutable independently verified child receipts and single-flight leases.
+- Preserved successful child evidence across parent failures so later runs
+  execute only missing, failed, or stale owners and cheaply recompose the
+  exact parent receipt.
+- Split model-local identity from the global model-system snapshot revision and
+  Git release provenance, preventing an unrelated model change or commit from
+  invalidating unchanged sibling models.
+- Added the v3 model regression impact map with explicit local/shared/
+  snapshot-only ownership and zero-producer fail-closed behavior for unknown,
+  conflicting, malformed, or tampered inputs and receipts.
+- Replaced mtime release freshness with separate content-addressed
+  `ValidationInputManifest` and `ReleaseTreeManifest` identities, exact parent
+  receipt verification, and immutable local-tag/published release checks.
+- Direct-migrated the maintained FlowGuard skills, OpenSpec lifecycle, model
+  authority, and source-only fifteen-skill consumer projection to the current
+  contracts without compatibility readers or fallback execution paths.
+
 ## v0.63.0 - 2026-07-27
 
 - Made Existing Model Preflight select the same-plane owner closure before

@@ -1,0 +1,112 @@
+{
+  "affected_closure_fingerprint": "sha256:0976c6aa699a2f2beab0927a075ffe3498edefd37013664800b87079955914cb",
+  "affected_closure_ids": [
+    "commitment:authoritative-model-system",
+    "contract:contract:model-system-authority:observed-head",
+    "contract:contract:model-system-authority:operational-rollback",
+    "contract:contract:model-system-authority:revision-activation",
+    "field-or-effect:model_authority_head",
+    "field-or-effect:persist_immutable_model_revision_records",
+    "field-or-effect:restore_or_compensate_implementation_effects",
+    "model:authoritative_model_system",
+    "purpose:authoritative_model_system",
+    "relation:model-realizes-code_contract:model_instance:model:authoritative_model_system--code_contract:contract:contract:model-system-authority:observed-head",
+    "relation:model-realizes-code_contract:model_instance:model:authoritative_model_system--code_contract:contract:contract:model-system-authority:operational-rollback",
+    "relation:model-realizes-code_contract:model_instance:model:authoritative_model_system--code_contract:contract:contract:model-system-authority:revision-activation",
+    "relation:model-realizes-commitment:commitment:authoritative-model-system",
+    "relation:model-realizes-field_inventory:model_instance:model:authoritative_model_system--field_inventory:field-or-effect:model_authority_head",
+    "relation:model-realizes-purpose:authoritative_model_system",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:authoritative_model_system--side_effect_inventory:field-or-effect:persist_immutable_model_revision_records",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:authoritative_model_system--side_effect_inventory:field-or-effect:restore_or_compensate_implementation_effects",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:.flowguard/authoritative_model_system/run_checks.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_authority.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_authority_cli.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_authority_store.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_system_inventory.py",
+    "relation:system-contains:authoritative_model_system",
+    "system:flowguard:model-regression-manifest",
+    "test:.flowguard/authoritative_model_system/run_checks.py",
+    "test:tests/test_model_authority.py",
+    "test:tests/test_model_authority_cli.py",
+    "test:tests/test_model_authority_store.py",
+    "test:tests/test_model_system_inventory.py"
+  ],
+  "base_snapshot_fingerprint": "sha256:30df1af285076bd769b6166dd11b624e26718bf2de1288abd1963ba50f65a910",
+  "candidate_snapshot_fingerprint": "sha256:4c1778f44a1f916993e8caa527ba1bc4683bd8ee7b5d782c487e852794dc0c09",
+  "changed_commitment_ids": [],
+  "changed_contract_ids": [],
+  "changed_field_ids": [],
+  "changed_relation_ids": [
+    "relation:model-realizes-code_contract:model_instance:model:authoritative_model_system--code_contract:contract:contract:model-system-authority:observed-head",
+    "relation:model-realizes-code_contract:model_instance:model:authoritative_model_system--code_contract:contract:contract:model-system-authority:operational-rollback",
+    "relation:model-realizes-code_contract:model_instance:model:authoritative_model_system--code_contract:contract:contract:model-system-authority:revision-activation",
+    "relation:model-realizes-commitment:commitment:authoritative-model-system",
+    "relation:model-realizes-field_inventory:model_instance:model:authoritative_model_system--field_inventory:field-or-effect:model_authority_head",
+    "relation:model-realizes-purpose:authoritative_model_system",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:authoritative_model_system--side_effect_inventory:field-or-effect:persist_immutable_model_revision_records",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:authoritative_model_system--side_effect_inventory:field-or-effect:restore_or_compensate_implementation_effects",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:.flowguard/authoritative_model_system/run_checks.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_authority.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_authority_cli.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_authority_store.py",
+    "relation:model-validates-test_evidence:model_instance:model:authoritative_model_system--test_evidence:test:tests/test_model_system_inventory.py",
+    "relation:system-contains:authoritative_model_system"
+  ],
+  "changed_side_effect_ids": [],
+  "changed_source_surface_ids": [],
+  "changed_system_property_ids": [],
+  "changed_test_ids": [],
+  "completed_evidence_refs": [
+    {
+      "current": true,
+      "eligible": true,
+      "obligation_ids": [
+        "model-system:v0.64.0:affected-authority-refresh"
+      ],
+      "owner_route": "model_regression_orchestrator",
+      "receipt_fingerprint": "sha256:c99f1215f46f43c4e4ba571c2daddbfbd988d878040b69a340b3446d4cc3763a",
+      "receipt_id": "receipt:model-regressions:v064-authority-refresh",
+      "schema": "flowguard.model_revision_evidence.v1",
+      "status": "pass",
+      "subject_fingerprint": "sha256:4c1778f44a1f916993e8caa527ba1bc4683bd8ee7b5d782c487e852794dc0c09"
+    }
+  ],
+  "decision_reason": "The exact affected authoritative model passed after the final skill and consumer-authority refresh; unrelated model owners remain unchanged.",
+  "evidence_complete": true,
+  "expected_head_fingerprint": "sha256:c06e0b2486b8db606c819c8da47db54d8e0cdb3909ea81e82534cde827482f15",
+  "fingerprint": "sha256:8586f1ad91c93b42b13571c07bcc159c6f9b27e9f6838dd363c783370504e0a8",
+  "implementation_bundle_fingerprint": "sha256:4c1778f44a1f916993e8caa527ba1bc4683bd8ee7b5d782c487e852794dc0c09",
+  "members": [
+    {
+      "base_instance_fingerprint": "sha256:5230bf51dc9ab9a7d41c62aa7140406317f34038e7f8af95b09caf87805d5fc7",
+      "candidate_instance_fingerprint": "sha256:9b8f4819452b622cc9dab6e0694c3832db1995394582bf9997ac490f9c0f0de9",
+      "changed_element_ids": [
+        "model:authoritative_model_system"
+      ],
+      "member_id": "authoritative_model_system",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    }
+  ],
+  "prediction_replay_refs": [],
+  "required_evidence_refs": [
+    {
+      "current": true,
+      "eligible": true,
+      "obligation_ids": [
+        "model-system:v0.64.0:affected-authority-refresh"
+      ],
+      "owner_route": "model_regression_orchestrator",
+      "receipt_fingerprint": "sha256:c99f1215f46f43c4e4ba571c2daddbfbd988d878040b69a340b3446d4cc3763a",
+      "receipt_id": "receipt:model-regressions:v064-authority-refresh",
+      "schema": "flowguard.model_revision_evidence.v1",
+      "status": "required",
+      "subject_fingerprint": "sha256:4c1778f44a1f916993e8caa527ba1bc4683bd8ee7b5d782c487e852794dc0c09"
+    }
+  ],
+  "revision_set_id": "revision:v0.64.0-final-fixed-model-authority",
+  "rollback_contract_fingerprint": "sha256:30df1af285076bd769b6166dd11b624e26718bf2de1288abd1963ba50f65a910",
+  "schema": "flowguard.model_revision_set.v1",
+  "status": "accepted",
+  "task_id": "task:v0.64.0-freshness-optimization"
+}

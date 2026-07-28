@@ -35,6 +35,134 @@ class ModelSystemInventoryTests(unittest.TestCase):
         self.assertFalse(snapshot.unresolved_gap_ids)
         self.assertTrue(snapshot.coverage.complete)
         self.assertTrue(snapshot.model_instances)
+        self.assertEqual("flowguard.model_system_snapshot.v2", snapshot.schema)
+        self.assertTrue(
+            all(
+                model.schema == "flowguard.model_instance_ref.v2"
+                and "subject_revision" not in model.to_dict()
+                for model in snapshot.model_instances
+            )
+        )
+
+    def test_local_model_identity_changes_only_for_its_resolved_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            model_paths = {}
+            runner_paths = {}
+            for model_id in ("alpha", "beta"):
+                model_dir = root / ".flowguard" / model_id
+                model_dir.mkdir(parents=True)
+                model_paths[model_id] = model_dir / "model.py"
+                runner_paths[model_id] = model_dir / "run_checks.py"
+                model_paths[model_id].write_text(
+                    f"VALUE = {model_id!r}\n",
+                    encoding="utf-8",
+                )
+                runner_paths[model_id].write_text(
+                    "print('ok')\n",
+                    encoding="utf-8",
+                )
+
+            def write_manifest() -> None:
+                models = []
+                for model_id in ("alpha", "beta"):
+                    purpose = build_model_purpose_closure(
+                        model_instance_id=f"regression:{model_id}:fixture",
+                        reusable_model_type_id=model_id,
+                        task_intent_id=f"flowguard-regression:{model_id}",
+                        guarded_purpose=(
+                            f"Prevent the {model_id} fixture from accepting "
+                            "an incorrect local model identity."
+                        ),
+                        protected_failure_ids=(f"{model_id}:incorrect",),
+                        known_good_case_id=f"native:{model_id}:complete",
+                        failure_bindings=(
+                            {
+                                "failure_id": f"{model_id}:incorrect",
+                                "known_bad_case_id": (
+                                    f"native:{model_id}:incorrect"
+                                ),
+                                "oracle_id": f"native:{model_id}:run-checks",
+                            },
+                        ),
+                        claim_boundary=(
+                            "This fixture proves only local model input "
+                            "identity isolation inside a temporary project."
+                        ),
+                        evidence_check_ids=(f"check:{model_id}",),
+                        model_sha256=file_fingerprint(model_paths[model_id]),
+                        runner_sha256=file_fingerprint(runner_paths[model_id]),
+                    )
+                    models.append(
+                        {
+                            "model_id": model_id,
+                            "model_path": (
+                                f".flowguard/{model_id}/model.py"
+                            ),
+                            "runner": [
+                                "{python}",
+                                f".flowguard/{model_id}/run_checks.py",
+                            ],
+                            "tier": "fast",
+                            "timeout_seconds": 5,
+                            "shard_safe": True,
+                            "mutation_policy": "none",
+                            "input_globs": [
+                                f".flowguard/{model_id}/model.py",
+                                f".flowguard/{model_id}/run_checks.py",
+                            ],
+                            "expected_artifacts": [],
+                            "exclusion_reason": "",
+                            "purpose_closure": purpose.to_dict(),
+                        }
+                    )
+                (
+                    root / ".flowguard" / "model-regression-manifest.json"
+                ).write_text(
+                    json.dumps(
+                        {
+                            "schema_version": MANIFEST_SCHEMA,
+                            "governed_input_globs": [".flowguard/**/*.py"],
+                            "snapshot_only_input_globs": [],
+                            "shared_input_groups": [],
+                            "models": models,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+
+            write_manifest()
+            before = build_manifest_model_system_snapshot(
+                root,
+                snapshot_id="snapshot:local-identity",
+            )
+            before_by_id = {
+                item.logical_model_id: item for item in before.model_instances
+            }
+
+            model_paths["alpha"].write_text(
+                "VALUE = 'alpha-changed'\n",
+                encoding="utf-8",
+            )
+            write_manifest()
+            after = build_manifest_model_system_snapshot(
+                root,
+                snapshot_id="snapshot:local-identity",
+            )
+            after_by_id = {
+                item.logical_model_id: item for item in after.model_instances
+            }
+
+            self.assertNotEqual(
+                before_by_id["alpha"].fingerprint,
+                after_by_id["alpha"].fingerprint,
+            )
+            self.assertEqual(
+                before_by_id["beta"].fingerprint,
+                after_by_id["beta"].fingerprint,
+            )
+            self.assertNotEqual(before.subject_revision, after.subject_revision)
+            self.assertNotEqual(before.fingerprint, after.fingerprint)
 
     def test_manifest_snapshot_connects_model_purpose_and_commitment(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -72,6 +200,9 @@ class ModelSystemInventoryTests(unittest.TestCase):
             )
             manifest = {
                 "schema_version": MANIFEST_SCHEMA,
+                "governed_input_globs": [".flowguard/**/*.py"],
+                "snapshot_only_input_globs": [],
+                "shared_input_groups": [],
                 "models": [
                     {
                         "model_id": "owner",
@@ -151,8 +282,25 @@ class ModelSystemInventoryTests(unittest.TestCase):
                 snapshot_id="snapshot:owner",
                 subject_revision="git:" + "a" * 40,
             )
+            changed_global_revision = build_manifest_model_system_snapshot(
+                root,
+                snapshot_id="snapshot:owner",
+                subject_revision="source-inventory:" + "b" * 64,
+            )
 
             self.assertEqual(1, len(snapshot.model_instances))
+            self.assertEqual(
+                snapshot.model_instances[0].fingerprint,
+                changed_global_revision.model_instances[0].fingerprint,
+            )
+            self.assertNotEqual(
+                snapshot.fingerprint,
+                changed_global_revision.fingerprint,
+            )
+            self.assertNotIn(
+                "subject_revision",
+                snapshot.model_instances[0].to_dict(),
+            )
             self.assertEqual(7, len(snapshot.relations))
             self.assertEqual(
                 {

@@ -96,10 +96,14 @@ class DocumentationCommandTests(unittest.TestCase):
         self.assertEqual(package_version, match.group(1))
 
     def test_release_verification_commands_are_documented_bilingually(self):
-        command = "python scripts/verify_flowguard_release.py --root . --phase local --json"
+        command = (
+            "python scripts/verify_flowguard_release.py --root . "
+            "--phase local-candidate --parent-receipt <parent-receipt-id>"
+        )
         self.assertIn("## Release Closure", self.guide)
         self.assertIn("### 发布闭环", self.guide)
         self.assertGreaterEqual(self.guide.count(command), 2)
+        self.assertIn("--phase tag", self.guide)
         self.assertIn("--phase published", self.guide)
 
     def test_documented_script_options_exist_on_the_real_cli(self):

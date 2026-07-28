@@ -45,6 +45,11 @@ class AuthorityCase:
     old_snapshot_revalidated: bool = True
     irreversible_effect_not_exact_rollback: bool = True
     observed_subject_matches_software: bool = True
+    instance_identity_is_local: bool = True
+    global_revision_is_snapshot_only: bool = True
+    incompatible_schema_has_one_direct_current_migration: bool = True
+    unknown_impact_blocks: bool = True
+    public_authority_closure_complete: bool = True
 
 
 @dataclass(frozen=True)
@@ -66,6 +71,11 @@ class AuthorityState:
     old_snapshot_revalidated: bool = False
     irreversible_effect_not_exact_rollback: bool = False
     observed_subject_matches_software: bool = False
+    instance_identity_is_local: bool = False
+    global_revision_is_snapshot_only: bool = False
+    incompatible_schema_has_one_direct_current_migration: bool = False
+    unknown_impact_blocks: bool = False
+    public_authority_closure_complete: bool = False
 
 
 class EvaluateAuthorityRevision:
@@ -218,6 +228,55 @@ def observed_head_matches_real_software(
     return _pass()
 
 
+def local_identity_and_global_provenance_are_separate(
+    state: AuthorityState, _trace: object
+) -> InvariantResult:
+    if not state.case_name:
+        return _pass()
+    if not state.instance_identity_is_local:
+        return _fail(
+            "local_identity_and_global_provenance_are_separate",
+            "one global source revision was copied into every model instance identity",
+        )
+    if not state.global_revision_is_snapshot_only:
+        return _fail(
+            "local_identity_and_global_provenance_are_separate",
+            "global source or Git revision escaped snapshot provenance",
+        )
+    return _pass()
+
+
+def impact_and_public_closure_fail_closed(
+    state: AuthorityState, _trace: object
+) -> InvariantResult:
+    if not state.case_name:
+        return _pass()
+    if not state.unknown_impact_blocks:
+        return _fail(
+            "impact_and_public_closure_fail_closed",
+            "unknown model impact silently expanded to run-all",
+        )
+    if not state.public_authority_closure_complete:
+        return _fail(
+            "impact_and_public_closure_fail_closed",
+            "release tree omits the current authority snapshot, revision, or activation record",
+        )
+    return _pass()
+
+
+def incompatible_authority_schema_has_no_dual_reader(
+    state: AuthorityState, _trace: object
+) -> InvariantResult:
+    if not state.case_name:
+        return _pass()
+    if not state.incompatible_schema_has_one_direct_current_migration:
+        return _fail(
+            "incompatible_authority_schema_has_no_dual_reader",
+            "an incompatible authority schema remained readable beside the current schema",
+        )
+    return _pass()
+
+
 def rollback_restores_reality_before_authority(
     state: AuthorityState, _trace: object
 ) -> InvariantResult:
@@ -271,6 +330,21 @@ INVARIANTS = (
         "observed_head_matches_real_software",
         "The observed snapshot identifies the real implemented software revision.",
         observed_head_matches_real_software,
+    ),
+    Invariant(
+        "local_identity_and_global_provenance_are_separate",
+        "Model instances use local content identity while global revisions remain snapshot provenance.",
+        local_identity_and_global_provenance_are_separate,
+    ),
+    Invariant(
+        "impact_and_public_closure_fail_closed",
+        "Unknown impact and missing public authority records block instead of falling back.",
+        impact_and_public_closure_fail_closed,
+    ),
+    Invariant(
+        "incompatible_authority_schema_has_no_dual_reader",
+        "An incompatible authority schema is replaced directly and never remains as a second reader.",
+        incompatible_authority_schema_has_no_dual_reader,
     ),
     Invariant(
         "rollback_restores_reality_before_authority",
@@ -409,6 +483,54 @@ SCENARIOS = (
         _expect_violation(
             "observed_head_matches_real_software",
             "observed subject mismatch is rejected",
+        ),
+    ),
+    _scenario(
+        "global_subject_cannot_fan_out_into_every_instance",
+        "A global source revision cannot invalidate unrelated local model identities.",
+        AuthorityCase(
+            "global_subject_fanout",
+            instance_identity_is_local=False,
+        ),
+        _expect_violation(
+            "local_identity_and_global_provenance_are_separate",
+            "global-to-local identity fan-out is rejected",
+        ),
+    ),
+    _scenario(
+        "unknown_impact_cannot_fall_back_to_run_all",
+        "An unmapped source path blocks before model producers start.",
+        AuthorityCase(
+            "unknown_impact_runs_all",
+            unknown_impact_blocks=False,
+        ),
+        _expect_violation(
+            "impact_and_public_closure_fail_closed",
+            "unknown-impact run-all fallback is rejected",
+        ),
+    ),
+    _scenario(
+        "release_requires_public_authority_closure",
+        "The source release must contain the current authority records.",
+        AuthorityCase(
+            "authority_records_ignored",
+            public_authority_closure_complete=False,
+        ),
+        _expect_violation(
+            "impact_and_public_closure_fail_closed",
+            "ignored model authority closure is rejected",
+        ),
+    ),
+    _scenario(
+        "legacy_authority_schema_cannot_remain_a_second_reader",
+        "An incompatible persisted authority schema must migrate directly to the sole current schema.",
+        AuthorityCase(
+            "legacy_authority_dual_reader",
+            incompatible_schema_has_one_direct_current_migration=False,
+        ),
+        _expect_violation(
+            "incompatible_authority_schema_has_no_dual_reader",
+            "legacy authority dual-read success is rejected",
         ),
     ),
     _scenario(

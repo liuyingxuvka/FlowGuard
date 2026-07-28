@@ -34,7 +34,7 @@ class SelfMaintenanceAction:
     verified_plane_upgrade_receipt_ids: tuple[str, ...] = ()
     terminal_plane_upgrade_receipt_ids: tuple[str, ...] = ()
     progress_only_plane_upgrade_receipt_ids: tuple[str, ...] = ()
-    verification_contract_fingerprint: str = ""
+    validation_owner_inventory_fingerprint: str = ""
     spec_context_ids: tuple[str, ...] = ()
     spec_context_provider: str = "openspec"
     spec_context_artifacts_current: bool = True
@@ -72,7 +72,7 @@ class SelfMaintenanceState:
     receipt_set_fingerprint: str = ""
     consumed_plane_upgrade_receipt_ids: tuple[str, ...] = ()
     terminal_plane_upgrade_receipt_ids: tuple[str, ...] = ()
-    verification_contract_fingerprint: str = ""
+    validation_owner_inventory_fingerprint: str = ""
     completion_authority_plane: str = ""
     done_claim: str = "none"
 
@@ -110,13 +110,13 @@ def _receipt_sets_current(input_obj: SelfMaintenanceAction) -> tuple[bool, bool,
     plane_receipt_ids = tuple(input_obj.verified_plane_upgrade_receipt_ids)
     terminal_receipt_ids = tuple(input_obj.terminal_plane_upgrade_receipt_ids)
     plane_set_current = (
-        len(plane_receipt_ids) == len(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
-        and set(plane_receipt_ids) == set(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
-        and len(terminal_receipt_ids) == len(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
-        and set(terminal_receipt_ids) == set(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        len(plane_receipt_ids) == len(CURRENT_FULL_VALIDATION_OWNER_IDS)
+        and set(plane_receipt_ids) == set(CURRENT_FULL_VALIDATION_OWNER_IDS)
+        and len(terminal_receipt_ids) == len(CURRENT_FULL_VALIDATION_OWNER_IDS)
+        and set(terminal_receipt_ids) == set(CURRENT_FULL_VALIDATION_OWNER_IDS)
         and not input_obj.progress_only_plane_upgrade_receipt_ids
-        and input_obj.verification_contract_fingerprint
-        == PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+        and input_obj.validation_owner_inventory_fingerprint
+        == VALIDATION_OWNER_INVENTORY_FINGERPRINT
     )
     spec_set_current = (
         set(input_obj.spec_context_ids) == set(REQUIRED_SPEC_CONTEXT_IDS)
@@ -154,7 +154,7 @@ class CorrectSelfMaintenance:
         "receipt_set_fingerprint",
         "consumed_plane_upgrade_receipt_ids",
         "terminal_plane_upgrade_receipt_ids",
-        "verification_contract_fingerprint",
+        "validation_owner_inventory_fingerprint",
         "completion_authority_plane",
         "done_claim",
     )
@@ -221,8 +221,10 @@ class CorrectSelfMaintenance:
                         receipt_set_fingerprint=input_obj.verification_set_fingerprint if exact_set else "",
                         consumed_plane_upgrade_receipt_ids=plane_receipt_ids if plane_exact_set else (),
                         terminal_plane_upgrade_receipt_ids=terminal_receipt_ids if plane_exact_set else (),
-                        verification_contract_fingerprint=(
-                            input_obj.verification_contract_fingerprint if plane_exact_set else ""
+                        validation_owner_inventory_fingerprint=(
+                            input_obj.validation_owner_inventory_fingerprint
+                            if plane_exact_set
+                            else ""
                         ),
                         spec_context_current=spec_exact_set,
                         consumed_spec_context_ids=(
@@ -298,8 +300,10 @@ class CorrectSelfMaintenance:
                     receipt_set_fingerprint=input_obj.verification_set_fingerprint if exact_set else "",
                     consumed_plane_upgrade_receipt_ids=plane_receipt_ids if plane_exact_set else (),
                     terminal_plane_upgrade_receipt_ids=terminal_receipt_ids if plane_exact_set else (),
-                    verification_contract_fingerprint=(
-                        input_obj.verification_contract_fingerprint if plane_exact_set else ""
+                    validation_owner_inventory_fingerprint=(
+                        input_obj.validation_owner_inventory_fingerprint
+                        if plane_exact_set
+                        else ""
                     ),
                     spec_context_current=spec_exact_set,
                     consumed_spec_context_ids=(
@@ -429,7 +433,9 @@ class BrokenAcceptsUnverifiedPlaneReceipts(CorrectSelfMaintenance):
                     terminal_plane_upgrade_receipt_ids=tuple(
                         input_obj.terminal_plane_upgrade_receipt_ids
                     ),
-                    verification_contract_fingerprint=input_obj.verification_contract_fingerprint,
+                    validation_owner_inventory_fingerprint=(
+                        input_obj.validation_owner_inventory_fingerprint
+                    ),
                 ),
                 label="unverified_receipts_consumed",
             )
@@ -590,15 +596,15 @@ def no_evidence_flags_without_exact_receipt_set(state: SelfMaintenanceState, tra
     )
     if any(plane_evidence_flags) and not (
         len(state.consumed_plane_upgrade_receipt_ids)
-        == len(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        == len(CURRENT_FULL_VALIDATION_OWNER_IDS)
         and set(state.consumed_plane_upgrade_receipt_ids)
-        == set(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        == set(CURRENT_FULL_VALIDATION_OWNER_IDS)
         and len(state.terminal_plane_upgrade_receipt_ids)
-        == len(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
+        == len(CURRENT_FULL_VALIDATION_OWNER_IDS)
         and set(state.terminal_plane_upgrade_receipt_ids)
-        == set(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS)
-        and state.verification_contract_fingerprint
-        == PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+        == set(CURRENT_FULL_VALIDATION_OWNER_IDS)
+        and state.validation_owner_inventory_fingerprint
+        == VALIDATION_OWNER_INVENTORY_FINGERPRINT
     ):
         return InvariantResult.fail(
             "plane-upgrade evidence became current without exact terminal check identities and the current verification-contract fingerprint"
@@ -670,30 +676,21 @@ REQUIRED_SKILL_RECEIPT_IDS = (
 )
 REQUIRED_RECEIPT_COUNT = len(REQUIRED_SKILL_RECEIPT_IDS)
 ABSTRACT_RECEIPT_IDS = REQUIRED_SKILL_RECEIPT_IDS
-REQUIRED_PLANE_UPGRADE_RECEIPT_IDS = (
-    "check.lookup.focused",
-    "check.behavior.focused",
-    "check.contracts.focused",
-    "check.api.templates",
-    "check.skills.focused",
-    "check.skills.static",
-    "check.skills.install",
-    "check.project.models",
-    "check.models.full",
-    "check.tests.full",
-    "check.flowguard.audit",
+CURRENT_FULL_VALIDATION_OWNER_IDS = (
+    "project_audit",
+    "skill_suite_static",
+    "skill_self_governance",
+    "model_regressions_full",
+    "pytest",
+    "openspec_strict",
+    "distribution_check",
+    "distribution_parity",
 )
-PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT = (
+VALIDATION_OWNER_INVENTORY_FINGERPRINT = (
     "sha256:"
     + hashlib.sha256(
-        "\n".join(REQUIRED_PLANE_UPGRADE_RECEIPT_IDS).encode("utf-8")
+        "\n".join(CURRENT_FULL_VALIDATION_OWNER_IDS).encode("utf-8")
     ).hexdigest().upper()
-)
-# Exact source identity for the OpenSpec verification contract that declares
-# the current plane-upgrade checks. This is intentionally separate from the
-# normalized check-id fingerprint above.
-PLANE_UPGRADE_VERIFICATION_CONTRACT_SOURCE_SHA256 = (
-    "sha256:01BC478660999AE0B19A3DF6EFFC2A55368E54D28B5B9043B447E3BC25C7A86A"
 )
 REQUIRED_SPEC_CONTEXT_IDS = (
     "openspec:separate-flowguard-consumer-skills-from-skillguard-maintenance",
@@ -703,9 +700,9 @@ EXTERNAL_INPUTS = (
         "advance_receipt_bound_workflow",
         verified_child_receipt_ids=ABSTRACT_RECEIPT_IDS,
         verification_set_fingerprint="sha256:abstract-current-receipt-set",
-        verified_plane_upgrade_receipt_ids=REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
-        terminal_plane_upgrade_receipt_ids=REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
-        verification_contract_fingerprint=PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT,
+        verified_plane_upgrade_receipt_ids=CURRENT_FULL_VALIDATION_OWNER_IDS,
+        terminal_plane_upgrade_receipt_ids=CURRENT_FULL_VALIDATION_OWNER_IDS,
+        validation_owner_inventory_fingerprint=VALIDATION_OWNER_INVENTORY_FINGERPRINT,
         spec_context_ids=REQUIRED_SPEC_CONTEXT_IDS,
         spec_context_provider="openspec",
         spec_context_artifacts_current=True,

@@ -63,14 +63,14 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                         verification_set_fingerprint="sha256:current-skill-set",
                         verified_plane_upgrade_receipt_ids=tuple(
                             f"unrelated-check-{index:02d}"
-                            for index in range(len(model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS))
+                            for index in range(len(model.CURRENT_FULL_VALIDATION_OWNER_IDS))
                         ),
                         terminal_plane_upgrade_receipt_ids=tuple(
                             f"unrelated-check-{index:02d}"
-                            for index in range(len(model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS))
+                            for index in range(len(model.CURRENT_FULL_VALIDATION_OWNER_IDS))
                         ),
-                        verification_contract_fingerprint=(
-                            model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+                        validation_owner_inventory_fingerprint=(
+                            model.VALIDATION_OWNER_INVENTORY_FINGERPRINT
                         ),
                     ),
                 ),
@@ -86,15 +86,15 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                         "consume_verified_receipt_set",
                         verified_child_receipt_ids=model.REQUIRED_SKILL_RECEIPT_IDS,
                         verification_set_fingerprint="sha256:current-skill-set",
-                        verified_plane_upgrade_receipt_ids=model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
+                        verified_plane_upgrade_receipt_ids=model.CURRENT_FULL_VALIDATION_OWNER_IDS,
                         terminal_plane_upgrade_receipt_ids=tuple(
                             check_id
-                            for check_id in model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS
-                            if check_id != "check.tests.full"
+                            for check_id in model.CURRENT_FULL_VALIDATION_OWNER_IDS
+                            if check_id != "pytest"
                         ),
-                        progress_only_plane_upgrade_receipt_ids=("check.tests.full",),
-                        verification_contract_fingerprint=(
-                            model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+                        progress_only_plane_upgrade_receipt_ids=("pytest",),
+                        validation_owner_inventory_fingerprint=(
+                            model.VALIDATION_OWNER_INVENTORY_FINGERPRINT
                         ),
                     ),
                 ),
@@ -111,19 +111,19 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                         verified_child_receipt_ids=model.REQUIRED_SKILL_RECEIPT_IDS,
                         verification_set_fingerprint="sha256:current-skill-set",
                         verified_plane_upgrade_receipt_ids=tuple(
-                            "check.skills.v2-declaration-only"
-                            if check_id == "check.skills.install"
+                            "distribution_declaration_only"
+                            if check_id == "distribution_check"
                             else check_id
-                            for check_id in model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS
+                            for check_id in model.CURRENT_FULL_VALIDATION_OWNER_IDS
                         ),
                         terminal_plane_upgrade_receipt_ids=tuple(
-                            "check.skills.v2-declaration-only"
-                            if check_id == "check.skills.install"
+                            "distribution_declaration_only"
+                            if check_id == "distribution_check"
                             else check_id
-                            for check_id in model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS
+                            for check_id in model.CURRENT_FULL_VALIDATION_OWNER_IDS
                         ),
-                        verification_contract_fingerprint=(
-                            model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+                        validation_owner_inventory_fingerprint=(
+                            model.VALIDATION_OWNER_INVENTORY_FINGERPRINT
                         ),
                     ),
                 ),
@@ -205,10 +205,10 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                         "consume_verified_receipt_set",
                         verified_child_receipt_ids=model.ABSTRACT_RECEIPT_IDS,
                         verification_set_fingerprint="sha256:abstract-current-receipt-set",
-                        verified_plane_upgrade_receipt_ids=model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
-                        terminal_plane_upgrade_receipt_ids=model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
-                        verification_contract_fingerprint=(
-                            model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+                        verified_plane_upgrade_receipt_ids=model.CURRENT_FULL_VALIDATION_OWNER_IDS,
+                        terminal_plane_upgrade_receipt_ids=model.CURRENT_FULL_VALIDATION_OWNER_IDS,
+                        validation_owner_inventory_fingerprint=(
+                            model.VALIDATION_OWNER_INVENTORY_FINGERPRINT
                         ),
                     ),
                     model.SelfMaintenanceAction("run_focused_validation"),
@@ -228,9 +228,9 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                         "consume_verified_receipt_set",
                         verified_child_receipt_ids=model.ABSTRACT_RECEIPT_IDS,
                         verification_set_fingerprint="sha256:abstract-current-receipt-set",
-                        verified_plane_upgrade_receipt_ids=model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
-                        terminal_plane_upgrade_receipt_ids=model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS,
-                        verification_contract_fingerprint=model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT,
+                        verified_plane_upgrade_receipt_ids=model.CURRENT_FULL_VALIDATION_OWNER_IDS,
+                        terminal_plane_upgrade_receipt_ids=model.CURRENT_FULL_VALIDATION_OWNER_IDS,
+                        validation_owner_inventory_fingerprint=model.VALIDATION_OWNER_INVENTORY_FINGERPRINT,
                     ),
                     model.SelfMaintenanceAction("run_focused_validation"),
                     model.SelfMaintenanceAction("sync_local_surfaces"),
@@ -315,19 +315,19 @@ def run_route_topology_review() -> bool:
 
 
 def run_plane_upgrade_contract_binding() -> bool:
-    check_ids = model.REQUIRED_PLANE_UPGRADE_RECEIPT_IDS
+    check_ids = model.CURRENT_FULL_VALIDATION_OWNER_IDS
     actual_fingerprint = (
         "sha256:"
         + hashlib.sha256("\n".join(check_ids).encode("utf-8")).hexdigest().upper()
     )
     ok = (
-        actual_fingerprint == model.PLANE_UPGRADE_VERIFICATION_CONTRACT_FINGERPRINT
+        actual_fingerprint == model.VALIDATION_OWNER_INVENTORY_FINGERPRINT
         and len(check_ids) == len(set(check_ids))
-        and "check.openspec.strict" not in check_ids
-        and "check.session.begin" not in check_ids
+        and "spec-check-run" not in check_ids
+        and "spec-session-begin" not in check_ids
     )
     print(
-        "plane-upgrade verification contract binding: "
+        "current full-validation owner inventory binding: "
         f"{'pass' if ok else 'fail'}; checks={len(check_ids)}; fingerprint={actual_fingerprint}"
     )
     print()

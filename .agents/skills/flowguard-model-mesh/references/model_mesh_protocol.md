@@ -405,3 +405,12 @@ owner receipts. Recompute the full base/candidate diff and affected siblings;
 any undeclared change, stale head, missing evidence, or partial member switch
 blocks activation. The durable authority owner writes immutable snapshot,
 revision, and activation records before changing the sole project pointer.
+
+Each model instance has a content-addressed local identity containing only its
+model, runner, purpose closure, and exact local/shared dependency inputs. The
+snapshot alone owns the global source revision. Git HEAD and dirty-state
+identity are separate release provenance and do not enter child freshness.
+Compile governed input paths into explicit local owners, declared shared
+components with exact consumers, or snapshot-only paths before launching a
+runner. Unknown or conflicting ownership blocks the whole plan at zero
+producer invocations; it never becomes a run-all fallback.

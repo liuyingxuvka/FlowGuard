@@ -11,7 +11,9 @@ from flowguard.model_regressions import (
     MANIFEST_SCHEMA,
     ModelRegressionEntry,
     ModelRegressionManifest,
+    ModelRegressionManifestError,
     audit_manifest,
+    compile_model_impact_map,
     discover_model_directories,
     resolve_entry_input_inventory,
 )
@@ -125,6 +127,9 @@ class ModelRegressionManifestTests(unittest.TestCase):
             present.joinpath("model.py").write_text("if __name__ == '__main__': pass\n", encoding="utf-8")
             payload = {
                 "schema_version": MANIFEST_SCHEMA,
+                "governed_input_globs": [".flowguard/**/model.py"],
+                "snapshot_only_input_globs": [],
+                "shared_input_groups": [],
                 "models": [self.entry("extra", root)],
             }
             manifest_path = root / ".flowguard" / "model-regression-manifest.json"
@@ -144,7 +149,16 @@ class ModelRegressionManifestTests(unittest.TestCase):
                 "absence_reason": "This checkout-local model is executed only when its adoption record is present.",
             }
             (root / ".flowguard" / "model-regression-manifest.json").write_text(
-                json.dumps({"schema_version": MANIFEST_SCHEMA, "models": [entry]}), encoding="utf-8"
+                json.dumps(
+                    {
+                        "schema_version": MANIFEST_SCHEMA,
+                        "governed_input_globs": [".flowguard/**/model.py"],
+                        "snapshot_only_input_globs": [],
+                        "shared_input_groups": [],
+                        "models": [entry],
+                    }
+                ),
+                encoding="utf-8",
             )
             audit = audit_manifest(root, ModelRegressionManifest.load(root))
             self.assertTrue(audit.ok, audit.errors)
@@ -157,12 +171,117 @@ class ModelRegressionManifestTests(unittest.TestCase):
             model_dir.joinpath("model.py").write_text("print('model')\n", encoding="utf-8")
             payload = {
                 "schema_version": MANIFEST_SCHEMA,
+                "governed_input_globs": [".flowguard/**/model.py"],
+                "snapshot_only_input_globs": [],
+                "shared_input_groups": [],
                 "models": [{**self.entry("sample", root), "runner": [], "exclusion_reason": "short"}],
             }
             (root / ".flowguard" / "model-regression-manifest.json").write_text(json.dumps(payload), encoding="utf-8")
             audit = audit_manifest(root, ModelRegressionManifest.load(root))
             self.assertFalse(audit.ok)
             self.assertTrue(any("exclusion reason" in item for item in audit.errors))
+
+    def test_new_governed_source_without_owner_blocks_before_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            model_dir = root / ".flowguard" / "owned"
+            model_dir.mkdir(parents=True)
+            model_dir.joinpath("model.py").write_text("VALUE = 1\n", encoding="utf-8")
+            model_dir.joinpath("run_checks.py").write_text("print('ok')\n", encoding="utf-8")
+            model_dir.joinpath("unmapped.py").write_text("VALUE = 2\n", encoding="utf-8")
+            payload = {
+                "schema_version": MANIFEST_SCHEMA,
+                "governed_input_globs": [".flowguard/**/*.py"],
+                "snapshot_only_input_globs": [],
+                "shared_input_groups": [],
+                "models": [self.entry("owned", root)],
+            }
+            path = root / ".flowguard" / "model-regression-manifest.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+
+            impact = compile_model_impact_map(
+                root,
+                ModelRegressionManifest.load(root),
+            )
+
+            self.assertFalse(impact.ok)
+            self.assertTrue(
+                any("unmapped.py" in item for item in impact.errors),
+                impact.errors,
+            )
+
+    def test_shared_component_maps_only_declared_consumers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shared = root / "shared"
+            shared.mkdir()
+            shared.joinpath("engine.py").write_text("VALUE = 1\n", encoding="utf-8")
+            models = []
+            for model_id in ("alpha", "beta"):
+                model_dir = root / ".flowguard" / model_id
+                model_dir.mkdir(parents=True)
+                model_dir.joinpath("model.py").write_text("VALUE = 1\n", encoding="utf-8")
+                model_dir.joinpath("run_checks.py").write_text("print('ok')\n", encoding="utf-8")
+                models.append(self.entry(model_id, root))
+            payload = {
+                "schema_version": MANIFEST_SCHEMA,
+                "governed_input_globs": [
+                    ".flowguard/**/model.py",
+                    "shared/**/*.py",
+                ],
+                "snapshot_only_input_globs": [],
+                "shared_input_groups": [
+                    {
+                        "component_id": "alpha-engine",
+                        "globs": ["shared/**/*.py"],
+                        "consumers": ["alpha"],
+                    }
+                ],
+                "models": models,
+            }
+            path = root / ".flowguard" / "model-regression-manifest.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+
+            impact = compile_model_impact_map(
+                root,
+                ModelRegressionManifest.load(root),
+            )
+
+            self.assertTrue(impact.ok, impact.errors)
+            self.assertEqual(("alpha",), impact.owners_by_path["shared/engine.py"])
+
+    def test_old_or_unknown_manifest_shape_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".flowguard").mkdir()
+            path = root / ".flowguard" / "model-regression-manifest.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "flowguard.model_regression_manifest.v2",
+                        "models": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(ModelRegressionManifestError):
+                ModelRegressionManifest.load(root)
+
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": MANIFEST_SCHEMA,
+                        "governed_input_globs": ["flowguard/**/*.py"],
+                        "snapshot_only_input_globs": [],
+                        "shared_input_groups": [],
+                        "models": [],
+                        "fallback_run_all": True,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(ModelRegressionManifestError):
+                ModelRegressionManifest.load(root)
 
     @staticmethod
     def entry(model_id: str, root: Path) -> dict[str, object]:

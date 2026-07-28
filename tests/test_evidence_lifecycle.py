@@ -12,10 +12,12 @@ from flowguard.evidence_lifecycle import (
     EvidenceLifecycleError,
     apply_evidence_gc,
     audit_evidence,
+    evidence_execution_lease,
     ensure_new_run_directory,
     plan_evidence_gc,
     publish_run,
     purge_evidence_quarantine,
+    read_evidence_execution_lease,
     restore_evidence_quarantine,
     store_text_object,
     verify_text_object,
@@ -52,6 +54,103 @@ class EvidenceObjectTests(unittest.TestCase):
 
             with self.assertRaisesRegex(EvidenceLifecycleError, "not empty"):
                 ensure_new_run_directory(run)
+
+
+class EvidenceExecutionLeaseTests(unittest.TestCase):
+    def test_lease_is_readable_exclusive_and_released_by_its_token(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            lock_root = Path(temporary) / "leases"
+
+            with evidence_execution_lease(
+                lock_root,
+                owner_id="owner:full-validation",
+                execution_key="request:abc123",
+                lease_token="token:first",
+                plan_id="plan:frozen",
+            ) as acquired:
+                current = read_evidence_execution_lease(
+                    lock_root,
+                    owner_id="owner:full-validation",
+                    execution_key="request:abc123",
+                )
+
+                self.assertEqual(acquired, current)
+                self.assertEqual("token:first", current["lease_token"])
+                self.assertEqual("plan:frozen", current["plan_id"])
+                with self.assertRaisesRegex(EvidenceLifecycleError, "already leased"):
+                    with evidence_execution_lease(
+                        lock_root,
+                        owner_id="owner:full-validation",
+                        execution_key="request:abc123",
+                        lease_token="token:second",
+                    ):
+                        self.fail("a second owner must not enter the same execution")
+
+            self.assertIsNone(
+                read_evidence_execution_lease(
+                    lock_root,
+                    owner_id="owner:full-validation",
+                    execution_key="request:abc123",
+                )
+            )
+
+    def test_token_mismatch_preserves_residual_lock_and_blocks_reacquisition(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            lock_root = Path(temporary) / "leases"
+            manager = evidence_execution_lease(
+                lock_root,
+                owner_id="owner:full-validation",
+                execution_key="request:abc123",
+                lease_token="token:original",
+            )
+            manager.__enter__()
+            lease_path = next(lock_root.glob("execution-*.lock"))
+            replacement = json.loads(lease_path.read_text(encoding="utf-8"))
+            replacement["lease_token"] = "token:replacement"
+            write_json_atomic(lease_path, replacement)
+
+            with self.assertRaisesRegex(EvidenceLifecycleError, "token changed"):
+                manager.__exit__(None, None, None)
+
+            self.assertTrue(lease_path.is_file())
+            self.assertEqual(
+                "token:replacement",
+                read_evidence_execution_lease(
+                    lock_root,
+                    owner_id="owner:full-validation",
+                    execution_key="request:abc123",
+                )["lease_token"],
+            )
+            with self.assertRaisesRegex(EvidenceLifecycleError, "already leased"):
+                with evidence_execution_lease(
+                    lock_root,
+                    owner_id="owner:full-validation",
+                    execution_key="request:abc123",
+                    lease_token="token:new",
+                ):
+                    self.fail("a residual lock must never be broken automatically")
+
+            lease_path.unlink()
+
+    def test_owned_lease_is_released_when_the_execution_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            lock_root = Path(temporary) / "leases"
+
+            with self.assertRaisesRegex(RuntimeError, "fixture failure"):
+                with evidence_execution_lease(
+                    lock_root,
+                    owner_id="owner:full-validation",
+                    execution_key="request:abc123",
+                ):
+                    raise RuntimeError("fixture failure")
+
+            self.assertIsNone(
+                read_evidence_execution_lease(
+                    lock_root,
+                    owner_id="owner:full-validation",
+                    execution_key="request:abc123",
+                )
+            )
 
 
 class EvidenceLifecycleTests(unittest.TestCase):

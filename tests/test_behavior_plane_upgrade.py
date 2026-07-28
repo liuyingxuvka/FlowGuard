@@ -1,4 +1,3 @@
-import hashlib
 import unittest
 from pathlib import Path
 
@@ -101,35 +100,29 @@ class BehaviorPlaneUpgradeTests(unittest.TestCase):
         self.assertIn("cannot guarantee", combined)
         self.assertNotIn("evidence engine, or\n  CLI command", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
 
-    def test_verification_contract_covers_declared_models_skills_and_fingerprint(self):
-        contract_path = (
-            ROOT
-            / "openspec"
-            / "changes"
-            / "partition-behavior-commitments-by-execution-plane"
-            / "verification-contract.yaml"
-        )
-        contract = contract_path.read_text(encoding="utf-8")
+    def test_self_maintenance_binds_current_full_validation_owner_inventory(self):
+        model_source = (
+            ROOT / ".flowguard" / "self_maintenance_mesh" / "model.py"
+        ).read_text(encoding="utf-8")
+        runner_source = (
+            ROOT / "scripts" / "check_flowguard_skill_suite.py"
+        ).read_text(encoding="utf-8")
 
-        for value in (
-            "default_replacement_field_lifecycle",
-            "model_test_code_alignment",
-            "tests/test_skill_contract_v2_projection.py",
-            "tests/test_skill_installed_layout.py",
-            "tests/test_skill_suite_inventory.py",
-            ".flowguard/default_replacement_field_lifecycle/**/*.py",
-            ".flowguard/model_test_code_alignment/**/*.py",
-            "README.md",
-            "CHANGELOG.md",
+        for owner_id in (
+            "project_audit",
+            "skill_suite_static",
+            "skill_self_governance",
+            "model_regressions_full",
+            "pytest",
+            "openspec_strict",
+            "distribution_check",
+            "distribution_parity",
         ):
-            self.assertIn(value, contract)
-        expected = "sha256:" + hashlib.sha256(contract_path.read_bytes()).hexdigest().upper()
-        self.assertIn(
-            expected,
-            (ROOT / ".flowguard" / "self_maintenance_mesh" / "model.py").read_text(
-                encoding="utf-8"
-            ),
-        )
+            self.assertIn(f'"{owner_id}"', model_source)
+            self.assertIn(f'"{owner_id}"', runner_source)
+        self.assertNotIn("verification-contract.yaml", model_source)
+        self.assertNotIn("spec-check-run", model_source)
+        self.assertNotIn("spec-session-begin", model_source)
 
     def test_relation_matrix_preserves_directional_layer_ownership(self):
         self.assertTrue(

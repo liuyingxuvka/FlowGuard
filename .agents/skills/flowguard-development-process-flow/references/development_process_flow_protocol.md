@@ -90,6 +90,15 @@ Freeze source, toolchain, check inventory, dependencies, and exactly one owner
 per heavy check. Run one all-model owner and one full-test owner; receipt
 consumers project their immutable success and do not rerun them.
 
+Before execution, freeze the complete native owner inventory and derive one
+deterministic plan whose rows are only `execute`, `reuse_current`, or
+`blocked`. Missing or valid-stale proof executes only its declared owner;
+independently verified exact-current terminal-pass proof is reused. Unknown
+ownership, damaged or conflicting proof, or a live exact execution lease
+blocks before any producer starts. Plan-only creates no output, lease, receipt,
+run manifest, or current pointer. Persist each successful child before parent
+composition so sibling or parent failure does not force it to execute again.
+
 If a launcher times out or is interrupted, confirm that its descendant process
 tree is gone before accepting evidence or starting another owner.
 
@@ -115,6 +124,12 @@ package, consumer skills, repository commit, tag, and GitHub Release identities
 separate. A source-only release follows one frozen final validation; post-push
 parity verifies every identity. If governed source changes after publication,
 the correction uses a new immutable version rather than moving the tag.
+`ValidationInputManifest` binds what each validation owner consumed;
+`ReleaseTreeManifest` separately binds every tag path, mode, and blob. Finish
+version, docs, OpenSpec lifecycle, model authority, consumer projection, and
+installation parity before the single final gate. Tag and published checks
+compare the immutable tree and receipts only; they never use mtime or restart
+heavy producers.
 
 ## Read-only WorkContext
 

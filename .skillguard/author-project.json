@@ -139,11 +139,11 @@
       "skill_path": ".agents/skills/flowguard-ui-flow-structure"
     }
   ],
-  "manifest_hash": "1713D489415DB496C4B8E6F4183219F85CEEF2C577BEB69E533316B91CEF5B01",
-  "project_id": "FlowGuard",
+  "manifest_hash": "FC7D37F93B0A6D6DC46335A601A8EB386CE305210DB3DCE6FA85A83EF99C7761",
+  "project_id": "FlowGuard_20260427",
   "project_prompt_path": "AGENTS.md",
   "repository_role": "skill_maintainer_source",
   "schema_version": "skillguard.project_adoption.v1",
   "skillguard_repository": "https://github.com/liuyingxuvka/SkillGuard",
-  "skillguard_version": "0.4.0"
+  "skillguard_version": "unknown"
 }

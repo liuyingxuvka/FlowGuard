@@ -160,6 +160,15 @@ ids, status, freshness, and release-scope gaps to the Risk Evidence Ledger.
 Background runs need final exit/result artifacts before a parent gate can treat
 them as complete.
 
+Cross-run composition starts by freezing every required owner and resolving a
+complete `execute | reuse_current | blocked` plan before any producer starts.
+Absence and valid staleness select only the exact affected producer. Malformed
+or tampered proof, unknown impact ownership, ambiguous exact authority, or a
+live single-flight lease blocks without a run-all fallback. Persist child proof
+before parent composition so successful siblings remain reusable after parent
+failure. A parent receipt binds every consumed child receipt id and fingerprint
+and exists only for an all-current exact-pass composition.
+
 A valid background final receipt names the run identity, terminal status/exit
 code, result artifact, fingerprint, covered required ids, inventory revision,
 and covered artifact and verifier versions. PIDs, heartbeats, logs, and

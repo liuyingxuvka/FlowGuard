@@ -40,7 +40,7 @@ SHA_C = "sha256:" + "c" * 64
 SHA_D = "sha256:" + "d" * 64
 
 
-def model(revision: str, sha: str) -> ModelInstanceRef:
+def model(sha: str) -> ModelInstanceRef:
     return ModelInstanceRef(
         logical_model_id="authority",
         model_kind="workflow",
@@ -49,7 +49,6 @@ def model(revision: str, sha: str) -> ModelInstanceRef:
         runner_path=".flowguard/authority/run_checks.py",
         runner_sha256=SHA_D,
         purpose_closure_fingerprint=SHA_C,
-        subject_revision=revision,
         inputs=(
             ModelInputRef(".flowguard/authority/model.py", sha),
             ModelInputRef(".flowguard/authority/run_checks.py", SHA_D),
@@ -58,7 +57,7 @@ def model(revision: str, sha: str) -> ModelInstanceRef:
 
 
 def snapshot(revision: str, sha: str, snapshot_id: str) -> ModelSystemSnapshot:
-    member = model(revision, sha)
+    member = model(sha)
     dimensions = tuple(
         CoverageDimension(
             dimension_id=value,

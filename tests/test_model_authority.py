@@ -55,7 +55,6 @@ def instance(model_id: str, suffix: str) -> ModelInstanceRef:
         runner_path=f".flowguard/{model_id}/run_checks.py",
         runner_sha256=SHA_D,
         purpose_closure_fingerprint=SHA_E,
-        subject_revision=f"git:{suffix * 40}",
         inputs=(
             ModelInputRef(f".flowguard/{model_id}/model.py", sha),
             ModelInputRef(f".flowguard/{model_id}/run_checks.py", SHA_D),
@@ -114,14 +113,19 @@ def snapshot(
     model: ModelInstanceRef,
     *,
     snapshot_id: str,
+    subject_revision: str | None = None,
     gaps=(),
 ) -> ModelSystemSnapshot:
+    revision = subject_revision or (
+        "source-inventory:"
+        + model.input_inventory_fingerprint.split(":", 1)[1]
+    )
     return ModelSystemSnapshot(
         snapshot_id=snapshot_id,
         system_id="flowguard",
         subject_lane=subject_lane,
         lifecycle=lifecycle,
-        subject_revision=model.subject_revision,
+        subject_revision=revision,
         root_instance_fingerprints=(model.fingerprint,),
         model_instances=(model,),
         relations=(),
@@ -136,6 +140,32 @@ def snapshot(
 
 
 class ModelAuthorityTests(unittest.TestCase):
+    def test_subject_revision_is_snapshot_identity_not_local_instance_identity(self):
+        model = instance("alpha", "a")
+        original = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            model,
+            snapshot_id="observed-a",
+            subject_revision="source-inventory:" + "a" * 64,
+        )
+        changed_revision = replace(
+            original,
+            subject_revision="source-inventory:" + "f" * 64,
+        )
+
+        self.assertEqual(model.fingerprint, original.model_instances[0].fingerprint)
+        self.assertEqual(
+            model.fingerprint,
+            changed_revision.model_instances[0].fingerprint,
+        )
+        self.assertNotEqual(original.fingerprint, changed_revision.fingerprint)
+        self.assertNotIn("subject_revision", model.to_dict())
+        self.assertEqual(
+            changed_revision.subject_revision,
+            changed_revision.to_dict()["subject_revision"],
+        )
+
     def test_model_input_rejects_absolute_and_parent_paths(self):
         for value in (
             "C:\\outside\\model.py",
@@ -164,11 +194,41 @@ class ModelAuthorityTests(unittest.TestCase):
 
     def test_instance_round_trip_is_strict(self):
         value = instance("alpha", "a")
+        self.assertEqual("flowguard.model_instance_ref.v2", value.schema)
         self.assertEqual(value, ModelInstanceRef.from_dict(value.to_dict()))
         payload = value.to_dict()
         payload["unknown"] = True
         with self.assertRaises(ModelAuthorityError):
             ModelInstanceRef.from_dict(payload)
+
+    def test_v1_authority_payloads_are_rejected_without_compatibility_reader(self):
+        model = instance("alpha", "a")
+        old_instance = model.to_dict()
+        old_instance["schema"] = "flowguard.model_instance_ref.v1"
+        with self.assertRaisesRegex(ModelAuthorityError, "schema"):
+            ModelInstanceRef.from_dict(old_instance)
+
+        old_field_instance = model.to_dict()
+        old_field_instance["subject_revision"] = "git:" + "a" * 40
+        with self.assertRaisesRegex(ModelAuthorityError, "fields"):
+            ModelInstanceRef.from_dict(old_field_instance)
+
+        current_snapshot = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            model,
+            snapshot_id="observed-a",
+        )
+        old_snapshot = current_snapshot.to_dict()
+        old_snapshot["schema"] = "flowguard.model_system_snapshot.v1"
+        with self.assertRaisesRegex(ModelAuthorityError, "schema"):
+            ModelSystemSnapshot.from_dict(old_snapshot)
+
+        current_head = self._head(current_snapshot)
+        old_head = current_head.to_dict()
+        old_head["schema"] = "flowguard.model_authority_head.v1"
+        with self.assertRaisesRegex(ModelAuthorityError, "schema"):
+            ModelAuthorityHead.from_dict(old_head)
 
     def test_coverage_requires_set_equality_in_every_dimension(self):
         self.assertTrue(coverage().complete)
@@ -213,7 +273,7 @@ class ModelAuthorityTests(unittest.TestCase):
                 system_id="flowguard",
                 subject_lane=SUBJECT_OBSERVED_IMPLEMENTATION,
                 lifecycle=LIFECYCLE_ACTIVE,
-                subject_revision=left.subject_revision,
+                subject_revision="source-inventory:" + "a" * 64,
                 root_instance_fingerprints=(left.fingerprint,),
                 model_instances=(left,),
                 relations=(relation,),
@@ -236,19 +296,16 @@ class ModelAuthorityTests(unittest.TestCase):
         with self.assertRaises(ModelAuthorityError):
             ModelSystemSnapshot.from_dict(payload)
 
-    def test_snapshot_rejects_duplicate_logical_model_and_revision_drift(self):
+    def test_snapshot_rejects_duplicate_logical_model(self):
         first = instance("alpha", "a")
-        duplicate = replace(
-            instance("alpha", "b"),
-            subject_revision=first.subject_revision,
-        )
+        duplicate = instance("alpha", "b")
         with self.assertRaisesRegex(ModelAuthorityError, "logical model"):
             ModelSystemSnapshot(
                 snapshot_id="duplicate-alpha",
                 system_id="flowguard",
                 subject_lane=SUBJECT_OBSERVED_IMPLEMENTATION,
                 lifecycle=LIFECYCLE_ACTIVE,
-                subject_revision=first.subject_revision,
+                subject_revision="source-inventory:" + "a" * 64,
                 root_instance_fingerprints=(first.fingerprint,),
                 model_instances=(first, duplicate),
                 relations=(),
@@ -260,25 +317,6 @@ class ModelAuthorityTests(unittest.TestCase):
                     "one current instance for a logical model."
                 ),
             )
-        with self.assertRaisesRegex(ModelAuthorityError, "subject revision"):
-            ModelSystemSnapshot(
-                snapshot_id="revision-drift",
-                system_id="flowguard",
-                subject_lane=SUBJECT_OBSERVED_IMPLEMENTATION,
-                lifecycle=LIFECYCLE_ACTIVE,
-                subject_revision=first.subject_revision,
-                root_instance_fingerprints=(first.fingerprint,),
-                model_instances=(first, instance("beta", "b")),
-                relations=(),
-                coverage=coverage(),
-                owner_artifact_refs=(owner_ref(),),
-                unresolved_gap_ids=(),
-                claim_boundary=(
-                    "This revision drift fixture must fail before broad "
-                    "model-system authority is accepted."
-                ),
-            )
-
     def test_snapshot_accepts_bound_native_owner_relation_and_rejects_unbound(self):
         model = instance("alpha", "a")
         model_endpoint = AuthorityEndpointRef(
@@ -299,7 +337,7 @@ class ModelAuthorityTests(unittest.TestCase):
             system_id="flowguard",
             subject_lane=SUBJECT_OBSERVED_IMPLEMENTATION,
             lifecycle=LIFECYCLE_ACTIVE,
-            subject_revision=model.subject_revision,
+            subject_revision="source-inventory:" + "a" * 64,
             root_instance_fingerprints=(model.fingerprint,),
             model_instances=(model,),
             relations=(relation,),
@@ -464,15 +502,9 @@ class ModelAuthorityTests(unittest.TestCase):
 
     def test_revision_set_rejects_undeclared_changed_sibling(self):
         alpha_a = instance("alpha", "a")
-        beta_a = replace(
-            instance("beta", "a"),
-            subject_revision=alpha_a.subject_revision,
-        )
+        beta_a = instance("beta", "a")
         alpha_b = instance("alpha", "b")
-        beta_b = replace(
-            instance("beta", "b"),
-            subject_revision=alpha_b.subject_revision,
-        )
+        beta_b = instance("beta", "b")
         base = replace(
             snapshot(
                 SUBJECT_OBSERVED_IMPLEMENTATION,

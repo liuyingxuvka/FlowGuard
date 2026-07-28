@@ -37,6 +37,9 @@ class LongCheckObservabilityTests(unittest.TestCase):
             )
             manifest = {
                 "schema_version": MANIFEST_SCHEMA,
+                "governed_input_globs": [".flowguard/**/*.py"],
+                "snapshot_only_input_globs": [],
+                "shared_input_groups": [],
                 "models": [
                     {
                         "model_id": "observable",

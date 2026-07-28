@@ -1,47 +1,43 @@
 ---
 name: flowguard-development-process-flow
-description: Use for staged work, freshness, sync, release, or final process claims.
+description: Staged work, freshness, sync, release, and final process claims.
 ---
 
 # FlowGuard Development Process Flow
 
 ## Purpose
-Simulate lifecycle order and freshness without replacing specialists.
+Model order/freshness; keep specialist ownership.
 
 ## Entrypoint Scope
-Front-door public owner and development-process simulator; `public_owner` owns `execution_freshness`, conditional internal process optimization, `plan_detailing_compiler`, and `agent_workflow_rehearsal`.
+Front-door public owner `public_owner`; development-process simulator for `execution_freshness`, conditional internal process optimization, `plan_detailing_compiler`, `agent_workflow_rehearsal`.
 
 ## Local Material Routing
-Read `references/development_process_flow_protocol.md`; load internal protocols only when selected.
+Read `references/development_process_flow_protocol.md`; load selected internals.
 
 ## Entrypoint Acceptance Map
-Order modes, enforce freshness, compare only triggered equivalent candidates, and delegate gaps.
+Order modes, freshness, triggered equivalents, delegation.
 
 ## Use When
-- Use for plans, staged work, multiple skills, artifact versions, payload schemas, sync, release, or broad claims.
+- Plans, staged/multi-skill work, artifact versions, payload schemas, sync/release/broad claims.
 
 ## Do Not Use When
-- Do not replace specialists; return unclear routing to `flowguard`.
+- Keep specialists; unclear routing goes to `flowguard`.
 
 ## Required Workflow
-1. Register modes, artifacts, writes, evidence, peer changes, and read-only WorkContexts with exact identities.
-2. Activate optimization only for a declared optimization trigger; otherwise return `not_needed`.
-3. When active, prove equivalence, then choose diagnosis (including `diagnostic_boundary_choice`) and sequential or `safe_parallel` execution.
-4. Reuse TestMesh/Finding Ledger evidence; group related findings, repair the primary owner, and revalidate affected obligations.
-5. Route non-pass results, preserve peer writes, track freshness, freeze inputs, and use one owner per heavy check.
-6. For delivery, synchronize source/package/skill/Git identities, run one frozen gate, and verify the release.
-7. For model-system changes, preserve the observed head, accept one whole `ModelRevisionSet`, write evidence before the pointer, and prove rollback or forward repair.
+1. Register modes, artifacts, writes, evidence, peers, WorkContexts.
+2. On trigger, prove equivalence; choose `diagnostic_boundary_choice` and sequential/`safe_parallel`; else `not_needed`.
+3. Reuse TestMesh/Finding Ledger; repair owner; revalidate affected obligations.
+4. Freeze inputs; owners=`execute|reuse_current|blocked`; plan-only starts none. Preserve child passes for exact composition.
+5. Align source/package/skill/Git; freeze both manifests; run one gate; verify its tree without restarting producers.
+6. Model change preserves head, atomically accepts one `ModelRevisionSet`, writes evidence before pointer, proves repair.
 
 ## Hard Gates
-- Project adopt/upgrade, model activation, and rollback share one manifest lock and compare-and-swap owner. A stale planned head stops before the first mutation.
-- Rollback is an execution workflow, not a label change: restore or compensate effects and revalidate the old snapshot before pointer rewind.
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
-- Keep provider tasks and sibling semantics with native owners; progress is not proof.
-- WorkContexts inform scope/order only; they never authorize writes, execution, receipts, validation, archive, or TestMesh evidence.
-- Estimated comparison supports a preference; finite measurement may support only a bounded minimum.
-- Ordinary work has no optimizer records; repairs need relation, owner, and affected-revalidation evidence.
-- Machine-facing success is a compact terminal envelope backed by a complete artifact; non-pass children remain visible.
+- Adopt/upgrade, activation, rollback share one lock/CAS owner; stale head stops. Rollback revalidates effects.
+- Model-purpose gate: freeze this instance's task-specific failure(s)/boundary; bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Use the real FlowGuard check engine and AGENTS.md managed record; never a fake mini-framework.
+- Native owners keep semantics; WorkContexts only inform scope/order; progress is not proof.
+- Repairs need relation, owner, affected revalidation. Unknown proof/owner or active lease blocks; never run-all.
+- Machine success is artifact-backed; non-pass children stay visible.
 
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, modes, freshness, and revalidation; edges mean order, invalidation, or required revalidation.

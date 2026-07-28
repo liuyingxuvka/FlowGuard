@@ -20,13 +20,13 @@ from .source_identity import source_file_fingerprint
 
 
 MODEL_INPUT_SCHEMA = "flowguard.model_input_ref.v1"
-MODEL_INSTANCE_SCHEMA = "flowguard.model_instance_ref.v1"
+MODEL_INSTANCE_SCHEMA = "flowguard.model_instance_ref.v2"
 AUTHORITY_ENDPOINT_SCHEMA = "flowguard.authority_endpoint_ref.v1"
 MODEL_RELATION_SCHEMA = "flowguard.model_relation.v1"
 COVERAGE_DIMENSION_SCHEMA = "flowguard.coverage_dimension.v1"
 COVERAGE_UNIVERSE_SCHEMA = "flowguard.coverage_universe.v1"
-MODEL_SYSTEM_SNAPSHOT_SCHEMA = "flowguard.model_system_snapshot.v1"
-MODEL_AUTHORITY_HEAD_SCHEMA = "flowguard.model_authority_head.v1"
+MODEL_SYSTEM_SNAPSHOT_SCHEMA = "flowguard.model_system_snapshot.v2"
+MODEL_AUTHORITY_HEAD_SCHEMA = "flowguard.model_authority_head.v2"
 MODEL_REVISION_MEMBER_SCHEMA = "flowguard.model_revision_member.v1"
 MODEL_REVISION_EVIDENCE_SCHEMA = "flowguard.model_revision_evidence.v1"
 MODEL_PREDICTION_REPLAY_REF_SCHEMA = "flowguard.prediction_replay_ref.v1"
@@ -276,7 +276,6 @@ class ModelInstanceRef:
     runner_path: str
     runner_sha256: str
     purpose_closure_fingerprint: str
-    subject_revision: str
     inputs: tuple[ModelInputRef, ...]
     schema: str = MODEL_INSTANCE_SCHEMA
 
@@ -299,11 +298,6 @@ class ModelInstanceRef:
                 "purpose_closure_fingerprint",
             ),
         )
-        object.__setattr__(
-            self,
-            "subject_revision",
-            _text(self.subject_revision, "subject_revision"),
-        )
         inputs = tuple(sorted(self.inputs, key=lambda item: item.path))
         if not inputs:
             raise ModelAuthorityError("model instance requires resolved inputs")
@@ -323,6 +317,8 @@ class ModelInstanceRef:
         return canonical_fingerprint([item.to_dict() for item in self.inputs])
 
     def identity_payload(self) -> dict[str, Any]:
+        """Return the complete functional identity owned by this model."""
+
         return {
             "schema": self.schema,
             "logical_model_id": self.logical_model_id,
@@ -332,7 +328,6 @@ class ModelInstanceRef:
             "runner_path": self.runner_path,
             "runner_sha256": self.runner_sha256,
             "purpose_closure_fingerprint": self.purpose_closure_fingerprint,
-            "subject_revision": self.subject_revision,
             "inputs": [item.to_dict() for item in self.inputs],
         }
 
@@ -361,7 +356,6 @@ class ModelInstanceRef:
                 "runner_path",
                 "runner_sha256",
                 "purpose_closure_fingerprint",
-                "subject_revision",
                 "inputs",
                 "input_inventory_fingerprint",
                 "fingerprint",
@@ -375,7 +369,6 @@ class ModelInstanceRef:
             runner_path=data["runner_path"],
             runner_sha256=data["runner_sha256"],
             purpose_closure_fingerprint=data["purpose_closure_fingerprint"],
-            subject_revision=data["subject_revision"],
             inputs=tuple(
                 ModelInputRef.from_dict(item)
                 for item in _array(data["inputs"], "model_instance.inputs")
@@ -397,7 +390,6 @@ def build_model_instance_ref(
     model_path: str,
     runner_path: str,
     purpose_closure_fingerprint: str,
-    subject_revision: str,
     input_paths: Iterable[str],
 ) -> ModelInstanceRef:
     """Build one canonical instance from exact repository-relative files."""
@@ -432,7 +424,6 @@ def build_model_instance_ref(
         runner_path=normalized_runner_path,
         runner_sha256=by_path[normalized_runner_path],
         purpose_closure_fingerprint=purpose_closure_fingerprint,
-        subject_revision=subject_revision,
         inputs=tuple(inputs),
     )
 
@@ -811,13 +802,6 @@ class ModelSystemSnapshot:
         if len(logical_model_ids) != len(set(logical_model_ids)):
             raise ModelAuthorityError(
                 "one snapshot cannot contain multiple instances of one logical model"
-            )
-        if any(
-            item.subject_revision != self.subject_revision
-            for item in instances
-        ):
-            raise ModelAuthorityError(
-                "every model instance must describe the snapshot subject revision"
             )
         object.__setattr__(self, "model_instances", instances)
         roots = _shas(

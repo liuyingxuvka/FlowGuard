@@ -1462,9 +1462,20 @@ def save_evidence_receipt(
         raise ReceiptValidationError("canonical receipt contains an untokenized absolute path")
     target = receipt_path(receipt.receipt_id, repository_root, output_directory=output_directory)
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(target.suffix + ".tmp")
-    temporary.write_text(serialized + "\n", encoding="utf-8", newline="\n")
-    os.replace(temporary, target)
+    try:
+        with target.open("x", encoding="utf-8", newline="\n") as handle:
+            handle.write(serialized + "\n")
+    except FileExistsError:
+        try:
+            existing = target.read_text(encoding="utf-8").rstrip("\r\n")
+        except OSError as exc:
+            raise ReceiptValidationError(
+                "existing immutable receipt cannot be read"
+            ) from exc
+        if existing != serialized:
+            raise ReceiptValidationError(
+                "immutable receipt id already exists with different content"
+            )
     return target
 
 

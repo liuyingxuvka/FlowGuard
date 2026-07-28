@@ -193,6 +193,36 @@ class EvidenceReceiptSchemaTests(unittest.TestCase):
             with self.assertRaisesRegex(ReceiptValidationError, "skill package"):
                 save_evidence_receipt(value, root, output_directory=root / ".agents/skills/demo/evidence")
 
+    def test_same_receipt_id_and_content_is_an_idempotent_save(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            value = receipt()
+
+            first_path = save_evidence_receipt(value, root)
+            first_bytes = first_path.read_bytes()
+            second_path = save_evidence_receipt(value, root)
+
+            self.assertEqual(first_path, second_path)
+            self.assertEqual(first_bytes, second_path.read_bytes())
+            self.assertEqual(value, load_evidence_receipt(second_path))
+
+    def test_same_receipt_id_with_different_content_cannot_overwrite(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            original = receipt()
+            conflicting = dataclasses.replace(
+                original,
+                claim_boundary="A conflicting claim under the same immutable receipt identity.",
+            )
+            path = save_evidence_receipt(original, root)
+            original_bytes = path.read_bytes()
+
+            with self.assertRaisesRegex(ReceiptValidationError, "immutable receipt id"):
+                save_evidence_receipt(conflicting, root)
+
+            self.assertEqual(original_bytes, path.read_bytes())
+            self.assertEqual(original, load_evidence_receipt(path))
+
     def test_legacy_report_is_diagnostic_only_and_covers_nothing(self):
         legacy = import_legacy_report({"status": "pass", "current": True, "path": str(Path.home())})
 
