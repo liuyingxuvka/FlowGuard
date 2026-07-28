@@ -20,6 +20,7 @@ from .behavior_plane import (
 )
 from .export import to_jsonable
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
+from .validation_ownership import verify_parent_receipt
 PROCESS_SCOPE_ROUTINE = "routine"
 PROCESS_SCOPE_RELEASE = "release"
 
@@ -465,6 +466,9 @@ class DevelopmentProcessPlan:
     require_current_work_context: bool = False
     process_optimization_reasons: tuple[str, ...] = ()
     required_process_optimization_evidence_ids: tuple[str, ...] = ()
+    full_validation_parent_receipt_ids: tuple[str, ...] = ()
+    validation_repository_root: str = ""
+    validation_receipt_root: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "process_id", str(self.process_id))
@@ -492,6 +496,21 @@ class DevelopmentProcessPlan:
             "required_process_optimization_evidence_ids",
             _as_tuple(self.required_process_optimization_evidence_ids),
         )
+        object.__setattr__(
+            self,
+            "full_validation_parent_receipt_ids",
+            _as_tuple(self.full_validation_parent_receipt_ids),
+        )
+        object.__setattr__(
+            self,
+            "validation_repository_root",
+            str(self.validation_repository_root),
+        )
+        object.__setattr__(
+            self,
+            "validation_receipt_root",
+            str(self.validation_receipt_root),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -514,6 +533,11 @@ class DevelopmentProcessPlan:
             "required_process_optimization_evidence_ids": list(
                 self.required_process_optimization_evidence_ids
             ),
+            "full_validation_parent_receipt_ids": list(
+                self.full_validation_parent_receipt_ids
+            ),
+            "validation_repository_root": self.validation_repository_root,
+            "validation_receipt_root": self.validation_receipt_root,
         }
 
 
@@ -1486,6 +1510,82 @@ def _claim_findings(
     return findings
 
 
+def _full_validation_parent_findings(
+    plan: DevelopmentProcessPlan,
+) -> list[ProcessFlowFinding]:
+    broad_actions = tuple(
+        action
+        for action in plan.actions
+        if action.action_type in {
+            "claim_release",
+            "claim_archive",
+            "claim_publish",
+            "release",
+            "archive",
+            "publish",
+        }
+        or (
+            action.action_type == "claim_done"
+            and (
+                plan.decision_scope == PROCESS_SCOPE_RELEASE
+                or action.decision_scope == PROCESS_SCOPE_RELEASE
+            )
+        )
+    )
+    if not broad_actions and plan.decision_scope != PROCESS_SCOPE_RELEASE:
+        return []
+    receipt_ids = plan.full_validation_parent_receipt_ids
+    if len(receipt_ids) != 1:
+        return [
+            ProcessFlowFinding(
+                "full_validation_parent_not_unique",
+                "broad done/release/archive/publish confidence requires exactly "
+                "one validation-parent:full receipt",
+                action_id=broad_actions[0].action_id if broad_actions else "",
+                metadata={"receipt_ids": list(receipt_ids)},
+            )
+        ]
+    if not plan.validation_repository_root or not plan.validation_receipt_root:
+        return [
+            ProcessFlowFinding(
+                "full_validation_parent_store_missing",
+                "the canonical repository and receipt store are required for "
+                "independent parent verification",
+                action_id=broad_actions[0].action_id if broad_actions else "",
+                metadata={"receipt_id": receipt_ids[0]},
+            )
+        ]
+    try:
+        verification = verify_parent_receipt(
+            receipt_ids[0],
+            plan.validation_repository_root,
+            plan.validation_receipt_root,
+        )
+    except (OSError, ValueError) as exc:
+        return [
+            ProcessFlowFinding(
+                "full_validation_parent_unverifiable",
+                f"validation-parent:full could not be loaded and verified: {exc}",
+                action_id=broad_actions[0].action_id if broad_actions else "",
+                evidence_id=receipt_ids[0],
+            )
+        ]
+    if not verification.ok:
+        return [
+            ProcessFlowFinding(
+                "full_validation_parent_not_current",
+                "validation-parent:full is not independently verified exact-current",
+                action_id=broad_actions[0].action_id if broad_actions else "",
+                evidence_id=receipt_ids[0],
+                metadata={
+                    "finding_codes": list(verification.finding_codes),
+                    "verification": verification.to_dict(),
+                },
+            )
+        ]
+    return []
+
+
 def _ambiguous_policy_findings(
     plan: DevelopmentProcessPlan,
     artifacts: Mapping[str, ProcessArtifact],
@@ -1629,6 +1729,7 @@ def review_development_process_flow(plan: DevelopmentProcessPlan) -> Development
     requirement_findings, release_obligations, recommendations, revalidation_boundary = _requirement_findings(plan, stale_by_evidence)
     findings.extend(requirement_findings)
     findings.extend(_claim_findings(plan, stale_by_evidence))
+    findings.extend(_full_validation_parent_findings(plan))
 
     blockers = _blocker_findings(findings)
     process_optimization_status = "not_needed"

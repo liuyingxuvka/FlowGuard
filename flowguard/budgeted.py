@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
+import marshal
 import os
 import re
 import sqlite3
@@ -11,7 +13,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from .core import InvariantResult
 from .export import to_jsonable
@@ -54,6 +56,117 @@ def _callable_name(value: Any) -> str:
     return str(getattr(value, "__module__", "")) + "." + str(
         getattr(value, "__qualname__", getattr(value, "__name__", type(value).__name__))
     )
+
+
+def _stable_closure_identity(value: Any) -> Any:
+    """Capture behavior-bearing immutable closures without tracking run counters."""
+
+    if value is None or isinstance(value, (bool, int, float, str, bytes)):
+        return to_jsonable(value)
+    if isinstance(value, tuple):
+        return {
+            "immutable_tuple": [
+                _stable_closure_identity(item)
+                for item in value
+            ]
+        }
+    if isinstance(value, frozenset):
+        items = [_stable_closure_identity(item) for item in value]
+        return {
+            "immutable_frozenset": sorted(
+                items,
+                key=lambda item: json.dumps(item, sort_keys=True, default=repr),
+            )
+        }
+    # Mutable closure cells are commonly counters/collectors changed by the run
+    # itself. Including their contents makes an unchanged model appear stale
+    # immediately after execution. Behavior-bearing mutable configuration must
+    # instead use callable_fingerprints or fingerprint_parts explicitly.
+    return {
+        "mutable_or_opaque_type": (
+            f"{type(value).__module__}.{type(value).__qualname__}"
+        )
+    }
+
+
+def _callable_identity(
+    value: Any,
+    explicit_fingerprints: Mapping[str, str],
+    *,
+    seen: frozenset[int] = frozenset(),
+) -> Mapping[str, Any]:
+    name = _callable_name(value)
+    if name in explicit_fingerprints:
+        return {
+            "callable": name,
+            "explicit_fingerprint": str(explicit_fingerprints[name]),
+        }
+    target = value
+    if inspect.ismethod(target):
+        target = target.__func__
+    elif not inspect.isfunction(target) and hasattr(target, "__call__"):
+        target = getattr(target, "__call__")
+        if inspect.ismethod(target):
+            target = target.__func__
+    code = getattr(target, "__code__", None)
+    if code is None:
+        raise ValueError(
+            f"uninspectable callable requires explicit fingerprint: {name}"
+        )
+    if id(target) in seen:
+        return {"callable": name, "recursive_reference": True}
+    next_seen = seen | {id(target)}
+    closure_values = []
+    for cell in getattr(target, "__closure__", ()) or ():
+        try:
+            closure_values.append(_stable_closure_identity(cell.cell_contents))
+        except ValueError:
+            closure_values.append(
+                {
+                    "mutable_or_opaque_type": (
+                        f"{type(cell.cell_contents).__module__}."
+                        f"{type(cell.cell_contents).__qualname__}"
+                    )
+                }
+            )
+    module_file = inspect.getsourcefile(target) or inspect.getfile(target)
+    module_identity: Mapping[str, Any] | str = ""
+    if module_file:
+        path = Path(module_file)
+        if path.is_file():
+            module_identity = _file_digest(path)
+    helper_identities = []
+    globals_map = getattr(target, "__globals__", {})
+    for referenced_name in sorted(set(code.co_names)):
+        helper = globals_map.get(referenced_name)
+        if helper is None or helper is value or not callable(helper):
+            continue
+        helper_code = getattr(
+            helper.__func__ if inspect.ismethod(helper) else helper,
+            "__code__",
+            None,
+        )
+        if helper_code is None:
+            continue
+        helper_identities.append(
+            {
+                "name": referenced_name,
+                "identity": _callable_identity(
+                    helper,
+                    explicit_fingerprints,
+                    seen=next_seen,
+                ),
+            }
+        )
+    return {
+        "callable": name,
+        "code_sha256": hashlib.sha256(marshal.dumps(code)).hexdigest(),
+        "defaults": to_jsonable(getattr(target, "__defaults__", None)),
+        "kwdefaults": to_jsonable(getattr(target, "__kwdefaults__", None)),
+        "closure_values": closure_values,
+        "module_file": module_identity,
+        "helpers": helper_identities,
+    }
 
 
 def _invariant_name(invariant: Any) -> str:
@@ -112,6 +225,7 @@ class BudgetedGraphConfig:
     required_labels: tuple[str, ...]
     fingerprint_parts: tuple[Any, ...]
     fingerprint_files: tuple[Path, ...]
+    callable_fingerprints: Mapping[str, str]
     max_failure_samples: int
     progress_steps: int
 
@@ -131,6 +245,7 @@ class BudgetedGraphConfig:
         required_labels: Sequence[str] = (),
         fingerprint_parts: Sequence[Any] = (),
         fingerprint_files: Sequence[str | Path] = (),
+        callable_fingerprints: Mapping[str, str] | None = None,
         max_failure_samples: int = 20,
         progress_steps: int = 10,
     ) -> None:
@@ -159,6 +274,14 @@ class BudgetedGraphConfig:
         object.__setattr__(self, "required_labels", tuple(str(label) for label in required_labels))
         object.__setattr__(self, "fingerprint_parts", tuple(fingerprint_parts))
         object.__setattr__(self, "fingerprint_files", tuple(Path(path) for path in fingerprint_files))
+        object.__setattr__(
+            self,
+            "callable_fingerprints",
+            {
+                str(key): str(value)
+                for key, value in (callable_fingerprints or {}).items()
+            },
+        )
         object.__setattr__(self, "max_failure_samples", int(max_failure_samples))
         object.__setattr__(self, "progress_steps", int(progress_steps))
 
@@ -311,20 +434,39 @@ def budgeted_graph_fingerprint(config: BudgetedGraphConfig) -> str:
     payload = {
         "schema_version": SCHEMA_VERSION,
         "model_name": config.model_name,
-        "transition_fn": _callable_name(config.transition_fn),
+        "transition_fn": _callable_identity(
+            config.transition_fn,
+            config.callable_fingerprints,
+        ),
+        "state_id": _callable_identity(
+            config.state_id,
+            config.callable_fingerprints,
+        ),
+        "encode_state": _callable_identity(
+            config.encode_state,
+            config.callable_fingerprints,
+        ),
+        "decode_state": _callable_identity(
+            config.decode_state,
+            config.callable_fingerprints,
+        ),
         "initial_state_ids": [config.state_id(state) for state in config.initial_states],
         "required_labels": config.required_labels,
         "invariants": [
             {
                 "name": _invariant_name(invariant),
                 "description": _invariant_description(invariant),
-                "callable": _callable_name(getattr(invariant, "check", invariant)),
+                "callable": _callable_identity(
+                    getattr(invariant, "check", invariant),
+                    config.callable_fingerprints,
+                ),
             }
             for invariant in config.invariants
         ],
         "budget_per_shard": config.budget_per_shard,
         "fingerprint_parts": to_jsonable(config.fingerprint_parts),
         "fingerprint_files": file_parts,
+        "callable_fingerprints": dict(config.callable_fingerprints),
     }
     return hashlib.sha256(_stable_json(payload).encode("utf-8")).hexdigest()[:24]
 

@@ -14,6 +14,87 @@ from flowguard import (
 
 
 class BudgetedGraphRunnerTests(unittest.TestCase):
+    def test_immutable_closure_value_changes_fingerprint(self):
+        def make_transition(limit):
+            def transition(state):
+                return () if state >= limit else (("advance", state + 1),)
+
+            return transition
+
+        first = BudgetedGraphConfig(
+            "closure-identity",
+            (0,),
+            make_transition(1),
+            progress_steps=0,
+        )
+        second = BudgetedGraphConfig(
+            "closure-identity",
+            (0,),
+            make_transition(2),
+            progress_steps=0,
+        )
+        self.assertNotEqual(
+            budgeted_graph_fingerprint(first),
+            budgeted_graph_fingerprint(second),
+        )
+
+    def test_callable_body_default_helper_and_closure_change_fingerprint(self):
+        namespace_one = {"__name__": "fixture.same"}
+        namespace_two = {"__name__": "fixture.same"}
+        exec(
+            "def helper(value):\n"
+            "    return value + 1\n"
+            "def transition(state, limit=1):\n"
+            "    return () if state >= limit else (('advance', helper(state)),)\n",
+            namespace_one,
+        )
+        exec(
+            "def helper(value):\n"
+            "    return value + 2\n"
+            "def transition(state, limit=2):\n"
+            "    return () if state >= limit else (('advance', helper(state)),)\n",
+            namespace_two,
+        )
+        first = BudgetedGraphConfig(
+            "callable-identity",
+            (0,),
+            namespace_one["transition"],
+            progress_steps=0,
+        )
+        second = BudgetedGraphConfig(
+            "callable-identity",
+            (0,),
+            namespace_two["transition"],
+            progress_steps=0,
+        )
+        self.assertEqual(
+            namespace_one["transition"].__qualname__,
+            namespace_two["transition"].__qualname__,
+        )
+        self.assertNotEqual(
+            budgeted_graph_fingerprint(first),
+            budgeted_graph_fingerprint(second),
+        )
+
+    def test_uninspectable_callable_requires_explicit_fingerprint(self):
+        config = BudgetedGraphConfig(
+            "uninspectable",
+            ((1,),),
+            len,
+            progress_steps=0,
+        )
+        with self.assertRaisesRegex(ValueError, "explicit fingerprint"):
+            budgeted_graph_fingerprint(config)
+
+        explicit = BudgetedGraphConfig(
+            "uninspectable",
+            ((1,),),
+            len,
+            callable_fingerprints={"builtins.len": "sha256:fixture-len-v1"},
+            progress_steps=0,
+        )
+        self.assertTrue(budgeted_graph_fingerprint(explicit))
+
     def test_single_shard_completion_reports_ok(self):
         def transition(state):
             if state < 2:

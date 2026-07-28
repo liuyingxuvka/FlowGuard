@@ -35,15 +35,24 @@ class AuthorityCase:
     authority_derived_from_pointer: bool = True
     finite_coverage_boundary: bool = True
     coverage_set_equality: bool = True
+    declared_materialized_model_sets_equal: bool = True
+    diff_independently_derived: bool = True
     affected_closure_complete: bool = True
+    affected_closure_is_fixed_point: bool = True
     aggregate_evidence_complete: bool = True
+    evidence_coverage_union_exact: bool = True
     expected_head_matches: bool = True
+    full_head_compare_and_swap: bool = True
+    lock_held_live_candidate_exact: bool = True
+    final_live_resample_exact: bool = True
     immutable_records_before_pointer: bool = True
     pointer_changes_once: bool = True
     no_partial_member_activation: bool = True
     implementation_effects_restored: bool = True
     old_snapshot_revalidated: bool = True
     irreversible_effect_not_exact_rollback: bool = True
+    rollback_is_reverse_revision: bool = True
+    rollback_origin_head_matches: bool = True
     observed_subject_matches_software: bool = True
     instance_identity_is_local: bool = True
     global_revision_is_snapshot_only: bool = True
@@ -61,15 +70,24 @@ class AuthorityState:
     authority_derived_from_pointer: bool = False
     finite_coverage_boundary: bool = False
     coverage_set_equality: bool = False
+    declared_materialized_model_sets_equal: bool = False
+    diff_independently_derived: bool = False
     affected_closure_complete: bool = False
+    affected_closure_is_fixed_point: bool = False
     aggregate_evidence_complete: bool = False
+    evidence_coverage_union_exact: bool = False
     expected_head_matches: bool = False
+    full_head_compare_and_swap: bool = False
+    lock_held_live_candidate_exact: bool = False
+    final_live_resample_exact: bool = False
     immutable_records_before_pointer: bool = False
     pointer_changes_once: bool = False
     no_partial_member_activation: bool = False
     implementation_effects_restored: bool = False
     old_snapshot_revalidated: bool = False
     irreversible_effect_not_exact_rollback: bool = False
+    rollback_is_reverse_revision: bool = False
+    rollback_origin_head_matches: bool = False
     observed_subject_matches_software: bool = False
     instance_identity_is_local: bool = False
     global_revision_is_snapshot_only: bool = False
@@ -166,6 +184,11 @@ def coverage_claim_is_finite_set_equality(
             "coverage_claim_is_finite_set_equality",
             "required and covered ids are not equal in every dimension",
         )
+    if not state.declared_materialized_model_sets_equal:
+        return _fail(
+            "coverage_claim_is_finite_set_equality",
+            "declared non-excluded models differ from materialized model-and-runner ids",
+        )
     return _pass()
 
 
@@ -179,10 +202,25 @@ def revision_set_closes_as_one_unit(
             "revision_set_closes_as_one_unit",
             "affected parent, sibling, relation, commitment, field, contract, or test is missing",
         )
+    if not state.diff_independently_derived:
+        return _fail(
+            "revision_set_closes_as_one_unit",
+            "caller declarations replaced or narrowed the canonical snapshot diff",
+        )
+    if not state.affected_closure_is_fixed_point:
+        return _fail(
+            "revision_set_closes_as_one_unit",
+            "affected ids are not the fixed point of the typed base and candidate relations",
+        )
     if not state.aggregate_evidence_complete:
         return _fail(
             "revision_set_closes_as_one_unit",
             "required revision-set evidence is failed, stale, skipped, or not run",
+        )
+    if not state.evidence_coverage_union_exact:
+        return _fail(
+            "revision_set_closes_as_one_unit",
+            "passing receipts do not cover the complete affected identity set exactly",
         )
     if not state.no_partial_member_activation:
         return _fail(
@@ -201,6 +239,21 @@ def activation_is_compare_and_swap_pointer_last(
         return _fail(
             "activation_is_compare_and_swap_pointer_last",
             "observed head drifted after candidate construction",
+        )
+    if not state.full_head_compare_and_swap:
+        return _fail(
+            "activation_is_compare_and_swap_pointer_last",
+            "activation compared only a snapshot or partial head identity",
+        )
+    if not state.lock_held_live_candidate_exact:
+        return _fail(
+            "activation_is_compare_and_swap_pointer_last",
+            "lock-held live reconstruction differs from the accepted candidate",
+        )
+    if not state.final_live_resample_exact:
+        return _fail(
+            "activation_is_compare_and_swap_pointer_last",
+            "governed live input drifted before the pointer write",
         )
     if not state.immutable_records_before_pointer:
         return _fail(
@@ -296,6 +349,16 @@ def rollback_restores_reality_before_authority(
         return _fail(
             "rollback_restores_reality_before_authority",
             "irreversible effects were mislabeled as exact rollback",
+        )
+    if not state.rollback_is_reverse_revision:
+        return _fail(
+            "rollback_restores_reality_before_authority",
+            "rollback receipt was used as revision identity instead of a reverse revision set",
+        )
+    if not state.rollback_origin_head_matches:
+        return _fail(
+            "rollback_restores_reality_before_authority",
+            "rollback contract matches a snapshot but not the complete originating head",
         )
     return _pass()
 
@@ -429,6 +492,18 @@ SCENARIOS = (
         ),
     ),
     _scenario(
+        "declared_optional_local_model_cannot_disappear_from_coverage",
+        "A declared non-excluded model remains required when its model or runner is absent.",
+        AuthorityCase(
+            "optional_local_filtered_out",
+            declared_materialized_model_sets_equal=False,
+        ),
+        _expect_violation(
+            "coverage_claim_is_finite_set_equality",
+            "declared-to-materialized shrinkage is rejected",
+        ),
+    ),
+    _scenario(
         "partial_multi_model_activation_rejected",
         "A passing member cannot activate independently.",
         AuthorityCase(
@@ -453,6 +528,30 @@ SCENARIOS = (
         ),
     ),
     _scenario(
+        "caller_declared_diff_cannot_replace_canonical_diff",
+        "A caller cannot omit a changed owner, coverage row, gap, or sibling.",
+        AuthorityCase(
+            "caller_shrinks_diff",
+            diff_independently_derived=False,
+        ),
+        _expect_violation(
+            "revision_set_closes_as_one_unit",
+            "caller-narrowed diff is rejected",
+        ),
+    ),
+    _scenario(
+        "two_receipts_cannot_cover_only_two_of_thirty_three_ids",
+        "Receipt-list equality cannot hide uncovered affected identities.",
+        AuthorityCase(
+            "receipt_list_hides_uncovered_ids",
+            evidence_coverage_union_exact=False,
+        ),
+        _expect_violation(
+            "revision_set_closes_as_one_unit",
+            "incomplete evidence coverage union is rejected",
+        ),
+    ),
+    _scenario(
         "stale_base_blocks_activation",
         "A candidate based on an older observed head cannot activate.",
         AuthorityCase("stale_base", expected_head_matches=False),
@@ -471,6 +570,30 @@ SCENARIOS = (
         _expect_violation(
             "activation_is_compare_and_swap_pointer_last",
             "pointer-first activation is rejected",
+        ),
+    ),
+    _scenario(
+        "same_head_live_source_drift_blocks_activation",
+        "An unchanged pointer cannot authorize a candidate after live input drift.",
+        AuthorityCase(
+            "same_head_live_drift",
+            lock_held_live_candidate_exact=False,
+        ),
+        _expect_violation(
+            "activation_is_compare_and_swap_pointer_last",
+            "lock-held live candidate drift is rejected",
+        ),
+    ),
+    _scenario(
+        "pre_pointer_live_resample_must_stay_exact",
+        "A final governed-source resample must match before pointer replacement.",
+        AuthorityCase(
+            "pre_pointer_resample_drift",
+            final_live_resample_exact=False,
+        ),
+        _expect_violation(
+            "activation_is_compare_and_swap_pointer_last",
+            "final live resample drift is rejected",
         ),
     ),
     _scenario(
@@ -555,6 +678,30 @@ SCENARIOS = (
         _expect_violation(
             "rollback_restores_reality_before_authority",
             "false exact rollback is rejected",
+        ),
+    ),
+    _scenario(
+        "rollback_receipt_cannot_masquerade_as_revision",
+        "A successful rollback uses an accepted reverse revision as current authority.",
+        AuthorityCase(
+            "rollback_receipt_as_revision",
+            rollback_is_reverse_revision=False,
+        ),
+        _expect_violation(
+            "rollback_restores_reality_before_authority",
+            "untyped rollback transition identity is rejected",
+        ),
+    ),
+    _scenario(
+        "old_rollback_contract_cannot_replay_at_same_snapshot",
+        "A later generation with the same snapshot still has a different full head.",
+        AuthorityCase(
+            "rollback_snapshot_only_replay",
+            rollback_origin_head_matches=False,
+        ),
+        _expect_violation(
+            "rollback_restores_reality_before_authority",
+            "snapshot-only rollback replay is rejected",
         ),
     ),
 )

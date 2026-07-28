@@ -29,8 +29,8 @@ Accept existing-model ownership plus code mapping; classify contraction candidat
 3. Record stable intent/commitment/selected-path binding, proof status, target action, compatibility disposition, risks, and required next route.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Only equivalence or current facade proof can make a contraction ready; risky, scoped, stale, and property-only candidates remain visible.
 - An empty/smaller candidate list cannot pass after Preflight or Similarity found duplicates. Retained facades require current evidence that they delegate to the selected primary path and cannot succeed independently.
 - Public entrypoints require StructureMesh parity, duplicate generators route to ContractExhaustionMesh, and new/deepened models require template harvest closure.
@@ -39,4 +39,4 @@ Accept existing-model ownership plus code mapping; classify contraction candidat
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus contraction candidates and proof status.
 
 
-<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->
+<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

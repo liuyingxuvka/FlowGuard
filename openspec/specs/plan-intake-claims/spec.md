@@ -131,3 +131,27 @@ PlanIntake SHALL be able to consume source evidence and risk surfaces projected 
 - **WHEN** a plan-detail risk surface is marked in scope but omitted, unreviewed, or unmapped
 - **THEN** PlanIntake reports the corresponding incomplete surface finding
 
+### Requirement: Plan Intake Uses One Evidence Id Shape
+Plan Intake SHALL expose one canonical mapped evidence id per mapping row and
+one canonical source-evidence-id collection for completeness plans. It MUST
+NOT expose singular/plural duplicates for the same relationship.
+
+#### Scenario: Mapping evidence id
+- **WHEN** an artifact maps to FlowGuard evidence
+- **THEN** `EvidenceAdapterMapping` records the raw artifact id and one mapped
+  evidence id
+
+#### Scenario: Source evidence ids
+- **WHEN** a completeness plan cites source evidence
+- **THEN** it records source evidence ids without also requiring embedded
+  source-evidence objects for the same sources
+
+### Requirement: Strict Adapter Fixture Fields Are Test-Owned
+Plan Intake MUST keep known-bad fixture expectations in tests or dedicated
+adapter-conformance cases. Current production mapping rows MUST reject
+fixture-only fields instead of carrying them as optional inputs.
+
+#### Scenario: Known-bad adapter fixture
+- **WHEN** adapter rejection behavior must be proved
+- **THEN** the proof is expressed as a test or conformance scenario rather
+  than `known_bad_fixture` fields on normal mappings

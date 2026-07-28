@@ -10,6 +10,7 @@ from flowguard.model_purpose import (
 from flowguard.model_regressions import MANIFEST_SCHEMA
 from flowguard.model_system_inventory import (
     build_manifest_model_system_snapshot,
+    inspect_manifest_model_inventory,
 )
 from flowguard.behavior_commitment import (
     BehaviorCommitment,
@@ -34,7 +35,20 @@ class ModelSystemInventoryTests(unittest.TestCase):
         )
         self.assertFalse(snapshot.unresolved_gap_ids)
         self.assertTrue(snapshot.coverage.complete)
-        self.assertTrue(snapshot.model_instances)
+        inventory = inspect_manifest_model_inventory(root)
+        self.assertEqual(62, len(inventory.declared_ids))
+        self.assertEqual(inventory.declared_ids, inventory.materialized_ids)
+        self.assertEqual(inventory.required_ids, inventory.covered_ids)
+        self.assertFalse(inventory.missing_ids)
+        self.assertEqual(62, len(snapshot.model_instances))
+        model_dimension = next(
+            item
+            for item in snapshot.coverage.dimensions
+            if item.dimension_id == "model_instances"
+        )
+        self.assertEqual(inventory.required_ids, model_dimension.required_ids)
+        self.assertEqual(inventory.covered_ids, model_dimension.covered_ids)
+        self.assertFalse(model_dimension.excluded_ids)
         self.assertEqual("flowguard.model_system_snapshot.v2", snapshot.schema)
         self.assertTrue(
             all(
@@ -43,6 +57,53 @@ class ModelSystemInventoryTests(unittest.TestCase):
                 for model in snapshot.model_instances
             )
         )
+
+    def test_optional_local_absence_remains_declared_and_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_dir = root / ".flowguard"
+            manifest_dir.mkdir()
+            (manifest_dir / "model-regression-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": MANIFEST_SCHEMA,
+                        "governed_input_globs": [],
+                        "snapshot_only_input_globs": [],
+                        "shared_input_groups": [],
+                        "models": [
+                            {
+                                "model_id": "missing_local",
+                                "model_path": ".flowguard/missing/model.py",
+                                "runner": [
+                                    "{python}",
+                                    ".flowguard/missing/run_checks.py",
+                                ],
+                                "tier": "fast",
+                                "timeout_seconds": 5,
+                                "shard_safe": True,
+                                "mutation_policy": "none",
+                                "input_globs": [],
+                                "expected_artifacts": [],
+                                "exclusion_reason": "",
+                                "distribution_policy": "optional_local",
+                                "absence_reason": (
+                                    "The local fixture is intentionally absent."
+                                ),
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            inventory = inspect_manifest_model_inventory(root)
+
+            self.assertEqual(("missing_local",), inventory.declared_ids)
+            self.assertEqual((), inventory.materialized_ids)
+            self.assertEqual(("missing_local",), inventory.required_ids)
+            self.assertEqual((), inventory.covered_ids)
+            self.assertEqual(("missing_local",), inventory.missing_ids)
+            self.assertFalse(inventory.complete)
 
     def test_local_model_identity_changes_only_for_its_resolved_inputs(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -163,6 +224,24 @@ class ModelSystemInventoryTests(unittest.TestCase):
             )
             self.assertNotEqual(before.subject_revision, after.subject_revision)
             self.assertNotEqual(before.fingerprint, after.fingerprint)
+
+            runner_paths["beta"].unlink()
+            incomplete = build_manifest_model_system_snapshot(
+                root,
+                snapshot_id="snapshot:required-runner-missing",
+            )
+            model_dimension = next(
+                item
+                for item in incomplete.coverage.dimensions
+                if item.dimension_id == "model_instances"
+            )
+            self.assertEqual(("alpha", "beta"), model_dimension.required_ids)
+            self.assertEqual(("alpha",), model_dimension.covered_ids)
+            self.assertEqual(("beta",), model_dimension.missing_ids)
+            self.assertEqual(
+                "incomplete_within_declared_boundary",
+                incomplete.coverage_status,
+            )
 
     def test_manifest_snapshot_connects_model_purpose_and_commitment(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -41,6 +41,9 @@ class StructureMeshCase:
     parity_evidence_current: bool = True
     release_scope_blocks_missing_parity: bool = True
     adapters_collect_evidence_not_refactor: bool = True
+    ui_evidence_partition_owned: bool = True
+    receipt_supervision_partition_owned: bool = True
+    package_api_registry_partition_owned: bool = True
 
 
 @dataclass(frozen=True)
@@ -62,6 +65,9 @@ class StructureMeshPolicy:
     parity_evidence_current: bool = False
     release_scope_blocks_missing_parity: bool = False
     adapters_collect_evidence_not_refactor: bool = False
+    ui_evidence_partition_owned: bool = False
+    receipt_supervision_partition_owned: bool = False
+    package_api_registry_partition_owned: bool = False
 
 
 GOOD_PLAN = StructureMeshCase("good_structure_mesh_plan")
@@ -93,6 +99,18 @@ BROKEN_STRUCTUREMESH_REFACTORS = StructureMeshCase(
     "broken_structuremesh_refactors_directly",
     adapters_collect_evidence_not_refactor=False,
 )
+BROKEN_UI_EVIDENCE_PARTITION = StructureMeshCase(
+    "broken_ui_evidence_partition",
+    ui_evidence_partition_owned=False,
+)
+BROKEN_RECEIPT_SUPERVISION_PARTITION = StructureMeshCase(
+    "broken_receipt_supervision_partition",
+    receipt_supervision_partition_owned=False,
+)
+BROKEN_PACKAGE_API_PARTITION = StructureMeshCase(
+    "broken_package_api_partition",
+    package_api_registry_partition_owned=False,
+)
 
 
 class EvaluateStructureMeshPlan:
@@ -116,6 +134,9 @@ class EvaluateStructureMeshPlan:
         "parity_evidence_current",
         "release_scope_blocks_missing_parity",
         "adapters_collect_evidence_not_refactor",
+        "ui_evidence_partition_owned",
+        "receipt_supervision_partition_owned",
+        "package_api_registry_partition_owned",
     )
     accepted_input_type = StructureMeshCase
     input_description = "structure mesh rollout case"
@@ -141,6 +162,9 @@ class EvaluateStructureMeshPlan:
             parity_evidence_current=input_obj.parity_evidence_current,
             release_scope_blocks_missing_parity=input_obj.release_scope_blocks_missing_parity,
             adapters_collect_evidence_not_refactor=input_obj.adapters_collect_evidence_not_refactor,
+            ui_evidence_partition_owned=input_obj.ui_evidence_partition_owned,
+            receipt_supervision_partition_owned=input_obj.receipt_supervision_partition_owned,
+            package_api_registry_partition_owned=input_obj.package_api_registry_partition_owned,
         )
         return (
             FunctionResult(
@@ -268,6 +292,30 @@ def structuremesh_does_not_refactor_code(state: StructureMeshPolicy, _trace: obj
     return _pass()
 
 
+def currentness_partitions_have_single_owners(
+    state: StructureMeshPolicy,
+    _trace: object,
+) -> InvariantResult:
+    if _empty(state):
+        return _pass()
+    missing = tuple(
+        name
+        for name, owned in (
+            ("ui_implementation_evidence_and_content_visibility", state.ui_evidence_partition_owned),
+            ("receipt_ownership_and_process_supervision", state.receipt_supervision_partition_owned),
+            ("package_api_registry", state.package_api_registry_partition_owned),
+        )
+        if not owned
+    )
+    if missing:
+        return _fail(
+            "currentness_partitions_have_single_owners",
+            "currentness structure partitions lack one extracted child owner: "
+            + ", ".join(missing),
+        )
+    return _pass()
+
+
 INVARIANTS = (
     Invariant(
         "parent_child_structure_exists",
@@ -318,6 +366,11 @@ INVARIANTS = (
         "structuremesh_does_not_refactor_code",
         "StructureMesh reviews structured evidence instead of moving project code directly.",
         structuremesh_does_not_refactor_code,
+    ),
+    Invariant(
+        "currentness_partitions_have_single_owners",
+        "UI evidence, receipt supervision, and package API registry each have one extracted child owner.",
+        currentness_partitions_have_single_owners,
     ),
 )
 
@@ -457,6 +510,33 @@ SCENARIOS = (
         "StructureMesh must review structured evidence instead of moving code itself.",
         BROKEN_STRUCTUREMESH_REFACTORS,
         _expect_violation("direct refactor engine fails", ("structuremesh_does_not_refactor_code",)),
+    ),
+    scenario(
+        "ui_evidence_partition_is_required",
+        "UI implementation evidence and content visibility need one cohesive child owner.",
+        BROKEN_UI_EVIDENCE_PARTITION,
+        _expect_violation(
+            "missing UI evidence partition fails",
+            ("currentness_partitions_have_single_owners",),
+        ),
+    ),
+    scenario(
+        "receipt_supervision_partition_is_required",
+        "Receipt ownership and process supervision need one cohesive child owner.",
+        BROKEN_RECEIPT_SUPERVISION_PARTITION,
+        _expect_violation(
+            "missing receipt supervision partition fails",
+            ("currentness_partitions_have_single_owners",),
+        ),
+    ),
+    scenario(
+        "package_api_registry_partition_is_required",
+        "The package API registry needs one cohesive child owner.",
+        BROKEN_PACKAGE_API_PARTITION,
+        _expect_violation(
+            "missing package API partition fails",
+            ("currentness_partitions_have_single_owners",),
+        ),
     ),
 )
 

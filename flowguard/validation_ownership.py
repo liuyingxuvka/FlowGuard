@@ -48,6 +48,9 @@ OWNER_DISPOSITIONS = (OWNER_EXECUTE, OWNER_REUSE_CURRENT, OWNER_BLOCKED)
 OWNER_RECEIPT_SCOPE = "full"
 OWNER_RECEIPT_KIND = "validation_owner"
 OWNER_RECEIPT_SCHEMA = "flowguard.validation_owner_receipt.v1"
+PARENT_CURRENT_SCHEMA = "flowguard.validation_parent_current.v1"
+OWNER_PLAN_SCHEMA = "flowguard.validation_owner_plan.v1"
+DEFAULT_TERMINATION_POLICY = "terminate_grace_force_kill_confirm_zero_descendants"
 
 _OUTPUT_PREFIXES = (
     ".flowguard/evidence/",
@@ -477,9 +480,43 @@ class ValidationOwnerContract:
     input_patterns: tuple[str, ...]
     obligation_ids: tuple[str, ...]
     projected_inputs: tuple[tuple[str, str], ...] = ()
+    dependency_owner_ids: tuple[str, ...] = ()
+    resource_keys: tuple[str, ...] = ()
+    toolchain_selectors: tuple[str, ...] = ("python_implementation", "python_version", "flowguard_version")
+    environment_selectors: tuple[str, ...] = ("platform_system", "platform_machine")
+    external_component_bindings: tuple[tuple[str, str], ...] = ()
+    work_context_artifact_roles: tuple[str, ...] = ()
+    timeout_seconds: float = 900.0
+    termination_policy: str = DEFAULT_TERMINATION_POLICY
     required: bool = True
 
     def __post_init__(self) -> None:
+        for field_name in (
+            "dependency_owner_ids",
+            "resource_keys",
+            "toolchain_selectors",
+            "environment_selectors",
+            "work_context_artifact_roles",
+        ):
+            values = tuple(sorted({str(item).strip() for item in getattr(self, field_name) if str(item).strip()}))
+            object.__setattr__(self, field_name, values)
+        external = tuple(
+            sorted(
+                (str(component_id).strip(), str(fingerprint).strip())
+                for component_id, fingerprint in self.external_component_bindings
+            )
+        )
+        if len({item[0] for item in external}) != len(external):
+            raise ValueError("external component ids must be unique within one owner")
+        if any(
+            not component_id
+            or not re.fullmatch(r"sha256:[0-9a-f]{64}", fingerprint)
+            for component_id, fingerprint in external
+        ):
+            raise ValueError(
+                "external component bindings require a component id and canonical sha256 fingerprint"
+            )
+        object.__setattr__(self, "external_component_bindings", external)
         projected = tuple(
             sorted(
                 (str(component_id), str(fingerprint))
@@ -497,6 +534,14 @@ class ValidationOwnerContract:
                 "projected inputs require a component id and canonical sha256 fingerprint"
             )
         object.__setattr__(self, "projected_inputs", projected)
+        object.__setattr__(self, "timeout_seconds", float(self.timeout_seconds))
+        object.__setattr__(self, "termination_policy", str(self.termination_policy).strip())
+        if self.owner_id in self.dependency_owner_ids:
+            raise ValueError("validation owner cannot depend on itself")
+        if self.timeout_seconds <= 0:
+            raise ValueError("validation owner timeout must be positive")
+        if not self.termination_policy:
+            raise ValueError("validation owner termination policy is required")
         if (
             not self.owner_id
             or not self.command
@@ -520,6 +565,20 @@ class ValidationOwnerContract:
                 }
                 for component_id, fingerprint in self.projected_inputs
             ],
+            "dependency_owner_ids": list(self.dependency_owner_ids),
+            "resource_keys": list(self.resource_keys),
+            "toolchain_selectors": list(self.toolchain_selectors),
+            "environment_selectors": list(self.environment_selectors),
+            "external_component_bindings": [
+                {
+                    "component_id": component_id,
+                    "fingerprint": fingerprint,
+                }
+                for component_id, fingerprint in self.external_component_bindings
+            ],
+            "work_context_artifact_roles": list(self.work_context_artifact_roles),
+            "timeout_seconds": self.timeout_seconds,
+            "termination_policy": self.termination_policy,
             "required": self.required,
         }
 
@@ -537,6 +596,37 @@ class ValidationOwnerContract:
                 )
                 for item in value.get("projected_inputs", ())
                 if isinstance(item, Mapping)
+            ),
+            dependency_owner_ids=tuple(
+                str(item) for item in value.get("dependency_owner_ids", ())
+            ),
+            resource_keys=tuple(str(item) for item in value.get("resource_keys", ())),
+            toolchain_selectors=tuple(
+                str(item) for item in value.get(
+                    "toolchain_selectors",
+                    ("python_implementation", "python_version", "flowguard_version"),
+                )
+            ),
+            environment_selectors=tuple(
+                str(item) for item in value.get(
+                    "environment_selectors",
+                    ("platform_system", "platform_machine"),
+                )
+            ),
+            external_component_bindings=tuple(
+                (
+                    str(item.get("component_id", "")),
+                    str(item.get("fingerprint", "")),
+                )
+                for item in value.get("external_component_bindings", ())
+                if isinstance(item, Mapping)
+            ),
+            work_context_artifact_roles=tuple(
+                str(item) for item in value.get("work_context_artifact_roles", ())
+            ),
+            timeout_seconds=float(value.get("timeout_seconds", 900.0)),
+            termination_policy=str(
+                value.get("termination_policy", DEFAULT_TERMINATION_POLICY)
             ),
             required=bool(value.get("required", True)),
         )
@@ -582,6 +672,120 @@ class ValidationOwnerPlanRow:
         }
 
 
+def topological_owner_contracts(
+    contracts: Sequence[ValidationOwnerContract],
+) -> tuple[ValidationOwnerContract, ...]:
+    """Validate and deterministically order one complete owner DAG."""
+
+    by_id = {item.owner_id: item for item in contracts}
+    if len(by_id) != len(contracts):
+        raise ValueError("validation owner ids must be unique")
+    if any(not owner_id for owner_id in by_id):
+        raise ValueError("validation owner ids must be non-empty")
+    for contract in contracts:
+        unknown = sorted(set(contract.dependency_owner_ids) - set(by_id))
+        if unknown:
+            raise ValueError(
+                f"validation owner {contract.owner_id} has unknown dependencies: "
+                + ", ".join(unknown)
+            )
+
+    ordered: list[ValidationOwnerContract] = []
+    pending = set(by_id)
+    while pending:
+        ready = sorted(
+            owner_id
+            for owner_id in pending
+            if set(by_id[owner_id].dependency_owner_ids).isdisjoint(pending)
+        )
+        if not ready:
+            raise ValueError(
+                "validation owner dependency cycle: " + ", ".join(sorted(pending))
+            )
+        for owner_id in ready:
+            ordered.append(by_id[owner_id])
+            pending.remove(owner_id)
+
+    ancestors: dict[str, set[str]] = {}
+    for contract in ordered:
+        closure = set(contract.dependency_owner_ids)
+        for dependency_id in contract.dependency_owner_ids:
+            closure.update(ancestors[dependency_id])
+        ancestors[contract.owner_id] = closure
+    resource_owners: dict[str, list[str]] = {}
+    for contract in ordered:
+        for resource_key in contract.resource_keys:
+            resource_owners.setdefault(resource_key, []).append(contract.owner_id)
+    for resource_key, owner_ids in sorted(resource_owners.items()):
+        for index, left in enumerate(owner_ids):
+            for right in owner_ids[index + 1 :]:
+                if left not in ancestors[right] and right not in ancestors[left]:
+                    raise ValueError(
+                        "validation resource conflict is not dependency ordered: "
+                        f"{resource_key} ({left}, {right})"
+                    )
+    return tuple(ordered)
+
+
+@dataclass(frozen=True)
+class ValidationOwnerPlan:
+    contracts: tuple[ValidationOwnerContract, ...]
+    rows: tuple[ValidationOwnerPlanRow, ...]
+    owner_currents: Mapping[str, ValidationOwnerCurrent]
+    reusable_receipts: Mapping[str, EvidenceReceipt]
+    validation_input_manifest: tuple[Mapping[str, str], ...]
+    validation_input_manifest_fingerprint: str
+    release_tree_manifest: tuple[Mapping[str, str], ...]
+    release_tree_manifest_fingerprint: str
+    plan_fingerprint: str
+
+    @property
+    def blocked(self) -> bool:
+        return any(item.disposition == OWNER_BLOCKED for item in self.rows)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": OWNER_PLAN_SCHEMA,
+            "contracts": [item.to_dict() for item in self.contracts],
+            "rows": [item.to_dict() for item in self.rows],
+            "owner_identities": {
+                owner_id: current.owner_identity
+                for owner_id, current in sorted(self.owner_currents.items())
+            },
+            "validation_input_manifest_fingerprint": self.validation_input_manifest_fingerprint,
+            "release_tree_manifest_fingerprint": self.release_tree_manifest_fingerprint,
+            "plan_fingerprint": self.plan_fingerprint,
+            "blocked": self.blocked,
+        }
+
+
+@dataclass(frozen=True)
+class ValidationParentCurrent:
+    owner_plan: ValidationOwnerPlan
+    validation_snapshot: InputSnapshot
+    release_tree_snapshot: InputSnapshot
+    contract_hash: str
+    check_manifest_hash: str
+    suite_map_hash: str
+    environment_metadata: Mapping[str, str]
+    environment_fingerprint: str
+    parent_identity: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": PARENT_CURRENT_SCHEMA,
+            "owner_plan": self.owner_plan.to_dict(),
+            "validation_snapshot": self.validation_snapshot.to_dict(),
+            "release_tree_snapshot": self.release_tree_snapshot.to_dict(),
+            "contract_hash": self.contract_hash,
+            "check_manifest_hash": self.check_manifest_hash,
+            "suite_map_hash": self.suite_map_hash,
+            "environment_metadata": dict(self.environment_metadata),
+            "environment_fingerprint": self.environment_fingerprint,
+            "parent_identity": self.parent_identity,
+        }
+
+
 def build_owner_current(
     root: str | Path,
     contract: ValidationOwnerContract,
@@ -599,6 +803,13 @@ def build_owner_current(
                         "sha256": fingerprint,
                     }
                     for component_id, fingerprint in contract.projected_inputs
+                ),
+                *(
+                    {
+                        "path": f"<external:{component_id}>",
+                        "sha256": fingerprint,
+                    }
+                    for component_id, fingerprint in contract.external_component_bindings
                 ),
             ),
             key=lambda item: item["path"],
@@ -637,14 +848,24 @@ def build_owner_current(
         path_token=f"<WORKSPACE>/<OWNER_INPUT:{contract.owner_id}>",
         obligation_ids=contract.obligation_ids,
     )
+    observed_environment = {
+        "python_implementation": __import__("platform").python_implementation(),
+        "python_version": __import__("platform").python_version(),
+        "platform_system": __import__("platform").system(),
+        "platform_machine": __import__("platform").machine(),
+        "flowguard_version": _package_version(),
+    }
+    selected_keys = tuple(
+        sorted(set(contract.toolchain_selectors + contract.environment_selectors))
+    )
+    unknown_selectors = sorted(set(selected_keys) - set(observed_environment))
+    if unknown_selectors:
+        raise ValueError(
+            f"validation owner {contract.owner_id} has unknown environment selectors: "
+            + ", ".join(unknown_selectors)
+        )
     environment = build_environment_fingerprint(
-        {
-            "python_implementation": __import__("platform").python_implementation(),
-            "python_version": __import__("platform").python_version(),
-            "platform_system": __import__("platform").system(),
-            "platform_machine": __import__("platform").machine(),
-            "flowguard_version": _package_version(),
-        }
+        {key: observed_environment[key] for key in selected_keys}
     )
     owner_identity = fingerprint_value(
         {
@@ -657,6 +878,10 @@ def build_owner_current(
             "suite_map_hash": suite_map_hash,
             "environment_fingerprint": environment.fingerprint,
             "obligations": list(contract.obligation_ids),
+            "dependencies": list(contract.dependency_owner_ids),
+            "resources": list(contract.resource_keys),
+            "timeout_seconds": contract.timeout_seconds,
+            "termination_policy": contract.termination_policy,
         }
     )
     return ValidationOwnerCurrent(
@@ -762,14 +987,17 @@ def plan_validation_owners(
     Mapping[str, ValidationOwnerCurrent],
     Mapping[str, EvidenceReceipt],
 ]:
-    if len({item.owner_id for item in contracts}) != len(contracts):
-        raise ValueError("validation owner ids must be unique")
+    ordered_contracts = topological_owner_contracts(contracts)
     currents: dict[str, ValidationOwnerCurrent] = {}
     reusable: dict[str, EvidenceReceipt] = {}
     rows: list[ValidationOwnerPlanRow] = []
-    for contract in contracts:
+    for contract in ordered_contracts:
         try:
-            current = build_owner_current(root, contract, all_contracts=contracts)
+            current = build_owner_current(
+                root,
+                contract,
+                all_contracts=ordered_contracts,
+            )
             currents[contract.owner_id] = current
             receipt, result = find_reusable_owner_receipt(
                 current,
@@ -812,6 +1040,180 @@ def plan_validation_owners(
                 )
             )
     return tuple(rows), currents, reusable
+
+
+def build_validation_owner_plan(
+    root: str | Path,
+    contracts: Sequence[ValidationOwnerContract],
+    *,
+    receipt_root: str | Path,
+    required_external_components: Mapping[str, str] | None = None,
+) -> ValidationOwnerPlan:
+    """Freeze the full owner DAG and both broad input manifests before execution."""
+
+    root_path = Path(root).resolve()
+    ordered_contracts = topological_owner_contracts(contracts)
+    component_owners: dict[str, list[tuple[str, str]]] = {}
+    for contract in ordered_contracts:
+        for component_id, fingerprint in contract.external_component_bindings:
+            component_owners.setdefault(component_id, []).append(
+                (contract.owner_id, fingerprint)
+            )
+    conflicting_components = sorted(
+        component_id
+        for component_id, bindings in component_owners.items()
+        if len({fingerprint for _owner_id, fingerprint in bindings}) != 1
+    )
+    if conflicting_components:
+        raise ValueError(
+            "external component consumers disagree on identity: "
+            + ", ".join(conflicting_components)
+        )
+    required_components = {
+        str(component_id): str(fingerprint)
+        for component_id, fingerprint in (required_external_components or {}).items()
+    }
+    missing_components = sorted(set(required_components) - set(component_owners))
+    extra_components = sorted(set(component_owners) - set(required_components))
+    mismatched_components = sorted(
+        component_id
+        for component_id in set(required_components) & set(component_owners)
+        if required_components[component_id] != component_owners[component_id][0][1]
+    )
+    if required_external_components is not None and (
+        missing_components or extra_components or mismatched_components
+    ):
+        raise ValueError(
+            "external component mapping is not exact: "
+            f"missing={missing_components}, extra={extra_components}, "
+            f"mismatched={mismatched_components}"
+        )
+    rows, currents, reusable = plan_validation_owners(
+        root_path,
+        ordered_contracts,
+        receipt_root=receipt_root,
+    )
+    validation_manifest = validation_input_manifest(root_path)
+    tree_manifest = release_tree_manifest(root_path)
+    payload = {
+        "schema_version": OWNER_PLAN_SCHEMA,
+        "contracts": [
+            {
+                **item.to_dict(),
+                "command": list(tokenize_command(item.command, workspace_root=root_path)),
+            }
+            for item in ordered_contracts
+        ],
+        "owner_identities": {
+            owner_id: current.owner_identity
+            for owner_id, current in sorted(currents.items())
+        },
+        "validation_input_manifest_fingerprint": manifest_fingerprint(
+            validation_manifest
+        ),
+        "release_tree_manifest_fingerprint": manifest_fingerprint(tree_manifest),
+    }
+    return ValidationOwnerPlan(
+        contracts=ordered_contracts,
+        rows=rows,
+        owner_currents=currents,
+        reusable_receipts=reusable,
+        validation_input_manifest=validation_manifest,
+        validation_input_manifest_fingerprint=payload[
+            "validation_input_manifest_fingerprint"
+        ],
+        release_tree_manifest=tree_manifest,
+        release_tree_manifest_fingerprint=payload[
+            "release_tree_manifest_fingerprint"
+        ],
+        plan_fingerprint=fingerprint_value(payload),
+    )
+
+
+def build_validation_parent_current(
+    root: str | Path,
+    owner_plan: ValidationOwnerPlan,
+) -> ValidationParentCurrent:
+    """Derive one immutable parent identity from a previously frozen owner plan."""
+
+    root_path = Path(root).resolve()
+    if owner_plan.blocked:
+        raise ValueError("blocked validation owner plan cannot become parent current")
+    current_validation = validation_input_manifest(root_path)
+    current_tree = release_tree_manifest(root_path)
+    if (
+        manifest_fingerprint(current_validation)
+        != owner_plan.validation_input_manifest_fingerprint
+        or manifest_fingerprint(current_tree)
+        != owner_plan.release_tree_manifest_fingerprint
+    ):
+        raise ValueError("validation inputs changed after owner-plan freeze")
+    obligations = tuple(
+        obligation
+        for contract in owner_plan.contracts
+        for obligation in contract.obligation_ids
+    )
+    validation_snapshot = snapshot_bytes(
+        "input:validation-parent:validation-input-manifest",
+        _canonical_bytes([dict(item) for item in owner_plan.validation_input_manifest]),
+        path_token="<WORKSPACE>/<VALIDATION_INPUT_MANIFEST>",
+        obligation_ids=obligations,
+    )
+    tree_snapshot = snapshot_bytes(
+        "input:validation-parent:release-tree-manifest",
+        _canonical_bytes([dict(item) for item in owner_plan.release_tree_manifest]),
+        path_token="<WORKSPACE>/<RELEASE_TREE_MANIFEST>",
+        obligation_ids=obligations,
+    )
+    canonical_contracts = [
+        {
+            **item.to_dict(),
+            "command": list(tokenize_command(item.command, workspace_root=root_path)),
+        }
+        for item in owner_plan.contracts
+    ]
+    contract_hash = fingerprint_value(
+        {"schema": OWNER_RECEIPT_SCHEMA, "owner": "validation-parent:full"}
+    )
+    check_manifest_hash = fingerprint_value(canonical_contracts)
+    suite_map_hash = fingerprint_value(
+        {
+            item.owner_id: list(item.obligation_ids)
+            for item in owner_plan.contracts
+        }
+    )
+    environment = build_environment_fingerprint(
+        {
+            "python_implementation": __import__("platform").python_implementation(),
+            "python_version": __import__("platform").python_version(),
+            "platform_system": __import__("platform").system(),
+            "platform_machine": __import__("platform").machine(),
+            "flowguard_version": _package_version(),
+        }
+    )
+    parent_identity = fingerprint_value(
+        {
+            "schema_version": PARENT_CURRENT_SCHEMA,
+            "plan_fingerprint": owner_plan.plan_fingerprint,
+            "validation_snapshot": validation_snapshot.to_dict(),
+            "release_tree_snapshot": tree_snapshot.to_dict(),
+            "contract_hash": contract_hash,
+            "check_manifest_hash": check_manifest_hash,
+            "suite_map_hash": suite_map_hash,
+            "environment_fingerprint": environment.fingerprint,
+        }
+    )
+    return ValidationParentCurrent(
+        owner_plan=owner_plan,
+        validation_snapshot=validation_snapshot,
+        release_tree_snapshot=tree_snapshot,
+        contract_hash=contract_hash,
+        check_manifest_hash=check_manifest_hash,
+        suite_map_hash=suite_map_hash,
+        environment_metadata=environment.metadata,
+        environment_fingerprint=environment.fingerprint,
+        parent_identity=parent_identity,
+    )
 
 
 def save_owner_receipt(
@@ -922,8 +1324,7 @@ def save_parent_receipt(
     root: str | Path,
     receipt_root: str | Path,
     *,
-    contracts: Sequence[ValidationOwnerContract],
-    plan_rows: Sequence[ValidationOwnerPlanRow],
+    parent_current: ValidationParentCurrent,
     child_receipts: Sequence[EvidenceReceipt],
     status: str,
     started_at: str,
@@ -933,40 +1334,32 @@ def save_parent_receipt(
 
     root_path = Path(root).resolve()
     receipt_root_path = Path(receipt_root).resolve()
+    owner_plan = parent_current.owner_plan
+    contracts = owner_plan.contracts
+    if build_validation_parent_current(root_path, owner_plan).parent_identity != parent_current.parent_identity:
+        raise ValueError("validation parent current changed before composition")
     by_subject = {item.subject_id: item for item in child_receipts}
+    if len(by_subject) != len(child_receipts):
+        raise ValueError("parent child subjects must be unique")
     required_receipts: list[tuple[ValidationOwnerContract, EvidenceReceipt]] = []
     for contract in contracts:
         receipt = by_subject.get(f"validation-owner:{contract.owner_id}")
         if receipt is None:
             raise ValueError(f"parent receipt is missing owner receipt: {contract.owner_id}")
+        current = owner_plan.owner_currents.get(contract.owner_id)
+        if current is None:
+            raise ValueError(f"parent owner current is missing: {contract.owner_id}")
+        context = build_owner_receipt_context(current, receipt, receipt_root_path)
+        verification = verify_evidence_receipt(receipt, context)
+        if not verification.ok:
+            raise ValueError(
+                f"parent child receipt is not exact-current: {contract.owner_id}"
+            )
         required_receipts.append((contract, receipt))
-    validation_manifest = validation_input_manifest(root_path)
-    validation_fingerprint = manifest_fingerprint(validation_manifest)
-    validation_snapshot = snapshot_bytes(
-        "input:validation-parent:validation-input-manifest",
-        _canonical_bytes([dict(item) for item in validation_manifest]),
-        path_token="<WORKSPACE>/<VALIDATION_INPUT_MANIFEST>",
-        obligation_ids=tuple(
-            obligation
-            for contract in contracts
-            for obligation in contract.obligation_ids
-        ),
-    )
-    tree_manifest = release_tree_manifest(root_path)
-    tree_fingerprint = manifest_fingerprint(tree_manifest)
-    tree_snapshot = snapshot_bytes(
-        "input:validation-parent:release-tree-manifest",
-        _canonical_bytes([dict(item) for item in tree_manifest]),
-        path_token="<WORKSPACE>/<RELEASE_TREE_MANIFEST>",
-        obligation_ids=tuple(
-            obligation
-            for contract in contracts
-            for obligation in contract.obligation_ids
-        ),
-    )
-    contract_hash = fingerprint_value(
-        {"schema": OWNER_RECEIPT_SCHEMA, "owner": "validation-parent:full"}
-    )
+    validation_fingerprint = owner_plan.validation_input_manifest_fingerprint
+    validation_snapshot = parent_current.validation_snapshot
+    tree_fingerprint = owner_plan.release_tree_manifest_fingerprint
+    tree_snapshot = parent_current.release_tree_snapshot
     canonical_contracts = [
         {
             **item.to_dict(),
@@ -974,30 +1367,16 @@ def save_parent_receipt(
                 tokenize_command(item.command, workspace_root=root_path)
             ),
         }
-        for item in sorted(contracts, key=lambda item: item.owner_id)
+        for item in contracts
     ]
-    check_manifest_hash = fingerprint_value(canonical_contracts)
-    suite_map_hash = fingerprint_value(
-        {
-            item.owner_id: list(item.obligation_ids)
-            for item in sorted(contracts, key=lambda item: item.owner_id)
-        }
-    )
-    environment = build_environment_fingerprint(
-        {
-            "python_implementation": __import__("platform").python_implementation(),
-            "python_version": __import__("platform").python_version(),
-            "platform_system": __import__("platform").system(),
-            "platform_machine": __import__("platform").machine(),
-            "flowguard_version": _package_version(),
-        }
-    )
     proof_payload = {
-        "schema_version": "flowguard.validation_parent_proof.v2",
+        "schema_version": "flowguard.validation_parent_proof.v3",
+        "parent_identity": parent_current.parent_identity,
+        "owner_plan_fingerprint": owner_plan.plan_fingerprint,
         "validation_input_manifest_fingerprint": validation_fingerprint,
         "release_tree_manifest_fingerprint": tree_fingerprint,
         "contracts": canonical_contracts,
-        "owner_plan": [item.to_dict() for item in plan_rows],
+        "owner_plan": [item.to_dict() for item in owner_plan.rows],
         "children": [
             {
                 "owner_id": contract.owner_id,
@@ -1040,11 +1419,11 @@ def save_parent_receipt(
         started_at=started_at,
         finished_at=finished_at,
         exit_code=0 if status == RECEIPT_STATUS_PASS else 1,
-        environment_fingerprint=environment.fingerprint,
-        environment_metadata=environment.metadata,
-        contract_hash=contract_hash,
-        check_manifest_hash=check_manifest_hash,
-        suite_map_hash=suite_map_hash,
+        environment_fingerprint=parent_current.environment_fingerprint,
+        environment_metadata=parent_current.environment_metadata,
+        contract_hash=parent_current.contract_hash,
+        check_manifest_hash=parent_current.check_manifest_hash,
+        suite_map_hash=parent_current.suite_map_hash,
         input_snapshots=(validation_snapshot, tree_snapshot),
         proof_artifact_id="proof:validation-parent:full",
         proof_artifact_fingerprint=proof_fingerprint,
@@ -1076,11 +1455,23 @@ def save_parent_receipt(
         ),
         metadata={
             "proof_relpath": proof_path.relative_to(receipt_root_path).as_posix(),
+            "parent_identity": parent_current.parent_identity,
+            "owner_plan_fingerprint": owner_plan.plan_fingerprint,
             "validation_input_manifest_fingerprint": validation_fingerprint,
             "release_tree_manifest_fingerprint": tree_fingerprint,
         },
     )
     save_evidence_receipt(receipt, root_path, output_directory=receipt_root_path)
+    verification = verify_parent_receipt(
+        receipt,
+        root_path,
+        receipt_root_path,
+    )
+    if not verification.ok:
+        raise ValueError(
+            "saved validation parent failed immediate verification: "
+            + ", ".join(item.code for item in verification.findings)
+        )
     return receipt
 
 
@@ -1106,6 +1497,20 @@ def verify_parent_receipt(
         contracts = tuple(
             ValidationOwnerContract.from_dict(item)
             for item in proof.get("contracts", ())
+        )
+        contracts = topological_owner_contracts(contracts)
+        plan_rows = tuple(
+            ValidationOwnerPlanRow(
+                owner_id=str(item.get("owner_id", "")),
+                disposition=str(item.get("disposition", "")),
+                owner_identity=str(item.get("owner_identity", "")),
+                reason=str(item.get("reason", "")),
+                receipt_id=str(item.get("receipt_id", "")),
+                receipt_fingerprint=str(item.get("receipt_fingerprint", "")),
+                findings=tuple(str(value) for value in item.get("findings", ())),
+            )
+            for item in proof.get("owner_plan", ())
+            if isinstance(item, Mapping)
         )
     except (OSError, ValueError, json.JSONDecodeError, TypeError):
         return verify_evidence_receipt(parent, None)
@@ -1160,36 +1565,69 @@ def verify_parent_receipt(
         path_token="<WORKSPACE>/<RELEASE_TREE_MANIFEST>",
         obligation_ids=parent.covered_obligations,
     )
-    environment = build_environment_fingerprint(
-        {
-            "python_implementation": __import__("platform").python_implementation(),
-            "python_version": __import__("platform").python_version(),
-            "platform_system": __import__("platform").system(),
-            "platform_machine": __import__("platform").machine(),
-            "flowguard_version": _package_version(),
+    try:
+        currents = {
+            contract.owner_id: build_owner_current(
+                root_path,
+                contract,
+                all_contracts=contracts,
+            )
+            for contract in contracts
         }
-    )
+        validation_fingerprint = manifest_fingerprint(validation_manifest)
+        tree_fingerprint = manifest_fingerprint(tree_manifest)
+        plan_payload = {
+            "schema_version": OWNER_PLAN_SCHEMA,
+            "contracts": [
+                {
+                    **item.to_dict(),
+                    "command": list(
+                        tokenize_command(item.command, workspace_root=root_path)
+                    ),
+                }
+                for item in contracts
+            ],
+            "owner_identities": {
+                owner_id: current.owner_identity
+                for owner_id, current in sorted(currents.items())
+            },
+            "validation_input_manifest_fingerprint": validation_fingerprint,
+            "release_tree_manifest_fingerprint": tree_fingerprint,
+        }
+        owner_plan = ValidationOwnerPlan(
+            contracts=contracts,
+            rows=plan_rows,
+            owner_currents=currents,
+            reusable_receipts={},
+            validation_input_manifest=validation_manifest,
+            validation_input_manifest_fingerprint=validation_fingerprint,
+            release_tree_manifest=tree_manifest,
+            release_tree_manifest_fingerprint=tree_fingerprint,
+            plan_fingerprint=fingerprint_value(plan_payload),
+        )
+        parent_current = build_validation_parent_current(root_path, owner_plan)
+    except (OSError, ValueError):
+        return verify_evidence_receipt(parent, None)
+    if (
+        str(parent.metadata.get("parent_identity", ""))
+        != parent_current.parent_identity
+        or str(proof.get("parent_identity", "")) != parent_current.parent_identity
+        or str(proof.get("owner_plan_fingerprint", ""))
+        != owner_plan.plan_fingerprint
+    ):
+        return verify_evidence_receipt(parent, None)
     proof_fingerprint = _sha256_bytes(proof_path.read_bytes())
     context = ReceiptVerificationContext(
         input_snapshots={
             validation_snapshot.artifact_id: validation_snapshot,
             tree_snapshot.artifact_id: tree_snapshot,
         },
-        contract_hash=fingerprint_value(
-            {"schema": OWNER_RECEIPT_SCHEMA, "owner": "validation-parent:full"}
-        ),
-        check_manifest_hash=fingerprint_value(
-            [item.to_dict() for item in sorted(contracts, key=lambda item: item.owner_id)]
-        ),
-        suite_map_hash=fingerprint_value(
-            {
-                item.owner_id: list(item.obligation_ids)
-                for item in sorted(contracts, key=lambda item: item.owner_id)
-            }
-        ),
+        contract_hash=parent_current.contract_hash,
+        check_manifest_hash=parent_current.check_manifest_hash,
+        suite_map_hash=parent_current.suite_map_hash,
         producer_id="validation-parent:full",
         producer_version=_package_version(),
-        environment_fingerprint=environment.fingerprint,
+        environment_fingerprint=parent_current.environment_fingerprint,
         proof_artifact_fingerprint=proof_fingerprint,
         result_fingerprint=proof_fingerprint,
         command=("python", "scripts/check_flowguard_skill_suite.py", "--scope", "full"),
@@ -1199,8 +1637,37 @@ def verify_parent_receipt(
         eligible_claim_scopes=(OWNER_RECEIPT_SCOPE,),
         child_receipts=child_receipts,
         child_verification_results=child_results,
+        receipt_store_repository_root=str(root_path),
+        receipt_store_output_directory=str(receipt_root_path),
     )
     return verify_evidence_receipt(parent, context)
+
+
+def find_reusable_parent_receipt(
+    parent_current: ValidationParentCurrent,
+    root: str | Path,
+    receipt_root: str | Path,
+) -> tuple[EvidenceReceipt | None, ReceiptVerificationResult | None]:
+    """Resolve an exact-current full parent before considering child execution."""
+
+    candidates = [
+        receipt
+        for receipt in list_evidence_receipts(root, output_directory=receipt_root)
+        if receipt.subject_id == "validation-parent:full"
+        and str(receipt.metadata.get("parent_identity", ""))
+        == parent_current.parent_identity
+    ]
+    candidates.sort(key=lambda item: item.finished_at, reverse=True)
+    verified: list[tuple[EvidenceReceipt, ReceiptVerificationResult]] = []
+    last_result: ReceiptVerificationResult | None = None
+    for candidate in candidates:
+        result = verify_parent_receipt(candidate, root, receipt_root)
+        last_result = result
+        if result.ok:
+            verified.append((candidate, result))
+    if len(verified) > 1:
+        raise ValueError("ambiguous exact-current validation parent receipts")
+    return verified[0] if verified else (None, last_result)
 
 
 __all__ = [
@@ -1210,10 +1677,15 @@ __all__ = [
     "OWNER_REUSE_CURRENT",
     "ValidationOwnerContract",
     "ValidationOwnerCurrent",
+    "ValidationOwnerPlan",
     "ValidationOwnerPlanRow",
+    "ValidationParentCurrent",
     "build_owner_current",
     "build_owner_receipt_context",
+    "build_validation_owner_plan",
+    "build_validation_parent_current",
     "child_from_owner_receipt",
+    "find_reusable_parent_receipt",
     "find_reusable_owner_receipt",
     "governed_source_manifest",
     "manifest_fingerprint",
@@ -1223,6 +1695,7 @@ __all__ = [
     "resolve_input_manifest",
     "save_owner_receipt",
     "save_parent_receipt",
+    "topological_owner_contracts",
     "validation_input_manifest",
     "verify_parent_receipt",
 ]

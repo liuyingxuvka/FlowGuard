@@ -11,6 +11,13 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
 from .behavior_plane import BCL_BEHAVIOR_PLANES
+from .evidence_receipts import (
+    EvidenceReceipt,
+    ReceiptVerificationContext,
+    ReceiptVerificationResult,
+    verify_evidence_receipt,
+    verified_receipt_binding_gap_codes,
+)
 from .export import to_jsonable
 from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
 from .obligation_family import (
@@ -478,6 +485,10 @@ class TestEvidence:
     proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     result_reused: bool = False
     reuse_ticket: TestResultReuseTicket | Mapping[str, Any] | None = None
+    loaded_receipt: EvidenceReceipt | Mapping[str, Any] | None = None
+    receipt_verification_context: ReceiptVerificationContext | None = None
+    receipt_verification: ReceiptVerificationResult | None = None
+    receipt_producer_id: str = ""
     stale_reasons: tuple[str, ...] = ()
     overclaims_model_confidence: bool = False
     closure_evidence_role: str = TEST_CLOSURE_ROLE_UNSPECIFIED
@@ -501,6 +512,24 @@ class TestEvidence:
         object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "result_reused", bool(self.result_reused))
         object.__setattr__(self, "reuse_ticket", coerce_test_result_reuse_ticket(self.reuse_ticket))
+        object.__setattr__(
+            self,
+            "loaded_receipt",
+            self.loaded_receipt
+            if isinstance(self.loaded_receipt, EvidenceReceipt) or self.loaded_receipt is None
+            else EvidenceReceipt.from_dict(self.loaded_receipt),
+        )
+        if self.receipt_verification is not None and not isinstance(
+            self.receipt_verification,
+            ReceiptVerificationResult,
+        ):
+            raise TypeError("receipt_verification must be a ReceiptVerificationResult")
+        if self.receipt_verification_context is not None and not isinstance(
+            self.receipt_verification_context,
+            ReceiptVerificationContext,
+        ):
+            raise TypeError("receipt_verification_context must be a ReceiptVerificationContext")
+        object.__setattr__(self, "receipt_producer_id", str(self.receipt_producer_id))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
         object.__setattr__(self, "closure_evidence_role", str(self.closure_evidence_role))
         object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
@@ -509,7 +538,80 @@ class TestEvidence:
         object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
 
     def has_current_pass(self) -> bool:
-        return self.result_status in PASSING_STATUSES and self.evidence_current
+        if self.result_status not in PASSING_STATUSES or not self.evidence_current:
+            return False
+        if self.requires_receipt_verification():
+            return not self.receipt_gap_codes()
+        return True
+
+    def requires_receipt_verification(self) -> bool:
+        return bool(
+            self.result_reused
+            or self.reuse_ticket is not None
+            or self.loaded_receipt is not None
+            or self.receipt_verification_context is not None
+            or self.receipt_verification is not None
+        )
+
+    def receipt_inventory(self) -> Mapping[str, tuple[str, ...]]:
+        target_id = self.evidence_target_id or self.test_name or self.evidence_id
+        return {
+            "model_obligation_ids": self.covered_obligations,
+            "code_contract_ids": self.covered_code_contracts,
+            "test_target_ids": (target_id,),
+        }
+
+    def receipt_gap_codes(self) -> tuple[tuple[str, str], ...]:
+        derived_verification = (
+            verify_evidence_receipt(
+                self.loaded_receipt,
+                self.receipt_verification_context,
+            )
+            if self.loaded_receipt is not None
+            else None
+        )
+        gaps = list(
+            verified_receipt_binding_gap_codes(
+                self.loaded_receipt,
+                derived_verification,
+                expected_subject_id=self.evidence_id,
+                expected_producer_id=self.receipt_producer_id,
+                expected_obligation_ids=self.covered_obligations,
+                expected_inventory=self.receipt_inventory(),
+            )
+        )
+        if self.receipt_verification_context is None:
+            gaps.append(
+                (
+                    "receipt_verification_context_missing",
+                    "reused test evidence requires independently observed verification inputs",
+                )
+            )
+        if self.receipt_verification is None:
+            gaps.append(
+                (
+                    "receipt_verification_projection_missing",
+                    "reused test evidence must preserve the derived verification identity",
+                )
+            )
+        elif (
+            derived_verification is None
+            or self.receipt_verification.to_dict() != derived_verification.to_dict()
+        ):
+            gaps.append(
+                (
+                    "receipt_verification_projection_mismatch",
+                    "preserved verification projection differs from independent recomputation",
+                )
+            )
+        if not self.receipt_producer_id:
+            gaps.append(
+                (
+                    "verified_receipt_expected_producer_missing",
+                    "reused test evidence must freeze its producer owner id",
+                )
+            )
+        return tuple(dict.fromkeys(gaps))
 
     def has_external_contract_assertion(self) -> bool:
         return self.assertion_scope in {
@@ -534,6 +636,14 @@ class TestEvidence:
             "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "result_reused": self.result_reused,
             "reuse_ticket": self.reuse_ticket.to_dict() if self.reuse_ticket else None,
+            "loaded_receipt": self.loaded_receipt.to_dict() if self.loaded_receipt else None,
+            "receipt_verification_context_present": self.receipt_verification_context is not None,
+            "receipt_verification": (
+                self.receipt_verification.to_dict()
+                if self.receipt_verification
+                else None
+            ),
+            "receipt_producer_id": self.receipt_producer_id,
             "stale_reasons": list(self.stale_reasons),
             "overclaims_model_confidence": self.overclaims_model_confidence,
             "closure_evidence_role": self.closure_evidence_role,
@@ -845,6 +955,10 @@ class ArtifactPayloadEvidence:
     round_trip_ok: bool = False
     evidence_ref: str = ""
     proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
+    loaded_receipt: EvidenceReceipt | Mapping[str, Any] | None = None
+    receipt_verification_context: ReceiptVerificationContext | None = None
+    receipt_verification: ReceiptVerificationResult | None = None
+    receipt_producer_id: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -861,6 +975,24 @@ class ArtifactPayloadEvidence:
         object.__setattr__(self, "observed_side_effects", _as_tuple(self.observed_side_effects))
         object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
         object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
+        object.__setattr__(
+            self,
+            "loaded_receipt",
+            self.loaded_receipt
+            if isinstance(self.loaded_receipt, EvidenceReceipt) or self.loaded_receipt is None
+            else EvidenceReceipt.from_dict(self.loaded_receipt),
+        )
+        if self.receipt_verification is not None and not isinstance(
+            self.receipt_verification,
+            ReceiptVerificationResult,
+        ):
+            raise TypeError("receipt_verification must be a ReceiptVerificationResult")
+        if self.receipt_verification_context is not None and not isinstance(
+            self.receipt_verification_context,
+            ReceiptVerificationContext,
+        ):
+            raise TypeError("receipt_verification_context must be a ReceiptVerificationContext")
+        object.__setattr__(self, "receipt_producer_id", str(self.receipt_producer_id))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def has_current_pass(self) -> bool:
@@ -906,6 +1038,14 @@ class ArtifactPayloadEvidence:
             "round_trip_ok": self.round_trip_ok,
             "evidence_ref": self.evidence_ref,
             "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
+            "loaded_receipt": self.loaded_receipt.to_dict() if self.loaded_receipt else None,
+            "receipt_verification_context_present": self.receipt_verification_context is not None,
+            "receipt_verification": (
+                self.receipt_verification.to_dict()
+                if self.receipt_verification
+                else None
+            ),
+            "receipt_producer_id": self.receipt_producer_id,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -1674,6 +1814,20 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("model_miss_closure_evidence_internal_path_only", "test_checks_internal_path_only"),
         ("missing_same_class_test_evidence", "missing_same_class_test_evidence"),
         ("missing_observed_regression_test_evidence", "missing_observed_regression_test_evidence"),
+        ("verified_receipt_missing", "test_reuse_receipt_required"),
+        ("receipt_verification_missing", "test_reuse_receipt_required"),
+        ("verified_receipt_subject_mismatch", "test_reuse_receipt_required"),
+        ("verified_receipt_producer_mismatch", "test_reuse_receipt_required"),
+        ("verified_receipt_claim_scope_mismatch", "test_reuse_receipt_required"),
+        ("verified_receipt_obligation_scope_mismatch", "test_reuse_receipt_required"),
+        ("verified_receipt_inventory_malformed", "test_reuse_receipt_required"),
+        ("verified_receipt_inventory_mismatch", "test_reuse_receipt_required"),
+        ("receipt_verification_identity_mismatch", "test_reuse_receipt_required"),
+        ("receipt_verification_fingerprint_mismatch", "test_reuse_receipt_required"),
+        ("receipt_verification_context_missing", "test_reuse_receipt_required"),
+        ("receipt_verification_projection_missing", "test_reuse_receipt_required"),
+        ("receipt_verification_projection_mismatch", "test_reuse_receipt_required"),
+        ("verified_receipt_not_current_pass", "test_reuse_receipt_required"),
         ("missing_test_evidence", "missing_test_evidence"),
         ("missing_code_contract_test_evidence", "missing_code_contract_test_evidence"),
         ("missing_required_test_kind", "missing_required_test_kind"),
@@ -2203,6 +2357,78 @@ def _artifact_payload_evidence_by_contract(
     return result
 
 
+def _artifact_payload_receipt_gap_codes(
+    evidence: ArtifactPayloadEvidence,
+    contract: ArtifactPayloadContract | None,
+) -> tuple[tuple[str, str], ...]:
+    obligation_ids = (
+        (contract.model_obligation_id,)
+        if contract is not None and contract.model_obligation_id
+        else ()
+    )
+    inventory = {
+        "model_obligation_ids": obligation_ids,
+        "code_contract_ids": (
+            (contract.code_contract_id,)
+            if contract is not None and contract.code_contract_id
+            else ()
+        ),
+        "payload_contract_ids": (evidence.payload_contract_id,),
+        "payload_case_ids": (evidence.case_id,) if evidence.case_id else (),
+        "test_target_ids": (evidence.evidence_id,),
+    }
+    derived_verification = (
+        verify_evidence_receipt(
+            evidence.loaded_receipt,
+            evidence.receipt_verification_context,
+        )
+        if evidence.loaded_receipt is not None
+        else None
+    )
+    gaps = list(
+        verified_receipt_binding_gap_codes(
+            evidence.loaded_receipt,
+            derived_verification,
+            expected_subject_id=evidence.evidence_id,
+            expected_producer_id=evidence.receipt_producer_id,
+            expected_obligation_ids=obligation_ids,
+            expected_inventory=inventory,
+        )
+    )
+    if evidence.receipt_verification_context is None:
+        gaps.append(
+            (
+                "receipt_verification_context_missing",
+                "artifact payload evidence requires independently observed verification inputs",
+            )
+        )
+    if evidence.receipt_verification is None:
+        gaps.append(
+            (
+                "receipt_verification_projection_missing",
+                "artifact payload evidence must preserve the derived verification identity",
+            )
+        )
+    elif (
+        derived_verification is None
+        or evidence.receipt_verification.to_dict() != derived_verification.to_dict()
+    ):
+        gaps.append(
+            (
+                "receipt_verification_projection_mismatch",
+                "preserved payload verification projection differs from independent recomputation",
+            )
+        )
+    if not evidence.receipt_producer_id:
+        gaps.append(
+            (
+                "verified_receipt_expected_producer_missing",
+                "artifact payload evidence must freeze its producer owner id",
+            )
+        )
+    return tuple(dict.fromkeys(gaps))
+
+
 def _artifact_payload_status_findings(
     evidence: ArtifactPayloadEvidence,
     contract: ArtifactPayloadContract | None,
@@ -2259,11 +2485,22 @@ def _artifact_payload_status_findings(
             )
         )
     if evidence.has_current_external_pass():
-        if not evidence.evidence_ref and evidence.proof_artifact is None:
+        receipt_gaps = _artifact_payload_receipt_gap_codes(evidence, contract)
+        for code, message in receipt_gaps:
+            findings.append(
+                _payload_finding(
+                    f"artifact_payload_{code}",
+                    message,
+                    contract=contract,
+                    evidence=evidence,
+                    metadata=evidence.to_dict(),
+                )
+            )
+        if receipt_gaps:
             findings.append(
                 _payload_finding(
                     "artifact_payload_evidence_missing_execution_proof",
-                    f"artifact payload evidence {evidence.evidence_id} lacks a concrete execution proof for the real payload surface",
+                    f"artifact payload evidence {evidence.evidence_id} lacks an exact independently verified producer receipt",
                     contract=contract,
                     evidence=evidence,
                     metadata=evidence.to_dict(),
@@ -2443,6 +2680,7 @@ def _artifact_payload_required_case_findings(
         evidence
         for evidence in evidence_items
         if evidence.has_current_external_pass()
+        and not _artifact_payload_receipt_gap_codes(evidence, contract)
     )
     current_case_ids = {evidence.case_id for evidence in current_external_passes}
     for case in cases_by_id.values():
@@ -3470,6 +3708,16 @@ def _evidence_findings(
                     metadata=evidence.to_dict(),
                 )
             )
+        if evidence.requires_receipt_verification():
+            for code, message in evidence.receipt_gap_codes():
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        code,
+                        message,
+                        evidence_id=evidence.evidence_id,
+                        metadata=evidence.to_dict(),
+                    )
+                )
         if evidence.result_reused or evidence.reuse_ticket is not None:
             for code, message in test_result_reuse_gap_codes(
                 evidence.reuse_ticket,

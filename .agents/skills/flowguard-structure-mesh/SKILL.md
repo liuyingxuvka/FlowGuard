@@ -29,8 +29,8 @@ Accept a named source model and existing parent surface; derive child ownership;
 3. Attach current routine/release parity evidence and export gaps/obligations downstream.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Missing model-derived target structure, public facade, owner, compatibility, or current parity blocks the matching scope.
 - Dependency/config drift and release-only gaps remain visible; new/deepened models require template harvest closure.
 
@@ -38,4 +38,4 @@ Accept a named source model and existing parent surface; derive child ownership;
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a structure mesh diagram and parity status.
 
 
-<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->
+<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

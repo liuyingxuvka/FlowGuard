@@ -451,3 +451,15 @@ The parent plane-upgrade validation gate SHALL consume current passing evidence 
 - **WHEN** the full parent test command is green but an affected registered model child has a current failure
 - **THEN** the parent SHALL remain blocked until the owning failure is repaired and rerun
 
+### Requirement: TestMesh preserves payload execution proof
+TestMesh SHALL preserve payload contract ids, case ids, real surface ids,
+result artifact paths, observed payload fingerprints, oracle outcomes, and
+independently verifiable execution-proof references when it owns large payload
+validation matrices.
+
+#### Scenario: Payload child suite feeds alignment
+- **WHEN** a child suite owns a payload case for a file or work-package surface
+- **THEN** child evidence identifies the real-surface execution proof that
+  Model-Test Alignment can independently consume
+- **AND** TestMesh does not treat case ownership, expected payloads, or
+  synthetic case generation alone as semantic payload proof

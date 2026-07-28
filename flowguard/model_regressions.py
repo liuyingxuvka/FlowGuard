@@ -8,6 +8,7 @@ Each child runs in its own process and receives an isolated artifact directory.
 from __future__ import annotations
 
 import fnmatch
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -23,8 +24,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
-from .evidence_lifecycle import ensure_new_run_directory, publish_run, store_text_object
+from .evidence_lifecycle import (
+    evidence_execution_lease,
+    ensure_new_run_directory,
+    publish_run,
+    store_text_object,
+)
 from .evidence_receipts import (
+    EvidenceReceipt,
     fingerprint_value,
     receipt_path as evidence_receipt_path,
 )
@@ -34,6 +41,7 @@ from .model_authority import (
 )
 from .model_purpose import ModelPurposeClosure, ModelPurposeError, validate_unique_model_instances
 from .source_identity import source_file_fingerprint
+from .process_supervision import run_supervised, write_terminal_artifact
 
 from .validation_results import (
     VALIDATION_STATUS_BLOCKED,
@@ -448,6 +456,9 @@ class ModelRegressionReport:
     started_at_epoch: float = 0.0
     finished_at_epoch: float = 0.0
     command: str = "flowguard-model-regressions"
+    parent_claim_scope: str = "scoped"
+    parent_receipt_path: str = ""
+    parent_receipt_fingerprint: str = ""
 
     @property
     def status(self) -> str:
@@ -514,8 +525,11 @@ class ModelRegressionReport:
         )
         claim = (
             "Full-tier success covers every required-public model and every available optional-local model registered in the current manifest."
-            if self.tier == "full"
-            else f"{self.tier.title()}-tier success is scoped feedback and does not support a full-model release claim."
+            if self.parent_claim_scope == "full"
+            else (
+                f"{self.tier.title()}-tier success is scoped feedback and does "
+                "not support a full-model release claim."
+            )
         )
         return ValidationResult(
             command=self.command,
@@ -554,6 +568,9 @@ class ModelRegressionReport:
                 "skipped_model_ids": list(self.skipped_model_ids),
                 "unavailable_optional_model_ids": list(self.unavailable_optional_model_ids),
                 "mutation_paths": list(self.mutation_paths),
+                "parent_claim_scope": self.parent_claim_scope,
+                "parent_receipt_path": self.parent_receipt_path,
+                "parent_receipt_fingerprint": self.parent_receipt_fingerprint,
                 "results": [item.to_dict() for item in self.results],
             }
         )
@@ -833,17 +850,6 @@ def model_instance_fingerprint(
     return build_regression_model_instance(root, entry, inventory).fingerprint
 
 
-def _terminate_process(process: subprocess.Popen[str]) -> None:
-    try:
-        process.terminate()
-        process.wait(timeout=2)
-    except (OSError, subprocess.TimeoutExpired):
-        try:
-            process.kill()
-        except OSError:
-            pass
-
-
 def _run_entry(
     root: Path,
     entry: ModelRegressionEntry,
@@ -884,7 +890,6 @@ def _run_entry(
             "PYTHONIOENCODING": "utf-8",
         }
     )
-    process: subprocess.Popen[str] | None = None
     stdout = ""
     stderr = ""
     exit_code: int | None = None
@@ -892,46 +897,41 @@ def _run_entry(
     finding_codes: tuple[str, ...] = ("model.internal_error",)
     message = "model runner did not reach a terminal state"
     try:
-        process = subprocess.Popen(
+        supervised = run_supervised(
             command,
             cwd=root,
-            env=env,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            environment=env,
+            timeout_seconds=timeout,
+            cancel_event=cancel_event,
         )
-        while True:
-            if cancel_event.is_set():
-                _terminate_process(process)
-                stdout, stderr = process.communicate()
-                status = VALIDATION_STATUS_CANCELLED
-                finding_codes = ("model.cancelled",)
-                message = "cancelled before terminal runner completion"
-                break
-            elapsed = time.monotonic() - started
-            if elapsed > timeout:
-                _terminate_process(process)
-                stdout, stderr = process.communicate()
-                status = VALIDATION_STATUS_TIMEOUT
-                finding_codes = ("model.timeout",)
-                message = f"runner exceeded {timeout:g} seconds"
-                break
-            try:
-                stdout, stderr = process.communicate(timeout=min(0.2, max(0.01, timeout - elapsed)))
-            except subprocess.TimeoutExpired:
-                continue
-            exit_code = process.returncode
-            if exit_code == 0:
-                status = VALIDATION_STATUS_PASS
-                finding_codes = ()
-                message = "runner completed successfully"
-            else:
-                status = VALIDATION_STATUS_FAIL
-                finding_codes = ("model.nonzero_exit",)
-                message = f"runner exited with code {exit_code}"
-            break
+        stdout = supervised.stdout
+        stderr = supervised.stderr
+        exit_code = supervised.exit_code
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        write_terminal_artifact(
+            artifact_dir / "supervisor-terminal.json",
+            supervised,
+        )
+        if not supervised.cleanup_confirmed:
+            status = VALIDATION_STATUS_INTERNAL_ERROR
+            finding_codes = ("model.cleanup_unconfirmed",)
+            message = "runner process-tree cleanup could not be confirmed"
+        elif supervised.cancelled or supervised.interrupted:
+            status = VALIDATION_STATUS_CANCELLED
+            finding_codes = ("model.cancelled",)
+            message = "cancelled after confirmed process-tree cleanup"
+        elif supervised.timed_out:
+            status = VALIDATION_STATUS_TIMEOUT
+            finding_codes = ("model.timeout",)
+            message = f"runner exceeded {timeout:g} seconds and its process tree was terminated"
+        elif exit_code == 0:
+            status = VALIDATION_STATUS_PASS
+            finding_codes = ()
+            message = "runner and its contained process tree completed successfully"
+        else:
+            status = VALIDATION_STATUS_FAIL
+            finding_codes = ("model.nonzero_exit",)
+            message = f"runner exited with code {exit_code}"
     except (OSError, ValueError) as exc:
         status = VALIDATION_STATUS_INTERNAL_ERROR
         finding_codes = ("model.launch_error",)
@@ -1153,6 +1153,205 @@ def _persist_model_owner_result(
     )
 
 
+def _execute_pending_models(
+    *,
+    root_path: Path,
+    pending: Sequence[ModelRegressionEntry],
+    jobs: int,
+    timeout: float | None,
+    output_path: Path,
+    receipt_root: Path,
+    currents: Mapping[str, Any],
+    cancel: threading.Event,
+    progress: ProgressCallback | None,
+) -> list[ModelRunResult]:
+    """Preflight every model resource lease, then execute the frozen set."""
+
+    results: list[ModelRunResult] = []
+    lease_payloads: dict[str, dict[str, Any]] = {}
+    with ExitStack() as leases:
+        for entry in pending:
+            owner_id = f"model:{entry.model_id}"
+            current = currents[owner_id]
+            lease_payloads[entry.model_id] = leases.enter_context(
+                evidence_execution_lease(
+                    receipt_root / "leases",
+                    owner_id=owner_id,
+                    resource_key=owner_id,
+                    execution_key=current.owner_identity,
+                    plan_id=f"model-owner-plan:{current.owner_identity}",
+                )
+            )
+
+        if jobs > 1:
+            from .shard_safety import prove_model_shard_safety
+
+            for entry in pending:
+                if not entry.shard_safety_proof:
+                    continue
+                proof = prove_model_shard_safety(
+                    root_path,
+                    entry,
+                    output_dir=output_path / "shard-safety" / entry.model_id,
+                )
+                if not proof["ok"]:
+                    raise ValueError(
+                        f"parallel execution proof failed for {entry.model_id}; "
+                        f"see {output_path / 'shard-safety' / entry.model_id / 'result.json'}"
+                    )
+
+        if jobs == 1:
+            completed: list[tuple[ModelRegressionEntry, str, ModelRunResult]] = []
+            for entry in pending:
+                owner_started_at = datetime.now(timezone.utc).isoformat()
+                result = _run_entry(
+                    root_path,
+                    entry,
+                    output_path,
+                    timeout_override=timeout,
+                    cancel_event=cancel,
+                    progress=progress,
+                )
+                completed.append((entry, owner_started_at, result))
+                if cancel.is_set():
+                    break
+        else:
+            completed = []
+            with ThreadPoolExecutor(
+                max_workers=jobs,
+                thread_name_prefix="flowguard-model",
+            ) as executor:
+                futures = {
+                    executor.submit(
+                        _run_entry,
+                        root_path,
+                        entry,
+                        output_path,
+                        timeout_override=timeout,
+                        cancel_event=cancel,
+                        progress=progress,
+                    ): (
+                        entry,
+                        datetime.now(timezone.utc).isoformat(),
+                    )
+                    for entry in pending
+                }
+                for future in as_completed(futures):
+                    entry, owner_started_at = futures[future]
+                    completed.append((entry, owner_started_at, future.result()))
+
+        for entry, owner_started_at, result in completed:
+            if "model.cleanup_unconfirmed" in result.finding_codes:
+                lease = lease_payloads[entry.model_id]
+                lease["_preserve_residual"] = True
+                terminal_path = (
+                    _safe_artifact_dir(output_path, entry.model_id)
+                    / "supervisor-terminal.json"
+                )
+                if terminal_path.is_file():
+                    terminal = json.loads(terminal_path.read_text(encoding="utf-8"))
+                    lease["incident_episode_token"] = str(
+                        terminal.get("episode_token", lease["lease_token"])
+                    )
+                continue
+            results.append(
+                _persist_model_owner_result(
+                    root_path,
+                    receipt_root,
+                    currents[f"model:{entry.model_id}"],
+                    result,
+                    started_at=owner_started_at,
+                )
+            )
+    return results
+
+
+def _write_model_parent_receipt(
+    root: Path,
+    manifest: ModelRegressionManifest,
+    receipt_root: Path,
+    report: ModelRegressionReport,
+) -> tuple[str, str]:
+    """Compose exact child-owner receipts into one scoped/full model parent."""
+
+    children: list[dict[str, str]] = []
+    for result in report.results:
+        if not result.receipt_path or not result.receipt_fingerprint:
+            continue
+        path = (
+            evidence_receipt_path(
+                result.receipt_path,
+                root,
+                output_directory=receipt_root,
+            )
+            if result.receipt_path.startswith("receipt:")
+            else Path(result.receipt_path)
+        )
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(
+                f"model parent child receipt is unreadable: {result.model_id}"
+            ) from exc
+        child_receipt = EvidenceReceipt.from_dict(payload)
+        if child_receipt.fingerprint != result.receipt_fingerprint:
+            raise ValueError(
+                f"model parent child fingerprint changed: {result.model_id}"
+            )
+        if child_receipt.subject_id != f"validation-owner:model:{result.model_id}":
+            raise ValueError(
+                f"model parent child subject changed: {result.model_id}"
+            )
+        children.append(
+            {
+                "model_id": result.model_id,
+                "receipt_id": child_receipt.receipt_id,
+                "receipt_fingerprint": result.receipt_fingerprint,
+            }
+        )
+    children.sort(key=lambda row: row["model_id"])
+    payload: dict[str, Any] = {
+        "artifact_type": "flowguard_model_regression_parent_receipt",
+        "schema_version": "flowguard.model_regression_parent_receipt.v1",
+        "claim_scope": report.parent_claim_scope,
+        "tier": report.tier,
+        "status": report.status,
+        "manifest_sha256": source_file_fingerprint(manifest.path),
+        "selected_model_ids": list(report.selected_model_ids),
+        "skipped_model_ids": list(report.skipped_model_ids),
+        "children": children,
+        "claim_boundary": (
+            "Full model-regression confidence over the exact current manifest."
+            if report.parent_claim_scope == "full"
+            else (
+                "Scoped model-regression evidence only; this parent cannot "
+                "support release or full-model confidence."
+            )
+        ),
+    }
+    identity = fingerprint_value(payload)
+    payload["parent_receipt_fingerprint"] = identity
+    parent_dir = receipt_root / "model-parents"
+    parent_dir.mkdir(parents=True, exist_ok=True)
+    path = parent_dir / (identity.split(":", 1)[1] + ".json")
+    encoded = (
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        + "\n"
+    ).encode("utf-8")
+    if path.exists() and path.read_bytes() != encoded:
+        raise ValueError("content-addressed model parent receipt collision")
+    if not path.exists():
+        path.write_bytes(encoded)
+    if (
+        len(children) != len(report.selected_model_ids)
+        or tuple(row["model_id"] for row in children)
+        != tuple(sorted(report.selected_model_ids))
+    ):
+        if report.ok:
+            raise ValueError("passing model parent does not compose every selected owner")
+    return str(path), identity
+
+
 def run_manifest_regressions(
     root: str | Path = ".",
     *,
@@ -1177,6 +1376,16 @@ def run_manifest_regressions(
     if timeout is not None and timeout <= 0:
         raise ValueError("timeout must be positive")
     selected = select_entries(manifest, tier=tier, model_patterns=model_patterns, shard=shard)
+    complete_selected = select_entries(manifest, tier="full")
+    parent_claim_scope = (
+        "full"
+        if tier == "full"
+        and not model_patterns
+        and shard is None
+        and tuple(entry.model_id for entry in selected)
+        == tuple(entry.model_id for entry in complete_selected)
+        else "scoped"
+    )
     if any(entry.mutation_policy == "mutating" for entry in selected) and not allow_mutating:
         blocked = tuple(entry.model_id for entry in selected if entry.mutation_policy == "mutating")
         audit = ManifestAudit(
@@ -1263,81 +1472,25 @@ def run_manifest_regressions(
     else:
         output_path = Path(output_dir).resolve()
     ensure_new_run_directory(output_path)
-    if jobs > 1:
-        # A declaration alone cannot authorize parallel execution for an
-        # isolated-output aggregate. Execute its bound serial/parallel proof
-        # inside this validation owner before launching the shard pool.
-        from .shard_safety import prove_model_shard_safety
-
-        for entry in pending:
-            if not entry.shard_safety_proof:
-                continue
-            proof = prove_model_shard_safety(
-                root_path,
-                entry,
-                output_dir=output_path / "shard-safety" / entry.model_id,
-            )
-            if not proof["ok"]:
-                raise ValueError(
-                    f"parallel execution proof failed for {entry.model_id}; "
-                    f"see {output_path / 'shard-safety' / entry.model_id / 'result.json'}"
-                )
     cancel = cancel_event or threading.Event()
     tracked = _tracked_paths(root_path)
     before = _snapshot(tracked)
     started_at = time.time()
     results: list[ModelRunResult] = list(reused_results.values())
     if audit.ok:
-        if jobs == 1:
-            for entry in pending:
-                owner_started_at = datetime.now(timezone.utc).isoformat()
-                result = _run_entry(
-                    root_path,
-                    entry,
-                    output_path,
-                    timeout_override=timeout,
-                    cancel_event=cancel,
-                    progress=progress,
-                )
-                results.append(
-                    _persist_model_owner_result(
-                        root_path,
-                        receipt_root,
-                        currents[f"model:{entry.model_id}"],
-                        result,
-                        started_at=owner_started_at,
-                    )
-                )
-                if cancel.is_set():
-                    break
-        else:
-            with ThreadPoolExecutor(max_workers=jobs, thread_name_prefix="flowguard-model") as executor:
-                futures = {
-                    executor.submit(
-                        _run_entry,
-                        root_path,
-                        entry,
-                        output_path,
-                        timeout_override=timeout,
-                        cancel_event=cancel,
-                        progress=progress,
-                    ): (
-                        entry,
-                        datetime.now(timezone.utc).isoformat(),
-                    )
-                    for entry in pending
-                }
-                for future in as_completed(futures):
-                    entry, owner_started_at = futures[future]
-                    results.append(
-                        _persist_model_owner_result(
-                            root_path,
-                            receipt_root,
-                            currents[f"model:{entry.model_id}"],
-                            future.result(),
-                            started_at=owner_started_at,
-                        )
-                    )
+        results.extend(
+            _execute_pending_models(
+                root_path=root_path,
+                pending=pending,
+                jobs=jobs,
+                timeout=timeout,
+                output_path=output_path,
+                receipt_root=receipt_root,
+                currents=currents,
+                cancel=cancel,
+                progress=progress,
+            )
+        )
     results.sort(key=lambda item: item.model_id)
     after = _snapshot(tracked)
     mutations = _mutation_paths(before, after, root_path)
@@ -1367,6 +1520,18 @@ def run_manifest_regressions(
         started_at_epoch=started_at,
         finished_at_epoch=time.time(),
         command=command,
+        parent_claim_scope=parent_claim_scope,
+    )
+    parent_path, parent_fingerprint = _write_model_parent_receipt(
+        root_path,
+        manifest,
+        receipt_root,
+        report,
+    )
+    report = replace(
+        report,
+        parent_receipt_path=parent_path,
+        parent_receipt_fingerprint=parent_fingerprint,
     )
     report_path = output_path / "report.json"
     _write_json(report_path, report.to_dict())

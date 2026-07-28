@@ -327,3 +327,17 @@ Public plane/relation/lookup reports SHALL serialize deterministically and expos
 - **WHEN** the same canonical ledger and query are executed twice
 - **THEN** ordered hit ids, scores, reasons, relation roles, and ledger fingerprint SHALL be stable
 
+### Requirement: API Registry Reflects Thin Breaking Schema
+FlowGuard's public API registry SHALL export only the current thin schema
+types and names. It MUST NOT preserve removed dataclass fields, former helper
+types, aliases, converters, or fallback readers as public compatibility
+success paths.
+
+#### Scenario: Thin gate type exported
+- **WHEN** callers import risk-evidence-ledger helpers from `flowguard`
+- **THEN** the current `RiskEvidenceGate` type is exported with its owner
+  helpers
+
+#### Scenario: Removed aliases absent
+- **WHEN** API-surface tests inspect first-read and full exports
+- **THEN** removed compatibility names and old field aliases are absent

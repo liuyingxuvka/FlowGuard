@@ -1,6 +1,6 @@
 {
   "artifacts": [],
-  "check_declarations_hash": "49E7F2F16A473CCF4868B61BD6427726C63147CDAF60FC3FA2652D50E81F50FA",
+  "check_declarations_hash": "83126E00631C8CFB98D0DB0FC3FA3F10CD16C34BD81AC6A2563FDF2183D48E8D",
   "checks": [
     {
       "args": [
@@ -101,7 +101,7 @@
       "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-architecture-reduction",
       "owner_declaration_hash": "sha256:a2a3df15a2ffc8fc9bd3d9648f8a9a2e412ddb07d65c84314b9927fdfb586690",
-      "owner_input_projection_hash": "sha256:b0bb7b6b1c156e43aaf21b8a544638704c89e60423c28bed48ffc442744b7618",
+      "owner_input_projection_hash": "sha256:6b76ba6589c873f11cafcc293582750935a01f672d9b796e5e9e05c6c751eac9",
       "projection_declaration_hash": "sha256:83350c2ce83943020f9c3cd98a00f0ee82f567a4c3694eb74877eeaab7a82e7d",
       "semantic_check_id": "semantic:check:flowguard-architecture-reduction:native-authority",
       "target_input_role_ids": [],
@@ -234,7 +234,7 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:documentation_model"
         ],
-        "component_hash": "sha256:c68c9c4dfbd73e9ebc8d1f3b81c57b8956af8ccaf72a555ccebb6838559d9e40",
+        "component_hash": "sha256:fa1a9b46f3f1348345a06cc2bdc95764e18f75827fc01acd6e8b85a06d06fdd4",
         "component_id": "component:documentation_model:5969ad1a7bb2f924",
         "consumer_ids": [
           "owner:check:flowguard-architecture-reduction:native-authority",
@@ -360,7 +360,7 @@
       "owner_cycles": [],
       "unmapped_paths": []
     },
-    "impact_graph_hash": "sha256:b72399068467cca222b355dc669881a0b4103333a15a2944b0865e71759eb675",
+    "impact_graph_hash": "sha256:2e99719cba4cb86abe77d6daaa7dae0c2609e27b2b07a5e6673b27ae7933c1e7",
     "inventory": [
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:contract_schema",
@@ -371,7 +371,7 @@
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
-        "content_hash": "sha256:fef3ffa707d17bd3ccb1e71127ededc5a6e2916cfcdc221dbcb2383452fecf9d",
+        "content_hash": "sha256:ae4c7df193b0f88aa347d102c070c87b6fab814ade3d08cc34e90e0dc119abe6",
         "install_disposition": "copy",
         "path": ".agents/skills/flowguard-architecture-reduction/SKILL.md",
         "role": "documentation_model"
@@ -426,7 +426,7 @@
         "role": "test_dev"
       }
     ],
-    "inventory_hash": "sha256:061d9c8b87f4b9ed461d3aafb2390abdf5b662db1ee9e4051b3d4e045747ac2c",
+    "inventory_hash": "sha256:a445e95130caf10a1e5fa327cd0cdb25cbb1d3398387466d8b9392d86f026996",
     "member_root_path": ".agents/skills/flowguard-architecture-reduction",
     "owner_receipt_root_ref": {
       "path_token": "owner_evidence_root",
@@ -491,7 +491,7 @@
           }
         ],
         "owner_declaration_hash": "sha256:a2a3df15a2ffc8fc9bd3d9648f8a9a2e412ddb07d65c84314b9927fdfb586690",
-        "owner_input_projection_hash": "sha256:b0bb7b6b1c156e43aaf21b8a544638704c89e60423c28bed48ffc442744b7618",
+        "owner_input_projection_hash": "sha256:6b76ba6589c873f11cafcc293582750935a01f672d9b796e5e9e05c6c751eac9",
         "target_input_role_ids": []
       },
       {
@@ -544,14 +544,14 @@
       },
       {
         "consumer_id": "projection:installation",
-        "consumer_projection_hash": "sha256:e1cf3893a429f44794091de6183375983e81a6875cce0d5451492aa7be109e51",
+        "consumer_projection_hash": "sha256:9cb9af18328d390e12c5a5e4afac041a5751a5318f8f80b46e647b172fb39204",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
           "component:documentation_model:5969ad1a7bb2f924",
           "component:runtime_source:754eaa48f0daca9b"
         ],
-        "input_projection_hash": "sha256:b9f20280fb049898f4495e536ccfe514a9bd720448f9a932b99d95199f6a88fc",
+        "input_projection_hash": "sha256:a028eacc16e7169d6833c439e453e380bc25737b522966a0345570fb094fb3d9",
         "kind": "installation",
         "projection_declaration_hash": "sha256:af190fa641c72a510eb7a17b91f3448dc69d164b18b2f3fc389fc2d636731516"
       },
@@ -581,7 +581,7 @@
     "schema_version": "skillguard.content_impact_plan.current",
     "unknown_mapping_disposition": "block"
   },
-  "contract_hash": "BC7B9A852F567ACB5A995A10B01A6A7A79E11061CC73502FD12A1A8757A7BD2D",
+  "contract_hash": "33900E24E821DAC5B1E2E877A06EF12B86B2A45A673FEC0A26DA1BF9FD37D451",
   "depth_profile": {
     "claim_boundary": "flowguard-architecture-reduction owns every check's domain meaning; SkillGuard only reconciles the exact current declared-check inventory and terminal receipts in one fixed enforced closure.",
     "enforcement_level": "enforced",
@@ -719,8 +719,8 @@
   "skill_id": "flowguard-architecture-reduction",
   "source_fingerprints": {
     "binding": "3517E9A3F02A2324AC9A814E58860405E929C1CB92778AFB2C454FBD446A9810",
-    "entrypoint": "FEF3FFA707D17BD3CCB1E71127EDEDC5A6E2916CFCDC221DBCB2383452FECF9D",
-    "implementation:.agents/skills/flowguard-architecture-reduction": "FC06C502F097C1767224B95EBA706FD250C74C0B3F17067900A23E5F56D8172B",
+    "entrypoint": "AE4C7DF193B0F88AA347D102C070C87B6FAB814ADE3D08CC34E90E0DC119ABE6",
+    "implementation:.agents/skills/flowguard-architecture-reduction": "E27B55D401147A7BE44D2A8255B75786F56B47C6143AF241560EE3E469492EC3",
     "implementation:.flowguard/architecture_reduction": "9442907DAEDEB7778E15ABCB5043F8A497736C2B63B03D1032D5EE925FC4695A",
     "implementation:flowguard/architecture_reduction.py": "3BFEB5C9FBB304547BCA5A0ACE77BFCF2AC3F33294936E3D3E1C6CB5CF1DDF8F",
     "implementation:flowguard/skill_contract_model.py": "D2EE0C3A0F3B731BD070E1619443C83A1F1A59B0949ABFDB22289430EB4ED9DB",

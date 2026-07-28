@@ -4,9 +4,9 @@
 This capability defines FlowGuard's Flowguard Skill Kernel behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Skill Kernel remains compact and route-oriented
-The `model-first-function-flow` Skill SHALL keep its main `SKILL.md` focused on
-triggering, hard gates, route selection, workflow skeleton, and resource
-mapping.
+The public `flowguard` Skill SHALL keep its main `SKILL.md` focused on
+triggering, hard gates, route selection, its internal model-first workflow,
+workflow skeleton, and resource mapping.
 
 #### Scenario: Oversized work receives a soft split hint
 - **WHEN** a model, test, script, module, or command is becoming large, slow, or
@@ -123,13 +123,15 @@ catalogs out of the hot path.
 - **THEN** its first-read guidance also requires template harvest closure before broad completion claims
 
 ### Requirement: Kernel identifies the skill-suite entrypoint
-The `model-first-function-flow` skill SHALL identify itself as the default
-entrypoint for the FlowGuard skill suite.
+The public `flowguard` skill SHALL identify itself as the default entrypoint
+for the FlowGuard skill suite. `model-first-function-flow` MAY remain an
+internal behavior route id but SHALL NOT be installed as another public skill.
 
 #### Scenario: Kernel SKILL is read first
-- **WHEN** an AI agent opens `.agents/skills/model-first-function-flow/SKILL.md`
+- **WHEN** an AI agent opens the installed public
+  `$CODEX_HOME/skills/flowguard/SKILL.md`
 - **THEN** it MUST learn that the sibling FlowGuard skills under
-  `.agents/skills/` are part of the same suite
+  `$CODEX_HOME/skills/` are part of the same package-authority projection
 - **AND** it MUST NOT treat a Python package import as proof that the AI-agent
   skill suite is installed
 
@@ -181,4 +183,3 @@ Kernel guidance SHALL expose affected model/component ids, fingerprints, slice/b
 #### Scenario: Candidate relation is inferred
 - **WHEN** code or topology suggests a relation that is not current authority
 - **THEN** the output records `model_delta_status=proposed` and blocks broad use of that relation
-

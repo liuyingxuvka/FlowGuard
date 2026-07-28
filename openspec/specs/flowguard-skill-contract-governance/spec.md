@@ -2,7 +2,10 @@
 
 ## Purpose
 
-Define the required entrypoint, prompt metadata, generated contract, native-check ownership, and deep-validation rules shared by all seventeen FlowGuard skills while preserving each route's distinct activation and claim boundary.
+Define the required entrypoint, prompt metadata, author contract,
+native-check ownership, and deep-validation rules for every member selected by
+the current package-owned FlowGuard consumer authority while preserving each
+route's distinct activation and claim boundary.
 
 ## Requirements
 ### Requirement: Standard Skill Entrypoint Contract
@@ -52,9 +55,41 @@ Every FlowGuard SkillGuard contract SHALL declare `native-integrated`, `run_reco
 - **WHEN** a contract assigns SkillGuard ownership of a native FlowGuard workflow stage
 - **THEN** depth validation fails with a parallel-route-risk finding
 
-### Requirement: Seventeen Skill Deep Certification
-Full skill contract governance SHALL require static skill, contract, and depth validation to pass for all seventeen canonical suite members with zero hollow-contract, parallel-route-risk, legacy-schema, missing-control, or stale-generation findings.
+### Requirement: Canonical Suite Deep Certification
+Full author skill contract governance SHALL require static skill, contract,
+depth, prompt-budget, and target-native validation to pass for every member
+declared by the current package-owned consumer authority, with zero
+hollow-contract, parallel-route-risk, legacy-schema, missing-control,
+stale-generation, retired-public-entry, unresolved-placeholder, or
+projection-drift findings. Consumer readiness SHALL separately require a clean
+target-owned projection with no author controls.
 
-#### Scenario: Sixteen members pass and one is hollow
-- **WHEN** sixteen members pass but one member lacks required deep evidence
-- **THEN** suite certification fails and reports `16/17`, not a partial suite pass
+#### Scenario: One canonical member is hollow
+- **WHEN** every other authority-declared member passes but one member lacks
+  required deep evidence
+- **THEN** suite certification fails and reports the exact passing and blocked
+  counts rather than a partial suite pass
+
+#### Scenario: Literal historical member count remains
+- **WHEN** a current prompt, contract, check, or specification treats a fixed
+  historical member count as authority
+- **THEN** contract governance fails and requires package-authority derivation
+
+### Requirement: One suite maintenance unit
+All current FlowGuard consumer skill members SHALL remain in the single
+`unit:flowguard-suite` author maintenance unit. Every semantic check SHALL
+have one target-declared member, evidence subject, execution owner, obligation
+boundary, and dependency position. Official OpenSpec and unrelated installed
+skills MUST remain outside that unit, and receipts MUST NOT cross maintenance
+unit boundaries.
+
+#### Scenario: A second FlowGuard unit reuses suite receipts
+- **WHEN** a proposed maintenance unit imports, projects, or reuses a receipt
+  from `unit:flowguard-suite`
+- **THEN** SkillGuard blocks the plan as foreign-unit evidence
+
+#### Scenario: Same-unit producer owns several projections
+- **WHEN** the target explicitly assigns one producer to several semantic
+  checks with identical producer inputs and dependencies
+- **THEN** the producer executes at most once while each semantic projection
+  retains its distinct subject and obligation identity

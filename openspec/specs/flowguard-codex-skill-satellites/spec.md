@@ -4,15 +4,18 @@
 This capability defines FlowGuard's Flowguard Codex Skill Satellites behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Kernel remains the canonical FlowGuard entrypoint
-The repository SHALL keep `model-first-function-flow` as the canonical
+The repository SHALL keep the public `flowguard` skill as the canonical
 FlowGuard Skill Kernel for applicability decisions, hard gates, flow lenses,
 ambiguous route selection, package import verification, and adoption evidence.
+`model-first-function-flow` MAY remain an internal behavior route id but SHALL
+NOT be installed or invoked as another public skill.
 
 #### Scenario: Ambiguous request starts at the kernel
 - **WHEN** a Codex task involves FlowGuard risks but does not clearly name one
   standalone satellite skill
-- **THEN** the `model-first-function-flow` Skill remains the correct entrypoint
-  and selects the matching route or routes
+- **THEN** the public `flowguard` Skill remains the correct entrypoint and may
+  select the internal `model-first-function-flow` route before handing off to
+  matching owner routes
 
 ### Requirement: Seven route-specific satellite skills are directly discoverable
 The repository SHALL provide seven standalone Codex skills:
@@ -91,34 +94,35 @@ kernel's project adoption rule.
   managed block and project version record, or to record why that update was
   not performed
 
-### Requirement: Agent workflow rehearsal satellite is discoverable as a delegated mode owner
-The repository SHALL provide `flowguard-agent-workflow-rehearsal` as a
-FlowGuard skill that Codex can invoke when explicitly requested or delegated by
-the development-process simulator `agent_workflow` mode.
+### Requirement: Agent workflow rehearsal is discoverable as an internal owner mode
+The public `flowguard-development-process-flow` skill SHALL expose
+`agent_workflow` as an internal mode and SHALL retain its protocol material
+inside that owner's consumer projection. No separate rehearsal public skill,
+alias, wrapper, or fallback route SHALL be installed.
 
 #### Scenario: Rehearsal satellite is listed with delegated role
 - **WHEN** a Codex agent reads the FlowGuard skill topology or reusable AGENTS
   guidance
-- **THEN** `flowguard-agent-workflow-rehearsal` appears as the delegated
-  `agent_workflow` owner
-- **AND** generic multi-skill workflow routing enters
-  `flowguard-development-process-flow` first
+- **THEN** `agent_workflow` appears as an internal mode owned by
+  `flowguard-development-process-flow`
+- **AND** generic multi-skill workflow routing enters that public owner first
 
-#### Scenario: Rehearsal satellite preserves hard gates
-- **WHEN** the satellite is used in another repository or machine
+#### Scenario: Rehearsal mode preserves hard gates
+- **WHEN** the owner-internal mode is used in another repository or machine
 - **THEN** it requires the real FlowGuard package for FlowGuard claims
 - **AND** it requires a fresh current-machine skill inventory before rehearsal
 
-### Requirement: Installed skill synchronization includes rehearsal satellite
-The release and local synchronization process SHALL include
-`flowguard-agent-workflow-rehearsal` in repository and installed Codex skill
-surface checks.
+### Requirement: Installed skill synchronization includes internal rehearsal material
+The release and local synchronization process SHALL include the
+AgentWorkflowRehearsal protocol and prompt references inside the installed
+`flowguard-development-process-flow` consumer projection.
 
 #### Scenario: Installed skill is synchronized
 - **WHEN** the change is validated for local use
-- **THEN** the installed Codex skills directory contains the new rehearsal
-  satellite
-- **AND** repository skill docs tests verify the satellite topology
+- **THEN** the installed public DevelopmentProcessFlow skill contains the
+  current rehearsal material
+- **AND** repository skill docs tests verify that no retired public satellite
+  exists
 
 #### Scenario: Installed prompt behavior is not claimed from repository-only changes
 - **WHEN** the repository copy of the skill has changed
@@ -163,19 +167,21 @@ the satellite `references/` directory when that route has a standalone skill.
   hard gates, workflow checklist, validation boundary, and non-goals without
   requiring the kernel's duplicate copy
 
-### Requirement: Plan detailing is exposed as a delegated mode owner
-FlowGuard SHALL include `flowguard-plan-detailing-compiler` as the delegated
-`plan_detailing` owner that remains directly invokable when explicitly named.
+### Requirement: Plan detailing is exposed as an internal owner mode
+FlowGuard SHALL expose `plan_detailing` only as an internal mode owned by
+`flowguard-development-process-flow`. It SHALL NOT be directly invokable as a
+separate installed public skill.
 
 #### Scenario: Delegated skill is discoverable
 - **WHEN** the FlowGuard Codex skill topology is read
-- **THEN** plan detailing appears as the `plan_detailing` owner
+- **THEN** plan detailing appears as the owner's internal `plan_detailing` mode
 - **AND** generic rough-plan routing enters `flowguard-development-process-flow`
   first
 
 #### Scenario: Installed skill sync covers plan detailing
 - **WHEN** the repository skill is updated
-- **THEN** installed Codex skill synchronization checks include the plan-detailing satellite
+- **THEN** installed synchronization checks include the current plan-detailing
+  protocol inside the DevelopmentProcessFlow projection
 
 ### Requirement: Satellite skills use concise route shells
 Each directly invokable FlowGuard satellite skill SHALL keep its `SKILL.md`
@@ -238,16 +244,15 @@ source-backed writing quality.
   figure/table argument treatment, AI-style density, and citation/footnote
   verification as possible freshness-sensitive artifacts
 
-### Requirement: Plan detailing is a delegated simulator mode owner
-FlowGuard Codex skill guidance SHALL present `flowguard-plan-detailing-compiler`
-as the delegated `plan_detailing` owner for non-trivial plan discussions and
-rough AI outlines after the DevelopmentProcessFlow simulator front door records
-the mode.
+### Requirement: Plan detailing is an internal simulator mode
+FlowGuard Codex guidance SHALL present `plan_detailing` as an internal mode for
+non-trivial plan discussions and rough AI outlines after the public
+DevelopmentProcessFlow front door records the mode.
 
 #### Scenario: Plan detailing appears as delegated owner
 - **WHEN** a Codex agent reads FlowGuard skill topology or reusable AGENTS guidance
-- **THEN** `flowguard-plan-detailing-compiler` appears as the delegated
-  `plan_detailing` owner under `flowguard-development-process-flow`
+- **THEN** `plan_detailing` appears only as an internal mode under
+  `flowguard-development-process-flow`
 
 #### Scenario: Plan discussion records mode before delegation
 - **WHEN** the task is a non-trivial plan discussion before implementation
@@ -255,7 +260,10 @@ the mode.
   `plan_detailing` before any delegated PlanDetailing pass
 
 ### Requirement: Installed skills include updated plan-detailing guidance
-Installed FlowGuard Codex skill synchronization SHALL refresh the local installed `flowguard-plan-detailing-compiler`, `flowguard-agent-workflow-rehearsal`, and `flowguard-development-process-flow` guidance when repository routing changes.
+Installed FlowGuard Codex skill synchronization SHALL refresh the local
+installed `flowguard-development-process-flow` guidance and its internal
+plan-detailing and agent-workflow protocol material when repository routing
+changes. It SHALL reject separate retired helper skill directories.
 
 #### Scenario: Installed guidance is synchronized
 - **WHEN** repository skill guidance is updated for plan discussion handoff
@@ -500,7 +508,10 @@ FlowGuard's maintained prompts SHALL describe adapter boundaries and generic rol
 - **THEN** the existing SkillGuard maintenance unit SHALL supervise the FlowGuard-owned change without enrolling, copying, or validating the provider skill itself
 
 ### Requirement: Existing skills teach behavior-plane ownership
-The existing BCL, Existing Model Preflight, Model Miss, DevelopmentProcessFlow, AgentWorkflowRehearsal, PlanDetailing, and model-first skill guidance SHALL describe the three behavior planes and their route-native ownership boundaries without adding a new skill route.
+The existing BCL, Existing Model Preflight, Model Miss, DevelopmentProcessFlow,
+AgentWorkflowRehearsal, PlanDetailing, and public `flowguard` kernel guidance
+SHALL describe the three behavior planes and their route-native ownership
+boundaries without adding a new skill route.
 
 #### Scenario: BCL skill creates a commitment
 - **WHEN** the BCL skill adds, changes, removes/replaces, gap-backfills, or checks a model-miss commitment
@@ -545,4 +556,3 @@ Skill guidance SHALL make registered same-plane models visible without imposing 
 #### Scenario: Ordinary task has no registered hit
 - **WHEN** a non-trivial lookup returns no same-plane commitment and no concrete miss exists
 - **THEN** Codex MAY continue through existing routing with an explicit no-hit boundary rather than fabricating a commitment
-

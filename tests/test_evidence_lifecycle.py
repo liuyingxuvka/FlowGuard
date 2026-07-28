@@ -19,6 +19,7 @@ from flowguard.evidence_lifecycle import (
     purge_evidence_quarantine,
     read_evidence_execution_lease,
     restore_evidence_quarantine,
+    settle_cleanup_unconfirmed_lease,
     store_text_object,
     verify_text_object,
     write_json_atomic,
@@ -57,6 +58,72 @@ class EvidenceObjectTests(unittest.TestCase):
 
 
 class EvidenceExecutionLeaseTests(unittest.TestCase):
+    def test_same_owner_resource_blocks_different_execution_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            lock_root = Path(temporary) / "leases"
+            with evidence_execution_lease(
+                lock_root,
+                owner_id="owner:model-a",
+                resource_key="resource:model-a",
+                execution_key="snapshot:first",
+            ):
+                with self.assertRaisesRegex(EvidenceLifecycleError, "already leased"):
+                    with evidence_execution_lease(
+                        lock_root,
+                        owner_id="owner:model-a",
+                        resource_key="resource:model-a",
+                        execution_key="snapshot:second",
+                    ):
+                        self.fail("resource-wide mutual exclusion was bypassed")
+
+    def test_cleanup_unconfirmed_requires_exact_episode_and_zero_descendants(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            lock_root = Path(temporary) / "leases"
+            with evidence_execution_lease(
+                lock_root,
+                owner_id="owner:model-a",
+                resource_key="resource:model-a",
+                execution_key="snapshot:first",
+                lease_token="lease:one",
+            ) as lease:
+                lease["_preserve_residual"] = True
+                lease["incident_episode_token"] = "episode:one"
+
+            with self.assertRaisesRegex(EvidenceLifecycleError, "descendants remain"):
+                settle_cleanup_unconfirmed_lease(
+                    lock_root,
+                    owner_id="owner:model-a",
+                    resource_key="resource:model-a",
+                    execution_key="snapshot:first",
+                    incident_episode_token="episode:one",
+                    descendant_process_ids=(123,),
+                )
+            with self.assertRaisesRegex(EvidenceLifecycleError, "token does not match"):
+                settle_cleanup_unconfirmed_lease(
+                    lock_root,
+                    owner_id="owner:model-a",
+                    resource_key="resource:model-a",
+                    execution_key="snapshot:first",
+                    incident_episode_token="episode:wrong",
+                    descendant_process_ids=(),
+                )
+            settle_cleanup_unconfirmed_lease(
+                lock_root,
+                owner_id="owner:model-a",
+                resource_key="resource:model-a",
+                execution_key="snapshot:first",
+                incident_episode_token="episode:one",
+                descendant_process_ids=(),
+            )
+            self.assertIsNone(
+                read_evidence_execution_lease(
+                    lock_root,
+                    owner_id="owner:model-a",
+                    resource_key="resource:model-a",
+                    execution_key="snapshot:next",
+                )
+            )
+
     def test_lease_is_readable_exclusive_and_released_by_its_token(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             lock_root = Path(temporary) / "leases"

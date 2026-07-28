@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.65.0 - 2026-07-28
+
+- Replaced broad, self-reported freshness with a frozen validation-owner DAG,
+  resource-wide single-flight leases, supervised child processes, exact child
+  receipts, and one independently verified full parent receipt.
+- Made model authority inventory-complete and revision transactions
+  independently derived, closure-complete, live-rechecked, CAS-protected, and
+  rollback-replayable.
+- Reconciled all 77 historical OpenSpec changes against current product
+  direction, restored still-current requirements, retired obsolete topology
+  and compatibility authority, and added byte-exact semantic sync checks.
+- Added explicit complete/scoped UI evidence claims, package-authority shadow
+  verification, behavior-bearing callable fingerprints, and StructureMesh
+  child ownership for process supervision and the package API registry.
+- Folded in the unreleased 0.64.2 validator-toolchain parity repair so current
+  requirements parse under both the CI-pinned and current OpenSpec parsers.
+- Kept the release source-only: the immutable annotated tag is the release
+  authority and the GitHub Release has zero uploaded assets.
+
 ## v0.64.2 - 2026-07-28
 
 - Made the affected OpenSpec requirement statements valid under both the CI-
@@ -7,8 +26,8 @@
   placing the normative `SHALL` clause in each requirement's opening line.
 - Kept the v0.64.1 runtime and release-authority behavior unchanged; this
   patch closes only the validator-toolchain parity gap exposed by GitHub CI.
-- Preserved immutable `v0.64.0` and `v0.64.1` history and published the
-  correction as a new source-only patch release.
+- Preserved immutable `v0.64.0` and `v0.64.1` history; v0.65.0 incorporates
+  this unreleased patch intent without moving either immutable tag.
 
 ## v0.64.1 - 2026-07-28
 

@@ -30,8 +30,8 @@ Accept a bounded field inventory; create leaf rows and behavior projections; blo
 4. Route invalid/old cases to ContractExhaustionMesh, close replacement disposition, and send owners, projections, cases, and gaps downstream.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Default replacement requires delete, block, migrate, delegate, repair, explicit preserve, or scoped reason; unknown disposition blocks full confidence.
 - A complete claim blocks on empty/stale inventory identity, missing or unexpected rows, duplicate field ids, missing semantics/fingerprints, or incomplete delegated/scoped dispositions.
 - Behavior claims still require current obligations, owner code contracts, tests, freshness, and template harvest closure where the model deepens.
@@ -40,4 +40,4 @@ Accept a bounded field inventory; create leaf rows and behavior projections; blo
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus leaf rows, projections, owners, and dispositions.
 
 
-<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->
+<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

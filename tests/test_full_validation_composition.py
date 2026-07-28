@@ -97,7 +97,7 @@ class FullValidationCompositionTests(unittest.TestCase):
     def executor(self, overrides=None):
         overrides = overrides or {}
 
-        def fake(command, cwd):
+        def fake(command, cwd, timeout_seconds=900.0):
             child_id = self.child_id(command)
             raw_status = overrides.get(child_id, "pass")
             payload = {
@@ -458,12 +458,14 @@ class FullValidationCompositionTests(unittest.TestCase):
 
         execute.assert_not_called()
         self.assertEqual("blocked", second.status)
+        self.assertFalse(second.children)
         blocked = next(
-            child
-            for child in second.children
-            if child.child_id == "openspec_strict"
+            item
+            for item in second.blockers
+            if item["child_id"] == "openspec_strict"
         )
-        self.assertIn("content address mismatch", blocked.summary)
+        self.assertIn("content address mismatch", blocked["message"])
+        self.assertFalse(Path(second_args.output_dir).exists())
 
     def test_large_child_payload_is_retained_once_as_compressed_evidence(self):
         child = self.output / "01-large"
@@ -504,17 +506,11 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertTrue(parity.payload["payload_sha256"].startswith("sha256:"))
         self.assertFalse(result.broad_success)
 
-    def test_missing_required_script_is_a_blocked_child_with_artifacts(self):
+    def test_missing_tracked_required_script_blocks_during_parent_freeze(self):
         (self.root / "scripts/check_flowguard_self_governance.py").unlink()
-        with patch.object(suite_command, "_execute_command", side_effect=self.executor()):
-            result = suite_command.run_full_validation(self.args())
-
-        self.assertEqual("blocked", result.status)
-        child = next(item for item in result.children if item.child_id == "skill_self_governance")
-        self.assertEqual("blocked", child.status)
-        self.assertIn("required", child.summary)
-        self.assertTrue(all(Path(path).is_file() for path in child.artifact_paths))
-        self.assertTrue(any(item.check_id == child.child_id for item in result.skipped_checks))
+        with self.assertRaisesRegex(ValueError, "release tree path is deleted"):
+            suite_command.run_full_validation(self.args())
+        self.assertFalse(self.output.exists())
 
     def test_pass_with_gaps_is_partial_not_broad_success(self):
         with patch.object(
@@ -526,15 +522,15 @@ class FullValidationCompositionTests(unittest.TestCase):
 
         project = next(child for child in result.children if child.child_id == "project_audit")
         self.assertEqual("partial", project.status)
-        self.assertEqual("partial", result.status)
+        self.assertEqual("blocked", result.status)
         self.assertFalse(result.broad_success)
         self.assertTrue(any(item["child_id"] == "project_audit" for item in result.blockers))
 
     def test_required_skip_inside_nominal_pass_is_not_flattened(self):
         normal = self.executor()
 
-        def with_required_skip(command, cwd):
-            outcome = normal(command, cwd)
+        def with_required_skip(command, cwd, timeout_seconds=900.0):
+            outcome = normal(command, cwd, timeout_seconds)
             if self.child_id(command) != "project_audit":
                 return outcome
             payload = dict(outcome.payload)
@@ -562,9 +558,14 @@ class FullValidationCompositionTests(unittest.TestCase):
         with patch.object(suite_command, "_execute_command", side_effect=self.executor()):
             result = suite_command.run_full_validation(args)
 
-        child = next(item for item in result.children if item.child_id == "distribution_parity")
-        self.assertEqual("blocked", child.status)
-        self.assertIn("--shadow-root", child.summary)
+        self.assertEqual("blocked", result.status)
+        self.assertEqual((), result.children)
+        blocker = next(
+            item
+            for item in result.blockers
+            if item["child_id"] == "distribution_parity"
+        )
+        self.assertIn("--shadow-root", blocker["message"])
 
     def test_invalid_full_configuration_uses_canonical_status_and_exit(self):
         stdout = io.StringIO()

@@ -34,8 +34,8 @@ Accept boundary/root; choose reuse, extend, child, new, or none; block duplicate
 ## Hard Gates
 - A model is current only when its exact instance is in the observed snapshot for the current revision; other discovery is `candidate_only`.
 - Missing, invalid, stale, or ambiguous authority blocks full preflight. Target and experiment snapshots may inform comparison but cannot own current behavior or current evidence.
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework. Full mode precedes proposal/implementation.
+- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks. Full mode precedes proposal/implementation.
 - Missing/stale search or ownership, duplicate owners, unresolved mesh proof, or omitted same-intent surfaces block full preflight; equivalent current semantics default to reuse.
 - Shared words cannot promote a wrong-plane hit. Missing/stale lookup falls back explicitly; ambiguity blocks full-confidence selection.
 - WorkContext is read-only context, never runtime ownership or evidence. Unknown adapters, stale fingerprints, missing roles, wrong lanes, path escape, or provider authority block.

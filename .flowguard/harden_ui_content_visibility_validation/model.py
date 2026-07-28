@@ -318,7 +318,12 @@ def test_mesh_plan() -> TestMeshPlan:
             selected_count=_junit_test_count(CORE_JUNIT),
             exit_code=0,
             result_path=_artifact_path(CORE_JUNIT),
-            proof_artifact=_proof("artifact:testmesh:ui-content-core", CORE_JUNIT, command=core_command),
+            proof_artifact=_proof(
+                "artifact:testmesh:ui-content-core",
+                CORE_JUNIT,
+                "ui-content-core",
+                command=core_command,
+            ),
         ),
         TestSuiteEvidence(
             "ui-content-templates",
@@ -329,7 +334,12 @@ def test_mesh_plan() -> TestMeshPlan:
             selected_count=_junit_test_count(TEMPLATE_JUNIT),
             exit_code=0,
             result_path=_artifact_path(TEMPLATE_JUNIT),
-            proof_artifact=_proof("artifact:testmesh:ui-content-templates", TEMPLATE_JUNIT, command=template_command),
+            proof_artifact=_proof(
+                "artifact:testmesh:ui-content-templates",
+                TEMPLATE_JUNIT,
+                "ui-content-templates",
+                command=template_command,
+            ),
         ),
         TestSuiteEvidence(
             "ui-content-contract-matrix",

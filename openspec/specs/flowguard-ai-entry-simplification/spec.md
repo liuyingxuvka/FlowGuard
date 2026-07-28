@@ -309,8 +309,8 @@ package, CLI, or metadata command.
 
 #### Scenario: README quick start is read
 - **WHEN** an agent reads the first setup path in README
-- **THEN** the first path MUST tell the agent to load `.agents/skills/` and
-  start with `model-first-function-flow`
+- **THEN** the first path MUST tell the agent to load the package-authority
+  consumer suite and start with the public `flowguard` kernel
 - **AND** package or CLI commands MUST appear only as check execution or
   compatibility details
 

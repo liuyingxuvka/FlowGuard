@@ -5,9 +5,10 @@ This capability defines FlowGuard's default model-first route for turning ordina
 kernel deltas can be archived into a main spec.
 ## Requirements
 ### Requirement: model-first-function-flow exposes code structure recommendation
-The `model-first-function-flow` Skill SHALL expose `code_structure_recommendation`
-as a parallel route for direct code architecture recommendations and
-model-derived implementation structure planning.
+The public `flowguard` Skill's internal `model-first-function-flow` route SHALL
+expose `code_structure_recommendation` as a parallel route for direct code
+architecture recommendations and model-derived implementation structure
+planning.
 
 #### Scenario: Route is available
 - **WHEN** the Skill route map is read
@@ -21,9 +22,11 @@ model-derived implementation structure planning.
 - **THEN** the Skill does not require the code structure recommendation route
 
 ### Requirement: model-first-function-flow is a kernel, not the universal first stop
-The `model-first-function-flow` Skill SHALL identify itself as the FlowGuard
-kernel for general model-first applicability, ordinary behavior/state modeling,
-unclear route selection, and cross-route coordination.
+The public `flowguard` Skill SHALL identify its internal
+`model-first-function-flow` route as the kernel workflow for general
+model-first applicability, ordinary behavior/state modeling, unclear route
+selection, and cross-route coordination. The internal route SHALL NOT be
+installed or invoked as another public skill.
 
 #### Scenario: Clear satellite match does not stop at kernel
 - **WHEN** a task clearly matches a directly installed FlowGuard satellite
@@ -33,11 +36,12 @@ unclear route selection, and cross-route coordination.
 #### Scenario: Kernel handles unclear or cross-route work
 - **WHEN** the route is unclear, multiple FlowGuard routes may apply, or a core
   model is needed before selecting a narrower route
-- **THEN** `model-first-function-flow` remains the appropriate starting point
+- **THEN** the public `flowguard` Skill remains the appropriate starting point
+  and may select the internal `model-first-function-flow` route
 
 ### Requirement: model-first-function-flow routes staged development to DevelopmentProcessFlow
-The `model-first-function-flow` Skill SHALL route non-trivial staged
-development or modification tasks with validation to
+The public `flowguard` Skill's internal `model-first-function-flow` route SHALL
+route non-trivial staged development or modification tasks with validation to
 `development_process_flow`, in addition to final done, archive, publish, and
 release-readiness evidence checks.
 
@@ -234,7 +238,8 @@ The model-first-function-flow guidance SHALL preserve plan-detail scoped, missin
 The model-first-function-flow guidance SHALL teach one formal minimum valuable model entry instead of a direct `Explorer(...)`, optional runner, fallback, or thin default path for non-trivial model creation and model deepening work.
 
 #### Scenario: Skill guidance names minimum valuable model
-- **WHEN** an agent reads the model-first-function-flow skill
+- **WHEN** an agent reads the public `flowguard` Skill and enters its internal
+  `model-first-function-flow` route
 - **THEN** the default entry guidance requires a protected error class, modeled state, side effects, completion evidence, a known-bad case, and executable proof that the known-bad case is caught
 
 #### Scenario: Thin entry no longer controls default wording
@@ -297,4 +302,3 @@ affected behavior commitment before treating a model as sufficient coverage.
 #### Scenario: Model has no commitment boundary
 - **WHEN** a model-first plan makes a broad behavior claim without a commitment id
 - **THEN** the work SHALL be routed to Behavior Commitment Ledger before broad confidence
-

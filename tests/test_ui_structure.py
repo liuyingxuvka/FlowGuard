@@ -1,6 +1,12 @@
+import ast
 import unittest
 from dataclasses import replace
 from itertools import product
+from pathlib import Path
+
+import flowguard
+import flowguard.ui_implementation_evidence as ui_implementation_evidence
+import flowguard.ui_structure as ui_structure_module
 
 from flowguard import (
     ContractAxis,
@@ -75,6 +81,15 @@ from flowguard import (
     UI_CONTENT_EVIDENCE_REVEAL,
     UI_CONTENT_EVIDENCE_REVEALED,
     UI_CONTENT_EVIDENCE_RETURN_HIDDEN,
+    UI_IMPLEMENTATION_CLAIM_COMPLETE,
+    UI_IMPLEMENTATION_CLAIM_SCOPED,
+    UI_IMPLEMENTATION_EVIDENCE_BLINDSPOTS,
+    UI_IMPLEMENTATION_EVIDENCE_CAPABILITY_COVERAGE,
+    UI_IMPLEMENTATION_EVIDENCE_CLASSES,
+    UI_IMPLEMENTATION_EVIDENCE_CONTENT_VISIBILITY_PLAN,
+    UI_IMPLEMENTATION_EVIDENCE_OBSERVED_INVENTORY,
+    UI_IMPLEMENTATION_EVIDENCE_RUN_EVIDENCE,
+    UI_IMPLEMENTATION_EVIDENCE_VISIBLE_SURFACE,
     review_ui_functional_capability_coverage,
     review_ui_human_operability,
     review_ui_source_baseline_alignment,
@@ -439,6 +454,13 @@ def implementation_validation(**kwargs) -> UIImplementationValidation:
         "source_feature_model_id": "project-feature-model",
         "source_interaction_model_id": "project-app-ui-flow",
         "source_journey_coverage_id": "project-app-journeys",
+        "claim_scope": UI_IMPLEMENTATION_CLAIM_SCOPED,
+        "omitted_evidence_classes": (
+            UI_IMPLEMENTATION_EVIDENCE_CAPABILITY_COVERAGE,
+            UI_IMPLEMENTATION_EVIDENCE_OBSERVED_INVENTORY,
+            UI_IMPLEMENTATION_EVIDENCE_VISIBLE_SURFACE,
+            UI_IMPLEMENTATION_EVIDENCE_CONTENT_VISIBILITY_PLAN,
+        ),
         "implementation_target": "local browser build",
         "current_model_revision": "ui-rev-1",
         "feature_contracts": (
@@ -2335,8 +2357,385 @@ class UIFunctionalCapabilityCoverageTests(unittest.TestCase):
         self.assertIn("capability_binding_stale", codes)
 
 
+def complete_action_only_implementation_context():
+    revision = "action-ui-rev-1"
+    model = UIInteractionModel(
+        "action-only-ui",
+        initial_state_id="ready",
+        content_visibility_plan_id="action-only-content-plan",
+        states=(
+            UIStateNode(
+                "ready",
+                visible_controls=("submit",),
+                enabled_controls=("submit",),
+                rationale="The action is ready.",
+            ),
+            UIStateNode(
+                "done",
+                rationale="The action completed.",
+            ),
+        ),
+        controls=(
+            UIControl(
+                "submit",
+                label="Submit",
+                function_key="submit",
+                rationale="Submit performs the only user action.",
+            ),
+        ),
+        transitions=(
+            UITransition(
+                "click_submit",
+                "submit",
+                "ready",
+                "done",
+                function_block="submit",
+                output="submitted",
+                rationale="The action reaches its success state.",
+            ),
+        ),
+        validation_boundaries=("action-only interaction",),
+        rationale="This UI has one action and no non-action candidate content.",
+    )
+    coverage = UIJourneyCoverage(
+        "action-only-journeys",
+        source_interaction_model_id=model.model_id,
+        launch_state_id="ready",
+        entry_points=(
+            UIJourneyEntryPoint(
+                "submit-entry",
+                "submit",
+                "click_submit",
+                source_state_ids=("ready",),
+                rationale="Submit is the only journey entry point.",
+            ),
+        ),
+        feature_journeys=(
+            UIFeatureJourney(
+                "submit",
+                entry_point_ids=("submit-entry",),
+                required_state_ids=("ready", "done"),
+                required_event_ids=("click_submit",),
+                success_terminal_state_ids=("done",),
+                validation_boundaries=("submit journey",),
+                rationale="The journey covers the only action.",
+            ),
+        ),
+        interaction_model_reviewed=True,
+        validation_boundaries=("action-only journey coverage",),
+        rationale="The only action is covered from launch to success.",
+    )
+    visible_surface = UIVisibleSurface(
+        "action-only-visible-surface",
+        source_interaction_model_id=model.model_id,
+        content_visibility_plan_id="action-only-content-plan",
+        items=(
+            UIVisibleSurfaceItem(
+                "submit-label",
+                item_kind="control",
+                text="Submit",
+                state_ids=("ready",),
+                owner_control_id="submit",
+                purpose="Expose the only user action.",
+                rationale="A normal control label is action content, not candidate copy.",
+            ),
+        ),
+        validation_boundaries=("action-only visible surface",),
+        rationale="The visible surface contains only the submit action.",
+    )
+    observed_inventory = UIObservedSurfaceInventory(
+        "action-only-observed-inventory",
+        "local action-only UI",
+        revision,
+        observation_method="browser_click",
+        source_interaction_model_id=model.model_id,
+        source_visible_surface_id=visible_surface.surface_id,
+        content_visibility_plan_id="action-only-content-plan",
+        evidence_ref="test://action-only-observed",
+        inventory_fingerprint="sha256:" + ("a" * 64),
+        discovery_evidence_ids=("test://action-only-discovery",),
+        require_complete_inventory=True,
+        items=(
+            UIObservedSurfaceItem(
+                "observed-submit",
+                "button",
+                label="Submit",
+                state_id="ready",
+                enabled=True,
+                mapped_control_id="submit",
+                mapped_visible_item_id="submit-label",
+                evidence_ref="test://observed-submit",
+                evidence_kind="browser_click",
+                content_fingerprint="sha256:" + ("b" * 64),
+                rationale="The only rendered action is frozen and mapped.",
+            ),
+        ),
+        validation_boundaries=("complete action-only observation",),
+        rationale="The complete inventory proves there is no non-action content.",
+    )
+    content_plan = UIContentVisibilityPlan(
+        "action-only-content-plan",
+        source_interaction_model_id=model.model_id,
+        current_revision=revision,
+        validation_boundaries=("empty content-admission review",),
+        rationale="No non-action candidate content exists in the observed UI.",
+        source_observed_inventory_id=observed_inventory.inventory_id,
+        empty_candidate_inventory_reviewed=True,
+    )
+    capability_inventory = UIFunctionalCapabilityInventory(
+        "action-only-capabilities",
+        current_revision=revision,
+        capabilities=(
+            UIFunctionalCapability(
+                "submit-capability",
+                label="Submit",
+                capability_kind="navigate",
+                owner="action-only UI",
+                validation_boundaries=("submit capability review",),
+                rationale="The only user-visible capability is submitting.",
+            ),
+        ),
+        validation_boundaries=("complete action-only capability inventory",),
+        rationale="The inventory covers the only user-visible capability.",
+    )
+    feature_contract = UIFeatureContract(
+        "submit",
+        label="Submit",
+        capability_ids=("submit-capability",),
+        journey_ids=("submit",),
+        entry_point_ids=("submit-entry",),
+        required_control_ids=("submit",),
+        required_event_ids=("click_submit",),
+        validation_boundaries=("submit feature contract",),
+        rationale="The feature owns the only action path.",
+    )
+    validation = UIImplementationValidation(
+        "action-only-implementation-validation",
+        "action-only-feature-model",
+        model.model_id,
+        coverage.coverage_id,
+        claim_scope=UI_IMPLEMENTATION_CLAIM_COMPLETE,
+        implementation_target="local action-only UI",
+        current_model_revision=revision,
+        source_capability_inventory_id=capability_inventory.inventory_id,
+        feature_contracts=(feature_contract,),
+        journey_runs=(
+            UIImplementationJourneyRun(
+                "submit-run",
+                "submit",
+                journey_id="submit",
+                entry_point_id="submit-entry",
+                steps=(
+                    UIImplementationStepEvidence(
+                        "submit-step",
+                        "click_submit",
+                        control_id="submit",
+                        source_state_id="ready",
+                        target_state_id="done",
+                        method="browser_click",
+                        result="passed",
+                        evidence_ref="test://submit-step",
+                        observed_state_id="done",
+                        observed_output="submitted",
+                        rationale="The current UI reached the modeled success state.",
+                    ),
+                ),
+                method="browser_click",
+                result="passed",
+                evidence_ref="test://submit-run",
+                model_revision=revision,
+                validation_boundaries=("submit browser click-through",),
+                rationale="The run covers the only action.",
+            ),
+        ),
+        capability_bindings=(
+            UICapabilityCoverageBinding(
+                "submit-capability-binding",
+                "submit-capability",
+                feature_ids=("submit",),
+                journey_ids=("submit",),
+                control_ids=("submit",),
+                event_ids=("click_submit",),
+                code_owner="SubmitHandler",
+                implementation_run_ids=("submit-run",),
+                evidence_ref="test://submit-run",
+                current_revision=revision,
+                validation_boundaries=("submit capability binding",),
+                rationale="Capability, feature, action, code owner, and run are exact.",
+            ),
+        ),
+        implementation_blindspots=(),
+        capability_coverage_reviewed=True,
+        journey_coverage_reviewed=True,
+        content_visibility_plan_id=content_plan.plan_id,
+        content_visibility_reviewed=True,
+        validation_boundaries=("complete action-only implementation evidence",),
+        rationale="All six runnable UI evidence classes are explicit and current.",
+    )
+    capability_coverage = review_ui_functional_capability_coverage(
+        capability_inventory,
+        implementation_validation=validation,
+        journey_coverage=coverage,
+        interaction_model=model,
+        current_revision=revision,
+    )
+    return (
+        model,
+        coverage,
+        capability_inventory,
+        capability_coverage,
+        visible_surface,
+        observed_inventory,
+        content_plan,
+        validation,
+    )
+
+
 class UIImplementationValidationTests(unittest.TestCase):
-    def test_complete_implementation_validation_can_continue(self):
+    def review_complete_action_only(self, **overrides):
+        (
+            model,
+            coverage,
+            capability_inventory,
+            capability_coverage,
+            visible_surface,
+            observed_inventory,
+            content_plan,
+            validation,
+        ) = complete_action_only_implementation_context()
+        self.assertTrue(
+            capability_coverage.ok,
+            capability_coverage.format_text(),
+        )
+        inputs = {
+            "interaction_model": model,
+            "journey_coverage": coverage,
+            "capability_inventory": capability_inventory,
+            "capability_coverage": capability_coverage,
+            "visible_surface": visible_surface,
+            "observed_inventory": observed_inventory,
+            "content_visibility_plan": content_plan,
+        }
+        inputs.update(overrides)
+        return validation, review_ui_implementation_validation(validation, **inputs)
+
+    def test_complete_ui_claim_with_all_current_inputs_supports_broad_confidence(self):
+        _, report = self.review_complete_action_only()
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(UI_IMPLEMENTATION_CLAIM_COMPLETE, report.claim_scope)
+        self.assertEqual((), report.omitted_evidence_classes)
+        self.assertTrue(report.broad_confidence_supported)
+
+    def test_complete_ui_claim_omitting_capability_bundle_blocks(self):
+        (
+            model,
+            coverage,
+            _,
+            _,
+            visible_surface,
+            observed_inventory,
+            content_plan,
+            validation,
+        ) = complete_action_only_implementation_context()
+        validation = replace(
+            validation,
+            source_capability_inventory_id="",
+            capability_coverage_reviewed=False,
+        )
+
+        report = review_ui_implementation_validation(
+            validation,
+            interaction_model=model,
+            journey_coverage=coverage,
+            visible_surface=visible_surface,
+            observed_inventory=observed_inventory,
+            content_visibility_plan=content_plan,
+        )
+
+        self.assertFalse(report.ok)
+        self.assertFalse(report.broad_confidence_supported)
+        self.assertIn(
+            UI_IMPLEMENTATION_EVIDENCE_CAPABILITY_COVERAGE,
+            report.omitted_evidence_classes,
+        )
+        self.assertIn(
+            "missing_implementation_capability_inventory",
+            finding_codes(report),
+        )
+        self.assertIn(
+            "missing_implementation_capability_coverage",
+            finding_codes(report),
+        )
+
+    def test_complete_ui_claim_omitting_content_plan_blocks_despite_passing_runs(self):
+        (
+            model,
+            coverage,
+            capability_inventory,
+            capability_coverage,
+            visible_surface,
+            observed_inventory,
+            _,
+            validation,
+        ) = complete_action_only_implementation_context()
+        validation = replace(
+            validation,
+            content_visibility_plan_id="",
+            content_visibility_reviewed=False,
+        )
+
+        report = review_ui_implementation_validation(
+            validation,
+            interaction_model=model,
+            journey_coverage=coverage,
+            capability_inventory=capability_inventory,
+            capability_coverage=capability_coverage,
+            visible_surface=visible_surface,
+            observed_inventory=observed_inventory,
+        )
+
+        self.assertFalse(report.ok)
+        self.assertTrue(validation.journey_runs)
+        self.assertFalse(report.broad_confidence_supported)
+        self.assertIn(
+            UI_IMPLEMENTATION_EVIDENCE_CONTENT_VISIBILITY_PLAN,
+            report.omitted_evidence_classes,
+        )
+        self.assertIn(
+            "missing_implementation_content_visibility_plan",
+            finding_codes(report),
+        )
+
+    def test_explicit_current_empty_content_plan_satisfies_complete_claim(self):
+        (
+            _,
+            _,
+            _,
+            _,
+            _,
+            observed_inventory,
+            content_plan,
+            validation,
+        ) = complete_action_only_implementation_context()
+        _, report = self.review_complete_action_only()
+
+        self.assertEqual((), content_plan.candidate_content_ids)
+        self.assertEqual((), content_plan.items)
+        self.assertTrue(content_plan.empty_candidate_inventory_reviewed)
+        self.assertEqual(
+            observed_inventory.inventory_id,
+            content_plan.source_observed_inventory_id,
+        )
+        self.assertEqual(
+            observed_inventory.current_revision,
+            content_plan.current_revision,
+        )
+        self.assertEqual((), validation.content_visibility_evidence)
+        self.assertTrue(report.ok, report.format_text())
+        self.assertTrue(report.broad_confidence_supported)
+
+    def test_scoped_implementation_validation_can_continue_without_broad_confidence(self):
         model = app_ui_model()
         coverage = journey_coverage()
 
@@ -2347,8 +2746,100 @@ class UIImplementationValidationTests(unittest.TestCase):
         )
 
         self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(UI_IMPLEMENTATION_CLAIM_SCOPED, report.claim_scope)
+        self.assertEqual(
+            (
+                UI_IMPLEMENTATION_EVIDENCE_CAPABILITY_COVERAGE,
+                UI_IMPLEMENTATION_EVIDENCE_OBSERVED_INVENTORY,
+                UI_IMPLEMENTATION_EVIDENCE_VISIBLE_SURFACE,
+                UI_IMPLEMENTATION_EVIDENCE_CONTENT_VISIBILITY_PLAN,
+            ),
+            report.omitted_evidence_classes,
+        )
+        self.assertFalse(report.broad_confidence_supported)
         self.assertIn("new_project", report.covered_feature_ids)
         self.assertIn("click_load_project", report.covered_event_ids)
+
+    def test_scoped_claim_must_name_every_actual_omission(self):
+        report = review_ui_implementation_validation(
+            replace(implementation_validation(), omitted_evidence_classes=()),
+            interaction_model=app_ui_model(),
+            journey_coverage=journey_coverage(),
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "scoped_ui_claim_omission_not_declared",
+            finding_codes(report),
+        )
+        self.assertFalse(report.broad_confidence_supported)
+
+    def test_claim_scope_child_owner_preserves_public_facade_parity(self):
+        self.assertIs(
+            flowguard.review_ui_implementation_claim_scope,
+            ui_implementation_evidence.review_ui_implementation_claim_scope,
+        )
+        self.assertIs(
+            ui_structure_module.review_ui_implementation_claim_scope,
+            ui_implementation_evidence.review_ui_implementation_claim_scope,
+        )
+        self.assertIs(
+            flowguard.UIImplementationValidation,
+            ui_structure_module.UIImplementationValidation,
+        )
+        for name in ui_implementation_evidence.__all__:
+            self.assertIn(name, ui_structure_module.__all__)
+            self.assertIn(name, flowguard.__all__)
+            self.assertIs(
+                getattr(ui_structure_module, name),
+                getattr(ui_implementation_evidence, name),
+            )
+            self.assertIs(
+                getattr(flowguard, name),
+                getattr(ui_implementation_evidence, name),
+            )
+
+    def test_claim_scope_child_owner_has_no_ui_structure_reverse_import(self):
+        child_source = Path(ui_implementation_evidence.__file__).read_text(
+            encoding="utf-8"
+        )
+        tree = ast.parse(child_source)
+        imported_modules = {
+            node.module or ""
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom)
+        }
+        imported_modules.update(
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+        )
+
+        self.assertFalse(
+            {
+                module
+                for module in imported_modules
+                if module == "ui_structure"
+                or module.endswith(".ui_structure")
+            }
+        )
+
+    def test_missing_claim_scope_defaults_fail_closed_without_changing_facade_type(self):
+        validation = UIImplementationValidation(
+            "default-scope-validation",
+            "feature-model",
+            "interaction-model",
+            "journey-coverage",
+        )
+
+        self.assertEqual("", validation.claim_scope)
+        self.assertEqual((), validation.omitted_evidence_classes)
+        self.assertIsNone(validation.implementation_blindspots)
+        self.assertEqual(
+            tuple(UI_IMPLEMENTATION_EVIDENCE_CLASSES),
+            ui_implementation_evidence.UI_IMPLEMENTATION_EVIDENCE_CLASSES,
+        )
 
     def test_complete_implementation_requires_capability_coverage_when_inventory_is_supplied(self):
         inventory = UIFunctionalCapabilityInventory(
@@ -2409,6 +2900,11 @@ class UIImplementationValidationTests(unittest.TestCase):
             ),
         ) + base_validation.feature_contracts[1:]
         validation = implementation_validation(
+            omitted_evidence_classes=(
+                UI_IMPLEMENTATION_EVIDENCE_OBSERVED_INVENTORY,
+                UI_IMPLEMENTATION_EVIDENCE_VISIBLE_SURFACE,
+                UI_IMPLEMENTATION_EVIDENCE_CONTENT_VISIBILITY_PLAN,
+            ),
             source_capability_inventory_id="project-app-capabilities",
             feature_contracts=feature_contracts,
             capability_bindings=(
@@ -3522,15 +4018,17 @@ def content_implementation_context():
                 "status_text",
                 label="Completed",
                 state_id="details_closed",
+                mapped_visible_item_id="result_status_item",
                 content_visibility_id="content:result-status",
                 evidence_ref="test://observed-result-status",
                 rationale="Default-visible result observed in the closed state.",
             ),
             UIObservedSurfaceItem(
                 "observed-optional-details",
-                "helper_text",
+                "text",
                 label="Why this result occurred",
                 state_id="details_open",
+                mapped_visible_item_id="optional_details_item",
                 content_visibility_id="content:optional-details",
                 evidence_ref="test://observed-optional-details",
                 rationale="On-demand detail observed only after reveal.",
@@ -3601,6 +4099,11 @@ def content_implementation_context():
         "content-feature-model",
         "content-visibility-ui",
         "content-journeys",
+        claim_scope=UI_IMPLEMENTATION_CLAIM_SCOPED,
+        omitted_evidence_classes=(
+            UI_IMPLEMENTATION_EVIDENCE_CAPABILITY_COVERAGE,
+            UI_IMPLEMENTATION_EVIDENCE_BLINDSPOTS,
+        ),
         implementation_target="local content UI",
         current_model_revision="visibility-rev-1",
         feature_contracts=(

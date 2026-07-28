@@ -133,7 +133,44 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
         shard = run_manifest_regressions(root, tier="full", shard="2/3", output_dir=root / "outputs" / "out-shard")
         self.assertEqual(("a",), fast.selected_model_ids)
         self.assertIn("does not support a full-model release claim", fast.to_validation_result().claim_boundary)
+        self.assertEqual("scoped", fast.parent_claim_scope)
+        self.assertEqual("scoped", shard.parent_claim_scope)
+        self.assertIn(
+            "cannot support release",
+            json.loads(Path(shard.parent_receipt_path).read_text(encoding="utf-8"))[
+                "claim_boundary"
+            ],
+        )
         self.assertEqual(("b",), shard.selected_model_ids)
+
+    def test_complete_full_manifest_composes_exact_full_parent(self):
+        root = self.make_repo(
+            [
+                {"model_id": "a", "script": "print('a')\n", "tier": "fast"},
+                {"model_id": "b", "script": "print('b')\n", "tier": "full"},
+            ]
+        )
+
+        report = run_manifest_regressions(
+            root,
+            tier="full",
+            output_dir=root / "outputs" / "out-full-parent",
+        )
+
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertEqual("full", report.parent_claim_scope)
+        parent = json.loads(
+            Path(report.parent_receipt_path).read_text(encoding="utf-8")
+        )
+        self.assertEqual(["a", "b"], parent["selected_model_ids"])
+        self.assertEqual(
+            ["a", "b"],
+            [item["model_id"] for item in parent["children"]],
+        )
+        self.assertEqual(
+            report.parent_receipt_fingerprint,
+            parent["parent_receipt_fingerprint"],
+        )
 
     def test_isolated_artifact_is_required_and_preserved(self):
         script = textwrap.dedent(

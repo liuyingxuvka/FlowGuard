@@ -18,6 +18,7 @@ from flowguard.evidence_receipts import (
     canonical_receipt_json,
     fingerprint_value,
     import_legacy_report,
+    list_evidence_receipts,
     load_evidence_receipt,
     receipt_fingerprint,
     save_evidence_receipt,
@@ -223,6 +224,18 @@ class EvidenceReceiptSchemaTests(unittest.TestCase):
             self.assertEqual(original_bytes, path.read_bytes())
             self.assertEqual(original, load_evidence_receipt(path))
 
+    def test_receipt_store_rejects_noncanonical_filename(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = save_evidence_receipt(receipt(), tmp)
+            renamed = path.with_name("renamed-receipt.json")
+            path.rename(renamed)
+
+            with self.assertRaisesRegex(
+                ReceiptValidationError,
+                "filename does not match",
+            ):
+                list_evidence_receipts(tmp)
+
     def test_legacy_report_is_diagnostic_only_and_covers_nothing(self):
         legacy = import_legacy_report({"status": "pass", "current": True, "path": str(Path.home())})
 
@@ -340,6 +353,27 @@ class ReceiptFreshnessTests(unittest.TestCase):
         self.assertIn("input_path_token_mismatch", result.finding_codes)
         self.assertIn("input_obligation_scope_mismatch", result.finding_codes)
 
+    def test_receipt_store_supersession_overrides_caller_current_inputs(self):
+        old = receipt(receipt_id="receipt:skillguard:old")
+        new = receipt(
+            receipt_id="receipt:skillguard:new",
+            supersedes=(old.receipt_id,),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            save_evidence_receipt(old, tmp)
+            save_evidence_receipt(new, tmp)
+            result = verify_evidence_receipt(
+                old,
+                current_context(
+                    old,
+                    receipt_store_repository_root=tmp,
+                ),
+            )
+
+        self.assertFalse(result.current)
+        self.assertFalse(result.eligible)
+        self.assertIn("superseded_receipt", result.finding_codes)
+
 
 class ParentChildReceiptTests(unittest.TestCase):
     def _child_and_result(self, *, receipt_id="receipt:child:1", supersedes=(), claim_scope="full", covered=("req.child",)):
@@ -371,18 +405,37 @@ class ParentChildReceiptTests(unittest.TestCase):
             covered=("req.parent",),
         )
 
-    def _verify_parent(self, parent, child=None, child_result=None, **context_updates):
+    def _verify_parent(
+        self,
+        parent,
+        child=None,
+        child_result=None,
+        *,
+        store_children=(),
+        child_receipts=None,
+        child_results=None,
+        **context_updates,
+    ):
         children = {} if child is None else {child.receipt_id: child}
         results = {} if child_result is None else {child_result.receipt_id: child_result}
-        return verify_evidence_receipt(
-            parent,
-            current_context(
+        if child_receipts is not None:
+            children = child_receipts
+        if child_results is not None:
+            results = child_results
+        with tempfile.TemporaryDirectory() as tmp:
+            stored = tuple(store_children) or (() if child is None else (child,))
+            for item in stored:
+                save_evidence_receipt(item, tmp)
+            return verify_evidence_receipt(
                 parent,
-                child_receipts=children,
-                child_verification_results=results,
-                **context_updates,
-            ),
-        )
+                current_context(
+                    parent,
+                    child_receipts=children,
+                    child_verification_results=results,
+                    receipt_store_repository_root=tmp,
+                    **context_updates,
+                ),
+            )
 
     def test_exact_required_current_consumed_child_satisfies_parent(self):
         child, child_result = self._child_and_result()
@@ -424,7 +477,7 @@ class ParentChildReceiptTests(unittest.TestCase):
                 result = self._verify_parent(parent, child, child_result)
                 self.assertFalse(result.eligible)
                 self.assertTrue(
-                    {"child_obligation_missing", "child_claim_scope_ineligible"} & set(result.finding_codes),
+                    {"child_obligation_scope_mismatch", "child_claim_scope_ineligible"} & set(result.finding_codes),
                     result.to_dict(),
                 )
 
@@ -433,19 +486,94 @@ class ParentChildReceiptTests(unittest.TestCase):
         new_child, _ = self._child_and_result(receipt_id="receipt:child:2", supersedes=(old_child.receipt_id,))
         parent = self._parent(old_child)
 
-        result = verify_evidence_receipt(
+        result = self._verify_parent(
             parent,
-            current_context(
-                parent,
-                child_receipts={old_child.receipt_id: old_child, new_child.receipt_id: new_child},
-                child_verification_results={old_child.receipt_id: old_result},
-                latest_child_receipt_ids={old_child.subject_id: new_child.receipt_id},
-            ),
+            old_child,
+            old_result,
+            store_children=(old_child, new_child),
         )
 
         self.assertFalse(result.current)
         self.assertIn("superseded_child_receipt", result.finding_codes)
         self.assertIn("rerun-parent:parent", result.minimum_revalidation)
+
+    def test_child_map_key_loaded_id_and_verification_projection_must_match(self):
+        child, child_result = self._child_and_result()
+        parent = self._parent(child)
+        aliased_child = dataclasses.replace(child, receipt_id="receipt:child:alias")
+
+        wrong_child = self._verify_parent(
+            parent,
+            child,
+            child_result,
+            child_receipts={child.receipt_id: aliased_child},
+        )
+        self.assertIn("child_receipt_map_key_mismatch", wrong_child.finding_codes)
+        self.assertIn("child_projection_fingerprint_mismatch", wrong_child.finding_codes)
+
+        tampered_result = dataclasses.replace(
+            child_result,
+            receipt_id="receipt:child:other",
+        )
+        wrong_result = self._verify_parent(
+            parent,
+            child,
+            child_result,
+            child_results={child.receipt_id: tampered_result},
+        )
+        self.assertIn("child_verification_identity_mismatch", wrong_result.finding_codes)
+        self.assertFalse(wrong_result.eligible)
+
+        tampered_fingerprint = dataclasses.replace(
+            child_result,
+            receipt_fingerprint=digest("forged-verification"),
+        )
+        wrong_fingerprint = self._verify_parent(
+            parent,
+            child,
+            child_result,
+            child_results={child.receipt_id: tampered_fingerprint},
+        )
+        self.assertIn(
+            "child_verification_fingerprint_mismatch",
+            wrong_fingerprint.finding_codes,
+        )
+
+    def test_child_subject_and_exact_obligation_boundary_must_match(self):
+        child, child_result = self._child_and_result(covered=("req.child", "req.extra"))
+        parent = self._parent(child, obligation="req.child")
+        wrong_subject_requirement = dataclasses.replace(
+            parent.required_child_receipts[0],
+            subject_id="another-subject",
+        )
+        wrong_subject_parent = dataclasses.replace(
+            parent,
+            required_child_receipts=(wrong_subject_requirement,),
+        )
+
+        subject_result = self._verify_parent(
+            wrong_subject_parent,
+            child,
+            child_result,
+        )
+        obligation_result = self._verify_parent(parent, child, child_result)
+
+        self.assertIn("child_subject_mismatch", subject_result.finding_codes)
+        self.assertIn("child_obligation_scope_mismatch", obligation_result.finding_codes)
+
+    def test_caller_latest_hint_cannot_invent_or_hide_store_supersession(self):
+        child, child_result = self._child_and_result()
+        parent = self._parent(child)
+
+        invented = self._verify_parent(
+            parent,
+            child,
+            child_result,
+            latest_child_receipt_ids={child.subject_id: "receipt:invented"},
+        )
+
+        self.assertTrue(invented.eligible, invented.to_dict())
+        self.assertNotIn("superseded_child_receipt", invented.finding_codes)
 
     def test_stale_or_fingerprint_mismatched_child_cannot_support_parent(self):
         child, _ = self._child_and_result()

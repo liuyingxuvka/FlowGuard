@@ -12,6 +12,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from .evidence_receipts import (
+    EvidenceReceipt,
+    ReceiptVerificationContext,
+    ReceiptVerificationResult,
+    verify_evidence_receipt,
+    verified_receipt_binding_gap_codes,
+)
 from .export import to_jsonable
 from .hierarchy import (
     EVIDENCE_ABSTRACT_GREEN,
@@ -178,7 +185,11 @@ class TestSuiteEvidence:
     release_required: bool = False
     owns_state: tuple[str, ...] = ()
     owns_side_effects: tuple[str, ...] = ()
+    owned_obligation_ids: tuple[str, ...] = ()
     owned_leaf_cell_ids: tuple[str, ...] = ()
+    owned_transition_cell_ids: tuple[str, ...] = ()
+    owned_payload_case_ids: tuple[str, ...] = ()
+    owned_generated_case_ids: tuple[str, ...] = ()
     owned_coverage_shard_ids: tuple[str, ...] = ()
     not_run_reason: str = ""
     stale_reasons: tuple[str, ...] = ()
@@ -190,6 +201,10 @@ class TestSuiteEvidence:
     covered_obligation_ids: tuple[str, ...] = ()
     artifact_version: str = ""
     verifier_version: str = ""
+    loaded_receipt: EvidenceReceipt | Mapping[str, Any] | None = None
+    receipt_verification_context: ReceiptVerificationContext | None = None
+    receipt_verification: ReceiptVerificationResult | None = None
+    receipt_producer_id: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "suite_id", str(self.suite_id))
@@ -214,7 +229,11 @@ class TestSuiteEvidence:
         object.__setattr__(self, "reuse_ticket", coerce_test_result_reuse_ticket(self.reuse_ticket))
         object.__setattr__(self, "owns_state", _as_tuple(self.owns_state))
         object.__setattr__(self, "owns_side_effects", _as_tuple(self.owns_side_effects))
+        object.__setattr__(self, "owned_obligation_ids", _as_tuple(self.owned_obligation_ids))
         object.__setattr__(self, "owned_leaf_cell_ids", _as_tuple(self.owned_leaf_cell_ids))
+        object.__setattr__(self, "owned_transition_cell_ids", _as_tuple(self.owned_transition_cell_ids))
+        object.__setattr__(self, "owned_payload_case_ids", _as_tuple(self.owned_payload_case_ids))
+        object.__setattr__(self, "owned_generated_case_ids", _as_tuple(self.owned_generated_case_ids))
         object.__setattr__(self, "owned_coverage_shard_ids", _as_tuple(self.owned_coverage_shard_ids))
         object.__setattr__(self, "not_run_reason", str(self.not_run_reason))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
@@ -226,16 +245,131 @@ class TestSuiteEvidence:
         object.__setattr__(self, "covered_obligation_ids", _as_tuple(self.covered_obligation_ids))
         object.__setattr__(self, "artifact_version", str(self.artifact_version))
         object.__setattr__(self, "verifier_version", str(self.verifier_version))
+        object.__setattr__(
+            self,
+            "loaded_receipt",
+            self.loaded_receipt
+            if isinstance(self.loaded_receipt, EvidenceReceipt) or self.loaded_receipt is None
+            else EvidenceReceipt.from_dict(self.loaded_receipt),
+        )
+        if self.receipt_verification is not None and not isinstance(
+            self.receipt_verification,
+            ReceiptVerificationResult,
+        ):
+            raise TypeError("receipt_verification must be a ReceiptVerificationResult")
+        if self.receipt_verification_context is not None and not isinstance(
+            self.receipt_verification_context,
+            ReceiptVerificationContext,
+        ):
+            raise TypeError("receipt_verification_context must be a ReceiptVerificationContext")
+        object.__setattr__(self, "receipt_producer_id", str(self.receipt_producer_id))
 
     def is_release_only(self) -> bool:
         return self.release_required or self.layer == TEST_LAYER_RELEASE
 
     def has_current_pass(self) -> bool:
-        return (
+        current_pass = (
             self.result_status == TEST_STATUS_PASSED
             and self.evidence_current
             and not self.progress_only
         )
+        if not current_pass:
+            return False
+        if self.requires_receipt_verification():
+            return not self.receipt_gap_codes()
+        return True
+
+    def requires_receipt_verification(self) -> bool:
+        return bool(
+            self.result_reused
+            or self.reuse_ticket is not None
+            or self.loaded_receipt is not None
+            or self.receipt_verification_context is not None
+            or self.receipt_verification is not None
+        )
+
+    def owned_receipt_inventory(
+        self,
+        partition_item_ids: Sequence[str] = (),
+    ) -> Mapping[str, tuple[str, ...]]:
+        return {
+            "partition_item_ids": tuple(
+                dict.fromkeys((*self.owned_inventory_item_ids, *partition_item_ids))
+            ),
+            "leaf_cell_ids": self.owned_leaf_cell_ids,
+            "transition_cell_ids": self.owned_transition_cell_ids,
+            "payload_case_ids": self.owned_payload_case_ids,
+            "generated_case_ids": self.owned_generated_case_ids,
+            "coverage_shard_ids": self.owned_coverage_shard_ids,
+            "required_obligation_ids": self.owned_obligation_ids,
+        }
+
+    def owned_receipt_item_ids(
+        self,
+        partition_item_ids: Sequence[str] = (),
+    ) -> tuple[str, ...]:
+        return tuple(
+            dict.fromkeys(
+                value
+                for values in self.owned_receipt_inventory(partition_item_ids).values()
+                for value in values
+            )
+        )
+
+    def receipt_gap_codes(
+        self,
+        partition_item_ids: Sequence[str] = (),
+    ) -> tuple[tuple[str, str], ...]:
+        derived_verification = (
+            verify_evidence_receipt(
+                self.loaded_receipt,
+                self.receipt_verification_context,
+            )
+            if self.loaded_receipt is not None
+            else None
+        )
+        gaps = list(
+            verified_receipt_binding_gap_codes(
+                self.loaded_receipt,
+                derived_verification,
+                expected_subject_id=self.suite_id,
+                expected_producer_id=self.receipt_producer_id,
+                expected_obligation_ids=self.owned_obligation_ids,
+                expected_inventory=self.owned_receipt_inventory(partition_item_ids),
+            )
+        )
+        if self.receipt_verification_context is None:
+            gaps.append(
+                (
+                    "receipt_verification_context_missing",
+                    "reused TestMesh evidence requires independently observed verification inputs",
+                )
+            )
+        if self.receipt_verification is None:
+            gaps.append(
+                (
+                    "receipt_verification_projection_missing",
+                    "reused TestMesh evidence must preserve the derived verification identity",
+                )
+            )
+        elif (
+            derived_verification is None
+            or self.receipt_verification.to_dict() != derived_verification.to_dict()
+        ):
+            gaps.append(
+                (
+                    "receipt_verification_projection_mismatch",
+                    "preserved TestMesh verification projection differs from independent recomputation",
+                )
+            )
+        if not self.receipt_producer_id:
+            gaps.append(
+                (
+                    "verified_receipt_expected_producer_missing",
+                    "reused TestMesh evidence must freeze its producer owner id",
+                )
+            )
+        return tuple(dict.fromkeys(gaps))
 
     def final_receipt_gap_codes(self, required_obligation_ids: Sequence[str] = ()) -> tuple[str, ...]:
         gaps: list[str] = []
@@ -253,8 +387,7 @@ class TestSuiteEvidence:
             gaps.append("final_receipt_artifact_version_missing")
         if not self.verifier_version:
             gaps.append("final_receipt_verifier_version_missing")
-        missing_coverage = set(required_obligation_ids) - set(self.covered_obligation_ids)
-        if missing_coverage:
+        if set(required_obligation_ids) != set(self.covered_obligation_ids):
             gaps.append("final_receipt_coverage_incomplete")
         if self.progress_only or self.result_status == TEST_STATUS_RUNNING:
             gaps.append("final_receipt_progress_only")
@@ -263,11 +396,7 @@ class TestSuiteEvidence:
     def background_complete(self) -> bool:
         if not self.background:
             return True
-        return not self.final_receipt_gap_codes(
-            self.owned_inventory_item_ids
-            or self.owned_leaf_cell_ids
-            or self.owned_coverage_shard_ids
-        )
+        return not self.final_receipt_gap_codes(self.owned_receipt_item_ids())
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -303,7 +432,11 @@ class TestSuiteEvidence:
             "release_required": self.release_required,
             "owns_state": list(self.owns_state),
             "owns_side_effects": list(self.owns_side_effects),
+            "owned_obligation_ids": list(self.owned_obligation_ids),
             "owned_leaf_cell_ids": list(self.owned_leaf_cell_ids),
+            "owned_transition_cell_ids": list(self.owned_transition_cell_ids),
+            "owned_payload_case_ids": list(self.owned_payload_case_ids),
+            "owned_generated_case_ids": list(self.owned_generated_case_ids),
             "owned_coverage_shard_ids": list(self.owned_coverage_shard_ids),
             "not_run_reason": self.not_run_reason,
             "stale_reasons": list(self.stale_reasons),
@@ -315,6 +448,14 @@ class TestSuiteEvidence:
             "covered_obligation_ids": list(self.covered_obligation_ids),
             "artifact_version": self.artifact_version,
             "verifier_version": self.verifier_version,
+            "loaded_receipt": self.loaded_receipt.to_dict() if self.loaded_receipt else None,
+            "receipt_verification_context_present": self.receipt_verification_context is not None,
+            "receipt_verification": (
+                self.receipt_verification.to_dict()
+                if self.receipt_verification
+                else None
+            ),
+            "receipt_producer_id": self.receipt_producer_id,
         }
 
 
@@ -639,6 +780,20 @@ def _decision_for_findings(findings: Sequence[TestMeshFinding]) -> str:
         ("test_reuse_missing_proof_artifact", "test_reuse_proof_required"),
         ("test_reuse_stale_proof_artifact", "test_reuse_proof_required"),
         ("test_reuse_progress_only_proof_artifact", "test_reuse_proof_required"),
+        ("verified_receipt_missing", "test_reuse_receipt_required"),
+        ("receipt_verification_missing", "test_reuse_receipt_required"),
+        ("verified_receipt_subject_mismatch", "test_reuse_receipt_required"),
+        ("verified_receipt_producer_mismatch", "test_reuse_receipt_required"),
+        ("verified_receipt_claim_scope_mismatch", "test_reuse_receipt_required"),
+        ("verified_receipt_obligation_scope_mismatch", "test_reuse_receipt_required"),
+        ("verified_receipt_inventory_malformed", "test_reuse_receipt_required"),
+        ("verified_receipt_inventory_mismatch", "test_reuse_receipt_required"),
+        ("receipt_verification_identity_mismatch", "test_reuse_receipt_required"),
+        ("receipt_verification_fingerprint_mismatch", "test_reuse_receipt_required"),
+        ("receipt_verification_context_missing", "test_reuse_receipt_required"),
+        ("receipt_verification_projection_missing", "test_reuse_receipt_required"),
+        ("receipt_verification_projection_mismatch", "test_reuse_receipt_required"),
+        ("verified_receipt_not_current_pass", "test_reuse_receipt_required"),
         ("suite_missing_proof_artifact", "test_proof_artifact_required"),
         ("insufficient_evidence_tier", "insufficient_evidence"),
         ("release_suite_not_current", "missing_release_evidence"),
@@ -1226,15 +1381,13 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
                     metadata=suite.to_dict(),
                 )
             )
-        receipt_required_ids = (
-            suite.owned_inventory_item_ids
-            or suite.owned_leaf_cell_ids
-            or suite.owned_coverage_shard_ids
-            or tuple(
-                item.item_id
-                for item in plan.partition_items
-                if item.owner_suite_id == suite.suite_id
-            )
+        owned_partition_item_ids = tuple(
+            item.item_id
+            for item in plan.partition_items
+            if item.owner_suite_id == suite.suite_id
+        )
+        receipt_required_ids = suite.owned_receipt_item_ids(
+            owned_partition_item_ids
         )
         if plan.require_final_receipts or plan.required_inventory_item_ids or suite.background:
             for gap_code in suite.final_receipt_gap_codes(receipt_required_ids):
@@ -1286,8 +1439,20 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
                     metadata=suite.to_dict(),
                 )
             )
+        if suite.requires_receipt_verification():
+            for code, message in suite.receipt_gap_codes(
+                owned_partition_item_ids
+            ):
+                findings.append(
+                    TestMeshFinding(
+                        code,
+                        message,
+                        suite_id=suite.suite_id,
+                        metadata=suite.to_dict(),
+                    )
+                )
         if suite.result_reused or suite.reuse_ticket is not None:
-            owned_obligation_ids = suite.owned_leaf_cell_ids + suite.owned_coverage_shard_ids
+            owned_obligation_ids = receipt_required_ids
             for code, message in test_result_reuse_gap_codes(
                 suite.reuse_ticket,
                 expected_evidence_id=suite.suite_id,
@@ -1317,7 +1482,7 @@ def _suite_evidence_findings(plan: TestMeshPlan) -> tuple[list[TestMeshFinding],
                     )
                 )
         if plan.require_proof_artifacts:
-            owned_obligation_ids = suite.owned_leaf_cell_ids + suite.owned_coverage_shard_ids
+            owned_obligation_ids = receipt_required_ids
             for code, message in proof_artifact_gap_codes(
                 suite.proof_artifact,
                 declared_status=suite.result_status,

@@ -5,10 +5,10 @@ This capability defines how FlowGuard splits or restructures large modules behin
 StructureMesh deltas can be archived into a main spec.
 ## Requirements
 ### Requirement: model-first-function-flow routes structure decomposition
-The `model-first-function-flow` Skill SHALL include a
-`structure_mesh_maintenance` route for large-script, large-module,
-facade-first, entrypoint-sensitive, ownership-sensitive, side-effect-sensitive,
-or behavior-parity-sensitive refactors.
+The public `flowguard` Skill's internal `model-first-function-flow` route SHALL
+include a `structure_mesh_maintenance` handoff for large-script, large-module,
+facade-first, entrypoint-sensitive, ownership-sensitive,
+side-effect-sensitive, or behavior-parity-sensitive refactors.
 
 #### Scenario: Large script split
 - **WHEN** an agent plans to split a large script into smaller modules while
@@ -171,4 +171,3 @@ declared.
 #### Scenario: Parity is incomplete
 - **WHEN** a proposed split has no evidence for one public output or side effect
 - **THEN** the existing module remains authoritative and the split stays a registered candidate
-

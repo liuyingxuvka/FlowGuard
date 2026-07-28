@@ -1,34 +1,35 @@
-# flowguard-agent-workflow-rehearsal Specification
+# agent-workflow-rehearsal-internal-mode Specification
 
 ## Purpose
-This capability defines FlowGuard's Flowguard Agent Workflow Rehearsal behavior
-and the evidence required to use it safely when explicitly invoked or delegated
-by the development-process simulator in AI-agent maintenance workflows.
+This capability defines the internal AgentWorkflowRehearsal mode owned by
+`flowguard-development-process-flow` and the evidence it projects without
+becoming an independently installed public skill.
 ## Requirements
-### Requirement: AgentWorkflowRehearsal is a delegated development-process simulator mode
+### Requirement: AgentWorkflowRehearsal is an owner-internal development-process mode
 FlowGuard SHALL treat AgentWorkflowRehearsal as the `agent_workflow` mode owned
-by the development-process simulator front door, while preserving explicit
-direct invocation when the user or an existing artifact names this route.
+by `flowguard-development-process-flow`. It SHALL NOT be installed, routed,
+aliased, or invoked as a separate public skill.
 
 #### Scenario: Generic multi-skill work enters simulator first
 - **WHEN** an agent is asked to plan non-trivial work involving several skills,
   tools, plugins, external actions, skipped-skill consequences, or side effects
   without explicitly naming AgentWorkflowRehearsal
 - **THEN** Codex routes first to `flowguard-development-process-flow`
-- **AND** the simulator records `agent_workflow` before any delegated
-  `flowguard-agent-workflow-rehearsal` pass
+- **AND** the owner records and executes its internal `agent_workflow` mode
 
-#### Scenario: Explicit rehearsal remains valid
+#### Scenario: Explicit rehearsal selects the owner mode
 - **WHEN** the user or an existing FlowGuard artifact explicitly asks for
   AgentWorkflowRehearsal
-- **THEN** `flowguard-agent-workflow-rehearsal` remains directly invokable
+- **THEN** Codex enters `flowguard-development-process-flow` with
+  `agent_workflow` selected
+- **AND** no retired public helper route is created
 
 ### Requirement: Rehearsal begins with current skill inventory
 The system SHALL create a fresh `SkillInventorySnapshot` at the start of every
-`flowguard-agent-workflow-rehearsal` invocation.
+owner-internal `agent_workflow` rehearsal.
 
 #### Scenario: Fresh snapshot is required
-- **WHEN** an agent invokes `flowguard-agent-workflow-rehearsal`
+- **WHEN** DevelopmentProcessFlow invokes its internal rehearsal mode
 - **THEN** the rehearsal records a current skill inventory for the
   machine/session before reviewing the workflow plan
 - **AND** cached or historical snapshots are not accepted as current evidence
@@ -227,4 +228,3 @@ and main-agent integration.
 - **WHEN** subagents or peer agents produce UI evidence packets
 - **THEN** the main agent must consume their evidence ids, current status, and
   blindspots before making a final claim
-

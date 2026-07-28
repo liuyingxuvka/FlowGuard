@@ -79,6 +79,85 @@ class PlanDetailingTests(unittest.TestCase):
             process.required_process_optimization_evidence_ids,
         )
 
+    def test_declared_pass_and_result_path_do_not_synthesize_execution_proof(self):
+        declared = flowguard.PlanDetailEvidence(
+            "evidence:declared-pass",
+            status="passed",
+            command="python -m pytest tests/test_declared.py",
+            result_path="tmp/declared.json",
+            covered_versions={"artifact:code": "sha256:declared"},
+        )
+        projected = flowguard.plan_detail_to_development_process(
+            replace(
+                GOOD_PLAN,
+                evidence=(declared,),
+                final_evidence_ids=(declared.evidence_id,),
+            )
+        ).evidence[0]
+
+        self.assertEqual("not_run", projected.status)
+        self.assertEqual("", projected.result_path)
+        self.assertEqual({}, projected.covered_versions)
+        self.assertIsNone(projected.proof_artifact)
+        self.assertFalse(projected.has_exit_artifact)
+        self.assertFalse(projected.has_result_artifact)
+
+    def test_exact_existing_references_are_preserved_but_not_marked_current(self):
+        existing_proof = flowguard.ProofArtifactRef(
+            "proof:existing",
+            result_status="passed",
+            exit_code=0,
+            result_path="tmp/existing.json",
+            artifact_fingerprints={"tmp/existing.json": "sha256:proof"},
+            metadata={"producer_receipt_id": "receipt:existing"},
+        )
+        evidence = flowguard.PlanDetailEvidence(
+            "evidence:existing-reference",
+            status="passed",
+            result_path="tmp/planner-declaration.json",
+            receipt_id="receipt:existing",
+            receipt_fingerprint="sha256:receipt",
+            proof_artifact=existing_proof,
+        )
+        serialized = evidence.to_dict()
+        projected = flowguard.plan_detail_to_development_process(
+            replace(
+                GOOD_PLAN,
+                evidence=(evidence,),
+                final_evidence_ids=(evidence.evidence_id,),
+            )
+        ).evidence[0]
+
+        self.assertEqual("receipt:existing", serialized["receipt_id"])
+        self.assertEqual("sha256:receipt", serialized["receipt_fingerprint"])
+        self.assertEqual(existing_proof, projected.proof_artifact)
+        self.assertEqual("not_run", projected.status)
+        self.assertEqual("", projected.result_path)
+
+    def test_partial_receipt_reference_remains_blocked(self):
+        first = replace(
+            GOOD_PLAN.evidence[0],
+            receipt_id="receipt:unresolved",
+            receipt_fingerprint="",
+        )
+        report = flowguard.review_plan_detail(
+            replace(GOOD_PLAN, evidence=(first, *GOOD_PLAN.evidence[1:]))
+        )
+
+        self.assertEqual(flowguard.PLAN_DETAIL_STATUS_BLOCKED, report.status)
+        self.assertIn(
+            "plan_evidence_receipt_reference_incomplete",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_step_without_explicit_receipt_does_not_invent_step_id_receipt(self):
+        step = flowguard.PlanDetailStep(
+            "step:planned-only",
+            action="plan a future validation",
+        )
+
+        self.assertEqual((), step.completion_receipts())
+
 
     def ui_plan(self, *, evidence_kind="ui_runtime_click", evidence_status="passed", include_capability=True):
         step_evidence_ids = ("evidence:ui-click",)
@@ -225,7 +304,10 @@ class PlanDetailingTests(unittest.TestCase):
         self.assertGreaterEqual(len(contracts), len(GOOD_PLAN.steps))
         self.assertTrue(any("done_claimed" in contract.required_for_claims for contract in contracts))
         self.assertEqual(GOOD_PLAN.plan_id, process.process_id)
-        self.assertTrue(flowguard.review_development_process_flow(process).ok)
+        process_report = flowguard.review_development_process_flow(process)
+        self.assertFalse(process_report.ok)
+        self.assertTrue(all(item.status == "not_run" for item in process.evidence))
+        self.assertTrue(all(item.proof_artifact is None for item in process.evidence))
         self.assertEqual(GOOD_PLAN.plan_id, workflow_plan.plan_id)
         self.assertEqual(flowguard.FINAL_CLAIM_FULL, workflow_plan.final_claim)
 
@@ -255,7 +337,7 @@ class PlanDetailingTests(unittest.TestCase):
         self.assertEqual("development_process", process.behavior_plane)
         self.assertTrue(all(action.behavior_plane == "development_process" for action in process.actions))
         self.assertTrue(all("product_runtime" in action.target_behavior_planes for action in process.actions))
-        self.assertTrue(flowguard.review_development_process_flow(process).ok)
+        self.assertFalse(flowguard.review_development_process_flow(process).ok)
 
         inventory = flowguard.SkillInventorySnapshot("current", current=True, from_cache=False)
         workflow = flowguard.plan_detail_to_agent_workflow_plan(plan, inventory)

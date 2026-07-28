@@ -139,8 +139,9 @@ states.
 ### Requirement: UI flow structure is a standalone Codex satellite skill
 The repository SHALL provide a directly invokable
 `flowguard-ui-flow-structure` Codex skill while preserving
-`model-first-function-flow` as the kernel for applicability, hard gates, and
-ambiguous routing.
+the public `flowguard` Skill as the kernel for applicability, hard gates, and
+ambiguous routing. `model-first-function-flow` remains only an internal kernel
+route id.
 
 #### Scenario: Direct UI model request invokes satellite
 - **WHEN** a user asks Codex to model UI button flows, UI state transitions, or
@@ -150,8 +151,8 @@ ambiguous routing.
 #### Scenario: Ambiguous UI work returns to kernel
 - **WHEN** a UI request is visual-only, trivial, or unclear about behavior and
   state impact
-- **THEN** the satellite routes the task back to `model-first-function-flow` or
-  skips with a reason according to the kernel guidance
+- **THEN** the satellite routes the task back to the public `flowguard` Skill
+  or skips with a reason according to the kernel guidance
 
 ### Requirement: Visual design and frontend implementation remain separate
 The UI flow structure route SHALL NOT replace visual design, Figma execution,
@@ -634,4 +635,3 @@ content.
 #### Scenario: Existing UI exposes internal path metadata
 - **WHEN** an observed UI displays an internal commitment id, path id, evidence state, audit field, or routing diagnostic without a typed user-facing need
 - **THEN** UI Flow Structure SHALL classify the item as an internal-content leak rather than accepting it as product-language content
-

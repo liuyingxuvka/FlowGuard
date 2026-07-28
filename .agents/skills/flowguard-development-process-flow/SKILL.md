@@ -33,8 +33,8 @@ Order modes, freshness, triggered equivalents, delegation.
 
 ## Hard Gates
 - Adopt/upgrade, activation, rollback share one lock/CAS owner; stale head stops. Rollback revalidates effects.
-- Model-purpose gate: freeze this instance's task-specific failure(s)/boundary; bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Use the real FlowGuard check engine and AGENTS.md managed record; never a fake mini-framework.
+- Model-purpose gate: freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Native owners keep semantics; WorkContexts only inform scope/order; progress is not proof.
 - Repairs need relation, owner, affected revalidation. Unknown proof/owner or active lease blocks; never run-all.
 - Machine success is artifact-backed; non-pass children stay visible.
