@@ -31,8 +31,8 @@ Review a model-derived validation mesh; block stale, skipped, incomplete, or uno
 5. Review routine/release scope and return child evidence plus typed handoffs.
 
 ## Hard Gates
-- Model-purpose gate: freeze this instance's task-specific failure(s)/boundary and bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Use the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - PID/log/running/progress proves liveness only; reuse requires current `TestResultReuseTicket` and `ProofArtifactRef`.
 - One test receipt may fan out only within its declared boundary; never count copies as executions.
 - Require `planned = executed + not_run`, `failed <= executed`, no not-run under `declared_complete`, visible reasons elsewhere, and stable finding ids for failures.

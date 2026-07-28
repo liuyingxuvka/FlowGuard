@@ -1,5 +1,14 @@
 import unittest
+from dataclasses import replace
 
+from flowguard.evidence_receipts import (
+    EvidenceReceipt,
+    ReceiptVerificationContext,
+    build_environment_fingerprint,
+    fingerprint_value,
+    snapshot_bytes,
+    verify_evidence_receipt,
+)
 from flowguard import (
     EVIDENCE_ABSTRACT_GREEN,
     EVIDENCE_CONFORMANCE_GREEN,
@@ -24,6 +33,101 @@ def suite(suite_id, **kwargs):
     }
     defaults.update(kwargs)
     return TestSuiteEvidence(suite_id, **defaults)
+
+
+def verified_suite_binding(
+    suite_id,
+    *,
+    obligation_ids,
+    partition_item_ids=(),
+    leaf_cell_ids=(),
+    transition_cell_ids=(),
+    payload_case_ids=(),
+    generated_case_ids=(),
+    coverage_shard_ids=(),
+    producer_id="flowguard.test-mesh",
+):
+    environment = build_environment_fingerprint(
+        {
+            "python_implementation": "CPython",
+            "python_version": "3.12.10",
+            "platform_system": "Windows",
+            "platform_machine": "AMD64-test",
+            "flowguard_version": "0.64.1",
+        }
+    )
+    digest = lambda label: fingerprint_value({"label": label, "suite": suite_id})
+    inventory = {
+        "partition_item_ids": tuple(partition_item_ids),
+        "leaf_cell_ids": tuple(leaf_cell_ids),
+        "transition_cell_ids": tuple(transition_cell_ids),
+        "payload_case_ids": tuple(payload_case_ids),
+        "generated_case_ids": tuple(generated_case_ids),
+        "coverage_shard_ids": tuple(coverage_shard_ids),
+        "required_obligation_ids": tuple(obligation_ids),
+    }
+    value = EvidenceReceipt(
+        receipt_id=f"receipt:{suite_id}",
+        subject_id=suite_id,
+        subject_kind="test_mesh_child",
+        producer_id=producer_id,
+        producer_version="0.64.1",
+        claim_scope="full",
+        command=("python", "-m", "pytest", suite_id),
+        working_directory_token="<WORKSPACE>",
+        started_at="2026-07-28T08:00:00+00:00",
+        finished_at="2026-07-28T08:00:01+00:00",
+        exit_code=0,
+        environment_fingerprint=environment.fingerprint,
+        environment_metadata=environment.metadata,
+        contract_hash=digest("contract"),
+        check_manifest_hash=digest("manifest"),
+        suite_map_hash=digest("suite"),
+        input_snapshots=(
+            snapshot_bytes(
+                "suite-input",
+                suite_id.encode(),
+                path_token=f"<WORKSPACE>/tests/{suite_id}.py",
+                obligation_ids=obligation_ids,
+            ),
+        ),
+        proof_artifact_id=f"proof:{suite_id}",
+        proof_artifact_fingerprint=digest("proof"),
+        result_status="pass",
+        result_fingerprint=digest("result"),
+        covered_obligations=tuple(obligation_ids),
+        claim_boundary="Exact TestMesh child fixture only.",
+        metadata={
+            "coverage_inventory": {
+                key: list(values) for key, values in inventory.items()
+            }
+        },
+    )
+    context = ReceiptVerificationContext(
+        input_snapshots={item.artifact_id: item for item in value.input_snapshots},
+        contract_hash=value.contract_hash,
+        check_manifest_hash=value.check_manifest_hash,
+        suite_map_hash=value.suite_map_hash,
+        producer_id=value.producer_id,
+        producer_version=value.producer_version,
+        environment_fingerprint=value.environment_fingerprint,
+        proof_artifact_fingerprint=value.proof_artifact_fingerprint,
+        result_fingerprint=value.result_fingerprint,
+        command=value.command,
+        working_directory_token=value.working_directory_token,
+        proof_artifact_id=value.proof_artifact_id,
+        required_obligation_ids=value.covered_obligations,
+        eligible_claim_scopes=("full",),
+    )
+    verification = verify_evidence_receipt(value, context)
+    if not verification.ok:
+        raise AssertionError(verification.to_dict())
+    return {
+        "loaded_receipt": value,
+        "receipt_verification_context": context,
+        "receipt_verification": verification,
+        "receipt_producer_id": producer_id,
+    }
 
 
 def final_suite(suite_id, *inventory_item_ids, revision="inventory:v1", **kwargs):
@@ -562,8 +666,22 @@ class TestMeshTests(unittest.TestCase):
                 suite(
                     "startup",
                     result_reused=True,
-                    reuse_ticket=reuse_ticket("startup"),
-                    proof_artifact=proof_artifact("artifact:startup"),
+                    reuse_ticket=reuse_ticket(
+                        "startup",
+                        "startup",
+                        "obligation:startup",
+                    ),
+                    proof_artifact=proof_artifact(
+                        "artifact:startup",
+                        "startup",
+                        "obligation:startup",
+                    ),
+                    owned_obligation_ids=("obligation:startup",),
+                    **verified_suite_binding(
+                        "startup",
+                        obligation_ids=("obligation:startup",),
+                        partition_item_ids=("startup",),
+                    ),
                 ),
             ),
             target_split_derivation=target("router-runtime-validation", ("startup",), ("startup",)),
@@ -572,6 +690,164 @@ class TestMeshTests(unittest.TestCase):
         report = review_test_mesh(plan)
 
         self.assertTrue(report.ok, report.format_text())
+
+    def test_self_consistent_ticket_and_proof_cannot_replace_loaded_receipt(self):
+        report = review_test_mesh(
+            TestMeshPlan(
+                parent_suite_id="router-runtime",
+                partition_items=(
+                    TestPartitionItem("startup", owner_suite_id="startup"),
+                ),
+                child_suites=(
+                    suite(
+                        "startup",
+                        result_reused=True,
+                        reuse_ticket=reuse_ticket("startup", "startup"),
+                        proof_artifact=proof_artifact(
+                            "artifact:startup",
+                            "startup",
+                        ),
+                    ),
+                ),
+                target_split_derivation=target(
+                    "router-runtime-validation",
+                    ("startup",),
+                    ("startup",),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("test_reuse_receipt_required", report.decision)
+        self.assertIn(
+            "verified_receipt_missing",
+            [finding.code for finding in report.findings],
+        )
+
+    def test_reused_child_receipt_requires_exact_typed_owner_inventory(self):
+        all_owned = (
+            "partition:startup",
+            "leaf:startup",
+            "transition:startup",
+            "payload:startup",
+            "generated:startup",
+            "shard:startup",
+            "obligation:startup",
+        )
+        common = {
+            "result_reused": True,
+            "reuse_ticket": reuse_ticket("startup", *all_owned),
+            "proof_artifact": proof_artifact("artifact:startup", *all_owned),
+            "owned_inventory_item_ids": ("partition:startup",),
+            "owned_leaf_cell_ids": ("leaf:startup",),
+            "owned_transition_cell_ids": ("transition:startup",),
+            "owned_payload_case_ids": ("payload:startup",),
+            "owned_generated_case_ids": ("generated:startup",),
+            "owned_coverage_shard_ids": ("shard:startup",),
+            "owned_obligation_ids": ("obligation:startup",),
+        }
+        exact_binding = verified_suite_binding(
+            "startup",
+            obligation_ids=("obligation:startup",),
+            partition_item_ids=("partition:startup",),
+            leaf_cell_ids=("leaf:startup",),
+            transition_cell_ids=("transition:startup",),
+            payload_case_ids=("payload:startup",),
+            generated_case_ids=("generated:startup",),
+            coverage_shard_ids=("shard:startup",),
+        )
+        exact_plan = TestMeshPlan(
+            parent_suite_id="router-runtime",
+            partition_items=(
+                TestPartitionItem(
+                    "partition:startup",
+                    owner_suite_id="startup",
+                ),
+            ),
+            child_suites=(suite("startup", **common, **exact_binding),),
+            required_leaf_cell_ids=("leaf:startup",),
+            required_coverage_shard_ids=("shard:startup",),
+            target_split_derivation=target(
+                "router-runtime-validation",
+                ("startup",),
+                ("partition:startup",),
+            ),
+        )
+        self.assertTrue(
+            review_test_mesh(exact_plan).ok,
+            review_test_mesh(exact_plan).format_text(),
+        )
+
+        incomplete_binding = verified_suite_binding(
+            "startup",
+            obligation_ids=("obligation:startup",),
+            partition_item_ids=("partition:startup",),
+        )
+        incomplete = review_test_mesh(
+            TestMeshPlan(
+                parent_suite_id="router-runtime",
+                partition_items=exact_plan.partition_items,
+                child_suites=(suite("startup", **common, **incomplete_binding),),
+                required_leaf_cell_ids=exact_plan.required_leaf_cell_ids,
+                required_coverage_shard_ids=exact_plan.required_coverage_shard_ids,
+                target_split_derivation=exact_plan.target_split_derivation,
+            )
+        )
+        self.assertFalse(incomplete.ok)
+        self.assertIn(
+            "verified_receipt_inventory_mismatch",
+            [finding.code for finding in incomplete.findings],
+        )
+
+    def test_reused_child_rejects_tampered_verification_projection(self):
+        binding = verified_suite_binding(
+            "startup",
+            obligation_ids=("obligation:startup",),
+            partition_item_ids=("startup",),
+        )
+        binding["receipt_verification"] = replace(
+            binding["receipt_verification"],
+            receipt_id="receipt:another-suite",
+        )
+        report = review_test_mesh(
+            TestMeshPlan(
+                parent_suite_id="router-runtime",
+                partition_items=(
+                    TestPartitionItem("startup", owner_suite_id="startup"),
+                ),
+                child_suites=(
+                    suite(
+                        "startup",
+                        result_reused=True,
+                        reuse_ticket=reuse_ticket(
+                            "startup",
+                            "startup",
+                            "obligation:startup",
+                        ),
+                        proof_artifact=proof_artifact(
+                            "artifact:startup",
+                            "startup",
+                            "obligation:startup",
+                        ),
+                        owned_inventory_item_ids=("startup",),
+                        owned_obligation_ids=("obligation:startup",),
+                        **binding,
+                    ),
+                ),
+                target_split_derivation=target(
+                    "router-runtime-validation",
+                    ("startup",),
+                    ("startup",),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("test_reuse_receipt_required", report.decision)
+        self.assertIn(
+            "receipt_verification_projection_mismatch",
+            [finding.code for finding in report.findings],
+        )
 
     def test_reused_background_progress_artifact_is_not_completion(self):
         plan = TestMeshPlan(

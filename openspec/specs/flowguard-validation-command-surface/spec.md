@@ -25,7 +25,12 @@ Exit codes and status values SHALL distinguish pass, fail, blocked, invalid inpu
 - **THEN** it returns non-success full status and a nonzero closure exit code
 
 ### Requirement: Unified Suite Validation Entrypoint
-The repository SHALL expose a documented command that composes project audit, suite inventory, seventeen SkillGuard checks, evidence-bound self-governance, model regression, tests, OpenSpec verification, and distribution parity while preserving each child result and receipt.
+The repository SHALL expose a documented command that composes project audit,
+package-authority-derived suite inventory, every target-declared native
+skill-owner check, evidence-bound self-governance, model regression, tests,
+OpenSpec verification, and distribution parity while preserving each child
+result and receipt. A fixed historical member/check count MUST NOT define the
+owner inventory.
 
 #### Scenario: One child validation fails
 - **WHEN** distribution parity fails but all other children pass
@@ -88,12 +93,12 @@ measurements SHALL NOT alter freshness.
 
 ### Requirement: Unique Final Full Release Gate
 Release validation SHALL freeze `ValidationInputManifest`,
-`ReleaseTreeManifest`, and the exact owner plan only after version `0.64.0`,
-documentation, OpenSpec state, current model authority, and consumer
-installation/parity are final. Exactly one final full parent gate SHALL consume
-that frozen identity pair; it MAY execute stale or missing owners and reuse
-independently verified exact-current receipts. Commit, tag, push, and
-publication SHALL occur only after that parent passes.
+`ReleaseTreeManifest`, and the exact owner plan only after the selected current
+version identity, documentation, OpenSpec state, current model authority, and
+consumer installation/parity are final. Exactly one final full parent gate
+SHALL consume that frozen identity pair; it MAY execute stale or missing
+owners and reuse independently verified exact-current receipts. Commit, tag,
+push, and publication SHALL occur only after that parent passes.
 
 #### Scenario: Version or documentation changes after the gate
 - **WHEN** any post-freeze change alters either manifest before commit or tag

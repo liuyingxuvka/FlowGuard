@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 import re
 from typing import Any, Mapping, Sequence
@@ -36,6 +37,37 @@ from .behavior_commitment import (
 
 class ModelSystemInventoryError(ValueError):
     """Raised when existing owner artifacts cannot form a bounded snapshot."""
+
+
+@dataclass(frozen=True)
+class ManifestModelInventory:
+    """Exact declared/materialized membership at one live manifest boundary."""
+
+    declared_ids: tuple[str, ...]
+    materialized_ids: tuple[str, ...]
+    required_ids: tuple[str, ...]
+    covered_ids: tuple[str, ...]
+    missing_ids: tuple[str, ...]
+
+    @property
+    def complete(self) -> bool:
+        return (
+            self.declared_ids
+            == self.materialized_ids
+            == self.required_ids
+            == self.covered_ids
+            and not self.missing_ids
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "declared_ids": list(self.declared_ids),
+            "materialized_ids": list(self.materialized_ids),
+            "required_ids": list(self.required_ids),
+            "covered_ids": list(self.covered_ids),
+            "missing_ids": list(self.missing_ids),
+            "complete": self.complete,
+        }
 
 
 def _stable_id(prefix: str, value: Any) -> str:
@@ -73,6 +105,52 @@ def _available_entries(
             and len(entry.runner) >= 2
             and (root / entry.runner[1]).is_file()
         )
+    )
+
+
+def inspect_manifest_model_inventory(
+    root: str | Path,
+    manifest: ModelRegressionManifest | None = None,
+) -> ManifestModelInventory:
+    """Return exact live membership without treating distribution as coverage."""
+
+    root_path = Path(root).resolve()
+    current_manifest = manifest or ModelRegressionManifest.load(root_path)
+    declared_ids = tuple(
+        sorted(
+            entry.model_id
+            for entry in current_manifest.entries
+            if not entry.excluded
+        )
+    )
+    materialized_ids = tuple(
+        sorted(
+            entry.model_id
+            for entry in _available_entries(root_path, current_manifest)
+        )
+    )
+    missing_ids = tuple(sorted(set(declared_ids) - set(materialized_ids)))
+    return ManifestModelInventory(
+        declared_ids=declared_ids,
+        materialized_ids=materialized_ids,
+        required_ids=declared_ids,
+        covered_ids=materialized_ids,
+        missing_ids=missing_ids,
+    )
+
+
+def _materialization_gap_error(
+    error: str,
+    *,
+    missing_ids: set[str],
+) -> bool:
+    return any(
+        error
+        == f"manifest required-public model missing from filesystem: {model_id}"
+        or error == f"{model_id}: model_path does not exist"
+        or error.startswith(f"{model_id}: runner does not exist:")
+        or error.startswith(f"{model_id}: input_glob resolves no files:")
+        for model_id in missing_ids
     )
 
 
@@ -147,13 +225,25 @@ def build_manifest_model_system_snapshot(
 
     root_path = Path(root).resolve()
     manifest = ModelRegressionManifest.load(root_path)
+    model_inventory = inspect_manifest_model_inventory(root_path, manifest)
     manifest_audit = audit_manifest(root_path, manifest)
-    if not manifest_audit.ok:
+    non_materialization_errors = tuple(
+        error
+        for error in manifest_audit.errors
+        if not _materialization_gap_error(
+            error,
+            missing_ids=set(model_inventory.missing_ids),
+        )
+    )
+    if non_materialization_errors:
         raise ModelSystemInventoryError(
             "model regression manifest is not authoritative: "
-            + "; ".join(manifest_audit.errors)
+            + "; ".join(non_materialization_errors)
         )
-    entries = _available_entries(root_path, manifest)
+    materialized = set(model_inventory.materialized_ids)
+    entries = tuple(
+        entry for entry in manifest.entries if entry.model_id in materialized
+    )
     if not entries:
         raise ModelSystemInventoryError("no available manifest model instances")
     inventories = {
@@ -520,17 +610,6 @@ def build_manifest_model_system_snapshot(
         for item in commitments
         if str(item.get("commitment_id", "")).strip()
     )
-    available_ids = tuple(sorted(model_ids))
-    absent_optional = tuple(
-        sorted(
-            entry.model_id
-            for entry in manifest.entries
-            if (
-                entry.distribution_policy == "optional_local"
-                and entry.model_id not in model_ids
-            )
-        )
-    )
     dimensions = (
         CoverageDimension(
             "external_surfaces",
@@ -573,9 +652,9 @@ def build_manifest_model_system_snapshot(
         ),
         CoverageDimension(
             "model_instances",
-            required_ids=available_ids,
-            covered_ids=available_ids,
-            excluded_ids=absent_optional,
+            required_ids=model_inventory.required_ids,
+            covered_ids=model_inventory.covered_ids,
+            unresolved_ids=model_inventory.missing_ids,
         ),
         CoverageDimension(
             "fields_state_side_effects",
@@ -622,7 +701,7 @@ def build_manifest_model_system_snapshot(
             )
             for entry in entries
         },
-        "absent_optional_model_ids": list(absent_optional),
+        "model_inventory": model_inventory.to_dict(),
     }
     coverage = CoverageUniverse(
         boundary_id=f"{system_id}:manifest-ledger-owner-boundary",
@@ -678,6 +757,8 @@ def build_manifest_model_system_snapshot(
 
 
 __all__ = [
+    "ManifestModelInventory",
     "ModelSystemInventoryError",
     "build_manifest_model_system_snapshot",
+    "inspect_manifest_model_inventory",
 ]

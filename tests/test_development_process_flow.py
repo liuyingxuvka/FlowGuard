@@ -1,5 +1,7 @@
 import unittest
 from dataclasses import replace
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from flowguard import (
     PROCESS_ARTIFACT_CODE,
@@ -69,6 +71,55 @@ def proof_artifact(artifact_id="artifact:unit", *covered):
 
 
 class DevelopmentProcessFlowTests(unittest.TestCase):
+    def test_release_claim_requires_exactly_one_verified_full_parent(self):
+        base = DevelopmentProcessPlan(
+            "release-claim",
+            actions=(
+                ProcessAction(
+                    "claim-release",
+                    action_type="claim_release",
+                    decision_scope=PROCESS_SCOPE_RELEASE,
+                ),
+            ),
+            decision_scope=PROCESS_SCOPE_RELEASE,
+        )
+        missing = review_development_process_flow(base)
+        self.assertIn(
+            "full_validation_parent_not_unique",
+            {item.code for item in missing.findings},
+        )
+        multiple = review_development_process_flow(
+            replace(
+                base,
+                full_validation_parent_receipt_ids=("parent:one", "parent:two"),
+            )
+        )
+        self.assertIn(
+            "full_validation_parent_not_unique",
+            {item.code for item in multiple.findings},
+        )
+
+        current = replace(
+            base,
+            full_validation_parent_receipt_ids=("parent:one",),
+            validation_repository_root="C:/repo",
+            validation_receipt_root="C:/receipts",
+        )
+        with patch(
+            "flowguard.development_process_flow.verify_parent_receipt",
+            return_value=SimpleNamespace(ok=True),
+        ) as verifier:
+            report = review_development_process_flow(current)
+        verifier.assert_called_once_with(
+            "parent:one",
+            "C:/repo",
+            "C:/receipts",
+        )
+        self.assertNotIn(
+            "full_validation_parent_not_current",
+            {item.code for item in report.findings},
+        )
+
     def test_active_process_optimization_requires_current_typed_evidence(self):
         current = ProcessEvidence(
             "optimization:decision:v1",

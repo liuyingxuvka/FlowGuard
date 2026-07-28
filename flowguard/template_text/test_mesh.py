@@ -16,12 +16,10 @@ from __future__ import annotations
 from flowguard import (
     EVIDENCE_ABSTRACT_GREEN,
     EVIDENCE_CONFORMANCE_GREEN,
-    ProofArtifactRef,
     TEST_LAYER_CONTRACT_COMBINATION_SHARD,
     TEST_LAYER_LEAF_MATRIX_CELL,
     TestMeshPlan,
     TestPartitionItem,
-    TestResultReuseTicket,
     TestSuiteEvidence,
     TestTargetSplitDerivation,
     TransitionCoverageCell,
@@ -30,54 +28,6 @@ from flowguard import (
     review_test_mesh,
     transition_coverage_to_required_leaf_cell_ids,
 )
-
-
-def proof_artifact(suite_id: str) -> ProofArtifactRef:
-    result_path = f"tmp/{suite_id}.json"
-    return ProofArtifactRef(
-        f"artifact:{suite_id}",
-        result_status="passed",
-        exit_code=0,
-        result_path=result_path,
-        artifact_fingerprints={result_path: "sha256:template"},
-    )
-
-
-def reuse_ticket(suite_id: str) -> TestResultReuseTicket:
-    return TestResultReuseTicket(
-        suite_id,
-        previous_evidence_id=f"{suite_id}@previous",
-        reason="same command, source, tested artifact, dependency, environment, and result fingerprints",
-        command_fingerprint="sha256:command",
-        test_source_fingerprint="sha256:test-source",
-        tested_artifact_fingerprint="sha256:tested-artifact",
-        dependency_fingerprints={"flowguard": "template"},
-        environment_fingerprint="python:template",
-        result_fingerprint="sha256:result",
-        producer_receipt_id=f"receipt:{suite_id}",
-        producer_terminal=True,
-        producer_status="pass",
-        producer_execution_owner_id="owner:test-mesh",
-        current_execution_owner_id="owner:test-mesh",
-        producer_fingerprints={
-            "command": "sha256:command",
-            "test_source": "sha256:test-source",
-            "tested_artifact": "sha256:tested-artifact",
-            "dependencies": "sha256:dependencies",
-            "environment": "python:template",
-            "result": "sha256:result",
-            "coverage_scope": "sha256:coverage",
-        },
-        current_fingerprints={
-            "command": "sha256:command",
-            "test_source": "sha256:test-source",
-            "tested_artifact": "sha256:tested-artifact",
-            "dependencies": "sha256:dependencies",
-            "environment": "python:template",
-            "result": "sha256:result",
-            "coverage_scope": "sha256:coverage",
-        },
-    )
 
 
 def transition_matrix() -> TransitionCoverageMatrix:
@@ -134,9 +84,6 @@ def routine_plan() -> TestMeshPlan:
                 evidence_current=True,
                 test_count=8,
                 selected_count=8,
-                result_reused=True,
-                reuse_ticket=reuse_ticket("runtime"),
-                proof_artifact=proof_artifact("runtime"),
             ),
             TestSuiteEvidence(
                 "transition-cells",

@@ -34,8 +34,8 @@ Accept bounded children; verify partitions/receipts; block overlap, staleness, m
 - A model fingerprint is local: model, runner, purpose, and local/shared inputs only. Snapshot owns global source revision; Git provenance is release traceability and never invalidates unchanged siblings.
 - Compile local/shared/snapshot-only ownership before execution. A governed path without one exact owner blocks at zero runners; never rerun-all.
 - A multi-model replacement activates as one accepted revision set. Partial child activation, stale base heads, omitted affected siblings, or incomplete relation/coverage diffs block.
-- Model-purpose gate: freeze this instance's task-specific failure(s)/boundary and bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Parent confidence requires complete partition ownership, legal overlap, current child evidence/receipts, and current parent consumption.
 - Portable refinement needs complete reachable mappings (or legal stutter), no stronger assumptions, and no weaker guarantees.
 - Progress is liveness only; missing closure feedback/bounds or template-harvest closure blocks broad confidence.
@@ -44,4 +44,4 @@ Accept bounded children; verify partitions/receipts; block overlap, staleness, m
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, mesh diagram, siblings, and receipts; edges mean delegates, reattaches, consumes output, or blocks.
 
 
-<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->
+<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

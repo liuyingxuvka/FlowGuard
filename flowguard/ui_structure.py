@@ -17,6 +17,21 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .ui_implementation_evidence import (
+    UIImplementationClaimScopeDecision,
+    UIImplementationClaimScopeFinding,
+    UI_IMPLEMENTATION_CLAIM_COMPLETE,
+    UI_IMPLEMENTATION_CLAIM_SCOPED,
+    UI_IMPLEMENTATION_CLAIM_SCOPES,
+    UI_IMPLEMENTATION_EVIDENCE_BLINDSPOTS,
+    UI_IMPLEMENTATION_EVIDENCE_CAPABILITY_COVERAGE,
+    UI_IMPLEMENTATION_EVIDENCE_CLASSES,
+    UI_IMPLEMENTATION_EVIDENCE_CONTENT_VISIBILITY_PLAN,
+    UI_IMPLEMENTATION_EVIDENCE_OBSERVED_INVENTORY,
+    UI_IMPLEMENTATION_EVIDENCE_RUN_EVIDENCE,
+    UI_IMPLEMENTATION_EVIDENCE_VISIBLE_SURFACE,
+    review_ui_implementation_claim_scope,
+)
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -363,6 +378,8 @@ class UIContentVisibilityPlan:
     items: tuple[UIContentVisibilityItem, ...] = ()
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
+    source_observed_inventory_id: str = ""
+    empty_candidate_inventory_reviewed: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
@@ -372,6 +389,16 @@ class UIContentVisibilityPlan:
         object.__setattr__(self, "items", tuple(self.items))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
+        object.__setattr__(
+            self,
+            "source_observed_inventory_id",
+            str(self.source_observed_inventory_id),
+        )
+        object.__setattr__(
+            self,
+            "empty_candidate_inventory_reviewed",
+            bool(self.empty_candidate_inventory_reviewed),
+        )
 
     def item_ids(self) -> tuple[str, ...]:
         return tuple(item.content_id for item in self.items)
@@ -388,6 +415,8 @@ class UIContentVisibilityPlan:
             "items": [item.to_dict() for item in self.items],
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
+            "source_observed_inventory_id": self.source_observed_inventory_id,
+            "empty_candidate_inventory_reviewed": self.empty_candidate_inventory_reviewed,
         }
 
 
@@ -1173,6 +1202,8 @@ class UIImplementationValidation:
     source_feature_model_id: str
     source_interaction_model_id: str
     source_journey_coverage_id: str
+    claim_scope: str = ""
+    omitted_evidence_classes: tuple[str, ...] = ()
     implementation_target: str = ""
     current_model_revision: str = ""
     source_capability_inventory_id: str = ""
@@ -1182,7 +1213,7 @@ class UIImplementationValidation:
     output_contracts: tuple[UICapabilityOutputContract, ...] = ()
     pure_ui_control_ids: tuple[str, ...] = ()
     pure_ui_event_ids: tuple[str, ...] = ()
-    implementation_blindspots: tuple[UIBlindspot, ...] = ()
+    implementation_blindspots: tuple[UIBlindspot, ...] | None = None
     capability_coverage_reviewed: bool = False
     journey_coverage_reviewed: bool = False
     content_visibility_plan_id: str = ""
@@ -1196,6 +1227,8 @@ class UIImplementationValidation:
         object.__setattr__(self, "source_feature_model_id", str(self.source_feature_model_id))
         object.__setattr__(self, "source_interaction_model_id", str(self.source_interaction_model_id))
         object.__setattr__(self, "source_journey_coverage_id", str(self.source_journey_coverage_id))
+        object.__setattr__(self, "claim_scope", str(self.claim_scope))
+        object.__setattr__(self, "omitted_evidence_classes", _as_tuple(self.omitted_evidence_classes))
         object.__setattr__(self, "implementation_target", str(self.implementation_target))
         object.__setattr__(self, "current_model_revision", str(self.current_model_revision))
         object.__setattr__(self, "source_capability_inventory_id", str(self.source_capability_inventory_id))
@@ -1205,7 +1238,8 @@ class UIImplementationValidation:
         object.__setattr__(self, "output_contracts", tuple(self.output_contracts))
         object.__setattr__(self, "pure_ui_control_ids", _as_tuple(self.pure_ui_control_ids))
         object.__setattr__(self, "pure_ui_event_ids", _as_tuple(self.pure_ui_event_ids))
-        object.__setattr__(self, "implementation_blindspots", tuple(self.implementation_blindspots))
+        if self.implementation_blindspots is not None:
+            object.__setattr__(self, "implementation_blindspots", tuple(self.implementation_blindspots))
         object.__setattr__(self, "capability_coverage_reviewed", bool(self.capability_coverage_reviewed))
         object.__setattr__(self, "journey_coverage_reviewed", bool(self.journey_coverage_reviewed))
         object.__setattr__(self, "content_visibility_plan_id", str(self.content_visibility_plan_id))
@@ -1227,7 +1261,10 @@ class UIImplementationValidation:
         return tuple(contract.output_contract_id for contract in self.output_contracts)
 
     def blindspot_ids(self) -> tuple[str, ...]:
-        return tuple(blindspot.blindspot_id for blindspot in self.implementation_blindspots)
+        return tuple(
+            blindspot.blindspot_id
+            for blindspot in (self.implementation_blindspots or ())
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1235,6 +1272,8 @@ class UIImplementationValidation:
             "source_feature_model_id": self.source_feature_model_id,
             "source_interaction_model_id": self.source_interaction_model_id,
             "source_journey_coverage_id": self.source_journey_coverage_id,
+            "claim_scope": self.claim_scope,
+            "omitted_evidence_classes": list(self.omitted_evidence_classes),
             "implementation_target": self.implementation_target,
             "current_model_revision": self.current_model_revision,
             "source_capability_inventory_id": self.source_capability_inventory_id,
@@ -1244,9 +1283,14 @@ class UIImplementationValidation:
             "output_contracts": [contract.to_dict() for contract in self.output_contracts],
             "pure_ui_control_ids": list(self.pure_ui_control_ids),
             "pure_ui_event_ids": list(self.pure_ui_event_ids),
-            "implementation_blindspots": [
-                blindspot.to_dict() for blindspot in self.implementation_blindspots
-            ],
+            "implementation_blindspots": (
+                None
+                if self.implementation_blindspots is None
+                else [
+                    blindspot.to_dict()
+                    for blindspot in self.implementation_blindspots
+                ]
+            ),
             "capability_coverage_reviewed": self.capability_coverage_reviewed,
             "journey_coverage_reviewed": self.journey_coverage_reviewed,
             "content_visibility_plan_id": self.content_visibility_plan_id,
@@ -3898,6 +3942,9 @@ class UIImplementationValidationReport:
 
     ok: bool
     validation_id: str
+    claim_scope: str = ""
+    omitted_evidence_classes: tuple[str, ...] = ()
+    broad_confidence_supported: bool = False
     findings: tuple[UIFlowStructureFinding, ...] = ()
     covered_feature_ids: tuple[str, ...] = ()
     covered_event_ids: tuple[str, ...] = ()
@@ -3905,6 +3952,9 @@ class UIImplementationValidationReport:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "validation_id", str(self.validation_id))
+        object.__setattr__(self, "claim_scope", str(self.claim_scope))
+        object.__setattr__(self, "omitted_evidence_classes", _as_tuple(self.omitted_evidence_classes))
+        object.__setattr__(self, "broad_confidence_supported", bool(self.broad_confidence_supported))
         object.__setattr__(self, "findings", tuple(self.findings))
         object.__setattr__(self, "covered_feature_ids", _as_tuple(self.covered_feature_ids))
         object.__setattr__(self, "covered_event_ids", _as_tuple(self.covered_event_ids))
@@ -3913,7 +3963,10 @@ class UIImplementationValidationReport:
             object.__setattr__(
                 self,
                 "summary",
-                f"{status}: ui_implementation_validation={self.validation_id} findings={len(self.findings)}",
+                f"{status}: ui_implementation_validation={self.validation_id} "
+                f"scope={self.claim_scope or '(missing)'} "
+                f"broad_confidence={self.broad_confidence_supported} "
+                f"findings={len(self.findings)}",
             )
 
     def blocker_count(self) -> int:
@@ -3924,6 +3977,9 @@ class UIImplementationValidationReport:
             "=== flowguard UI implementation validation review ===",
             f"status: {'OK' if self.ok else 'BLOCKED'}",
             f"validation: {self.validation_id}",
+            f"claim_scope: {self.claim_scope or '(missing)'}",
+            f"omitted_evidence_classes: {', '.join(self.omitted_evidence_classes) or '(none)'}",
+            f"broad_confidence_supported: {self.broad_confidence_supported}",
             f"covered_features: {len(self.covered_feature_ids)}",
             f"covered_events: {len(self.covered_event_ids)}",
             f"findings: {len(self.findings)}",
@@ -3944,6 +4000,9 @@ class UIImplementationValidationReport:
         return {
             "ok": self.ok,
             "validation_id": self.validation_id,
+            "claim_scope": self.claim_scope,
+            "omitted_evidence_classes": list(self.omitted_evidence_classes),
+            "broad_confidence_supported": self.broad_confidence_supported,
             "covered_feature_ids": list(self.covered_feature_ids),
             "covered_event_ids": list(self.covered_event_ids),
             "findings": [finding.to_dict() for finding in self.findings],
@@ -3962,6 +4021,7 @@ class UIFunctionalCapabilityCoverageReport:
     scoped_capability_ids: tuple[str, ...] = ()
     output_contract_ids: tuple[str, ...] = ()
     summary: str = ""
+    current_revision: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "inventory_id", str(self.inventory_id))
@@ -3969,6 +4029,7 @@ class UIFunctionalCapabilityCoverageReport:
         object.__setattr__(self, "covered_capability_ids", _as_tuple(self.covered_capability_ids))
         object.__setattr__(self, "scoped_capability_ids", _as_tuple(self.scoped_capability_ids))
         object.__setattr__(self, "output_contract_ids", _as_tuple(self.output_contract_ids))
+        object.__setattr__(self, "current_revision", str(self.current_revision))
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -4009,6 +4070,7 @@ class UIFunctionalCapabilityCoverageReport:
             "covered_capability_ids": list(self.covered_capability_ids),
             "scoped_capability_ids": list(self.scoped_capability_ids),
             "output_contract_ids": list(self.output_contract_ids),
+            "current_revision": self.current_revision,
             "findings": [finding.to_dict() for finding in self.findings],
             "summary": self.summary,
         }
@@ -5627,14 +5689,113 @@ def review_ui_content_visibility(
                 item_id=plan.plan_id,
             )
         )
-    if not candidate_ids:
+    explicit_empty_plan = not candidate_ids and not item_ids
+    if not candidate_ids and item_ids:
         findings.append(
             UIFlowStructureFinding(
                 "missing_content_visibility_candidates",
-                "UI content visibility plan has no in-scope candidate content inventory",
+                "UI content visibility plan has items but no in-scope candidate content inventory",
                 item_id=plan.plan_id,
             )
         )
+    if plan.empty_candidate_inventory_reviewed and not explicit_empty_plan:
+        findings.append(
+            UIFlowStructureFinding(
+                "empty_content_visibility_plan_has_candidates",
+                "An explicitly empty content-admission plan cannot contain candidate rows",
+                item_id=plan.plan_id,
+            )
+        )
+    if explicit_empty_plan:
+        if not plan.empty_candidate_inventory_reviewed:
+            findings.append(
+                UIFlowStructureFinding(
+                    "empty_content_visibility_plan_not_reviewed",
+                    "An empty content-admission plan must explicitly record review of the current candidate inventory",
+                    item_id=plan.plan_id,
+                )
+            )
+        if not plan.source_observed_inventory_id:
+            findings.append(
+                UIFlowStructureFinding(
+                    "empty_content_visibility_plan_missing_observed_inventory",
+                    "An empty content-admission plan must bind the observed UI inventory that proved no candidate content",
+                    item_id=plan.plan_id,
+                )
+            )
+        if observed_inventory is None:
+            findings.append(
+                UIFlowStructureFinding(
+                    "empty_content_visibility_plan_observed_inventory_not_supplied",
+                    "The observed UI inventory bound by an empty content-admission plan was not supplied",
+                    item_id=plan.plan_id,
+                )
+            )
+        else:
+            if (
+                plan.source_observed_inventory_id
+                and plan.source_observed_inventory_id != observed_inventory.inventory_id
+            ):
+                findings.append(
+                    UIFlowStructureFinding(
+                        "empty_content_visibility_plan_observed_inventory_mismatch",
+                        "The empty content-admission plan and supplied observed inventory have different identities",
+                        item_id=plan.plan_id,
+                        metadata={
+                            "plan_inventory_id": plan.source_observed_inventory_id,
+                            "observed_inventory_id": observed_inventory.inventory_id,
+                        },
+                    )
+                )
+            if plan.current_revision != observed_inventory.current_revision:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "empty_content_visibility_plan_revision_mismatch",
+                        "The empty content-admission plan and observed inventory are not bound to the same current revision",
+                        item_id=plan.plan_id,
+                        metadata={
+                            "plan_revision": plan.current_revision,
+                            "observed_revision": observed_inventory.current_revision,
+                        },
+                    )
+                )
+            visible_items_by_id = (
+                {item.item_id: item for item in visible_surface.items}
+                if visible_surface is not None
+                else {}
+            )
+            non_action_candidate_ids: list[str] = []
+            for observed_item in observed_inventory.items:
+                mapped_visible_item = visible_items_by_id.get(
+                    observed_item.mapped_visible_item_id
+                )
+                action_owned = bool(
+                    observed_item.mapped_control_id
+                    or (
+                        mapped_visible_item is not None
+                        and mapped_visible_item.owner_control_id
+                    )
+                )
+                if observed_item.visible and (
+                    observed_item.content_visibility_id
+                    or observed_item.mapped_display_id
+                    or (
+                        observed_item.item_kind not in OBSERVED_UI_ACTIONABLE_KINDS
+                        and not action_owned
+                    )
+                ):
+                    non_action_candidate_ids.append(observed_item.item_id)
+            if non_action_candidate_ids:
+                findings.append(
+                    UIFlowStructureFinding(
+                        "empty_content_visibility_plan_has_observed_candidate_content",
+                        "The observed UI contains non-action content that requires an admission decision",
+                        item_id=plan.plan_id,
+                        metadata={
+                            "observed_item_ids": sorted(non_action_candidate_ids),
+                        },
+                    )
+                )
 
     findings.extend(
         _duplicate_values(
@@ -7473,6 +7634,7 @@ def review_ui_functional_capability_coverage(
         covered_capability_ids=tuple(sorted(covered_ids)),
         scoped_capability_ids=tuple(sorted(scoped_ids)),
         output_contract_ids=tuple(sorted(output_by_id)),
+        current_revision=current_revision,
     )
 
 
@@ -9323,6 +9485,47 @@ def review_ui_implementation_validation(
     """Review real UI evidence against feature contracts and UI journey coverage."""
 
     findings: list[UIFlowStructureFinding] = []
+    capability_bundle_present = bool(
+        capability_inventory is not None
+        and capability_coverage is not None
+        and validation.source_capability_inventory_id
+        and validation.capability_coverage_reviewed
+    )
+    content_plan_bundle_present = bool(
+        content_visibility_plan is not None
+        and validation.content_visibility_plan_id
+        and validation.content_visibility_reviewed
+    )
+    claim_scope_decision = review_ui_implementation_claim_scope(
+        claim_scope=validation.claim_scope,
+        omitted_evidence_classes=validation.omitted_evidence_classes,
+        capability_coverage_present=capability_bundle_present,
+        observed_inventory_present=observed_inventory is not None,
+        visible_surface_present=visible_surface is not None,
+        content_visibility_plan_present=content_plan_bundle_present,
+        run_evidence_present=bool(validation.journey_runs),
+        blindspot_input_present=validation.implementation_blindspots is not None,
+    )
+    for scope_finding in claim_scope_decision.findings:
+        findings.append(
+            UIFlowStructureFinding(
+                scope_finding.code,
+                scope_finding.message,
+                item_id=scope_finding.evidence_class,
+                metadata={
+                    "claim_scope": validation.claim_scope,
+                    "evidence_class": scope_finding.evidence_class,
+                },
+            )
+        )
+    declared_omissions = set(validation.omitted_evidence_classes)
+
+    def evidence_class_required(evidence_class: str) -> bool:
+        return not (
+            validation.claim_scope == UI_IMPLEMENTATION_CLAIM_SCOPED
+            and evidence_class in declared_omissions
+        )
+
     state_ids = set(interaction_model.state_ids())
     control_ids = set(interaction_model.control_ids())
     event_ids = set(interaction_model.transition_event_ids())
@@ -9336,19 +9539,20 @@ def review_ui_implementation_validation(
     entry_points_by_id = {entry.entry_id: entry for entry in journey_coverage.entry_points}
     contract_by_id = {contract.feature_id: contract for contract in validation.feature_contracts}
 
+    implementation_blindspots = validation.implementation_blindspots or ()
     blindspot_feature_ids = {
         blindspot.feature_id
-        for blindspot in validation.implementation_blindspots
+        for blindspot in implementation_blindspots
         if blindspot.feature_id
     }
     blindspot_control_ids = {
         control_id
-        for blindspot in validation.implementation_blindspots
+        for blindspot in implementation_blindspots
         for control_id in blindspot.control_ids
     }
     blindspot_event_ids = {
         event_id
-        for blindspot in validation.implementation_blindspots
+        for blindspot in implementation_blindspots
         for event_id in blindspot.event_ids
     }
     pure_ui_control_ids = set(validation.pure_ui_control_ids)
@@ -9422,7 +9626,23 @@ def review_ui_implementation_validation(
                 },
             )
         )
-    if capability_inventory is not None or validation.source_capability_inventory_id:
+    capability_bundle_supplied = bool(
+        capability_inventory is not None
+        or capability_coverage is not None
+        or validation.source_capability_inventory_id
+        or validation.capability_coverage_reviewed
+    )
+    if (
+        evidence_class_required(UI_IMPLEMENTATION_EVIDENCE_CAPABILITY_COVERAGE)
+        or capability_bundle_supplied
+    ):
+        if capability_inventory is None:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_implementation_capability_inventory",
+                    "UI implementation validation has no current capability inventory",
+                )
+            )
         if not validation.source_capability_inventory_id:
             findings.append(
                 UIFlowStructureFinding(
@@ -9430,7 +9650,11 @@ def review_ui_implementation_validation(
                     "UI implementation validation has no source capability inventory id",
                 )
             )
-        elif capability_inventory is not None and validation.source_capability_inventory_id != capability_inventory.inventory_id:
+        elif (
+            capability_inventory is not None
+            and validation.source_capability_inventory_id
+            != capability_inventory.inventory_id
+        ):
             findings.append(
                 UIFlowStructureFinding(
                     "implementation_capability_inventory_mismatch",
@@ -9438,6 +9662,22 @@ def review_ui_implementation_validation(
                     metadata={
                         "validation_source": validation.source_capability_inventory_id,
                         "capability_inventory": capability_inventory.inventory_id,
+                    },
+                )
+            )
+        if (
+            capability_inventory is not None
+            and validation.current_model_revision
+            and capability_inventory.current_revision
+            != validation.current_model_revision
+        ):
+            findings.append(
+                UIFlowStructureFinding(
+                    "implementation_capability_inventory_stale",
+                    "UI capability inventory is not bound to the current implementation revision",
+                    metadata={
+                        "inventory_revision": capability_inventory.current_revision,
+                        "implementation_revision": validation.current_model_revision,
                     },
                 )
             )
@@ -9461,6 +9701,21 @@ def review_ui_implementation_validation(
                     "implementation_capability_coverage_not_passing",
                     "UI implementation validation cannot support full runnable confidence while capability coverage is blocked",
                     metadata={"capability_coverage": capability_coverage.to_dict()},
+                )
+            )
+        elif (
+            validation.current_model_revision
+            and capability_coverage.current_revision
+            != validation.current_model_revision
+        ):
+            findings.append(
+                UIFlowStructureFinding(
+                    "implementation_capability_coverage_stale",
+                    "UI capability coverage review is not bound to the current implementation revision",
+                    metadata={
+                        "coverage_revision": capability_coverage.current_revision,
+                        "implementation_revision": validation.current_model_revision,
+                    },
                 )
             )
         elif capability_inventory is not None and capability_coverage.inventory_id != capability_inventory.inventory_id:
@@ -9502,6 +9757,84 @@ def review_ui_implementation_validation(
                 "UI implementation validation has no current model or implementation revision",
             )
         )
+    if (
+        evidence_class_required(UI_IMPLEMENTATION_EVIDENCE_VISIBLE_SURFACE)
+        or visible_surface is not None
+    ):
+        if visible_surface is None:
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_implementation_visible_surface",
+                    "UI implementation validation has no visible-surface review input",
+                )
+            )
+        else:
+            visible_surface_report = review_ui_visible_surface(
+                visible_surface,
+                interaction_model=interaction_model,
+            )
+            findings.extend(visible_surface_report.findings)
+    if (
+        evidence_class_required(UI_IMPLEMENTATION_EVIDENCE_OBSERVED_INVENTORY)
+        or observed_inventory is not None
+    ):
+        if (
+            observed_inventory is None
+            and evidence_class_required(
+                UI_IMPLEMENTATION_EVIDENCE_OBSERVED_INVENTORY
+            )
+        ):
+            findings.append(
+                UIFlowStructureFinding(
+                    "missing_implementation_observed_inventory",
+                    "UI implementation validation has no observed UI inventory",
+                )
+            )
+        else:
+            if (
+                validation.current_model_revision
+                and observed_inventory.current_revision
+                != validation.current_model_revision
+            ):
+                findings.append(
+                    UIFlowStructureFinding(
+                        "implementation_observed_inventory_stale",
+                        "Observed UI inventory is not bound to the current implementation revision",
+                        metadata={
+                            "inventory_revision": observed_inventory.current_revision,
+                            "implementation_revision": validation.current_model_revision,
+                        },
+                    )
+                )
+            if (
+                validation.claim_scope == UI_IMPLEMENTATION_CLAIM_COMPLETE
+                and not observed_inventory.require_complete_inventory
+            ):
+                findings.append(
+                    UIFlowStructureFinding(
+                        "complete_ui_claim_requires_complete_observed_inventory",
+                        "A complete runnable UI claim requires a frozen complete observed inventory",
+                        item_id=observed_inventory.inventory_id,
+                    )
+                )
+            observed_inventory_report = review_ui_observed_surface_inventory(
+                observed_inventory,
+                interaction_model=interaction_model,
+                visible_surface=visible_surface,
+            )
+            findings.extend(observed_inventory_report.findings)
+    if (
+        evidence_class_required(
+            UI_IMPLEMENTATION_EVIDENCE_CONTENT_VISIBILITY_PLAN
+        )
+        and content_visibility_plan is None
+    ):
+        findings.append(
+            UIFlowStructureFinding(
+                "missing_implementation_content_visibility_plan",
+                "UI implementation validation has no current content-admission plan",
+            )
+        )
     if not validation.feature_contracts:
         findings.append(
             UIFlowStructureFinding(
@@ -9509,7 +9842,10 @@ def review_ui_implementation_validation(
                 "UI implementation validation has no feature contracts from the functional model",
             )
         )
-    if not validation.journey_runs:
+    if (
+        evidence_class_required(UI_IMPLEMENTATION_EVIDENCE_RUN_EVIDENCE)
+        and not validation.journey_runs
+    ):
         findings.append(
             UIFlowStructureFinding(
                 "missing_implementation_runs",
@@ -9911,13 +10247,16 @@ def review_ui_implementation_validation(
             for event_id in run.covered_event_ids()
         }
         if not feature_run_events:
-            findings.append(
-                UIFlowStructureFinding(
-                    "missing_implementation_run_for_journey",
-                    f"feature journey {journey.feature_id} has no passed implementation click-through run",
-                    item_id=journey.feature_id,
+            if evidence_class_required(
+                UI_IMPLEMENTATION_EVIDENCE_RUN_EVIDENCE
+            ):
+                findings.append(
+                    UIFlowStructureFinding(
+                        "missing_implementation_run_for_journey",
+                        f"feature journey {journey.feature_id} has no passed implementation click-through run",
+                        item_id=journey.feature_id,
+                    )
                 )
-            )
             continue
         required_branch_events = set(journey.required_event_ids + journey.handling_event_ids())
         for event_id in sorted(required_branch_events):
@@ -9933,7 +10272,7 @@ def review_ui_implementation_validation(
                     )
                 )
 
-    for blindspot in validation.implementation_blindspots:
+    for blindspot in implementation_blindspots:
         for control_id in blindspot.control_ids:
             if control_id not in control_ids:
                 findings.append(
@@ -9993,7 +10332,20 @@ def review_ui_implementation_validation(
                 )
             )
 
-    if content_visibility_plan is not None:
+    if content_visibility_plan is None:
+        if (
+            validation.content_visibility_plan_id
+            or validation.content_visibility_reviewed
+            or validation.content_visibility_evidence
+        ):
+            findings.append(
+                UIFlowStructureFinding(
+                    "implementation_content_visibility_plan_not_supplied",
+                    "UI implementation validation declares content-admission evidence but supplies no plan",
+                    item_id=validation.validation_id,
+                )
+            )
+    else:
         ref_finding = _content_visibility_ref_finding(
             artifact_name="implementation validation",
             artifact_id=validation.validation_id,
@@ -10010,7 +10362,12 @@ def review_ui_implementation_validation(
                     item_id=validation.validation_id,
                 )
             )
-        if observed_inventory is None:
+        if (
+            observed_inventory is None
+            and evidence_class_required(
+                UI_IMPLEMENTATION_EVIDENCE_OBSERVED_INVENTORY
+            )
+        ):
             findings.append(
                 UIFlowStructureFinding(
                     "implementation_content_visibility_observed_inventory_missing",
@@ -10019,7 +10376,7 @@ def review_ui_implementation_validation(
                 )
             )
         evidence_rows = tuple(validation.content_visibility_evidence)
-        if not evidence_rows:
+        if content_visibility_plan.items and not evidence_rows:
             findings.append(
                 UIFlowStructureFinding(
                     "implementation_content_visibility_evidence_missing",
@@ -10350,6 +10707,13 @@ def review_ui_implementation_validation(
     return UIImplementationValidationReport(
         ok=not blockers,
         validation_id=validation.validation_id,
+        claim_scope=validation.claim_scope,
+        omitted_evidence_classes=(
+            claim_scope_decision.actual_omitted_evidence_classes
+        ),
+        broad_confidence_supported=bool(
+            not blockers and claim_scope_decision.broad_confidence_eligible
+        ),
         findings=tuple(findings),
         covered_feature_ids=tuple(sorted(covered_feature_ids)),
         covered_event_ids=tuple(sorted(covered_event_ids)),
@@ -11065,6 +11429,16 @@ __all__ = [
     "UI_PRODUCT_CLAIM_COMPLETE",
     "UI_PRODUCT_CLAIM_SCOPED",
     "UI_PRODUCT_CLAIM_SCOPES",
+    "UI_IMPLEMENTATION_CLAIM_COMPLETE",
+    "UI_IMPLEMENTATION_CLAIM_SCOPED",
+    "UI_IMPLEMENTATION_CLAIM_SCOPES",
+    "UI_IMPLEMENTATION_EVIDENCE_BLINDSPOTS",
+    "UI_IMPLEMENTATION_EVIDENCE_CAPABILITY_COVERAGE",
+    "UI_IMPLEMENTATION_EVIDENCE_CLASSES",
+    "UI_IMPLEMENTATION_EVIDENCE_CONTENT_VISIBILITY_PLAN",
+    "UI_IMPLEMENTATION_EVIDENCE_OBSERVED_INVENTORY",
+    "UI_IMPLEMENTATION_EVIDENCE_RUN_EVIDENCE",
+    "UI_IMPLEMENTATION_EVIDENCE_VISIBLE_SURFACE",
     "UI_PRODUCT_CONSISTENCY_COMPONENT",
     "UI_PRODUCT_CONSISTENCY_FEEDBACK",
     "UI_PRODUCT_CONSISTENCY_INTERACTION",
@@ -11121,6 +11495,8 @@ __all__ = [
     "UIHotPathAction",
     "UIBlindspot",
     "UIColdPathWork",
+    "UIImplementationClaimScopeDecision",
+    "UIImplementationClaimScopeFinding",
     "UIImplementationJourneyRun",
     "UIImplementationStepEvidence",
     "UIImplementationValidation",
@@ -11198,6 +11574,7 @@ __all__ = [
     "review_ui_functional_capability_coverage",
     "review_ui_geometry_layout_evidence",
     "review_ui_human_operability",
+    "review_ui_implementation_claim_scope",
     "review_ui_implementation_validation",
     "review_ui_interaction_model",
     "review_ui_journey_coverage",

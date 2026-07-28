@@ -68,22 +68,22 @@ produces current evidence.
   lacks current evidence from a selected mode
 - **THEN** the simulator SHALL keep the claim scoped or blocked
 
-### Requirement: Explicit old satellite requests still work
-FlowGuard SHALL keep PlanDetailing and AgentWorkflowRehearsal helpers and
-installed skill directories usable when a user explicitly names those skills or
-when the development-process simulator delegates to those modes.
+### Requirement: Retired public satellites resolve to owner-internal modes
+FlowGuard SHALL keep PlanDetailing and AgentWorkflowRehearsal behavior only as
+internal modes owned by `flowguard-development-process-flow`. Retired public
+skill ids, installed directories, aliases, wrappers, and direct invocations
+MUST NOT remain successful routes.
 
 #### Scenario: Explicit PlanDetailing request
 - **WHEN** a user explicitly asks to use `flowguard-plan-detailing-compiler`
-- **THEN** Codex may invoke that skill directly
-- **AND** the skill SHALL still preserve real-package checks and downstream
-  handoff boundaries
+- **THEN** Codex enters `flowguard-development-process-flow` with its internal
+  `plan_detailing` mode selected
+- **AND** it reports that the named public satellite is retired
 
 #### Scenario: Automatic rough plan does not bypass front door
 - **WHEN** a user asks generically to discuss or refine a non-trivial plan
 - **THEN** the automatic route SHALL enter `flowguard-development-process-flow`
-  first instead of auto-selecting `flowguard-plan-detailing-compiler` as the
-  first entry
+  first and select only its internal `plan_detailing` mode
 
 ### Requirement: Simulator exposes an internal strategy-selection mode
 The development process simulator SHALL retain the internal mode id `strategy_selection` and DPF front door, but SHALL select it only when `process_optimization_reasons` includes an explicit optimization request, multiple outcome-equivalent viable routes, material repeated-work risk, or a diagnostic-boundary choice. The request SHALL carry one reason-id collection and one optimization-evidence-id collection instead of separate strategy booleans. Ordinary staged validation or a single obvious route SHALL NOT activate the mode.

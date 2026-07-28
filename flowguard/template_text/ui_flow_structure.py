@@ -21,6 +21,7 @@ from flowguard import (
     UIColdPathWork,
     UICapabilityCoverageBinding,
     UICapabilityOutputContract,
+    UIContentVisibilityEvidence,
     UIContentVisibilityItem,
     UIContentVisibilityPlan,
     UIDisplayElement,
@@ -38,6 +39,8 @@ from flowguard import (
     UIInteractionModel,
     UIJourneyCoverage,
     UIJourneyEntryPoint,
+    UIObservedSurfaceInventory,
+    UIObservedSurfaceItem,
     UIProductConsistencyObservation,
     UIProductConsistencyPlan,
     UIProductConsistencyRule,
@@ -56,6 +59,8 @@ from flowguard import (
     UITransition,
     UIVisibleSurface,
     UIVisibleSurfaceItem,
+    UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE,
+    UI_IMPLEMENTATION_CLAIM_COMPLETE,
     UI_PRODUCT_CLAIM_COMPLETE,
     UI_PRODUCT_CONSISTENCY_KINDS,
     UI_PRODUCT_CONSISTENCY_TYPOGRAPHY,
@@ -85,6 +90,7 @@ def interaction_model() -> UIInteractionModel:
         "project-workbench-ui-flow",
         initial_state_id="launch",
         source_product_model_id="project-workbench-product-flow",
+        content_visibility_plan_id="project-workbench-content-visibility",
         states=(
             UIStateNode(
                 "launch",
@@ -214,6 +220,7 @@ def interaction_model() -> UIInteractionModel:
                 label="Workflow status",
                 display_type="status",
                 depends_on_states=("loaded", "running", "failed"),
+                content_visibility_id="running_status",
                 rationale="The status line owns transient workflow feedback before result-ready output appears.",
             ),
             UIDisplayElement(
@@ -222,6 +229,7 @@ def interaction_model() -> UIInteractionModel:
                 label="Run summary",
                 display_type="status",
                 depends_on_states=("result_ready",),
+                content_visibility_id="summary_card_content",
                 rationale="The compact summary states the result once.",
             ),
             UIDisplayElement(
@@ -230,6 +238,7 @@ def interaction_model() -> UIInteractionModel:
                 label="Result table",
                 display_type="table",
                 depends_on_states=("result_ready",),
+                content_visibility_id="result_table_content",
                 rationale="The table shows row-level output, not a duplicate summary.",
             ),
         ),
@@ -673,6 +682,7 @@ def implementation_validation() -> UIImplementationValidation:
         source_feature_model_id="project-workbench-product-flow",
         source_interaction_model_id="project-workbench-ui-flow",
         source_journey_coverage_id="project-workbench-journey-coverage",
+        claim_scope=UI_IMPLEMENTATION_CLAIM_COMPLETE,
         implementation_target="local browser build",
         current_model_revision="template-ui-rev-1",
         source_capability_inventory_id="project-workbench-capabilities",
@@ -764,6 +774,60 @@ def implementation_validation() -> UIImplementationValidation:
         ),
         capability_coverage_reviewed=True,
         journey_coverage_reviewed=True,
+        content_visibility_plan_id="project-workbench-content-visibility",
+        content_visibility_reviewed=True,
+        content_visibility_evidence=(
+            UIContentVisibilityEvidence(
+                "evidence:run-disabled-reason",
+                "run_disabled_reason",
+                UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE,
+                current_revision="template-ui-rev-1",
+                state_id="launch",
+                observed_item_ids=("observed:run-disabled-reason",),
+                evidence_ref="evidence://dom/run-disabled-reason",
+                rationale="The disabled reason is visible on the observed launch surface.",
+            ),
+            UIContentVisibilityEvidence(
+                "evidence:running-status",
+                "running_status",
+                UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE,
+                current_revision="template-ui-rev-1",
+                state_id="running",
+                observed_item_ids=("observed:running-status",),
+                evidence_ref="evidence://dom/running-status",
+                rationale="The running status is visible while work is active.",
+            ),
+            UIContentVisibilityEvidence(
+                "evidence:result-helper",
+                "result_helper",
+                UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE,
+                current_revision="template-ui-rev-1",
+                state_id="result_ready",
+                observed_item_ids=("observed:result-helper",),
+                evidence_ref="evidence://dom/result-helper",
+                rationale="The result helper is visible in the result-ready state.",
+            ),
+            UIContentVisibilityEvidence(
+                "evidence:summary-card",
+                "summary_card_content",
+                UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE,
+                current_revision="template-ui-rev-1",
+                state_id="result_ready",
+                observed_item_ids=("observed:summary-card",),
+                evidence_ref="evidence://dom/summary-card",
+                rationale="The run summary is visible in the result-ready state.",
+            ),
+            UIContentVisibilityEvidence(
+                "evidence:result-table",
+                "result_table_content",
+                UI_CONTENT_EVIDENCE_DEFAULT_VISIBLE,
+                current_revision="template-ui-rev-1",
+                state_id="result_ready",
+                observed_item_ids=("observed:result-table",),
+                evidence_ref="evidence://dom/result-table",
+                rationale="The result table is visible in the result-ready state.",
+            ),
+        ),
         validation_boundaries=("browser click-through", "manual fallback for native dialogs"),
         rationale="Implemented UI evidence is generated from feature contracts and the reviewed journey coverage.",
     )
@@ -773,6 +837,7 @@ def visible_surface() -> UIVisibleSurface:
     return UIVisibleSurface(
         "project-workbench-visible-surface",
         source_interaction_model_id="project-workbench-ui-flow",
+        content_visibility_plan_id="project-workbench-content-visibility",
         items=(
             UIVisibleSurfaceItem(
                 "run_disabled_reason",
@@ -782,6 +847,7 @@ def visible_surface() -> UIVisibleSurface:
                 owner_control_id="run",
                 purpose="Explains why the main action is temporarily unavailable.",
                 disabled_reason="Load or create a project first.",
+                content_visibility_id="run_disabled_reason",
                 rationale="The disabled state is user-facing and actionable.",
             ),
             UIVisibleSurfaceItem(
@@ -792,6 +858,7 @@ def visible_surface() -> UIVisibleSurface:
                 owner_display_id="status_line",
                 purpose="Confirms that the previous click started work.",
                 priority="primary",
+                content_visibility_id="running_status",
                 rationale="The status owns the running state message.",
             ),
             UIVisibleSurfaceItem(
@@ -801,11 +868,150 @@ def visible_surface() -> UIVisibleSurface:
                 state_ids=("result_ready",),
                 owner_control_id="export",
                 purpose="Guides the next available action without repeating the button label.",
+                content_visibility_id="result_helper",
                 rationale="The helper copy is local to the result-ready task.",
             ),
         ),
         validation_boundaries=("visible text inventory", "disabled reason review"),
         rationale="Visible surface items are owned by modeled UI states and controls before visual design.",
+    )
+
+
+def implementation_content_visibility_plan() -> UIContentVisibilityPlan:
+    return UIContentVisibilityPlan(
+        "project-workbench-content-visibility",
+        source_interaction_model_id="project-workbench-ui-flow",
+        current_revision="template-ui-rev-1",
+        candidate_content_ids=(
+            "run_disabled_reason",
+            "running_status",
+            "result_helper",
+            "summary_card_content",
+            "result_table_content",
+        ),
+        items=(
+            UIContentVisibilityItem(
+                "run_disabled_reason",
+                source_field_ids=("view.run_disabled_reason",),
+                visibility_class=UI_CONTENT_VISIBILITY_USER_VISIBLE,
+                user_need_refs=("state:launch",),
+                rationale="The user needs to know how to enable the primary action.",
+            ),
+            UIContentVisibilityItem(
+                "running_status",
+                source_field_ids=("view.running_status",),
+                visibility_class=UI_CONTENT_VISIBILITY_USER_VISIBLE,
+                user_need_refs=("state:running",),
+                rationale="The user needs immediate confirmation that work started.",
+            ),
+            UIContentVisibilityItem(
+                "result_helper",
+                source_field_ids=("view.result_helper",),
+                visibility_class=UI_CONTENT_VISIBILITY_USER_VISIBLE,
+                user_need_refs=("state:result_ready",),
+                rationale="The user needs the next-step helper after results appear.",
+            ),
+            UIContentVisibilityItem(
+                "summary_card_content",
+                source_field_ids=("view.run_summary",),
+                visibility_class=UI_CONTENT_VISIBILITY_USER_VISIBLE,
+                user_need_refs=("state:result_ready",),
+                rationale="The user needs the run summary when results are ready.",
+            ),
+            UIContentVisibilityItem(
+                "result_table_content",
+                source_field_ids=("view.result_rows",),
+                visibility_class=UI_CONTENT_VISIBILITY_USER_VISIBLE,
+                user_need_refs=("state:result_ready",),
+                rationale="The user needs row-level output when results are ready.",
+            ),
+        ),
+        validation_boundaries=("observed visible content inventory",),
+        rationale="Every non-action content item on the runnable template has one admission decision.",
+        source_observed_inventory_id="project-workbench-observed-ui",
+    )
+
+
+def observed_surface_inventory() -> UIObservedSurfaceInventory:
+    return UIObservedSurfaceInventory(
+        "project-workbench-observed-ui",
+        "local browser build",
+        "template-ui-rev-1",
+        observation_method="browser and DOM inventory",
+        source_interaction_model_id="project-workbench-ui-flow",
+        source_visible_surface_id="project-workbench-visible-surface",
+        content_visibility_plan_id="project-workbench-content-visibility",
+        evidence_ref="evidence://browser/project-workbench-visible-inventory",
+        inventory_fingerprint="sha256:" + "a" * 64,
+        discovery_evidence_ids=("browser-inventory", "dom-inventory"),
+        require_complete_inventory=True,
+        items=(
+            UIObservedSurfaceItem(
+                "observed:run-disabled-reason",
+                "button",
+                label="Run",
+                state_id="launch",
+                mapped_control_id="run",
+                mapped_visible_item_id="run_disabled_reason",
+                content_visibility_id="run_disabled_reason",
+                evidence_ref="evidence://dom/run-disabled-reason",
+                evidence_kind="dom_text",
+                content_fingerprint="sha256:" + "b" * 64,
+                rationale="The disabled Run control and its reason were observed together.",
+            ),
+            UIObservedSurfaceItem(
+                "observed:running-status",
+                "status_text",
+                label="Running project analysis",
+                state_id="running",
+                mapped_display_id="status_line",
+                mapped_visible_item_id="running_status",
+                content_visibility_id="running_status",
+                evidence_ref="evidence://dom/running-status",
+                evidence_kind="dom_text",
+                content_fingerprint="sha256:" + "c" * 64,
+                rationale="The running status is mapped to the modeled display and visible-surface row.",
+            ),
+            UIObservedSurfaceItem(
+                "observed:result-helper",
+                "text",
+                label="Review the summary, then export when ready.",
+                state_id="result_ready",
+                mapped_visible_item_id="result_helper",
+                content_visibility_id="result_helper",
+                evidence_ref="evidence://dom/result-helper",
+                evidence_kind="dom_text",
+                content_fingerprint="sha256:" + "d" * 64,
+                rationale="The result helper is mapped to its visible-surface owner.",
+            ),
+            UIObservedSurfaceItem(
+                "observed:summary-card",
+                "status_text",
+                label="Run summary",
+                state_id="result_ready",
+                mapped_display_id="summary_card",
+                content_visibility_id="summary_card_content",
+                evidence_ref="evidence://dom/summary-card",
+                evidence_kind="dom_text",
+                content_fingerprint="sha256:" + "e" * 64,
+                rationale="The summary is mapped to the modeled summary display.",
+            ),
+            UIObservedSurfaceItem(
+                "observed:result-table",
+                "table",
+                label="Result table",
+                state_id="result_ready",
+                mapped_display_id="result_table",
+                content_visibility_id="result_table_content",
+                evidence_ref="evidence://dom/result-table",
+                evidence_kind="dom_text",
+                content_fingerprint="sha256:" + "f" * 64,
+                table_columns=("Name", "Score"),
+                rationale="The observed result table is mapped to the modeled table display.",
+            ),
+        ),
+        validation_boundaries=("browser inventory", "DOM inventory"),
+        rationale="The good template freezes the visible implementation evidence used by its complete claim.",
     )
 
 
@@ -1517,6 +1723,9 @@ def product_consistency_plan(*, drift: bool = False) -> UIProductConsistencyPlan
 def run_checks():
     model = interaction_model()
     structure = structure_derivation()
+    implementation_surface = visible_surface()
+    implementation_inventory = observed_surface_inventory()
+    implementation_visibility_plan = implementation_content_visibility_plan()
     visibility_model = content_visibility_interaction_model()
     visibility_surface = content_visibility_surface()
     model_report = review_ui_interaction_model(model)
@@ -1535,6 +1744,9 @@ def run_checks():
         journey_coverage=journey_coverage(),
         capability_inventory=capability_inventory(),
         capability_coverage=capability_report,
+        visible_surface=implementation_surface,
+        observed_inventory=implementation_inventory,
+        content_visibility_plan=implementation_visibility_plan,
     )
     structure_report = review_ui_structure_derivation(structure, interaction_model=model)
     text_report = review_ui_text_hierarchy(
@@ -1542,7 +1754,7 @@ def run_checks():
         interaction_model=model,
         structure_derivation=structure,
     )
-    visible_surface_report = review_ui_visible_surface(visible_surface(), interaction_model=model)
+    visible_surface_report = review_ui_visible_surface(implementation_surface, interaction_model=model)
     render_evidence_report = review_ui_render_evidence(render_evidence(), interaction_model=model)
     geometry_report = review_ui_geometry_layout_evidence(geometry_evidence(), interaction_model=model)
     responsiveness_report = review_ui_responsiveness_contract(responsiveness_contract(), interaction_model=model)

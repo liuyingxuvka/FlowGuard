@@ -1,5 +1,6 @@
 """flowguard: executable function-flow models for model-first engineering."""
 
+from .api_registry import dedupe_public_names
 from .adoption import (
     ADOPTION_STATUSES,
     AdoptionCommandResult,
@@ -409,6 +410,8 @@ from .ui_structure import (
     UIGeometryLayoutEvidenceReport,
     UIGeometryLayoutEvidenceSet,
     UIHotPathAction,
+    UIImplementationClaimScopeDecision,
+    UIImplementationClaimScopeFinding,
     UIImplementationJourneyRun,
     UIImplementationStepEvidence,
     UIImplementationValidation,
@@ -460,6 +463,16 @@ from .ui_structure import (
     UI_PRODUCT_CLAIM_COMPLETE,
     UI_PRODUCT_CLAIM_SCOPED,
     UI_PRODUCT_CLAIM_SCOPES,
+    UI_IMPLEMENTATION_CLAIM_COMPLETE,
+    UI_IMPLEMENTATION_CLAIM_SCOPED,
+    UI_IMPLEMENTATION_CLAIM_SCOPES,
+    UI_IMPLEMENTATION_EVIDENCE_BLINDSPOTS,
+    UI_IMPLEMENTATION_EVIDENCE_CAPABILITY_COVERAGE,
+    UI_IMPLEMENTATION_EVIDENCE_CLASSES,
+    UI_IMPLEMENTATION_EVIDENCE_CONTENT_VISIBILITY_PLAN,
+    UI_IMPLEMENTATION_EVIDENCE_OBSERVED_INVENTORY,
+    UI_IMPLEMENTATION_EVIDENCE_RUN_EVIDENCE,
+    UI_IMPLEMENTATION_EVIDENCE_VISIBLE_SURFACE,
     UI_PRODUCT_CONSISTENCY_COMPONENT,
     UI_PRODUCT_CONSISTENCY_FEEDBACK,
     UI_PRODUCT_CONSISTENCY_INTERACTION,
@@ -502,6 +515,7 @@ from .ui_structure import (
     review_ui_functional_capability_coverage,
     review_ui_geometry_layout_evidence,
     review_ui_human_operability,
+    review_ui_implementation_claim_scope,
     review_ui_implementation_validation,
     review_ui_interaction_model,
     review_ui_journey_coverage,
@@ -1842,6 +1856,8 @@ MODELING_HELPER_API = (
     "UIGeometryLayoutEvidenceReport",
     "UIGeometryLayoutEvidenceSet",
     "UIHotPathAction",
+    "UIImplementationClaimScopeDecision",
+    "UIImplementationClaimScopeFinding",
     "UIImplementationJourneyRun",
     "UIImplementationStepEvidence",
     "UIImplementationValidation",
@@ -1893,6 +1909,16 @@ MODELING_HELPER_API = (
     "UI_PRODUCT_CLAIM_COMPLETE",
     "UI_PRODUCT_CLAIM_SCOPED",
     "UI_PRODUCT_CLAIM_SCOPES",
+    "UI_IMPLEMENTATION_CLAIM_COMPLETE",
+    "UI_IMPLEMENTATION_CLAIM_SCOPED",
+    "UI_IMPLEMENTATION_CLAIM_SCOPES",
+    "UI_IMPLEMENTATION_EVIDENCE_BLINDSPOTS",
+    "UI_IMPLEMENTATION_EVIDENCE_CAPABILITY_COVERAGE",
+    "UI_IMPLEMENTATION_EVIDENCE_CLASSES",
+    "UI_IMPLEMENTATION_EVIDENCE_CONTENT_VISIBILITY_PLAN",
+    "UI_IMPLEMENTATION_EVIDENCE_OBSERVED_INVENTORY",
+    "UI_IMPLEMENTATION_EVIDENCE_RUN_EVIDENCE",
+    "UI_IMPLEMENTATION_EVIDENCE_VISIBLE_SURFACE",
     "UI_PRODUCT_CONSISTENCY_COMPONENT",
     "UI_PRODUCT_CONSISTENCY_FEEDBACK",
     "UI_PRODUCT_CONSISTENCY_INTERACTION",
@@ -1935,6 +1961,7 @@ MODELING_HELPER_API = (
     "review_ui_functional_capability_coverage",
     "review_ui_geometry_layout_evidence",
     "review_ui_human_operability",
+    "review_ui_implementation_claim_scope",
     "review_ui_implementation_validation",
     "review_ui_interaction_model",
     "review_ui_journey_coverage",
@@ -3191,18 +3218,7 @@ _PUBLIC_API_SUPPLEMENT = (
 )
 
 
-def _dedupe_public_names(*groups: tuple[str, ...]) -> list[str]:
-    names: list[str] = []
-    seen: set[str] = set()
-    for group in groups:
-        for name in group:
-            if name not in seen:
-                seen.add(name)
-                names.append(name)
-    return names
-
-
-__all__ = _dedupe_public_names(
+__all__ = dedupe_public_names(
     CORE_API,
     CONTRACT_EXHAUSTION_MESH_API,
     DEVELOPMENT_PROCESS_FLOW_ROUTE_API,

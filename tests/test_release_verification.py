@@ -24,8 +24,9 @@ from flowguard.release_verification import (
 from flowguard.validation_ownership import (
     OWNER_EXECUTE,
     ValidationOwnerContract,
-    ValidationOwnerPlanRow,
     build_owner_current,
+    build_validation_owner_plan,
+    build_validation_parent_current,
     save_owner_receipt,
     save_parent_receipt,
 )
@@ -142,6 +143,15 @@ class ReleaseVerificationTests(unittest.TestCase):
             self.contract,
             all_contracts=(self.contract,),
         )
+        owner_plan = build_validation_owner_plan(
+            self.root,
+            (self.contract,),
+            receipt_root=self.receipt_root,
+        )
+        parent_current = build_validation_parent_current(
+            self.root,
+            owner_plan,
+        )
         child = ValidationChildResult(
             "fixture-owner",
             "pass",
@@ -156,19 +166,10 @@ class ReleaseVerificationTests(unittest.TestCase):
             started_at="2026-01-01T00:00:00+00:00",
             finished_at="2026-01-01T00:00:01+00:00",
         )
-        plan_row = ValidationOwnerPlanRow(
-            "fixture-owner",
-            OWNER_EXECUTE,
-            current.owner_identity,
-            "fixture owner executed",
-            owner_receipt.receipt_id,
-            owner_receipt.fingerprint,
-        )
         self.parent_receipt = save_parent_receipt(
             self.root,
             self.receipt_root,
-            contracts=(self.contract,),
-            plan_rows=(plan_row,),
+            parent_current=parent_current,
             child_receipts=(owner_receipt,),
             status="pass",
             started_at="2026-01-01T00:00:00+00:00",

@@ -8,7 +8,7 @@ later work cannot reuse stale proof.
 DevelopmentProcessFlow deltas can be archived into a main spec.
 ## Requirements
 ### Requirement: DevelopmentProcessFlow is the development-process simulator front door
-The `model-first-function-flow` Skill SHALL include
+The public `flowguard` kernel SHALL route
 `development_process_flow` as the first process route for non-trivial rough
 plan discussion, multi-skill workflow setup, lifecycle ordering, artifact
 overwrite, validation freshness, minimum revalidation, and V-style lifecycle
@@ -41,16 +41,14 @@ done.
   plan
 - **THEN** the Codex-facing guidance enters `flowguard-development-process-flow`
   first
-- **AND** it records the `plan_detailing` simulator mode before delegating to
-  `flowguard-plan-detailing-compiler`
+- **AND** it records and executes the owner's internal `plan_detailing` mode
 
 #### Scenario: Multi-skill trigger enters simulator
 - **WHEN** a task may require several Codex skills, tools, plugins, external
   actions, or skipped-skill consequences
 - **THEN** the Codex-facing guidance enters `flowguard-development-process-flow`
   first
-- **AND** it records the `agent_workflow` simulator mode before delegating to
-  `flowguard-agent-workflow-rehearsal`
+- **AND** it records and executes the owner's internal `agent_workflow` mode
 
 #### Scenario: Staged implementation trigger
 - **WHEN** an agent is asked to complete a non-trivial task with staged actions
@@ -570,13 +568,16 @@ skills when those detailed reviews are required.
 
 #### Scenario: Plan detailing is delegated
 - **WHEN** DevelopmentProcessFlow selects `plan_detailing`
-- **THEN** `flowguard-plan-detailing-compiler` MAY produce detailed rows
+- **THEN** the owner-internal PlanDetailing implementation MAY produce detailed
+  rows
 - **AND** final process confidence remains owned by DevelopmentProcessFlow
 
 #### Scenario: Agent workflow is delegated
 - **WHEN** DevelopmentProcessFlow selects `agent_workflow`
-- **THEN** `flowguard-agent-workflow-rehearsal` MAY produce workflow evidence
-- **AND** the delegated skill MUST NOT be a competing generic first stop
+- **THEN** the owner-internal AgentWorkflowRehearsal implementation MAY
+  produce workflow evidence
+- **AND** the internal helper MUST NOT be a competing public route or first
+  stop
 
 ### Requirement: Development process consumes primary path authority evidence
 DevelopmentProcessFlow SHALL include primary-path authority as a
@@ -910,3 +911,21 @@ Long model regressions and full tests MAY run in the background while non-confli
 - **THEN** the process MAY continue that work
 - **AND** SHALL keep completion blocked until final current receipts are consumed
 
+### Requirement: Process Evidence Excludes AutoSplit Metrics
+DevelopmentProcessFlow SHALL keep process evidence rows focused on evidence
+freshness, artifacts, validation ownership, and proof references. Model/test
+split measurements and split-gate status MUST remain in their current
+ModelMesh or TestMesh owner evidence rather than returning as fields on
+`ProcessEvidence`.
+
+#### Scenario: Process evidence row is process-focused
+- **WHEN** a process validation command is recorded
+- **THEN** the `ProcessEvidence` row records its evidence identity, kind,
+  status, artifacts, versions, verifier artifacts, validation requirements,
+  owner, and proof reference without state-count or auto-split fields
+
+#### Scenario: Split review is required
+- **WHEN** model state count, test count, duration, or pending work suggests a
+  split
+- **THEN** the split review uses current ModelMesh or TestMesh evidence rather
+  than fields on `ProcessEvidence`

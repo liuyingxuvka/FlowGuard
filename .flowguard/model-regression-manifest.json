@@ -221,14 +221,18 @@
         "reusable_model_type_id": "authoritative_model_system",
         "task_intent_id": "flowguard-regression:authoritative-model-system",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent target or experimental models, incomplete multi-model replacements, stale coverage, and pointer-only rollback from being accepted as the current software model system.",
+        "guarded_purpose": "Prevent incomplete live model materialization, caller-narrowed diffs or evidence, stale live activation, target or experiment authority, and snapshot-only rollback replay from being accepted as current model truth.",
         "protected_failure_ids": [
           "model-authority:subject-lane-confusion",
           "model-authority:partial-or-stale-activation",
           "model-authority:pointer-only-rollback",
-          "model-authority:legacy-schema-dual-authority"
+          "model-authority:legacy-schema-dual-authority",
+          "model-authority:declared-materialized-inventory-shrink",
+          "model-authority:caller-narrowed-diff-or-evidence",
+          "model-authority:lock-held-live-drift",
+          "model-authority:old-head-rollback-replay"
         ],
-        "claim_boundary": "Current closure covers the declared finite authority, activation, coverage, and rollback scenarios only; it does not prove unenumerated software surfaces or production restoration without separate implementation evidence.",
+        "claim_boundary": "Current closure covers only the declared finite inventory, diff, affected-closure, evidence, live-activation, and reverse-rollback scenarios; it does not prove unenumerated software surfaces or production restoration without separate implementation evidence.",
         "adoption_scope": "current_candidate_only",
         "known_good_case_id": "native-runner:authoritative-model-system:complete-transaction",
         "failure_bindings": [
@@ -251,15 +255,35 @@
             "failure_id": "model-authority:legacy-schema-dual-authority",
             "known_bad_case_id": "native-runner:authoritative-model-system:legacy-authority-dual-reader",
             "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:declared-materialized-inventory-shrink",
+            "known_bad_case_id": "native-runner:authoritative-model-system:optional-local-filtered-out",
+            "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:caller-narrowed-diff-or-evidence",
+            "known_bad_case_id": "native-runner:authoritative-model-system:caller-shrinks-diff",
+            "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:lock-held-live-drift",
+            "known_bad_case_id": "native-runner:authoritative-model-system:same-head-live-drift",
+            "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:old-head-rollback-replay",
+            "known_bad_case_id": "native-runner:authoritative-model-system:rollback-snapshot-only-replay",
+            "oracle_id": "native:authoritative-model-system:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:authoritative-model-system"
         ],
-        "model_sha256": "sha256:3cd77f42f9d588dcf69b2d258c0a7e6df980aedca2da6c0f0297862553abb656",
+        "model_sha256": "sha256:7e05390461cf820f717c5bbecc1daf9ea8a0ff15c9b4634a2b2d750e06462307",
         "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
-        "declaration_fingerprint": "sha256:f9dd77474e136730617d984dcf28bb208a7ba89bfaf049ce65fc37c67e4a2124",
-        "closure_fingerprint": "sha256:cef711db9a575bca2f4066d9a8c957e02a66c1a89cb519ca8ce3b6f54c76dbb4"
+        "declaration_fingerprint": "sha256:2b12845da4c9b05669cb868b4d9064ec08884d066f638a7a581ae19c7956a552",
+        "closure_fingerprint": "sha256:9c11e3f781952c1283e4fc1e3d81685e202afe336a8fc8eb898ef3bdfc0b31aa"
       }
     },
     {
@@ -1328,10 +1352,10 @@
         "evidence_check_ids": [
           "check:model-regression:harden_ui_content_visibility_validation"
         ],
-        "model_sha256": "sha256:1609ef390679d894176968f777a8c58c8ec72c9ce179bc9afdfd69a0413b24a0",
+        "model_sha256": "sha256:bd29bd6c6bd2d678a3318b114b0b79a5f922a8636f3c370b9c342abfa71d4850",
         "runner_sha256": "sha256:1955cda7d0a5676bbd1855a6f7eace7fd0703e2b0d9218a7ad23143ed3ed395b",
         "declaration_fingerprint": "sha256:a49722186374e391d00db8e3d29c37f5481be3e582d743389024a2812eebe132",
-        "closure_fingerprint": "sha256:26e84daffab90b009704df9712aec2d805b91e73c113b70ffe6423d1ab046ee7"
+        "closure_fingerprint": "sha256:6ef1899ed242993a786d987ba0f2cfdac5f0dbb1730a96709b16714da262c1d3"
       }
     },
     {
@@ -2228,14 +2252,16 @@
         "reusable_model_type_id": "project_adoption_version_gate",
         "task_intent_id": "flowguard-regression:project_adoption_version_gate",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent project upgrade from accepting adoption-gate bypasses, numeric target-owned JSON writes, legacy-lookalike extra-field writes, or unsupported envelope rewrites as valid completed outcomes.",
+        "guarded_purpose": "Prevent project adoption from consuming author-maintenance state, launching validators during currentness reads, bypassing adoption gates, or rewriting target-owned, legacy-lookalike, or unsupported artifacts.",
         "protected_failure_ids": [
           "project_adoption_gate_bypassed",
           "target_owned_json_rewritten",
           "legacy_lookalike_json_rewritten",
-          "unsupported_registered_envelope_rewritten"
+          "unsupported_registered_envelope_rewritten",
+          "author_maintenance_dependency_consumed",
+          "currentness_read_launched_validation"
         ],
-        "claim_boundary": "Current closure proves only that the checked-in project-adoption candidate and native runner reject the four declared ownership and completion failures; it does not prove target data truth, unrelated migrations, publication, or future behavior.",
+        "claim_boundary": "Current closure proves only that the checked-in project-adoption candidate and native runner reject the six declared ownership, author-dependency, currentness-read, and completion failures; it does not prove target data truth, unrelated migrations, publication, or future behavior.",
         "adoption_scope": "current_candidate_only",
         "known_good_case_id": "native-runner:project_adoption_version_gate:correct_project_adoption_gate",
         "failure_bindings": [
@@ -2258,15 +2284,25 @@
             "failure_id": "unsupported_registered_envelope_rewritten",
             "known_bad_case_id": "native-runner:project_adoption_version_gate:unsupported_registered_envelope_has_no_migrator",
             "oracle_id": "native:project_adoption_version_gate:run-checks"
+          },
+          {
+            "failure_id": "author_maintenance_dependency_consumed",
+            "known_bad_case_id": "native-runner:project_adoption_version_gate:ordinary_adoption_has_zero_author_maintenance_dependency",
+            "oracle_id": "native:project_adoption_version_gate:run-checks"
+          },
+          {
+            "failure_id": "currentness_read_launched_validation",
+            "known_bad_case_id": "native-runner:project_adoption_version_gate:read_only_currentness_launches_no_semantic_validator",
+            "oracle_id": "native:project_adoption_version_gate:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:project_adoption_version_gate"
         ],
-        "model_sha256": "sha256:697e33cccdc9fa20738424017a8ca98ea6303aaf05f3264b1901e4453e1ac465",
-        "runner_sha256": "sha256:3b74e040fcd8cd9e296b820b4d03b71ddc0afe9c28102e741e1b5a7d27e09e46",
-        "declaration_fingerprint": "sha256:f3a1a349d4333817b3d25afd1caa21f7659047df22f0783f500d27d8c02ce09a",
-        "closure_fingerprint": "sha256:492545be2e8620cb21b5e7bc5d122d5199090708c14c2a0b7d1b79646a05006c"
+        "model_sha256": "sha256:138b1abdb8dd5c25e9e7430d7fe89c194134ac9972f2fa7595b95cc4313b192f",
+        "runner_sha256": "sha256:1ad9498bbb0ec8ab471a3ee2e4404fcffd7124cea5e2d22076173f839933b7a1",
+        "declaration_fingerprint": "sha256:3f3213ffce8490a54a2791acced332d5e6a84d64a5abde3f997fcc759417762c",
+        "closure_fingerprint": "sha256:ba6f3d7adb4b2fd8e4ad1fd2a1602443d5dc89f2a4e25a692f630be905f61812"
       }
     },
     {
@@ -2822,27 +2858,63 @@
         "reusable_model_type_id": "structure_refactor_mesh",
         "task_intent_id": "flowguard-regression:structure_refactor_mesh",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent the structure refactor mesh model from accepting an invalid, bypassed, stale, or incomplete structure refactor mesh outcome as current FlowGuard evidence.",
+        "guarded_purpose": "Prevent extracted currentness children from losing UI-evidence ownership, receipt-supervision ownership, package-API ownership, facade and public-API compatibility, acyclic dependencies, exact configuration defaults, or current behavior parity while being accepted as a completed StructureMesh split.",
         "protected_failure_ids": [
-          "structure_refactor_mesh:invalid-or-incomplete-outcome"
+          "structure-refactor:ui-evidence-owner-missing",
+          "structure-refactor:receipt-supervision-owner-missing",
+          "structure-refactor:package-api-registry-owner-missing",
+          "structure-refactor:facade-or-public-api-drift",
+          "structure-refactor:import-cycle",
+          "structure-refactor:config-default-drift",
+          "structure-refactor:stale-or-inexact-parity"
         ],
-        "claim_boundary": "Current closure proves only that the checked-in structure_refactor_mesh candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "claim_boundary": "Current closure proves only the declared UI-evidence, receipt-supervision, package-API, facade, import-cycle, config-default, and behavior-parity scenarios; it does not prove release readiness or unenumerated package surfaces.",
         "adoption_scope": "current_candidate_only",
-        "known_good_case_id": "native-runner:structure_refactor_mesh:declared-positive-suite",
+        "known_good_case_id": "native-runner:structure_refactor_mesh:good_plan_passes",
         "failure_bindings": [
           {
-            "failure_id": "structure_refactor_mesh:invalid-or-incomplete-outcome",
-            "known_bad_case_id": "native-runner:structure_refactor_mesh:declared-negative-suite",
+            "failure_id": "structure-refactor:ui-evidence-owner-missing",
+            "known_bad_case_id": "native-runner:structure_refactor_mesh:ui_evidence_partition_is_required",
+            "oracle_id": "native:structure_refactor_mesh:run-checks"
+          },
+          {
+            "failure_id": "structure-refactor:receipt-supervision-owner-missing",
+            "known_bad_case_id": "native-runner:structure_refactor_mesh:receipt_supervision_partition_is_required",
+            "oracle_id": "native:structure_refactor_mesh:run-checks"
+          },
+          {
+            "failure_id": "structure-refactor:package-api-registry-owner-missing",
+            "known_bad_case_id": "native-runner:structure_refactor_mesh:package_api_registry_partition_is_required",
+            "oracle_id": "native:structure_refactor_mesh:run-checks"
+          },
+          {
+            "failure_id": "structure-refactor:facade-or-public-api-drift",
+            "known_bad_case_id": "native-runner:structure_refactor_mesh:missing_facade_fails",
+            "oracle_id": "native:structure_refactor_mesh:run-checks"
+          },
+          {
+            "failure_id": "structure-refactor:import-cycle",
+            "known_bad_case_id": "native-runner:structure_refactor_mesh:dependency_cycle_fails",
+            "oracle_id": "native:structure_refactor_mesh:run-checks"
+          },
+          {
+            "failure_id": "structure-refactor:config-default-drift",
+            "known_bad_case_id": "native-runner:structure_refactor_mesh:config_drift_fails",
+            "oracle_id": "native:structure_refactor_mesh:run-checks"
+          },
+          {
+            "failure_id": "structure-refactor:stale-or-inexact-parity",
+            "known_bad_case_id": "native-runner:structure_refactor_mesh:stale_parity_fails",
             "oracle_id": "native:structure_refactor_mesh:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:structure_refactor_mesh"
         ],
-        "model_sha256": "sha256:fd0e888bbadb68945d59991386f987b83e3b700db4f51f9c021673104ae4e950",
+        "model_sha256": "sha256:2f0eba7fa05629e4e2e987ee19b6064160dab588d1faef4d248306f20fc99afb",
         "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
-        "declaration_fingerprint": "sha256:f39622bedc3be7c073e0f4a1826ed870e5ad35b98749a65296bb44df89ee7f1b",
-        "closure_fingerprint": "sha256:8b74b830844d4139152553f797abb802b91af748fa14bf26ec75a23802f5e3df"
+        "declaration_fingerprint": "sha256:5a24cb2465aad59771b37c66a2f98b81500ba6e73d73ec7853cde923572c9cf1",
+        "closure_fingerprint": "sha256:fee5360f6b8195956023fe5b09ce44c7ec87f7646180fa653e80dad0726a0abf"
       }
     },
     {

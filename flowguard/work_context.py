@@ -548,6 +548,58 @@ def review_work_context(context: WorkContext) -> WorkContextReview:
                     artifact.source_ref,
                 )
             )
+        source_ref = artifact.source_ref.strip()
+        is_derived_ref = (
+            source_ref.startswith("<")
+            or Path(source_ref).name.startswith("@derived")
+        )
+        if source_ref and not is_derived_ref:
+            try:
+                source_path = _bounded_path(
+                    project_root,
+                    project_root / source_ref,
+                    "work context artifact",
+                )
+            except (OSError, ValueError) as exc:
+                findings.append(
+                    WorkContextFinding(
+                        "work_context_artifact_source_unbounded",
+                        str(exc),
+                        artifact.source_ref,
+                    )
+                )
+                continue
+            if not source_path.is_file():
+                findings.append(
+                    WorkContextFinding(
+                        "work_context_artifact_source_missing",
+                        "artifact source must still exist as a project-bounded file",
+                        artifact.source_ref,
+                    )
+                )
+                continue
+            try:
+                current_bytes = source_path.read_bytes()
+            except OSError as exc:
+                findings.append(
+                    WorkContextFinding(
+                        "work_context_artifact_source_unreadable",
+                        str(exc),
+                        artifact.source_ref,
+                    )
+                )
+                continue
+            if (
+                _wire_hash(current_bytes) != artifact.content_fingerprint
+                or len(current_bytes) != artifact.size
+            ):
+                findings.append(
+                    WorkContextFinding(
+                        "work_context_artifact_source_changed",
+                        "artifact bytes no longer match the preserved snapshot",
+                        artifact.source_ref,
+                    )
+                )
     for role in context.required_artifact_roles:
         if role not in roles:
             findings.append(

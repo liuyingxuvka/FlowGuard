@@ -282,7 +282,18 @@ def main() -> int:
     print()
     print(process.format_text(max_findings=4))
     print(f"contracts: {len(contracts)}")
-    good_ok = detail_reports[0].ok and intake.ok and process.ok and contracts
+    process_gap_codes = {finding.code for finding in process.findings}
+    process_blocked_as_planned = (
+        not process.ok
+        and "validation_evidence_not_current" in process_gap_codes
+        and "missing_process_proof_artifact" in process_gap_codes
+    )
+    good_ok = (
+        detail_reports[0].ok
+        and intake.ok
+        and process_blocked_as_planned
+        and contracts
+    )
     broken_blocked = all(not report.ok for report in detail_reports[1:])
     return 0 if good_ok and broken_blocked else 1
 

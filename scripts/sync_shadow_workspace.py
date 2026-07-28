@@ -18,6 +18,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from flowguard.distribution_sync import (
+    FLOWGUARD_EXPECTED_MEMBER_COUNT,
+    build_consumer_suite_authority_bytes,
+    load_consumer_suite_authority,
+)
 
 DEFAULT_SOURCE_SETS = (
     ".agents",
@@ -134,6 +139,179 @@ def install_editable(target: str | Path) -> subprocess.CompletedProcess[str]:
     )
 
 
+def verify_shadow_skill_projection(target: str | Path) -> dict[str, object]:
+    """Compare a shadow author projection to package-owned consumer authority."""
+
+    workspace_root = Path(target).resolve()
+    skill_root = workspace_root / ".agents" / "skills"
+    try:
+        authority = load_consumer_suite_authority()
+    except (OSError, TypeError, ValueError) as exc:
+        return {
+            "ok": False,
+            "authority_schema": "flowguard.consumer_suite_authority.v1",
+            "authority_hash": "",
+            "authority_member_ids": [],
+            "authority_member_count": 0,
+            "expected_member_count": FLOWGUARD_EXPECTED_MEMBER_COUNT,
+            "reserved_extras": [],
+            "unrelated_colocated_members": [],
+            "findings": [
+                {
+                    "code": "shadow_consumer_authority_unavailable",
+                    "relative_path": "flowguard/consumer-suite-authority.json",
+                    "message": f"{type(exc).__name__}: {exc}",
+                }
+            ],
+            "claim_boundary": (
+                "Read-only shadow currentness only; no semantic validator or "
+                "evidence producer was launched."
+            ),
+        }
+    findings: list[dict[str, object]] = []
+    unrelated_members: list[str] = []
+    reserved_extras: list[str] = []
+
+    if skill_root.is_dir():
+        authority_ids = {member.casefold() for member in authority.member_ids}
+        for member_id in authority.member_ids:
+            if not (skill_root / member_id).is_dir():
+                findings.append(
+                    {
+                        "code": "shadow_authority_member_missing",
+                        "relative_path": member_id,
+                        "message": "shadow is missing a package-authority member",
+                    }
+                )
+        for child in sorted(skill_root.iterdir(), key=lambda path: path.name.casefold()):
+            child_id = child.name.casefold()
+            if child_id in authority_ids:
+                continue
+            if child_id == "flowguard" or child_id.startswith("flowguard-"):
+                reserved_extras.append(child.name)
+                findings.append(
+                    {
+                        "code": "shadow_reserved_flowguard_member_extra",
+                        "relative_path": child.name,
+                        "message": "shadow contains an undeclared FlowGuard-reserved member",
+                    }
+                )
+            else:
+                unrelated_members.append(child.name)
+    else:
+        findings.append(
+            {
+                "code": "shadow_skill_root_missing",
+                "relative_path": ".agents/skills",
+                "message": "shadow workspace has no canonical skill root",
+            }
+        )
+
+    candidate: dict[str, object] | None = None
+    if skill_root.is_dir():
+        try:
+            candidate = json.loads(
+                build_consumer_suite_authority_bytes(
+                    skill_root,
+                    member_ids=authority.member_ids,
+                    flowguard_version=authority.flowguard_version,
+                )
+            )
+        except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            findings.append(
+                {
+                    "code": "shadow_consumer_projection_invalid",
+                    "relative_path": ".agents/skills",
+                    "message": f"{type(exc).__name__}: {exc}",
+                }
+            )
+
+    expected_payload = authority.to_dict()
+    if candidate is not None:
+        expected_files = {
+            str(row["relative_path"]): row
+            for row in expected_payload["files"]
+        }
+        actual_files = {
+            str(row["relative_path"]): row
+            for row in candidate.get("files", ())
+            if isinstance(row, dict) and row.get("relative_path")
+        }
+        for relative in sorted(expected_files.keys() - actual_files.keys()):
+            findings.append(
+                {
+                    "code": "shadow_authority_file_missing",
+                    "relative_path": relative,
+                    "message": "shadow projection is missing a package-authority file",
+                }
+            )
+        for relative in sorted(actual_files.keys() - expected_files.keys()):
+            findings.append(
+                {
+                    "code": "shadow_authority_file_extra",
+                    "relative_path": relative,
+                    "message": "shadow projection contains a file absent from package authority",
+                }
+            )
+        for relative in sorted(expected_files.keys() & actual_files.keys()):
+            if actual_files[relative] != expected_files[relative]:
+                findings.append(
+                    {
+                        "code": "shadow_authority_content_drift",
+                        "relative_path": relative,
+                        "message": "shadow file identity differs from package authority",
+                    }
+                )
+        if tuple(candidate.get("member_ids", ())) != authority.member_ids:
+            findings.append(
+                {
+                    "code": "shadow_authority_member_set_mismatch",
+                    "relative_path": ".agents/skills",
+                    "message": "shadow member set differs from package authority",
+                }
+            )
+        for field in (
+            "raw_tree_hash",
+            "semantic_tree_hash",
+            "authority_hash",
+        ):
+            if candidate.get(field) != expected_payload.get(field):
+                findings.append(
+                    {
+                        "code": f"shadow_authority_{field}_mismatch",
+                        "relative_path": ".agents/skills",
+                        "message": f"shadow {field} differs from package authority",
+                    }
+                )
+
+    return {
+        "ok": not findings,
+        "authority_schema": "flowguard.consumer_suite_authority.v1",
+        "authority_hash": authority.authority_hash,
+        "authority_member_ids": list(authority.member_ids),
+        "authority_member_count": len(authority.member_ids),
+        "expected_member_count": FLOWGUARD_EXPECTED_MEMBER_COUNT,
+        "authority_raw_tree_hash": authority.raw_tree_hash,
+        "authority_semantic_tree_hash": authority.semantic_tree_hash,
+        "candidate_authority_hash": (
+            None if candidate is None else candidate.get("authority_hash")
+        ),
+        "candidate_raw_tree_hash": (
+            None if candidate is None else candidate.get("raw_tree_hash")
+        ),
+        "candidate_semantic_tree_hash": (
+            None if candidate is None else candidate.get("semantic_tree_hash")
+        ),
+        "reserved_extras": reserved_extras,
+        "unrelated_colocated_members": unrelated_members,
+        "findings": findings,
+        "claim_boundary": (
+            "Read-only shadow currentness only; no semantic validator or "
+            "evidence producer was launched."
+        ),
+    }
+
+
 def verify_workspace(
     target: str | Path,
     *,
@@ -172,8 +350,12 @@ def verify_workspace(
         mismatches.append("source_path")
     if not payload["helper_available"]:
         mismatches.append("helper_available")
+    shadow_projection = verify_shadow_skill_projection(target_root)
+    if not shadow_projection["ok"]:
+        mismatches.append("shadow_consumer_authority")
     payload["ok"] = not mismatches
     payload["mismatches"] = mismatches
+    payload["shadow_consumer_authority"] = shadow_projection
     return payload
 
 

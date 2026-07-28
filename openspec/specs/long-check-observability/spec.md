@@ -100,8 +100,8 @@ use one new immutable execution identity.
 - **THEN** cleanup status is unconfirmed, no receipt is reusable, and no new owner producer starts
 
 ### Requirement: Progress And Receipt Outputs Do Not Refresh Source
-Progress events, logs, reports, receipts, parent manifests, and authority
-pointer writes SHALL be evidence outputs unless an owner explicitly declares
+FlowGuard SHALL treat progress events, logs, reports, receipts, parent manifests,
+and authority pointer writes as evidence outputs unless an owner explicitly declares
 them as functional inputs. Their creation or mtime change MUST NOT stale source
 evidence.
 

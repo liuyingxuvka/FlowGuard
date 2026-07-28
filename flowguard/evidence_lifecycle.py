@@ -28,7 +28,7 @@ PINS_SCHEMA = "flowguard.evidence_pins.v1"
 AUDIT_SCHEMA = "flowguard.evidence_audit.v1"
 GC_PLAN_SCHEMA = "flowguard.evidence_gc_plan.v1"
 GC_RECEIPT_SCHEMA = "flowguard.evidence_gc_receipt.v1"
-EXECUTION_LEASE_SCHEMA = "flowguard.evidence_execution_lease.v1"
+EXECUTION_LEASE_SCHEMA = "flowguard.evidence_execution_lease.v2"
 TAIL_CHAR_LIMIT = 4000
 
 
@@ -160,17 +160,33 @@ def ensure_new_run_directory(run_dir: str | Path) -> Path:
     return run_path
 
 
-def _execution_lease_identity(owner_id: str, execution_key: str) -> tuple[str, str]:
+def _execution_lease_identity(
+    owner_id: str,
+    execution_key: str,
+    resource_key: str | None = None,
+) -> tuple[str, str, str]:
     if not isinstance(owner_id, str) or not owner_id or owner_id != owner_id.strip():
         raise EvidenceLifecycleError("evidence execution lease owner_id must be non-empty normalized text")
     if not isinstance(execution_key, str) or not execution_key or execution_key != execution_key.strip():
         raise EvidenceLifecycleError("evidence execution lease execution_key must be non-empty normalized text")
-    return owner_id, execution_key
+    resource = owner_id if resource_key is None else resource_key
+    if not isinstance(resource, str) or not resource or resource != resource.strip():
+        raise EvidenceLifecycleError("evidence execution lease resource_key must be non-empty normalized text")
+    return owner_id, execution_key, resource
 
 
-def _execution_lease_path(lock_root: str | Path, owner_id: str, execution_key: str) -> Path:
-    owner, key = _execution_lease_identity(owner_id, execution_key)
-    identity = _canonical_bytes({"owner_id": owner, "execution_key": key})
+def _execution_lease_path(
+    lock_root: str | Path,
+    owner_id: str,
+    execution_key: str,
+    resource_key: str | None = None,
+) -> Path:
+    owner, _key, resource = _execution_lease_identity(
+        owner_id,
+        execution_key,
+        resource_key,
+    )
+    identity = _canonical_bytes({"owner_id": owner, "resource_key": resource})
     digest = hashlib.sha256(identity).hexdigest()
     return Path(lock_root).resolve() / f"execution-{digest}.lock"
 
@@ -180,11 +196,16 @@ def read_evidence_execution_lease(
     *,
     owner_id: str,
     execution_key: str,
+    resource_key: str | None = None,
 ) -> dict[str, Any] | None:
-    """Read and validate one exact execution lease without repairing it."""
+    """Read one owner/resource lease without repairing or settling it."""
 
-    owner, key = _execution_lease_identity(owner_id, execution_key)
-    path = _execution_lease_path(lock_root, owner, key)
+    owner, _key, resource = _execution_lease_identity(
+        owner_id,
+        execution_key,
+        resource_key,
+    )
+    path = _execution_lease_path(lock_root, owner, execution_key, resource)
     try:
         serialized = path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -200,8 +221,15 @@ def read_evidence_execution_lease(
     payload = dict(value)
     if payload.get("schema_version") != EXECUTION_LEASE_SCHEMA:
         raise EvidenceLifecycleError(f"evidence execution lease has an unsupported schema: {path}")
-    if payload.get("owner_id") != owner or payload.get("execution_key") != key:
+    if payload.get("owner_id") != owner or payload.get("resource_key") != resource:
         raise EvidenceLifecycleError(f"evidence execution lease identity does not match its path: {path}")
+    persisted_execution_key = payload.get("execution_key")
+    if (
+        not isinstance(persisted_execution_key, str)
+        or not persisted_execution_key
+        or persisted_execution_key != persisted_execution_key.strip()
+    ):
+        raise EvidenceLifecycleError(f"evidence execution lease has an invalid execution identity: {path}")
     token = payload.get("lease_token")
     if not isinstance(token, str) or not token or token != token.strip():
         raise EvidenceLifecycleError(f"evidence execution lease has no valid token: {path}")
@@ -227,19 +255,24 @@ def evidence_execution_lease(
     *,
     owner_id: str,
     execution_key: str,
+    resource_key: str | None = None,
     lease_token: str | None = None,
     plan_id: str = "",
 ) -> Iterator[dict[str, Any]]:
     """Acquire one fail-closed single-flight lease and release only by token."""
 
-    owner, key = _execution_lease_identity(owner_id, execution_key)
+    owner, key, resource = _execution_lease_identity(
+        owner_id,
+        execution_key,
+        resource_key,
+    )
     token = uuid.uuid4().hex if lease_token is None else lease_token
     if not isinstance(token, str) or not token or token != token.strip():
         raise EvidenceLifecycleError("evidence execution lease token must be non-empty normalized text")
     if not isinstance(plan_id, str) or plan_id != plan_id.strip():
         raise EvidenceLifecycleError("evidence execution lease plan_id must be normalized text")
 
-    path = _execution_lease_path(lock_root, owner, key)
+    path = _execution_lease_path(lock_root, owner, key, resource)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
@@ -247,13 +280,14 @@ def evidence_execution_lease(
     payload = {
         "schema_version": EXECUTION_LEASE_SCHEMA,
         "owner_id": owner,
+        "resource_key": resource,
         "execution_key": key,
         "lease_token": token,
         "plan_id": plan_id,
         "process_id": os.getpid(),
         "acquired_at_epoch": time.time(),
         "claim_boundary": (
-            "This lease serializes one exact evidence execution identity. "
+            "This lease serializes one owner/resource across execution identities. "
             "It is not validation, freshness, success, or release evidence."
         ),
     }
@@ -268,6 +302,7 @@ def evidence_execution_lease(
                 path.parent,
                 owner_id=owner,
                 execution_key=key,
+                resource_key=resource,
             )
         except EvidenceLifecycleError as read_exc:
             raise EvidenceLifecycleError(
@@ -293,30 +328,97 @@ def evidence_execution_lease(
             f"cannot persist evidence execution lease; the residual path was preserved: {path}"
         ) from exc
 
-    persisted = read_evidence_execution_lease(path.parent, owner_id=owner, execution_key=key)
+    persisted = read_evidence_execution_lease(
+        path.parent,
+        owner_id=owner,
+        execution_key=key,
+        resource_key=resource,
+    )
     if persisted is None or persisted.get("lease_token") != token:
         raise EvidenceLifecycleError(f"persisted evidence execution lease does not match its owner token: {path}")
 
     try:
         yield persisted
     finally:
-        current = read_evidence_execution_lease(path.parent, owner_id=owner, execution_key=key)
+        current = read_evidence_execution_lease(
+            path.parent,
+            owner_id=owner,
+            execution_key=key,
+            resource_key=resource,
+        )
         if current is None:
             raise EvidenceLifecycleError(f"evidence execution lease disappeared before token release: {path}")
         if current.get("lease_token") != token:
             raise EvidenceLifecycleError(
                 f"evidence execution lease token changed; residual lease was preserved: {path}"
             )
-        try:
-            path.unlink()
-        except FileNotFoundError as exc:
-            raise EvidenceLifecycleError(
-                f"evidence execution lease disappeared during token release: {path}"
-            ) from exc
-        except OSError as exc:
-            raise EvidenceLifecycleError(
-                f"cannot release evidence execution lease; residual lease was preserved: {path}"
-            ) from exc
+        if persisted.get("_preserve_residual"):
+            residual = {
+                **current,
+                "cleanup_status": "cleanup_unconfirmed",
+                "incident_episode_token": str(
+                    persisted.get("incident_episode_token", token)
+                ),
+                "claim_boundary": (
+                    "Descendant cleanup is unconfirmed. This residual owner/resource "
+                    "lease blocks receipt publication, later execution, and automatic retry."
+                ),
+            }
+            write_json_atomic(path, residual)
+        else:
+            try:
+                path.unlink()
+            except FileNotFoundError as exc:
+                raise EvidenceLifecycleError(
+                    f"evidence execution lease disappeared during token release: {path}"
+                ) from exc
+            except OSError as exc:
+                raise EvidenceLifecycleError(
+                    f"cannot release evidence execution lease; residual lease was preserved: {path}"
+                ) from exc
+
+
+def settle_cleanup_unconfirmed_lease(
+    lock_root: str | Path,
+    *,
+    owner_id: str,
+    resource_key: str,
+    execution_key: str,
+    incident_episode_token: str,
+    descendant_process_ids: Sequence[int],
+) -> None:
+    """Settle only the exact residual episode after zero descendants are observed."""
+
+    if tuple(descendant_process_ids):
+        raise EvidenceLifecycleError(
+            "cleanup-unconfirmed lease cannot settle while descendants remain"
+        )
+    current = read_evidence_execution_lease(
+        lock_root,
+        owner_id=owner_id,
+        execution_key=execution_key,
+        resource_key=resource_key,
+    )
+    if current is None:
+        raise EvidenceLifecycleError("cleanup-unconfirmed residual lease is missing")
+    if current.get("cleanup_status") != "cleanup_unconfirmed":
+        raise EvidenceLifecycleError("execution lease is not cleanup-unconfirmed")
+    if current.get("incident_episode_token") != incident_episode_token:
+        raise EvidenceLifecycleError(
+            "cleanup-unconfirmed episode token does not match"
+        )
+    path = _execution_lease_path(
+        lock_root,
+        owner_id,
+        execution_key,
+        resource_key,
+    )
+    try:
+        path.unlink()
+    except OSError as exc:
+        raise EvidenceLifecycleError(
+            f"cannot settle cleanup-unconfirmed residual lease: {path}"
+        ) from exc
 
 
 def publish_run(
@@ -879,6 +981,7 @@ __all__ = [
     "read_evidence_execution_lease",
     "resolve_object_path",
     "restore_evidence_quarantine",
+    "settle_cleanup_unconfirmed_lease",
     "store_text_object",
     "verify_text_object",
     "write_json_atomic",

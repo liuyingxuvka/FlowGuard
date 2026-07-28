@@ -66,6 +66,26 @@ def declared_profile(root: Path, name: str) -> dict[str, object]:
 
 
 class WorkContextTests(unittest.TestCase):
+    def test_review_rereads_source_bytes_and_detects_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_change(root)
+            context = read_work_context(
+                root,
+                "change-one",
+                adapter_id=OPEN_SPEC_ADAPTER_ID,
+            )
+            (root / "openspec" / "changes" / "change-one" / "proposal.md").write_text(
+                "mutated after context read\n",
+                encoding="utf-8",
+            )
+            review = review_work_context(context)
+            self.assertFalse(review.ok)
+            self.assertIn(
+                "work_context_artifact_source_changed",
+                review.finding_codes,
+            )
+
     def test_openspec_adapter_reads_artifacts_without_writes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

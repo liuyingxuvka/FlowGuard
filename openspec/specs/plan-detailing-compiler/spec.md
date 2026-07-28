@@ -1,26 +1,27 @@
 # plan-detailing-compiler Specification
 
 ## Purpose
-This capability defines FlowGuard's Plan Detailing Compiler behavior and the
-evidence required to use it safely when explicitly invoked or delegated by the
-development-process simulator in AI-agent maintenance workflows.
+This capability defines the internal PlanDetailing mode owned by
+`flowguard-development-process-flow` and the planning evidence it projects
+without becoming an independently installed public skill or execution owner.
 ## Requirements
 ### Requirement: PlanDetailing is a delegated development-process simulator mode
 FlowGuard SHALL treat PlanDetailing as the `plan_detailing` mode owned by the
-development-process simulator front door, while preserving explicit direct
-invocation when the user or an existing artifact names this route.
+`flowguard-development-process-flow` public front door. It SHALL NOT be
+installed, routed, aliased, or invoked as a separate public skill.
 
 #### Scenario: Generic rough plan enters simulator first
 - **WHEN** an agent is asked to discuss, refine, or accept a non-trivial rough
   plan without explicitly naming PlanDetailing
 - **THEN** Codex routes first to `flowguard-development-process-flow`
-- **AND** the simulator records `plan_detailing` before any delegated
-  `flowguard-plan-detailing-compiler` pass
+- **AND** the owner records and executes its internal `plan_detailing` mode
 
-#### Scenario: Explicit PlanDetailing remains valid
+#### Scenario: Explicit PlanDetailing selects the owner mode
 - **WHEN** the user or an existing FlowGuard artifact explicitly asks for
   PlanDetailing
-- **THEN** `flowguard-plan-detailing-compiler` remains directly invokable
+- **THEN** Codex enters `flowguard-development-process-flow` with
+  `plan_detailing` selected
+- **AND** no retired public helper route is created
 
 ### Requirement: Rough plans are represented as structured detail rows
 FlowGuard SHALL provide public data structures for a rough plan's goal, assumptions, scope, source evidence, risk surfaces, artifacts, state surfaces, side effects, ordered steps, receipts, validation requirements, failure branches, rework gates, human-review questions, and final claim boundary.
@@ -96,11 +97,15 @@ PlanDetailingCompiler SHALL require UI plans to name UI work mode, source scope 
 - **THEN** plan detailing reports the plan as incomplete
 
 ### Requirement: Plan discussions route to structured plan detail
-PlanDetailing SHALL be the direct FlowGuard route for non-trivial plan discussions,方案 discussions, acceptance-criteria discussions, execution-step discussions, and AI-generated outlines before implementation or broad completion claims begin.
+PlanDetailing SHALL be the structured internal mode selected through
+`flowguard-development-process-flow` for non-trivial plan discussions, 方案
+discussions, acceptance-criteria discussions, execution-step discussions, and
+AI-generated outlines before implementation or broad completion claims begin.
 
 #### Scenario: Non-trivial plan discussion uses plan detailing
 - **WHEN** a user and agent discuss a non-trivial implementation plan, validation plan, or acceptance boundary
-- **THEN** routing selects `flowguard-plan-detailing-compiler` before downstream FlowGuard execution routes
+- **THEN** routing selects `flowguard-development-process-flow` and its
+  `plan_detailing` internal mode before downstream execution routes
 
 #### Scenario: Trivial work can skip plan detailing
 - **WHEN** the task is a tiny copy edit, direct command answer, formatting-only change, or pure read-only explanation
@@ -166,18 +171,36 @@ the task can support a done, release, or runnable-UI claim.
 ### Requirement: Plans expose UI and payload validation surfaces
 PlanDetail SHALL require non-trivial plans to expose UI action, artifact
 payload, AI work-package, manual-review, and final-evidence surfaces when those
-boundaries can affect the claim.
+boundaries can affect the claim. Payload-bearing rows SHALL name the real
+surface, planned synthetic cases, expected proof kind, freshness rule, and
+final claim boundary; synthetic cases or expected payloads alone MUST NOT
+count as completion evidence.
 
 #### Scenario: Plan includes import/export work
 - **WHEN** a plan touches file import, file export, generated artifacts, or AI
   work packages
 - **THEN** the plan detail MUST name payload cases, expected evidence kinds,
-  failure/rework branches, freshness rules, and final claim boundaries
+  the real payload surface, failure/rework branches, freshness rules, and
+  final claim boundaries
+- **AND** it MUST keep execution proof missing until a real surface runs
 
 #### Scenario: Plan includes running UI completion
 - **WHEN** a plan claims implemented or runnable UI behavior
 - **THEN** the plan detail MUST name the click-through evidence boundary and
   any manual-check or blindspot branches
+
+### Requirement: Plans bind payload cases to real surfaces
+PlanDetail SHALL require non-trivial plans that import, export, save, load,
+generate, or consume files or work packages to name the real payload surface,
+synthetic cases, expected proof kind, freshness rule, and final claim boundary.
+
+#### Scenario: Plan includes payload-bearing work
+- **WHEN** a plan touches a file, generated artifact, saved project, archive,
+  or AI work package
+- **THEN** the plan detail identifies the real payload surface and the evidence
+  references or producer proof expected to prove it
+- **AND** it does not treat synthetic case generation, expected output, or
+  schema agreement alone as completion evidence
 
 ### Requirement: Plan detail projects strategy execution gates
 PlanDetailing SHALL preserve only process-optimization reason ids and required process-optimization evidence ids at the plan boundary. The optimization decision SHALL remain an independently produced evidence artifact consumed through DPF freshness rather than an embedded PlanDetail schema. Detailed steps and validation rows SHALL use their ordinary ordering, required/produced evidence, failure branch, repair action, and validation-requirement fields instead of copying selected policy, campaign, repair-batch, or reevaluation fields into every row.
@@ -243,4 +266,3 @@ execution or lifecycle authority.
   PlanDetail was compiled
 - **THEN** the affected source, step, validation, DevelopmentProcessFlow
   projection, and downstream evidence SHALL become stale
-

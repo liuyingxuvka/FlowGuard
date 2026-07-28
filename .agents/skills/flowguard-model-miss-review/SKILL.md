@@ -30,8 +30,8 @@ Accept concrete failure evidence and prior claim state; classify and generalize 
 4. Add observed and same-class owner-code evidence, rerun alignment/mesh/freshness/risk gates, and close or scope the class.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - A later green command or point regression alone cannot close the class; target-aware replay and owner code binding remain required when applicable.
 - Unknown old-path/field disposition, stale parent reattachment, open same-family scan, or missing template harvest closure blocks broad repair confidence.
 - Same symptom text in product, AI-operation, and development-process planes is not one recurrence family unless an explicit family relation preserves separate plane-local owners.
@@ -40,4 +40,4 @@ Accept concrete failure evidence and prior claim state; classify and generalize 
 - Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, a miss-repair diagram, and generalized-case status.
 
 
-<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->
+<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

@@ -29,8 +29,8 @@ Accept a source model and named responsibilities; produce FunctionBlock-to-modul
 3. Record rationale plus StructureMesh, Model-Test Alignment, or FieldLifecycleMesh handoffs.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Do not invent modules before responsibilities; require one owner per state/field write, explicit public facade, and validation boundaries.
 - A too-large leaf must split or remain scoped; new/deepened models require template harvest closure.
 
@@ -39,4 +39,4 @@ Accept a source model and named responsibilities; produce FunctionBlock-to-modul
 - When drawing the code structure diagram, edges mean owns, calls, adapts, exposes, or validates.
 
 
-<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->
+<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

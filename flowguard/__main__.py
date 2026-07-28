@@ -204,9 +204,17 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
         contract = ModelRollbackContract.from_dict(
             _read_json_object(args.contract)
         )
+        rollback_candidate = load_model_system_snapshot(
+            args.candidate_snapshot
+        )
+        reverse_revision = ModelRevisionSet.from_dict(
+            _read_json_object(args.reverse_revision_set)
+        )
         head, receipt = rollback_observed_model_system(
             args.root,
             contract,
+            rollback_candidate,
+            reverse_revision,
             completed_evidence_fingerprints=(
                 args.completed_evidence_fingerprint
             ),
@@ -286,6 +294,8 @@ def _add_model_system_parsers(
     )
     rollback.add_argument("--root", default=".")
     rollback.add_argument("--contract", required=True)
+    rollback.add_argument("--candidate-snapshot", required=True)
+    rollback.add_argument("--reverse-revision-set", required=True)
     rollback.add_argument(
         "--completed-evidence-fingerprint",
         action="append",

@@ -129,13 +129,29 @@ check command setup.
   install surface
 
 ### Requirement: Package metadata does not prove skill setup
-FlowGuard project adoption/version guidance SHALL not treat package metadata as
-proof that AI-agent skills are available.
+FlowGuard project adoption and version guidance SHALL NOT treat package
+metadata, an author checkout, or a directory name as proof that AI-agent skills
+are available. Ordinary project audit and upgrade SHALL load the single
+package-owned consumer authority and independently compare its exact member and
+file identities with the installed global consumer projection and distribution
+ownership manifest. The author source tree and its maintenance state SHALL NOT
+be required for that currentness decision.
 
 #### Scenario: Package metadata is current but skills are missing
-- **WHEN** package version, schema version, or project audit passes
-- **AND** `.agents/skills/` is not available to the AI agent
+- **WHEN** package version, schema version, or project audit records are current
+- **AND** one or more authority-declared consumer skills or files are absent
+  from the installed global projection
 - **THEN** FlowGuard skill setup MUST be reported as incomplete or scoped
+- **AND** package metadata, a project-local directory, or an author checkout
+  cannot substitute for the missing consumer projection
+
+#### Scenario: Author workspace is unavailable
+- **WHEN** the installed package authority and installed global consumer
+  projection are exact and current
+- **AND** no author checkout, project-local `.agents/skills/` tree, SkillGuard
+  registry, or author receipt store is available
+- **THEN** ordinary project audit and upgrade may validate consumer currentness
+  without reporting an author-dependency defect
 
 ### Requirement: Managed Adoption Semantic Parity
 Project audit SHALL compare the current managed `AGENTS.md` block with the block produced by the installed generator using stable rule identifiers and normalized content. It SHALL also compare package version, project-manifest version, and rendered adoption version. Markers alone MUST NOT satisfy adoption health.
@@ -187,27 +203,35 @@ FlowGuard SHALL generate project-adoption minimum and required revalidation comm
 - **AND** it does not contain the target repository's resolved absolute path through those next actions
 
 ### Requirement: Project adoption consumes strict mixed-root suite evidence
-Project audit and project upgrade SHALL accept an ownership-backed mixed skill
-root when the canonical FlowGuard suite is complete, and SHALL continue to
-block when canonical membership or ownership evidence is unresolved.
+Project audit and project upgrade SHALL derive the canonical FlowGuard
+consumer member and file inventory only from the package-owned
+`flowguard/consumer-suite-authority.json`. They SHALL compare that exact
+authority with the installed global skills root and distribution ownership
+manifest, accept unrelated non-FlowGuard skills as outside the claim boundary,
+and block when canonical membership, file identity, or ownership evidence is
+unresolved. They SHALL NOT repeat a fixed member list or consume an author-side
+suite map as runtime authority.
 
 #### Scenario: Project audit sees a valid mixed root
-- **WHEN** a target project contains a passing canonical seventeen-member
-  FlowGuard suite with valid distribution ownership evidence
+- **WHEN** package authority and the installed global FlowGuard projection
+  have exact member, file, and ownership parity
 - **AND** unrelated non-FlowGuard skills are co-located in the skill root
 - **THEN** project audit does not report
   `suite_inventory_unresolved` for those unrelated skills
+- **AND** its passing claim is bounded to the authority-declared FlowGuard
+  projection
 
 #### Scenario: Project upgrade sees a valid mixed root
-- **WHEN** explicit project upgrade runs against a valid ownership-backed mixed
-  root
+- **WHEN** explicit project upgrade runs against the exact package-authority,
+  installed-projection, and ownership-manifest identity set
 - **AND** all other upgrade gates pass
-- **THEN** the upgrade may write the current project records
-- **AND** it preserves the unrelated skill directories
+- **THEN** the upgrade may write only the target project's current managed
+  records
+- **AND** it preserves unrelated skill directories and writes no author state
 
 #### Scenario: Mixed root contains a missing or fake FlowGuard member
-- **WHEN** a declared FlowGuard member is missing or an undeclared
-  FlowGuard-reserved member is present
+- **WHEN** an authority-declared FlowGuard member or required file is missing
+  or an undeclared FlowGuard-reserved member is present
 - **THEN** project upgrade remains blocked by
   `suite_inventory_unresolved`
 - **AND** no project record is written merely because unrelated skills were
@@ -263,3 +287,106 @@ When a project declares behavior, UI, field, or external work-context inventorie
 - **WHEN** the current UI inventory fingerprint differs from the identity bound by the last broad coverage result
 - **THEN** the project audit SHALL report the affected coverage evidence as stale without executing UI validation on behalf of its native owner
 
+### Requirement: Project adoption is FlowGuard-only
+FlowGuard project adoption, audit, installed-currentness checking, and upgrade
+SHALL operate without discovering, installing, validating, executing, or
+modifying SkillGuard, SkillGuard Global Router, `.skillguard`, private
+maintenance contracts, receipts, router state, run stores, or author prompts.
+
+#### Scenario: Ordinary project is adopted
+- **WHEN** `project-adopt` runs in a repository with no SkillGuard
+- **THEN** it creates only FlowGuard-owned target-project records
+
+#### Scenario: SkillGuard is absent
+- **WHEN** `project-audit` or `project-upgrade` runs
+- **THEN** missing SkillGuard packages, skills, contracts, router state, or
+  prompts do not create a finding or block FlowGuard readiness
+
+#### Scenario: Zero-write path fails
+- **WHEN** adoption or upgrade fails before its FlowGuard transaction commits
+- **THEN** it leaves no `.skillguard` directory, SkillGuard marker, process, or
+  author-maintenance evidence
+
+### Requirement: Project upgrade validates the installed consumer suite
+Project audit and upgrade SHALL validate the installed global consumer
+projection against the single package-owned authority and distribution
+ownership manifest. The ordinary target repository and author checkout SHALL
+NOT become suite authorities or fallback readers.
+
+#### Scenario: Ordinary project has no author controls
+- **WHEN** an ordinary project has no `.skillguard` directory or local
+  FlowGuard skill suite and the installed consumer projection is exact
+- **THEN** project audit and upgrade pass suite reconciliation without writing
+  author controls or a local skill suite
+
+#### Scenario: Installed consumer suite is unresolved
+- **WHEN** the installed consumer suite is missing, mismatched, or contains an
+  unregistered reserved FlowGuard member
+- **THEN** project upgrade blocks before mutation and does not consult an
+  author or target-local suite map
+
+### Requirement: Ordinary-project guidance uses the one global consumer authority
+Generated project adoption, audit, and upgrade guidance SHALL direct agents to
+the current clean global consumer projection described by the package-owned
+authority. It SHALL NOT require or authorize a project-local FlowGuard skill
+suite, target-local suite map, FlowGuard source-repository script, or
+author-maintenance dependency.
+
+#### Scenario: Managed project block is generated
+- **WHEN** FlowGuard renders its managed `AGENTS.md` block for an ordinary
+  project
+- **THEN** it identifies `$CODEX_HOME/skills/flowguard/SKILL.md` as the default
+  consumer entry
+- **AND** it states that the target project does not copy the suite into local
+  `.agents/skills`
+
+#### Scenario: Required revalidation is generated
+- **WHEN** project adoption, audit, or upgrade emits required revalidation
+- **THEN** `python -m flowguard project-audit --root . --json` is the
+  package-owned executable project audit
+- **AND** no executable item requires a checkout-local `python scripts/`,
+  target-local suite map, or project-local FlowGuard skill tree
+
+#### Scenario: Project-local legacy suite exists
+- **WHEN** an ordinary target still contains a legacy project-local FlowGuard
+  suite
+- **THEN** that tree does not become current suite authority
+- **AND** the global consumer projection remains the sole runtime skill
+  authority without alias, fallback, or dual reader
+
+### Requirement: Ordinary project zero-write behavior
+FlowGuard project use, read-only audit, installed-currentness checking, and
+adoption MUST NOT create or mutate SkillGuard files, prompts, processes,
+receipts, router state, or project records.
+
+#### Scenario: Empty project is adopted
+- **WHEN** `project-adopt` runs in an ordinary project
+- **THEN** it writes only FlowGuard-owned target-project records and leaves
+  `.skillguard` and SkillGuard prompt markers absent
+
+#### Scenario: FlowGuard check runs
+- **WHEN** a native FlowGuard scenario or model check runs in an ordinary
+  project
+- **THEN** the process tree and resulting project tree contain no SkillGuard
+  execution or state
+
+### Requirement: Non-editable project upgrade uses packaged consumer authority
+FlowGuard project audit and writing upgrade SHALL validate the current global
+consumer projection against one immutable consumer-suite authority shipped
+inside the installed package. Runtime project adoption SHALL NOT read an
+author suite map, require an editable checkout, inspect a target-local suite,
+or select a fallback authority.
+
+#### Scenario: Empty ordinary project upgrades under a non-editable install
+- **WHEN** an exact non-editable FlowGuard installation runs
+  `project-upgrade` in an empty ordinary project
+- **AND** the matching global consumer projection is current
+- **THEN** the command writes the current managed `AGENTS.md` block and
+  `.flowguard/project.toml`
+- **AND** the project contains no `.agents/skills`, `.skillguard`, suite map,
+  or copied FlowGuard skill directory
+
+#### Scenario: Packaged authority is unavailable
+- **WHEN** the installed package lacks a readable current consumer authority
+- **THEN** project upgrade exits nonzero before mutation and does not consult
+  an author checkout or target-local suite map

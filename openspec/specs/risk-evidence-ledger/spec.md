@@ -409,3 +409,26 @@ block broad confidence when required ledger coverage is missing or blocked.
 - **WHEN** a RiskEvidenceLedger row references missing, stale, or blocked behavior ledger coverage
 - **THEN** the risk gate SHALL block release, publish, archive, production, and full-confidence claims
 
+### Requirement: Risk Rows Use Compact Gate Lists
+The risk evidence ledger SHALL represent optional route-specific confidence
+checks with typed gate rows instead of route-specific columns on every
+`RiskEvidenceRow`.
+
+#### Scenario: One required topology gate
+- **WHEN** a risk requires topology-hazard review evidence
+- **THEN** the row records one gate with kind `topology_hazard`, the evidence
+  id, required/current state, confidence, and scoped reasons
+
+#### Scenario: No unused gate fields
+- **WHEN** a risk has no model split, test split, or analogous-defect scan
+- **THEN** the row exposes no empty route-specific gate fields
+
+### Requirement: Removed Risk Row Fields Are Not Accepted
+The risk evidence ledger MUST reject removed route-specific gate constructor
+fields rather than accepting, converting, defaulting, or aliasing them.
+
+#### Scenario: Old gate field supplied
+- **WHEN** code constructs a `RiskEvidenceRow` with
+  `topology_hazard_required`
+- **THEN** construction fails because the field is not part of the current
+  schema

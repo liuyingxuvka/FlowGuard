@@ -39,7 +39,7 @@ from .plan_intake import (
     PlanIntakeRiskSurface,
     PlanSourceEvidence,
 )
-from .proof_artifact import ProofArtifactRef
+from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref
 from .step_contracts import STEP_SKIP_ALLOWED_WITH_REASON, STEP_SKIP_FORBIDDEN, WorkflowStepContract
 
 
@@ -429,7 +429,7 @@ class PlanDetailStep:
         object.__setattr__(self, "description", str(self.description))
 
     def completion_receipts(self) -> tuple[str, ...]:
-        return self.produces_receipts or (self.step_id,)
+        return self.produces_receipts
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -516,6 +516,9 @@ class PlanDetailEvidence:
     validation_ids: tuple[str, ...] = ()
     command: str = ""
     result_path: str = ""
+    receipt_id: str = ""
+    receipt_fingerprint: str = ""
+    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     description: str = ""
 
     def __post_init__(self) -> None:
@@ -529,7 +532,20 @@ class PlanDetailEvidence:
         object.__setattr__(self, "validation_ids", _as_tuple(self.validation_ids))
         object.__setattr__(self, "command", str(self.command))
         object.__setattr__(self, "result_path", str(self.result_path))
+        object.__setattr__(self, "receipt_id", str(self.receipt_id))
+        object.__setattr__(self, "receipt_fingerprint", str(self.receipt_fingerprint))
+        object.__setattr__(
+            self,
+            "proof_artifact",
+            coerce_proof_artifact_ref(self.proof_artifact),
+        )
         object.__setattr__(self, "description", str(self.description))
+
+    def has_exact_receipt_reference(self) -> bool:
+        return bool(self.receipt_id and self.receipt_fingerprint)
+
+    def has_partial_receipt_reference(self) -> bool:
+        return bool(self.receipt_id or self.receipt_fingerprint) and not self.has_exact_receipt_reference()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -543,6 +559,9 @@ class PlanDetailEvidence:
             "validation_ids": list(self.validation_ids),
             "command": self.command,
             "result_path": self.result_path,
+            "receipt_id": self.receipt_id,
+            "receipt_fingerprint": self.receipt_fingerprint,
+            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "description": self.description,
         }
 
@@ -1262,6 +1281,19 @@ def review_plan_detail(plan: PlanDetail) -> PlanDetailReviewReport:
                     metadata={"evidence_kind": evidence.evidence_kind, "status": evidence.status},
                 )
             )
+        if evidence.has_partial_receipt_reference():
+            findings.append(
+                _finding(
+                    "plan_evidence_receipt_reference_incomplete",
+                    "plan evidence must preserve both receipt id and fingerprint or neither",
+                    severity=PLAN_DETAIL_SEVERITY_BLOCKED,
+                    row_id=evidence.evidence_id,
+                    metadata={
+                        "receipt_id": evidence.receipt_id,
+                        "receipt_fingerprint": evidence.receipt_fingerprint,
+                    },
+                )
+            )
 
     if plan.non_trivial and not plan.failure_branches:
         findings.append(
@@ -1445,26 +1477,17 @@ def plan_detail_to_development_process(plan: PlanDetail) -> DevelopmentProcessPl
         ProcessEvidence(
             item.evidence_id,
             evidence_kind=item.evidence_kind,
-            status=item.status,
+            status="not_run",
             covers_artifacts=tuple(dict.fromkeys(item.covers_artifacts + item.verifier_artifacts)),
             verifier_artifacts=item.verifier_artifacts,
-            covered_versions=item.covered_versions,
+            covered_versions={},
             validation_requirement_ids=item.validation_ids,
             produced_by_action_id=item.produced_by_step_id,
             command=item.command,
-            result_path=item.result_path,
-            proof_artifact=ProofArtifactRef(
-                item.evidence_id,
-                producer_route="plan_detailing_compiler",
-                command=item.command,
-                result_path=item.result_path,
-                result_status=item.status,
-                exit_code=0 if item.status == "passed" else None,
-                artifact_fingerprints={key: str(value) for key, value in item.covered_versions.items()},
-                covered_obligation_ids=item.validation_ids,
-            )
-            if item.result_path
-            else None,
+            result_path="",
+            proof_artifact=item.proof_artifact,
+            has_exit_artifact=False,
+            has_result_artifact=False,
         )
         for item in plan.evidence
     )

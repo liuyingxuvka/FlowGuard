@@ -428,10 +428,13 @@ class ChildReceiptRequirement:
         object.__setattr__(self, "subject_id", str(self.subject_id))
         object.__setattr__(self, "expected_receipt_fingerprint", str(self.expected_receipt_fingerprint))
         _validate_identifier(self.receipt_id, "child requirement receipt_id")
+        _validate_identifier(self.subject_id, "child requirement subject_id")
         if not self.obligation_ids:
             raise ReceiptValidationError("child requirement obligation_ids are required")
         if not self.eligible_claim_scopes:
             raise ReceiptValidationError("child requirement eligible_claim_scopes are required")
+        if not self.expected_receipt_fingerprint:
+            raise ReceiptValidationError("child requirement expected_receipt_fingerprint is required")
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "ChildReceiptRequirement":
@@ -462,6 +465,8 @@ class ConsumedChildReceipt:
         object.__setattr__(self, "receipt_id", str(self.receipt_id))
         object.__setattr__(self, "receipt_fingerprint", str(self.receipt_fingerprint))
         _validate_identifier(self.receipt_id, "consumed child receipt_id")
+        if not self.receipt_fingerprint:
+            raise ReceiptValidationError("consumed child receipt_fingerprint is required")
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "ConsumedChildReceipt":
@@ -830,6 +835,8 @@ class ReceiptVerificationContext:
     child_receipts: Mapping[str, EvidenceReceipt] = field(default_factory=dict)
     child_verification_results: Mapping[str, "ReceiptVerificationResult"] = field(default_factory=dict)
     latest_child_receipt_ids: Mapping[str, str] = field(default_factory=dict)
+    receipt_store_repository_root: str = ""
+    receipt_store_output_directory: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -862,6 +869,16 @@ class ReceiptVerificationContext:
         object.__setattr__(self, "child_receipts", MappingProxyType(dict(self.child_receipts)))
         object.__setattr__(self, "child_verification_results", MappingProxyType(dict(self.child_verification_results)))
         object.__setattr__(self, "latest_child_receipt_ids", MappingProxyType({str(k): str(v) for k, v in self.latest_child_receipt_ids.items()}))
+        object.__setattr__(
+            self,
+            "receipt_store_repository_root",
+            str(self.receipt_store_repository_root),
+        )
+        object.__setattr__(
+            self,
+            "receipt_store_output_directory",
+            str(self.receipt_store_output_directory),
+        )
 
 
 @dataclass(frozen=True)
@@ -911,9 +928,11 @@ _FRESHNESS_FINDING_PREFIXES = (
     "required_child_",
     "consumed_child_",
     "child_",
+    "superseded_receipt",
     "superseded_child",
     "unexpected_consumed_child",
     "verification_context_",
+    "receipt_store_",
 )
 
 
@@ -1120,6 +1139,201 @@ def minimum_revalidation(
     return _minimum_revalidation(receipt, finding_values)
 
 
+def _same_child_receipt_boundary(
+    required: EvidenceReceipt,
+    candidate: EvidenceReceipt,
+) -> bool:
+    return (
+        candidate.subject_id == required.subject_id
+        and candidate.subject_kind == required.subject_kind
+        and candidate.producer_id == required.producer_id
+        and candidate.claim_scope == required.claim_scope
+        and set(candidate.covered_obligations) == set(required.covered_obligations)
+    )
+
+
+def _store_superseding_receipts(
+    required: EvidenceReceipt,
+    store_receipts: Mapping[str, EvidenceReceipt],
+) -> tuple[tuple[EvidenceReceipt, ...], tuple[ReceiptFinding, ...]]:
+    """Return exact-boundary terminal successors discovered from the store graph."""
+
+    superseded_ids = {required.receipt_id}
+    successors: list[EvidenceReceipt] = []
+    findings: list[ReceiptFinding] = []
+    changed = True
+    while changed:
+        changed = False
+        for candidate in store_receipts.values():
+            if candidate.receipt_id in superseded_ids:
+                continue
+            if not (set(candidate.supersedes_receipt_ids) & superseded_ids):
+                continue
+            if not _same_child_receipt_boundary(required, candidate):
+                findings.append(
+                    _finding(
+                        "child_supersession_boundary_mismatch",
+                        f"receipt {candidate.receipt_id} declares a cross-boundary supersession",
+                        receipt_id=required.receipt_id,
+                        latest_receipt_id=candidate.receipt_id,
+                    )
+                )
+                continue
+            if (
+                candidate.result_status != RECEIPT_STATUS_PASS
+                or candidate.exit_code != 0
+                or candidate.skipped_checks
+                or candidate.blockers
+            ):
+                continue
+            superseded_ids.add(candidate.receipt_id)
+            successors.append(candidate)
+            changed = True
+    return tuple(successors), tuple(findings)
+
+
+def verified_receipt_binding_gap_codes(
+    receipt: EvidenceReceipt | None,
+    verification: ReceiptVerificationResult | None,
+    *,
+    expected_subject_id: str,
+    expected_producer_id: str = "",
+    eligible_claim_scopes: Sequence[str] = ("full",),
+    expected_obligation_ids: Sequence[str] = (),
+    expected_inventory: Mapping[str, Sequence[str]] | None = None,
+) -> tuple[tuple[str, str], ...]:
+    """Check an already-loaded receipt and independently derived verification.
+
+    The helper deliberately accepts no caller-authored ``current`` or ``matches``
+    flag.  Coverage inventory is read from the immutable receipt metadata under
+    ``coverage_inventory`` and compared by typed key and exact value set.
+    """
+
+    gaps: list[tuple[str, str]] = []
+    if receipt is None:
+        return (("verified_receipt_missing", "a loaded immutable producer receipt is required"),)
+    if verification is None:
+        return (
+            (
+                "receipt_verification_missing",
+                f"receipt {receipt.receipt_id} has no independently derived verification result",
+            ),
+        )
+    if receipt.subject_id != expected_subject_id:
+        gaps.append(
+            (
+                "verified_receipt_subject_mismatch",
+                f"receipt {receipt.receipt_id} covers subject {receipt.subject_id!r}, expected {expected_subject_id!r}",
+            )
+        )
+    if expected_producer_id and receipt.producer_id != expected_producer_id:
+        gaps.append(
+            (
+                "verified_receipt_producer_mismatch",
+                f"receipt {receipt.receipt_id} was produced by {receipt.producer_id!r}, expected {expected_producer_id!r}",
+            )
+        )
+    if eligible_claim_scopes and receipt.claim_scope not in set(eligible_claim_scopes):
+        gaps.append(
+            (
+                "verified_receipt_claim_scope_mismatch",
+                f"receipt {receipt.receipt_id} has ineligible claim scope {receipt.claim_scope!r}",
+            )
+        )
+    expected_obligations = set(str(value) for value in expected_obligation_ids)
+    if set(receipt.covered_obligations) != expected_obligations:
+        gaps.append(
+            (
+                "verified_receipt_obligation_scope_mismatch",
+                f"receipt {receipt.receipt_id} does not cover the exact required obligation set",
+            )
+        )
+    if verification.receipt_id != receipt.receipt_id:
+        gaps.append(
+            (
+                "receipt_verification_identity_mismatch",
+                "verification result receipt_id does not match the loaded receipt",
+            )
+        )
+    if verification.receipt_fingerprint != receipt.fingerprint:
+        gaps.append(
+            (
+                "receipt_verification_fingerprint_mismatch",
+                "verification result fingerprint does not match the loaded receipt",
+            )
+        )
+    if (
+        not verification.current
+        or not verification.eligible
+        or verification.status != RECEIPT_STATUS_PASS
+        or verification.findings
+    ):
+        gaps.append(
+            (
+                "verified_receipt_not_current_pass",
+                f"receipt {receipt.receipt_id} is not an independently verified current pass",
+            )
+        )
+    if set(verification.satisfied_obligations) != expected_obligations:
+        gaps.append(
+            (
+                "receipt_verification_obligation_scope_mismatch",
+                "verification result does not satisfy the exact required obligation set",
+            )
+        )
+    if receipt.result_status != RECEIPT_STATUS_PASS or receipt.exit_code != 0:
+        gaps.append(
+            (
+                "verified_receipt_terminal_result_mismatch",
+                f"receipt {receipt.receipt_id} is not a terminal zero-exit pass",
+            )
+        )
+    if receipt.skipped_checks or receipt.blockers:
+        gaps.append(
+            (
+                "verified_receipt_incomplete",
+                f"receipt {receipt.receipt_id} contains skipped checks or blockers",
+            )
+        )
+
+    expected_inventory_values = {
+        str(key): tuple(sorted({str(value) for value in values}))
+        for key, values in dict(expected_inventory or {}).items()
+    }
+    if expected_inventory_values:
+        raw_inventory = receipt.metadata.get("coverage_inventory", {})
+        malformed_inventory = not isinstance(raw_inventory, Mapping)
+        if not isinstance(raw_inventory, Mapping):
+            raw_inventory = {}
+        malformed_keys = tuple(
+            sorted(
+                str(key)
+                for key, values in raw_inventory.items()
+                if not isinstance(values, (tuple, list))
+            )
+        )
+        if malformed_inventory or malformed_keys:
+            gaps.append(
+                (
+                    "verified_receipt_inventory_malformed",
+                    f"receipt {receipt.receipt_id} has malformed typed owner inventory",
+                )
+            )
+        actual_inventory = {
+            str(key): tuple(sorted({str(value) for value in values}))
+            for key, values in raw_inventory.items()
+            if isinstance(values, (tuple, list))
+        }
+        if actual_inventory != expected_inventory_values:
+            gaps.append(
+                (
+                    "verified_receipt_inventory_mismatch",
+                    f"receipt {receipt.receipt_id} does not bind the exact typed owner inventory",
+                )
+            )
+    return tuple(dict.fromkeys(gaps))
+
+
 def verify_evidence_receipt(
     receipt: EvidenceReceipt | Mapping[str, Any],
     context: ReceiptVerificationContext | None,
@@ -1158,6 +1372,69 @@ def verify_evidence_receipt(
 
     findings: list[ReceiptFinding] = []
     satisfied = set(canonical.covered_obligations)
+    receipt_store: dict[str, EvidenceReceipt] = {}
+    store_configured = bool(
+        context.receipt_store_repository_root
+        or context.receipt_store_output_directory
+    )
+    if store_configured:
+        try:
+            store_values = list_evidence_receipts(
+                context.receipt_store_repository_root or ".",
+                output_directory=context.receipt_store_output_directory or None,
+            )
+            for item in store_values:
+                if item.receipt_id in receipt_store:
+                    findings.append(
+                        _finding(
+                            "receipt_store_duplicate_identity",
+                            f"receipt store contains duplicate identity {item.receipt_id}",
+                            receipt_id=item.receipt_id,
+                        )
+                    )
+                receipt_store[item.receipt_id] = item
+        except (OSError, ReceiptValidationError) as exc:
+            findings.append(
+                _finding(
+                    "receipt_store_invalid",
+                    f"canonical receipt store could not be loaded: {exc}",
+                )
+            )
+    elif canonical.required_child_receipts:
+        findings.append(
+            _finding(
+                "receipt_store_missing",
+                "exact parent verification requires the canonical current receipt store",
+            )
+        )
+
+    if store_configured and receipt_store:
+        stored = receipt_store.get(canonical.receipt_id)
+        if stored is not None and stored.fingerprint != canonical.fingerprint:
+            findings.append(
+                _finding(
+                    "receipt_store_fingerprint_mismatch",
+                    f"loaded receipt {canonical.receipt_id} differs from the canonical store",
+                    receipt_id=canonical.receipt_id,
+                )
+            )
+        elif stored is not None:
+            successors, supersession_findings = _store_superseding_receipts(
+                canonical,
+                receipt_store,
+            )
+            findings.extend(supersession_findings)
+            if successors:
+                findings.append(
+                    _finding(
+                        "superseded_receipt",
+                        f"receipt {canonical.receipt_id} was superseded in the canonical store",
+                        receipt_id=canonical.receipt_id,
+                        latest_receipt_ids=tuple(
+                            sorted(item.receipt_id for item in successors)
+                        ),
+                    )
+                )
 
     for expected in canonical.input_snapshots:
         current_snapshot = context.input_snapshots.get(expected.artifact_id)
@@ -1241,8 +1518,42 @@ def verify_evidence_receipt(
         )
 
     for requirement in canonical.required_child_receipts:
-        child = context.child_receipts.get(requirement.receipt_id)
+        projected_child = context.child_receipts.get(requirement.receipt_id)
+        child = receipt_store.get(requirement.receipt_id)
         consumed_link = consumed.get(requirement.receipt_id)
+        aliased_child_keys = tuple(
+            sorted(
+                key
+                for key, value in context.child_receipts.items()
+                if value.receipt_id == requirement.receipt_id and key != requirement.receipt_id
+            )
+        )
+        if aliased_child_keys:
+            findings.append(
+                _finding(
+                    "child_receipt_map_key_mismatch",
+                    f"required child {requirement.receipt_id} is projected under a different mapping key",
+                    receipt_id=requirement.receipt_id,
+                    mapping_keys=aliased_child_keys,
+                )
+            )
+        if projected_child is None:
+            findings.append(
+                _finding(
+                    "required_child_projection_missing",
+                    f"required child receipt {requirement.receipt_id} is absent from the exact child map",
+                    receipt_id=requirement.receipt_id,
+                )
+            )
+        elif projected_child.receipt_id != requirement.receipt_id:
+            findings.append(
+                _finding(
+                    "child_receipt_map_key_mismatch",
+                    f"child map key {requirement.receipt_id} resolves to {projected_child.receipt_id}",
+                    receipt_id=requirement.receipt_id,
+                    loaded_receipt_id=projected_child.receipt_id,
+                )
+            )
         if consumed_link is None:
             findings.append(
                 _finding(
@@ -1261,32 +1572,30 @@ def verify_evidence_receipt(
             )
             continue
 
-        latest_key = requirement.subject_id or child.subject_id
-        latest_id = context.latest_child_receipt_ids.get(latest_key, "")
-        if latest_id and latest_id != requirement.receipt_id:
+        if projected_child is not None and projected_child.fingerprint != child.fingerprint:
+            findings.append(
+                _finding(
+                    "child_projection_fingerprint_mismatch",
+                    f"projected child {requirement.receipt_id} differs from the canonical store receipt",
+                    receipt_id=requirement.receipt_id,
+                )
+            )
+        successors, supersession_findings = _store_superseding_receipts(child, receipt_store)
+        findings.extend(supersession_findings)
+        if successors:
+            latest_ids = tuple(sorted(item.receipt_id for item in successors))
             findings.append(
                 _finding(
                     "superseded_child_receipt",
-                    f"required child {requirement.receipt_id} was superseded by {latest_id}",
+                    f"required child {requirement.receipt_id} was superseded in the canonical store",
                     receipt_id=requirement.receipt_id,
-                    latest_receipt_id=latest_id,
+                    latest_receipt_ids=latest_ids,
                 )
             )
-        for candidate in context.child_receipts.values():
-            if requirement.receipt_id in candidate.supersedes_receipt_ids:
-                findings.append(
-                    _finding(
-                        "superseded_child_receipt",
-                        f"required child {requirement.receipt_id} was superseded by {candidate.receipt_id}",
-                        receipt_id=requirement.receipt_id,
-                        latest_receipt_id=candidate.receipt_id,
-                    )
-                )
-                break
 
         actual_fingerprint = child.fingerprint
         if consumed_link is not None:
-            if consumed_link.receipt_fingerprint and consumed_link.receipt_fingerprint != actual_fingerprint:
+            if consumed_link.receipt_fingerprint != actual_fingerprint:
                 findings.append(
                     _finding(
                         "consumed_child_fingerprint_mismatch",
@@ -1294,15 +1603,15 @@ def verify_evidence_receipt(
                         receipt_id=requirement.receipt_id,
                     )
                 )
-            if not consumed_link.receipt_fingerprint and not requirement.expected_receipt_fingerprint:
+            if consumed_link.receipt_fingerprint != requirement.expected_receipt_fingerprint:
                 findings.append(
                     _finding(
-                        "consumed_child_fingerprint_missing",
-                        f"consumed child {requirement.receipt_id} has no bound fingerprint",
+                        "child_frozen_fingerprint_mismatch",
+                        f"consumed and required fingerprints differ for {requirement.receipt_id}",
                         receipt_id=requirement.receipt_id,
                     )
                 )
-        if requirement.expected_receipt_fingerprint and requirement.expected_receipt_fingerprint != actual_fingerprint:
+        if requirement.expected_receipt_fingerprint != actual_fingerprint:
             findings.append(
                 _finding(
                     "required_child_fingerprint_mismatch",
@@ -1310,14 +1619,22 @@ def verify_evidence_receipt(
                     receipt_id=requirement.receipt_id,
                 )
             )
-        missing_child_obligations = tuple(sorted(set(requirement.obligation_ids) - set(child.covered_obligations)))
-        if missing_child_obligations:
+        if set(requirement.obligation_ids) != set(child.covered_obligations):
             findings.append(
                 _finding(
-                    "child_obligation_missing",
-                    f"child {requirement.receipt_id} does not cover required obligations",
+                    "child_obligation_scope_mismatch",
+                    f"child {requirement.receipt_id} does not cover the exact required obligations",
                     receipt_id=requirement.receipt_id,
-                    missing_obligations=missing_child_obligations,
+                    required_obligations=requirement.obligation_ids,
+                    loaded_obligations=child.covered_obligations,
+                )
+            )
+        if child.subject_id != requirement.subject_id:
+            findings.append(
+                _finding(
+                    "child_subject_mismatch",
+                    f"child {requirement.receipt_id} has subject {child.subject_id!r}, expected {requirement.subject_id!r}",
+                    receipt_id=requirement.receipt_id,
                 )
             )
         if child.claim_scope not in requirement.eligible_claim_scopes:
@@ -1329,12 +1646,44 @@ def verify_evidence_receipt(
                     eligible_claim_scopes=requirement.eligible_claim_scopes,
                 )
             )
+        aliased_result_keys = tuple(
+            sorted(
+                key
+                for key, value in context.child_verification_results.items()
+                if value.receipt_id == requirement.receipt_id and key != requirement.receipt_id
+            )
+        )
+        if aliased_result_keys:
+            findings.append(
+                _finding(
+                    "child_verification_map_key_mismatch",
+                    f"verification for {requirement.receipt_id} is projected under another key",
+                    receipt_id=requirement.receipt_id,
+                    mapping_keys=aliased_result_keys,
+                )
+            )
         child_result = context.child_verification_results.get(requirement.receipt_id)
         if child_result is None:
             findings.append(
                 _finding(
                     "child_verification_result_missing",
                     f"child {requirement.receipt_id} has no independently derived verification result",
+                    receipt_id=requirement.receipt_id,
+                )
+            )
+        elif child_result.receipt_id != requirement.receipt_id:
+            findings.append(
+                _finding(
+                    "child_verification_identity_mismatch",
+                    f"verification result for {requirement.receipt_id} names {child_result.receipt_id}",
+                    receipt_id=requirement.receipt_id,
+                )
+            )
+        elif child_result.receipt_fingerprint != actual_fingerprint:
+            findings.append(
+                _finding(
+                    "child_verification_fingerprint_mismatch",
+                    f"verification result for {requirement.receipt_id} does not match the loaded receipt",
                     receipt_id=requirement.receipt_id,
                 )
             )
@@ -1510,7 +1859,21 @@ def list_evidence_receipts(
     root = evidence_storage_root(repository_root, output_directory=output_directory)
     if not root.exists():
         return ()
-    return tuple(load_evidence_receipt(path) for path in sorted(root.glob("*.json")))
+    receipts: list[EvidenceReceipt] = []
+    seen_ids: set[str] = set()
+    for path in sorted(root.glob("*.json")):
+        receipt = load_evidence_receipt(path)
+        if path.name != _receipt_filename(receipt.receipt_id):
+            raise ReceiptValidationError(
+                f"evidence receipt filename does not match receipt_id: {path.name}"
+            )
+        if receipt.receipt_id in seen_ids:
+            raise ReceiptValidationError(
+                f"duplicate evidence receipt identity: {receipt.receipt_id}"
+            )
+        receipts.append(receipt)
+        seen_ids.add(receipt.receipt_id)
+    return tuple(receipts)
 
 
 def create_input_snapshot(
@@ -1664,4 +2027,5 @@ __all__ = [
     "tokenize_path",
     "verify_evidence_receipt",
     "verify_receipt",
+    "verified_receipt_binding_gap_codes",
 ]

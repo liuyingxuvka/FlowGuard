@@ -30,8 +30,8 @@ Accept finite dimensions/seeds; generate cases with oracles; block unbounded cla
 4. Project stable case ids to Model-Test Alignment, TestMesh, ModelMesh, DevelopmentProcessFlow, and Risk Evidence Ledger.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Broad/full claims require a complete `ContractCoverageUniverse`; reject/block/repair cases require actionable oracle feedback.
 - Matrix ready is not whole-chain ready; current composite handoff acceptance and template harvest closure remain required where applicable.
 - When behavior authority is finite, generate missing/mismatched intent/commitment/path, wrong-path, parallel-success, stale-proof, omitted member/candidate, opaque-similarity, facade, and invalid UI-exception cases. Expected inventories come from their owners, never from the smaller observed set.
@@ -40,4 +40,4 @@ Accept finite dimensions/seeds; generate cases with oracles; block unbounded cla
 - Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, canonical coverage cases, gaps, shards, and receipts.
 
 
-<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->
+<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

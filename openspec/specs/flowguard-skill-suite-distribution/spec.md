@@ -2,24 +2,27 @@
 
 ## Purpose
 This capability defines how FlowGuard is distributed and explained as an
-AI-agent skill suite, including the `.agents/skills/` primary surface, default
-entry skill, executable check-script role, and local installed-skill sync
-evidence needed before claiming active agent behavior is current.
+AI-agent skill suite, including the package-owned clean consumer projection,
+public `flowguard` entry, executable check-script role, and installed-skill
+parity evidence needed before claiming active agent behavior is current.
 ## Requirements
 ### Requirement: FlowGuard is distributed as an AI-agent skill suite
-FlowGuard public onboarding SHALL present `.agents/skills/` as the primary
-AI-agent install and read surface.
+FlowGuard public onboarding SHALL present the package-authority clean consumer
+projection under `$CODEX_HOME/skills/` as the AI-agent install and read
+surface. The repository `.agents/skills/` tree is author source, not installed
+runtime authority.
 
 #### Scenario: Agent reads public onboarding
 - **WHEN** an AI agent reads the README or project integration guide
 - **THEN** it MUST learn that complete agent setup means access to
-  `AGENTS.md` and every FlowGuard `SKILL.md` under `.agents/skills/`
+  `AGENTS.md` and every authority-declared FlowGuard consumer skill under
+  `$CODEX_HOME/skills/`
 - **AND** it MUST NOT treat Python package installation as the skill install
   surface
 
 #### Scenario: Default skill entry is visible
 - **WHEN** an AI agent loads the FlowGuard skill suite
-- **THEN** `model-first-function-flow` MUST be identified as the default
+- **THEN** the public `flowguard` skill MUST be identified as the default
   entrypoint
 - **AND** sibling FlowGuard skills MUST be described as part of the same suite
 
@@ -48,38 +51,35 @@ synchronized.
 
 ### Requirement: Canonical suite validation supports ownership-backed mixed roots
 FlowGuard suite validation SHALL distinguish the canonical FlowGuard suite
-from unrelated skills co-located in the same skill root only when a supported
-official distribution ownership manifest proves the exact canonical member
-boundary. It MUST continue to require exactly seventeen declared FlowGuard
-members and every required member file.
+from unrelated skills co-located in the same skill root only when the
+package-owned consumer authority proves the exact current canonical member and
+file boundary. Membership MUST be derived from that authority and MUST NOT be
+repeated as a fixed literal list.
 
 #### Scenario: Official suite is co-located with unrelated skills
-- **WHEN** the ownership manifest names exactly the seventeen declared
-  FlowGuard members and owns each member's `SKILL.md`
-- **AND** all seventeen canonical member directories and required files exist
+- **WHEN** the package-owned authority names every current FlowGuard consumer
+  member and owns every required member file
+- **AND** every authority-declared member directory and required file exists
 - **AND** additional non-FlowGuard skill directories also contain
   `SKILL.md`
-- **THEN** suite validation passes
-- **AND** it reports seventeen declared and seventeen discovered suite members
+- **THEN** suite validation passes for the authority-declared FlowGuard set
 - **AND** it reports the unrelated directories separately as co-located skills
+  outside the validation claim
 
 #### Scenario: Mixed root lacks valid ownership evidence
 - **WHEN** undeclared skill directories exist
-- **AND** the ownership manifest is missing, unsupported, incomplete, or does
-  not name exactly the declared suite
-- **THEN** validation retains strict reverse discovery
-- **AND** the undeclared directories produce `extra_discovered_member`
-  findings
+- **AND** the package authority is missing, unsupported, incomplete, or stale
+- **THEN** validation remains blocked and reports the authority defect
 
 #### Scenario: Undeclared FlowGuard-like skill is present
-- **WHEN** a valid ownership manifest exists
+- **WHEN** a valid package authority exists
 - **AND** an undeclared skill id uses a FlowGuard-reserved id or prefix
 - **THEN** validation reports that id as `extra_discovered_member`
 - **AND** the suite remains blocked
 
 #### Scenario: Canonical member is missing from a mixed root
-- **WHEN** a valid ownership manifest exists
-- **AND** any declared FlowGuard member directory or required file is missing
+- **WHEN** a valid package authority exists
+- **AND** any authority-declared member directory or required file is missing
 - **THEN** validation reports the existing missing-member or missing-file
   finding
 - **AND** co-located skills do not satisfy or hide the missing obligation
@@ -137,7 +137,15 @@ The provider-neutral prompt update SHALL remain inside the existing SkillGuard m
 - **THEN** the unit's native semantic validation SHALL remain blocked and SHALL NOT publish a clean consumer projection
 
 ### Requirement: Clean consumer installation is transactional and authority-bounded
-The FlowGuard consumer distribution SHALL include only the frozen clean prompt projection after the existing maintenance unit has current native validation and SkillGuard closure. Installation SHALL stage and verify exact content before transactional activation, compare the installed projection with the selected source or package authority, and restore the previous active projection if a required post-activation currentness check fails. Consumer installations SHALL exclude SkillGuard private contracts, manifests, receipts, run stores, and maintenance state.
+The FlowGuard consumer distribution SHALL include only the frozen clean
+package-owned prompt projection after the existing maintenance unit has
+current native validation and SkillGuard closure. Installation SHALL stage and
+verify the exact authority member and file set before transactional activation,
+compare the installed projection with that package authority, and restore the
+previous active projection if a required post-activation currentness check
+fails. Consumer installations SHALL exclude SkillGuard private contracts,
+manifests, receipts, run stores, maintenance state, author-only tests, models,
+fixtures, and notes.
 
 #### Scenario: An older OpenSpec-only prompt is installed
 - **WHEN** staged or active consumer content contains the retired OpenSpec-only prompt semantics instead of the frozen provider-neutral projection
@@ -150,6 +158,11 @@ The FlowGuard consumer distribution SHALL include only the frozen clean prompt p
 #### Scenario: A consumer has no SkillGuard runtime
 - **WHEN** a clean consumer installation uses the validated FlowGuard skills for ordinary domain work
 - **THEN** the skills SHALL remain complete and usable without SkillGuard contracts, receipts, router state, or runtime dependencies
+
+#### Scenario: Consumer prohibition scan covers every staged file
+- **WHEN** a staged consumer projection is prepared for activation
+- **THEN** every file is scanned for author paths, author controls, SkillGuard
+  dependencies, retired public entries, and unresolved placeholders
 
 ### Requirement: Installation freshness follows only the declared installation projection
 Only components mapped to the frozen FlowGuard installation projection SHALL make the consumer installation stale. Source-only fixtures, native validation models, maintenance notes, receipts, and reports SHALL remain outside installation content and SHALL NOT trigger a consumer rewrite merely because they changed.
@@ -188,13 +201,14 @@ Every distributed skill reference and metadata path SHALL resolve in both reposi
 - **THEN** temporary-install validation fails with the unresolved installed-layout path
 
 ### Requirement: Release Distribution Closure
-Distribution SHALL be considered released only after version `0.64.0`,
-documentation, OpenSpec state, current model authority, and
-source/formal/shadow/installed consumer parity are frozen; the unique final
-full parent gate passes for the frozen manifest pair; commit and immutable tag
-metadata agree; a source-only GitHub Release is published with zero uploaded
-assets; and read-only published identity comparison succeeds. Published
-verification MUST NOT rerun heavy validation producers.
+Distribution SHALL be considered released only after the selected current
+version identity, documentation, OpenSpec state, model authority, and source,
+formal, shadow, and installed consumer projections are frozen; the unique
+full-validation parent passes for the frozen validation and release manifests;
+commit and immutable tag metadata agree; a source-only GitHub Release is
+published with zero uploaded assets; and read-only published identity
+comparison succeeds. Published verification MUST NOT restart heavy validation
+producers.
 
 #### Scenario: GitHub release exists but post-check fails
 - **WHEN** the tag and release are published but remote tag, tree, receipt, version, target, or asset-count comparison fails
@@ -207,9 +221,9 @@ including owner-scoped source content, current model authority, toolchain,
 environment, check and obligation inventories, dependencies, and installed
 consumer projection. `ReleaseTreeManifest` SHALL enumerate the exact
 source-only tag tree by canonical relative path, Git mode, and raw
-content/blob identity, and SHALL bind version `0.64.0` and the policy of zero
-uploaded release assets. The terminal full parent receipt SHALL bind both
-fingerprints.
+content/blob identity, the selected current package-version identity, and the
+policy of zero uploaded release assets. The terminal full parent receipt SHALL
+bind both fingerprints.
 The release commit, local and remote tags, and GitHub Release target SHALL be
 compared only to `ReleaseTreeManifest`.
 
@@ -233,3 +247,43 @@ compared only to `ReleaseTreeManifest`.
 - **WHEN** release commit, local tag, remote tag, or GitHub Release target resolves to a tree different from the receipt-bound `ReleaseTreeManifest`
 - **THEN** remote release verification blocks and the immutable tag is not moved
 
+### Requirement: Consumer prohibition scan
+The consumer builder and installed-layout validator MUST scan every staged
+FlowGuard consumer file and reject SkillGuard author controls, private paths,
+maintenance dependencies, receipts, router onboarding, retired public skill
+entries, and unresolved placeholders.
+
+#### Scenario: Hidden contract is present
+- **WHEN** a staged consumer skill contains `.skillguard/**` or another
+  author-control file
+- **THEN** distribution activation blocks and reports the exact prohibited
+  paths
+
+#### Scenario: Prompt contains maintenance dependency
+- **WHEN** a consumer prompt references a SkillGuard command, contract trio,
+  receipt, router onboarding, or managed marker
+- **THEN** prompt and distribution validation block
+
+### Requirement: Parity roots declare projection roles
+Every configured parity root SHALL declare one current role:
+`author_source` or `consumer_distribution`. The author source MAY contain
+maintenance controls; staged, installed, and shadow consumer roots SHALL be
+compared against the clean package-owned consumer projection and SHALL reject
+author controls. Role labels MUST NOT change the package-authority member set.
+
+#### Scenario: Installed tree is compared as author source
+- **WHEN** an installed consumer root is missing a role or is labeled
+  `author_source`
+- **THEN** parity blocks rather than treating author-only controls as consumer
+  files
+
+### Requirement: Release authority is source only
+Every selected FlowGuard release SHALL use its immutable source commit and tag
+tree as the sole published artifact authority. Wheels, source distributions,
+and uploaded GitHub Release assets are outside the release authority and MUST
+remain absent under the source-only policy.
+
+#### Scenario: Package archive is present
+- **WHEN** local or published verification finds a package archive or uploaded
+  release asset for the selected release identity
+- **THEN** source-only release verification fails

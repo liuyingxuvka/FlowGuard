@@ -30,8 +30,8 @@ Accept a current topology digest, usage intent, and evidence boundary; promote o
 4. Resolve, scope with rationale, or issue typed owner-route handoffs and maintenance obligations.
 
 ## Hard Gates
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Verify the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Unanchored concerns cannot block confidence; anchored hazards need current evidence, owner route, or explicit scoped disposition.
 - Important path conflicts, loop liveness, compatibility/history, and template harvest closure must remain visible before broad confidence.
 - Portable liveness/fairness requires canonical checker evidence for the same graph; prose/metadata and stale or truncated reports cannot pass.
@@ -40,4 +40,4 @@ Accept a current topology digest, usage intent, and evidence boundary; promote o
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus anchored candidates and confidence effects.
 
 
-<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->
+<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

@@ -36,8 +36,8 @@ Read `references/route_index.md` for the parity-checked route map and `reference
 - Model-system authority gate: for an existing modeled project, load and audit the sole observed `ModelSystemSnapshot` before treating any model as current. Keep `observed_implementation`, `normative_target`, and `counterfactual_experiment` as separate subject lanes. File discovery, a prompt label, or a green candidate check is candidate context only.
 - Whole-revision gate: a target or experiment becomes observed only through one accepted `ModelRevisionSet` whose base head, affected closure, changed models/relations/fields/contracts/tests, prediction replay, and current owner receipts match exactly. Persist immutable records first and update the sole project pointer last.
 - Rollback gate: restore or compensate real code, data, configuration, side effects, and old-snapshot conformance before rewinding authority. Irreversible effects require forward repair; pointer-only rollback is forbidden.
-- Model-purpose gate: before build/change, freeze this instance's task-specific failure(s) and boundary; then bind candidate plus native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Verify the real FlowGuard check engine and AGENTS.md managed record; if import fails, connect the real toolchain or report blocked/partial and never create a fake mini-framework.
+- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Verify the real FlowGuard check engine and AGENTS.md managed record; if absent, connect it or report blocked/partial; never create a fake mini-framework.
 - Represent every modeled block as `Input x State -> Set(Output x State)`; do not replace executable modeling with prose or weaken hard invariants to pass.
 - A portable-model, compositional, refinement, liveness, or fairness claim requires the current portable artifact identity plus the canonical reference-checker receipt. Python-only execution, prompt prose, descriptive mesh edges, or topology metadata cannot substitute for that evidence.
 - Token provider/conflict closure is not executable system proof. Bounded system composition keeps component-local, token, slice, and system stages distinct; preserves `pass|fail|blocked|invalid|not_run`; fails closed on stale/unresolved/omitted/truncated evidence; and gives the final semantic verdict only to `check_portable_model()`.
@@ -56,4 +56,4 @@ Read `references/route_index.md` for the parity-checked route map and `reference
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus route decision, model snapshot, counterexamples, and current validation status.
 
 
-<!--VTP:target adapter/catalog;native validation;stale/ambiguous=block;preview!=proof;harvest:VTP-->
+<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

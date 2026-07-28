@@ -6,13 +6,13 @@ This capability defines FlowGuard's Flowguard Global Routing behavior and the ev
 ### Requirement: Global routing prefers direct FlowGuard satellite skills
 The global Codex FlowGuard guidance SHALL first check whether a direct
 FlowGuard satellite skill clearly matches the task and SHALL prefer that direct
-skill over `model-first-function-flow` when the match is clear.
+skill over the general public `flowguard` kernel when the match is clear.
 
 #### Scenario: Staged development routes directly
 - **WHEN** a task is non-trivial staged development or modification with
   validation, such as plan, edit, test, fix, and verify
 - **THEN** the global guidance routes to `flowguard-development-process-flow`
-  instead of treating `model-first-function-flow` alone as sufficient
+  instead of treating the general `flowguard` kernel alone as sufficient
 
 #### Scenario: UI interaction routes directly
 - **WHEN** UI controls, screens, menus, navigation, overlays, visible states,
@@ -28,11 +28,12 @@ skill over `model-first-function-flow` when the match is clear.
 #### Scenario: Ambiguous routing uses kernel
 - **WHEN** no direct satellite route clearly matches, several routes apply, or
   a core behavior/state model is needed before narrowing
-- **THEN** the global guidance routes to `model-first-function-flow`
+- **THEN** the global guidance routes to the public `flowguard` kernel, which
+  may select its internal model-first workflow
 
 ### Requirement: FlowGuard satellite routes are peers
 The global guidance SHALL list FlowGuard satellite skills as peer routes and
-SHALL NOT describe `model-first-function-flow` as the mandatory parent entry
+SHALL NOT describe the public `flowguard` kernel as the mandatory parent entry
 for every FlowGuard task.
 
 #### Scenario: Peer route table is visible
@@ -42,10 +43,10 @@ for every FlowGuard task.
   `flowguard-ui-flow-structure`, `flowguard-code-structure-recommendation`,
   `flowguard-model-test-alignment`, `flowguard-test-mesh`,
   `flowguard-structure-mesh`, `flowguard-model-mesh`,
-  `flowguard-model-miss-review`, and `model-first-function-flow`
+  `flowguard-model-miss-review`, and `flowguard`
 
 #### Scenario: Kernel scope is bounded
-- **WHEN** the `model-first-function-flow` skill guidance is read
+- **WHEN** the public `flowguard` skill guidance is read
 - **THEN** it says the kernel owns ordinary behavior/state modeling, unclear
   route selection, and cross-route coordination, while clear direct satellite
   matches should use the matching satellite
@@ -55,19 +56,18 @@ The global Codex FlowGuard guidance SHALL route non-trivial tasks that may
 require multiple installed skills, uncertain skill selection, cross-skill
 ordering, external side effects, staged validation, or non-trivial completion
 evidence to `flowguard-development-process-flow` first, recording
-`agent_workflow` before any delegated `flowguard-agent-workflow-rehearsal`
-review.
+`agent_workflow` before its owner-internal rehearsal review.
 
 #### Scenario: Complex multi-skill task rehearses first
 - **WHEN** a task may involve several installed Codex skills, plugins, tools,
   or staged validation paths
 - **THEN** the global guidance selects `flowguard-development-process-flow`
   before execution begins
-- **AND** the simulator delegates to `flowguard-agent-workflow-rehearsal` only
-  when a full skill/tool workflow rehearsal is needed
+- **AND** the owner selects its internal `agent_workflow` mode only when a full
+  skill/tool workflow rehearsal is needed
 
 #### Scenario: Fresh snapshot is part of routing
-- **WHEN** the simulator delegates to `flowguard-agent-workflow-rehearsal`
+- **WHEN** the owner selects its internal `agent_workflow` mode
 - **THEN** the guidance requires a fresh current-machine skill snapshot for
   that invocation
 - **AND** it forbids treating cached skill lists as current evidence
@@ -239,8 +239,8 @@ development-process simulator before implementation or final confidence routes.
 - **WHEN** a non-trivial user request asks to discuss, design, refine, or agree on a plan before execution
 - **THEN** global routing selects `flowguard-development-process-flow` as the
   first process route
-- **AND** records the `plan_detailing` simulator mode before delegating to
-  `flowguard-plan-detailing-compiler` when full rows are needed
+- **AND** records and executes its internal `plan_detailing` mode when full
+  rows are needed
 
 #### Scenario: Structured lifecycle review can use development process directly
 - **WHEN** the user already provides structured lifecycle rows, artifact versions, validation evidence, and freshness rules
@@ -335,4 +335,3 @@ After migration, bare-string handoffs and legacy alias targets MUST NOT remain a
 #### Scenario: Legacy bare string is supplied
 - **WHEN** a caller supplies an untyped historical next-action string
 - **THEN** the system returns a migration error naming the required typed target and does not follow the legacy path
-

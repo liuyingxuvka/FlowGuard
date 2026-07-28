@@ -78,6 +78,130 @@ def recommendation(
 
 
 class StructureMeshTests(unittest.TestCase):
+    def test_non_ui_currentness_children_have_one_exact_release_structure(self):
+        plan = StructureMeshPlan(
+            parent_module_id="flowguard_currentness",
+            target_structure=recommendation(
+                parent_module_id="flowguard_currentness",
+                modules=(
+                    "package_facade",
+                    "api_registry",
+                    "process_supervision",
+                ),
+                function_map=(
+                    ("dedupe_public_names", "api_registry"),
+                    ("build_public_api_registry", "api_registry"),
+                    ("run_supervised", "process_supervision"),
+                    ("write_terminal_artifact", "process_supervision"),
+                ),
+                state_map=(
+                    ("contained_process_tree", "process_supervision"),
+                ),
+                side_effect_map=(
+                    ("spawn_validation_process", "process_supervision"),
+                    ("persist_terminal_artifact", "process_supervision"),
+                ),
+                config_map=(
+                    ("public_name_order", "api_registry"),
+                    ("grace_seconds", "process_supervision"),
+                ),
+                entrypoint_map=(
+                    ("flowguard.__all__", "package_facade"),
+                ),
+                facade_module_id="package_facade",
+            ),
+            required_evidence_tier=EVIDENCE_CONFORMANCE_GREEN,
+            decision_scope=STRUCTURE_SCOPE_RELEASE,
+            partition_items=(
+                StructurePartitionItem(
+                    "flowguard.__all__",
+                    item_type="entrypoint",
+                    owner_module_id="package_facade",
+                    public_surface=True,
+                    old_path="flowguard.__init__.__all__",
+                    new_path="flowguard.__init__.__all__",
+                ),
+                StructurePartitionItem(
+                    "dedupe_public_names",
+                    owner_module_id="api_registry",
+                ),
+                StructurePartitionItem(
+                    "build_public_api_registry",
+                    owner_module_id="api_registry",
+                ),
+                StructurePartitionItem(
+                    "run_supervised",
+                    owner_module_id="process_supervision",
+                ),
+                StructurePartitionItem(
+                    "write_terminal_artifact",
+                    owner_module_id="process_supervision",
+                ),
+                StructurePartitionItem(
+                    "contained_process_tree",
+                    item_type="state",
+                    owner_module_id="process_supervision",
+                ),
+                StructurePartitionItem(
+                    "spawn_validation_process",
+                    item_type="side_effect",
+                    owner_module_id="process_supervision",
+                ),
+                StructurePartitionItem(
+                    "persist_terminal_artifact",
+                    item_type="side_effect",
+                    owner_module_id="process_supervision",
+                ),
+                StructurePartitionItem(
+                    "public_name_order",
+                    item_type="config",
+                    owner_module_id="api_registry",
+                ),
+                StructurePartitionItem(
+                    "grace_seconds",
+                    item_type="config",
+                    owner_module_id="process_supervision",
+                ),
+            ),
+            child_modules=(
+                module(
+                    "package_facade",
+                    facade_retained=True,
+                    behavior_parity_tier=EVIDENCE_CONFORMANCE_GREEN,
+                ),
+                module(
+                    "api_registry",
+                    owns_config=("public_name_order",),
+                    behavior_parity_tier=EVIDENCE_CONFORMANCE_GREEN,
+                ),
+                module(
+                    "process_supervision",
+                    owns_state=("contained_process_tree",),
+                    owns_side_effects=(
+                        "spawn_validation_process",
+                        "persist_terminal_artifact",
+                    ),
+                    owns_config=("grace_seconds",),
+                    behavior_parity_tier=EVIDENCE_CONFORMANCE_GREEN,
+                ),
+            ),
+            public_entrypoints=(
+                entrypoint(
+                    "flowguard.__all__",
+                    old_path="flowguard.__init__.__all__",
+                    new_path="flowguard.__init__.__all__",
+                    parity_evidence_tier=EVIDENCE_CONFORMANCE_GREEN,
+                    release_required=True,
+                ),
+            ),
+        )
+
+        report = review_structure_mesh(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual("structure_mesh_green_can_continue", report.decision)
+        self.assertEqual((), report.release_obligations)
+
     def test_complete_structure_mesh_can_continue(self):
         plan = StructureMeshPlan(
             parent_module_id="router",

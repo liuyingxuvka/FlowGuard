@@ -27,12 +27,17 @@ from flowguard.model_authority import (
     RevisionEvidenceRef,
     RevisionMemberChange,
     canonical_fingerprint,
-    derive_affected_closure_fingerprint,
     load_model_system_snapshot,
     validate_operational_rollback,
     validate_activation_plan,
     validate_revision_set_snapshots,
     write_content_addressed_snapshot,
+)
+from flowguard.model_revision_set import (
+    RevisionRemovalDisposition,
+    derive_affected_closure_fingerprint,
+    derive_revision_affected_closure,
+    derive_revision_snapshot_diff,
 )
 
 
@@ -94,13 +99,28 @@ def owner_ref() -> AuthorityEndpointRef:
     )
 
 
-def evidence_ref(subject: str, *, status: str) -> RevisionEvidenceRef:
+def evidence_ref(
+    subject: str,
+    *,
+    status: str,
+    candidate_snapshot_fingerprint: str,
+    affected_closure_fingerprint: str,
+    covered_affected_ids: tuple[str, ...],
+    receipt_id: str = "receipt:authority",
+    receipt_fingerprint: str = SHA_C,
+    owner_route: str = "model_test_alignment",
+) -> RevisionEvidenceRef:
     return RevisionEvidenceRef(
-        receipt_id="receipt:authority",
-        receipt_fingerprint=SHA_C,
-        owner_route="model_test_alignment",
+        receipt_id=receipt_id,
+        receipt_fingerprint=receipt_fingerprint,
+        owner_route=owner_route,
         subject_fingerprint=subject,
         obligation_ids=("obligation:authority",),
+        affected_closure_fingerprint=affected_closure_fingerprint,
+        covered_affected_ids=covered_affected_ids,
+        candidate_snapshot_fingerprint=candidate_snapshot_fingerprint,
+        toolchain_fingerprint=SHA_D,
+        environment_fingerprint=SHA_E,
         status=status,
         current=True,
         eligible=True,
@@ -386,34 +406,69 @@ class ModelAuthorityTests(unittest.TestCase):
         base: ModelSystemSnapshot,
         candidate: ModelSystemSnapshot,
     ) -> ModelRevisionSet:
-        member = RevisionMemberChange(
-            member_id="alpha",
-            operation="replace",
-            base_instance_fingerprint=base.model_instances[0].fingerprint,
-            candidate_instance_fingerprint=(
-                candidate.model_instances[0].fingerprint
-            ),
-            changed_element_ids=("state:alpha",),
+        diff = derive_revision_snapshot_diff(base, candidate)
+        closure = derive_revision_affected_closure(base, candidate, diff)
+        ids_by_owner: dict[str, list[str]] = {}
+        for affected_id, owner_route in closure.owner_bindings:
+            ids_by_owner.setdefault(owner_route, []).append(affected_id)
+        required = tuple(
+            evidence_ref(
+                candidate.fingerprint,
+                status="required",
+                candidate_snapshot_fingerprint=candidate.fingerprint,
+                affected_closure_fingerprint=closure.fingerprint,
+                covered_affected_ids=tuple(ids_by_owner[owner_route]),
+                receipt_id=f"receipt:authority:{index}",
+                receipt_fingerprint=canonical_fingerprint(
+                    {"receipt": f"authority:{index}"}
+                ),
+                owner_route=owner_route,
+            )
+            for index, owner_route in enumerate(sorted(ids_by_owner), 1)
         )
-        affected_ids = ("model:alpha",)
         proposed = ModelRevisionSet(
             revision_set_id="rev-one",
             task_id="task-one",
             expected_head_fingerprint=head.fingerprint,
             base_snapshot_fingerprint=base.fingerprint,
             candidate_snapshot_fingerprint=candidate.fingerprint,
-            members=(member,),
-            affected_closure_ids=affected_ids,
-            affected_closure_fingerprint=derive_affected_closure_fingerprint(
-                affected_closure_ids=affected_ids,
-                members=(member,),
+            members=diff.members,
+            affected_closure_ids=closure.affected_ids,
+            affected_closure_fingerprint=closure.fingerprint,
+            affected_edge_ids=closure.edge_ids,
+            affected_owner_bindings=closure.owner_bindings,
+            snapshot_diff_fingerprint=diff.fingerprint,
+            changed_root_ids=diff.changed_root_ids,
+            changed_relation_ids=diff.changed_relation_ids,
+            changed_source_surface_ids=diff.changed_source_surface_ids,
+            changed_commitment_ids=diff.changed_commitment_ids,
+            changed_field_ids=diff.changed_field_ids,
+            changed_side_effect_ids=diff.changed_side_effect_ids,
+            changed_contract_ids=diff.changed_contract_ids,
+            changed_test_ids=diff.changed_test_ids,
+            changed_system_property_ids=diff.changed_system_property_ids,
+            changed_coverage_ids=diff.changed_coverage_ids,
+            changed_gap_ids=diff.changed_gap_ids,
+            changed_owner_artifact_ids=diff.changed_owner_artifact_ids,
+            added_ids=diff.added_ids,
+            removed_ids=diff.removed_ids,
+            fingerprint_changed_ids=diff.fingerprint_changed_ids,
+            removal_dispositions=tuple(
+                RevisionRemovalDisposition(
+                    removed_id=removed_id,
+                    disposition="retire",
+                    reason=(
+                        "The governed identity is intentionally retired by "
+                        "this exact revision."
+                    ),
+                )
+                for removed_id in diff.removed_ids
+                if not removed_id.startswith("unresolved_gap:")
             ),
-            required_evidence_refs=(
-                evidence_ref(candidate.fingerprint, status="required"),
-            ),
+            required_evidence_refs=required,
         )
         return proposed.accept(
-            (evidence_ref(candidate.fingerprint, status="pass"),),
+            tuple(replace(item, status="pass") for item in required),
             reason="all required evidence passed",
         )
 
@@ -426,6 +481,136 @@ class ModelAuthorityTests(unittest.TestCase):
             accepted_revision_set_fingerprint=SHA_A,
             previous_snapshot_fingerprint="",
             activation_receipt_fingerprint=SHA_B,
+        )
+
+    def test_removed_governed_ids_require_exact_dispositions(self):
+        alpha = instance("alpha", "a")
+        beta = instance("beta", "b")
+        base = ModelSystemSnapshot(
+            snapshot_id="observed-alpha-beta",
+            system_id="flowguard",
+            subject_lane=SUBJECT_OBSERVED_IMPLEMENTATION,
+            lifecycle=LIFECYCLE_ACTIVE,
+            subject_revision="source-inventory:" + "a" * 64,
+            root_instance_fingerprints=(
+                alpha.fingerprint,
+                beta.fingerprint,
+            ),
+            model_instances=(alpha, beta),
+            relations=(),
+            coverage=coverage(),
+            owner_artifact_refs=(owner_ref(),),
+            unresolved_gap_ids=(),
+            claim_boundary=(
+                "This base fixture represents two governed model identities "
+                "before one of them is deliberately retired."
+            ),
+        )
+        candidate = ModelSystemSnapshot(
+            snapshot_id="candidate-alpha-only",
+            system_id="flowguard",
+            subject_lane=SUBJECT_OBSERVED_IMPLEMENTATION,
+            lifecycle=LIFECYCLE_CANDIDATE,
+            subject_revision="source-inventory:" + "b" * 64,
+            root_instance_fingerprints=(alpha.fingerprint,),
+            model_instances=(alpha,),
+            relations=(),
+            coverage=coverage(),
+            owner_artifact_refs=(owner_ref(),),
+            unresolved_gap_ids=(),
+            claim_boundary=(
+                "This candidate fixture deliberately retires beta while "
+                "keeping alpha as the sole governed model identity."
+            ),
+        )
+
+        accepted = self._accepted_revision(
+            self._head(base),
+            base,
+            candidate,
+        )
+        self.assertEqual(
+            tuple(
+                item_id
+                for item_id in accepted.removed_ids
+                if not item_id.startswith("unresolved_gap:")
+            ),
+            tuple(
+                item.removed_id
+                for item in accepted.removal_dispositions
+            ),
+        )
+        self.assertEqual(
+            accepted,
+            ModelRevisionSet.from_dict(accepted.to_dict()),
+        )
+        validate_revision_set_snapshots(base, candidate, accepted)
+        with self.assertRaisesRegex(
+            ModelAuthorityError,
+            "removed governed id",
+        ):
+            replace(accepted, removal_dispositions=())
+
+    def _accepted_reverse_revision(
+        self,
+        head: ModelAuthorityHead,
+        contract: ModelRollbackContract,
+    ) -> ModelRevisionSet:
+        affected_ids = ("model_instance:model:rollback",)
+        owner_bindings = (
+            ("model_instance:model:rollback", "model_test_alignment"),
+        )
+        closure_fingerprint = derive_affected_closure_fingerprint(
+            affected_closure_ids=affected_ids,
+            affected_edge_ids=(),
+            affected_owner_bindings=owner_bindings,
+        )
+        member = RevisionMemberChange(
+            member_id="rollback",
+            operation="replace",
+            base_instance_fingerprint=contract.from_snapshot_fingerprint,
+            candidate_instance_fingerprint=contract.to_snapshot_fingerprint,
+            changed_element_ids=affected_ids,
+        )
+        required = RevisionEvidenceRef(
+            receipt_id="receipt:reverse",
+            receipt_fingerprint=SHA_F,
+            owner_route="model_test_alignment",
+            subject_fingerprint=contract.to_snapshot_fingerprint,
+            obligation_ids=("obligation:reverse",),
+            affected_closure_fingerprint=closure_fingerprint,
+            covered_affected_ids=affected_ids,
+            candidate_snapshot_fingerprint=contract.to_snapshot_fingerprint,
+            toolchain_fingerprint=SHA_D,
+            environment_fingerprint=SHA_E,
+            status="required",
+            current=True,
+            eligible=True,
+        )
+        proposed = ModelRevisionSet(
+            revision_set_id="revision:reverse",
+            task_id="task:reverse",
+            expected_head_fingerprint=head.fingerprint,
+            base_snapshot_fingerprint=contract.from_snapshot_fingerprint,
+            candidate_snapshot_fingerprint=contract.to_snapshot_fingerprint,
+            members=(member,),
+            affected_closure_ids=affected_ids,
+            affected_closure_fingerprint=closure_fingerprint,
+            affected_edge_ids=(),
+            affected_owner_bindings=owner_bindings,
+            snapshot_diff_fingerprint=SHA_F,
+            required_evidence_refs=(required,),
+            rollback_contract_fingerprint=contract.fingerprint,
+            originating_revision_set_fingerprint=(
+                contract.originating_revision_set_fingerprint
+            ),
+            originating_activation_receipt_fingerprint=(
+                contract.originating_activation_receipt_fingerprint
+            ),
+        )
+        return proposed.accept(
+            (replace(required, status="pass"),),
+            reason="restoration and reverse evidence passed",
         )
 
     def test_revision_set_accepts_only_exact_evidence_set(self):
@@ -449,22 +634,59 @@ class ModelAuthorityTests(unittest.TestCase):
             decision_reason="",
         )
         with self.assertRaises(ModelAuthorityError):
+            good = replace(
+                proposed.required_evidence_refs[0],
+                status="pass",
+            )
             proposed.accept(
                 (
-                    evidence_ref(candidate.fingerprint, status="pass"),
-                    RevisionEvidenceRef(
+                    good,
+                    replace(
+                        good,
                         receipt_id="receipt:unrelated",
                         receipt_fingerprint=SHA_D,
                         owner_route="test_mesh_maintenance",
-                        subject_fingerprint=candidate.fingerprint,
                         obligation_ids=("obligation:unrelated",),
-                        status="pass",
-                        current=True,
-                        eligible=True,
                     ),
                 ),
                 reason="contains unrelated evidence",
             )
+
+    def test_revision_set_v2_round_trip_rejects_legacy_evidence_shape(self):
+        base = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "a"),
+            snapshot_id="observed-a",
+        )
+        candidate = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "b"),
+            snapshot_id="observed-b",
+        )
+        accepted = self._accepted_revision(self._head(base), base, candidate)
+        self.assertEqual("flowguard.model_revision_set.v2", accepted.schema)
+        self.assertEqual(
+            accepted,
+            ModelRevisionSet.from_dict(accepted.to_dict()),
+        )
+        legacy = accepted.to_dict()
+        legacy["schema"] = "flowguard.model_revision_set.v1"
+        for evidence_list in (
+            legacy["required_evidence_refs"],
+            legacy["completed_evidence_refs"],
+        ):
+            for evidence in evidence_list:
+                evidence["schema"] = "flowguard.model_revision_evidence.v1"
+                evidence.pop("affected_closure_fingerprint")
+                evidence.pop("covered_affected_ids")
+                evidence.pop("candidate_snapshot_fingerprint")
+                evidence.pop("toolchain_fingerprint")
+                evidence.pop("environment_fingerprint")
+
+        with self.assertRaises(ModelAuthorityError):
+            ModelRevisionSet.from_dict(legacy)
 
     def test_revision_set_rejects_stale_ineligible_or_wrong_subject_evidence(self):
         base = snapshot(
@@ -487,7 +709,10 @@ class ModelAuthorityTests(unittest.TestCase):
             completed_evidence_refs=(),
             decision_reason="",
         )
-        good = evidence_ref(candidate.fingerprint, status="pass")
+        good = replace(
+            proposed.required_evidence_refs[0],
+            status="pass",
+        )
         for invalid in (
             replace(good, current=False),
             replace(good, eligible=False),
@@ -523,30 +748,18 @@ class ModelAuthorityTests(unittest.TestCase):
             ),
             model_instances=(alpha_b, beta_b),
         )
-        alpha_change = RevisionMemberChange(
-            member_id="alpha",
-            operation="replace",
-            base_instance_fingerprint=alpha_a.fingerprint,
-            candidate_instance_fingerprint=alpha_b.fingerprint,
-            changed_element_ids=("state:alpha",),
+        valid = self._accepted_revision(self._head(base), base, candidate)
+        alpha_change = next(
+            item for item in valid.members if item.member_id == "alpha"
         )
-        revision = ModelRevisionSet(
-            revision_set_id="revision:missing-beta",
-            task_id="task:missing-beta",
-            expected_head_fingerprint=self._head(base).fingerprint,
-            base_snapshot_fingerprint=base.fingerprint,
-            candidate_snapshot_fingerprint=candidate.fingerprint,
+        revision = replace(
+            valid,
             members=(alpha_change,),
-            affected_closure_ids=("model:alpha",),
-            affected_closure_fingerprint=derive_affected_closure_fingerprint(
-                affected_closure_ids=("model:alpha",),
-                members=(alpha_change,),
-            ),
-            required_evidence_refs=(
-                evidence_ref(candidate.fingerprint, status="required"),
-            ),
+            status="proposed",
+            completed_evidence_refs=(),
+            decision_reason="",
         )
-        with self.assertRaisesRegex(ModelAuthorityError, "model diff"):
+        with self.assertRaisesRegex(ModelAuthorityError, "members"):
             validate_revision_set_snapshots(base, candidate, revision)
 
     def test_revision_set_rejects_undeclared_changed_source_surface(self):
@@ -584,28 +797,13 @@ class ModelAuthorityTests(unittest.TestCase):
                 ),
             ),
         )
-        change = RevisionMemberChange(
-            member_id="alpha",
-            operation="replace",
-            base_instance_fingerprint=alpha_a.fingerprint,
-            candidate_instance_fingerprint=alpha_b.fingerprint,
-            changed_element_ids=("state:alpha",),
-        )
-        revision = ModelRevisionSet(
-            revision_set_id="revision:missing-source",
-            task_id="task:missing-source",
-            expected_head_fingerprint=self._head(base).fingerprint,
-            base_snapshot_fingerprint=base.fingerprint,
-            candidate_snapshot_fingerprint=candidate.fingerprint,
-            members=(change,),
-            affected_closure_ids=("model:alpha", "surface:alpha"),
-            affected_closure_fingerprint=derive_affected_closure_fingerprint(
-                affected_closure_ids=("model:alpha", "surface:alpha"),
-                members=(change,),
-            ),
-            required_evidence_refs=(
-                evidence_ref(candidate.fingerprint, status="required"),
-            ),
+        valid = self._accepted_revision(self._head(base), base, candidate)
+        revision = replace(
+            valid,
+            changed_source_surface_ids=(),
+            status="proposed",
+            completed_evidence_refs=(),
+            decision_reason="",
         )
 
         with self.assertRaisesRegex(
@@ -613,6 +811,261 @@ class ModelAuthorityTests(unittest.TestCase):
             "changed_source_surface_ids",
         ):
             validate_revision_set_snapshots(base, candidate, revision)
+
+    def test_full_snapshot_diff_covers_root_owner_coverage_and_gap_changes(self):
+        alpha_a = instance("alpha", "a")
+        alpha_b = instance("alpha", "b")
+        base = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            alpha_a,
+            snapshot_id="observed-a",
+        )
+        candidate = replace(
+            snapshot(
+                SUBJECT_OBSERVED_IMPLEMENTATION,
+                LIFECYCLE_ACTIVE,
+                alpha_b,
+                snapshot_id="observed-b",
+            ),
+            coverage=coverage(complete=False),
+            owner_artifact_refs=(replace(owner_ref(), fingerprint=SHA_B),),
+            unresolved_gap_ids=("gap:new",),
+        )
+
+        diff = derive_revision_snapshot_diff(base, candidate)
+
+        self.assertEqual(("alpha",), tuple(x.member_id for x in diff.members))
+        self.assertEqual(("root:model:alpha",), diff.changed_root_ids)
+        self.assertIn(
+            "behavior_commitment:commitment:flowguard-authority",
+            diff.changed_owner_artifact_ids,
+        )
+        self.assertTrue(diff.changed_coverage_ids)
+        self.assertEqual(("gap:new",), diff.changed_gap_ids)
+        self.assertIn(
+            "system_property:subject_revision",
+            diff.changed_system_property_ids,
+        )
+
+    def test_owner_only_revision_requires_no_fake_model_member(self):
+        model_value = instance("alpha", "a")
+        base = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            model_value,
+            snapshot_id="observed-a",
+        )
+        candidate = replace(
+            snapshot(
+                SUBJECT_OBSERVED_IMPLEMENTATION,
+                LIFECYCLE_ACTIVE,
+                model_value,
+                snapshot_id="observed-b",
+            ),
+            owner_artifact_refs=(replace(owner_ref(), fingerprint=SHA_B),),
+        )
+        diff = derive_revision_snapshot_diff(base, candidate)
+        closure = derive_revision_affected_closure(base, candidate, diff)
+        required = RevisionEvidenceRef(
+            receipt_id="receipt:owner-only",
+            receipt_fingerprint=SHA_C,
+            owner_route="behavior_commitment_ledger",
+            subject_fingerprint=candidate.fingerprint,
+            obligation_ids=("obligation:owner-only",),
+            affected_closure_fingerprint=closure.fingerprint,
+            covered_affected_ids=closure.affected_ids,
+            candidate_snapshot_fingerprint=candidate.fingerprint,
+            toolchain_fingerprint=SHA_D,
+            environment_fingerprint=SHA_E,
+            status="required",
+            current=True,
+            eligible=True,
+        )
+        revision = ModelRevisionSet(
+            revision_set_id="revision:owner-only",
+            task_id="task:owner-only",
+            expected_head_fingerprint=self._head(base).fingerprint,
+            base_snapshot_fingerprint=base.fingerprint,
+            candidate_snapshot_fingerprint=candidate.fingerprint,
+            members=diff.members,
+            affected_closure_ids=closure.affected_ids,
+            affected_closure_fingerprint=closure.fingerprint,
+            affected_edge_ids=closure.edge_ids,
+            affected_owner_bindings=closure.owner_bindings,
+            snapshot_diff_fingerprint=diff.fingerprint,
+            changed_root_ids=diff.changed_root_ids,
+            changed_relation_ids=diff.changed_relation_ids,
+            changed_source_surface_ids=diff.changed_source_surface_ids,
+            changed_commitment_ids=diff.changed_commitment_ids,
+            changed_field_ids=diff.changed_field_ids,
+            changed_side_effect_ids=diff.changed_side_effect_ids,
+            changed_contract_ids=diff.changed_contract_ids,
+            changed_test_ids=diff.changed_test_ids,
+            changed_system_property_ids=diff.changed_system_property_ids,
+            changed_coverage_ids=diff.changed_coverage_ids,
+            changed_gap_ids=diff.changed_gap_ids,
+            changed_owner_artifact_ids=diff.changed_owner_artifact_ids,
+            added_ids=diff.added_ids,
+            removed_ids=diff.removed_ids,
+            fingerprint_changed_ids=diff.fingerprint_changed_ids,
+            required_evidence_refs=(required,),
+        )
+
+        self.assertFalse(revision.members)
+        validate_revision_set_snapshots(base, candidate, revision)
+
+    def test_fixed_point_closure_does_not_fan_parent_to_unchanged_sibling(self):
+        alpha_a = instance("alpha", "a")
+        alpha_b = instance("alpha", "b")
+        beta = instance("beta", "a")
+        parent = AuthorityEndpointRef(
+            endpoint_kind="parent_closure",
+            endpoint_id="system:test",
+            fingerprint=SHA_F,
+            owner_route="model_mesh_maintenance",
+        )
+
+        def contains(model_value: ModelInstanceRef) -> ModelRelation:
+            return ModelRelation(
+                relation_id=(
+                    f"relation:contains:{model_value.logical_model_id}"
+                ),
+                kind="contains",
+                source=parent,
+                target=AuthorityEndpointRef(
+                    endpoint_kind="model_instance",
+                    endpoint_id=f"model:{model_value.logical_model_id}",
+                    fingerprint=model_value.fingerprint,
+                    owner_route="model_regression_manifest",
+                ),
+            )
+
+        base = replace(
+            snapshot(
+                SUBJECT_OBSERVED_IMPLEMENTATION,
+                LIFECYCLE_ACTIVE,
+                alpha_a,
+                snapshot_id="observed-a",
+            ),
+            model_instances=(alpha_a, beta),
+            relations=(contains(alpha_a), contains(beta)),
+            owner_artifact_refs=(parent,),
+        )
+        candidate = replace(
+            snapshot(
+                SUBJECT_OBSERVED_IMPLEMENTATION,
+                LIFECYCLE_ACTIVE,
+                alpha_b,
+                snapshot_id="observed-b",
+            ),
+            model_instances=(alpha_b, beta),
+            relations=(contains(alpha_b), contains(beta)),
+            owner_artifact_refs=(parent,),
+        )
+
+        closure = derive_revision_affected_closure(base, candidate)
+
+        self.assertIn("model_instance:model:alpha", closure.affected_ids)
+        self.assertIn("parent_closure:system:test", closure.affected_ids)
+        self.assertNotIn("model_instance:model:beta", closure.affected_ids)
+
+    def test_two_receipts_may_collectively_cover_the_exact_closure(self):
+        base = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "a"),
+            snapshot_id="observed-a",
+        )
+        candidate = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "b"),
+            snapshot_id="observed-b",
+        )
+        accepted = self._accepted_revision(self._head(base), base, candidate)
+        required = accepted.required_evidence_refs
+        self.assertEqual(2, len(required))
+        proposed = replace(
+            accepted,
+            required_evidence_refs=required,
+            completed_evidence_refs=(),
+            status="proposed",
+            decision_reason="",
+        )
+
+        result = proposed.accept(
+            tuple(replace(item, status="pass") for item in required),
+            reason="two native owners close the exact affected set",
+        )
+
+        self.assertTrue(result.evidence_complete)
+
+    def test_evidence_receipt_list_cannot_hide_uncovered_affected_ids(self):
+        base = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "a"),
+            snapshot_id="observed-a",
+        )
+        candidate = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "b"),
+            snapshot_id="observed-b",
+        )
+        accepted = self._accepted_revision(self._head(base), base, candidate)
+        template = accepted.required_evidence_refs[0]
+        incomplete = replace(
+            template,
+            covered_affected_ids=template.covered_affected_ids[:1],
+        )
+        proposed = replace(
+            accepted,
+            required_evidence_refs=(incomplete,),
+            completed_evidence_refs=(),
+            status="proposed",
+            decision_reason="",
+        )
+
+        with self.assertRaisesRegex(ModelAuthorityError, "exact evidence"):
+            proposed.accept(
+                (replace(incomplete, status="pass"),),
+                reason="caller list equality is insufficient",
+            )
+
+    def test_evidence_covered_ids_require_their_native_owner_route(self):
+        base = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "a"),
+            snapshot_id="observed-a",
+        )
+        candidate = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "b"),
+            snapshot_id="observed-b",
+        )
+        accepted = self._accepted_revision(self._head(base), base, candidate)
+        required = accepted.required_evidence_refs
+        wrong = replace(
+            required[0],
+            owner_route=(
+                "test_mesh_maintenance"
+                if required[0].owner_route != "test_mesh_maintenance"
+                else "model_mesh_maintenance"
+            ),
+        )
+
+        with self.assertRaisesRegex(ModelAuthorityError, "native owner"):
+            replace(
+                accepted,
+                required_evidence_refs=(wrong, *required[1:]),
+                completed_evidence_refs=(),
+                status="proposed",
+                decision_reason="",
+            )
 
     def test_activation_is_atomic_compare_and_swap(self):
         base = snapshot(
@@ -634,6 +1087,7 @@ class ModelAuthorityTests(unittest.TestCase):
             base,
             candidate,
             revision,
+            live_candidate_snapshot=candidate,
             receipt_id="activation-one",
         )
         self.assertEqual(REVISION_ACCEPTED, revision.status)
@@ -641,6 +1095,39 @@ class ModelAuthorityTests(unittest.TestCase):
         self.assertEqual(head.snapshot_fingerprint, next_head.previous_snapshot_fingerprint)
         self.assertEqual(2, next_head.generation)
         self.assertEqual(receipt.fingerprint, next_head.activation_receipt_fingerprint)
+
+    def test_activation_blocks_same_head_when_live_candidate_drifted(self):
+        base = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "a"),
+            snapshot_id="observed-a",
+        )
+        candidate = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "b"),
+            snapshot_id="observed-b",
+        )
+        head = self._head(base)
+        revision = self._accepted_revision(head, base, candidate)
+        drifted = replace(
+            candidate,
+            claim_boundary=(
+                "This freshly rebuilt candidate intentionally differs from "
+                "the accepted candidate and cannot move authority."
+            ),
+        )
+
+        with self.assertRaisesRegex(ModelAuthorityError, "live candidate"):
+            validate_activation_plan(
+                head,
+                base,
+                candidate,
+                revision,
+                live_candidate_snapshot=drifted,
+                receipt_id="activation:live-drift",
+            )
 
     def test_stale_base_blocks_activation(self):
         base = snapshot(
@@ -664,6 +1151,7 @@ class ModelAuthorityTests(unittest.TestCase):
                 base,
                 candidate,
                 revision,
+                live_candidate_snapshot=candidate,
                 receipt_id="activation-stale",
             )
 
@@ -688,6 +1176,7 @@ class ModelAuthorityTests(unittest.TestCase):
                 base,
                 target,
                 revision,
+                live_candidate_snapshot=target,
                 receipt_id="activation-target",
             )
 
@@ -697,14 +1186,27 @@ class ModelAuthorityTests(unittest.TestCase):
             operation="replace",
             base_instance_fingerprint=SHA_A,
             candidate_instance_fingerprint=SHA_B,
-            changed_element_ids=("state:alpha",),
+            changed_element_ids=("model_instance:model:alpha",),
         )
         second = RevisionMemberChange(
             member_id="beta",
             operation="replace",
             base_instance_fingerprint=SHA_C,
             candidate_instance_fingerprint=SHA_D,
-            changed_element_ids=("relation:alpha-beta",),
+            changed_element_ids=("model_instance:model:beta",),
+        )
+        affected_ids = (
+            "model_instance:model:alpha",
+            "model_instance:model:beta",
+        )
+        owner_bindings = tuple(
+            (affected_id, "model_test_alignment")
+            for affected_id in affected_ids
+        )
+        closure_fingerprint = derive_affected_closure_fingerprint(
+            affected_closure_ids=affected_ids,
+            affected_edge_ids=(),
+            affected_owner_bindings=owner_bindings,
         )
         revision = ModelRevisionSet(
             revision_set_id="multi",
@@ -713,11 +1215,11 @@ class ModelAuthorityTests(unittest.TestCase):
             base_snapshot_fingerprint=SHA_A,
             candidate_snapshot_fingerprint=SHA_B,
             members=(first, second),
-            affected_closure_ids=("model:alpha", "model:beta"),
-            affected_closure_fingerprint=derive_affected_closure_fingerprint(
-                affected_closure_ids=("model:alpha", "model:beta"),
-                members=(first, second),
-            ),
+            affected_closure_ids=affected_ids,
+            affected_closure_fingerprint=closure_fingerprint,
+            affected_edge_ids=(),
+            affected_owner_bindings=owner_bindings,
+            snapshot_diff_fingerprint=SHA_F,
             required_evidence_refs=(
                 RevisionEvidenceRef(
                     receipt_id="receipt:multi",
@@ -725,6 +1227,11 @@ class ModelAuthorityTests(unittest.TestCase):
                     owner_route="model_test_alignment",
                     subject_fingerprint=SHA_B,
                     obligation_ids=("obligation:multi",),
+                    affected_closure_fingerprint=closure_fingerprint,
+                    covered_affected_ids=affected_ids,
+                    candidate_snapshot_fingerprint=SHA_B,
+                    toolchain_fingerprint=SHA_C,
+                    environment_fingerprint=SHA_D,
                     status="required",
                     current=True,
                     eligible=True,
@@ -735,8 +1242,20 @@ class ModelAuthorityTests(unittest.TestCase):
         self.assertEqual(("alpha", "beta"), tuple(item.member_id for item in revision.members))
 
     def test_exact_operational_rollback_requires_restore_and_conformance(self):
+        head = ModelAuthorityHead(
+            system_id="flowguard",
+            snapshot_fingerprint=SHA_B,
+            subject_revision="git:new",
+            generation=2,
+            accepted_revision_set_fingerprint=SHA_C,
+            previous_snapshot_fingerprint=SHA_A,
+            activation_receipt_fingerprint=SHA_D,
+        )
         contract = ModelRollbackContract(
             contract_id="rollback-one",
+            expected_head_fingerprint=head.fingerprint,
+            originating_revision_set_fingerprint=SHA_C,
+            originating_activation_receipt_fingerprint=SHA_D,
             from_snapshot_fingerprint=SHA_B,
             to_snapshot_fingerprint=SHA_A,
             effects=(
@@ -755,6 +1274,19 @@ class ModelAuthorityTests(unittest.TestCase):
             ),
             old_snapshot_conformance_evidence_fingerprints=(SHA_E,),
         )
+        reverse_revision = self._accepted_reverse_revision(head, contract)
+        receipt = validate_operational_rollback(
+            head,
+            contract,
+            reverse_revision,
+            completed_evidence_fingerprints=(SHA_C, SHA_D, SHA_E),
+            requested_result=ROLLBACK_RESULT_EXACT,
+            receipt_id="rollback-receipt-one",
+            reason="implementation restored and old snapshot passed",
+        )
+        self.assertEqual(ROLLBACK_RESULT_EXACT, receipt.result)
+
+    def test_irreversible_effect_cannot_claim_exact_rollback(self):
         head = ModelAuthorityHead(
             system_id="flowguard",
             snapshot_fingerprint=SHA_B,
@@ -764,19 +1296,11 @@ class ModelAuthorityTests(unittest.TestCase):
             previous_snapshot_fingerprint=SHA_A,
             activation_receipt_fingerprint=SHA_D,
         )
-        receipt = validate_operational_rollback(
-            head,
-            contract,
-            completed_evidence_fingerprints=(SHA_C, SHA_D, SHA_E),
-            requested_result=ROLLBACK_RESULT_EXACT,
-            receipt_id="rollback-receipt-one",
-            reason="implementation restored and old snapshot passed",
-        )
-        self.assertEqual(ROLLBACK_RESULT_EXACT, receipt.result)
-
-    def test_irreversible_effect_cannot_claim_exact_rollback(self):
         contract = ModelRollbackContract(
             contract_id="rollback-irreversible",
+            expected_head_fingerprint=head.fingerprint,
+            originating_revision_set_fingerprint=SHA_C,
+            originating_activation_receipt_fingerprint=SHA_D,
             from_snapshot_fingerprint=SHA_B,
             to_snapshot_fingerprint=SHA_A,
             effects=(
@@ -789,7 +1313,20 @@ class ModelAuthorityTests(unittest.TestCase):
             ),
             old_snapshot_conformance_evidence_fingerprints=(SHA_D,),
         )
-        head = ModelAuthorityHead(
+        reverse_revision = self._accepted_reverse_revision(head, contract)
+        with self.assertRaisesRegex(ModelAuthorityError, "cannot claim exact"):
+            validate_operational_rollback(
+                head,
+                contract,
+                reverse_revision,
+                completed_evidence_fingerprints=(SHA_C, SHA_D),
+                requested_result=ROLLBACK_RESULT_EXACT,
+                receipt_id="rollback-bad",
+                reason="incorrect exact rollback request",
+            )
+
+    def test_old_rollback_contract_cannot_replay_at_later_same_snapshot(self):
+        old_head = ModelAuthorityHead(
             system_id="flowguard",
             snapshot_fingerprint=SHA_B,
             subject_revision="git:new",
@@ -798,14 +1335,43 @@ class ModelAuthorityTests(unittest.TestCase):
             previous_snapshot_fingerprint=SHA_A,
             activation_receipt_fingerprint=SHA_D,
         )
-        with self.assertRaisesRegex(ModelAuthorityError, "cannot claim exact"):
+        contract = ModelRollbackContract(
+            contract_id="rollback:old-head",
+            expected_head_fingerprint=old_head.fingerprint,
+            originating_revision_set_fingerprint=SHA_C,
+            originating_activation_receipt_fingerprint=SHA_D,
+            from_snapshot_fingerprint=SHA_B,
+            to_snapshot_fingerprint=SHA_A,
+            effects=(
+                ModelRollbackEffect(
+                    effect_id="source",
+                    kind="code_config",
+                    disposition="restore",
+                    required_evidence_fingerprints=(SHA_C,),
+                ),
+            ),
+            old_snapshot_conformance_evidence_fingerprints=(SHA_E,),
+        )
+        reverse_revision = self._accepted_reverse_revision(
+            old_head,
+            contract,
+        )
+        later_head = replace(
+            old_head,
+            generation=4,
+            accepted_revision_set_fingerprint=SHA_E,
+            activation_receipt_fingerprint=SHA_F,
+        )
+
+        with self.assertRaisesRegex(ModelAuthorityError, "advanced"):
             validate_operational_rollback(
-                head,
+                later_head,
                 contract,
-                completed_evidence_fingerprints=(SHA_C, SHA_D),
+                reverse_revision,
+                completed_evidence_fingerprints=(SHA_C, SHA_E),
                 requested_result=ROLLBACK_RESULT_EXACT,
-                receipt_id="rollback-bad",
-                reason="incorrect exact rollback request",
+                receipt_id="rollback:replay",
+                reason="an old head contract must not replay",
             )
 
 

@@ -1,6 +1,15 @@
 import unittest
+from dataclasses import replace
 
 import flowguard
+from flowguard.evidence_receipts import (
+    EvidenceReceipt,
+    ReceiptVerificationContext,
+    build_environment_fingerprint,
+    fingerprint_value,
+    snapshot_bytes,
+    verify_evidence_receipt,
+)
 from flowguard import (
     ARTIFACT_PAYLOAD_METHOD_MANUAL,
     ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
@@ -64,6 +73,127 @@ def evidence(evidence_id, *covered, **kwargs):
     }
     defaults.update(kwargs)
     return TestEvidence(evidence_id, **defaults)
+
+
+def verified_receipt(
+    subject_id,
+    *obligation_ids,
+    coverage_inventory,
+    producer_id="flowguard.model-test-alignment",
+):
+    environment = build_environment_fingerprint(
+        {
+            "python_implementation": "CPython",
+            "python_version": "3.12.10",
+            "platform_system": "Windows",
+            "platform_machine": "AMD64-test",
+            "flowguard_version": "0.64.1",
+        }
+    )
+    digest = lambda label: fingerprint_value({"label": label, "subject": subject_id})
+    value = EvidenceReceipt(
+        receipt_id=f"receipt:{subject_id}",
+        subject_id=subject_id,
+        subject_kind="test_evidence",
+        producer_id=producer_id,
+        producer_version="0.64.1",
+        claim_scope="full",
+        command=("python", "-m", "pytest", subject_id),
+        working_directory_token="<WORKSPACE>",
+        started_at="2026-07-28T08:00:00+00:00",
+        finished_at="2026-07-28T08:00:01+00:00",
+        exit_code=0,
+        environment_fingerprint=environment.fingerprint,
+        environment_metadata=environment.metadata,
+        contract_hash=digest("contract"),
+        check_manifest_hash=digest("manifest"),
+        suite_map_hash=digest("suite"),
+        input_snapshots=(
+            snapshot_bytes(
+                "test-input",
+                subject_id.encode(),
+                path_token=f"<WORKSPACE>/tests/{subject_id}.py",
+                obligation_ids=obligation_ids,
+            ),
+        ),
+        proof_artifact_id=f"proof:{subject_id}",
+        proof_artifact_fingerprint=digest("proof"),
+        result_status="pass",
+        result_fingerprint=digest("result"),
+        covered_obligations=tuple(obligation_ids),
+        claim_boundary="Exact test evidence fixture only.",
+        metadata={
+            "coverage_inventory": {
+                key: list(values) for key, values in coverage_inventory.items()
+            }
+        },
+    )
+    context = ReceiptVerificationContext(
+        input_snapshots={item.artifact_id: item for item in value.input_snapshots},
+        contract_hash=value.contract_hash,
+        check_manifest_hash=value.check_manifest_hash,
+        suite_map_hash=value.suite_map_hash,
+        producer_id=value.producer_id,
+        producer_version=value.producer_version,
+        environment_fingerprint=value.environment_fingerprint,
+        proof_artifact_fingerprint=value.proof_artifact_fingerprint,
+        result_fingerprint=value.result_fingerprint,
+        command=value.command,
+        working_directory_token=value.working_directory_token,
+        proof_artifact_id=value.proof_artifact_id,
+        required_obligation_ids=value.covered_obligations,
+        eligible_claim_scopes=("full",),
+    )
+    verification = verify_evidence_receipt(value, context)
+    if not verification.ok:
+        raise AssertionError(verification.to_dict())
+    return value, context, verification
+
+
+def verified_test_binding(
+    evidence_id,
+    obligation_ids,
+    code_contract_ids,
+    *,
+    target_id="",
+):
+    inventory = {
+        "model_obligation_ids": tuple(obligation_ids),
+        "code_contract_ids": tuple(code_contract_ids),
+        "test_target_ids": (target_id or evidence_id,),
+    }
+    loaded, context, verification = verified_receipt(
+        evidence_id,
+        *obligation_ids,
+        coverage_inventory=inventory,
+    )
+    return {
+        "loaded_receipt": loaded,
+        "receipt_verification_context": context,
+        "receipt_verification": verification,
+        "receipt_producer_id": loaded.producer_id,
+    }
+
+
+def verified_payload_binding(evidence_id, contract, case_id):
+    inventory = {
+        "model_obligation_ids": (contract.model_obligation_id,),
+        "code_contract_ids": (contract.code_contract_id,),
+        "payload_contract_ids": (contract.payload_contract_id,),
+        "payload_case_ids": (case_id,),
+        "test_target_ids": (evidence_id,),
+    }
+    loaded, context, verification = verified_receipt(
+        evidence_id,
+        contract.model_obligation_id,
+        coverage_inventory=inventory,
+    )
+    return {
+        "loaded_receipt": loaded,
+        "receipt_verification_context": context,
+        "receipt_verification": verification,
+        "receipt_producer_id": loaded.producer_id,
+    }
 
 
 def proof_artifact(artifact_id, *covered):
@@ -945,6 +1075,11 @@ class ModelTestAlignmentTests(unittest.TestCase):
                     result_reused=True,
                     reuse_ticket=reuse_ticket("test_accept_valid_order", "accept_valid_order"),
                     proof_artifact=proof_artifact("artifact:accept", "accept_valid_order"),
+                    **verified_test_binding(
+                        "test_accept_valid_order",
+                        ("accept_valid_order",),
+                        ("checkout.accept_valid_order",),
+                    ),
                 ),
             ),
         )
@@ -952,6 +1087,107 @@ class ModelTestAlignmentTests(unittest.TestCase):
         report = review_model_test_alignment(plan)
 
         self.assertTrue(report.ok, report.format_text())
+
+    def test_self_consistent_reuse_ticket_and_proof_cannot_replace_loaded_receipt(self):
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                model_id="checkout",
+                obligations=(obligation("accept_valid_order"),),
+                code_contracts=(owner_contract("accept_valid_order"),),
+                test_evidence=(
+                    bound_evidence(
+                        "test_accept_valid_order",
+                        "accept_valid_order",
+                        result_reused=True,
+                        reuse_ticket=reuse_ticket(
+                            "test_accept_valid_order",
+                            "accept_valid_order",
+                        ),
+                        proof_artifact=proof_artifact(
+                            "artifact:accept",
+                            "accept_valid_order",
+                        ),
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("test_reuse_receipt_required", report.decision)
+        self.assertIn("verified_receipt_missing", finding_codes(report))
+
+    def test_reused_receipt_verification_projection_and_scope_cannot_be_tampered(self):
+        binding = verified_test_binding(
+            "test_accept_valid_order",
+            ("accept_valid_order",),
+            ("checkout.accept_valid_order",),
+        )
+        tampered = dict(binding)
+        tampered["receipt_verification"] = replace(
+            binding["receipt_verification"],
+            receipt_fingerprint="sha256:forged",
+        )
+        tampered_report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                model_id="checkout",
+                obligations=(obligation("accept_valid_order"),),
+                code_contracts=(owner_contract("accept_valid_order"),),
+                test_evidence=(
+                    bound_evidence(
+                        "test_accept_valid_order",
+                        "accept_valid_order",
+                        result_reused=True,
+                        reuse_ticket=reuse_ticket(
+                            "test_accept_valid_order",
+                            "accept_valid_order",
+                        ),
+                        proof_artifact=proof_artifact(
+                            "artifact:accept",
+                            "accept_valid_order",
+                        ),
+                        **tampered,
+                    ),
+                ),
+            )
+        )
+        self.assertIn(
+            "receipt_verification_projection_mismatch",
+            finding_codes(tampered_report),
+        )
+
+        broadened_report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                model_id="checkout",
+                obligations=(obligation("accept_valid_order"),),
+                code_contracts=(
+                    code_contract(
+                        "checkout.alternate",
+                        "accept_valid_order",
+                    ),
+                ),
+                test_evidence=(
+                    contract_evidence(
+                        "test_accept_valid_order",
+                        "accept_valid_order",
+                        "checkout.alternate",
+                        result_reused=True,
+                        reuse_ticket=reuse_ticket(
+                            "test_accept_valid_order",
+                            "accept_valid_order",
+                        ),
+                        proof_artifact=proof_artifact(
+                            "artifact:accept",
+                            "accept_valid_order",
+                        ),
+                        **binding,
+                    ),
+                ),
+            )
+        )
+        self.assertIn(
+            "verified_receipt_inventory_mismatch",
+            finding_codes(broadened_report),
+        )
 
     def test_reused_test_evidence_rejects_stale_proof_and_scope_mismatch(self):
         plan = ModelTestAlignmentPlan(
@@ -1718,6 +1954,11 @@ def test_submit_order():
                         observed_state_writes=("export_path",),
                         round_trip_ok=True,
                         evidence_ref="test://checkout/export-valid-order-json",
+                        **verified_payload_binding(
+                            "payload:valid",
+                            payload_contract,
+                            "valid-order-json",
+                        ),
                     ),
                     ArtifactPayloadEvidence(
                         "payload:invalid",
@@ -1726,6 +1967,11 @@ def test_submit_order():
                         observed_status=ARTIFACT_PAYLOAD_STATUS_REJECTED,
                         observed_error_path="schema_error",
                         evidence_ref="test://checkout/export-invalid-order-json",
+                        **verified_payload_binding(
+                            "payload:invalid",
+                            payload_contract,
+                            "invalid-order-json",
+                        ),
                     ),
                 ),
             )
@@ -1825,6 +2071,7 @@ def test_submit_order():
                     observed_status=ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
                     observed_output="checkout.json",
                     round_trip_ok=True,
+                    evidence_ref="test://caller-declared",
                 ),
             ),
             code_contracts=(owner_contract("accept_valid_order"),),
@@ -1845,6 +2092,11 @@ def test_submit_order():
                     observed_output="checkout.json",
                     round_trip_ok=True,
                     proof_artifact=proof_artifact("artifact:checkout-export", "accept_valid_order"),
+                    **verified_payload_binding(
+                        "payload:real-flow",
+                        contract,
+                        "valid-order-json",
+                    ),
                 ),
             ),
             code_contracts=(owner_contract("accept_valid_order"),),
@@ -1852,6 +2104,33 @@ def test_submit_order():
         )
 
         self.assertTrue(with_proof.ok, with_proof.format_text())
+
+        wrong_case_binding = verified_payload_binding(
+            "payload:wrong-case",
+            contract,
+            "another-case",
+        )
+        wrong_case = review_artifact_payload_validation(
+            (contract,),
+            (
+                ArtifactPayloadEvidence(
+                    "payload:wrong-case",
+                    "payload:checkout-export",
+                    case_id="valid-order-json",
+                    observed_status=ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
+                    observed_output="checkout.json",
+                    round_trip_ok=True,
+                    **wrong_case_binding,
+                ),
+            ),
+            code_contracts=(owner_contract("accept_valid_order"),),
+            model_obligations=(obligation("accept_valid_order"),),
+        )
+        self.assertFalse(wrong_case.ok)
+        self.assertIn(
+            "artifact_payload_verified_receipt_inventory_mismatch",
+            finding_codes(wrong_case),
+        )
 
     def test_stable_authority_identity_and_binding_row_reject_path_drift(self):
         plan = ModelTestAlignmentPlan(

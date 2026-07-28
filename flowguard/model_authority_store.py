@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
@@ -63,8 +63,14 @@ class ModelAuthorityAuditReport:
     status: str
     observed_source_revision: str = ""
     observed_snapshot_fingerprint: str = ""
+    live_snapshot_fingerprint: str = ""
     head_fingerprint: str = ""
     coverage_status: str = ""
+    declared_model_ids: tuple[str, ...] = ()
+    materialized_model_ids: tuple[str, ...] = ()
+    required_model_ids: tuple[str, ...] = ()
+    covered_model_ids: tuple[str, ...] = ()
+    missing_model_ids: tuple[str, ...] = ()
     unresolved_gap_ids: tuple[str, ...] = ()
     findings: tuple[ModelAuthorityFinding, ...] = ()
     claim_boundary: str = (
@@ -88,8 +94,14 @@ class ModelAuthorityAuditReport:
             "observed_snapshot_fingerprint": (
                 self.observed_snapshot_fingerprint
             ),
+            "live_snapshot_fingerprint": self.live_snapshot_fingerprint,
             "head_fingerprint": self.head_fingerprint,
             "coverage_status": self.coverage_status,
+            "declared_model_ids": list(self.declared_model_ids),
+            "materialized_model_ids": list(self.materialized_model_ids),
+            "required_model_ids": list(self.required_model_ids),
+            "covered_model_ids": list(self.covered_model_ids),
+            "missing_model_ids": list(self.missing_model_ids),
             "unresolved_gap_ids": list(self.unresolved_gap_ids),
             "findings": [item.to_dict() for item in self.findings],
             "claim_boundary": self.claim_boundary,
@@ -264,6 +276,13 @@ def load_observed_model_system(
 ) -> tuple[ModelAuthorityHead, ModelSystemSnapshot]:
     root_path = Path(root).resolve()
     text = read_manifest_text(root_path / ".flowguard" / "project.toml")
+    return _load_observed_from_manifest_text(root_path, text)
+
+
+def _load_observed_from_manifest_text(
+    root_path: Path,
+    text: str,
+) -> tuple[ModelAuthorityHead, ModelSystemSnapshot]:
     section = _section(text)
     head = _head_from_section(section)
     relative = _relative_path(
@@ -293,12 +312,15 @@ def audit_model_authority(
     root: str | Path,
 ) -> ModelAuthorityAuditReport:
     root_path = Path(root).resolve()
+    model_inventory = None
     try:
         head, snapshot = load_observed_model_system(root_path)
         from .model_system_inventory import (
             build_manifest_model_system_snapshot,
+            inspect_manifest_model_inventory,
         )
 
+        model_inventory = inspect_manifest_model_inventory(root_path)
         live_snapshot = build_manifest_model_system_snapshot(
             root_path,
             snapshot_id=snapshot.snapshot_id,
@@ -307,18 +329,42 @@ def audit_model_authority(
             lifecycle=LIFECYCLE_ACTIVE,
         )
     except (ModelAuthorityError, ProjectManifestError, ValueError) as exc:
+        inventory_fields: dict[str, tuple[str, ...]] = {}
+        finding_code = "model_authority_invalid"
+        if model_inventory is not None:
+            inventory_fields = {
+                "declared_model_ids": model_inventory.declared_ids,
+                "materialized_model_ids": model_inventory.materialized_ids,
+                "required_model_ids": model_inventory.required_ids,
+                "covered_model_ids": model_inventory.covered_ids,
+                "missing_model_ids": model_inventory.missing_ids,
+            }
+            if model_inventory.missing_ids:
+                finding_code = "live_model_manifest_incomplete"
         return ModelAuthorityAuditReport(
             root=str(root_path),
             status=MODEL_AUTHORITY_STATUS_BLOCKED,
+            **inventory_fields,
             findings=(
                 ModelAuthorityFinding(
                     "blocked",
-                    "model_authority_invalid",
+                    finding_code,
                     str(exc),
                 ),
             ),
         )
     stale_findings: list[ModelAuthorityFinding] = []
+    if model_inventory.missing_ids:
+        stale_findings.append(
+            ModelAuthorityFinding(
+                "blocked",
+                "live_model_manifest_incomplete",
+                "live non-excluded model manifest is not fully materialized: "
+                f"declared={list(model_inventory.declared_ids)}, "
+                f"materialized={list(model_inventory.materialized_ids)}, "
+                f"missing={list(model_inventory.missing_ids)}",
+            )
+        )
     stored_models = {
         item.logical_model_id: item.fingerprint
         for item in snapshot.model_instances
@@ -343,17 +389,13 @@ def audit_model_authority(
                 f"added={added}, removed={removed}, changed={changed}",
             )
         )
-    if (
-        snapshot.subject_revision != live_snapshot.subject_revision
-        or snapshot.coverage.source_inventory_fingerprint
-        != live_snapshot.coverage.source_inventory_fingerprint
-    ):
+    if snapshot.identity_payload() != live_snapshot.identity_payload():
         stale_findings.append(
             ModelAuthorityFinding(
                 "blocked",
                 "observed_source_inventory_stale",
-                "stored observed source revision or coverage inventory fingerprint "
-                "does not match the live checkout",
+                "stored observed snapshot does not exactly equal the fresh "
+                f"canonical live reconstruction {live_snapshot.fingerprint}",
             )
         )
     stored_dimensions = {
@@ -401,8 +443,14 @@ def audit_model_authority(
             status=MODEL_AUTHORITY_STATUS_BLOCKED,
             observed_source_revision=snapshot.subject_revision,
             observed_snapshot_fingerprint=snapshot.fingerprint,
+            live_snapshot_fingerprint=live_snapshot.fingerprint,
             head_fingerprint=head.fingerprint,
             coverage_status=snapshot.coverage_status,
+            declared_model_ids=model_inventory.declared_ids,
+            materialized_model_ids=model_inventory.materialized_ids,
+            required_model_ids=model_inventory.required_ids,
+            covered_model_ids=model_inventory.covered_ids,
+            missing_model_ids=model_inventory.missing_ids,
             unresolved_gap_ids=snapshot.unresolved_gap_ids,
             findings=tuple(stale_findings),
         )
@@ -425,8 +473,14 @@ def audit_model_authority(
         status=status,
         observed_source_revision=snapshot.subject_revision,
         observed_snapshot_fingerprint=snapshot.fingerprint,
+        live_snapshot_fingerprint=live_snapshot.fingerprint,
         head_fingerprint=head.fingerprint,
         coverage_status=snapshot.coverage_status,
+        declared_model_ids=model_inventory.declared_ids,
+        materialized_model_ids=model_inventory.materialized_ids,
+        required_model_ids=model_inventory.required_ids,
+        covered_model_ids=model_inventory.covered_ids,
+        missing_model_ids=model_inventory.missing_ids,
         unresolved_gap_ids=snapshot.unresolved_gap_ids,
         findings=findings,
     )
@@ -505,23 +559,32 @@ def activate_model_revision_set(
 
     root_path = Path(root).resolve()
     manifest_path = root_path / ".flowguard" / "project.toml"
-    write_content_addressed_snapshot(root_path, candidate_snapshot)
     with project_manifest_lock(manifest_path):
         current_text = read_manifest_text(manifest_path)
-        current_section = _section(current_text)
-        current_head = _head_from_section(current_section)
-        base_path = (root_path / _relative_path(
-            current_section["observed_snapshot_path"],
-            "observed_snapshot_path",
-        )).resolve()
-        base_snapshot = load_model_system_snapshot(base_path)
+        current_head, base_snapshot = _load_observed_from_manifest_text(
+            root_path,
+            current_text,
+        )
+        from .model_system_inventory import (
+            build_manifest_model_system_snapshot,
+        )
+
+        live_candidate = build_manifest_model_system_snapshot(
+            root_path,
+            snapshot_id=candidate_snapshot.snapshot_id,
+            system_id=candidate_snapshot.system_id,
+            subject_lane=candidate_snapshot.subject_lane,
+            lifecycle=candidate_snapshot.lifecycle,
+        )
         next_head, receipt = validate_activation_plan(
             current_head,
             base_snapshot,
             candidate_snapshot,
             revision_set,
+            live_candidate_snapshot=live_candidate,
             receipt_id=receipt_id,
         )
+        write_content_addressed_snapshot(root_path, candidate_snapshot)
         _write_immutable_json(
             root_path,
             "revisions",
@@ -534,6 +597,20 @@ def activate_model_revision_set(
             receipt.fingerprint,
             {**receipt.to_dict(), "fingerprint": receipt.fingerprint},
         )
+        final_live_candidate = build_manifest_model_system_snapshot(
+            root_path,
+            snapshot_id=candidate_snapshot.snapshot_id,
+            system_id=candidate_snapshot.system_id,
+            subject_lane=candidate_snapshot.subject_lane,
+            lifecycle=candidate_snapshot.lifecycle,
+        )
+        if (
+            final_live_candidate.identity_payload()
+            != candidate_snapshot.identity_payload()
+        ):
+            raise ModelAuthorityError(
+                "live candidate changed before pointer replacement"
+            )
         section_text = render_model_authority_section(
             next_head,
             snapshot_path=_snapshot_path(root_path, candidate_snapshot),
@@ -549,6 +626,8 @@ def activate_model_revision_set(
 def rollback_observed_model_system(
     root: str | Path,
     contract: ModelRollbackContract,
+    candidate_snapshot: ModelSystemSnapshot,
+    reverse_revision_set: ModelRevisionSet,
     *,
     completed_evidence_fingerprints: Iterable[str],
     requested_result: str,
@@ -559,11 +638,14 @@ def rollback_observed_model_system(
     manifest_path = root_path / ".flowguard" / "project.toml"
     with project_manifest_lock(manifest_path):
         current_text = read_manifest_text(manifest_path)
-        section = _section(current_text)
-        current_head = _head_from_section(section)
+        current_head, current_snapshot = _load_observed_from_manifest_text(
+            root_path,
+            current_text,
+        )
         receipt = validate_operational_rollback(
             current_head,
             contract,
+            reverse_revision_set,
             completed_evidence_fingerprints=completed_evidence_fingerprints,
             requested_result=requested_result,
             receipt_id=receipt_id,
@@ -573,22 +655,33 @@ def rollback_observed_model_system(
             raise ModelAuthorityError(
                 "forward repair preserves the current head until a new revision activates"
             )
-        digest = contract.to_snapshot_fingerprint.split(":", 1)[1]
-        target_path = (
-            root_path
-            / ".flowguard"
-            / "model-mesh"
-            / "snapshots"
-            / f"{digest}.json"
-        )
-        target_snapshot = load_model_system_snapshot(target_path)
-        if target_snapshot.fingerprint != contract.to_snapshot_fingerprint:
+        if candidate_snapshot.fingerprint != contract.to_snapshot_fingerprint:
             raise ModelAuthorityError("rollback target snapshot is stale")
         if (
-            target_snapshot.subject_lane != SUBJECT_OBSERVED_IMPLEMENTATION
-            or target_snapshot.lifecycle != LIFECYCLE_ACTIVE
+            candidate_snapshot.subject_lane != SUBJECT_OBSERVED_IMPLEMENTATION
+            or candidate_snapshot.lifecycle != LIFECYCLE_ACTIVE
         ):
             raise ModelAuthorityError("rollback target is not an active observed snapshot")
+        from .model_system_inventory import (
+            build_manifest_model_system_snapshot,
+        )
+
+        live_candidate = build_manifest_model_system_snapshot(
+            root_path,
+            snapshot_id=candidate_snapshot.snapshot_id,
+            system_id=candidate_snapshot.system_id,
+            subject_lane=candidate_snapshot.subject_lane,
+            lifecycle=candidate_snapshot.lifecycle,
+        )
+        next_head, _ = validate_activation_plan(
+            current_head,
+            current_snapshot,
+            candidate_snapshot,
+            reverse_revision_set,
+            live_candidate_snapshot=live_candidate,
+            receipt_id=f"reverse-activation:{receipt_id}",
+        )
+        write_content_addressed_snapshot(root_path, candidate_snapshot)
         _write_immutable_json(
             root_path,
             "rollback-contracts",
@@ -597,23 +690,39 @@ def rollback_observed_model_system(
         )
         _write_immutable_json(
             root_path,
+            "revisions",
+            reverse_revision_set.fingerprint,
+            reverse_revision_set.to_dict(),
+        )
+        _write_immutable_json(
+            root_path,
             "rollbacks",
             receipt.fingerprint,
             {**receipt.to_dict(), "fingerprint": receipt.fingerprint},
         )
-        next_head = ModelAuthorityHead(
-            system_id=current_head.system_id,
-            snapshot_fingerprint=target_snapshot.fingerprint,
-            subject_revision=target_snapshot.subject_revision,
-            generation=current_head.generation + 1,
-            accepted_revision_set_fingerprint=receipt.fingerprint,
-            previous_snapshot_fingerprint=current_head.snapshot_fingerprint,
+        next_head = replace(
+            next_head,
+            accepted_revision_set_fingerprint=reverse_revision_set.fingerprint,
             activation_receipt_fingerprint=receipt.fingerprint,
         )
+        final_live_candidate = build_manifest_model_system_snapshot(
+            root_path,
+            snapshot_id=candidate_snapshot.snapshot_id,
+            system_id=candidate_snapshot.system_id,
+            subject_lane=candidate_snapshot.subject_lane,
+            lifecycle=candidate_snapshot.lifecycle,
+        )
+        if (
+            final_live_candidate.identity_payload()
+            != candidate_snapshot.identity_payload()
+        ):
+            raise ModelAuthorityError(
+                "restored live state changed before rollback pointer replacement"
+            )
         section_text = render_model_authority_section(
             next_head,
-            snapshot_path=_snapshot_path(root_path, target_snapshot),
-            coverage_status=target_snapshot.coverage_status,
+            snapshot_path=_snapshot_path(root_path, candidate_snapshot),
+            coverage_status=candidate_snapshot.coverage_status,
         )
         replace_project_manifest_locked(
             manifest_path,
