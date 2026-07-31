@@ -27,7 +27,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 
 EVIDENCE_RECEIPT_SCHEMA_VERSION = "1.0"
-DEFAULT_EVIDENCE_DIRECTORY = Path(".flowguard/evidence/skill-suite")
+DEFAULT_EVIDENCE_DIRECTORY = Path(".flowguard/evidence/skill-native-receipts")
 
 INPUT_HASH_RAW = "raw"
 INPUT_HASH_SEMANTIC = "semantic"

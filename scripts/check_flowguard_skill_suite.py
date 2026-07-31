@@ -42,6 +42,7 @@ from flowguard.evidence_lifecycle import (
     publish_run,
     store_text_object,
 )
+from flowguard.evidence_receipts import evidence_storage_root
 from flowguard.process_supervision import run_supervised, write_terminal_artifact
 from flowguard.model_regressions import ModelRegressionManifest
 from flowguard.validation_ownership import (
@@ -508,6 +509,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
     native_script = root / "scripts" / "run_flowguard_skill_native_checks.py"
     model_script = root / "scripts" / "run_flowguard_model_regressions.py"
     distribution_script = root / "scripts" / "install_flowguard_skills.py"
+    native_receipt_root = evidence_storage_root(root)
 
     static_command = [
         sys.executable,
@@ -588,7 +590,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "--root",
                 str(root),
                 "--output-dir",
-                str(root / ".flowguard" / "evidence" / "skill-suite"),
+                str(native_receipt_root),
                 "--json",
             ),
             (
@@ -614,7 +616,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "--root",
                 str(root),
                 "--output-directory",
-                str(root / ".flowguard" / "evidence" / "skill-suite"),
+                str(native_receipt_root),
                 "--json",
             ),
             (

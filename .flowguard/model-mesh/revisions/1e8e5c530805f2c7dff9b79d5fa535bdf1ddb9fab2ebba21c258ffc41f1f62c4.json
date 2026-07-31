@@ -1,0 +1,395 @@
+{
+  "added_ids": [],
+  "affected_closure_fingerprint": "sha256:71c637567ec8166f6d9ba82abda243cfa97ac44ef599359b4a9066e95ea2ac03",
+  "affected_closure_ids": [
+    "behavior_commitment:commitment:test-mesh-current-for-bcl",
+    "code_contract:contract:contract:test-mesh-current-for-bcl",
+    "coverage:universe",
+    "field_inventory:field-or-effect:test_mesh_evidence_state",
+    "model_instance:model:test_evidence_mesh",
+    "model_relation:relation:model-realizes-code_contract:model_instance:model:test_evidence_mesh--code_contract:contract:contract:test-mesh-current-for-bcl",
+    "model_relation:relation:model-realizes-commitment:commitment:test-mesh-current-for-bcl",
+    "model_relation:relation:model-realizes-field_inventory:model_instance:model:test_evidence_mesh--field_inventory:field-or-effect:test_mesh_evidence_state",
+    "model_relation:relation:model-realizes-purpose:test_evidence_mesh",
+    "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:test_evidence_mesh--side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims",
+    "model_relation:relation:model-validates-test_evidence:model_instance:model:test_evidence_mesh--test_evidence:test:test:test-mesh-current-for-bcl",
+    "model_relation:relation:system-contains:test_evidence_mesh",
+    "parent_closure:purpose:test_evidence_mesh",
+    "parent_closure:system:flowguard:model-regression-manifest",
+    "side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims",
+    "system_property:subject_revision",
+    "test_evidence:test:test:test-mesh-current-for-bcl"
+  ],
+  "affected_edge_ids": [
+    "model_relation:relation:model-realizes-code_contract:model_instance:model:test_evidence_mesh--code_contract:contract:contract:test-mesh-current-for-bcl",
+    "model_relation:relation:model-realizes-commitment:commitment:test-mesh-current-for-bcl",
+    "model_relation:relation:model-realizes-field_inventory:model_instance:model:test_evidence_mesh--field_inventory:field-or-effect:test_mesh_evidence_state",
+    "model_relation:relation:model-realizes-purpose:test_evidence_mesh",
+    "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:test_evidence_mesh--side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims",
+    "model_relation:relation:model-validates-test_evidence:model_instance:model:test_evidence_mesh--test_evidence:test:test:test-mesh-current-for-bcl",
+    "model_relation:relation:system-contains:test_evidence_mesh"
+  ],
+  "affected_owner_bindings": [
+    {
+      "affected_id": "behavior_commitment:commitment:test-mesh-current-for-bcl",
+      "owner_route": "behavior_commitment_ledger"
+    },
+    {
+      "affected_id": "code_contract:contract:contract:test-mesh-current-for-bcl",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "affected_id": "coverage:universe",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "field_inventory:field-or-effect:test_mesh_evidence_state",
+      "owner_route": "field_lifecycle_mesh"
+    },
+    {
+      "affected_id": "model_instance:model:test_evidence_mesh",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-code_contract:model_instance:model:test_evidence_mesh--code_contract:contract:contract:test-mesh-current-for-bcl",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-commitment:commitment:test-mesh-current-for-bcl",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-field_inventory:model_instance:model:test_evidence_mesh--field_inventory:field-or-effect:test_mesh_evidence_state",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-purpose:test_evidence_mesh",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:test_evidence_mesh--side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-validates-test_evidence:model_instance:model:test_evidence_mesh--test_evidence:test:test:test-mesh-current-for-bcl",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:system-contains:test_evidence_mesh",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "parent_closure:purpose:test_evidence_mesh",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "affected_id": "parent_closure:system:flowguard:model-regression-manifest",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims",
+      "owner_route": "field_lifecycle_mesh"
+    },
+    {
+      "affected_id": "system_property:subject_revision",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "test_evidence:test:test:test-mesh-current-for-bcl",
+      "owner_route": "test_mesh_maintenance"
+    }
+  ],
+  "base_snapshot_fingerprint": "sha256:8bfcdb5247a0c490c2e2cda1b01bea823ffcf9daf8d7548054719eecd741f5c0",
+  "candidate_snapshot_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+  "changed_commitment_ids": [],
+  "changed_contract_ids": [],
+  "changed_coverage_ids": [
+    "coverage:universe"
+  ],
+  "changed_field_ids": [],
+  "changed_gap_ids": [],
+  "changed_owner_artifact_ids": [],
+  "changed_relation_ids": [
+    "relation:model-realizes-code_contract:model_instance:model:test_evidence_mesh--code_contract:contract:contract:test-mesh-current-for-bcl",
+    "relation:model-realizes-commitment:commitment:test-mesh-current-for-bcl",
+    "relation:model-realizes-field_inventory:model_instance:model:test_evidence_mesh--field_inventory:field-or-effect:test_mesh_evidence_state",
+    "relation:model-realizes-purpose:test_evidence_mesh",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:test_evidence_mesh--side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims",
+    "relation:model-validates-test_evidence:model_instance:model:test_evidence_mesh--test_evidence:test:test:test-mesh-current-for-bcl",
+    "relation:system-contains:test_evidence_mesh"
+  ],
+  "changed_root_ids": [],
+  "changed_side_effect_ids": [],
+  "changed_source_surface_ids": [],
+  "changed_system_property_ids": [
+    "system_property:subject_revision"
+  ],
+  "changed_test_ids": [],
+  "completed_evidence_refs": [
+    {
+      "affected_closure_fingerprint": "sha256:71c637567ec8166f6d9ba82abda243cfa97ac44ef599359b4a9066e95ea2ac03",
+      "candidate_snapshot_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "covered_affected_ids": [
+        "behavior_commitment:commitment:test-mesh-current-for-bcl"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:behavior_commitment_ledger"
+      ],
+      "owner_route": "behavior_commitment_ledger",
+      "receipt_fingerprint": "sha256:a5250e07ef04e51facd3e1d89743051cca7438b0db8178633c5591adf05957c6",
+      "receipt_id": "receipt:flowguard-v0.66.0-native-receipt-boundary:a5250e07ef04e51f:1",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:71c637567ec8166f6d9ba82abda243cfa97ac44ef599359b4a9066e95ea2ac03",
+      "candidate_snapshot_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "covered_affected_ids": [
+        "field_inventory:field-or-effect:test_mesh_evidence_state",
+        "side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:field_lifecycle_mesh"
+      ],
+      "owner_route": "field_lifecycle_mesh",
+      "receipt_fingerprint": "sha256:a5250e07ef04e51facd3e1d89743051cca7438b0db8178633c5591adf05957c6",
+      "receipt_id": "receipt:flowguard-v0.66.0-native-receipt-boundary:a5250e07ef04e51f:2",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:71c637567ec8166f6d9ba82abda243cfa97ac44ef599359b4a9066e95ea2ac03",
+      "candidate_snapshot_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "covered_affected_ids": [
+        "coverage:universe",
+        "model_relation:relation:model-realizes-code_contract:model_instance:model:test_evidence_mesh--code_contract:contract:contract:test-mesh-current-for-bcl",
+        "model_relation:relation:model-realizes-commitment:commitment:test-mesh-current-for-bcl",
+        "model_relation:relation:model-realizes-field_inventory:model_instance:model:test_evidence_mesh--field_inventory:field-or-effect:test_mesh_evidence_state",
+        "model_relation:relation:model-realizes-purpose:test_evidence_mesh",
+        "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:test_evidence_mesh--side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims",
+        "model_relation:relation:model-validates-test_evidence:model_instance:model:test_evidence_mesh--test_evidence:test:test:test-mesh-current-for-bcl",
+        "model_relation:relation:system-contains:test_evidence_mesh",
+        "parent_closure:system:flowguard:model-regression-manifest",
+        "system_property:subject_revision"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:model_mesh_maintenance"
+      ],
+      "owner_route": "model_mesh_maintenance",
+      "receipt_fingerprint": "sha256:a5250e07ef04e51facd3e1d89743051cca7438b0db8178633c5591adf05957c6",
+      "receipt_id": "receipt:flowguard-v0.66.0-native-receipt-boundary:a5250e07ef04e51f:3",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:71c637567ec8166f6d9ba82abda243cfa97ac44ef599359b4a9066e95ea2ac03",
+      "candidate_snapshot_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "covered_affected_ids": [
+        "code_contract:contract:contract:test-mesh-current-for-bcl",
+        "model_instance:model:test_evidence_mesh",
+        "parent_closure:purpose:test_evidence_mesh"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:model_test_alignment"
+      ],
+      "owner_route": "model_test_alignment",
+      "receipt_fingerprint": "sha256:a5250e07ef04e51facd3e1d89743051cca7438b0db8178633c5591adf05957c6",
+      "receipt_id": "receipt:flowguard-v0.66.0-native-receipt-boundary:a5250e07ef04e51f:4",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:71c637567ec8166f6d9ba82abda243cfa97ac44ef599359b4a9066e95ea2ac03",
+      "candidate_snapshot_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "covered_affected_ids": [
+        "test_evidence:test:test:test-mesh-current-for-bcl"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:test_mesh_maintenance"
+      ],
+      "owner_route": "test_mesh_maintenance",
+      "receipt_fingerprint": "sha256:a5250e07ef04e51facd3e1d89743051cca7438b0db8178633c5591adf05957c6",
+      "receipt_id": "receipt:flowguard-v0.66.0-native-receipt-boundary:a5250e07ef04e51f:5",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    }
+  ],
+  "decision_reason": "The exact seven-model owner closure passed full-tier supervised regression after separating native receipts from full-validation lifecycle records.",
+  "evidence_complete": true,
+  "expected_head_fingerprint": "sha256:8ac7cdc377e29050ec0be4b8c8b63b699d870496262f31806dd06aed2ec93344",
+  "fingerprint": "sha256:1e8e5c530805f2c7dff9b79d5fa535bdf1ddb9fab2ebba21c258ffc41f1f62c4",
+  "fingerprint_changed_ids": [
+    "coverage:universe",
+    "model_instance:model:test_evidence_mesh",
+    "model_relation:relation:model-realizes-code_contract:model_instance:model:test_evidence_mesh--code_contract:contract:contract:test-mesh-current-for-bcl",
+    "model_relation:relation:model-realizes-commitment:commitment:test-mesh-current-for-bcl",
+    "model_relation:relation:model-realizes-field_inventory:model_instance:model:test_evidence_mesh--field_inventory:field-or-effect:test_mesh_evidence_state",
+    "model_relation:relation:model-realizes-purpose:test_evidence_mesh",
+    "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:test_evidence_mesh--side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims",
+    "model_relation:relation:model-validates-test_evidence:model_instance:model:test_evidence_mesh--test_evidence:test:test:test-mesh-current-for-bcl",
+    "model_relation:relation:system-contains:test_evidence_mesh"
+  ],
+  "implementation_bundle_fingerprint": "",
+  "members": [
+    {
+      "base_instance_fingerprint": "sha256:47736fe5bf7be7df0dd73b27344c6a7f0fba81b2ef1395ea39500b3ef5083a1c",
+      "candidate_instance_fingerprint": "sha256:d25888cf05a68df69ca8d84ad0239c1f069f955d324e96bff4695e441b3bb8ba",
+      "changed_element_ids": [
+        "model_instance:model:test_evidence_mesh"
+      ],
+      "member_id": "test_evidence_mesh",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    }
+  ],
+  "originating_activation_receipt_fingerprint": "",
+  "originating_revision_set_fingerprint": "",
+  "prediction_replay_refs": [],
+  "removal_dispositions": [],
+  "removed_ids": [],
+  "required_evidence_refs": [
+    {
+      "affected_closure_fingerprint": "sha256:71c637567ec8166f6d9ba82abda243cfa97ac44ef599359b4a9066e95ea2ac03",
+      "candidate_snapshot_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "covered_affected_ids": [
+        "behavior_commitment:commitment:test-mesh-current-for-bcl"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:behavior_commitment_ledger"
+      ],
+      "owner_route": "behavior_commitment_ledger",
+      "receipt_fingerprint": "sha256:a5250e07ef04e51facd3e1d89743051cca7438b0db8178633c5591adf05957c6",
+      "receipt_id": "receipt:flowguard-v0.66.0-native-receipt-boundary:a5250e07ef04e51f:1",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:71c637567ec8166f6d9ba82abda243cfa97ac44ef599359b4a9066e95ea2ac03",
+      "candidate_snapshot_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "covered_affected_ids": [
+        "field_inventory:field-or-effect:test_mesh_evidence_state",
+        "side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:field_lifecycle_mesh"
+      ],
+      "owner_route": "field_lifecycle_mesh",
+      "receipt_fingerprint": "sha256:a5250e07ef04e51facd3e1d89743051cca7438b0db8178633c5591adf05957c6",
+      "receipt_id": "receipt:flowguard-v0.66.0-native-receipt-boundary:a5250e07ef04e51f:2",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:71c637567ec8166f6d9ba82abda243cfa97ac44ef599359b4a9066e95ea2ac03",
+      "candidate_snapshot_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "covered_affected_ids": [
+        "coverage:universe",
+        "model_relation:relation:model-realizes-code_contract:model_instance:model:test_evidence_mesh--code_contract:contract:contract:test-mesh-current-for-bcl",
+        "model_relation:relation:model-realizes-commitment:commitment:test-mesh-current-for-bcl",
+        "model_relation:relation:model-realizes-field_inventory:model_instance:model:test_evidence_mesh--field_inventory:field-or-effect:test_mesh_evidence_state",
+        "model_relation:relation:model-realizes-purpose:test_evidence_mesh",
+        "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:test_evidence_mesh--side_effect_inventory:field-or-effect:block_stale_or_progress_only_claims",
+        "model_relation:relation:model-validates-test_evidence:model_instance:model:test_evidence_mesh--test_evidence:test:test:test-mesh-current-for-bcl",
+        "model_relation:relation:system-contains:test_evidence_mesh",
+        "parent_closure:system:flowguard:model-regression-manifest",
+        "system_property:subject_revision"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:model_mesh_maintenance"
+      ],
+      "owner_route": "model_mesh_maintenance",
+      "receipt_fingerprint": "sha256:a5250e07ef04e51facd3e1d89743051cca7438b0db8178633c5591adf05957c6",
+      "receipt_id": "receipt:flowguard-v0.66.0-native-receipt-boundary:a5250e07ef04e51f:3",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:71c637567ec8166f6d9ba82abda243cfa97ac44ef599359b4a9066e95ea2ac03",
+      "candidate_snapshot_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "covered_affected_ids": [
+        "code_contract:contract:contract:test-mesh-current-for-bcl",
+        "model_instance:model:test_evidence_mesh",
+        "parent_closure:purpose:test_evidence_mesh"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:model_test_alignment"
+      ],
+      "owner_route": "model_test_alignment",
+      "receipt_fingerprint": "sha256:a5250e07ef04e51facd3e1d89743051cca7438b0db8178633c5591adf05957c6",
+      "receipt_id": "receipt:flowguard-v0.66.0-native-receipt-boundary:a5250e07ef04e51f:4",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:71c637567ec8166f6d9ba82abda243cfa97ac44ef599359b4a9066e95ea2ac03",
+      "candidate_snapshot_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "covered_affected_ids": [
+        "test_evidence:test:test:test-mesh-current-for-bcl"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:test_mesh_maintenance"
+      ],
+      "owner_route": "test_mesh_maintenance",
+      "receipt_fingerprint": "sha256:a5250e07ef04e51facd3e1d89743051cca7438b0db8178633c5591adf05957c6",
+      "receipt_id": "receipt:flowguard-v0.66.0-native-receipt-boundary:a5250e07ef04e51f:5",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    }
+  ],
+  "revision_set_id": "revision:flowguard-v0.66.0-native-receipt-boundary:a5250e07ef04e51f",
+  "rollback_contract_fingerprint": "",
+  "schema": "flowguard.model_revision_set.v2",
+  "snapshot_diff_fingerprint": "sha256:4489bd85d8589567df6f26a13ec8d82a45bd74c8fa28d422032bc85c08eee371",
+  "status": "accepted",
+  "task_id": "task:separate-native-receipts-from-validation-lifecycle"
+}

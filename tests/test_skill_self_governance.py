@@ -288,7 +288,9 @@ class SkillSelfGovernanceTests(unittest.TestCase):
             self.assertTrue(report.ok, report.to_json_text())
             self.assertIn(SELF_GOVERNANCE_SUBJECT, {item.subject_id for item in stored})
             self.assertEqual(16, len(stored))
-            self.assertTrue((root / ".flowguard/evidence/skill-suite").is_dir())
+            self.assertTrue(
+                (root / ".flowguard/evidence/skill-native-receipts").is_dir()
+            )
 
 
 if __name__ == "__main__":

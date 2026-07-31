@@ -186,7 +186,10 @@ class EvidenceReceiptSchemaTests(unittest.TestCase):
             path = save_evidence_receipt(value, root)
             payload = path.read_text(encoding="utf-8")
 
-            self.assertEqual(root / ".flowguard/evidence/skill-suite", path.parent)
+            self.assertEqual(
+                root / ".flowguard/evidence/skill-native-receipts",
+                path.parent,
+            )
             self.assertEqual(value, load_evidence_receipt(path))
             self.assertNotIn(str(Path.home()), payload)
             self.assertNotIn("\"current\"", payload)

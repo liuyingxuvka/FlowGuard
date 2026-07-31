@@ -408,6 +408,23 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertFalse(self.output.exists())
         self.assertFalse((self.output.parent / "CURRENT.json").exists())
 
+    def test_native_receipts_use_a_store_separate_from_validation_lifecycle(self):
+        specs = {
+            item.child_id: item
+            for item in suite_command._full_child_specs(self.args(), self.root)
+        }
+        native = specs["skill_native_checks"].command
+        parent = specs["skill_self_governance"].command
+        native_root = Path(native[native.index("--output-dir") + 1])
+        parent_root = Path(parent[parent.index("--output-directory") + 1])
+
+        self.assertEqual(native_root, parent_root)
+        self.assertEqual(
+            self.root / ".flowguard" / "evidence" / "skill-native-receipts",
+            native_root,
+        )
+        self.assertNotEqual(self.output.parent, native_root)
+
     def test_identical_second_full_request_reuses_all_nine_owners(self):
         with patch.object(
             suite_command,
