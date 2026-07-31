@@ -992,10 +992,10 @@
         "evidence_check_ids": [
           "check:model-regression:development_process_flow"
         ],
-        "model_sha256": "sha256:89fd15579bbe9f214eff5db11886876004f277170564df92c4e14a70b44cd47c",
+        "model_sha256": "sha256:34c70ad941a7ce38b7420dd21814a4da51139492ea479dd522127bfe69374178",
         "runner_sha256": "sha256:d05dc18beddf1c2cc87f774f1063371a110952cde94c03cbc0e3b177e445cbc0",
         "declaration_fingerprint": "sha256:4f3f6bafc400c2425d790c449512969ad34382c6e8ea366fc31e9a528acca629",
-        "closure_fingerprint": "sha256:4b204dcaeb9f035fdf53078cc65db6d7c47fa0a60514646bbc97c3198b2b84b0"
+        "closure_fingerprint": "sha256:766c1be50b07d4eec1f841dc11d69e33ee5d4d67fba8fd425806b4c4a507219e"
       }
     },
     {
