@@ -107,9 +107,8 @@ FLOWGUARD_MANAGED_RULES: tuple[ManagedAdoptionRule, ...] = (
         "project.scope",
         """## FlowGuard Project Rules
 
-This project uses FlowGuard for non-trivial maintenance, feature work, bug
-fixes, refactors, tests, release work, project upgrades, and evidence-sensitive
-process changes.""",
+Use FlowGuard for non-trivial maintenance, features, bugs, refactors, tests,
+releases, upgrades, and evidence-sensitive process changes.""",
     ),
     ManagedAdoptionRule(
         "project.repository",
@@ -119,11 +118,10 @@ process changes.""",
     ManagedAdoptionRule(
         "skill_suite.agent_surface",
         """FlowGuard agent skill suite:
-- Primary agent surface: the current clean consumer projection under
-  `$CODEX_HOME/skills/`; default entry is
+- Primary agent surface: the current clean consumer projection:
   `$CODEX_HOME/skills/flowguard/SKILL.md`.
-- A project reads this block plus selected sibling guidance; it does not copy the FlowGuard suite into its local tree.
-- The Python package/CLI is executable check support, not the AI-agent skill installation surface.""",
+- This block plus sibling guidance does not copy the FlowGuard suite into its local tree.
+- Python package/CLI supports checks, not the AI-agent skill installation surface.""",
     ),
     ManagedAdoptionRule(
         "project.record_locations",
@@ -140,17 +138,15 @@ process changes.""",
     ),
     ManagedAdoptionRule(
         "project.preflight_version_gate",
-        """Before non-trivial work, verify the real engine/schema/version and run
-`python -m flowguard project-audit --root .`. Compare it with `{manifest}`.
-If installed is newer, run `project-upgrade` with artifact/model/test upgrade scanning
-and revalidate affected evidence; if installed is older, connect the current
-engine before claiming confidence.""",
+        """Before non-trivial work, run `python -m flowguard project-audit --root .`
+and compare `{manifest}`. If installed is newer, run `project-upgrade` with
+artifact/model/test upgrade scanning and revalidate affected evidence; if older,
+connect the current engine.""",
     ),
     ManagedAdoptionRule(
         "runtime.latest_schema_first",
-        """FlowGuard runtime guidance is latest-schema-first: old artifacts may be
-detected and upgraded at project/tool boundaries, but normal route logic should
-not keep long-lived old branches for obsolete fields, aliases, or wrappers.""",
+        """Runtime guidance is latest-schema-first: upgrade old artifacts at project/tool
+boundaries; normal routes keep no old branches for obsolete fields, aliases, or wrappers.""",
     ),
     ManagedAdoptionRule(
         "model_system.authority",
@@ -162,9 +158,9 @@ required coverage blocks broad confidence.""",
     ManagedAdoptionRule(
         "model_system.revision_transaction",
         """Replace model authority only through one accepted `ModelRevisionSet` bound
-to the exact base, candidate, affected closure, changes, and current owner
-evidence. Persist records before the pointer. Rollback restores/compensates real
-effects and revalidates the old snapshot; irreversible effects use forward repair.""",
+to exact base, candidate, affected closure, changes, and owner evidence. Persist
+before the pointer. Rollback restores/compensates effects and revalidates the old
+snapshot; irreversible effects use forward repair.""",
     ),
     ManagedAdoptionRule(
         "lifecycle.default_replacement",
@@ -237,25 +233,24 @@ only for its declared triggers; progress is never completion evidence.""",
     ),
     ManagedAdoptionRule(
         "process.work_context_read_only",
-        """External specs/plans enter only through explicit project-bounded read-only
-WorkContexts. Providers keep ownership; FlowGuard preserves identities,
-fingerprints, and lanes, rejects fallback/write/execution authority, and admits
-behavior sources only through explicit mappings. Zero providers is valid.""",
+        """External specs/plans enter through project-bounded read-only WorkContexts.
+Providers keep ownership; FlowGuard preserves identity/lane, rejects fallback,
+write, or execution authority, and admits behavior only by explicit mapping.
+Zero providers is valid.""",
     ),
     ManagedAdoptionRule(
         "process.post_change_scan",
-        """After non-trivial work, let DevelopmentProcessFlow consume post-change scan signals:
-changed artifacts, skips, stale evidence, open obligations, and split/reduction
-pressure. Route each gap to its existing specialist owner.""",
+        """After non-trivial work, DevelopmentProcessFlow consumes post-change scan signals:
+changes, skips, stale evidence, open obligations, and split/reduction pressure;
+route each gap to its existing specialist.""",
     ),
     ManagedAdoptionRule(
         "claim.no_fake_adoption",
-        """Do not create a fake local FlowGuard replacement. Do not claim full FlowGuard
-completion from an AGENTS/manifest/log update alone; executable model checks,
-tests, replay, and closure evidence still need to be current for the claim.
-Before model build/change, freeze this instance's task-specific failures and
-boundary, then bind candidate plus native good/bad-per-failure/oracle/current
-evidence. Reusable types are not fixed-purpose; no mode/fallback exists; only
+        """Do not create a fake local FlowGuard replacement. An AGENTS/manifest/log
+update alone is not completion; model checks, tests, replay, and closure evidence
+must be current. Before model build/change, freeze task-specific failures/boundary
+and bind the candidate to native good/bad-per-failure/oracle/current evidence.
+Reusable types are not fixed-purpose; no mode/fallback exists; only
 FlowGuard-declared checks support completion claims.""",
     ),
 )
