@@ -108,6 +108,7 @@ _DEPTH_PROFILE_FIELDS = frozenset(
         "native_owner_id",
         "native_route_ids",
         "native_check_ids",
+        "model_deepening_check_id",
         "native_route_absent_confirmed",
         "skillguard_adds_domain_route",
         "enforcement_level",
@@ -280,6 +281,13 @@ def validate_contract_source(
         depth_check_ids = depth.get("native_check_ids", ())
         if isinstance(depth_check_ids, list) and set(depth_check_ids) != source_check_ids:
             failures.append("depth_profile_check_inventory_mismatch")
+        model_deepening_check_id = depth.get("model_deepening_check_id")
+        if (
+            not isinstance(model_deepening_check_id, str)
+            or not model_deepening_check_id
+            or model_deepening_check_id not in source_check_ids
+        ):
+            failures.append("depth_profile_model_deepening_check_unknown")
 
         source_route_ids = {
             str(binding.get("route_id", ""))

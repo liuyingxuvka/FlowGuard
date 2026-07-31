@@ -538,6 +538,13 @@ def export_contract_model():
         exported["routes"].extend(internal["routes"])
         exported["steps"].extend(internal["steps"])
         exported["obligations"].extend(internal["obligations"])
+    function_ids = [str(item["function_id"]) for item in exported["functions"]]
+    for function in exported["functions"]:
+        function["composable_with"] = [
+            function_id
+            for function_id in function_ids
+            if function_id != function["function_id"]
+        ]
     return exported
 
 

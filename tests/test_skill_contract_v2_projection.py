@@ -144,6 +144,26 @@ class SkillContractCurrentProjectionTests(unittest.TestCase):
         self.assertIn(obligation, native["covers_obligation_ids"])
         self.assertIn("tests/test_development_process_strategy.py", native["args"])
 
+    def test_development_process_maintenance_routes_compose_for_one_enforced_closure(self) -> None:
+        skill = ROOT / ".agents" / "skills" / "flowguard-development-process-flow"
+        compiled = json.loads(
+            (skill / ".skillguard" / "compiled-contract.json").read_text(encoding="utf-8")
+        )
+        function_ids = {row["function_id"] for row in compiled["functions"]}
+        self.assertEqual(
+            {
+                "function:development_process_flow",
+                "function:plan_detailing_compiler",
+                "function:agent_workflow_rehearsal",
+            },
+            function_ids,
+        )
+        for function in compiled["functions"]:
+            self.assertEqual(
+                function_ids - {function["function_id"]},
+                set(function["composable_with"]),
+            )
+
     def test_suite_inventory_is_exactly_the_fifteen_current_sources(self) -> None:
         self.assertEqual(15, len(SKILLS))
         discovered = {

@@ -33,6 +33,15 @@ class CurrentSkillContractParityTests(unittest.TestCase):
             validate_contract_source(former, SKILL),
         )
 
+        missing_model_owner = json.loads(json.dumps(source))
+        missing_model_owner["depth_profile"]["model_deepening_check_id"] = (
+            "check:missing:model-deepening"
+        )
+        self.assertIn(
+            "depth_profile_model_deepening_check_unknown",
+            validate_contract_source(missing_model_owner, SKILL),
+        )
+
     def test_repository_member_has_current_trio_parity(self) -> None:
         compiled, manifest, findings, written = compile_skill_contract(SKILL)
         self.assertFalse(findings)
