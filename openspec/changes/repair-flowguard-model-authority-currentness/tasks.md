@@ -6,5 +6,5 @@
 
 ## 2. Patch release
 
-- [ ] 2.1 Freeze current validation evidence and run full baseline validation.
-- [ ] 2.2 Update README/changelog/version and publish the combined v0.66.0 release.
+- [x] 2.1 Freeze current validation evidence and run full baseline validation.
+- [x] 2.2 Update README/changelog/version and publish the combined v0.66.0 release.

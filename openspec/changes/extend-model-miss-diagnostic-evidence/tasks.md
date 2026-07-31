@@ -14,4 +14,4 @@
 
 - [x] 3.1 Run focused model-miss and public API regressions.
 - [x] 3.2 Refresh clean consumer skills after source freeze; full validation remains tracked by the authority-repair change.
-- [ ] 3.3 Update README/changelog/version and publish v0.66.0.
+- [x] 3.3 Update README/changelog/version and publish v0.66.0.
