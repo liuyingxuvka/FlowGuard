@@ -91,10 +91,10 @@ dual reader, or scoped-success route.
 
 ### Requirement: Model, test, contract, and installation evidence stay aligned
 
-The observed FlowGuard authority and the maintained FlowGuard skill contract
-SHALL include the maturation runtime, CLI, prompts, required scenarios, tests,
-and target-owned terminal closure check before release or installation is
-claimed current.
+The observed FlowGuard authority and maintained FlowGuard skill contract SHALL
+include the maturation runtime, CLI, prompts, required scenarios, tests, and
+target-owned terminal closure check before release or installation is claimed
+current.
 
 #### Scenario: Version-only authority refresh cannot close the change
 - **GIVEN** a model snapshot names the new version but omits the changed runtime, tests, prompts, or target closure check
