@@ -25,10 +25,10 @@
 - [x] 4.1 Extend the observed FlowGuard model authority and model-test alignment to the maturation runtime, CLI, prompts, tests, and protected failures.
 - [x] 4.2 Add the FlowGuard target-owned maturation closure check to its SkillGuard depth profile, implementation paths, and input selectors.
 - [x] 4.3 Compile the maintained contracts and run affected FlowGuard and SkillGuard checks; inspect and repair counterexamples.
-- [ ] 4.4 Freeze source/toolchain/check inventory and run one final full validation.
+- [x] 4.4 Freeze source/toolchain/check inventory and run one final full validation.
 
 ## 5. Version, installation, and publication
 
 - [x] 5.1 Update version and release documentation for a new immutable release without moving previous tags.
-- [ ] 5.2 Regenerate the clean consumer projection and verify local source/package/installed-skill parity.
+- [x] 5.2 Regenerate the clean consumer projection and verify local source/package/installed-skill parity.
 - [ ] 5.3 Commit, tag, push, publish the GitHub Release, and verify local/remote/tag/release identities separately.
