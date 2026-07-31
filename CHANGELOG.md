@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.66.0 - 2026-07-30
+
+- Added a read-only model-miss diagnostic projection that derives
+  deterministic deletion-minimal conflicts from exact observation, model,
+  code/test, and failure-boundary atoms while preserving the existing
+  Model-Miss Review owner decision.
+- Made bounded incompleteness explicit when oracle budgets expire and attached
+  per-atom necessity witnesses, stable ordering, and the diagnostic algorithm
+  version instead of overclaiming a global or unique minimum.
+- Added positive non-vacuity witnesses and repair-candidate checks that reject
+  obligation deletion, unpreserved positive behavior, and missing intended
+  rejection reasons before routing an accepted candidate to Model-Test
+  Alignment.
+- Extended the public API, model-miss skill guidance, executable native runner,
+  focused tests, model-purpose closure, and observed model-system authority for
+  the new evidence surface.
+- Kept the release source-only: the immutable annotated tag is the release
+  authority and the GitHub Release has zero uploaded assets.
+
 ## v0.65.1 - 2026-07-28
 
 - Restored strict-validation parity between the CI-pinned OpenSpec `1.3.1`

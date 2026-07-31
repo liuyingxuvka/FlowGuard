@@ -49,6 +49,14 @@ relation and separate plane-local owners.
    claim, record that explicitly instead of inventing one. Bind any error
    signature to the observed evidence and keep related-plane ids typed rather
    than combining their promises into the repair row.
+3a. When a bounded diagnosis is needed, derive it from that existing
+    false-negative owner record as a read-only projection. Return one
+    deterministic deletion-minimal conflict and one deletion-minimal positive
+    witness, with a necessity witness for every retained evidence item. Do not
+    claim global minimum-cardinality or uniqueness. A missing positive witness
+    is a visible blocker because a repair that only removes the failure can be
+    vacuous. The projection preserves the owner's decision and cannot close,
+    reopen, or replace the Model-Miss Review.
 4. If the issue belongs in scope, represent the observed issue in executable
    evidence: scenario, invariant, replay adapter, representative trace, or
    model boundary note.

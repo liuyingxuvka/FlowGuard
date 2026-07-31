@@ -873,6 +873,7 @@ from . import topology_hazard as _topology_hazard
 from . import ui_structure as _ui_structure
 from . import model_freshness as _model_freshness
 from . import model_maturation as _model_maturation
+from . import model_miss_diagnostics as _model_miss_diagnostics
 from . import distribution_sync as _distribution_sync
 from . import evidence_receipts as _evidence_receipts
 from . import model_regressions as _model_regressions
@@ -895,6 +896,7 @@ from .maintenance_obligation import *  # noqa: F403
 from .maintenance_scan import *  # noqa: F403
 from .model_angle_deliberation import *  # noqa: F403
 from .plan_intake import *  # noqa: F403
+from .model_miss_diagnostics import *  # noqa: F403
 from .state_closure import *  # noqa: F403
 from .topology_hazard import *  # noqa: F403
 from .model_freshness import *  # noqa: F403
@@ -1443,7 +1445,12 @@ MODEL_MESH_ROUTE_API = tuple(name for name in _hierarchy.__all__ if name in glob
 MAINTENANCE_OBLIGATION_MEMORY_API = tuple(_maintenance_obligation.__all__)
 MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
 MODEL_ANGLE_DELIBERATION_API = tuple(_model_angle_deliberation.__all__)
-MODEL_MISS_REVIEW_ROUTE_API = tuple(name for name in _recurring_model_miss.__all__ if name in globals())
+MODEL_MISS_REVIEW_ROUTE_API = tuple(
+    dict.fromkeys(
+        tuple(name for name in _recurring_model_miss.__all__ if name in globals())
+        + tuple(name for name in _model_miss_diagnostics.__all__ if name in globals())
+    )
+)
 PRIMARY_PATH_AUTHORITY_ROUTE_API = tuple(name for name in _primary_path_authority.__all__ if name in globals())
 BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API = tuple(
     dict.fromkeys(
@@ -3222,6 +3229,7 @@ __all__ = dedupe_public_names(
     CORE_API,
     CONTRACT_EXHAUSTION_MESH_API,
     DEVELOPMENT_PROCESS_FLOW_ROUTE_API,
+    MODEL_MISS_REVIEW_ROUTE_API,
     MODELING_HELPER_API,
     REPORTING_HELPER_API,
     EVIDENCE_API,

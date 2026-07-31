@@ -98,7 +98,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "Closure covers only the classified, generalized, currently evidenced failure class; a point fix, isolated test, or progress log cannot support broader confidence.",
+  "claim_boundary": "Closure covers only the classified, generalized, currently evidenced failure class and its subordinate bounded diagnostic projection; the diagnostic preserves the parent decision, and neither a point fix, isolated test, progress log, nor diagnostic core can support broader confidence.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -178,8 +178,10 @@
   "implementation_paths": [
     ".agents/skills/flowguard-model-miss-review",
     ".flowguard/model_miss_review",
+    "flowguard/model_miss_diagnostics.py",
     "flowguard/recurring_model_miss.py",
     "flowguard/skill_contract_model.py",
+    "tests/test_model_miss_diagnostics.py",
     "tests/test_recurring_model_miss.py"
   ],
   "integration_mode": "native-integrated",
@@ -240,7 +242,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Run the existing Model Miss owner to generalize, backfeed, and retain typed multi-plane context."
+        "summary": "Run the existing Model Miss owner to generalize and backfeed the miss, then derive any bounded diagnostic as a read-only projection with conflict, positive, budget, and vacuity evidence."
       },
       "check_ids": [
         "check:flowguard-model-miss-review:native-authority"

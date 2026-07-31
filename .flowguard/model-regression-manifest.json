@@ -1848,7 +1848,16 @@
       "expected_artifacts": [],
       "input_globs": [
         ".flowguard/model_miss_review/model.py",
-        ".flowguard/model_miss_review/run_checks.py"
+        ".flowguard/model_miss_review/run_checks.py",
+        "flowguard/__init__.py",
+        "flowguard/model_miss_diagnostics.py",
+        "tests/test_model_miss_diagnostics.py",
+        ".agents/skills/flowguard-model-miss-review/SKILL.md",
+        ".agents/skills/flowguard-model-miss-review/references/model_miss_protocol.md",
+        ".agents/skills/flowguard/references/model_miss_protocol.md",
+        ".agents/skills/flowguard-model-miss-review/.skillguard/contract-source.json",
+        ".agents/skills/flowguard-model-miss-review/.skillguard/compiled-contract.json",
+        ".agents/skills/flowguard-model-miss-review/.skillguard/check-manifest.json"
       ],
       "model_id": "model_miss_review",
       "model_path": ".flowguard/model_miss_review/model.py",
@@ -1866,11 +1875,12 @@
         "reusable_model_type_id": "model_miss_review",
         "task_intent_id": "flowguard-regression:model_miss_review",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent the model miss review model from accepting an invalid, bypassed, stale, or incomplete model miss review outcome as current FlowGuard evidence.",
+        "guarded_purpose": "Prevent the model miss review model from accepting an invalid, bypassed, stale, incomplete, or vacuously repaired model miss review outcome as current FlowGuard evidence.",
         "protected_failure_ids": [
-          "model_miss_review:invalid-or-incomplete-outcome"
+          "model_miss_review:invalid-or-incomplete-outcome",
+          "model_miss_review:vacuous-diagnostic-repair"
         ],
-        "claim_boundary": "Current closure proves only that the checked-in model_miss_review candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "claim_boundary": "Current closure proves only that the checked-in model_miss_review candidate and its native runner reject the declared failures and that the subordinate diagnostic preserves its owner decision with non-vacuity evidence; it does not prove other tasks, other instances, production truth, or historical declaration order.",
         "adoption_scope": "current_candidate_only",
         "known_good_case_id": "native-runner:model_miss_review:declared-positive-suite",
         "failure_bindings": [
@@ -1878,15 +1888,21 @@
             "failure_id": "model_miss_review:invalid-or-incomplete-outcome",
             "known_bad_case_id": "native-runner:model_miss_review:declared-negative-suite",
             "oracle_id": "native:model_miss_review:run-checks"
+          },
+          {
+            "failure_id": "model_miss_review:vacuous-diagnostic-repair",
+            "known_bad_case_id": "native-runner:model_miss_review:missing-positive-witness",
+            "oracle_id": "native:model_miss_review:diagnostic-projection"
           }
         ],
         "evidence_check_ids": [
-          "check:model-regression:model_miss_review"
+          "check:model-regression:model_miss_review",
+          "check:model-miss-diagnostic-projection"
         ],
         "model_sha256": "sha256:f5f73081de36621e10d97b1b33f1975027baf76498e8437836acf1672eab6ab2",
-        "runner_sha256": "sha256:d1c147c9818ef0b7ababb9398026d245cf77cddbbb5676aa4d71187dac739cd4",
-        "declaration_fingerprint": "sha256:590e8d8b319d73492619a6f5e2ae27f2e559bbce4255d0f67191c1edb1637dde",
-        "closure_fingerprint": "sha256:d3253db57dcf6c710e92e589b234c3912f01edf2c5a9c5a490bd0025014c2c31"
+        "runner_sha256": "sha256:903a8e2306d15d0e3812bd50aef509aa6e92bac7857741cb7fa9b5280491b64e",
+        "declaration_fingerprint": "sha256:bbb9a72b09c100967b0f6fb82a3bcfaf50b1d63f8fbccb7716b7e09698d7d99d",
+        "closure_fingerprint": "sha256:56a59b695448c57b14c298ef51b1baab355f1dfd0c7927d61c94ee12d95c6c5d"
       }
     },
     {
