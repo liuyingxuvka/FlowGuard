@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.66.0` | `1.0` | Python standard library only | MIT |
+| `v0.67.0` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -26,7 +26,7 @@ An AI-agent skill suite with executable check scripts, FlowGuard checks the risk
 
 It asks the agent to turn the danger zone into a finite state model, run that model, and inspect counterexample traces. That makes problems such as duplicate side effects, stale test evidence, broken UI recovery paths, or unsupported "done" claims visible before they become maintenance debt.
 
-For a post-green model miss, v0.66.0 can also derive a bounded,
+For a post-green model miss, v0.67.0 can also derive a bounded,
 deletion-minimal conflict from exact observation, model, code/test, and failure
 boundary atoms. The result is deliberately subordinate to the existing
 Model-Miss Review: it preserves the parent decision, reports budget exhaustion
@@ -467,7 +467,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.66.0 is source-only: the immutable Git tag is the release
+FlowGuard v0.67.0 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -929,7 +929,7 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.66.0 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.67.0 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 ## Guard Family 关系

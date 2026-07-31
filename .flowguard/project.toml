@@ -1,8 +1,8 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.66.0"
+adopted_package_version = "0.67.0"
 schema_version = "1.0"
-last_verified_at = "2026-07-31T00:14:06+00:00"
+last_verified_at = "2026-07-31T14:37:13+00:00"
 last_verified_by = "FlowGuard project-upgrade"
 agents_path = "AGENTS.md"
 
@@ -15,12 +15,12 @@ require_model_update_for_behavior_changes = true
 
 [model_authority]
 system_id = "flowguard"
-observed_snapshot_path = ".flowguard/model-mesh/snapshots/fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a.json"
-observed_snapshot_fingerprint = "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a"
-subject_revision = "source-inventory:a9210baf0dcc787d92aa0552e7d942803efe526ee5b8a49862388c9f7d182b08"
+observed_snapshot_path = ".flowguard/model-mesh/snapshots/634103018e8c2e99f25596b4cf5cbbb7f19f6926029c9773cc407214a0695efc.json"
+observed_snapshot_fingerprint = "sha256:634103018e8c2e99f25596b4cf5cbbb7f19f6926029c9773cc407214a0695efc"
+subject_revision = "source-inventory:dddcd9f03de1aa7fff1500c46133e39ffb2edba288492594fba3f1ed7f9038ff"
 coverage_status = "complete_within_declared_boundary"
-generation = 15
-accepted_revision_set_fingerprint = "sha256:1f6cd3c039633649c20c6a7b624154bce48ae41428a4708c7c4a21ea17ea10bc"
-previous_snapshot_fingerprint = "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8"
-activation_receipt_fingerprint = "sha256:8f55f2f7f04f4c3ec0dd1aadc2e2162689d7d3b491b6742a9c56fd23bb972306"
-head_fingerprint = "sha256:02f3b9608b5d461184e8f9220380cb281588791a8f8d4d72407e076d2a6cca25"
+generation = 16
+accepted_revision_set_fingerprint = "sha256:c92eda9796b6a935709c9d40797b789c1359533499efff32b8bcdff806524406"
+previous_snapshot_fingerprint = "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a"
+activation_receipt_fingerprint = "sha256:19571c681120081ba91b95b81eb9230ddaa2f0fc6e5e84c085281f143f30e95a"
+head_fingerprint = "sha256:ececb0dd74ffe9cb4caab07eca2cebb780f95df6efdb3ff844ad3f0830b30704"

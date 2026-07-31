@@ -72,7 +72,7 @@ no independent Codex skill, alias, forwarding entrypoint, or fallback path.
 | `model_topology_hazard_review` | topology digest, usage intent, anchored future-use hazards, required owner routes, and scoped or blocked confidence before broad claims |
 | `model_test_alignment` | direct comparison of model obligations, transition coverage obligations, owner code contracts, code-boundary observations, artifact payload cases, obligation-family parity, and ordinary test evidence |
 | `contract_exhaustion_mesh` | canonical bad-case generation from declared finite boundaries, same-class family seeds, payload contracts, transition cells, parent/child closure hazards, no-delta loops, broad coverage universes, and observed-problem backfeed |
-| `model_maturation_loop` | converts post-code, post-miss, alignment, mesh, boundary, and freshness signals into model-upgrade or scoped-claim decisions |
+| `model_maturation_loop` | converts post-code, post-miss, alignment, mesh, boundary, and freshness signals into an iterative task-local model/evidence closure receipt; addressable gaps cannot be scoped away |
 | `risk_evidence_ledger` | final risk-to-model-to-code-to-family/UI/payload-gates-to-evidence confidence boundary for done/release/publish/full-confidence claims |
 | `model_mesh_maintenance` | parent/child model hierarchy, child reattachment, whole-flow mesh closure, and oversized-model governance |
 | `test_mesh_maintenance` | parent/child test hierarchy plus validation evidence |

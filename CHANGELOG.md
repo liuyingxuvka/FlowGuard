@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.67.0 - 2026-07-31
+
+- Added task-local iterative model maturation with prediction, falsifier,
+  gap-transition, progress, and explicit terminal records.
+- Added a native CLI review route and regression coverage; matching local
+  perturbations no longer close a task while addressable model gaps remain.
+
 ## v0.66.0 - 2026-07-30
 
 - Added a read-only model-miss diagnostic projection that derives

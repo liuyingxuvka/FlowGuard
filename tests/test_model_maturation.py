@@ -12,6 +12,10 @@ from flowguard import (
     MODEL_MATURATION_DECISION_CURRENT,
     MODEL_MATURATION_DECISION_SCOPED,
     MODEL_MATURATION_DECISION_UPGRADE_REQUIRED,
+    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+    MODEL_MATURATION_DECISION_EXTERNAL_INPUT_REQUIRED,
+    MODEL_MATURATION_DECISION_PROGRESS_STALLED,
+    MODEL_MATURATION_RESOLUTION_EXTERNAL_INPUT_REQUIRED,
     MODEL_MATURATION_SIGNAL_CHILD_BOUNDARY_CHANGED,
     MODEL_MATURATION_SIGNAL_DUPLICATE_PRIMARY_EDGE_PATH,
     MODEL_MATURATION_SIGNAL_MISSING_MODEL_OBLIGATION,
@@ -185,6 +189,102 @@ class ModelMaturationTests(unittest.TestCase):
         self.assertIn(MATURITY_ACTION_ADD_STATE_FIELD, text)
         self.assertIn("model_upgrade_required", text)
         self.assertIn("maintenance obligations", text)
+
+    def test_task_local_addressable_gap_cannot_be_scoped_away(self):
+        report = review_model_maturation_loop(
+            ModelMaturationPlan(
+                plan_id="iterative-open",
+                task_id="task-1",
+                model_id="checkout",
+                coverage_ids=("checkout.failure",),
+                require_full_closure=True,
+                allow_scoped_claim=True,
+                signals=(
+                    ModelMaturationSignal(
+                        signal_id="gap-1",
+                        signal_type=MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
+                        coverage_id="checkout.failure",
+                        prediction="failure branch is represented",
+                        falsifier="counterexample reaches unmodeled state",
+                    ),
+                ),
+            )
+        )
+        self.assertFalse(report.ok)
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_UPGRADE_REQUIRED)
+        self.assertFalse(report.scoped_signal_ids)
+        self.assertTrue(report.iteration_record)
+
+    def test_task_local_no_progress_is_terminal(self):
+        signal = ModelMaturationSignal(
+            signal_id="gap-1",
+            signal_type=MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
+            coverage_id="checkout.failure",
+            prediction="failure branch is represented",
+            falsifier="counterexample reaches unmodeled state",
+        )
+        first = review_model_maturation_loop(
+            ModelMaturationPlan(
+                plan_id="iterative-stall",
+                task_id="task-1",
+                coverage_ids=("checkout.failure",),
+                signals=(signal,),
+            )
+        )
+        stalled = review_model_maturation_loop(
+            ModelMaturationPlan(
+                plan_id="iterative-stall",
+                task_id="task-1",
+                coverage_ids=("checkout.failure",),
+                iteration=1,
+                prior_gap_fingerprints=first.open_gap_fingerprints,
+                signals=(signal,),
+            )
+        )
+        self.assertEqual(stalled.decision, MODEL_MATURATION_DECISION_PROGRESS_STALLED)
+        self.assertFalse(stalled.ok)
+
+    def test_external_input_is_named_instead_of_scoped(self):
+        report = review_model_maturation_loop(
+            ModelMaturationPlan(
+                plan_id="iterative-external",
+                task_id="task-1",
+                coverage_ids=("provider.signal",),
+                signals=(
+                    ModelMaturationSignal(
+                        signal_id="provider",
+                        signal_type=MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
+                        coverage_id="provider.signal",
+                        resolution_class=MODEL_MATURATION_RESOLUTION_EXTERNAL_INPUT_REQUIRED,
+                        prediction="provider emits a discriminating trace",
+                        falsifier="trace remains unavailable",
+                    ),
+                ),
+            )
+        )
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_EXTERNAL_INPUT_REQUIRED)
+        self.assertFalse(report.ok)
+
+    def test_task_closure_requires_resolved_native_coverage(self):
+        report = review_model_maturation_loop(
+            ModelMaturationPlan(
+                plan_id="iterative-closed",
+                task_id="task-1",
+                coverage_ids=("checkout.failure",),
+                signals=(
+                    ModelMaturationSignal(
+                        signal_id="closed",
+                        signal_type=MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
+                        coverage_id="checkout.failure",
+                        resolved=True,
+                        prediction="failure branch is represented",
+                        falsifier="counterexample reaches unmodeled state",
+                    ),
+                ),
+            )
+        )
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_CLOSED_FOR_TASK)
+        self.assertTrue(report.ok)
 
 
 if __name__ == "__main__":

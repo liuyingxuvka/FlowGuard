@@ -239,6 +239,28 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
         return 1
 
 
+def _run_model_maturation_review_command(args: argparse.Namespace) -> int:
+    from .model_maturation import ModelMaturationPlan, review_model_maturation_loop, review_model_maturation_session
+
+    try:
+        plans = [ModelMaturationPlan.from_dict(_read_json_object(path)) for path in args.plan]
+        if not plans:
+            raise ValueError("at least one --plan JSON artifact is required")
+        if len(plans) == 1:
+            report = review_model_maturation_loop(plans[0])
+            payload = report.to_dict()
+            ok = report.ok
+        else:
+            session = review_model_maturation_session(plans, session_id=args.session_id)
+            payload = session.to_dict()
+            ok = session.closed
+        _emit_payload(payload, as_json=args.json)
+        return 0 if ok else 1
+    except (OSError, ValueError, TypeError) as exc:
+        _emit_payload({"status": "blocked", "error": str(exc)}, as_json=args.json)
+        return 1
+
+
 def _add_model_system_parsers(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
@@ -313,6 +335,25 @@ def _add_model_system_parsers(
         handler=_run_model_system_command,
         model_system_action="rollback",
     )
+
+
+def _add_model_maturation_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parser = subparsers.add_parser(
+        "model-maturation-review",
+        help="Review one or more task-local model maturation iterations.",
+    )
+    parser.add_argument(
+        "--plan",
+        action="append",
+        default=[],
+        required=True,
+        help="Current-schema model maturation plan JSON; repeat for candidate iterations.",
+    )
+    parser.add_argument("--session-id", default="")
+    parser.add_argument("--json", action="store_true", help="Print canonical JSON output.")
+    parser.set_defaults(handler=_run_model_maturation_review_command)
 
 
 def _run_adoption_template() -> int:
@@ -1341,6 +1382,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_simulator_parser(subparsers)
     _add_evidence_lifecycle_parsers(subparsers)
     _add_model_system_parsers(subparsers)
+    _add_model_maturation_parser(subparsers)
     _add_project_adoption_parser(
         subparsers,
         "project-audit",

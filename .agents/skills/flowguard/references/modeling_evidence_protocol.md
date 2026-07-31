@@ -36,7 +36,7 @@ clean truncation, or an incomplete temporal prefix cannot project system pass.
 
 If runtime, tests, replay, logs, manual validation, or UI behavior fails after green, use `flowguard-model-miss-review`. Preserve prior claim/failure, identify the affected behavior plane, search that plane for the existing commitment/owner first, keep related planes typed and separate, classify/backpropagate the miss, generate a canonical same-class case, bind owner code/tests, close old paths/fields, and rerun affected parent/sibling/freshness/risk gates.
 
-Use internal `model_maturation_loop` when miss/alignment/state-closure/mesh/code-boundary/freshness evidence shows the model is too coarse, stale, disconnected, or supports only a scoped claim. Upgrade or preserve the scoped boundary; a later green command alone does not close the maturation action.
+Use internal `model_maturation_loop` when miss/alignment/state-closure/mesh/code-boundary/freshness evidence shows the model is too coarse, stale, disconnected, or supports only a scoped claim. It is an iterative task-local loop: derive an independent coverage universe, record a prediction and falsifier for each addressable gap, make the model/evidence change, and rerun the native checks. Addressable gaps (`model_edit` or `evidence_acquisition`) cannot be scoped away. A terminal result is allowed only when the current candidate reaches `model_closed_for_task`, or when the receipt names `external_input_required`, `scope_excluded`, `progress_stalled`, or `iteration_limit`. A model's self-reported understanding, a progress log, or a later green command alone never closes the maturation action.
 
 ## Maintenance and final claims
 
