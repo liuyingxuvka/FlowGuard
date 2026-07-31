@@ -1,0 +1,446 @@
+{
+  "added_ids": [],
+  "affected_closure_fingerprint": "sha256:5cf4331abc65b2a4afaf9dfdcb29a92feca4b3867a78b75d636299240c8bb957",
+  "affected_closure_ids": [
+    "behavior_commitment:commitment:model-miss-backfeeds-existing-commitment",
+    "code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+    "coverage:universe",
+    "field_inventory:field-or-effect:affected_commitment_id",
+    "field_inventory:field-or-effect:miss_origin_state",
+    "field_inventory:field-or-effect:primary_owner_model_id",
+    "model_instance:model:model_miss_review",
+    "model_relation:relation:model-realizes-code_contract:model_instance:model:model_miss_review--code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+    "model_relation:relation:model-realizes-commitment:commitment:model-miss-backfeeds-existing-commitment",
+    "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:affected_commitment_id",
+    "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:miss_origin_state",
+    "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:primary_owner_model_id",
+    "model_relation:relation:model-realizes-purpose:model_miss_review",
+    "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+    "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:query_behavior_commitments",
+    "model_relation:relation:model-validates-test_evidence:model_instance:model:model_miss_review--test_evidence:test:test:model-miss-backfeeds-existing-commitment",
+    "model_relation:relation:system-contains:model_miss_review",
+    "parent_closure:purpose:model_miss_review",
+    "parent_closure:system:flowguard:model-regression-manifest",
+    "side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+    "side_effect_inventory:field-or-effect:query_behavior_commitments",
+    "system_property:subject_revision",
+    "test_evidence:test:test:model-miss-backfeeds-existing-commitment"
+  ],
+  "affected_edge_ids": [
+    "model_relation:relation:model-realizes-code_contract:model_instance:model:model_miss_review--code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+    "model_relation:relation:model-realizes-commitment:commitment:model-miss-backfeeds-existing-commitment",
+    "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:affected_commitment_id",
+    "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:miss_origin_state",
+    "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:primary_owner_model_id",
+    "model_relation:relation:model-realizes-purpose:model_miss_review",
+    "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+    "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:query_behavior_commitments",
+    "model_relation:relation:model-validates-test_evidence:model_instance:model:model_miss_review--test_evidence:test:test:model-miss-backfeeds-existing-commitment",
+    "model_relation:relation:system-contains:model_miss_review"
+  ],
+  "affected_owner_bindings": [
+    {
+      "affected_id": "behavior_commitment:commitment:model-miss-backfeeds-existing-commitment",
+      "owner_route": "behavior_commitment_ledger"
+    },
+    {
+      "affected_id": "code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "affected_id": "coverage:universe",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "field_inventory:field-or-effect:affected_commitment_id",
+      "owner_route": "field_lifecycle_mesh"
+    },
+    {
+      "affected_id": "field_inventory:field-or-effect:miss_origin_state",
+      "owner_route": "field_lifecycle_mesh"
+    },
+    {
+      "affected_id": "field_inventory:field-or-effect:primary_owner_model_id",
+      "owner_route": "field_lifecycle_mesh"
+    },
+    {
+      "affected_id": "model_instance:model:model_miss_review",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-code_contract:model_instance:model:model_miss_review--code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-commitment:commitment:model-miss-backfeeds-existing-commitment",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:affected_commitment_id",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:miss_origin_state",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:primary_owner_model_id",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-purpose:model_miss_review",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:query_behavior_commitments",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-validates-test_evidence:model_instance:model:model_miss_review--test_evidence:test:test:model-miss-backfeeds-existing-commitment",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:system-contains:model_miss_review",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "parent_closure:purpose:model_miss_review",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "affected_id": "parent_closure:system:flowguard:model-regression-manifest",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+      "owner_route": "field_lifecycle_mesh"
+    },
+    {
+      "affected_id": "side_effect_inventory:field-or-effect:query_behavior_commitments",
+      "owner_route": "field_lifecycle_mesh"
+    },
+    {
+      "affected_id": "system_property:subject_revision",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "test_evidence:test:test:model-miss-backfeeds-existing-commitment",
+      "owner_route": "test_mesh_maintenance"
+    }
+  ],
+  "base_snapshot_fingerprint": "sha256:f3e0bc472c572182ab48521718272de4ed3d490eaff754a0474051017cffa7d8",
+  "candidate_snapshot_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+  "changed_commitment_ids": [],
+  "changed_contract_ids": [],
+  "changed_coverage_ids": [
+    "coverage:universe"
+  ],
+  "changed_field_ids": [],
+  "changed_gap_ids": [],
+  "changed_owner_artifact_ids": [],
+  "changed_relation_ids": [
+    "relation:model-realizes-code_contract:model_instance:model:model_miss_review--code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+    "relation:model-realizes-commitment:commitment:model-miss-backfeeds-existing-commitment",
+    "relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:affected_commitment_id",
+    "relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:miss_origin_state",
+    "relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:primary_owner_model_id",
+    "relation:model-realizes-purpose:model_miss_review",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+    "relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:query_behavior_commitments",
+    "relation:model-validates-test_evidence:model_instance:model:model_miss_review--test_evidence:test:test:model-miss-backfeeds-existing-commitment",
+    "relation:system-contains:model_miss_review"
+  ],
+  "changed_root_ids": [],
+  "changed_side_effect_ids": [],
+  "changed_source_surface_ids": [],
+  "changed_system_property_ids": [
+    "system_property:subject_revision"
+  ],
+  "changed_test_ids": [],
+  "completed_evidence_refs": [
+    {
+      "affected_closure_fingerprint": "sha256:5cf4331abc65b2a4afaf9dfdcb29a92feca4b3867a78b75d636299240c8bb957",
+      "candidate_snapshot_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "covered_affected_ids": [
+        "behavior_commitment:commitment:model-miss-backfeeds-existing-commitment"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:behavior_commitment_ledger"
+      ],
+      "owner_route": "behavior_commitment_ledger",
+      "receipt_fingerprint": "sha256:69a41c4bd90fe660bb49042f29c6d4dfbadc03c1a9525b5d5eb6a364e5c9642a",
+      "receipt_id": "receipt:flowguard-v0.66.0-model-miss-prompt-boundary:69a41c4bd90fe660:1",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:5cf4331abc65b2a4afaf9dfdcb29a92feca4b3867a78b75d636299240c8bb957",
+      "candidate_snapshot_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "covered_affected_ids": [
+        "field_inventory:field-or-effect:affected_commitment_id",
+        "field_inventory:field-or-effect:miss_origin_state",
+        "field_inventory:field-or-effect:primary_owner_model_id",
+        "side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+        "side_effect_inventory:field-or-effect:query_behavior_commitments"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:field_lifecycle_mesh"
+      ],
+      "owner_route": "field_lifecycle_mesh",
+      "receipt_fingerprint": "sha256:69a41c4bd90fe660bb49042f29c6d4dfbadc03c1a9525b5d5eb6a364e5c9642a",
+      "receipt_id": "receipt:flowguard-v0.66.0-model-miss-prompt-boundary:69a41c4bd90fe660:2",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:5cf4331abc65b2a4afaf9dfdcb29a92feca4b3867a78b75d636299240c8bb957",
+      "candidate_snapshot_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "covered_affected_ids": [
+        "coverage:universe",
+        "model_relation:relation:model-realizes-code_contract:model_instance:model:model_miss_review--code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+        "model_relation:relation:model-realizes-commitment:commitment:model-miss-backfeeds-existing-commitment",
+        "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:affected_commitment_id",
+        "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:miss_origin_state",
+        "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:primary_owner_model_id",
+        "model_relation:relation:model-realizes-purpose:model_miss_review",
+        "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+        "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:query_behavior_commitments",
+        "model_relation:relation:model-validates-test_evidence:model_instance:model:model_miss_review--test_evidence:test:test:model-miss-backfeeds-existing-commitment",
+        "model_relation:relation:system-contains:model_miss_review",
+        "parent_closure:system:flowguard:model-regression-manifest",
+        "system_property:subject_revision"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:model_mesh_maintenance"
+      ],
+      "owner_route": "model_mesh_maintenance",
+      "receipt_fingerprint": "sha256:69a41c4bd90fe660bb49042f29c6d4dfbadc03c1a9525b5d5eb6a364e5c9642a",
+      "receipt_id": "receipt:flowguard-v0.66.0-model-miss-prompt-boundary:69a41c4bd90fe660:3",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:5cf4331abc65b2a4afaf9dfdcb29a92feca4b3867a78b75d636299240c8bb957",
+      "candidate_snapshot_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "covered_affected_ids": [
+        "code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+        "model_instance:model:model_miss_review",
+        "parent_closure:purpose:model_miss_review"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:model_test_alignment"
+      ],
+      "owner_route": "model_test_alignment",
+      "receipt_fingerprint": "sha256:69a41c4bd90fe660bb49042f29c6d4dfbadc03c1a9525b5d5eb6a364e5c9642a",
+      "receipt_id": "receipt:flowguard-v0.66.0-model-miss-prompt-boundary:69a41c4bd90fe660:4",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:5cf4331abc65b2a4afaf9dfdcb29a92feca4b3867a78b75d636299240c8bb957",
+      "candidate_snapshot_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "covered_affected_ids": [
+        "test_evidence:test:test:model-miss-backfeeds-existing-commitment"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:test_mesh_maintenance"
+      ],
+      "owner_route": "test_mesh_maintenance",
+      "receipt_fingerprint": "sha256:69a41c4bd90fe660bb49042f29c6d4dfbadc03c1a9525b5d5eb6a364e5c9642a",
+      "receipt_id": "receipt:flowguard-v0.66.0-model-miss-prompt-boundary:69a41c4bd90fe660:5",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    }
+  ],
+  "decision_reason": "The exact seven-model owner closure passed full-tier supervised regression after restoring the Model-Miss prompt and public API contracts.",
+  "evidence_complete": true,
+  "expected_head_fingerprint": "sha256:343ba366d09c182ef7565e7f573276f4c04dcd4de3fab809e3314e7def373c9d",
+  "fingerprint": "sha256:1f6cd3c039633649c20c6a7b624154bce48ae41428a4708c7c4a21ea17ea10bc",
+  "fingerprint_changed_ids": [
+    "coverage:universe",
+    "model_instance:model:model_miss_review",
+    "model_relation:relation:model-realizes-code_contract:model_instance:model:model_miss_review--code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+    "model_relation:relation:model-realizes-commitment:commitment:model-miss-backfeeds-existing-commitment",
+    "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:affected_commitment_id",
+    "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:miss_origin_state",
+    "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:primary_owner_model_id",
+    "model_relation:relation:model-realizes-purpose:model_miss_review",
+    "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+    "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:query_behavior_commitments",
+    "model_relation:relation:model-validates-test_evidence:model_instance:model:model_miss_review--test_evidence:test:test:model-miss-backfeeds-existing-commitment",
+    "model_relation:relation:system-contains:model_miss_review"
+  ],
+  "implementation_bundle_fingerprint": "",
+  "members": [
+    {
+      "base_instance_fingerprint": "sha256:6208abbc43141a28c9a01cabc2d1b6d99c90a6829c81413461c91422fe46fdef",
+      "candidate_instance_fingerprint": "sha256:953120193b1a1a95b2c893459d557fe28e5974586d0a866e7677b4f6ea5f5d20",
+      "changed_element_ids": [
+        "model_instance:model:model_miss_review"
+      ],
+      "member_id": "model_miss_review",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    }
+  ],
+  "originating_activation_receipt_fingerprint": "",
+  "originating_revision_set_fingerprint": "",
+  "prediction_replay_refs": [],
+  "removal_dispositions": [],
+  "removed_ids": [],
+  "required_evidence_refs": [
+    {
+      "affected_closure_fingerprint": "sha256:5cf4331abc65b2a4afaf9dfdcb29a92feca4b3867a78b75d636299240c8bb957",
+      "candidate_snapshot_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "covered_affected_ids": [
+        "behavior_commitment:commitment:model-miss-backfeeds-existing-commitment"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:behavior_commitment_ledger"
+      ],
+      "owner_route": "behavior_commitment_ledger",
+      "receipt_fingerprint": "sha256:69a41c4bd90fe660bb49042f29c6d4dfbadc03c1a9525b5d5eb6a364e5c9642a",
+      "receipt_id": "receipt:flowguard-v0.66.0-model-miss-prompt-boundary:69a41c4bd90fe660:1",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:5cf4331abc65b2a4afaf9dfdcb29a92feca4b3867a78b75d636299240c8bb957",
+      "candidate_snapshot_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "covered_affected_ids": [
+        "field_inventory:field-or-effect:affected_commitment_id",
+        "field_inventory:field-or-effect:miss_origin_state",
+        "field_inventory:field-or-effect:primary_owner_model_id",
+        "side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+        "side_effect_inventory:field-or-effect:query_behavior_commitments"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:field_lifecycle_mesh"
+      ],
+      "owner_route": "field_lifecycle_mesh",
+      "receipt_fingerprint": "sha256:69a41c4bd90fe660bb49042f29c6d4dfbadc03c1a9525b5d5eb6a364e5c9642a",
+      "receipt_id": "receipt:flowguard-v0.66.0-model-miss-prompt-boundary:69a41c4bd90fe660:2",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:5cf4331abc65b2a4afaf9dfdcb29a92feca4b3867a78b75d636299240c8bb957",
+      "candidate_snapshot_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "covered_affected_ids": [
+        "coverage:universe",
+        "model_relation:relation:model-realizes-code_contract:model_instance:model:model_miss_review--code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+        "model_relation:relation:model-realizes-commitment:commitment:model-miss-backfeeds-existing-commitment",
+        "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:affected_commitment_id",
+        "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:miss_origin_state",
+        "model_relation:relation:model-realizes-field_inventory:model_instance:model:model_miss_review--field_inventory:field-or-effect:primary_owner_model_id",
+        "model_relation:relation:model-realizes-purpose:model_miss_review",
+        "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:backfeed_owner_model_and_tests",
+        "model_relation:relation:model-realizes-side_effect_inventory:model_instance:model:model_miss_review--side_effect_inventory:field-or-effect:query_behavior_commitments",
+        "model_relation:relation:model-validates-test_evidence:model_instance:model:model_miss_review--test_evidence:test:test:model-miss-backfeeds-existing-commitment",
+        "model_relation:relation:system-contains:model_miss_review",
+        "parent_closure:system:flowguard:model-regression-manifest",
+        "system_property:subject_revision"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:model_mesh_maintenance"
+      ],
+      "owner_route": "model_mesh_maintenance",
+      "receipt_fingerprint": "sha256:69a41c4bd90fe660bb49042f29c6d4dfbadc03c1a9525b5d5eb6a364e5c9642a",
+      "receipt_id": "receipt:flowguard-v0.66.0-model-miss-prompt-boundary:69a41c4bd90fe660:3",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:5cf4331abc65b2a4afaf9dfdcb29a92feca4b3867a78b75d636299240c8bb957",
+      "candidate_snapshot_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "covered_affected_ids": [
+        "code_contract:contract:contract:model-miss-backfeeds-existing-commitment",
+        "model_instance:model:model_miss_review",
+        "parent_closure:purpose:model_miss_review"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:model_test_alignment"
+      ],
+      "owner_route": "model_test_alignment",
+      "receipt_fingerprint": "sha256:69a41c4bd90fe660bb49042f29c6d4dfbadc03c1a9525b5d5eb6a364e5c9642a",
+      "receipt_id": "receipt:flowguard-v0.66.0-model-miss-prompt-boundary:69a41c4bd90fe660:4",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:5cf4331abc65b2a4afaf9dfdcb29a92feca4b3867a78b75d636299240c8bb957",
+      "candidate_snapshot_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "covered_affected_ids": [
+        "test_evidence:test:test:model-miss-backfeeds-existing-commitment"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:28a470194cbbad8a1d15c98fe60a3463d77e0cc1c70343f8c5784c46c8ed5d2b",
+      "obligation_ids": [
+        "obligation:model-revision:test_mesh_maintenance"
+      ],
+      "owner_route": "test_mesh_maintenance",
+      "receipt_fingerprint": "sha256:69a41c4bd90fe660bb49042f29c6d4dfbadc03c1a9525b5d5eb6a364e5c9642a",
+      "receipt_id": "receipt:flowguard-v0.66.0-model-miss-prompt-boundary:69a41c4bd90fe660:5",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:fff18d0e84a794365e502427792c3d036b8b579481bfa681cb65c0f559e62c3a",
+      "toolchain_fingerprint": "sha256:f39903695cb122011e7b67fe7f263b74b5a189c05245b6db849e16017c2b8769"
+    }
+  ],
+  "revision_set_id": "revision:flowguard-v0.66.0-model-miss-prompt-boundary:69a41c4bd90fe660",
+  "rollback_contract_fingerprint": "",
+  "schema": "flowguard.model_revision_set.v2",
+  "snapshot_diff_fingerprint": "sha256:9ca13f18e646fc4bf89946bfc7287e652985f55d48443abeef6263e7dfadb691",
+  "status": "accepted",
+  "task_id": "task:restore-model-miss-prompt-and-api-contracts"
+}

@@ -54,6 +54,7 @@ class PublicAPIRegistryTests(unittest.TestCase):
             flowguard.CORE_API,
             flowguard.CONTRACT_EXHAUSTION_MESH_API,
             flowguard.DEVELOPMENT_PROCESS_FLOW_ROUTE_API,
+            flowguard.MODEL_MISS_REVIEW_ROUTE_API,
             flowguard.MODELING_HELPER_API,
             flowguard.REPORTING_HELPER_API,
             flowguard.EVIDENCE_API,

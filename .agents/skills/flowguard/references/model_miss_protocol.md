@@ -1,21 +1,17 @@
 # Model-Miss Review Handoff
 
-This kernel-side file is a compact handoff stub. The detailed protocol is
-owned by the direct satellite skill `flowguard-model-miss-review`.
+This compact handoff stub gives detailed protocol ownership to the direct
+`flowguard-model-miss-review` satellite.
 
 Load:
 `.agents/skills/flowguard-model-miss-review/references/model_miss_protocol.md`
 
-Use this route when runtime, tests, replay, logs, manual validation, or
-production evidence fails after FlowGuard modeling passed, or when a repaired
-bug needs same-class model representation before confidence is widened.
+Use it when post-green runtime, test, replay, log, manual, or production
+evidence fails, or a repaired bug needs same-class representation.
 
-Keep the hard gates: separate bug instance from bug class, represent or scope
-same-class responsibility, feed boundary changes to the affected mesh or
-alignment route, and rerun relevant evidence before broad claims.
+Separate bug instance from class, represent or scope same-class responsibility,
+route boundary changes to mesh/alignment, and rerun relevant evidence.
 
-When the satellite returns a minimal diagnostic explanation, treat it as a
-read-only projection of the existing owner report. Require both per-item
-necessity witnesses and a positive non-vacuity witness; preserve the owner
-decision, and never treat the projection as closure evidence or a second
-review authority.
+Treat any minimal diagnostic as a read-only projection: require per-item
+necessity plus positive non-vacuity, preserve the owner decision, and never
+use it as closure evidence or a second review authority.
