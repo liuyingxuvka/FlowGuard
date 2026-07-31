@@ -1,290 +1,602 @@
+import hashlib
+import json
+import tempfile
 import unittest
+from dataclasses import replace
+from pathlib import Path
 
 from flowguard import (
     MATURITY_ACTION_ADD_MODEL_OBLIGATION,
-    MATURITY_ACTION_ADD_SAME_CLASS_SCENARIO,
     MATURITY_ACTION_ADD_STATE_FIELD,
     MATURITY_ACTION_DOWNGRADE_CLAIM,
-    MATURITY_ACTION_NO_CHANGE,
-    MATURITY_ACTION_REATTACH_PARENT_MODEL,
-    MATURITY_ACTION_SPLIT_CHILD_MODEL,
-    MODEL_MATURATION_DECISION_BLOCKED,
-    MODEL_MATURATION_DECISION_CURRENT,
-    MODEL_MATURATION_DECISION_SCOPED,
-    MODEL_MATURATION_DECISION_UPGRADE_REQUIRED,
+    MATURITY_ACTION_REFRESH_EVIDENCE,
     MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
     MODEL_MATURATION_DECISION_EXTERNAL_INPUT_REQUIRED,
+    MODEL_MATURATION_DECISION_ITERATION_LIMIT,
     MODEL_MATURATION_DECISION_PROGRESS_STALLED,
+    MODEL_MATURATION_DECISION_SCOPE_EXCLUDED,
+    MODEL_MATURATION_DECISION_UPGRADE_REQUIRED,
+    MODEL_MATURATION_PLAN_SCHEMA_VERSION,
+    MODEL_MATURATION_RECEIPT_STATUS_PASS,
+    MODEL_MATURATION_RESOLUTION_EVIDENCE_ACQUISITION,
     MODEL_MATURATION_RESOLUTION_EXTERNAL_INPUT_REQUIRED,
-    MODEL_MATURATION_SIGNAL_CHILD_BOUNDARY_CHANGED,
-    MODEL_MATURATION_SIGNAL_DUPLICATE_PRIMARY_EDGE_PATH,
+    MODEL_MATURATION_RESOLUTION_MODEL_EDIT,
+    MODEL_MATURATION_RESOLUTION_SCOPE_EXCLUDED,
     MODEL_MATURATION_SIGNAL_MISSING_MODEL_OBLIGATION,
-    MODEL_MATURATION_SIGNAL_SAME_CLASS_MISSING,
     MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
+    ModelMaturationGapResolutionReceipt,
     ModelMaturationPlan,
     ModelMaturationSignal,
     review_model_maturation_loop,
+    review_model_maturation_session,
 )
+from flowguard.__main__ import main
+
+
+def _fingerprint(value):
+    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _plan(**overrides):
+    values = {
+        "plan_id": "maturation-checkout",
+        "task_id": "task-checkout",
+        "task_purpose": "predict checkout failure behavior before release",
+        "model_id": "checkout",
+        "risk_id": "risk-checkout",
+        "coverage_universe_id": "checkout-obligations-v1",
+        "coverage_owner": "existing-model-preflight",
+        "coverage_source_refs": ("model:checkout@base-1", "code-map:checkout@code-1"),
+        "coverage_ids": ("checkout.failure",),
+        "required_probe_ids": ("probe.checkout.failure",),
+        "base_model_fingerprint": "model-base-1",
+        "candidate_model_fingerprint": "model-candidate-1",
+        "evidence_fingerprint": "evidence-1",
+    }
+    values.update(overrides)
+    plan = ModelMaturationPlan(**values)
+    if "coverage_universe_fingerprint" not in overrides:
+        plan = replace(plan, coverage_universe_fingerprint=plan.expected_coverage_fingerprint())
+    return plan
+
+
+def _open_signal(**overrides):
+    values = {
+        "signal_id": "gap-checkout-failure",
+        "signal_type": MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
+        "source_route": "model_miss_review",
+        "coverage_id": "checkout.failure",
+        "probe_id": "probe.checkout.failure",
+        "resolution_class": MODEL_MATURATION_RESOLUTION_MODEL_EDIT,
+        "prediction": "the candidate represents the payment-decline branch",
+        "falsifier": "a decline trace reaches an unmodeled state",
+        "evidence_id": "trace-decline-1",
+        "evidence_fingerprint": "trace-fingerprint-1",
+        "current": True,
+    }
+    values.update(overrides)
+    return ModelMaturationSignal(**values)
+
+
+def _verified_signal(plan, **overrides):
+    values = {
+        "resolved": True,
+        "receipt_id": "receipt-checkout-1",
+        "receipt_fingerprint": "receipt-fingerprint-1",
+        "receipt_status": MODEL_MATURATION_RECEIPT_STATUS_PASS,
+        "receipt_task_id": plan.task_id,
+        "receipt_probe_id": "probe.checkout.failure",
+        "receipt_candidate_fingerprint": plan.candidate_model_fingerprint,
+        "receipt_coverage_fingerprint": plan.coverage_universe_fingerprint,
+        "receipt_evidence_fingerprint": "trace-fingerprint-1",
+        "receipt_owner_route": "model_miss_review",
+    }
+    values.update(overrides)
+    return _open_signal(**values)
+
+
+def _gap_receipt(plan, gap, **overrides):
+    values = {
+        "receipt_id": "gap-receipt-2",
+        "receipt_fingerprint": "gap-resolution-receipt-2",
+        "gap_fingerprint": gap,
+        "task_id": plan.task_id,
+        "candidate_fingerprint": plan.candidate_model_fingerprint,
+        "coverage_fingerprint": plan.coverage_universe_fingerprint,
+        "evidence_fingerprint": plan.evidence_fingerprint,
+        "owner_route": "model_miss_review",
+        "status": MODEL_MATURATION_RECEIPT_STATUS_PASS,
+        "current": True,
+    }
+    values.update(overrides)
+    return ModelMaturationGapResolutionReceipt(**values)
 
 
 class ModelMaturationTests(unittest.TestCase):
-    def test_no_open_signals_supports_current_model(self):
-        report = review_model_maturation_loop(
-            ModelMaturationPlan(plan_id="maturity-green", model_id="checkout")
-        )
-
-        self.assertTrue(report.ok)
-        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_CURRENT)
-        self.assertEqual(report.confidence, "full")
-        self.assertEqual(report.recommended_actions, (MATURITY_ACTION_NO_CHANGE,))
-        self.assertFalse(report.findings)
-
-    def test_state_too_coarse_requires_model_upgrade_for_routine_claim(self):
-        report = review_model_maturation_loop(
-            ModelMaturationPlan(
-                plan_id="maturity-state",
-                model_id="checkout",
-                risk_id="risk-state",
-                signals=(
-                    ModelMaturationSignal(
-                        signal_id="sig-state",
-                        signal_type=MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
-                        source_route="model_miss_review",
-                        description="runtime evidence used a state branch the model did not represent",
-                    ),
-                ),
-            )
-        )
+    def test_empty_legacy_shape_is_blocked_instead_of_current(self):
+        report = review_model_maturation_loop(ModelMaturationPlan(plan_id="shallow"))
 
         self.assertFalse(report.ok)
         self.assertEqual(report.decision, MODEL_MATURATION_DECISION_UPGRADE_REQUIRED)
-        self.assertIn(MATURITY_ACTION_ADD_STATE_FIELD, report.recommended_actions)
-        self.assertEqual(report.findings[0].signal_id, "sig-state")
-        self.assertEqual(report.findings[0].action, MATURITY_ACTION_ADD_STATE_FIELD)
-        self.assertEqual(1, len(report.maintenance_obligations))
-        self.assertEqual(("checkout",), report.maintenance_obligations[0].model_ids)
-        self.assertEqual(("risk-state",), report.maintenance_obligations[0].risk_ids)
+        self.assertIn("missing_task_id", {finding.code for finding in report.findings})
+        self.assertTrue(report.open_gap_fingerprints)
 
-    def test_full_claim_can_be_scoped_when_model_upgrade_is_still_open(self):
-        report = review_model_maturation_loop(
-            ModelMaturationPlan(
-                plan_id="maturity-scoped",
-                model_id="checkout",
-                risk_id="risk-same-class",
-                require_full_closure=True,
-                allow_scoped_claim=True,
-                signals=(
-                    ModelMaturationSignal(
-                        signal_id="sig-same-class",
-                        signal_type=MODEL_MATURATION_SIGNAL_SAME_CLASS_MISSING,
-                        source_route="model_miss_review",
-                    ),
-                ),
-            )
-        )
+    def test_current_task_closes_only_with_exact_native_receipt(self):
+        plan = _plan()
+        report = review_model_maturation_loop(replace(plan, signals=(_verified_signal(plan),)))
 
         self.assertTrue(report.ok)
-        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_SCOPED)
-        self.assertEqual(report.confidence, "scoped")
-        self.assertIn("sig-same-class", report.scoped_signal_ids)
-        self.assertIn(MATURITY_ACTION_ADD_SAME_CLASS_SCENARIO, report.recommended_actions)
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_CLOSED_FOR_TASK)
+        self.assertEqual(report.terminal_reason, MODEL_MATURATION_DECISION_CLOSED_FOR_TASK)
+        self.assertEqual(report.iteration_record.native_receipt_fingerprints, ("receipt-fingerprint-1",))
+
+    def test_caller_resolved_boolean_is_not_evidence(self):
+        plan = _plan()
+        signal = _open_signal(resolved=True)
+        report = review_model_maturation_loop(replace(plan, signals=(signal,)))
+
+        self.assertFalse(report.ok)
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_UPGRADE_REQUIRED)
+        self.assertEqual(report.terminal_reason, "")
+        codes = {finding.code for finding in report.findings}
+        self.assertIn("unverified_signal_resolution", codes)
+        self.assertIn(MATURITY_ACTION_REFRESH_EVIDENCE, report.recommended_actions)
+
+    def test_wrong_receipt_bindings_cannot_close(self):
+        for field, value in (
+            ("receipt_task_id", "another-task"),
+            ("receipt_probe_id", "another-probe"),
+            ("receipt_candidate_fingerprint", "another-candidate"),
+            ("receipt_coverage_fingerprint", "another-universe"),
+            ("receipt_evidence_fingerprint", "another-evidence"),
+            ("receipt_owner_route", "another-owner"),
+            ("receipt_status", "failed"),
+        ):
+            with self.subTest(field=field):
+                plan = _plan()
+                report = review_model_maturation_loop(
+                    replace(plan, signals=(_verified_signal(plan, **{field: value}),))
+                )
+                self.assertFalse(report.ok)
+                self.assertEqual(report.decision, MODEL_MATURATION_DECISION_UPGRADE_REQUIRED)
+
+    def test_required_contract_fields_and_independent_coverage_are_enforced(self):
+        cases = (
+            ("task_purpose", "", "missing_task_purpose"),
+            ("coverage_source_refs", (), "missing_coverage_source_refs"),
+            ("coverage_ids", (), "missing_coverage_universe"),
+            ("required_probe_ids", (), "missing_required_probes"),
+        )
+        for field, value, expected in cases:
+            with self.subTest(field=field):
+                plan = _plan(**{field: value})
+                report = review_model_maturation_loop(plan)
+                self.assertIn(expected, {finding.code for finding in report.findings})
+                self.assertFalse(report.ok)
+
+    def test_coverage_inventory_cannot_be_silently_rewritten(self):
+        plan = _plan(coverage_universe_fingerprint="caller-kept-old-fingerprint")
+        report = review_model_maturation_loop(replace(plan, signals=(_verified_signal(plan),)))
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "coverage_universe_fingerprint_mismatch",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_every_required_probe_must_have_a_bound_signal(self):
+        plan = _plan(required_probe_ids=("probe.checkout.failure", "probe.checkout.timeout"))
+        signal = _verified_signal(plan)
+        report = review_model_maturation_loop(replace(plan, signals=(signal,)))
+
+        self.assertFalse(report.ok)
+        self.assertIn("missing_required_probe_signal", {finding.code for finding in report.findings})
+
+    def test_open_addressable_gap_requires_another_iteration_not_terminal_stop(self):
+        plan = _plan(signals=(_open_signal(),))
+        report = review_model_maturation_loop(plan)
+
+        self.assertFalse(report.ok)
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_UPGRADE_REQUIRED)
+        self.assertEqual(report.terminal_reason, "")
+        self.assertIn(MATURITY_ACTION_ADD_STATE_FIELD, report.recommended_actions)
+
+    def test_external_stop_requires_exact_input_owner_and_claim_boundary(self):
+        complete = _open_signal(
+            resolution_class=MODEL_MATURATION_RESOLUTION_EXTERNAL_INPUT_REQUIRED,
+            required_input="provider decline trace with correlation id",
+            owner_boundary="payment-provider",
+            affected_claim_scope="provider-decline recovery only",
+        )
+        report = review_model_maturation_loop(_plan(signals=(complete,)))
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_EXTERNAL_INPUT_REQUIRED)
+        self.assertEqual(report.terminal_reason, MODEL_MATURATION_DECISION_EXTERNAL_INPUT_REQUIRED)
+
+        incomplete = replace(complete, owner_boundary="")
+        report = review_model_maturation_loop(_plan(signals=(incomplete,)))
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_UPGRADE_REQUIRED)
+        self.assertIn("incomplete_external_input_boundary", {finding.code for finding in report.findings})
+
+    def test_scope_exclusion_is_visible_and_never_full_closure(self):
+        signal = _open_signal(
+            in_scope=False,
+            resolution_class=MODEL_MATURATION_RESOLUTION_SCOPE_EXCLUDED,
+            affected_claim_scope="legacy provider behavior",
+        )
+        report = review_model_maturation_loop(_plan(signals=(signal,)))
+
+        self.assertFalse(report.ok)
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_SCOPE_EXCLUDED)
         self.assertIn(MATURITY_ACTION_DOWNGRADE_CLAIM, report.recommended_actions)
 
-    def test_full_claim_blocks_when_scoped_claim_is_not_allowed(self):
-        report = review_model_maturation_loop(
-            ModelMaturationPlan(
-                plan_id="maturity-blocked",
-                model_id="checkout",
-                require_full_closure=True,
-                allow_scoped_claim=False,
-                signals=(
-                    ModelMaturationSignal(
-                        signal_id="sig-same-class",
-                        signal_type=MODEL_MATURATION_SIGNAL_SAME_CLASS_MISSING,
-                    ),
-                ),
-            )
+    def test_prior_gap_cannot_disappear_without_a_resolution_receipt(self):
+        first = review_model_maturation_loop(_plan(signals=(_open_signal(),)))
+        prior_gap = first.open_gap_fingerprints[0]
+        second_plan = _plan(
+            iteration=1,
+            prior_iteration_fingerprint=first.iteration_record.fingerprint(),
+            prior_candidate_fingerprint="model-candidate-1",
+            prior_gap_fingerprints=first.open_gap_fingerprints,
+            base_model_fingerprint="model-candidate-1",
+            candidate_model_fingerprint="model-candidate-2",
+            evidence_fingerprint="evidence-2",
         )
+        second_signal = _verified_signal(
+            second_plan,
+            receipt_id="receipt-checkout-2",
+            receipt_fingerprint="receipt-fingerprint-2",
+        )
+        report = review_model_maturation_loop(replace(second_plan, signals=(second_signal,)))
 
         self.assertFalse(report.ok)
-        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_BLOCKED)
-        self.assertEqual(report.confidence, "blocked")
+        self.assertIn(prior_gap, report.open_gap_fingerprints)
+        self.assertIn("gap_deleted_without_resolution_receipt", {finding.code for finding in report.findings})
 
-    def test_mesh_signals_route_to_parent_and_child_model_actions(self):
-        report = review_model_maturation_loop(
-            ModelMaturationPlan(
-                plan_id="maturity-mesh",
-                model_id="parent",
-                signals=(
-                    ModelMaturationSignal(
-                        signal_id="sig-child-boundary",
-                        signal_type=MODEL_MATURATION_SIGNAL_CHILD_BOUNDARY_CHANGED,
-                        source_route="model_mesh",
-                    ),
-                    ModelMaturationSignal(
-                        signal_id="sig-duplicate-edge",
-                        signal_type=MODEL_MATURATION_SIGNAL_DUPLICATE_PRIMARY_EDGE_PATH,
-                        source_route="model_test_alignment",
-                    ),
-                ),
-            )
+    def test_two_iteration_session_preserves_gap_and_closes_with_receipts(self):
+        first_plan = _plan(signals=(_open_signal(),))
+        first = review_model_maturation_loop(first_plan)
+        prior_gap = first.open_gap_fingerprints[0]
+        second_plan = _plan(
+            iteration=1,
+            prior_iteration_fingerprint=first.iteration_record.fingerprint(),
+            prior_candidate_fingerprint="model-candidate-1",
+            prior_gap_fingerprints=first.open_gap_fingerprints,
+            base_model_fingerprint="model-candidate-1",
+            candidate_model_fingerprint="model-candidate-2",
+            prior_evidence_fingerprint="evidence-1",
+            evidence_fingerprint="evidence-2",
         )
-
-        self.assertIn(MATURITY_ACTION_REATTACH_PARENT_MODEL, report.recommended_actions)
-        self.assertIn(MATURITY_ACTION_SPLIT_CHILD_MODEL, report.recommended_actions)
-
-    def test_missing_model_obligation_points_back_to_model_before_tests(self):
-        report = review_model_maturation_loop(
-            ModelMaturationPlan(
-                plan_id="maturity-obligation",
-                model_id="checkout",
-                signals=(
-                    ModelMaturationSignal(
-                        signal_id="sig-obligation",
-                        signal_type=MODEL_MATURATION_SIGNAL_MISSING_MODEL_OBLIGATION,
-                        source_route="model_test_alignment",
-                    ),
-                ),
-            )
+        second_plan = replace(
+            second_plan,
+            resolved_gap_receipts={prior_gap: _gap_receipt(second_plan, prior_gap)},
         )
+        second_signal = _verified_signal(
+            second_plan,
+            receipt_id="receipt-checkout-2",
+            receipt_fingerprint="receipt-fingerprint-2",
+        )
+        second_plan = replace(second_plan, signals=(second_signal,))
+        session = review_model_maturation_session((first_plan, second_plan), session_id="session-checkout")
 
+        self.assertTrue(session.closed)
+        self.assertEqual(len(session.iterations), 2)
+        self.assertIn(prior_gap, session.iterations[1].resolved_gap_fingerprints)
+
+    def test_untyped_or_wrong_gap_resolution_receipt_is_rejected(self):
+        first = review_model_maturation_loop(_plan(signals=(_open_signal(),)))
+        gap = first.open_gap_fingerprints[0]
+        with self.assertRaises(ValueError):
+            _plan(resolved_gap_receipts={gap: "caller-says-fixed"})
+
+        second = _plan(
+            iteration=1,
+            prior_iteration_fingerprint=first.iteration_record.fingerprint(),
+            prior_candidate_fingerprint="model-candidate-1",
+            prior_gap_fingerprints=first.open_gap_fingerprints,
+            base_model_fingerprint="model-candidate-1",
+            candidate_model_fingerprint="model-candidate-2",
+            evidence_fingerprint="evidence-2",
+        )
+        wrong = _gap_receipt(second, gap, task_id="another-task")
+        signal = _verified_signal(second, receipt_id="receipt-2", receipt_fingerprint="receipt-fp-2")
+        report = review_model_maturation_loop(
+            replace(second, signals=(signal,), resolved_gap_receipts={gap: wrong})
+        )
         self.assertFalse(report.ok)
-        self.assertIn(MATURITY_ACTION_ADD_MODEL_OBLIGATION, report.recommended_actions)
-        self.assertNotIn(MATURITY_ACTION_DOWNGRADE_CLAIM, report.recommended_actions)
+        self.assertIn("gap_deleted_without_resolution_receipt", {item.code for item in report.findings})
 
-    def test_signal_can_override_default_action(self):
-        report = review_model_maturation_loop(
-            ModelMaturationPlan(
-                plan_id="maturity-override",
-                model_id="checkout",
+    def test_evidence_acquisition_advances_without_pretending_to_close(self):
+        first = review_model_maturation_loop(
+            _plan(
                 signals=(
-                    ModelMaturationSignal(
-                        signal_id="sig-custom",
-                        signal_type=MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
-                        suggested_actions=(MATURITY_ACTION_ADD_MODEL_OBLIGATION,),
+                    _open_signal(
+                        resolution_class=MODEL_MATURATION_RESOLUTION_EVIDENCE_ACQUISITION,
                     ),
-                ),
+                )
             )
         )
-
-        self.assertIn(MATURITY_ACTION_ADD_MODEL_OBLIGATION, report.recommended_actions)
-        self.assertNotIn(MATURITY_ACTION_ADD_STATE_FIELD, report.recommended_actions)
-
-    def test_report_formats_human_readable_summary(self):
-        report = review_model_maturation_loop(
-            ModelMaturationPlan(
-                plan_id="maturity-text",
-                model_id="checkout",
-                signals=(
-                    ModelMaturationSignal(
-                        signal_id="sig-state",
-                        signal_type=MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
-                    ),
-                ),
-            )
+        second = _plan(
+            iteration=1,
+            prior_iteration_fingerprint=first.iteration_record.fingerprint(),
+            prior_candidate_fingerprint="model-candidate-1",
+            prior_gap_fingerprints=first.open_gap_fingerprints,
+            base_model_fingerprint="model-candidate-1",
+            candidate_model_fingerprint="model-candidate-1",
+            prior_evidence_fingerprint="evidence-1",
+            evidence_fingerprint="evidence-2",
         )
-
-        text = report.format_text()
-        self.assertIn("FlowGuard model maturation loop", text)
-        self.assertIn(MATURITY_ACTION_ADD_STATE_FIELD, text)
-        self.assertIn("model_upgrade_required", text)
-        self.assertIn("maintenance obligations", text)
-
-    def test_task_local_addressable_gap_cannot_be_scoped_away(self):
-        report = review_model_maturation_loop(
-            ModelMaturationPlan(
-                plan_id="iterative-open",
-                task_id="task-1",
-                model_id="checkout",
-                coverage_ids=("checkout.failure",),
-                require_full_closure=True,
-                allow_scoped_claim=True,
-                signals=(
-                    ModelMaturationSignal(
-                        signal_id="gap-1",
-                        signal_type=MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
-                        coverage_id="checkout.failure",
-                        prediction="failure branch is represented",
-                        falsifier="counterexample reaches unmodeled state",
-                    ),
-                ),
-            )
+        progress_signal = _verified_signal(
+            second,
+            resolved=False,
+            resolution_class=MODEL_MATURATION_RESOLUTION_EVIDENCE_ACQUISITION,
+            evidence_id="trace-2",
+            evidence_fingerprint="trace-fingerprint-2",
+            receipt_evidence_fingerprint="trace-fingerprint-2",
+            receipt_id="progress-receipt-2",
+            receipt_fingerprint="progress-receipt-fp-2",
         )
+        second = replace(second, signals=(progress_signal,))
+        report = review_model_maturation_loop(second)
+        self.assertTrue(report.progressed)
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_UPGRADE_REQUIRED)
+        self.assertEqual(report.terminal_reason, "")
+
+    def test_introduced_gap_remains_visible_during_candidate_progress(self):
+        coverage = ("checkout.failure", "checkout.timeout")
+        probes = ("probe.checkout.failure", "probe.checkout.timeout")
+        base = _plan(coverage_ids=coverage, required_probe_ids=probes)
+        timeout_pass = _verified_signal(
+            base,
+            signal_id="gap-checkout-timeout",
+            coverage_id="checkout.timeout",
+            probe_id="probe.checkout.timeout",
+            receipt_probe_id="probe.checkout.timeout",
+            receipt_id="receipt-timeout-1",
+            receipt_fingerprint="receipt-timeout-fp-1",
+        )
+        first_plan = replace(base, signals=(_open_signal(), timeout_pass))
+        first = review_model_maturation_loop(first_plan)
+        old_gap = first.open_gap_fingerprints[0]
+
+        second = _plan(
+            coverage_ids=coverage,
+            required_probe_ids=probes,
+            iteration=1,
+            prior_iteration_fingerprint=first.iteration_record.fingerprint(),
+            prior_candidate_fingerprint="model-candidate-1",
+            prior_gap_fingerprints=first.open_gap_fingerprints,
+            base_model_fingerprint="model-candidate-1",
+            candidate_model_fingerprint="model-candidate-2",
+            prior_evidence_fingerprint="evidence-1",
+            evidence_fingerprint="evidence-2",
+        )
+        resolved_failure = _verified_signal(second, receipt_id="receipt-failure-2", receipt_fingerprint="receipt-failure-fp-2")
+        new_timeout = _open_signal(
+            signal_id="gap-checkout-timeout",
+            coverage_id="checkout.timeout",
+            probe_id="probe.checkout.timeout",
+            prediction="timeout returns to the retryable state",
+            falsifier="timeout reaches an absorbing unmodeled state",
+            evidence_id="trace-timeout-2",
+            evidence_fingerprint="trace-timeout-fp-2",
+        )
+        second = replace(
+            second,
+            signals=(resolved_failure, new_timeout),
+            resolved_gap_receipts={old_gap: _gap_receipt(second, old_gap)},
+        )
+        report = review_model_maturation_loop(second)
         self.assertFalse(report.ok)
         self.assertEqual(report.decision, MODEL_MATURATION_DECISION_UPGRADE_REQUIRED)
-        self.assertFalse(report.scoped_signal_ids)
-        self.assertTrue(report.iteration_record)
+        self.assertTrue(report.iteration_record.introduced_gap_fingerprints)
 
-    def test_task_local_no_progress_is_terminal(self):
-        signal = ModelMaturationSignal(
-            signal_id="gap-1",
-            signal_type=MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
-            coverage_id="checkout.failure",
-            prediction="failure branch is represented",
-            falsifier="counterexample reaches unmodeled state",
+    def test_three_iteration_session_closes_only_on_final_candidate(self):
+        first_plan = _plan(signals=(_open_signal(),))
+        first = review_model_maturation_loop(first_plan)
+        gap = first.open_gap_fingerprints[0]
+        second_plan = _plan(
+            iteration=1,
+            prior_iteration_fingerprint=first.iteration_record.fingerprint(),
+            prior_candidate_fingerprint="model-candidate-1",
+            prior_gap_fingerprints=first.open_gap_fingerprints,
+            base_model_fingerprint="model-candidate-1",
+            candidate_model_fingerprint="model-candidate-2",
+            prior_evidence_fingerprint="evidence-1",
+            evidence_fingerprint="evidence-2",
         )
-        first = review_model_maturation_loop(
-            ModelMaturationPlan(
-                plan_id="iterative-stall",
-                task_id="task-1",
-                coverage_ids=("checkout.failure",),
-                signals=(signal,),
-            )
+        second_signal = _verified_signal(
+            second_plan,
+            resolved=False,
+            evidence_id="trace-2",
+            evidence_fingerprint="trace-fingerprint-2",
+            receipt_evidence_fingerprint="trace-fingerprint-2",
+            receipt_id="progress-receipt-2",
+            receipt_fingerprint="progress-receipt-fp-2",
         )
-        stalled = review_model_maturation_loop(
-            ModelMaturationPlan(
-                plan_id="iterative-stall",
-                task_id="task-1",
-                coverage_ids=("checkout.failure",),
-                iteration=1,
-                prior_gap_fingerprints=first.open_gap_fingerprints,
-                signals=(signal,),
-            )
+        second_plan = replace(second_plan, signals=(second_signal,))
+        second = review_model_maturation_loop(second_plan)
+        third_plan = _plan(
+            iteration=2,
+            prior_iteration_fingerprint=second.iteration_record.fingerprint(),
+            prior_candidate_fingerprint="model-candidate-2",
+            prior_gap_fingerprints=second.open_gap_fingerprints,
+            base_model_fingerprint="model-candidate-2",
+            candidate_model_fingerprint="model-candidate-3",
+            prior_evidence_fingerprint="evidence-2",
+            evidence_fingerprint="evidence-3",
         )
+        third_signal = _verified_signal(
+            third_plan,
+            evidence_id="trace-3",
+            evidence_fingerprint="trace-fingerprint-3",
+            receipt_evidence_fingerprint="trace-fingerprint-3",
+            receipt_id="receipt-3",
+            receipt_fingerprint="receipt-fp-3",
+        )
+        third_plan = replace(
+            third_plan,
+            signals=(third_signal,),
+            resolved_gap_receipts={gap: _gap_receipt(third_plan, gap)},
+        )
+        session = review_model_maturation_session((first_plan, second_plan, third_plan))
+        self.assertTrue(session.closed)
+        self.assertEqual(len(session.iterations), 3)
+
+    def test_session_rejects_predecessor_or_model_chain_mismatch(self):
+        first_plan = _plan(signals=(_open_signal(),))
+        first = review_model_maturation_loop(first_plan)
+        second = _plan(
+            iteration=1,
+            prior_iteration_fingerprint="wrong-predecessor",
+            prior_candidate_fingerprint="model-candidate-1",
+            prior_gap_fingerprints=first.open_gap_fingerprints,
+            base_model_fingerprint="wrong-base",
+            candidate_model_fingerprint="model-candidate-2",
+            signals=(_open_signal(),),
+        )
+        session = review_model_maturation_session((first_plan, second))
+
+        self.assertFalse(session.closed)
+        self.assertIn("session_predecessor_mismatch", {finding.code for finding in session.findings})
+
+    def test_session_rejects_task_purpose_drift(self):
+        first_plan = _plan(signals=(_open_signal(),))
+        first = review_model_maturation_loop(first_plan)
+        second = _plan(
+            task_purpose="a different task was substituted",
+            iteration=1,
+            prior_iteration_fingerprint=first.iteration_record.fingerprint(),
+            prior_candidate_fingerprint="model-candidate-1",
+            prior_gap_fingerprints=first.open_gap_fingerprints,
+            base_model_fingerprint="model-candidate-1",
+            candidate_model_fingerprint="model-candidate-2",
+            signals=(_open_signal(),),
+        )
+        session = review_model_maturation_session((first_plan, second))
+        self.assertIn("session_identity_mismatch", {finding.code for finding in session.findings})
+
+    def test_no_progress_and_iteration_limit_are_terminal(self):
+        first = review_model_maturation_loop(_plan(signals=(_open_signal(),)))
+        common = {
+            "iteration": 1,
+            "prior_iteration_fingerprint": first.iteration_record.fingerprint(),
+            "prior_candidate_fingerprint": "model-candidate-1",
+            "prior_gap_fingerprints": first.open_gap_fingerprints,
+            "base_model_fingerprint": "model-candidate-1",
+            "candidate_model_fingerprint": "model-candidate-1",
+            "prior_evidence_fingerprint": "evidence-1",
+            "evidence_fingerprint": "evidence-1",
+            "signals": (_open_signal(),),
+        }
+        stalled = review_model_maturation_loop(_plan(**common))
         self.assertEqual(stalled.decision, MODEL_MATURATION_DECISION_PROGRESS_STALLED)
-        self.assertFalse(stalled.ok)
+        self.assertEqual(stalled.terminal_reason, MODEL_MATURATION_DECISION_PROGRESS_STALLED)
 
-    def test_external_input_is_named_instead_of_scoped(self):
+        limited = review_model_maturation_loop(_plan(**{**common, "max_iterations": 1}))
+        self.assertEqual(limited.decision, MODEL_MATURATION_DECISION_ITERATION_LIMIT)
+
+    def test_repeated_candidate_evidence_and_gap_state_is_oscillation(self):
+        first = review_model_maturation_loop(_plan(signals=(_open_signal(),)))
+        repeated_state = _fingerprint(
+            {
+                "candidate": "model-candidate-1",
+                "evidence": "evidence-1",
+                "open_gaps": sorted(first.open_gap_fingerprints),
+            }
+        )
         report = review_model_maturation_loop(
-            ModelMaturationPlan(
-                plan_id="iterative-external",
-                task_id="task-1",
-                coverage_ids=("provider.signal",),
-                signals=(
-                    ModelMaturationSignal(
-                        signal_id="provider",
-                        signal_type=MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
-                        coverage_id="provider.signal",
-                        resolution_class=MODEL_MATURATION_RESOLUTION_EXTERNAL_INPUT_REQUIRED,
-                        prediction="provider emits a discriminating trace",
-                        falsifier="trace remains unavailable",
-                    ),
-                ),
+            _plan(
+                iteration=1,
+                prior_iteration_fingerprint=first.iteration_record.fingerprint(),
+                prior_candidate_fingerprint="model-candidate-1",
+                prior_gap_fingerprints=first.open_gap_fingerprints,
+                prior_state_fingerprints=(repeated_state,),
+                base_model_fingerprint="model-candidate-1",
+                candidate_model_fingerprint="model-candidate-1",
+                prior_evidence_fingerprint="evidence-1",
+                evidence_fingerprint="evidence-1",
+                signals=(_open_signal(),),
             )
         )
-        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_EXTERNAL_INPUT_REQUIRED)
-        self.assertFalse(report.ok)
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_PROGRESS_STALLED)
+        self.assertIn("model_maturation_oscillation", {item.code for item in report.findings})
 
-    def test_task_closure_requires_resolved_native_coverage(self):
+    def test_self_reported_understanding_is_rejected(self):
         report = review_model_maturation_loop(
-            ModelMaturationPlan(
-                plan_id="iterative-closed",
-                task_id="task-1",
-                coverage_ids=("checkout.failure",),
+            _plan(signals=(_open_signal(metadata={"understood": True, "understanding_level": "deep"}),))
+        )
+        self.assertIn("self_report_not_evidence", {finding.code for finding in report.findings})
+        self.assertIn(MATURITY_ACTION_ADD_MODEL_OBLIGATION, report.recommended_actions)
+
+    def test_gap_identity_does_not_change_when_evidence_changes(self):
+        before = _open_signal(evidence_id="trace-1", evidence_fingerprint="evidence-1")
+        after = replace(before, evidence_id="trace-2", evidence_fingerprint="evidence-2")
+        self.assertEqual(before.gap_fingerprint(), after.gap_fingerprint())
+
+    def test_current_schema_round_trips_and_former_payload_is_rejected(self):
+        plan = _plan(signals=(_open_signal(),))
+        self.assertEqual(ModelMaturationPlan.from_dict(plan.to_dict()), plan)
+        former = dict(plan.to_dict())
+        former.pop("schema_version")
+        with self.assertRaises(ValueError):
+            ModelMaturationPlan.from_dict(former)
+        disguised_former = dict(plan.to_dict())
+        disguised_former["claim_scope"] = "full"
+        with self.assertRaises(ValueError):
+            ModelMaturationPlan.from_dict(disguised_former)
+
+    def test_resolution_class_cannot_hide_in_metadata(self):
+        report = review_model_maturation_loop(
+            _plan(
                 signals=(
-                    ModelMaturationSignal(
-                        signal_id="closed",
-                        signal_type=MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
-                        coverage_id="checkout.failure",
-                        resolved=True,
-                        prediction="failure branch is represented",
-                        falsifier="counterexample reaches unmodeled state",
+                    _open_signal(
+                        resolution_class="",
+                        metadata={"resolution_class": MODEL_MATURATION_RESOLUTION_SCOPE_EXCLUDED},
                     ),
-                ),
+                )
             )
         )
-        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_CLOSED_FOR_TASK)
-        self.assertTrue(report.ok)
+        self.assertIn("invalid_resolution_class", {item.code for item in report.findings})
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_UPGRADE_REQUIRED)
+
+    def test_cli_reports_current_result_and_rejects_old_payload(self):
+        plan = _plan()
+        plan = replace(plan, signals=(_verified_signal(plan),))
+        with tempfile.TemporaryDirectory() as tmp:
+            current_path = Path(tmp) / "current.json"
+            current_path.write_text(json.dumps(plan.to_dict()), encoding="utf-8")
+            self.assertEqual(main(["model-maturation-review", "--plan", str(current_path), "--json"]), 0)
+
+            old_path = Path(tmp) / "old.json"
+            old_path.write_text(json.dumps({"plan_id": "old"}), encoding="utf-8")
+            self.assertEqual(main(["model-maturation-review", "--plan", str(old_path), "--json"]), 1)
+
+    def test_signal_can_override_the_default_model_action(self):
+        report = review_model_maturation_loop(
+            _plan(
+                signals=(
+                    _open_signal(
+                        signal_type=MODEL_MATURATION_SIGNAL_MISSING_MODEL_OBLIGATION,
+                        suggested_actions=(MATURITY_ACTION_ADD_STATE_FIELD,),
+                    ),
+                )
+            )
+        )
+        self.assertIn(MATURITY_ACTION_ADD_STATE_FIELD, report.recommended_actions)
+
+    def test_coverage_fingerprint_helper_matches_runtime_contract(self):
+        plan = _plan()
+        expected = _fingerprint(
+            {
+                "coverage_universe_id": plan.coverage_universe_id,
+                "coverage_owner": plan.coverage_owner,
+                "coverage_source_refs": list(plan.coverage_source_refs),
+                "coverage_ids": list(plan.coverage_ids),
+                "required_probe_ids": list(plan.required_probe_ids),
+            }
+        )
+        self.assertEqual(plan.coverage_universe_fingerprint, expected)
 
 
 if __name__ == "__main__":

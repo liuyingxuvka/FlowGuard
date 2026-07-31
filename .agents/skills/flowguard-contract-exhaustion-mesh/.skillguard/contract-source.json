@@ -150,6 +150,7 @@
       "check:flowguard-contract-exhaustion-mesh:native-authority",
       "check:flowguard-contract-exhaustion-mesh:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard-contract-exhaustion-mesh:native-authority",
     "native_owner_id": "contract_exhaustion_mesh",
     "native_route_ids": [
       "route:contract_exhaustion_mesh"

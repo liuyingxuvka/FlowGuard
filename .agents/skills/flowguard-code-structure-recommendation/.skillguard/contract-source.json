@@ -150,6 +150,7 @@
       "check:flowguard-code-structure-recommendation:native-authority",
       "check:flowguard-code-structure-recommendation:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard-code-structure-recommendation:native-authority",
     "native_owner_id": "code_structure_recommendation",
     "native_route_ids": [
       "route:code_structure_recommendation"

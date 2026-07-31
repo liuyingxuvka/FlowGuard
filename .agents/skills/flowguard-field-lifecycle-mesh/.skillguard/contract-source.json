@@ -150,6 +150,7 @@
       "check:flowguard-field-lifecycle-mesh:native-authority",
       "check:flowguard-field-lifecycle-mesh:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard-field-lifecycle-mesh:native-authority",
     "native_owner_id": "field_lifecycle_mesh",
     "native_route_ids": [
       "route:field_lifecycle_mesh"

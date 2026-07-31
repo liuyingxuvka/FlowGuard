@@ -147,6 +147,7 @@
       "check:flowguard-behavior-commitment-ledger:native-authority",
       "check:flowguard-behavior-commitment-ledger:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard-behavior-commitment-ledger:native-authority",
     "native_owner_id": "behavior_commitment_ledger",
     "native_route_ids": [
       "route:behavior_commitment_ledger"

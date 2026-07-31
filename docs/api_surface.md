@@ -450,11 +450,12 @@ inventory.
   ContractExhaustionMesh so each sibling case has a stable case id, oracle, and
   MTA/TestMesh/Risk Ledger handoff.
 - optional model maturation helpers such as `ModelMaturationSignal`,
-  `ModelMaturationPlan`, `ModelMaturationReport`, and
-  `review_model_maturation_loop()` for turning model-miss, model-test,
-  ModelMesh, code-boundary, and freshness signals into explicit model-upgrade
-  actions, scoped-claim decisions, and maintenance obligations before a broad
-  FlowGuard claim is made.
+  `ModelMaturationPlan`, `ModelMaturationIteration`, `ModelMaturationReport`,
+  `ModelMaturationSession`, `review_model_maturation_loop()`, and
+  `review_model_maturation_session()` for turning model-miss, model-test,
+  ModelMesh, code-boundary, and freshness signals into task-bound prediction,
+  falsifier, exact native-receipt, gap-continuity, and terminal evidence before
+  a broad FlowGuard claim is made.
 - optional model-angle deliberation helpers such as
   `ModelAngleDeliberation`, `ModelAngleReviewReport`, and
   `review_model_angle_deliberations()` for preserving open-ended AI reasoning

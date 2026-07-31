@@ -150,6 +150,7 @@
       "check:flowguard-structure-mesh:native-authority",
       "check:flowguard-structure-mesh:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard-structure-mesh:native-authority",
     "native_owner_id": "structure_mesh_maintenance",
     "native_route_ids": [
       "route:structure_mesh_maintenance"

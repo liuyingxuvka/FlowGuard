@@ -82,6 +82,57 @@
       "timeout_seconds": 180
     },
     {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_model_maturation.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard:model-maturation-closure",
+      "command": "python",
+      "coverage_rationale": "The target-owned regression executes the current task, coverage, probe, prediction, exact-receipt, gap-continuity, session, and terminal semantics.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard:model-maturation-closure"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard:model-maturation-closure",
+      "evidence_subject_id": "subject:flowguard:model-maturation-closure",
+      "execution_owner_id": "owner:check:flowguard:model-maturation-closure",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "flowguard/model_maturation.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/__main__.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_maturation.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/authoritative_model_system/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".agents/skills/flowguard/references/modeling_evidence_protocol.md"
+        }
+      ],
+      "kind": "command",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard",
+      "semantic_check_id": "semantic:check:flowguard:model-maturation-closure",
+      "timeout_seconds": 180
+    },
+    {
       "check_id": "check:flowguard:evidence-closure",
       "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
       "coverage_scope": "declared_obligations",
@@ -113,6 +164,7 @@
       "required_obligation_ids": [
         "obligation:flowguard:plane-boundary",
         "obligation:flowguard:native-authority",
+        "obligation:flowguard:model-maturation-closure",
         "obligation:flowguard:evidence-closure"
       ]
     }
@@ -153,8 +205,10 @@
     "native_check_ids": [
       "check:flowguard:plane-boundary",
       "check:flowguard:native-authority",
+      "check:flowguard:model-maturation-closure",
       "check:flowguard:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard:model-maturation-closure",
     "native_owner_id": "model_first_function_flow",
     "native_route_ids": [
       "route:model_first_function_flow"
@@ -186,13 +240,17 @@
   "implementation_paths": [
     ".agents/skills/flowguard",
     ".flowguard/minimum_valuable_model_entry",
+    ".flowguard/authoritative_model_system",
     "flowguard/skill_contract_model.py",
     "flowguard/behavior_commitment_lookup.py",
     "flowguard/portable_model.py",
     "flowguard/portable_checker.py",
+    "flowguard/model_maturation.py",
+    "flowguard/__main__.py",
     ".flowguard/compositional_verification_kernel",
     "tests/test_flowguard_skill_trigger.py",
-    "tests/test_flowguard_skill_collaboration.py"
+    "tests/test_flowguard_skill_collaboration.py",
+    "tests/test_model_maturation.py"
   ],
   "integration_mode": "native-integrated",
   "judgment_rubrics": [],
@@ -222,6 +280,11 @@
     {
       "authority": "target-native",
       "check_id": "check:flowguard:native-authority",
+      "owner_id": "model_first_function_flow"
+    },
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard:model-maturation-closure",
       "owner_id": "model_first_function_flow"
     }
   ],
@@ -266,7 +329,8 @@
         "summary": "Require current scenarios, bad cases, invariants, and scoped evidence; do not force a model for trivial actions."
       },
       "check_ids": [
-        "check:flowguard:evidence-closure"
+        "check:flowguard:evidence-closure",
+        "check:flowguard:model-maturation-closure"
       ],
       "output_artifact_ids": [],
       "step_id": "step:flowguard:verify"

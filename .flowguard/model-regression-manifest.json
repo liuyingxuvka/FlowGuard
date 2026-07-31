@@ -165,6 +165,8 @@
         ".flowguard/authoritative_model_system/run_checks.py",
         ".flowguard/behavior_commitment_ledger/ledger.json",
         ".agents/skills/flowguard/SKILL.md",
+        ".agents/skills/flowguard/references/modeling_evidence_protocol.md",
+        ".agents/skills/flowguard-model-miss-review/references/model_miss_protocol.md",
         ".agents/skills/flowguard-existing-model-preflight/SKILL.md",
         ".agents/skills/flowguard-existing-model-preflight/references/existing_model_preflight_protocol.md",
         ".agents/skills/flowguard-model-mesh/SKILL.md",
@@ -187,6 +189,7 @@
         "flowguard/existing_model_preflight.py",
         "flowguard/model_authority.py",
         "flowguard/model_authority_store.py",
+        "flowguard/model_maturation.py",
         "flowguard/model_purpose.py",
         "flowguard/model_regressions.py",
         "flowguard/model_revision_set.py",
@@ -200,6 +203,7 @@
         "tests/test_model_authority.py",
         "tests/test_model_authority_cli.py",
         "tests/test_model_authority_store.py",
+        "tests/test_model_maturation.py",
         "tests/test_model_regression_manifest.py",
         "tests/test_model_regression_orchestrator.py",
         "tests/test_model_system_inventory.py",
@@ -221,7 +225,7 @@
         "reusable_model_type_id": "authoritative_model_system",
         "task_intent_id": "flowguard-regression:authoritative-model-system",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent incomplete live model materialization, caller-narrowed diffs or evidence, stale live activation, target or experiment authority, and snapshot-only rollback replay from being accepted as current model truth.",
+        "guarded_purpose": "Prevent incomplete live model materialization, caller-narrowed diffs, coverage, or evidence, self-reported model understanding, premature maturation termination, stale live activation, target or experiment authority, and snapshot-only rollback replay from being accepted as current model truth.",
         "protected_failure_ids": [
           "model-authority:subject-lane-confusion",
           "model-authority:partial-or-stale-activation",
@@ -230,9 +234,12 @@
           "model-authority:declared-materialized-inventory-shrink",
           "model-authority:caller-narrowed-diff-or-evidence",
           "model-authority:lock-held-live-drift",
-          "model-authority:old-head-rollback-replay"
+          "model-authority:old-head-rollback-replay",
+          "model-maturation:caller-self-report",
+          "model-maturation:coverage-shrink",
+          "model-maturation:premature-terminal"
         ],
-        "claim_boundary": "Current closure covers only the declared finite inventory, diff, affected-closure, evidence, live-activation, and reverse-rollback scenarios; it does not prove unenumerated software surfaces or production restoration without separate implementation evidence.",
+        "claim_boundary": "Current closure covers only the declared finite inventory, diff, affected-closure, evidence, task-local maturation, live-activation, and reverse-rollback scenarios; it does not prove unenumerated software surfaces or production restoration without separate implementation evidence.",
         "adoption_scope": "current_candidate_only",
         "known_good_case_id": "native-runner:authoritative-model-system:complete-transaction",
         "failure_bindings": [
@@ -275,15 +282,30 @@
             "failure_id": "model-authority:old-head-rollback-replay",
             "known_bad_case_id": "native-runner:authoritative-model-system:rollback-snapshot-only-replay",
             "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-maturation:caller-self-report",
+            "known_bad_case_id": "native-runner:authoritative-model-system:maturation-self-reported-resolution",
+            "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-maturation:coverage-shrink",
+            "known_bad_case_id": "native-runner:authoritative-model-system:maturation-caller-shrinks-coverage",
+            "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-maturation:premature-terminal",
+            "known_bad_case_id": "native-runner:authoritative-model-system:maturation-upgrade-marked-terminal",
+            "oracle_id": "native:authoritative-model-system:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:authoritative-model-system"
         ],
-        "model_sha256": "sha256:7e05390461cf820f717c5bbecc1daf9ea8a0ff15c9b4634a2b2d750e06462307",
+        "model_sha256": "sha256:a288d9359047fe260e9fbda2639b4486d59070409405ed290ed88819e5c8c1d7",
         "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
-        "declaration_fingerprint": "sha256:2b12845da4c9b05669cb868b4d9064ec08884d066f638a7a581ae19c7956a552",
-        "closure_fingerprint": "sha256:9c11e3f781952c1283e4fc1e3d81685e202afe336a8fc8eb898ef3bdfc0b31aa"
+        "declaration_fingerprint": "sha256:ed0522ad6280dc59ffba398dc179a564ab8342d62031c2648a47a74710a9151d",
+        "closure_fingerprint": "sha256:843a8070f8cee80cb2d968cb1880d8ff866c4281bdafd2869c4819eb9970be16"
       }
     },
     {
@@ -1690,10 +1712,10 @@
         "evidence_check_ids": [
           "check:model-regression:minimum_valuable_model_entry"
         ],
-        "model_sha256": "sha256:3d781ac12023362446f6bf637b309d7a690be222d51541817553390eb2e81d15",
+        "model_sha256": "sha256:65d2c1de7f4322f94c1271e79510c5cacda613733286fa43431290c51d6537a7",
         "runner_sha256": "sha256:041ec928815dea9bdccdb14ea194b877f5279848729ad427b79a6f1f6a63b736",
         "declaration_fingerprint": "sha256:b45a00eb181a6e7546b6e2c5090cd71580956a16c48b8b760fc6daa513400cc0",
-        "closure_fingerprint": "sha256:10b5d4578c36a13f0dba83832fbf8582fcfb9da078fbe4342501ed27a5fc7228"
+        "closure_fingerprint": "sha256:8fd3658de84a09a0c0a948fe509f53705e0f930d411a684a7720108bf978bff6"
       }
     },
     {

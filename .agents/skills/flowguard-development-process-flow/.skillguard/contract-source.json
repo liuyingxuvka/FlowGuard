@@ -382,6 +382,7 @@
       "check:flowguard-development-process-flow:agent-workflow:native-authority",
       "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard-development-process-flow:native-authority",
     "native_owner_id": "development_process_flow",
     "native_route_ids": [
       "route:development_process_flow",

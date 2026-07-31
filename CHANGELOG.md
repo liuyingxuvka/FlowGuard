@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.68.0 - 2026-07-31
+
+- Replaced the permissive model-maturation reader with one strict current-only
+  task, coverage, probe, candidate, receipt, gap-lineage, and predecessor
+  contract; former payload shapes now fail visibly.
+- Made caller-authored resolution and self-reported understanding powerless:
+  only exact current target-native producer receipts can resolve a gap.
+- Added multi-iteration progress, stall, oscillation, limit, external-boundary,
+  and non-vacuous closure checks plus executable positive and negative tests.
+- Bound every maintained FlowGuard skill to an explicit target-owned
+  `model_deepening_check_id` for SkillGuard supervision.
+
 ## v0.67.0 - 2026-07-31
 
 - Added task-local iterative model maturation with prediction, falsifier,

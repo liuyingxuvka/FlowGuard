@@ -26,13 +26,11 @@ MODEL_MATURATION_DECISION_PROGRESS_STALLED = "model_maturation_progress_stalled"
 MODEL_MATURATION_DECISION_ITERATION_LIMIT = "model_maturation_iteration_limit"
 MODEL_MATURATION_DECISION_EXTERNAL_INPUT_REQUIRED = "model_maturation_external_input_required"
 MODEL_MATURATION_DECISION_SCOPE_EXCLUDED = "model_maturation_scope_excluded"
-# Kept as the public name used by older callers.  A green result now means
-# closed for the declared task, not that a model has a permanent maturity
-# level.
-MODEL_MATURATION_DECISION_CURRENT = MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
 MODEL_MATURATION_DECISION_UPGRADE_REQUIRED = "model_maturation_upgrade_required"
-MODEL_MATURATION_DECISION_SCOPED = "model_maturation_scoped_claim"
 MODEL_MATURATION_DECISION_BLOCKED = "model_maturation_blocked"
+
+MODEL_MATURATION_PLAN_SCHEMA_VERSION = "flowguard.model-maturation-plan.v2"
+MODEL_MATURATION_RECEIPT_STATUS_PASS = "pass"
 
 MODEL_MATURATION_CONFIDENCE_FULL = "full"
 MODEL_MATURATION_CONFIDENCE_SCOPED = "scoped"
@@ -95,6 +93,7 @@ MODEL_MATURATION_SIGNAL_TYPES = (
 
 MODEL_MATURATION_TERMINAL_REASONS = (
     MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+    MODEL_MATURATION_DECISION_BLOCKED,
     MODEL_MATURATION_DECISION_PROGRESS_STALLED,
     MODEL_MATURATION_DECISION_ITERATION_LIMIT,
     MODEL_MATURATION_DECISION_EXTERNAL_INPUT_REQUIRED,
@@ -150,6 +149,87 @@ def _stable_fingerprint(value: object) -> str:
 
 
 @dataclass(frozen=True)
+class ModelMaturationGapResolutionReceipt:
+    """Exact native evidence that one prior gap was resolved."""
+
+    receipt_id: str
+    receipt_fingerprint: str
+    gap_fingerprint: str
+    task_id: str
+    candidate_fingerprint: str
+    coverage_fingerprint: str
+    evidence_fingerprint: str
+    owner_route: str
+    status: str = ""
+    current: bool = False
+
+    def __post_init__(self) -> None:
+        for name in (
+            "receipt_id",
+            "receipt_fingerprint",
+            "gap_fingerprint",
+            "task_id",
+            "candidate_fingerprint",
+            "coverage_fingerprint",
+            "evidence_fingerprint",
+            "owner_route",
+            "status",
+        ):
+            object.__setattr__(self, name, str(getattr(self, name)))
+        object.__setattr__(self, "current", bool(self.current))
+
+    def is_verified(
+        self,
+        *,
+        gap_fingerprint: str,
+        task_id: str,
+        candidate_fingerprint: str,
+        coverage_fingerprint: str,
+    ) -> bool:
+        return bool(
+            self.current
+            and self.status == MODEL_MATURATION_RECEIPT_STATUS_PASS
+            and self.receipt_id
+            and self.receipt_fingerprint
+            and self.evidence_fingerprint
+            and self.owner_route
+            and self.gap_fingerprint == gap_fingerprint
+            and self.task_id == task_id
+            and self.candidate_fingerprint == candidate_fingerprint
+            and self.coverage_fingerprint == coverage_fingerprint
+        )
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "ModelMaturationGapResolutionReceipt":
+        return cls(
+            receipt_id=str(value.get("receipt_id", "")),
+            receipt_fingerprint=str(value.get("receipt_fingerprint", "")),
+            gap_fingerprint=str(value.get("gap_fingerprint", "")),
+            task_id=str(value.get("task_id", "")),
+            candidate_fingerprint=str(value.get("candidate_fingerprint", "")),
+            coverage_fingerprint=str(value.get("coverage_fingerprint", "")),
+            evidence_fingerprint=str(value.get("evidence_fingerprint", "")),
+            owner_route=str(value.get("owner_route", "")),
+            status=str(value.get("status", "")),
+            current=bool(value.get("current", False)),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "receipt_id": self.receipt_id,
+            "receipt_fingerprint": self.receipt_fingerprint,
+            "gap_fingerprint": self.gap_fingerprint,
+            "task_id": self.task_id,
+            "candidate_fingerprint": self.candidate_fingerprint,
+            "coverage_fingerprint": self.coverage_fingerprint,
+            "evidence_fingerprint": self.evidence_fingerprint,
+            "owner_route": self.owner_route,
+            "status": self.status,
+            "current": self.current,
+        }
+
+
+@dataclass(frozen=True)
 class ModelMaturationSignal:
     """One route signal that may require the model to be upgraded."""
 
@@ -162,14 +242,29 @@ class ModelMaturationSignal:
     description: str = ""
     in_scope: bool = True
     required: bool = True
+    # `resolved` is a caller observation only.  It becomes authoritative only
+    # when the exact current receipt bindings below validate.
     resolved: bool = False
-    current: bool = True
+    current: bool = False
     suggested_actions: tuple[str, ...] = ()
     coverage_id: str = ""
     resolution_class: str = ""
     prediction: str = ""
     falsifier: str = ""
     evidence_fingerprint: str = ""
+    probe_id: str = ""
+    receipt_id: str = ""
+    receipt_fingerprint: str = ""
+    receipt_status: str = ""
+    receipt_task_id: str = ""
+    receipt_probe_id: str = ""
+    receipt_candidate_fingerprint: str = ""
+    receipt_coverage_fingerprint: str = ""
+    receipt_evidence_fingerprint: str = ""
+    receipt_owner_route: str = ""
+    required_input: str = ""
+    owner_boundary: str = ""
+    affected_claim_scope: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -190,10 +285,85 @@ class ModelMaturationSignal:
         object.__setattr__(self, "prediction", str(self.prediction))
         object.__setattr__(self, "falsifier", str(self.falsifier))
         object.__setattr__(self, "evidence_fingerprint", str(self.evidence_fingerprint))
+        object.__setattr__(self, "probe_id", str(self.probe_id))
+        object.__setattr__(self, "receipt_id", str(self.receipt_id))
+        object.__setattr__(self, "receipt_fingerprint", str(self.receipt_fingerprint))
+        object.__setattr__(self, "receipt_status", str(self.receipt_status))
+        object.__setattr__(self, "receipt_task_id", str(self.receipt_task_id))
+        object.__setattr__(self, "receipt_probe_id", str(self.receipt_probe_id))
+        object.__setattr__(self, "receipt_candidate_fingerprint", str(self.receipt_candidate_fingerprint))
+        object.__setattr__(self, "receipt_coverage_fingerprint", str(self.receipt_coverage_fingerprint))
+        object.__setattr__(self, "receipt_evidence_fingerprint", str(self.receipt_evidence_fingerprint))
+        object.__setattr__(self, "receipt_owner_route", str(self.receipt_owner_route))
+        object.__setattr__(self, "required_input", str(self.required_input))
+        object.__setattr__(self, "owner_boundary", str(self.owner_boundary))
+        object.__setattr__(self, "affected_claim_scope", str(self.affected_claim_scope))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def is_open(self) -> bool:
-        return self.in_scope and self.required and not self.resolved
+        # This convenience predicate is intentionally conservative.  Exact
+        # closure still belongs to ``receipt_is_verified`` because only the
+        # owning plan can supply the task/candidate/coverage bindings.
+        has_receipt_shape = bool(
+            self.resolved
+            and self.current
+            and self.receipt_id
+            and self.receipt_fingerprint
+            and self.receipt_status == MODEL_MATURATION_RECEIPT_STATUS_PASS
+        )
+        return self.in_scope and self.required and not has_receipt_shape
+
+    def receipt_is_verified(
+        self,
+        *,
+        task_id: str,
+        candidate_fingerprint: str,
+        coverage_fingerprint: str,
+    ) -> bool:
+        """Return whether this signal has exact current terminal evidence.
+
+        The caller's `resolved` bit is intentionally insufficient.  The
+        receipt must bind the exact task, probe, candidate, and independently
+        frozen coverage universe.
+        """
+
+        return self.resolved and self.evidence_receipt_is_verified(
+            task_id=task_id,
+            candidate_fingerprint=candidate_fingerprint,
+            coverage_fingerprint=coverage_fingerprint,
+        )
+
+    def evidence_receipt_is_verified(
+        self,
+        *,
+        task_id: str,
+        candidate_fingerprint: str,
+        coverage_fingerprint: str,
+    ) -> bool:
+        """Return whether the probe produced exact current native evidence.
+
+        A passing probe receipt may demonstrate discriminating progress while
+        the modeled gap remains open.  Closure additionally requires
+        ``resolved`` through :meth:`receipt_is_verified`.
+        """
+
+        return bool(
+            self.current
+            and self.prediction.strip()
+            and self.falsifier.strip()
+            and self.evidence_id.strip()
+            and self.evidence_fingerprint.strip()
+            and self.probe_id.strip()
+            and self.receipt_id.strip()
+            and self.receipt_fingerprint.strip()
+            and self.receipt_status == MODEL_MATURATION_RECEIPT_STATUS_PASS
+            and self.receipt_task_id == task_id
+            and self.receipt_probe_id == self.probe_id
+            and self.receipt_candidate_fingerprint == candidate_fingerprint
+            and self.receipt_coverage_fingerprint == coverage_fingerprint
+            and self.receipt_evidence_fingerprint == self.evidence_fingerprint
+            and self.receipt_owner_route == self.source_route
+        )
 
     def actions(self) -> tuple[str, ...]:
         if self.suggested_actions:
@@ -204,10 +374,17 @@ class ModelMaturationSignal:
         )
 
     def resolution(self) -> str:
-        value = self.resolution_class or str(self.metadata.get("resolution_class", ""))
+        value = self.resolution_class
         return value if value in MODEL_MATURATION_RESOLUTION_CLASSES else MODEL_MATURATION_RESOLUTION_MODEL_EDIT
 
     def gap_fingerprint(self) -> str:
+        """Return the stable identity of the unresolved obligation.
+
+        Evidence and receipt fields are deliberately excluded.  They evolve
+        while the same gap is investigated and therefore cannot define the
+        gap's identity or manufacture apparent progress.
+        """
+
         return _stable_fingerprint(
             {
                 "signal_id": self.signal_id,
@@ -217,14 +394,27 @@ class ModelMaturationSignal:
                 "resolution_class": self.resolution(),
                 "prediction": self.prediction,
                 "falsifier": self.falsifier,
-                "evidence_fingerprint": self.evidence_fingerprint,
-                "current": self.current,
+                "probe_id": self.probe_id,
             }
         )
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "ModelMaturationSignal":
-        return cls(
+        allowed = {
+            "signal_id", "signal_type", "source_route", "model_id", "risk_id",
+            "evidence_id", "description", "in_scope", "required", "resolved",
+            "current", "suggested_actions", "coverage_id", "resolution_class",
+            "prediction", "falsifier", "evidence_fingerprint", "probe_id",
+            "receipt_id", "receipt_fingerprint", "receipt_status", "receipt_task_id",
+            "receipt_probe_id", "receipt_candidate_fingerprint",
+            "receipt_coverage_fingerprint", "receipt_evidence_fingerprint",
+            "receipt_owner_route", "required_input", "owner_boundary",
+            "affected_claim_scope", "gap_fingerprint", "metadata",
+        }
+        unknown = sorted(set(value) - allowed)
+        if unknown:
+            raise ValueError(f"unknown model maturation signal fields: {unknown}")
+        signal = cls(
             signal_id=str(value.get("signal_id", "")),
             signal_type=str(value.get("signal_type", "")),
             source_route=str(value.get("source_route", "")),
@@ -235,15 +425,32 @@ class ModelMaturationSignal:
             in_scope=bool(value.get("in_scope", True)),
             required=bool(value.get("required", True)),
             resolved=bool(value.get("resolved", False)),
-            current=bool(value.get("current", True)),
+            current=bool(value.get("current", False)),
             suggested_actions=tuple(value.get("suggested_actions", ())),
             coverage_id=str(value.get("coverage_id", "")),
             resolution_class=str(value.get("resolution_class", "")),
             prediction=str(value.get("prediction", "")),
             falsifier=str(value.get("falsifier", "")),
             evidence_fingerprint=str(value.get("evidence_fingerprint", "")),
+            probe_id=str(value.get("probe_id", "")),
+            receipt_id=str(value.get("receipt_id", "")),
+            receipt_fingerprint=str(value.get("receipt_fingerprint", "")),
+            receipt_status=str(value.get("receipt_status", "")),
+            receipt_task_id=str(value.get("receipt_task_id", "")),
+            receipt_probe_id=str(value.get("receipt_probe_id", "")),
+            receipt_candidate_fingerprint=str(value.get("receipt_candidate_fingerprint", "")),
+            receipt_coverage_fingerprint=str(value.get("receipt_coverage_fingerprint", "")),
+            receipt_evidence_fingerprint=str(value.get("receipt_evidence_fingerprint", "")),
+            receipt_owner_route=str(value.get("receipt_owner_route", "")),
+            required_input=str(value.get("required_input", "")),
+            owner_boundary=str(value.get("owner_boundary", "")),
+            affected_claim_scope=str(value.get("affected_claim_scope", "")),
             metadata=value.get("metadata", {}) if isinstance(value.get("metadata", {}), Mapping) else {},
         )
+        declared_gap = str(value.get("gap_fingerprint", ""))
+        if declared_gap and declared_gap != signal.gap_fingerprint():
+            raise ValueError("model maturation signal gap fingerprint mismatch")
+        return signal
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -264,6 +471,19 @@ class ModelMaturationSignal:
             "prediction": self.prediction,
             "falsifier": self.falsifier,
             "evidence_fingerprint": self.evidence_fingerprint,
+            "probe_id": self.probe_id,
+            "receipt_id": self.receipt_id,
+            "receipt_fingerprint": self.receipt_fingerprint,
+            "receipt_status": self.receipt_status,
+            "receipt_task_id": self.receipt_task_id,
+            "receipt_probe_id": self.receipt_probe_id,
+            "receipt_candidate_fingerprint": self.receipt_candidate_fingerprint,
+            "receipt_coverage_fingerprint": self.receipt_coverage_fingerprint,
+            "receipt_evidence_fingerprint": self.receipt_evidence_fingerprint,
+            "receipt_owner_route": self.receipt_owner_route,
+            "required_input": self.required_input,
+            "owner_boundary": self.owner_boundary,
+            "affected_claim_scope": self.affected_claim_scope,
             "gap_fingerprint": self.gap_fingerprint(),
             "metadata": to_jsonable(dict(self.metadata)),
         }
@@ -275,12 +495,18 @@ class ModelMaturationIteration:
 
     iteration_id: str
     plan_id: str
+    task_id: str
     iteration: int
-    model_fingerprint: str
+    base_model_fingerprint: str
+    candidate_model_fingerprint: str
     coverage_fingerprint: str
     input_fingerprint: str
+    predecessor_iteration_fingerprint: str = ""
     open_gap_fingerprints: tuple[str, ...] = ()
     resolved_gap_fingerprints: tuple[str, ...] = ()
+    persisted_gap_fingerprints: tuple[str, ...] = ()
+    introduced_gap_fingerprints: tuple[str, ...] = ()
+    native_receipt_fingerprints: tuple[str, ...] = ()
     progressed: bool = False
     terminal_reason: str = ""
     next_actions: tuple[str, ...] = ()
@@ -288,12 +514,18 @@ class ModelMaturationIteration:
     def __post_init__(self) -> None:
         object.__setattr__(self, "iteration_id", str(self.iteration_id))
         object.__setattr__(self, "plan_id", str(self.plan_id))
+        object.__setattr__(self, "task_id", str(self.task_id))
         object.__setattr__(self, "iteration", int(self.iteration))
-        object.__setattr__(self, "model_fingerprint", str(self.model_fingerprint))
+        object.__setattr__(self, "base_model_fingerprint", str(self.base_model_fingerprint))
+        object.__setattr__(self, "candidate_model_fingerprint", str(self.candidate_model_fingerprint))
         object.__setattr__(self, "coverage_fingerprint", str(self.coverage_fingerprint))
         object.__setattr__(self, "input_fingerprint", str(self.input_fingerprint))
+        object.__setattr__(self, "predecessor_iteration_fingerprint", str(self.predecessor_iteration_fingerprint))
         object.__setattr__(self, "open_gap_fingerprints", _as_tuple(self.open_gap_fingerprints))
         object.__setattr__(self, "resolved_gap_fingerprints", _as_tuple(self.resolved_gap_fingerprints))
+        object.__setattr__(self, "persisted_gap_fingerprints", _as_tuple(self.persisted_gap_fingerprints))
+        object.__setattr__(self, "introduced_gap_fingerprints", _as_tuple(self.introduced_gap_fingerprints))
+        object.__setattr__(self, "native_receipt_fingerprints", _as_tuple(self.native_receipt_fingerprints))
         object.__setattr__(self, "progressed", bool(self.progressed))
         object.__setattr__(self, "terminal_reason", str(self.terminal_reason))
         object.__setattr__(self, "next_actions", _as_tuple(self.next_actions))
@@ -302,16 +534,45 @@ class ModelMaturationIteration:
         return {
             "iteration_id": self.iteration_id,
             "plan_id": self.plan_id,
+            "task_id": self.task_id,
             "iteration": self.iteration,
-            "model_fingerprint": self.model_fingerprint,
+            "base_model_fingerprint": self.base_model_fingerprint,
+            "candidate_model_fingerprint": self.candidate_model_fingerprint,
             "coverage_fingerprint": self.coverage_fingerprint,
             "input_fingerprint": self.input_fingerprint,
+            "predecessor_iteration_fingerprint": self.predecessor_iteration_fingerprint,
             "open_gap_fingerprints": list(self.open_gap_fingerprints),
             "resolved_gap_fingerprints": list(self.resolved_gap_fingerprints),
+            "persisted_gap_fingerprints": list(self.persisted_gap_fingerprints),
+            "introduced_gap_fingerprints": list(self.introduced_gap_fingerprints),
+            "native_receipt_fingerprints": list(self.native_receipt_fingerprints),
+            "progressed": self.progressed,
+            "terminal_reason": self.terminal_reason,
+            "next_actions": list(self.next_actions),
+            "iteration_fingerprint": self.fingerprint(),
+        }
+
+    def fingerprint(self) -> str:
+        value = {
+            "iteration_id": self.iteration_id,
+            "plan_id": self.plan_id,
+            "task_id": self.task_id,
+            "iteration": self.iteration,
+            "base_model_fingerprint": self.base_model_fingerprint,
+            "candidate_model_fingerprint": self.candidate_model_fingerprint,
+            "coverage_fingerprint": self.coverage_fingerprint,
+            "input_fingerprint": self.input_fingerprint,
+            "predecessor_iteration_fingerprint": self.predecessor_iteration_fingerprint,
+            "open_gap_fingerprints": list(self.open_gap_fingerprints),
+            "resolved_gap_fingerprints": list(self.resolved_gap_fingerprints),
+            "persisted_gap_fingerprints": list(self.persisted_gap_fingerprints),
+            "introduced_gap_fingerprints": list(self.introduced_gap_fingerprints),
+            "native_receipt_fingerprints": list(self.native_receipt_fingerprints),
             "progressed": self.progressed,
             "terminal_reason": self.terminal_reason,
             "next_actions": list(self.next_actions),
         }
+        return _stable_fingerprint(value)
 
 
 @dataclass(frozen=True)
@@ -322,12 +583,14 @@ class ModelMaturationSession:
     task_id: str
     iterations: tuple[ModelMaturationIteration, ...] = ()
     terminal_reason: str = ""
+    findings: tuple["ModelMaturationFinding", ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "session_id", str(self.session_id))
         object.__setattr__(self, "task_id", str(self.task_id))
         object.__setattr__(self, "iterations", tuple(self.iterations))
         object.__setattr__(self, "terminal_reason", str(self.terminal_reason))
+        object.__setattr__(self, "findings", tuple(self.findings))
 
     @property
     def closed(self) -> bool:
@@ -340,6 +603,8 @@ class ModelMaturationSession:
             "iterations": [item.to_dict() for item in self.iterations],
             "terminal_reason": self.terminal_reason,
             "closed": self.closed,
+            "ok": self.closed and not self.findings,
+            "findings": [item.to_dict() for item in self.findings],
         }
 
 
@@ -384,73 +649,156 @@ class ModelMaturationPlan:
     """Inputs for a model maturation review."""
 
     plan_id: str
+    schema_version: str = MODEL_MATURATION_PLAN_SCHEMA_VERSION
     model_id: str = ""
     risk_id: str = ""
     signals: tuple[ModelMaturationSignal, ...] = ()
-    claim_scope: str = "bounded"
-    require_full_closure: bool = False
-    allow_scoped_claim: bool = True
     task_id: str = ""
+    task_purpose: str = ""
+    coverage_universe_id: str = ""
+    coverage_universe_fingerprint: str = ""
+    coverage_owner: str = ""
+    coverage_source_refs: tuple[str, ...] = ()
     coverage_ids: tuple[str, ...] = ()
+    required_probe_ids: tuple[str, ...] = ()
     iteration: int = 0
     max_iterations: int = 8
     prior_gap_fingerprints: tuple[str, ...] = ()
-    model_fingerprint: str = ""
+    prior_iteration_fingerprint: str = ""
+    prior_candidate_fingerprint: str = ""
+    prior_evidence_fingerprint: str = ""
+    prior_state_fingerprints: tuple[str, ...] = ()
+    base_model_fingerprint: str = ""
+    candidate_model_fingerprint: str = ""
     evidence_fingerprint: str = ""
+    resolved_gap_receipts: Mapping[str, ModelMaturationGapResolutionReceipt] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
+        object.__setattr__(self, "schema_version", str(self.schema_version))
         object.__setattr__(self, "model_id", str(self.model_id))
         object.__setattr__(self, "risk_id", str(self.risk_id))
         object.__setattr__(self, "signals", tuple(self.signals))
-        object.__setattr__(self, "claim_scope", str(self.claim_scope))
-        object.__setattr__(self, "require_full_closure", bool(self.require_full_closure))
-        object.__setattr__(self, "allow_scoped_claim", bool(self.allow_scoped_claim))
         object.__setattr__(self, "task_id", str(self.task_id))
+        object.__setattr__(self, "task_purpose", str(self.task_purpose))
+        object.__setattr__(self, "coverage_universe_id", str(self.coverage_universe_id))
+        object.__setattr__(self, "coverage_universe_fingerprint", str(self.coverage_universe_fingerprint))
+        object.__setattr__(self, "coverage_owner", str(self.coverage_owner))
+        object.__setattr__(self, "coverage_source_refs", _as_tuple(self.coverage_source_refs))
         object.__setattr__(self, "coverage_ids", _as_tuple(self.coverage_ids))
+        object.__setattr__(self, "required_probe_ids", _as_tuple(self.required_probe_ids))
         object.__setattr__(self, "iteration", max(0, int(self.iteration)))
         object.__setattr__(self, "max_iterations", max(1, int(self.max_iterations)))
         object.__setattr__(self, "prior_gap_fingerprints", _as_tuple(self.prior_gap_fingerprints))
-        object.__setattr__(self, "model_fingerprint", str(self.model_fingerprint))
+        object.__setattr__(self, "prior_iteration_fingerprint", str(self.prior_iteration_fingerprint))
+        object.__setattr__(self, "prior_candidate_fingerprint", str(self.prior_candidate_fingerprint))
+        object.__setattr__(self, "prior_evidence_fingerprint", str(self.prior_evidence_fingerprint))
+        object.__setattr__(self, "prior_state_fingerprints", _as_tuple(self.prior_state_fingerprints))
+        object.__setattr__(self, "base_model_fingerprint", str(self.base_model_fingerprint))
+        object.__setattr__(self, "candidate_model_fingerprint", str(self.candidate_model_fingerprint))
         object.__setattr__(self, "evidence_fingerprint", str(self.evidence_fingerprint))
+        normalized_receipts: dict[str, ModelMaturationGapResolutionReceipt] = {}
+        for key, value in self.resolved_gap_receipts.items():
+            if isinstance(value, ModelMaturationGapResolutionReceipt):
+                receipt = value
+            elif isinstance(value, Mapping):
+                receipt = ModelMaturationGapResolutionReceipt.from_dict(value)
+            else:
+                raise ValueError("resolved gap receipts must be typed current receipt records")
+            normalized_receipts[str(key)] = receipt
+        object.__setattr__(self, "resolved_gap_receipts", normalized_receipts)
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "ModelMaturationPlan":
+        allowed = {
+            "plan_id", "schema_version", "model_id", "risk_id", "signals",
+            "task_id", "task_purpose", "coverage_universe_id",
+            "coverage_universe_fingerprint", "coverage_owner",
+            "coverage_source_refs", "coverage_ids", "required_probe_ids",
+            "iteration", "max_iterations", "prior_gap_fingerprints",
+            "prior_iteration_fingerprint", "prior_candidate_fingerprint",
+            "prior_evidence_fingerprint", "prior_state_fingerprints",
+            "base_model_fingerprint", "candidate_model_fingerprint",
+            "evidence_fingerprint", "resolved_gap_receipts",
+        }
+        unknown = sorted(set(value) - allowed)
+        if unknown:
+            raise ValueError(f"unknown model maturation plan fields: {unknown}")
+        schema_version = str(value.get("schema_version", ""))
+        if schema_version != MODEL_MATURATION_PLAN_SCHEMA_VERSION:
+            raise ValueError(
+                f"model maturation payload must use {MODEL_MATURATION_PLAN_SCHEMA_VERSION}; "
+                "former or missing schema versions are not accepted"
+            )
         signals = value.get("signals", ())
         return cls(
             plan_id=str(value.get("plan_id", "")),
+            schema_version=schema_version,
             model_id=str(value.get("model_id", "")),
             risk_id=str(value.get("risk_id", "")),
             signals=tuple(ModelMaturationSignal.from_dict(item) for item in signals if isinstance(item, Mapping)),
-            claim_scope=str(value.get("claim_scope", "bounded")),
-            require_full_closure=bool(value.get("require_full_closure", False)),
-            allow_scoped_claim=bool(value.get("allow_scoped_claim", True)),
             task_id=str(value.get("task_id", "")),
+            task_purpose=str(value.get("task_purpose", "")),
+            coverage_universe_id=str(value.get("coverage_universe_id", "")),
+            coverage_universe_fingerprint=str(value.get("coverage_universe_fingerprint", "")),
+            coverage_owner=str(value.get("coverage_owner", "")),
+            coverage_source_refs=tuple(value.get("coverage_source_refs", ())),
             coverage_ids=tuple(value.get("coverage_ids", ())),
+            required_probe_ids=tuple(value.get("required_probe_ids", ())),
             iteration=int(value.get("iteration", 0)),
             max_iterations=int(value.get("max_iterations", 8)),
             prior_gap_fingerprints=tuple(value.get("prior_gap_fingerprints", ())),
-            model_fingerprint=str(value.get("model_fingerprint", "")),
+            prior_iteration_fingerprint=str(value.get("prior_iteration_fingerprint", "")),
+            prior_candidate_fingerprint=str(value.get("prior_candidate_fingerprint", "")),
+            prior_evidence_fingerprint=str(value.get("prior_evidence_fingerprint", "")),
+            prior_state_fingerprints=tuple(value.get("prior_state_fingerprints", ())),
+            base_model_fingerprint=str(value.get("base_model_fingerprint", "")),
+            candidate_model_fingerprint=str(value.get("candidate_model_fingerprint", "")),
             evidence_fingerprint=str(value.get("evidence_fingerprint", "")),
+            resolved_gap_receipts=value.get("resolved_gap_receipts", {}) if isinstance(value.get("resolved_gap_receipts", {}), Mapping) else {},
         )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "plan_id": self.plan_id,
+            "schema_version": self.schema_version,
             "model_id": self.model_id,
             "risk_id": self.risk_id,
             "signals": [signal.to_dict() for signal in self.signals],
-            "claim_scope": self.claim_scope,
-            "require_full_closure": self.require_full_closure,
-            "allow_scoped_claim": self.allow_scoped_claim,
             "task_id": self.task_id,
+            "task_purpose": self.task_purpose,
+            "coverage_universe_id": self.coverage_universe_id,
+            "coverage_universe_fingerprint": self.coverage_universe_fingerprint,
+            "coverage_owner": self.coverage_owner,
+            "coverage_source_refs": list(self.coverage_source_refs),
             "coverage_ids": list(self.coverage_ids),
+            "required_probe_ids": list(self.required_probe_ids),
             "iteration": self.iteration,
             "max_iterations": self.max_iterations,
             "prior_gap_fingerprints": list(self.prior_gap_fingerprints),
-            "model_fingerprint": self.model_fingerprint,
+            "prior_iteration_fingerprint": self.prior_iteration_fingerprint,
+            "prior_candidate_fingerprint": self.prior_candidate_fingerprint,
+            "prior_evidence_fingerprint": self.prior_evidence_fingerprint,
+            "prior_state_fingerprints": list(self.prior_state_fingerprints),
+            "base_model_fingerprint": self.base_model_fingerprint,
+            "candidate_model_fingerprint": self.candidate_model_fingerprint,
             "evidence_fingerprint": self.evidence_fingerprint,
+            "resolved_gap_receipts": {
+                gap: receipt.to_dict()
+                for gap, receipt in self.resolved_gap_receipts.items()
+            },
         }
+
+    def expected_coverage_fingerprint(self) -> str:
+        return _stable_fingerprint(
+            {
+                "coverage_universe_id": self.coverage_universe_id,
+                "coverage_owner": self.coverage_owner,
+                "coverage_source_refs": list(self.coverage_source_refs),
+                "coverage_ids": list(self.coverage_ids),
+                "required_probe_ids": list(self.required_probe_ids),
+            }
+        )
 
 
 @dataclass(frozen=True)
@@ -495,7 +843,10 @@ class ModelMaturationReport:
         object.__setattr__(self, "summary", str(self.summary))
         object.__setattr__(self, "task_id", str(self.task_id))
         object.__setattr__(self, "iteration", int(self.iteration))
-        object.__setattr__(self, "terminal_reason", str(self.terminal_reason or self.decision))
+        terminal = str(self.terminal_reason)
+        if terminal and terminal not in MODEL_MATURATION_TERMINAL_REASONS:
+            raise ValueError(f"unknown model maturation terminal reason: {terminal}")
+        object.__setattr__(self, "terminal_reason", terminal)
         object.__setattr__(self, "next_actions", _as_tuple(self.next_actions or self.recommended_actions))
         object.__setattr__(self, "open_gap_fingerprints", _as_tuple(self.open_gap_fingerprints))
         object.__setattr__(self, "input_fingerprint", str(self.input_fingerprint))
@@ -580,57 +931,45 @@ def _signal_finding(
     )
 
 
-def _legacy_plan(plan: ModelMaturationPlan) -> bool:
-    """Recognize pre-iterative callers without weakening the current route.
+def _plan_finding(code: str, message: str, *, action: str = MATURITY_ACTION_ADD_MODEL_OBLIGATION) -> ModelMaturationFinding:
+    return ModelMaturationFinding(code=code, message=message, action=action)
 
-    Existing integrations did not have task/coverage/prediction fields.  Their
-    historical scoped result remains readable, while every new task declares a
-    task or coverage identity and uses the strict loop below.
-    """
 
-    return not plan.task_id and not plan.coverage_ids and not any(
-        signal.coverage_id
-        or signal.resolution_class
-        or signal.prediction
-        or signal.falsifier
-        or signal.evidence_fingerprint
-        for signal in plan.signals
-    )
+def _contract_gap(code: str) -> str:
+    return _stable_fingerprint({"contract_gap": code})
 
 
 def _iteration_for(
     plan: ModelMaturationPlan,
     *,
     open_gap_fingerprints: Sequence[str],
-    findings: Sequence[ModelMaturationFinding],
+    resolved_gap_fingerprints: Sequence[str],
+    persisted_gap_fingerprints: Sequence[str],
+    introduced_gap_fingerprints: Sequence[str],
+    native_receipt_fingerprints: Sequence[str],
+    progressed: bool,
     decision: str,
     recommended: Sequence[str],
 ) -> ModelMaturationIteration:
-    coverage_fingerprint = _stable_fingerprint(plan.coverage_ids)
-    input_fingerprint = _stable_fingerprint(
-        {
-            "plan": plan.plan_id,
-            "task": plan.task_id,
-            "model": plan.model_id,
-            "risk": plan.risk_id,
-            "signals": [signal.to_dict() for signal in plan.signals],
-        }
-    )
-    previous = set(plan.prior_gap_fingerprints)
-    current = set(open_gap_fingerprints)
-    progressed = plan.iteration == 0 or current != previous or bool(findings) and not previous
-    resolved = tuple(sorted(previous - current))
+    input_fingerprint = _stable_fingerprint(plan.to_dict())
+    terminal_reason = decision if decision in MODEL_MATURATION_TERMINAL_REASONS else ""
     return ModelMaturationIteration(
         iteration_id=f"{plan.plan_id}:{plan.iteration}",
         plan_id=plan.plan_id,
+        task_id=plan.task_id,
         iteration=plan.iteration,
-        model_fingerprint=plan.model_fingerprint or _stable_fingerprint(plan.model_id),
-        coverage_fingerprint=coverage_fingerprint,
+        base_model_fingerprint=plan.base_model_fingerprint,
+        candidate_model_fingerprint=plan.candidate_model_fingerprint,
+        coverage_fingerprint=plan.coverage_universe_fingerprint,
         input_fingerprint=input_fingerprint,
-        open_gap_fingerprints=tuple(sorted(current)),
-        resolved_gap_fingerprints=resolved,
+        predecessor_iteration_fingerprint=plan.prior_iteration_fingerprint,
+        open_gap_fingerprints=tuple(sorted(set(open_gap_fingerprints))),
+        resolved_gap_fingerprints=tuple(sorted(set(resolved_gap_fingerprints))),
+        persisted_gap_fingerprints=tuple(sorted(set(persisted_gap_fingerprints))),
+        introduced_gap_fingerprints=tuple(sorted(set(introduced_gap_fingerprints))),
+        native_receipt_fingerprints=tuple(sorted(set(native_receipt_fingerprints))),
         progressed=progressed,
-        terminal_reason=decision,
+        terminal_reason=terminal_reason,
         next_actions=_unique(recommended),
     )
 
@@ -650,6 +989,46 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
     external_signal_ids: list[str] = []
     open_gap_fingerprints: list[str] = []
     normalized_signals: list[ModelMaturationSignal] = []
+    native_receipt_fingerprints: list[str] = []
+    progress_receipt_fingerprints: list[str] = []
+    verified_coverage_ids: set[str] = set()
+    represented_coverage_ids: set[str] = set()
+    seen_probe_ids: set[str] = set()
+
+    required_text = {
+        "missing_plan_id": plan.plan_id,
+        "missing_task_id": plan.task_id,
+        "missing_task_purpose": plan.task_purpose,
+        "missing_coverage_universe_id": plan.coverage_universe_id,
+        "missing_coverage_universe_fingerprint": plan.coverage_universe_fingerprint,
+        "missing_coverage_owner": plan.coverage_owner,
+        "missing_base_model_fingerprint": plan.base_model_fingerprint,
+        "missing_candidate_model_fingerprint": plan.candidate_model_fingerprint,
+        "missing_evidence_fingerprint": plan.evidence_fingerprint,
+    }
+    if plan.schema_version != MODEL_MATURATION_PLAN_SCHEMA_VERSION:
+        findings.append(_plan_finding("current_schema_required", f"plan must use {MODEL_MATURATION_PLAN_SCHEMA_VERSION}"))
+    for code, value in required_text.items():
+        if not str(value).strip():
+            findings.append(_plan_finding(code, code.replace("_", " ")))
+    if not plan.coverage_source_refs:
+        findings.append(_plan_finding("missing_coverage_source_refs", "independent coverage source references are required"))
+    if not plan.coverage_ids:
+        findings.append(_plan_finding("missing_coverage_universe", "the independent coverage universe is empty"))
+    if not plan.required_probe_ids:
+        findings.append(_plan_finding("missing_required_probes", "the required native probe inventory is empty"))
+    if plan.coverage_universe_fingerprint and plan.coverage_universe_fingerprint != plan.expected_coverage_fingerprint():
+        findings.append(_plan_finding("coverage_universe_fingerprint_mismatch", "coverage universe fingerprint does not match its owner, sources, coverage, and probes"))
+    if plan.iteration > 0:
+        if not plan.prior_iteration_fingerprint:
+            findings.append(_plan_finding("missing_predecessor_iteration", "a later iteration requires the exact predecessor fingerprint"))
+        if not plan.prior_candidate_fingerprint:
+            findings.append(_plan_finding("missing_prior_candidate", "a later iteration requires the preceding candidate identity"))
+        elif plan.base_model_fingerprint != plan.prior_candidate_fingerprint:
+            findings.append(_plan_finding("candidate_chain_mismatch", "the current base model is not the preceding candidate"))
+    for finding in findings:
+        recommended_actions.append(finding.action or MATURITY_ACTION_ADD_MODEL_OBLIGATION)
+        open_gap_fingerprints.append(_contract_gap(finding.code))
 
     for original in plan.signals:
         signal = original
@@ -660,19 +1039,8 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
                 risk_id=signal.risk_id or plan.risk_id,
             )
         normalized_signals.append(signal)
-
-        if not signal.current:
-            findings.append(
-                _signal_finding(
-                    "model_maturation_signal_stale",
-                    "maturation signal is stale and cannot support a current model claim",
-                    signal=signal,
-                    action=MATURITY_ACTION_REFRESH_EVIDENCE,
-                )
-            )
-            recommended_actions.append(MATURITY_ACTION_REFRESH_EVIDENCE)
-            if signal.required:
-                open_gap_fingerprints.append(signal.gap_fingerprint())
+        if signal.coverage_id in plan.coverage_ids:
+            represented_coverage_ids.add(signal.coverage_id)
 
         if signal.metadata.get("understood") is not None or signal.metadata.get("understanding_level") is not None:
             findings.append(
@@ -685,7 +1053,23 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
             )
             recommended_actions.append(MATURITY_ACTION_ADD_MODEL_OBLIGATION)
 
-        resolution = signal.resolution()
+        if signal.required:
+            if not signal.coverage_id or signal.coverage_id not in plan.coverage_ids:
+                findings.append(_signal_finding("signal_coverage_not_in_universe", "required signal is not bound to the independent coverage universe", signal=signal))
+            if not signal.probe_id or signal.probe_id not in plan.required_probe_ids:
+                findings.append(_signal_finding("signal_probe_not_required", "required signal is not bound to the frozen required-probe inventory", signal=signal))
+            else:
+                seen_probe_ids.add(signal.probe_id)
+            if not signal.prediction.strip():
+                findings.append(_signal_finding("missing_signal_prediction", "required signal has no pre-observation prediction", signal=signal))
+            if not signal.falsifier.strip():
+                findings.append(_signal_finding("missing_signal_falsifier", "required signal has no falsifier", signal=signal))
+
+        raw_resolution = signal.resolution_class
+        if raw_resolution not in MODEL_MATURATION_RESOLUTION_CLASSES:
+            findings.append(_signal_finding("invalid_resolution_class", "required signal must declare one current resolution class", signal=signal))
+            raw_resolution = MODEL_MATURATION_RESOLUTION_MODEL_EDIT
+        resolution = raw_resolution
         if not signal.in_scope:
             if resolution == MODEL_MATURATION_RESOLUTION_SCOPE_EXCLUDED:
                 scoped_signal_ids.append(signal.signal_id)
@@ -712,15 +1096,55 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
                 )
             )
             recommended_actions.append(MATURITY_ACTION_ADD_MODEL_OBLIGATION)
-            if signal.required and not signal.resolved:
+            if signal.required:
                 open_gap_fingerprints.append(signal.gap_fingerprint())
 
-        if signal.resolved:
+        evidence_verified = signal.evidence_receipt_is_verified(
+            task_id=plan.task_id,
+            candidate_fingerprint=plan.candidate_model_fingerprint,
+            coverage_fingerprint=plan.coverage_universe_fingerprint,
+        )
+        verified = signal.resolved and evidence_verified
+        if signal.resolved and not verified:
+            findings.append(
+                _signal_finding(
+                    "unverified_signal_resolution",
+                    "caller-authored resolution is not accepted without an exact current terminal receipt",
+                    signal=signal,
+                    action=MATURITY_ACTION_REFRESH_EVIDENCE,
+                )
+            )
+            recommended_actions.append(MATURITY_ACTION_REFRESH_EVIDENCE)
+        if evidence_verified:
+            native_receipt_fingerprints.append(signal.receipt_fingerprint)
+            progress_receipt_fingerprints.append(signal.receipt_fingerprint)
+        if verified:
+            if signal.coverage_id:
+                verified_coverage_ids.add(signal.coverage_id)
             continue
+        if signal.required and not signal.current:
+            findings.append(
+                _signal_finding(
+                    "model_maturation_signal_stale",
+                    "required signal lacks current evidence and cannot support task closure",
+                    signal=signal,
+                    action=MATURITY_ACTION_REFRESH_EVIDENCE,
+                )
+            )
+            recommended_actions.append(MATURITY_ACTION_REFRESH_EVIDENCE)
 
         signal_actions = signal.actions()
         recommended_actions.extend(signal_actions)
         if resolution == MODEL_MATURATION_RESOLUTION_EXTERNAL_INPUT_REQUIRED:
+            if not signal.required_input or not signal.owner_boundary or not signal.affected_claim_scope:
+                findings.append(
+                    _signal_finding(
+                        "incomplete_external_input_boundary",
+                        "external termination requires the exact input, owner boundary, and affected claim scope",
+                        signal=signal,
+                        action=MATURITY_ACTION_REFRESH_EVIDENCE,
+                    )
+                )
             external_signal_ids.append(signal.signal_id)
             findings.append(
                 _signal_finding(
@@ -767,20 +1191,34 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
             scoped_signal_ids.append(signal.signal_id)
             recommended_actions.append(MATURITY_ACTION_DOWNGRADE_CLAIM)
 
+    for probe_id in plan.required_probe_ids:
+        if probe_id not in seen_probe_ids:
+            finding = _plan_finding("missing_required_probe_signal", f"required probe {probe_id} has no task-local signal")
+            findings.append(finding)
+            recommended_actions.append(finding.action)
+            open_gap_fingerprints.append(_stable_fingerprint({"missing_probe": probe_id}))
+
     if plan.coverage_ids:
-        covered = {signal.coverage_id for signal in normalized_signals if signal.coverage_id and signal.resolved}
         externally_disposed = {
             signal.coverage_id
             for signal in normalized_signals
             if signal.coverage_id
-            and not signal.resolved
+            and not signal.receipt_is_verified(
+                task_id=plan.task_id,
+                candidate_fingerprint=plan.candidate_model_fingerprint,
+                coverage_fingerprint=plan.coverage_universe_fingerprint,
+            )
             and signal.resolution() in {
                 MODEL_MATURATION_RESOLUTION_EXTERNAL_INPUT_REQUIRED,
                 MODEL_MATURATION_RESOLUTION_SCOPE_EXCLUDED,
             }
         }
         for coverage_id in plan.coverage_ids:
-            if coverage_id not in covered and coverage_id not in externally_disposed:
+            if (
+                coverage_id not in represented_coverage_ids
+                and coverage_id not in verified_coverage_ids
+                and coverage_id not in externally_disposed
+            ):
                 coverage_signal = ModelMaturationSignal(
                     signal_id=f"coverage:{coverage_id}",
                     signal_type=MODEL_MATURATION_SIGNAL_MISSING_MODEL_OBLIGATION,
@@ -800,6 +1238,51 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
                 recommended_actions.append(MATURITY_ACTION_ADD_MODEL_OBLIGATION)
                 open_gap_fingerprints.append(coverage_signal.gap_fingerprint())
 
+    previous = set(plan.prior_gap_fingerprints)
+    current = set(open_gap_fingerprints)
+    candidate_resolved = previous - current
+    verified_resolved: set[str] = set()
+    for gap in sorted(candidate_resolved):
+        receipt = plan.resolved_gap_receipts.get(gap)
+        if receipt is not None and receipt.is_verified(
+            gap_fingerprint=gap,
+            task_id=plan.task_id,
+            candidate_fingerprint=plan.candidate_model_fingerprint,
+            coverage_fingerprint=plan.coverage_universe_fingerprint,
+        ):
+            verified_resolved.add(gap)
+            native_receipt_fingerprints.append(receipt.receipt_fingerprint)
+        else:
+            current.add(gap)
+            finding = _plan_finding("gap_deleted_without_resolution_receipt", "a prior gap disappeared without a current resolution receipt", action=MATURITY_ACTION_REFRESH_EVIDENCE)
+            findings.append(finding)
+            recommended_actions.append(finding.action)
+    resolved = verified_resolved
+    persisted = previous & current
+    introduced = current - previous
+    evidence_advanced = bool(plan.prior_evidence_fingerprint and plan.evidence_fingerprint != plan.prior_evidence_fingerprint)
+    progressed = (
+        plan.iteration == 0
+        or bool(resolved)
+        or (evidence_advanced and bool(progress_receipt_fingerprints))
+    )
+    state_fingerprint = _stable_fingerprint(
+        {
+            "candidate": plan.candidate_model_fingerprint,
+            "evidence": plan.evidence_fingerprint,
+            "open_gaps": sorted(current),
+        }
+    )
+    oscillating = plan.iteration > 0 and state_fingerprint in set(plan.prior_state_fingerprints)
+    if oscillating:
+        finding = _plan_finding(
+            "model_maturation_oscillation",
+            "the candidate, evidence, and open-gap state repeats an earlier iteration",
+            action=MATURITY_ACTION_REFRESH_EVIDENCE,
+        )
+        findings.append(finding)
+        recommended_actions.append(finding.action)
+
     recommended = _unique(recommended_actions)
     scoped_ids = _unique(scoped_signal_ids)
     blockers = [finding for finding in findings if finding.severity == "blocker"]
@@ -807,88 +1290,54 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
         finding for finding in blockers
         if finding.code not in {"external_input_required"}
     ]
-    new_mode = not _legacy_plan(plan)
-
-    if not new_mode:
-        # Preserve the old result shape for callers that have not yet supplied
-        # a task/coverage identity. New route prompts always use the strict
-        # branch above, so scoped claims cannot evade addressable gaps there.
-        if blockers and plan.require_full_closure:
-            scoped_ids = _unique(
-                (*scoped_ids, *(signal.signal_id for signal in normalized_signals if signal.required and not signal.resolved))
-            )
-        if not findings:
-            decision = MODEL_MATURATION_DECISION_CURRENT
-            confidence = MODEL_MATURATION_CONFIDENCE_FULL
-            ok = True
-            summary = "No current route signal requires model maturation."
-            recommended = (MATURITY_ACTION_NO_CHANGE,)
-        elif blockers and (not plan.allow_scoped_claim or not plan.require_full_closure):
-            decision = MODEL_MATURATION_DECISION_BLOCKED
-            confidence = MODEL_MATURATION_CONFIDENCE_BLOCKED
-            ok = False
-            summary = "Model maturation blockers must be resolved before this claim is safe."
-        elif blockers:
-            decision = MODEL_MATURATION_DECISION_SCOPED
-            confidence = MODEL_MATURATION_CONFIDENCE_SCOPED
-            ok = True
-            recommended = _unique((*recommended, MATURITY_ACTION_DOWNGRADE_CLAIM))
-            summary = "Only a scoped legacy FlowGuard claim is supported until maturation signals are resolved."
-        else:
-            decision = MODEL_MATURATION_DECISION_SCOPED
-            confidence = MODEL_MATURATION_CONFIDENCE_SCOPED
-            ok = True
-            summary = "Only a scoped legacy FlowGuard claim is supported until maturation signals are resolved."
-        if decision != MODEL_MATURATION_DECISION_SCOPED and blockers:
-            decision = MODEL_MATURATION_DECISION_UPGRADE_REQUIRED if plan.allow_scoped_claim else decision
-        iteration_record = None
+    if not current and not blockers and not scoped_ids and len(verified_coverage_ids) == len(set(plan.coverage_ids)):
+        decision = MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+        confidence = MODEL_MATURATION_CONFIDENCE_FULL
+        ok = True
+        summary = "All independently declared task coverage is closed by exact current native receipts."
+        recommended = recommended or (MATURITY_ACTION_NO_CHANGE,)
+    elif external_signal_ids and not addressable and not any(item.code == "incomplete_external_input_boundary" for item in blockers):
+        decision = MODEL_MATURATION_DECISION_EXTERNAL_INPUT_REQUIRED
+        confidence = MODEL_MATURATION_CONFIDENCE_BLOCKED
+        ok = False
+        summary = "The next discriminating observation is external and its exact boundary is preserved."
+    elif scoped_ids and not addressable and not external_signal_ids:
+        decision = MODEL_MATURATION_DECISION_SCOPE_EXCLUDED
+        confidence = MODEL_MATURATION_CONFIDENCE_SCOPED
+        ok = False
+        summary = "The task boundary explicitly excludes remaining coverage; no full-task claim is allowed."
+    elif plan.iteration >= plan.max_iterations and current:
+        decision = MODEL_MATURATION_DECISION_ITERATION_LIMIT
+        confidence = MODEL_MATURATION_CONFIDENCE_BLOCKED
+        ok = False
+        summary = "The iteration budget ended while addressable gaps remained open."
+    elif (plan.iteration > 0 and current and not progressed) or oscillating:
+        decision = MODEL_MATURATION_DECISION_PROGRESS_STALLED
+        confidence = MODEL_MATURATION_CONFIDENCE_BLOCKED
+        ok = False
+        summary = "The iteration did not resolve a verified gap or obtain discriminating evidence, or it repeated an earlier state."
+    elif addressable or current:
+        decision = MODEL_MATURATION_DECISION_UPGRADE_REQUIRED
+        confidence = MODEL_MATURATION_CONFIDENCE_BLOCKED
+        ok = False
+        summary = "Addressable gaps require another model/evidence iteration; they cannot be scoped away."
     else:
-        previous = set(plan.prior_gap_fingerprints)
-        current = set(open_gap_fingerprints)
-        unchanged = plan.iteration > 0 and current and current == previous
-        if not current and not blockers and not scoped_ids:
-            decision = MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
-            confidence = MODEL_MATURATION_CONFIDENCE_FULL
-            ok = True
-            summary = "All declared task coverage is closed by current model/evidence signals."
-            recommended = recommended or (MATURITY_ACTION_NO_CHANGE,)
-        elif external_signal_ids and not addressable:
-            decision = MODEL_MATURATION_DECISION_EXTERNAL_INPUT_REQUIRED
-            confidence = MODEL_MATURATION_CONFIDENCE_BLOCKED
-            ok = False
-            summary = "The next discriminating observation is external and must be supplied before another iteration."
-        elif scoped_ids and not addressable and not external_signal_ids:
-            decision = MODEL_MATURATION_DECISION_SCOPE_EXCLUDED
-            confidence = MODEL_MATURATION_CONFIDENCE_SCOPED
-            ok = False
-            summary = "The task boundary explicitly excludes remaining coverage; no full-task claim is allowed."
-        elif unchanged:
-            decision = MODEL_MATURATION_DECISION_PROGRESS_STALLED
-            confidence = MODEL_MATURATION_CONFIDENCE_BLOCKED
-            ok = False
-            summary = "The new iteration did not change the open-gap fingerprint."
-        elif plan.iteration >= plan.max_iterations:
-            decision = MODEL_MATURATION_DECISION_ITERATION_LIMIT
-            confidence = MODEL_MATURATION_CONFIDENCE_BLOCKED
-            ok = False
-            summary = "The iteration budget ended while addressable gaps remained open."
-        elif addressable:
-            decision = MODEL_MATURATION_DECISION_UPGRADE_REQUIRED
-            confidence = MODEL_MATURATION_CONFIDENCE_BLOCKED
-            ok = False
-            summary = "Addressable gaps require another model/evidence iteration; they cannot be scoped away."
-        else:
-            decision = MODEL_MATURATION_DECISION_BLOCKED
-            confidence = MODEL_MATURATION_CONFIDENCE_BLOCKED
-            ok = False
-            summary = "The current evidence cannot establish task-local model closure."
-        iteration_record = _iteration_for(
-            plan,
-            open_gap_fingerprints=open_gap_fingerprints,
-            findings=findings,
-            decision=decision,
-            recommended=recommended or (MATURITY_ACTION_NO_CHANGE,),
-        )
+        decision = MODEL_MATURATION_DECISION_BLOCKED
+        confidence = MODEL_MATURATION_CONFIDENCE_BLOCKED
+        ok = False
+        summary = "The current evidence cannot establish task-local model closure."
+
+    iteration_record = _iteration_for(
+        plan,
+        open_gap_fingerprints=current,
+        resolved_gap_fingerprints=resolved,
+        persisted_gap_fingerprints=persisted,
+        introduced_gap_fingerprints=introduced,
+        native_receipt_fingerprints=native_receipt_fingerprints,
+        progressed=progressed,
+        decision=decision,
+        recommended=recommended or (MATURITY_ACTION_NO_CHANGE,),
+    )
 
     input_fingerprint = iteration_record.input_fingerprint if iteration_record else _stable_fingerprint(plan.to_dict())
     return ModelMaturationReport(
@@ -906,9 +1355,9 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
         iteration=plan.iteration,
         terminal_reason=decision if decision in MODEL_MATURATION_TERMINAL_REASONS else "",
         next_actions=recommended,
-        open_gap_fingerprints=tuple(sorted(set(open_gap_fingerprints))),
+        open_gap_fingerprints=tuple(sorted(current)),
         input_fingerprint=input_fingerprint,
-        progressed=(plan.iteration == 0 or set(open_gap_fingerprints) != set(plan.prior_gap_fingerprints)),
+        progressed=progressed,
         iteration_record=iteration_record,
     )
 
@@ -921,17 +1370,69 @@ def review_model_maturation_session(
     """Review supplied candidate iterations until a terminal result appears."""
 
     reports: list[ModelMaturationReport] = []
-    for plan in plans:
+    session_findings: list[ModelMaturationFinding] = []
+    expected_task = plans[0].task_id if plans else ""
+    expected_task_purpose = plans[0].task_purpose if plans else ""
+    expected_plan = plans[0].plan_id if plans else ""
+    expected_model = plans[0].model_id if plans else ""
+    expected_coverage = plans[0].coverage_universe_fingerprint if plans else ""
+    seen_states: set[str] = set()
+    previous_record: ModelMaturationIteration | None = None
+    for index, plan in enumerate(plans):
+        if (
+            plan.task_id != expected_task
+            or plan.task_purpose != expected_task_purpose
+            or plan.plan_id != expected_plan
+            or plan.model_id != expected_model
+            or plan.coverage_universe_fingerprint != expected_coverage
+        ):
+            session_findings.append(_plan_finding("session_identity_mismatch", "all iterations must bind the same plan, task purpose, model, and coverage universe"))
+            break
+        if index > 0:
+            assert previous_record is not None
+            if plan.iteration != plans[index - 1].iteration + 1:
+                session_findings.append(_plan_finding("session_iteration_not_contiguous", "session iterations must be contiguous"))
+                break
+            if plan.prior_iteration_fingerprint != previous_record.fingerprint():
+                session_findings.append(_plan_finding("session_predecessor_mismatch", "iteration predecessor fingerprint does not match the preceding immutable record"))
+                break
+            if set(plan.prior_gap_fingerprints) != set(previous_record.open_gap_fingerprints):
+                session_findings.append(_plan_finding("session_prior_gap_mismatch", "iteration prior gaps do not match the preceding open-gap set"))
+                break
+            if plan.base_model_fingerprint != previous_record.candidate_model_fingerprint:
+                session_findings.append(_plan_finding("session_model_chain_mismatch", "iteration base model does not match the preceding candidate"))
+                break
         report = review_model_maturation_loop(plan)
         reports.append(report)
+        if report.iteration_record is not None:
+            state = _stable_fingerprint(
+                {
+                    "candidate": report.iteration_record.candidate_model_fingerprint,
+                    "evidence": plan.evidence_fingerprint,
+                    "open_gaps": list(report.iteration_record.open_gap_fingerprints),
+                }
+            )
+            if state in seen_states and report.terminal_reason != MODEL_MATURATION_DECISION_CLOSED_FOR_TASK:
+                session_findings.append(_plan_finding("session_oscillation", "session repeated an earlier candidate/evidence/open-gap state"))
+                break
+            seen_states.add(state)
+            previous_record = report.iteration_record
         if report.terminal_reason:
             break
     task_id = next((plan.task_id for plan in plans if plan.task_id), "")
+    if session_findings:
+        terminal_reason = MODEL_MATURATION_DECISION_BLOCKED
+    elif reports and reports[-1].terminal_reason:
+        terminal_reason = reports[-1].terminal_reason
+    else:
+        terminal_reason = MODEL_MATURATION_DECISION_BLOCKED
+        session_findings.append(_plan_finding("session_missing_terminal", "supplied iterations ended before a terminal result"))
     return ModelMaturationSession(
         session_id=session_id or (plans[0].plan_id if plans else "maturation-session"),
         task_id=task_id,
         iterations=tuple(report.iteration_record for report in reports if report.iteration_record is not None),
-        terminal_reason=reports[-1].terminal_reason if reports else MODEL_MATURATION_DECISION_BLOCKED,
+        terminal_reason=terminal_reason,
+        findings=tuple(session_findings),
     )
 
 
@@ -953,11 +1454,9 @@ __all__ = [
     "MODEL_MATURATION_CONFIDENCE_SCOPED",
     "MODEL_MATURATION_DECISION_CLOSED_FOR_TASK",
     "MODEL_MATURATION_DECISION_BLOCKED",
-    "MODEL_MATURATION_DECISION_CURRENT",
     "MODEL_MATURATION_DECISION_EXTERNAL_INPUT_REQUIRED",
     "MODEL_MATURATION_DECISION_ITERATION_LIMIT",
     "MODEL_MATURATION_DECISION_PROGRESS_STALLED",
-    "MODEL_MATURATION_DECISION_SCOPED",
     "MODEL_MATURATION_DECISION_UPGRADE_REQUIRED",
     "MODEL_MATURATION_DECISION_SCOPE_EXCLUDED",
     "MODEL_MATURATION_RESOLUTION_CLASSES",
@@ -965,6 +1464,8 @@ __all__ = [
     "MODEL_MATURATION_RESOLUTION_EXTERNAL_INPUT_REQUIRED",
     "MODEL_MATURATION_RESOLUTION_MODEL_EDIT",
     "MODEL_MATURATION_RESOLUTION_SCOPE_EXCLUDED",
+    "MODEL_MATURATION_PLAN_SCHEMA_VERSION",
+    "MODEL_MATURATION_RECEIPT_STATUS_PASS",
     "MODEL_MATURATION_TERMINAL_REASONS",
     "MODEL_MATURATION_SIGNAL_BOUNDARY_MISSING",
     "MODEL_MATURATION_SIGNAL_CHILD_BOUNDARY_CHANGED",
@@ -982,6 +1483,7 @@ __all__ = [
     "MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE",
     "MODEL_MATURATION_SIGNAL_TYPES",
     "ModelMaturationFinding",
+    "ModelMaturationGapResolutionReceipt",
     "ModelMaturationIteration",
     "ModelMaturationPlan",
     "ModelMaturationReport",

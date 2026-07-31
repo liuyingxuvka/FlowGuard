@@ -147,6 +147,7 @@
       "check:flowguard-ui-flow-structure:native-authority",
       "check:flowguard-ui-flow-structure:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard-ui-flow-structure:native-authority",
     "native_owner_id": "ui_flow_structure",
     "native_route_ids": [
       "route:ui_flow_structure"

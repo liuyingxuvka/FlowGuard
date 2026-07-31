@@ -147,6 +147,7 @@
       "check:flowguard-model-miss-review:native-authority",
       "check:flowguard-model-miss-review:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard-model-miss-review:native-authority",
     "native_owner_id": "model_miss_review",
     "native_route_ids": [
       "route:model_miss_review"

@@ -207,7 +207,7 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:contract_schema"
         ],
-        "component_hash": "sha256:4e42f3dc5c8e0eec2c10e1d6b59c41b2fa78cd4510583a5439e2cb03110fa000",
+        "component_hash": "sha256:7f775e6ae77066d95af941ffaad39a2392d99f4a7dfbc94c1ffab68cb6a9ad35",
         "component_id": "component:contract_schema:00ebafc5788d9a42",
         "consumer_ids": [
           "projection:contract-compile",
@@ -349,11 +349,11 @@
       "owner_cycles": [],
       "unmapped_paths": []
     },
-    "impact_graph_hash": "sha256:f3d00b82a8a5a2260addcd1b320f64e466b986da46e799e69f04349a2594895c",
+    "impact_graph_hash": "sha256:b3542ed8c3dd9317a85b8cc98be6a3cb6cbdeb14dc9e6859af462e841704a218",
     "inventory": [
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:contract_schema",
-        "content_hash": "sha256:0b7fd465ac7946842795344401e42ff82d2d29ff0b071fece2f39bde579326e3",
+        "content_hash": "sha256:6d7a13bfc04fde39e18b3f44f533644ffeeb90c81ebfbefe639d0b4bfdd202ff",
         "install_disposition": "source_only",
         "path": ".agents/skills/flowguard-field-lifecycle-mesh/.skillguard/contract-source.json",
         "role": "contract_schema"
@@ -415,7 +415,7 @@
         "role": "test_dev"
       }
     ],
-    "inventory_hash": "sha256:3eca844243fbd857afa93a70471e4328911e94a10e5a950c5e4c17ae79766ed1",
+    "inventory_hash": "sha256:ae62719d8344578f090e2a3ce9d72d58a66f7ca8a7cd28dc84458d76d984abab",
     "member_root_path": ".agents/skills/flowguard-field-lifecycle-mesh",
     "owner_receipt_root_ref": {
       "path_token": "owner_evidence_root",
@@ -509,7 +509,7 @@
     "projection_consumers": [
       {
         "consumer_id": "projection:contract-compile",
-        "consumer_projection_hash": "sha256:08483660316bdc27d9b17a3a4978f5f255db1afdcd6dd4bfb1c08aeeeeaaf8b5",
+        "consumer_projection_hash": "sha256:ad146d75f0457d2ca8080848630c2a4406b9f744a5b53a85968a82a15cb96429",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
@@ -517,7 +517,7 @@
           "component:documentation_model:27ad44229d15bc07",
           "component:runtime_source:d1b4fe7a4ce27d37"
         ],
-        "input_projection_hash": "sha256:5fd3414cc946426c20c2849f1e95c7cd01bb7f56fac40618b1692a7d30b21f54",
+        "input_projection_hash": "sha256:5eeee444002e67ad688e4870258d1b8d6413c9726d8143bd621928acc48dba5d",
         "kind": "contract_compile",
         "projection_declaration_hash": "sha256:acf85e156d087136d584809bd8a60977379ae3f05b8dd93b9dc6a0d11a231db0"
       },
@@ -556,13 +556,13 @@
       },
       {
         "consumer_id": "projection:source-maintenance",
-        "consumer_projection_hash": "sha256:0f00afff523fe926d1a3be6f25f339cb86bbe7d17e57a69faba3127bc8c1996c",
+        "consumer_projection_hash": "sha256:e43a6d95da3e5d793c3705d9cc4aefdb8800f949276900f3bb69c415c231d8e6",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
           "component:contract_schema:00ebafc5788d9a42"
         ],
-        "input_projection_hash": "sha256:225339c7587779f2bc45810e393ab69b7e794bae49b97c4450373f5c861d84dd",
+        "input_projection_hash": "sha256:fcee1d0cca1591c0fb9e2c865043ead410d85ba562c359405f3ff729fb3a084b",
         "kind": "source_maintenance",
         "projection_declaration_hash": "sha256:92a859badea19acee69268e91e06e125e8bb71883a2bf82ece42b273e626b5cf"
       }
@@ -570,9 +570,9 @@
     "schema_version": "skillguard.content_impact_plan.current",
     "unknown_mapping_disposition": "block"
   },
-  "contract_hash": "77FF5A1517B2276A9E979C92D6906BB90ABCC706FE6834C6BC422B04A005D87D",
+  "contract_hash": "4DB14953F5AD50D95D7D235D93EF7DADA749C3D4FE7FB5D9117D4B9D55410CCD",
   "maintenance_unit_id": "unit:flowguard-suite",
-  "manifest_hash": "B796CBC0CDEE1DC37D35A144C224180CCD5A57DCC9EB575791364E2F68D2B51A",
+  "manifest_hash": "9791366E3BACEF233AAD6C675503758A7C1F862CDC9FA8B67676CC052C706F3B",
   "member_skill_ids": [
     "flowguard",
     "flowguard-architecture-reduction",
@@ -594,7 +594,7 @@
   "schema_version": "skillguard.check_manifest.v2",
   "skill_id": "flowguard-field-lifecycle-mesh",
   "source_fingerprints": {
-    "binding": "0B7FD465AC7946842795344401E42FF82D2D29FF0B071FECE2F39BDE579326E3",
+    "binding": "6D7A13BFC04FDE39E18B3F44F533644FFEEB90C81EBFBEFE639D0B4BFDD202FF",
     "entrypoint": "7069CC09CE9F9688628DF8846F318E2E91FFB9417B25C2C682CED151CAD0E177",
     "implementation:.agents/skills/flowguard-field-lifecycle-mesh": "A92CBC7CFC585FA374C428FF7EDEBA029EA1EA85182748B514C3CDCE86CE02AD",
     "implementation:.flowguard/default_replacement_field_lifecycle": "3A7AC0E1BCB20561F9A3D26BEA7B26FCA79B28760A76BFE98A4493A2E75FB25E",

@@ -131,8 +131,17 @@ relation and separate plane-local owners.
     miss with only a new ordinary test when the model boundary itself overflowed.
 19. Run `review_model_maturation_loop(...)` over the miss classification,
     alignment result, mesh/layered proof result, code-boundary observations, and
-    freshness rows. Resolve or explicitly scope any state, branch, invariant,
-    same-class, obligation, child reattachment, or evidence-refresh action.
+    freshness rows. Freeze the task purpose, independent coverage/probe ids and
+    their owner fingerprint before reviewing the candidate. Every required
+    probe carries a pre-observation prediction and falsifier; a resolved item
+    counts only when its current native receipt binds the exact task, candidate,
+    and coverage fingerprint. Preserve the predecessor iteration, candidate,
+    and open-gap identities and require a resolution receipt before any old gap
+    disappears. `model_maturation_upgrade_required` means make another model or
+    evidence iteration, not stop. Resolve state, branch, invariant, same-class,
+    obligation, child-reattachment, or evidence-refresh actions, or terminate
+    only with the exact external input/owner/claim boundary, explicit scope
+    exclusion, evidenced stall, or iteration limit.
 20. Run DevelopmentProcessFlow over the changed plan/model/code/test/docs
     artifacts so later edits do not stale the repair evidence.
 21. Record `Miss type`, `Root cause backpropagation`, `Generalized case`, field

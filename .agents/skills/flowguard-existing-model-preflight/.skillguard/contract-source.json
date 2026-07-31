@@ -150,6 +150,7 @@
       "check:flowguard-existing-model-preflight:native-authority",
       "check:flowguard-existing-model-preflight:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard-existing-model-preflight:native-authority",
     "native_owner_id": "existing_model_preflight",
     "native_route_ids": [
       "route:existing_model_preflight"

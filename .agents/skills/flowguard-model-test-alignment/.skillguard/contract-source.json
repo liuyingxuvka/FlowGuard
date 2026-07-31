@@ -147,6 +147,7 @@
       "check:flowguard-model-test-alignment:native-authority",
       "check:flowguard-model-test-alignment:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard-model-test-alignment:native-authority",
     "native_owner_id": "model_test_alignment",
     "native_route_ids": [
       "route:model_test_alignment"

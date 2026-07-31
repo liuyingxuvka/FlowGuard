@@ -151,6 +151,7 @@
       "check:flowguard-model-topology-hazard-review:native-authority",
       "check:flowguard-model-topology-hazard-review:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard-model-topology-hazard-review:native-authority",
     "native_owner_id": "model_topology_hazard_review",
     "native_route_ids": [
       "route:model_topology_hazard_review"

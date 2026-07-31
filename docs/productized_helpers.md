@@ -304,16 +304,23 @@ Model-Test Alignment, ModelMesh, code-boundary review, or evidence-freshness
 review produces a signal that the current model is too coarse, stale, or
 disconnected. The helper reviews:
 
-- `ModelMaturationSignal`: the route signal and the model/risk/evidence ids it
-  came from;
-- `ModelMaturationPlan`: the claim scope and whether a broad closure claim is
-  being made;
-- `ModelMaturationReport`: the decision, confidence, required model-upgrade
-  actions, scoped signal ids, and maintenance obligations for later scans.
+- `ModelMaturationSignal`: one required probe, its prediction/falsifier, and a
+  native receipt bound to the exact task, candidate, and coverage universe;
+- `ModelMaturationPlan`: the task purpose, independently owned coverage/probe
+  inventory, candidate/evidence identities, and immutable predecessor/gap
+  links;
+- `ModelMaturationIteration`: one candidate's open, resolved, persisted, and
+  introduced gap sets plus the native receipts that justify progress;
+- `ModelMaturationReport` and `ModelMaturationSession`: the continuation or
+  genuine terminal decision, confidence, actions, gaps, and maintenance
+  obligations across one or more candidates.
 
-The helper keeps broad claims honest. It does not replace the owning route; it
-decides whether that route's evidence requires a model update, parent
-reattachment, child split, evidence refresh, or scoped claim.
+The helper keeps broad claims honest. A caller `resolved` flag, an empty plan,
+a self-rating, or an unrelated green command cannot close the loop.
+`model_maturation_upgrade_required` explicitly means continue iterating. The
+loop stops only on task-local receipt-backed closure or a typed external,
+scope, stall, or iteration-limit boundary. Former schema payloads are rejected
+rather than read through a compatibility path.
 
 ## Scenario Matrix Builder
 

@@ -316,7 +316,7 @@ FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
 
 
 def export_contract_model():
-    return build_skill_contract_model_export(
+    exported = build_skill_contract_model_export(
         skill_id="flowguard",
         route_id="model_first_function_flow",
         owner_id="model_first_function_flow",
@@ -324,3 +324,13 @@ def export_contract_model():
         business_intent="Select or build the minimum useful FlowGuard model and route ordinary behavior work to its existing owner.",
         claim_boundary="This kernel projection selects and validates a minimum model boundary; it does not replace satellite owners or make every trivial action execute a model.",
     )
+    exported["invariant_ids"].append("invariant:model-maturation-closure")
+    exported["obligations"].append(
+        {
+            "obligation_id": "obligation:flowguard:model-maturation-closure",
+            "invariant_id": "invariant:model-maturation-closure",
+            "owner_step_ids": ["step:flowguard:verify"],
+            "required": True,
+        }
+    )
+    return exported

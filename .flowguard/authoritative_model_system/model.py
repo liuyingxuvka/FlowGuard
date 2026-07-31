@@ -59,6 +59,11 @@ class AuthorityCase:
     incompatible_schema_has_one_direct_current_migration: bool = True
     unknown_impact_blocks: bool = True
     public_authority_closure_complete: bool = True
+    maturation_task_and_coverage_are_frozen: bool = True
+    maturation_prediction_and_falsifier_present: bool = True
+    maturation_receipts_bind_exact_candidate: bool = True
+    addressable_maturation_gap_keeps_iteration_open: bool = True
+    maturation_terminal_reason_is_genuine: bool = True
 
 
 @dataclass(frozen=True)
@@ -94,6 +99,11 @@ class AuthorityState:
     incompatible_schema_has_one_direct_current_migration: bool = False
     unknown_impact_blocks: bool = False
     public_authority_closure_complete: bool = False
+    maturation_task_and_coverage_are_frozen: bool = False
+    maturation_prediction_and_falsifier_present: bool = False
+    maturation_receipts_bind_exact_candidate: bool = False
+    addressable_maturation_gap_keeps_iteration_open: bool = False
+    maturation_terminal_reason_is_genuine: bool = False
 
 
 class EvaluateAuthorityRevision:
@@ -330,6 +340,39 @@ def incompatible_authority_schema_has_no_dual_reader(
     return _pass()
 
 
+def maturation_proves_behavior_instead_of_accepting_self_report(
+    state: AuthorityState, _trace: object
+) -> InvariantResult:
+    if not state.case_name:
+        return _pass()
+    if not state.maturation_task_and_coverage_are_frozen:
+        return _fail(
+            "maturation_proves_behavior_instead_of_accepting_self_report",
+            "model maturation can close without a task-bound independent coverage universe",
+        )
+    if not state.maturation_prediction_and_falsifier_present:
+        return _fail(
+            "maturation_proves_behavior_instead_of_accepting_self_report",
+            "a model-understanding claim lacks a prediction and falsifier",
+        )
+    if not state.maturation_receipts_bind_exact_candidate:
+        return _fail(
+            "maturation_proves_behavior_instead_of_accepting_self_report",
+            "caller resolution or a foreign receipt can close the candidate",
+        )
+    if not state.addressable_maturation_gap_keeps_iteration_open:
+        return _fail(
+            "maturation_proves_behavior_instead_of_accepting_self_report",
+            "an addressable gap can be scoped away or treated as terminal",
+        )
+    if not state.maturation_terminal_reason_is_genuine:
+        return _fail(
+            "maturation_proves_behavior_instead_of_accepting_self_report",
+            "upgrade-required was mislabeled as a terminal maturation result",
+        )
+    return _pass()
+
+
 def rollback_restores_reality_before_authority(
     state: AuthorityState, _trace: object
 ) -> InvariantResult:
@@ -408,6 +451,11 @@ INVARIANTS = (
         "incompatible_authority_schema_has_no_dual_reader",
         "An incompatible authority schema is replaced directly and never remains as a second reader.",
         incompatible_authority_schema_has_no_dual_reader,
+    ),
+    Invariant(
+        "maturation_proves_behavior_instead_of_accepting_self_report",
+        "Task-local maturation closes only from predictions, falsifiers, exact receipts, and genuine terminal reasons.",
+        maturation_proves_behavior_instead_of_accepting_self_report,
     ),
     Invariant(
         "rollback_restores_reality_before_authority",
@@ -654,6 +702,42 @@ SCENARIOS = (
         _expect_violation(
             "incompatible_authority_schema_has_no_dual_reader",
             "legacy authority dual-read success is rejected",
+        ),
+    ),
+    _scenario(
+        "maturation_cannot_use_caller_narrowed_coverage",
+        "A caller cannot shrink the independent task coverage universe to manufacture closure.",
+        AuthorityCase(
+            "maturation_caller_shrinks_coverage",
+            maturation_task_and_coverage_are_frozen=False,
+        ),
+        _expect_violation(
+            "maturation_proves_behavior_instead_of_accepting_self_report",
+            "caller-narrowed maturation coverage is rejected",
+        ),
+    ),
+    _scenario(
+        "maturation_cannot_accept_resolved_boolean_as_evidence",
+        "A caller-authored resolved flag cannot replace an exact current native receipt.",
+        AuthorityCase(
+            "maturation_self_reported_resolution",
+            maturation_receipts_bind_exact_candidate=False,
+        ),
+        _expect_violation(
+            "maturation_proves_behavior_instead_of_accepting_self_report",
+            "self-reported maturation resolution is rejected",
+        ),
+    ),
+    _scenario(
+        "addressable_maturation_gap_cannot_stop_the_loop",
+        "An addressable gap must produce another candidate iteration rather than a terminal claim.",
+        AuthorityCase(
+            "maturation_upgrade_marked_terminal",
+            addressable_maturation_gap_keeps_iteration_open=False,
+        ),
+        _expect_violation(
+            "maturation_proves_behavior_instead_of_accepting_self_report",
+            "premature maturation termination is rejected",
         ),
     ),
     _scenario(

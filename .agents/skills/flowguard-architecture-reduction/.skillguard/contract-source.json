@@ -150,6 +150,7 @@
       "check:flowguard-architecture-reduction:native-authority",
       "check:flowguard-architecture-reduction:evidence-closure"
     ],
+    "model_deepening_check_id": "check:flowguard-architecture-reduction:native-authority",
     "native_owner_id": "architecture_reduction",
     "native_route_ids": [
       "route:architecture_reduction"
