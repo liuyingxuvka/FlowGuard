@@ -1,8 +1,8 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.65.1"
+adopted_package_version = "0.66.0"
 schema_version = "1.0"
-last_verified_at = "2026-07-28T22:31:31+00:00"
+last_verified_at = "2026-07-31T00:14:06+00:00"
 last_verified_by = "FlowGuard project-upgrade"
 agents_path = "AGENTS.md"
 
@@ -15,12 +15,12 @@ require_model_update_for_behavior_changes = true
 
 [model_authority]
 system_id = "flowguard"
-observed_snapshot_path = ".flowguard/model-mesh/snapshots/09c93f0b212c8bc38c44a06874c657ab0acc9d07ed9bb1046e274fe722269397.json"
-observed_snapshot_fingerprint = "sha256:09c93f0b212c8bc38c44a06874c657ab0acc9d07ed9bb1046e274fe722269397"
-subject_revision = "source-inventory:d6662c332540ce1d07036095ff0a40cff8ccc887be52cae8a678a0f849c0502b"
+observed_snapshot_path = ".flowguard/model-mesh/snapshots/8bfcdb5247a0c490c2e2cda1b01bea823ffcf9daf8d7548054719eecd741f5c0.json"
+observed_snapshot_fingerprint = "sha256:8bfcdb5247a0c490c2e2cda1b01bea823ffcf9daf8d7548054719eecd741f5c0"
+subject_revision = "source-inventory:40efe9b7cd52a8146498d86b7cc2e6ad7941f88497891fb73682f48b21ded58b"
 coverage_status = "complete_within_declared_boundary"
-generation = 12
-accepted_revision_set_fingerprint = "sha256:c437ac7646b4095b86d0b0329389b4f03dddc9b6bde1b963bc18c8eac044290c"
-previous_snapshot_fingerprint = "sha256:33e0a2383a1ca74d1e0f3fd615183a178abdfb697f0cb0257e88de4f9e35c331"
-activation_receipt_fingerprint = "sha256:1cea188c2ad5c62758de6c0b86cfb021402c54b9d29066e381d1c4182db8a054"
-head_fingerprint = "sha256:ddc86996feacba45e32762023870a2de733605f67c90fe11d0558530396310c0"
+generation = 13
+accepted_revision_set_fingerprint = "sha256:041d953e6a35804d83180a80cb3828951e80cceeaf647a80a45d41c5a69fc77d"
+previous_snapshot_fingerprint = "sha256:09c93f0b212c8bc38c44a06874c657ab0acc9d07ed9bb1046e274fe722269397"
+activation_receipt_fingerprint = "sha256:89bc657c8ebb8dac6ea1f00669ebc469b92705f6fa16043df43d4f690d060c51"
+head_fingerprint = "sha256:8ac7cdc377e29050ec0be4b8c8b63b699d870496262f31806dd06aed2ec93344"
