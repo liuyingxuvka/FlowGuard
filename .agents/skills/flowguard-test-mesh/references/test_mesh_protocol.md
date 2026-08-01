@@ -280,3 +280,11 @@ authority.
 Any FlowGuard test prompted by that context is a normal FlowGuard-owned test
 with its own declared boundary and evidence. Never treat provider task/status
 projection as proof that a FlowGuard check ran.
+
+When TestMesh is triggered, emit a typed maturation contribution containing
+the independently declared required test surface/cell/case/shard denominator,
+terminal receipt identities, and every failed, skipped, stale, not-run,
+progress-only, or uncovered item. Preserve TestMesh execution and receipt
+semantics; Model Maturation may union this coverage but cannot turn liveness or
+partial execution into a pass. Untriggered TestMesh inventory is not required
+for lightweight tasks.

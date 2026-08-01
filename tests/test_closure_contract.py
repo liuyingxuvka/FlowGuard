@@ -15,16 +15,50 @@ from flowguard import (
     CLOSURE_REPORT_UI_HUMAN_OPERABILITY,
     CLOSURE_REPORT_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
     MODEL_QUALITY_HIDDEN_STATE,
+    MODEL_MATURATION_CONFIDENCE_BLOCKED,
+    MODEL_MATURATION_CONFIDENCE_FULL,
+    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+    MODEL_MATURATION_DECISION_PROGRESS_STALLED,
     ArtifactInvalidation,
     ClosureEvidenceReport,
     FlowGuardClosureContractPlan,
     ModelAngleReviewReport,
     ModelQualitySignal,
+    ModelMaturationEvidenceRef,
     RuntimeGatewayInventoryClosure,
     RuntimeTraceMapping,
     SameClassMissClosure,
     review_flowguard_closure_contract,
 )
+
+
+def maturation(*, closed=True, evidence_id="maturation:closure"):
+    return ModelMaturationEvidenceRef(
+        evidence_id,
+        task_id="task:closure",
+        model_id="model:runtime-route",
+        candidate_model_fingerprint="candidate:closure",
+        coverage_universe_id="coverage:closure",
+        coverage_universe_fingerprint="coverage-fp:closure",
+        input_fingerprint="input:closure",
+        evidence_fingerprint="evidence:closure",
+        decision=(
+            MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+            if closed
+            else MODEL_MATURATION_DECISION_PROGRESS_STALLED
+        ),
+        confidence=(
+            MODEL_MATURATION_CONFIDENCE_FULL
+            if closed
+            else MODEL_MATURATION_CONFIDENCE_BLOCKED
+        ),
+        terminal_reason=(
+            MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+            if closed
+            else MODEL_MATURATION_DECISION_PROGRESS_STALLED
+        ),
+        open_gap_fingerprints=() if closed else ("gap:closure",),
+    )
 
 
 def evidence_report(report_id="report:risk-ledger", **overrides):
@@ -37,6 +71,9 @@ def evidence_report(report_id="report:risk-ledger", **overrides):
         "confidence": CLOSURE_CONFIDENCE_FULL,
         "result_status": "passed",
         "proof_artifact_ids": ("artifact:risk-ledger",),
+        "metadata": {
+            "model_maturation_evidence_id": "maturation:closure",
+        },
     }
     values.update(overrides)
     return ClosureEvidenceReport(**values)
@@ -76,6 +113,7 @@ def green_plan(**overrides):
                 model_obligation_id="model:runtime-route",
             ),
         ),
+        "model_maturation_evidence": (maturation(),),
         "runtime_gateway_closures": (
             RuntimeGatewayInventoryClosure(
                 "gateway:runtime",
@@ -102,6 +140,36 @@ def finding_codes(report):
 
 
 class FlowGuardClosureContractTests(unittest.TestCase):
+    def test_closure_and_risk_require_the_same_closed_maturation_identity(self):
+        missing = review_flowguard_closure_contract(
+            green_plan(model_maturation_evidence=())
+        )
+        self.assertIn("missing_model_maturation_evidence", finding_codes(missing))
+
+        open_report = review_flowguard_closure_contract(
+            green_plan(model_maturation_evidence=(maturation(closed=False),))
+        )
+        self.assertIn("model_maturation_not_closed_for_task", finding_codes(open_report))
+
+        mismatched_risk = evidence_report(
+            metadata={"model_maturation_evidence_id": "maturation:other"}
+        )
+        mismatch = review_flowguard_closure_contract(
+            green_plan(
+                evidence_reports=(
+                    evidence_report(
+                        "report:runtime-gateway",
+                        report_kind=CLOSURE_REPORT_RUNTIME_GATEWAY,
+                    ),
+                    mismatched_risk,
+                )
+            )
+        )
+        self.assertIn(
+            "risk_closure_model_maturation_identity_mismatch",
+            finding_codes(mismatch),
+        )
+
     def test_complete_closure_contract_supports_full_confidence(self):
         report = review_flowguard_closure_contract(green_plan())
 

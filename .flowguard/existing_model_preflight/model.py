@@ -142,6 +142,8 @@ class State:
     selected_inventory_required: tuple[str, ...] = ()
     selected_inventory_bounded: tuple[str, ...] = ()
     over_materialized: tuple[str, ...] = ()
+    maturation_handoff_emitted: tuple[str, ...] = ()
+    implementation_readiness_inferred: tuple[str, ...] = ()
 
 
 FULL_ACTIONS = {"implementation", "proposal", "restructure", "high_risk_change"}
@@ -261,6 +263,7 @@ class SearchExistingModels:
         "lookup_complete",
         "selected_inventory_bounded",
         "over_materialized",
+        "maturation_handoff_emitted",
     )
     accepted_input_type = (ClassifiedNeed, SkippedNeed)
     input_description = "ClassifiedNeed or SkippedNeed"
@@ -380,6 +383,9 @@ class SearchExistingModels:
             grounded_state = replace(
                 grounded_state,
                 full_grounded=_add_once(grounded_state.full_grounded, input_obj.task_id),
+                maturation_handoff_emitted=_add_once(
+                    grounded_state.maturation_handoff_emitted, input_obj.task_id
+                ),
             )
             label = "full_existing_model_preflight"
         else:
@@ -535,6 +541,30 @@ class BrokenPromotesRelatedPlane(SearchExistingModels):
         )
 
 
+class BrokenPreflightAsImplementationReadiness(SearchExistingModels):
+    name = "BrokenPreflightAsImplementationReadiness"
+    idempotency = "Broken variant treats successful owner lookup as sufficient implementation understanding."
+
+    def apply(
+        self, input_obj: ClassifiedNeed | SkippedNeed, state: State
+    ) -> Iterable[FunctionResult]:
+        for result in super().apply(input_obj, state):
+            if isinstance(result.output, GroundedNeed) and result.output.level == "full":
+                yield FunctionResult(
+                    result.output,
+                    replace(
+                        result.state,
+                        implementation_readiness_inferred=_add_once(
+                            result.state.implementation_readiness_inferred,
+                            result.output.task_id,
+                        ),
+                    ),
+                    label="broken_preflight_inferred_implementation_ready",
+                )
+                continue
+            yield result
+
+
 def terminal_predicate(current_output, state: State, trace) -> bool:
     del state, trace
     return isinstance(current_output, (RouteSelected, BlockedNeed))
@@ -629,6 +659,32 @@ def selected_inventory_materializes_only_selected_models(
     return InvariantResult.pass_()
 
 
+def full_preflight_emits_maturation_handoff(state: State, trace) -> InvariantResult:
+    del trace
+    bad = tuple(
+        sorted(
+            (set(state.route_selected) & set(state.full_required))
+            - set(state.maturation_handoff_emitted)
+        )
+    )
+    if bad:
+        return InvariantResult.fail(
+            f"full preflight selected a route without a model-maturation coverage handoff: {bad!r}"
+        )
+    return InvariantResult.pass_()
+
+
+def preflight_does_not_claim_implementation_readiness(
+    state: State, trace
+) -> InvariantResult:
+    del trace
+    if state.implementation_readiness_inferred:
+        return InvariantResult.fail(
+            "existing-model preflight inferred implementation readiness; task sufficiency belongs to ModelMaturation"
+        )
+    return InvariantResult.pass_()
+
+
 INVARIANTS = (
     Invariant(
         "no_route_without_grounding",
@@ -669,6 +725,16 @@ INVARIANTS = (
         "selected_inventory_materializes_only_selected_models",
         "Ordinary preflight selects owners before materializing model bodies; broad inventory is explicit.",
         selected_inventory_materializes_only_selected_models,
+    ),
+    Invariant(
+        "full_preflight_emits_maturation_handoff",
+        "A full preflight contributes owner and surface coverage to ModelMaturation before implementation admission.",
+        full_preflight_emits_maturation_handoff,
+    ),
+    Invariant(
+        "preflight_does_not_claim_implementation_readiness",
+        "Owner lookup and reuse routing do not prove task-level understanding.",
+        preflight_does_not_claim_implementation_readiness,
     ),
 )
 
@@ -798,6 +864,7 @@ __all__ = [
     "BrokenIgnoresSurfaceInventory",
     "BrokenLightForFull",
     "BrokenPromotesRelatedPlane",
+    "BrokenPreflightAsImplementationReadiness",
     "ChangeIdea",
     "State",
     "build_workflow",

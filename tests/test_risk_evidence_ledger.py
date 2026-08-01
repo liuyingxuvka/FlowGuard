@@ -14,6 +14,7 @@ from flowguard import (
     RISK_GATE_MAINTENANCE_OBLIGATION,
     RISK_GATE_MODEL_CARTESIAN_COVERAGE,
     RISK_GATE_MODEL_ANGLE_REVIEW,
+    RISK_GATE_MODEL_MATURATION,
     RISK_GATE_MODEL_SPLIT,
     RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE,
     RISK_GATE_PARENT_MODEL_EVIDENCE,
@@ -35,11 +36,17 @@ from flowguard import (
     RISK_PROOF_STATUS_SKIPPED,
     RISK_PROOF_STATUS_STALE,
     MaintenanceObligation,
+    MODEL_MATURATION_CONFIDENCE_BLOCKED,
+    MODEL_MATURATION_CONFIDENCE_FULL,
+    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+    MODEL_MATURATION_DECISION_PROGRESS_STALLED,
+    ModelMaturationEvidenceRef,
     ProofArtifactRef,
     RiskEvidenceGate,
     RiskEvidenceLedgerPlan,
     RiskEvidenceProof,
     RiskEvidenceRow,
+    model_maturation_to_risk_evidence_gate,
     review_risk_evidence_ledger,
 )
 
@@ -99,7 +106,68 @@ def finding_codes(report):
     return [finding.code for finding in report.findings]
 
 
+def maturation(*, closed=True, current=True):
+    return ModelMaturationEvidenceRef(
+        "maturation:risk",
+        task_id="task:risk",
+        model_id="model:risk",
+        candidate_model_fingerprint="candidate:risk",
+        coverage_universe_id="coverage:risk",
+        coverage_universe_fingerprint="coverage-fp:risk",
+        input_fingerprint="input:risk",
+        evidence_fingerprint="evidence:risk",
+        decision=(
+            MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+            if closed
+            else MODEL_MATURATION_DECISION_PROGRESS_STALLED
+        ),
+        confidence=(
+            MODEL_MATURATION_CONFIDENCE_FULL
+            if closed
+            else MODEL_MATURATION_CONFIDENCE_BLOCKED
+        ),
+        terminal_reason=(
+            MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+            if closed
+            else MODEL_MATURATION_DECISION_PROGRESS_STALLED
+        ),
+        open_gap_fingerprints=() if closed else ("gap:risk",),
+        current=current,
+    )
+
+
 class RiskEvidenceLedgerTests(unittest.TestCase):
+    def test_typed_model_maturation_gate_requires_exact_closed_identity(self):
+        ref = maturation()
+        exact = review_risk_evidence_ledger(
+            plan(
+                rows=(row(gates=(model_maturation_to_risk_evidence_gate(ref),)),),
+                model_maturation_evidence=(ref,),
+            )
+        )
+        self.assertTrue(exact.ok, exact.format_text())
+
+        bare = review_risk_evidence_ledger(
+            plan(rows=(row(gates=(gate(RISK_GATE_MODEL_MATURATION, ref.evidence_id),)),))
+        )
+        self.assertFalse(bare.ok)
+        self.assertIn("unknown_model_maturation_evidence", finding_codes(bare))
+
+        open_ref = maturation(closed=False)
+        blocked = review_risk_evidence_ledger(
+            plan(
+                rows=(
+                    row(gates=(model_maturation_to_risk_evidence_gate(open_ref),)),
+                ),
+                model_maturation_evidence=(open_ref,),
+            )
+        )
+        self.assertFalse(blocked.ok)
+        self.assertIn(
+            "model_maturation_identity_not_closed_for_task",
+            finding_codes(blocked),
+        )
+
     def test_full_confidence_requires_model_obligation_and_current_external_pass(self):
         report = review_risk_evidence_ledger(plan())
 

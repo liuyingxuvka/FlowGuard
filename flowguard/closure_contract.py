@@ -14,6 +14,10 @@ from typing import Any, Mapping, Sequence
 
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
+from .model_maturation import (
+    ModelMaturationEvidenceRef,
+    coerce_model_maturation_evidence_ref,
+)
 
 
 CLOSURE_CONFIDENCE_FULL = "full"
@@ -392,6 +396,7 @@ class FlowGuardClosureContractPlan:
     runtime_gateway_closures: tuple[RuntimeGatewayInventoryClosure, ...] = ()
     field_lifecycle_reports: tuple[Any, ...] = ()
     model_angle_reports: tuple[Any, ...] = ()
+    model_maturation_evidence: tuple[ModelMaturationEvidenceRef, ...] = ()
     evidence_reports: tuple[ClosureEvidenceReport, ...] = ()
     require_runtime_trace_mapping: bool = True
     require_artifact_freshness: bool = True
@@ -400,6 +405,7 @@ class FlowGuardClosureContractPlan:
     require_runtime_gateway_closure: bool = True
     require_field_lifecycle: bool = False
     require_model_angle_review: bool = False
+    require_model_maturation: bool = True
     require_runtime_path_alignment: bool = False
     require_risk_ledger: bool = True
     require_ui_source_baseline_alignment: bool = False
@@ -422,6 +428,15 @@ class FlowGuardClosureContractPlan:
         object.__setattr__(self, "runtime_gateway_closures", tuple(self.runtime_gateway_closures))
         object.__setattr__(self, "field_lifecycle_reports", tuple(self.field_lifecycle_reports))
         object.__setattr__(self, "model_angle_reports", tuple(self.model_angle_reports))
+        object.__setattr__(
+            self,
+            "model_maturation_evidence",
+            tuple(
+                coerce_model_maturation_evidence_ref(item)
+                for item in self.model_maturation_evidence
+                if item is not None
+            ),
+        )
         object.__setattr__(self, "evidence_reports", tuple(self.evidence_reports))
         object.__setattr__(self, "require_runtime_trace_mapping", bool(self.require_runtime_trace_mapping))
         object.__setattr__(self, "require_artifact_freshness", bool(self.require_artifact_freshness))
@@ -430,6 +445,7 @@ class FlowGuardClosureContractPlan:
         object.__setattr__(self, "require_runtime_gateway_closure", bool(self.require_runtime_gateway_closure))
         object.__setattr__(self, "require_field_lifecycle", bool(self.require_field_lifecycle))
         object.__setattr__(self, "require_model_angle_review", bool(self.require_model_angle_review))
+        object.__setattr__(self, "require_model_maturation", bool(self.require_model_maturation))
         object.__setattr__(self, "require_runtime_path_alignment", bool(self.require_runtime_path_alignment))
         object.__setattr__(self, "require_risk_ledger", bool(self.require_risk_ledger))
         object.__setattr__(
@@ -462,6 +478,9 @@ class FlowGuardClosureContractPlan:
             "runtime_gateway_closures": [item.to_dict() for item in self.runtime_gateway_closures],
             "field_lifecycle_reports": [_to_dict_or_value(item) for item in self.field_lifecycle_reports],
             "model_angle_reports": [_to_dict_or_value(item) for item in self.model_angle_reports],
+            "model_maturation_evidence": [
+                item.to_dict() for item in self.model_maturation_evidence
+            ],
             "evidence_reports": [item.to_dict() for item in self.evidence_reports],
             "require_runtime_trace_mapping": self.require_runtime_trace_mapping,
             "require_artifact_freshness": self.require_artifact_freshness,
@@ -470,6 +489,7 @@ class FlowGuardClosureContractPlan:
             "require_runtime_gateway_closure": self.require_runtime_gateway_closure,
             "require_field_lifecycle": self.require_field_lifecycle,
             "require_model_angle_review": self.require_model_angle_review,
+            "require_model_maturation": self.require_model_maturation,
             "require_runtime_path_alignment": self.require_runtime_path_alignment,
             "require_risk_ledger": self.require_risk_ledger,
             "require_ui_source_baseline_alignment": self.require_ui_source_baseline_alignment,
@@ -606,6 +626,44 @@ def review_flowguard_closure_contract(
                 )
             )
 
+    maturation_by_id = {
+        item.evidence_id: item for item in plan.model_maturation_evidence
+    }
+    selected_maturation: ModelMaturationEvidenceRef | None = None
+    if plan.require_model_maturation:
+        if not plan.model_maturation_evidence:
+            findings.append(
+                _finding(
+                    "missing_model_maturation_evidence",
+                    "broad closure has no typed task-level model-maturation evidence",
+                )
+            )
+        elif len(maturation_by_id) != len(plan.model_maturation_evidence):
+            findings.append(
+                _finding(
+                    "duplicate_model_maturation_evidence_id",
+                    "model-maturation evidence ids must be unique for closure",
+                )
+            )
+        elif len(plan.model_maturation_evidence) != 1:
+            findings.append(
+                _finding(
+                    "ambiguous_model_maturation_evidence",
+                    "broad closure must select one exact task/candidate/coverage maturation identity",
+                )
+            )
+        else:
+            selected_maturation = plan.model_maturation_evidence[0]
+            if not selected_maturation.supports_full_confidence():
+                findings.append(
+                    _finding(
+                        "model_maturation_not_closed_for_task",
+                        "model-maturation evidence is stale, scoped, blocked, open, or not closed for the exact task",
+                        selected_maturation.evidence_id,
+                        selected_maturation.to_dict(),
+                    )
+                )
+
     if plan.require_runtime_trace_mapping and not plan.runtime_trace_mappings:
         findings.append(_finding("missing_runtime_trace_mapping", "no runtime trace mapping evidence was supplied"))
     for trace in plan.runtime_trace_mappings:
@@ -696,6 +754,25 @@ def review_flowguard_closure_contract(
                     severity=severity,
                 )
             )
+        elif selected_maturation is not None:
+            matching_risk_reports = [
+                report
+                for report in risk_reports
+                if dict(report.metadata).get("model_maturation_evidence_id")
+                == selected_maturation.evidence_id
+            ]
+            if not matching_risk_reports:
+                findings.append(
+                    _finding(
+                        "risk_closure_model_maturation_identity_mismatch",
+                        "Risk Evidence Ledger and Closure Contract did not consume the same maturation evidence identity",
+                        selected_maturation.evidence_id,
+                        {
+                            "expected_maturation_evidence_id": selected_maturation.evidence_id,
+                            "risk_reports": [report.to_dict() for report in risk_reports],
+                        },
+                    )
+                )
 
     if plan.require_ui_source_baseline_alignment:
         ui_source_reports = reports_by_kind.get(CLOSURE_REPORT_UI_SOURCE_BASELINE_ALIGNMENT, [])

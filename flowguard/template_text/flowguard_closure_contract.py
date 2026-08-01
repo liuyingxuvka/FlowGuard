@@ -46,15 +46,34 @@ from flowguard import (
     CLOSURE_REPORT_UI_DONE_CLAIM,
     CLOSURE_REPORT_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
     MODEL_QUALITY_HIDDEN_STATE,
+    MODEL_MATURATION_CONFIDENCE_FULL,
+    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
     ArtifactInvalidation,
     ClosureEvidenceReport,
     FlowGuardClosureContractPlan,
     ModelQualitySignal,
+    ModelMaturationEvidenceRef,
     RuntimeGatewayInventoryClosure,
     RuntimeTraceMapping,
     SameClassMissClosure,
     review_flowguard_closure_contract,
 )
+
+
+def maturation_evidence():
+    return ModelMaturationEvidenceRef(
+        "maturation:sample",
+        task_id="task:sample",
+        model_id="model:critical-write",
+        candidate_model_fingerprint="sha256:candidate",
+        coverage_universe_id="coverage:sample",
+        coverage_universe_fingerprint="sha256:coverage",
+        input_fingerprint="sha256:intake",
+        evidence_fingerprint="sha256:evidence",
+        decision=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+        confidence=MODEL_MATURATION_CONFIDENCE_FULL,
+        terminal_reason=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+    )
 
 
 def evidence_report(report_id, report_kind=CLOSURE_REPORT_RISK_LEDGER, **overrides):
@@ -67,6 +86,7 @@ def evidence_report(report_id, report_kind=CLOSURE_REPORT_RISK_LEDGER, **overrid
         "confidence": CLOSURE_CONFIDENCE_FULL,
         "result_status": "passed",
         "proof_artifact_ids": (f"artifact:{report_id}",),
+        "metadata": {"model_maturation_evidence_id": "maturation:sample"},
     }
     values.update(overrides)
     return ClosureEvidenceReport(**values)
@@ -120,6 +140,7 @@ def correct_closure_plan():
             evidence_report("report:ui-capability-coverage", CLOSURE_REPORT_UI_FUNCTIONAL_CAPABILITY_COVERAGE),
             evidence_report("report:ui-done-claim", CLOSURE_REPORT_UI_DONE_CLAIM),
         ),
+        model_maturation_evidence=(maturation_evidence(),),
         require_field_lifecycle=True,
         require_ui_functional_capability_coverage=True,
         require_ui_done_claim_review=True,
@@ -208,6 +229,8 @@ production-confidence claim.
   and replacement disposition.
 - Risk Evidence Ledger and route reports with current passing full-confidence
   evidence.
+- One exact current closed-for-task Model Maturation identity, which must be
+  the same identity recorded by the Risk Evidence Ledger report.
 
 The closure review is a final coordinator. It does not replace the route that
 owns each proof; it blocks or scopes the final claim when any required evidence

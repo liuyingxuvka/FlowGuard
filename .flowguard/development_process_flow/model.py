@@ -382,6 +382,281 @@ class BrokenNoPlaneBoundary(CorrectLifecycleGate):
         yield from super().apply(input_obj, state)
 
 
+@dataclass(frozen=True)
+class AdmissionAction:
+    action_type: str
+    task_id: str = "task:model-first-upgrade"
+    candidate_fingerprint: str = "sha256:candidate"
+    coverage_fingerprint: str = "sha256:coverage"
+    evidence_fingerprint: str = "sha256:evidence"
+    maturation_decision: str = "closed_for_task"
+    open_gap_ids: tuple[str, ...] = ()
+    requested_scope_ids: tuple[str, ...] = ("scope:production-code",)
+    authorization_current: bool = False
+    authorization_task_id: str = ""
+    authorization_candidate_fingerprint: str = ""
+    authorization_coverage_fingerprint: str = ""
+    authorization_evidence_fingerprint: str = ""
+    authorization_allowed_scope_ids: tuple[str, ...] = ()
+    authorization_accepted_gap_ids: tuple[str, ...] = ()
+    read_only: bool = False
+
+
+@dataclass(frozen=True)
+class AdmissionOutput:
+    status: str
+
+
+@dataclass(frozen=True)
+class AdmissionState:
+    maturation_current: bool = False
+    task_id: str = ""
+    candidate_fingerprint: str = ""
+    coverage_fingerprint: str = ""
+    evidence_fingerprint: str = ""
+    maturation_decision: str = "none"
+    open_gap_ids: tuple[str, ...] = ()
+    requested_scope_ids: tuple[str, ...] = ()
+    authorization_exact: bool = False
+    authorization_allowed_scope_ids: tuple[str, ...] = ()
+    admission_status: str = "not_requested"
+
+    def closed_for_task(self) -> bool:
+        return (
+            self.maturation_current
+            and self.maturation_decision == "closed_for_task"
+            and not self.open_gap_ids
+        )
+
+
+class CorrectImplementationAdmissionGate:
+    name = "CorrectImplementationAdmissionGate"
+    reads = (
+        "maturation_current",
+        "task_id",
+        "candidate_fingerprint",
+        "coverage_fingerprint",
+        "evidence_fingerprint",
+        "maturation_decision",
+        "open_gap_ids",
+        "requested_scope_ids",
+        "authorization_exact",
+        "authorization_allowed_scope_ids",
+        "admission_status",
+    )
+    writes = reads
+    accepted_input_type = AdmissionAction
+    input_description = "task-level maturation evidence, implementation request, or scoped authorization"
+    output_description = "ready, ready_scoped, blocked, or no_code_requested admission"
+    idempotency = "Implementation admission is bound to the exact task, candidate, coverage, evidence, and scope."
+
+    def apply(
+        self, input_obj: AdmissionAction, state: AdmissionState
+    ) -> Iterable[FunctionResult]:
+        if input_obj.action_type == "consume_maturation":
+            current = all(
+                (
+                    input_obj.task_id,
+                    input_obj.candidate_fingerprint,
+                    input_obj.coverage_fingerprint,
+                    input_obj.evidence_fingerprint,
+                )
+            )
+            yield FunctionResult(
+                AdmissionOutput("maturation_consumed" if current else "maturation_rejected"),
+                replace(
+                    state,
+                    maturation_current=current,
+                    task_id=input_obj.task_id,
+                    candidate_fingerprint=input_obj.candidate_fingerprint,
+                    coverage_fingerprint=input_obj.coverage_fingerprint,
+                    evidence_fingerprint=input_obj.evidence_fingerprint,
+                    maturation_decision=input_obj.maturation_decision,
+                    open_gap_ids=input_obj.open_gap_ids,
+                ),
+                label="maturation_consumed" if current else "maturation_rejected",
+            )
+            return
+        if input_obj.action_type == "request_implementation":
+            yield FunctionResult(
+                AdmissionOutput("implementation_requested"),
+                replace(state, requested_scope_ids=input_obj.requested_scope_ids),
+                label="implementation_requested",
+            )
+            return
+        if input_obj.action_type == "request_read_only":
+            yield FunctionResult(
+                AdmissionOutput("no_code_requested"),
+                replace(state, admission_status="no_code_requested"),
+                label="no_code_requested",
+            )
+            return
+        if input_obj.action_type == "supply_authorization":
+            exact = (
+                input_obj.authorization_current
+                and input_obj.authorization_task_id == state.task_id
+                and input_obj.authorization_candidate_fingerprint
+                == state.candidate_fingerprint
+                and input_obj.authorization_coverage_fingerprint
+                == state.coverage_fingerprint
+                and input_obj.authorization_evidence_fingerprint
+                == state.evidence_fingerprint
+                and set(state.open_gap_ids).issubset(
+                    set(input_obj.authorization_accepted_gap_ids)
+                )
+            )
+            yield FunctionResult(
+                AdmissionOutput("authorization_exact" if exact else "authorization_rejected"),
+                replace(
+                    state,
+                    authorization_exact=exact,
+                    authorization_allowed_scope_ids=input_obj.authorization_allowed_scope_ids,
+                ),
+                label="authorization_exact" if exact else "authorization_rejected",
+            )
+            return
+        if input_obj.action_type == "decide_admission":
+            requested = set(state.requested_scope_ids)
+            allowed = set(state.authorization_allowed_scope_ids)
+            if not requested:
+                status = "no_code_requested"
+            elif state.closed_for_task():
+                status = "ready"
+            elif state.authorization_exact and requested.issubset(allowed):
+                status = "ready_scoped"
+            else:
+                status = "blocked"
+            yield FunctionResult(
+                AdmissionOutput(status),
+                replace(state, admission_status=status),
+                label=status,
+            )
+
+
+class BrokenAuthorizationAsConfidence(CorrectImplementationAdmissionGate):
+    name = "BrokenAuthorizationAsConfidence"
+    idempotency = "Broken variant lets any authorization erase maturation gaps and scope boundaries."
+
+    def apply(
+        self, input_obj: AdmissionAction, state: AdmissionState
+    ) -> Iterable[FunctionResult]:
+        if input_obj.action_type == "supply_authorization" and input_obj.authorization_current:
+            yield FunctionResult(
+                AdmissionOutput("authorization_exact"),
+                replace(
+                    state,
+                    authorization_exact=True,
+                    authorization_allowed_scope_ids=input_obj.authorization_allowed_scope_ids,
+                ),
+                label="authorization_exact",
+            )
+            return
+        if input_obj.action_type == "decide_admission" and state.authorization_exact:
+            yield FunctionResult(
+                AdmissionOutput("ready"),
+                replace(
+                    state,
+                    admission_status="ready",
+                ),
+                label="ready",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
+def no_admission_without_task_sufficiency_or_exact_scope(
+    state: AdmissionState, _trace
+) -> InvariantResult:
+    if state.admission_status == "ready" and not state.closed_for_task():
+        return InvariantResult.fail(
+            "unscoped implementation admitted without current closed-for-task maturation evidence"
+        )
+    if state.admission_status == "ready_scoped":
+        if not state.authorization_exact:
+            return InvariantResult.fail("scoped implementation admitted without exact authorization")
+        if not set(state.requested_scope_ids).issubset(
+            set(state.authorization_allowed_scope_ids)
+        ):
+            return InvariantResult.fail("scoped implementation exceeded authorized scope")
+    return InvariantResult.pass_()
+
+
+def authorization_does_not_rewrite_understanding(
+    state: AdmissionState, _trace
+) -> InvariantResult:
+    if state.authorization_exact and state.maturation_decision == "closed_for_task" and state.open_gap_ids:
+        return InvariantResult.fail(
+            "implementation authorization rewrote an open model-maturation result as understood"
+        )
+    return InvariantResult.pass_()
+
+
+ADMISSION_INVARIANTS = (
+    Invariant(
+        "no_admission_without_task_sufficiency_or_exact_scope",
+        "Implementation needs closed task-level maturation or exact current scoped authorization.",
+        no_admission_without_task_sufficiency_or_exact_scope,
+    ),
+    Invariant(
+        "authorization_does_not_rewrite_understanding",
+        "Authorization changes what may be attempted, never what the model evidence proved.",
+        authorization_does_not_rewrite_understanding,
+    ),
+)
+
+
+GOOD_CLOSED_ADMISSION_SEQUENCE = (
+    AdmissionAction("consume_maturation"),
+    AdmissionAction("request_implementation"),
+    AdmissionAction("decide_admission"),
+)
+
+GOOD_SCOPED_ADMISSION_SEQUENCE = (
+    AdmissionAction(
+        "consume_maturation",
+        maturation_decision="progress_stalled",
+        open_gap_ids=("gap:external-contract",),
+    ),
+    AdmissionAction("request_implementation", requested_scope_ids=("scope:prototype",)),
+    AdmissionAction(
+        "supply_authorization",
+        authorization_current=True,
+        authorization_task_id="task:model-first-upgrade",
+        authorization_candidate_fingerprint="sha256:candidate",
+        authorization_coverage_fingerprint="sha256:coverage",
+        authorization_evidence_fingerprint="sha256:evidence",
+        authorization_allowed_scope_ids=("scope:prototype",),
+        authorization_accepted_gap_ids=("gap:external-contract",),
+    ),
+    AdmissionAction("decide_admission"),
+)
+
+BROKEN_AUTHORIZATION_SEQUENCE = (
+    AdmissionAction(
+        "consume_maturation",
+        maturation_decision="progress_stalled",
+        open_gap_ids=("gap:external-contract",),
+    ),
+    AdmissionAction("request_implementation", requested_scope_ids=("scope:production-code",)),
+    AdmissionAction(
+        "supply_authorization",
+        authorization_current=True,
+        authorization_task_id="wrong-task",
+        authorization_allowed_scope_ids=("scope:prototype",),
+    ),
+    AdmissionAction("decide_admission"),
+)
+
+
+def admission_initial_state() -> AdmissionState:
+    return AdmissionState()
+
+
+def build_admission_workflow(*, broken: bool = False) -> Workflow:
+    gate = BrokenAuthorizationAsConfidence() if broken else CorrectImplementationAdmissionGate()
+    return Workflow((gate,), name="implementation_admission")
+
+
 def terminal_predicate(current_output, state, trace) -> bool:
     del state, trace
     return isinstance(current_output, LifecycleOutput) and current_output.status.startswith("release_")
@@ -549,12 +824,20 @@ def export_contract_model():
 
 
 __all__ = [
+    "ADMISSION_INVARIANTS",
+    "BROKEN_AUTHORIZATION_SEQUENCE",
     "EXTERNAL_INPUTS",
+    "GOOD_CLOSED_ADMISSION_SEQUENCE",
+    "GOOD_SCOPED_ADMISSION_SEQUENCE",
     "INVARIANTS",
     "MAX_SEQUENCE_LENGTH",
+    "AdmissionAction",
+    "AdmissionState",
     "LifecycleAction",
     "LifecycleOutput",
     "LifecycleState",
+    "admission_initial_state",
+    "build_admission_workflow",
     "build_broken_workflow",
     "build_broken_plane_workflow",
     "build_correct_workflow",

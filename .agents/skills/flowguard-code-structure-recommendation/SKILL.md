@@ -27,12 +27,14 @@ Accept a source model and named responsibilities; produce FunctionBlock-to-modul
 1. Name the source model, FunctionBlocks, state, fields, side effects, and public entrypoints.
 2. Recommend cohesive target modules, single owners, facades, adapters, and observable leaf boundaries.
 3. Record rationale plus StructureMesh, Model-Test Alignment, or FieldLifecycleMesh handoffs.
+4. Keep it recommendation-only without exact current admission for the same task/model/scope.
 
 ## Hard Gates
 - Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Do not invent modules before responsibilities; require one owner per state/field write, explicit public facade, and validation boundaries.
 - A too-large leaf must split or remain scoped; new/deepened models require template harvest closure.
+- A diagram cannot prove readiness; block scope beyond the admission.
 
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a code structure diagram and ownership map.

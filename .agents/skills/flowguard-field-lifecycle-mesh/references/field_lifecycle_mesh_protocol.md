@@ -99,3 +99,7 @@ in the revision set's affected closure with one owner and old-field
 disposition. Activation blocks on unaccounted fields; rollback blocks until
 restore, compensation, or irreversible forward-repair disposition is
 evidenced.
+
+When triggered, emit a current-evidence maturation contribution for field
+inventory, lifecycle, projections, dispositions, readers/writers, and gaps.
+This route owns semantics; the compiler only unions coverage.

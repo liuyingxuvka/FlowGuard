@@ -188,3 +188,20 @@ sub-skills.
 - Preserve standalone FlowGuard use; external planner handoffs remain optional.
 - Before broad release, verify the installed kernel and satellite skills match
   the source skill directories.
+
+## Task Sufficiency And Implementation Admission
+
+For non-trivial work, each triggered native owner returns a current typed
+`ModelMaturationCoverageContribution`. The kernel compiles only triggered
+owners plus task requirements, current-system ownership, and unresolved model
+angles into one `ModelMaturationIntake`; it never requires unrelated routes for
+ceremony and never reinterprets native semantics. Model Maturation alone owns
+whether the exact task/candidate/coverage is sufficiently understood.
+
+If implementation is requested, DevelopmentProcessFlow consumes that exact
+evidence and returns the independent admission result. User permission may
+produce only an exact bounded `ready_scoped` result while open gaps remain; it
+does not change the maturation decision. Read-only work is
+`no_code_requested`. Missing/stale identity, scope expansion, unavailable real
+toolchain, destructive-boundary uncertainty, or active ownership conflict
+blocks admission.

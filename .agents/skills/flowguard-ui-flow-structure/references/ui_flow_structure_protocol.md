@@ -40,3 +40,10 @@ Complete-product consistency is still this route, not a new design-language owne
 Screenshot, DOM text, event traces, geometry, accessibility/ARIA, test results, and manual observation are evidence kinds only when tied to a current model/implementation revision and an evidence reference. Label/API existence alone is not functional proof.
 
 The route returns its content-visibility plan plus evidence, failures, blockers, skipped checks, residual risk, claim boundary, and typed next actions. It does not replace visual design, final copywriting, frontend implementation, Code Structure Recommendation, StructureMesh, Model-Test Alignment, or TestMesh.
+
+When UI is triggered, also emit a typed maturation contribution for the exact
+accepted capabilities, observed surfaces, visible controls/displays,
+event-state cells, journeys, recovery paths, operability rows, and current
+evidence identities. Keep UI roles, permissions, content, and actor semantics
+inside the target software; FlowGuard receives coverage ids and open gaps, not
+a new global persona taxonomy. Omitted or stale UI evidence remains open.

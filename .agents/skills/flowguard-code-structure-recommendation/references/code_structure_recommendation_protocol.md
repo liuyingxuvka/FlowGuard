@@ -106,3 +106,6 @@ A recommendation is complete when:
 - known-bad alternatives such as a monolithic target, duplicate owners, hidden
   side effects, missing facade, or unexplained mechanical over-splitting are
   rejected or documented as out of scope.
+
+Implementation-ready requires current admission for the same task, model, and
+every proposed module/path. Otherwise it remains recommendation-only.

@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from flowguard import (
     OBLIGATION_STATUS_RESOLVED,
+    MODEL_MATURATION_CONFIDENCE_FULL,
+    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
     RISK_GATE_ARTIFACT_PAYLOAD,
     RISK_GATE_CONTRACT_COVERAGE_SHARD,
     RISK_GATE_DEFECT_FAMILY,
@@ -33,16 +35,35 @@ from flowguard import (
     RISK_PROOF_STATUS_PASSED,
     RISK_PROOF_STATUS_PROGRESS_ONLY,
     MaintenanceObligation,
+    ModelMaturationEvidenceRef,
     ProofArtifactRef,
     RiskEvidenceGate,
     RiskEvidenceLedgerPlan,
     RiskEvidenceProof,
     RiskEvidenceRow,
+    model_maturation_to_risk_evidence_gate,
     review_risk_evidence_ledger,
 )
 
 
+def maturation_evidence():
+    return ModelMaturationEvidenceRef(
+        "maturation:checkout",
+        task_id="task:checkout",
+        model_id="model:checkout",
+        candidate_model_fingerprint="sha256:candidate",
+        coverage_universe_id="coverage:checkout",
+        coverage_universe_fingerprint="sha256:coverage",
+        input_fingerprint="sha256:intake",
+        evidence_fingerprint="sha256:evidence",
+        decision=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+        confidence=MODEL_MATURATION_CONFIDENCE_FULL,
+        terminal_reason=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+    )
+
+
 def correct_ledger() -> RiskEvidenceLedgerPlan:
+    maturation = maturation_evidence()
     return RiskEvidenceLedgerPlan(
         "checkout-final-confidence",
         require_proof_artifacts=True,
@@ -53,6 +74,7 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
                 code_contract_id="api:submit_order",
                 proof_evidence_ids=("test:duplicate-submit",),
                 gates=(
+                    model_maturation_to_risk_evidence_gate(maturation),
                     RiskEvidenceGate(RISK_GATE_DEFECT_FAMILY, "defect-family:duplicate-submit"),
                     RiskEvidenceGate(RISK_GATE_MODEL_CARTESIAN_COVERAGE, "contract_coverage:checkout-child"),
                     RiskEvidenceGate(RISK_GATE_CONTRACT_COVERAGE_SHARD, "contract_shard:checkout-child:duplicate-submit"),
@@ -117,6 +139,7 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
                 evidence_ids=("structuremesh:submit-routing",),
             ),
         ),
+        model_maturation_evidence=(maturation,),
     )
 
 

@@ -41,12 +41,17 @@ from flowguard import (
     PROCESS_SCOPE_RELEASE,
     DevelopmentProcessPlan,
     FreshnessRule,
+    ImplementationAdmissionPlan,
+    MODEL_MATURATION_CONFIDENCE_FULL,
+    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+    ModelMaturationEvidenceRef,
     ProofArtifactRef,
     ProcessAction,
     ProcessArtifact,
     ProcessEvidence,
     ValidationRequirement,
     review_development_process_flow,
+    review_implementation_admission,
 )
 
 
@@ -78,6 +83,30 @@ def artifacts(code_version: str = "2", test_version: str = "1", requirement_vers
             upstream_artifact_ids=("requirements.checkout", "model.checkout"),
         ),
         ProcessArtifact("tests.checkout", PROCESS_ARTIFACT_TEST, test_version),
+    )
+
+
+def implementation_admission():
+    maturation = ModelMaturationEvidenceRef(
+        "maturation:checkout",
+        task_id="task:checkout",
+        model_id="checkout-functional-model",
+        candidate_model_fingerprint="sha256:candidate",
+        coverage_universe_id="coverage:checkout",
+        coverage_universe_fingerprint="sha256:coverage",
+        input_fingerprint="sha256:intake",
+        evidence_fingerprint="sha256:evidence",
+        decision=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+        confidence=MODEL_MATURATION_CONFIDENCE_FULL,
+        terminal_reason=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+    )
+    return review_implementation_admission(
+        ImplementationAdmissionPlan(
+            "admission:checkout",
+            maturation_evidence=maturation,
+            implementation_requested=True,
+            requested_path_ids=("checkout/orchestrator.py",),
+        )
     )
 
 
@@ -169,7 +198,11 @@ def broken_plan() -> DevelopmentProcessPlan:
 
 
 def run_checks():
-    return review_development_process_flow(routine_plan()), review_development_process_flow(broken_plan())
+    return (
+        review_development_process_flow(routine_plan()),
+        review_development_process_flow(broken_plan()),
+        implementation_admission(),
+    )
 '''
 
 DEVELOPMENT_PROCESS_FLOW_RUN_CHECKS_TEMPLATE = '''"""Run the DevelopmentProcessFlow template checks."""
@@ -180,11 +213,13 @@ from model import run_checks
 
 
 def main() -> int:
-    routine, broken = run_checks()
+    routine, broken, admission = run_checks()
     print(routine.format_text())
     print()
     print(broken.format_text(max_findings=6))
-    return 0 if routine.ok and not broken.ok else 1
+    print()
+    print(admission.to_dict())
+    return 0 if routine.ok and not broken.ok and admission.implementation_ready() else 1
 
 
 if __name__ == "__main__":
@@ -230,6 +265,10 @@ Use this scaffold to model a development lifecycle as a stateful process.
   universal order;
 - stable Finding Ledger references, relation-backed root-cause repair groups,
   visible hard blockers, and current affected-obligation revalidation.
+- a separate implementation-admission result: `ready` only after exact
+  closed-for-task maturation, `ready_scoped` only under exact bounded user
+  authorization, `no_code_requested` for read-only work, otherwise blocked or
+  stale. Authorization never rewrites the maturation decision.
 
 For field-bearing work, add `PROCESS_ARTIFACT_FIELD_LIFECYCLE`,
 `PROCESS_ARTIFACT_FIELD_PROJECTION`, `PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION`,

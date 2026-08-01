@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.68.3 - 2026-08-01
+
+- Added task-local model-maturation intake that combines independently owned
+  coverage and accepts resolved model angles only with exact current proof.
+- Separated model sufficiency from implementation authorization: read-only
+  work remains no-code, normal implementation requires closed current
+  maturation, and explicitly bounded work can use a scoped authorization.
+- Bound risk, closure, and code-structure readiness to the same maturation and
+  admission identities so a complete-looking diagram cannot certify code by
+  itself.
+- Updated FlowGuard entry guidance and specialist protocols to report model
+  depth and implementation admission separately while preserving lightweight
+  use and target-software roles.
+
 ## v0.68.2 - 2026-08-01
 
 - Narrowed the ordinary FlowGuard entry to route selection and a minimum

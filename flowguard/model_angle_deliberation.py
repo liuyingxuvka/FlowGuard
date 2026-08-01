@@ -13,6 +13,13 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref
+from .model_maturation import (
+    MODEL_MATURATION_RESOLUTION_MODEL_EDIT,
+    MODEL_MATURATION_SIGNAL_MISSING_MODEL_OBLIGATION,
+    ModelMaturationCoverageContribution,
+    ModelMaturationSignal,
+)
 
 
 MODEL_ANGLE_ACTION_REUSE_EXISTING = "reuse_existing"
@@ -97,6 +104,8 @@ class ModelAngleDeliberation:
     evidence_needed: tuple[str, ...] = ()
     open_questions: tuple[str, ...] = ()
     resolved: bool = False
+    owner_evidence: ProofArtifactRef | Mapping[str, Any] | None = None
+    subject_fingerprints: Mapping[str, str] = field(default_factory=dict)
     current: bool = True
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -116,6 +125,12 @@ class ModelAngleDeliberation:
         object.__setattr__(self, "evidence_needed", _as_tuple(self.evidence_needed))
         object.__setattr__(self, "open_questions", _as_tuple(self.open_questions))
         object.__setattr__(self, "resolved", bool(self.resolved))
+        object.__setattr__(self, "owner_evidence", coerce_proof_artifact_ref(self.owner_evidence))
+        object.__setattr__(
+            self,
+            "subject_fingerprints",
+            {str(key): str(value) for key, value in self.subject_fingerprints.items()},
+        )
         object.__setattr__(self, "current", bool(self.current))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
@@ -132,9 +147,34 @@ class ModelAngleDeliberation:
         return (
             self.required_before_broad_claim
             and self.current
-            and not self.resolved
+            and not self.resolution_is_authoritative()
             and self.candidate_action in _BROAD_ACTIONS
         )
+
+    def owner_evidence_gap_codes(self) -> tuple[str, ...]:
+        if not self.resolved:
+            return ("model_angle_not_resolved",)
+        proof = self.owner_evidence
+        if proof is None:
+            return ("missing_model_angle_owner_evidence",)
+        gaps: list[str] = []
+        if proof.producer_route != self.owner_route():
+            gaps.append("model_angle_owner_mismatch")
+        if not proof.has_current_pass():
+            gaps.append("model_angle_owner_evidence_not_current_pass")
+        if not proof.covers_all((self.angle_id,)):
+            gaps.append("model_angle_owner_evidence_missing_angle")
+        if not self.subject_fingerprints:
+            gaps.append("model_angle_subject_fingerprints_missing")
+        elif any(
+            proof.artifact_fingerprints.get(key) != value
+            for key, value in self.subject_fingerprints.items()
+        ):
+            gaps.append("model_angle_subject_fingerprint_mismatch")
+        return tuple(gaps)
+
+    def resolution_is_authoritative(self) -> bool:
+        return not self.owner_evidence_gap_codes()
 
     def is_scoped_action(self) -> bool:
         return self.candidate_action in {
@@ -159,6 +199,8 @@ class ModelAngleDeliberation:
             "evidence_needed": list(self.evidence_needed),
             "open_questions": list(self.open_questions),
             "resolved": self.resolved,
+            "owner_evidence": self.owner_evidence.to_dict() if self.owner_evidence else None,
+            "subject_fingerprints": dict(self.subject_fingerprints),
             "current": self.current,
             "metadata": to_jsonable(dict(self.metadata)),
         }
@@ -442,6 +484,18 @@ def review_model_angle_deliberations(
         if item.needs_resolution_before_broad_claim():
             unresolved.append(item.angle_id)
             severity = MODEL_ANGLE_FINDING_BLOCKER if broad_claim else MODEL_ANGLE_FINDING_GAP
+            for gap_code in item.owner_evidence_gap_codes():
+                findings.append(
+                    ModelAngleFinding(
+                        gap_code,
+                        "required model-angle resolution lacks exact current proof from its owner route and subject",
+                        severity=severity,
+                        angle_id=item.angle_id,
+                        owner_route=owner_route,
+                        candidate_action=item.candidate_action,
+                        metadata=metadata,
+                    )
+                )
             findings.append(
                 ModelAngleFinding(
                     "unresolved_required_model_angle",
@@ -480,6 +534,50 @@ def review_model_angle_deliberations(
     )
 
 
+def model_angle_report_to_maturation_contribution(
+    report: ModelAngleReviewReport,
+    *,
+    task_id: str,
+    report_evidence: ProofArtifactRef | Mapping[str, Any] | None,
+    subject_fingerprints: Mapping[str, str],
+) -> ModelMaturationCoverageContribution:
+    """Project angle coverage and open owner-proof gaps without claiming sufficiency."""
+
+    coverage_ids = tuple(item.angle_id for item in report.deliberations if item.angle_id)
+    signals = tuple(
+        ModelMaturationSignal(
+            signal_id=f"model-angle:{item.angle_id}",
+            signal_type=MODEL_MATURATION_SIGNAL_MISSING_MODEL_OBLIGATION,
+            source_route="model_angle_deliberation",
+            model_id=next(iter(item.existing_model_ids), ""),
+            coverage_id=item.angle_id,
+            probe_id=f"probe:model-angle:{item.angle_id}",
+            resolution_class=MODEL_MATURATION_RESOLUTION_MODEL_EDIT,
+            prediction=f"owner route {item.owner_route()} resolves angle {item.angle_id}",
+            falsifier=f"angle {item.angle_id} lacks exact current owner proof",
+            description=item.failure_if_ignored,
+            resolved=item.resolution_is_authoritative(),
+            current=item.current,
+            metadata={"owner_route": item.owner_route(), "candidate_action": item.candidate_action},
+        )
+        for item in report.deliberations
+        if item.angle_id
+    )
+    return ModelMaturationCoverageContribution(
+        contribution_id=f"model-angle:{report.review_id}",
+        owner_route="model_angle_deliberation",
+        task_id=task_id,
+        coverage_source_refs=(f"model-angle-review:{report.review_id}",),
+        coverage_ids=coverage_ids,
+        required_probe_ids=tuple(f"probe:model-angle:{value}" for value in coverage_ids),
+        signals=signals,
+        evidence_ref=report_evidence,
+        subject_fingerprints=subject_fingerprints,
+        status="pass",
+        current=all(item.current for item in report.deliberations),
+    )
+
+
 __all__ = [
     "MODEL_ANGLE_ACTION_ADD_CHILD_MODEL",
     "MODEL_ANGLE_ACTION_CREATE_NEW_MODEL",
@@ -505,5 +603,6 @@ __all__ = [
     "ModelAngleDeliberation",
     "ModelAngleFinding",
     "ModelAngleReviewReport",
+    "model_angle_report_to_maturation_contribution",
     "review_model_angle_deliberations",
 ]

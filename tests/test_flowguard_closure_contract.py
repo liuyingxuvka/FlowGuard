@@ -91,6 +91,7 @@ class FlowGuardClosureContractModelTests(unittest.TestCase):
                 require_same_class_miss_closure=False,
                 require_runtime_gateway_closure=False,
                 require_risk_ledger=False,
+                require_model_maturation=False,
             )
         )
 
@@ -108,6 +109,7 @@ class FlowGuardClosureContractModelTests(unittest.TestCase):
                 require_same_class_miss_closure=False,
                 require_runtime_gateway_closure=False,
                 require_risk_ledger=False,
+                require_model_maturation=False,
             )
         )
 
@@ -131,6 +133,7 @@ class FlowGuardClosureContractModelTests(unittest.TestCase):
                 require_same_class_miss_closure=False,
                 require_runtime_gateway_closure=False,
                 require_risk_ledger=False,
+                require_model_maturation=False,
             )
         )
 
@@ -147,6 +150,7 @@ class FlowGuardClosureContractModelTests(unittest.TestCase):
                 require_same_class_miss_closure=False,
                 require_runtime_gateway_closure=False,
                 require_risk_ledger=False,
+                require_model_maturation=False,
             )
         )
 
@@ -167,6 +171,7 @@ class FlowGuardClosureContractModelTests(unittest.TestCase):
                 require_same_class_miss_closure=False,
                 require_runtime_gateway_closure=False,
                 require_risk_ledger=False,
+                require_model_maturation=False,
             )
         )
 
@@ -184,6 +189,7 @@ class FlowGuardClosureContractModelTests(unittest.TestCase):
                 require_same_class_miss_closure=False,
                 require_runtime_gateway_closure=False,
                 require_risk_ledger=False,
+                require_model_maturation=False,
             )
         )
 

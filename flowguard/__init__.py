@@ -910,6 +910,11 @@ from .route_topology import *  # noqa: F403
 from .development_process_simulator import *  # noqa: F403
 from .development_process_strategy import *  # noqa: F403
 from .development_process_flow import (
+    IMPLEMENTATION_ADMISSION_BLOCKED,
+    IMPLEMENTATION_ADMISSION_NO_CODE,
+    IMPLEMENTATION_ADMISSION_READY,
+    IMPLEMENTATION_ADMISSION_READY_SCOPED,
+    IMPLEMENTATION_ADMISSION_STALE,
     PROCESS_ARTIFACT_ADAPTER,
     PROCESS_ARTIFACT_BEHAVIOR_COMMITMENT_LEDGER,
     PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE,
@@ -964,6 +969,10 @@ from .development_process_flow import (
     DevelopmentProcessFlowReport,
     DevelopmentProcessPlan,
     FreshnessRule,
+    ImplementationAdmissionFinding,
+    ImplementationAdmissionPlan,
+    ImplementationAdmissionReport,
+    ImplementationAuthorization,
     ProcessAction,
     ProcessArtifact,
     ProcessEvidence,
@@ -972,6 +981,7 @@ from .development_process_flow import (
     ValidationRequirement,
     derive_revalidation_plan,
     review_development_process_flow,
+    review_implementation_admission,
 )
 from .testmesh import (
     TEST_EVIDENCE_ORDER,
@@ -1172,6 +1182,7 @@ from .risk_evidence_ledger import (
     RISK_GATE_MAINTENANCE_OBLIGATION,
     RISK_GATE_MODEL_CARTESIAN_COVERAGE,
     RISK_GATE_MODEL_ANGLE_REVIEW,
+    RISK_GATE_MODEL_MATURATION,
     RISK_GATE_MODEL_SPLIT,
     RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE,
     RISK_GATE_PARENT_MODEL_EVIDENCE,
@@ -1208,6 +1219,7 @@ from .risk_evidence_ledger import (
     RiskEvidenceLedgerReport,
     RiskEvidenceProof,
     RiskEvidenceRow,
+    model_maturation_to_risk_evidence_gate,
     review_risk_evidence_ledger,
 )
 from .recurring_model_miss import (
@@ -2319,11 +2331,13 @@ REPORTING_HELPER_API = (
     "KnownBadProof",
     "review_known_bad_proofs",
     "RiskEvidenceGate",
+    "RISK_GATE_MODEL_MATURATION",
     "RiskEvidenceProof",
     "RiskEvidenceRow",
     "RiskEvidenceLedgerPlan",
     "RiskEvidenceFinding",
     "RiskEvidenceLedgerReport",
+    "model_maturation_to_risk_evidence_gate",
     "review_risk_evidence_ledger",
     "DefectFamilyCase",
     "DefectFamilyEvidence",

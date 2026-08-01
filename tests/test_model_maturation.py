@@ -25,8 +25,13 @@ from flowguard import (
     MODEL_MATURATION_SIGNAL_MISSING_MODEL_OBLIGATION,
     MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
     ModelMaturationGapResolutionReceipt,
+    ModelMaturationCoverageContribution,
+    ModelMaturationEvidenceRef,
+    ModelMaturationIntake,
     ModelMaturationPlan,
     ModelMaturationSignal,
+    ProofArtifactRef,
+    compile_model_maturation_plan,
     review_model_maturation_loop,
     review_model_maturation_session,
 )
@@ -114,6 +119,103 @@ def _gap_receipt(plan, gap, **overrides):
 
 
 class ModelMaturationTests(unittest.TestCase):
+    def _contribution(self, contribution_id="requirements", **overrides):
+        values = {
+            "contribution_id": contribution_id,
+            "owner_route": "existing_model_preflight",
+            "task_id": "task-compile",
+            "coverage_source_refs": ("spec:task-compile",),
+            "coverage_ids": ("requirement:submit",),
+            "required_probe_ids": ("probe:submit",),
+            "subject_fingerprints": {"candidate": "candidate-compile"},
+            "evidence_ref": ProofArtifactRef(
+                f"proof:{contribution_id}",
+                producer_route="existing_model_preflight",
+                result_status="passed",
+                exit_code=0,
+                artifact_fingerprints={"candidate": "candidate-compile"},
+                covered_obligation_ids=("requirement:submit",),
+            ),
+        }
+        values.update(overrides)
+        return ModelMaturationCoverageContribution(**values)
+
+    def _intake(self, *contributions, **overrides):
+        values = {
+            "intake_id": "intake-compile",
+            "plan_id": "plan-compile",
+            "task_id": "task-compile",
+            "task_purpose": "compile independent pre-code coverage",
+            "model_id": "submit-model",
+            "risk_id": "risk-submit",
+            "base_model_fingerprint": "base-compile",
+            "candidate_model_fingerprint": "candidate-compile",
+            "contributions": contributions,
+        }
+        values.update(overrides)
+        return ModelMaturationIntake(**values)
+
+    def test_pre_code_intake_compiles_independent_coverage_and_exact_evidence(self):
+        requirement = self._contribution()
+        bcl = self._contribution(
+            "behavior",
+            owner_route="behavior_commitment_ledger",
+            coverage_source_refs=("bcl:submit",),
+            coverage_ids=("behavior:submit",),
+            required_probe_ids=("probe:behavior:submit",),
+            evidence_ref=ProofArtifactRef(
+                "proof:behavior",
+                producer_route="behavior_commitment_ledger",
+                result_status="passed",
+                artifact_fingerprints={"candidate": "candidate-compile"},
+                covered_obligation_ids=("behavior:submit",),
+            ),
+        )
+        plan = compile_model_maturation_plan(self._intake(requirement, bcl))
+        report = review_model_maturation_loop(plan)
+
+        self.assertEqual(
+            set(plan.coverage_ids), {"requirement:submit", "behavior:submit"}
+        )
+        self.assertTrue(report.ok, report.format_text())
+        ref = ModelMaturationEvidenceRef.from_report(report)
+        self.assertTrue(ref.supports_full_confidence())
+        self.assertEqual(ref.candidate_model_fingerprint, "candidate-compile")
+
+    def test_missing_or_stale_contribution_remains_an_open_gap(self):
+        for owner in ("behavior", "model_angle", "ui", "field", "test"):
+            with self.subTest(owner=owner):
+                missing_plan = compile_model_maturation_plan(
+                    self._intake(
+                        self._contribution(),
+                        required_contribution_ids=("requirements", owner),
+                    )
+                )
+                missing = review_model_maturation_loop(missing_plan)
+                self.assertFalse(missing.ok)
+                self.assertIn(f"missing-contribution:{owner}", missing_plan.coverage_ids)
+
+        stale = self._contribution(current=False)
+        stale_report = review_model_maturation_loop(
+            compile_model_maturation_plan(self._intake(stale))
+        )
+        self.assertFalse(stale_report.ok)
+        self.assertIn(
+            "model_maturation_signal_stale",
+            {finding.code for finding in stale_report.findings},
+        )
+
+    def test_low_risk_intake_does_not_invent_untriggered_specialists(self):
+        plan = compile_model_maturation_plan(
+            self._intake(self._contribution(), required_contribution_ids=("requirements",))
+        )
+        self.assertEqual(plan.coverage_ids, ("requirement:submit",))
+        self.assertFalse(any(source.startswith("ui:") for source in plan.coverage_source_refs))
+
+    def test_duplicate_contribution_identity_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self._intake(self._contribution(), self._contribution())
+
     def test_empty_legacy_shape_is_blocked_instead_of_current(self):
         report = review_model_maturation_loop(ModelMaturationPlan(plan_id="shallow"))
 

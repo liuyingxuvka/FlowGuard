@@ -25,6 +25,9 @@ from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 @dataclass(frozen=True)
 class ClosureAction:
     action_type: str
+    maturation_evidence_id: str = ""
+    maturation_current: bool = False
+    maturation_decision: str = ""
 
 
 @dataclass(frozen=True)
@@ -44,6 +47,10 @@ class ClosureState:
     freshness_current: bool = False
     ledger_current: bool = False
     claim_chain_current: bool = False
+    model_maturation_current: bool = False
+    model_maturation_closed: bool = False
+    model_maturation_evidence_id: str = ""
+    risk_maturation_evidence_id: str = ""
     completion_claim: str = "none"
 
     def closure_ready(self) -> bool:
@@ -58,6 +65,11 @@ class ClosureState:
             and self.freshness_current
             and self.ledger_current
             and self.claim_chain_current
+            and self.model_maturation_current
+            and self.model_maturation_closed
+            and bool(self.model_maturation_evidence_id)
+            and self.risk_maturation_evidence_id
+            == self.model_maturation_evidence_id
         )
 
 
@@ -74,6 +86,10 @@ class ClosureContractFlow:
         "freshness_current",
         "ledger_current",
         "claim_chain_current",
+        "model_maturation_current",
+        "model_maturation_closed",
+        "model_maturation_evidence_id",
+        "risk_maturation_evidence_id",
     )
     writes = reads + ("completion_claim",)
     accepted_input_type = ClosureAction
@@ -99,8 +115,41 @@ class ClosureContractFlow:
             yield FunctionResult(ClosureOutput("mesh_or_boundary_current"), replace(state, mesh_or_boundary_current=True), label="mesh_or_boundary_current")
         elif action == "refresh_evidence":
             yield FunctionResult(ClosureOutput("freshness_current"), replace(state, freshness_current=True), label="freshness_current")
+        elif action == "consume_model_maturation":
+            current_closed = (
+                bool(input_obj.maturation_evidence_id)
+                and input_obj.maturation_current
+                and input_obj.maturation_decision == "closed_for_task"
+            )
+            yield FunctionResult(
+                ClosureOutput(
+                    "model_maturation_current" if current_closed else "model_maturation_rejected"
+                ),
+                replace(
+                    state,
+                    model_maturation_current=current_closed,
+                    model_maturation_closed=current_closed,
+                    model_maturation_evidence_id=input_obj.maturation_evidence_id,
+                ),
+                label=(
+                    "model_maturation_current" if current_closed else "model_maturation_rejected"
+                ),
+            )
         elif action == "run_risk_ledger":
-            yield FunctionResult(ClosureOutput("ledger_current"), replace(state, ledger_current=True), label="ledger_current")
+            exact = (
+                bool(input_obj.maturation_evidence_id)
+                and input_obj.maturation_evidence_id
+                == state.model_maturation_evidence_id
+            )
+            yield FunctionResult(
+                ClosureOutput("ledger_current" if exact else "ledger_maturation_mismatch"),
+                replace(
+                    state,
+                    ledger_current=exact,
+                    risk_maturation_evidence_id=input_obj.maturation_evidence_id,
+                ),
+                label="ledger_current" if exact else "ledger_maturation_mismatch",
+            )
         elif action == "run_claim_chain":
             yield FunctionResult(ClosureOutput("claim_chain_current"), replace(state, claim_chain_current=True), label="claim_chain_current")
         elif action == "claim_complete_flowguard_use":
@@ -135,6 +184,21 @@ def closure_is_not_optional_mode(state: ClosureState, trace) -> InvariantResult:
     return InvariantResult.pass_()
 
 
+def closure_and_risk_use_same_maturation_identity(
+    state: ClosureState, trace
+) -> InvariantResult:
+    del trace
+    if state.completion_claim == "accepted" and (
+        not state.model_maturation_evidence_id
+        or state.risk_maturation_evidence_id
+        != state.model_maturation_evidence_id
+    ):
+        return InvariantResult.fail(
+            "closure and risk ledger did not consume the same model-maturation evidence identity"
+        )
+    return InvariantResult.pass_()
+
+
 def terminal_predicate(current_output, state, trace) -> bool:
     del state, trace
     return isinstance(current_output, ClosureOutput) and current_output.status.startswith("completion_")
@@ -151,6 +215,11 @@ INVARIANTS = (
         "The closure contract is intrinsic to FlowGuard use, not a mode.",
         closure_is_not_optional_mode,
     ),
+    Invariant(
+        "closure_and_risk_use_same_maturation_identity",
+        "Risk and closure must consume the same current closed-for-task maturation evidence.",
+        closure_and_risk_use_same_maturation_identity,
+    ),
 )
 
 EXTERNAL_INPUTS = (
@@ -162,6 +231,7 @@ EXTERNAL_INPUTS = (
     ClosureAction("align_model_code_test"),
     ClosureAction("prove_mesh_or_boundary"),
     ClosureAction("refresh_evidence"),
+    ClosureAction("consume_model_maturation"),
     ClosureAction("run_risk_ledger"),
     ClosureAction("run_claim_chain"),
     ClosureAction("claim_complete_flowguard_use"),
@@ -175,7 +245,16 @@ GOOD_SEQUENCE = (
     ClosureAction("align_model_code_test"),
     ClosureAction("prove_mesh_or_boundary"),
     ClosureAction("refresh_evidence"),
-    ClosureAction("run_risk_ledger"),
+    ClosureAction(
+        "consume_model_maturation",
+        maturation_evidence_id="maturation:self-upgrade",
+        maturation_current=True,
+        maturation_decision="closed_for_task",
+    ),
+    ClosureAction(
+        "run_risk_ledger",
+        maturation_evidence_id="maturation:self-upgrade",
+    ),
     ClosureAction("run_claim_chain"),
     ClosureAction("claim_complete_flowguard_use"),
 )
@@ -183,6 +262,25 @@ GOOD_SEQUENCE = (
 BROKEN_POINT_SEQUENCE = (
     ClosureAction("confirm_model_ownership"),
     ClosureAction("align_model_code_test"),
+    ClosureAction("claim_complete_flowguard_use"),
+)
+
+BROKEN_MATURATION_IDENTITY_SEQUENCE = (
+    ClosureAction("declare_contract"),
+    ClosureAction("complete_plan_risk_intake"),
+    ClosureAction("confirm_model_ownership"),
+    ClosureAction("add_same_class_miss_evidence"),
+    ClosureAction("align_model_code_test"),
+    ClosureAction("prove_mesh_or_boundary"),
+    ClosureAction("refresh_evidence"),
+    ClosureAction(
+        "consume_model_maturation",
+        maturation_evidence_id="maturation:one",
+        maturation_current=True,
+        maturation_decision="closed_for_task",
+    ),
+    ClosureAction("run_risk_ledger", maturation_evidence_id="maturation:two"),
+    ClosureAction("run_claim_chain"),
     ClosureAction("claim_complete_flowguard_use"),
 )
 
@@ -195,7 +293,16 @@ BROKEN_MODE_SEQUENCE = (
     ClosureAction("align_model_code_test"),
     ClosureAction("prove_mesh_or_boundary"),
     ClosureAction("refresh_evidence"),
-    ClosureAction("run_risk_ledger"),
+    ClosureAction(
+        "consume_model_maturation",
+        maturation_evidence_id="maturation:self-upgrade",
+        maturation_current=True,
+        maturation_decision="closed_for_task",
+    ),
+    ClosureAction(
+        "run_risk_ledger",
+        maturation_evidence_id="maturation:self-upgrade",
+    ),
     ClosureAction("run_claim_chain"),
     ClosureAction("claim_complete_flowguard_use"),
 )
@@ -215,6 +322,7 @@ def build_broken_workflow() -> Workflow:
 
 __all__ = [
     "BROKEN_MODE_SEQUENCE",
+    "BROKEN_MATURATION_IDENTITY_SEQUENCE",
     "BROKEN_POINT_SEQUENCE",
     "EXTERNAL_INPUTS",
     "GOOD_SEQUENCE",

@@ -16,7 +16,12 @@ from flowguard import (
     MODEL_ANGLE_ROUTE_MODEL_MESH,
     MODEL_ANGLE_ROUTE_MODEL_MATURATION,
     ModelAngleDeliberation,
+    ModelMaturationIntake,
+    ProofArtifactRef,
+    compile_model_maturation_plan,
+    model_angle_report_to_maturation_contribution,
     review_model_angle_deliberations,
+    review_model_maturation_loop,
 )
 
 
@@ -34,6 +39,15 @@ def resolved_angle(**overrides):
         "owner_route_hint": MODEL_ANGLE_ROUTE_MODEL_MATURATION,
         "evidence_needed": ("unit:test_model_angle",),
         "resolved": True,
+        "owner_evidence": ProofArtifactRef(
+            "proof:angle-route",
+            producer_route=MODEL_ANGLE_ROUTE_MODEL_MATURATION,
+            result_status="passed",
+            exit_code=0,
+            artifact_fingerprints={"model": "sha256:model"},
+            covered_obligation_ids=("angle:route",),
+        ),
+        "subject_fingerprints": {"model": "sha256:model"},
     }
     values.update(overrides)
     return ModelAngleDeliberation(**values)
@@ -44,6 +58,42 @@ def finding_codes(report):
 
 
 class ModelAngleDeliberationTests(unittest.TestCase):
+    def test_open_angles_project_to_task_maturation_without_self_closing(self):
+        angle_report = review_model_angle_deliberations(
+            "review:open-projection",
+            (resolved_angle(resolved=False, owner_evidence=None),),
+            broad_claim=True,
+        )
+        report_proof = ProofArtifactRef(
+            "proof:angle-report",
+            producer_route="model_angle_deliberation",
+            result_status="passed",
+            artifact_fingerprints={"candidate": "candidate:angle"},
+            covered_obligation_ids=("angle:route",),
+        )
+        contribution = model_angle_report_to_maturation_contribution(
+            angle_report,
+            task_id="task:angle",
+            report_evidence=report_proof,
+            subject_fingerprints={"candidate": "candidate:angle"},
+        )
+        plan = compile_model_maturation_plan(
+            ModelMaturationIntake(
+                "intake:angle",
+                "plan:angle",
+                "task:angle",
+                "resolve every required model angle",
+                "model:angle",
+                "risk:angle",
+                "base:angle",
+                "candidate:angle",
+                contributions=(contribution,),
+            )
+        )
+        maturation = review_model_maturation_loop(plan)
+        self.assertFalse(maturation.ok)
+        self.assertTrue(maturation.open_gap_fingerprints)
+
     def test_resolved_model_angle_supports_full_confidence(self):
         report = review_model_angle_deliberations(
             "review:resolved",
@@ -70,6 +120,62 @@ class ModelAngleDeliberationTests(unittest.TestCase):
         self.assertEqual(MODEL_ANGLE_DECISION_BLOCKED, report.decision)
         self.assertEqual(MODEL_ANGLE_CONFIDENCE_BLOCKED, report.confidence)
         self.assertIn("missing_model_angle_review", finding_codes(report))
+
+    def test_bare_wrong_owner_stale_wrong_coverage_and_wrong_subject_proof_block(self):
+        cases = (
+            ({"owner_evidence": None}, "missing_model_angle_owner_evidence"),
+            (
+                {
+                    "owner_evidence": ProofArtifactRef(
+                        "proof:wrong-owner",
+                        producer_route="model_mesh_maintenance",
+                        result_status="passed",
+                        artifact_fingerprints={"model": "sha256:model"},
+                        covered_obligation_ids=("angle:route",),
+                    )
+                },
+                "model_angle_owner_mismatch",
+            ),
+            (
+                {
+                    "owner_evidence": ProofArtifactRef(
+                        "proof:stale",
+                        producer_route=MODEL_ANGLE_ROUTE_MODEL_MATURATION,
+                        result_status="passed",
+                        current=False,
+                        artifact_fingerprints={"model": "sha256:model"},
+                        covered_obligation_ids=("angle:route",),
+                    )
+                },
+                "model_angle_owner_evidence_not_current_pass",
+            ),
+            (
+                {
+                    "owner_evidence": ProofArtifactRef(
+                        "proof:wrong-angle",
+                        producer_route=MODEL_ANGLE_ROUTE_MODEL_MATURATION,
+                        result_status="passed",
+                        artifact_fingerprints={"model": "sha256:model"},
+                        covered_obligation_ids=("angle:other",),
+                    )
+                },
+                "model_angle_owner_evidence_missing_angle",
+            ),
+            (
+                {"subject_fingerprints": {"model": "sha256:other"}},
+                "model_angle_subject_fingerprint_mismatch",
+            ),
+        )
+        for overrides, expected in cases:
+            with self.subTest(expected=expected):
+                report = review_model_angle_deliberations(
+                    f"review:{expected}",
+                    (resolved_angle(**overrides),),
+                    require_review=True,
+                    broad_claim=True,
+                )
+                self.assertFalse(report.ok)
+                self.assertIn(expected, finding_codes(report))
 
     def test_unresolved_required_angle_is_scoped_until_broad_claim(self):
         light = review_model_angle_deliberations(

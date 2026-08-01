@@ -28,14 +28,16 @@ Order modes, freshness, triggered equivalents, delegation.
 2. On trigger, prove equivalence; choose `diagnostic_boundary_choice` and sequential/`safe_parallel`; else `not_needed`.
 3. Reuse TestMesh/Finding Ledger; repair owner; revalidate affected obligations.
 4. Freeze inputs; owners=`execute|reuse_current|blocked`; plan-only starts none. Preserve child passes for exact composition.
-5. Align source/package/skill/Git; freeze both manifests; run one gate; verify its tree without restarting producers.
-6. Model change preserves head, atomically accepts one `ModelRevisionSet`, writes evidence before pointer, proves repair.
+5. Consume the exact Model Maturation evidence and return a separate implementation admission. Closed evidence may be `ready`; open evidence needs exact current bounded authorization for `ready_scoped`; read-only is `no_code_requested`; non-waivable toolchain, destructive, or ownership blockers stay blocked.
+6. Align source/package/skill/Git; freeze both manifests; run one gate; verify its tree without restarting producers.
+7. Model change preserves head, atomically accepts one `ModelRevisionSet`, writes evidence before pointer, proves repair.
 
 ## Hard Gates
 - Adopt/upgrade, activation, rollback share one lock/CAS owner; stale head stops. Rollback revalidates effects.
 - Model-purpose gate: freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Native owners keep semantics; WorkContexts only inform scope/order; progress is not proof.
+- Authorization changes only the allowed attempt scope. It cannot rewrite maturation confidence, hide open gaps, expand paths/artifacts/actions, or waive toolchain/destructive/active-owner blockers.
 - Repairs need relation, owner, affected revalidation. Unknown proof/owner or active lease blocks; never run-all.
 - Machine success is artifact-backed; non-pass children stay visible.
 

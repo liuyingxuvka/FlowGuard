@@ -62,3 +62,19 @@ declared, project-bounded artifacts through peer `WorkContext` adapters.
 FlowGuard must not write provider content, execute provider checks, create
 provider sessions/caches/receipts, reconcile provider tasks into test owners,
 or expose planning context as product UI or test evidence.
+
+## Coverage Intake, Sufficiency, And Permission
+
+Before code when feasible, or after new evidence when necessary, compile one
+task-local maturation intake from task requirements, current owner/surface
+preflight, required model-angle owner proof, and only triggered BCL, field, UI,
+mesh, or test contributors. The denominator is independent of the candidate;
+omitted, stale, skipped, scoped, blocked, progress-only, or not-run
+contributions stay open. A `resolved` or `understood` self-report is never
+evidence.
+
+Return two separate statements when code is relevant: the unchanged
+ModelMaturation sufficiency result and the DevelopmentProcessFlow
+implementation admission. Permission can bound an attempt; it cannot upgrade
+understanding. Risk Evidence Ledger and Closure Contract must consume the same
+current maturation evidence id for a broad claim.

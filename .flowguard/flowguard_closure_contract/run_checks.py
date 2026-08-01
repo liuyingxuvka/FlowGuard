@@ -38,6 +38,20 @@ def run_scenarios() -> bool:
             ),
             workflow=model.build_correct_workflow(),
         ),
+        Scenario(
+            "broken_maturation_identity",
+            "closure and risk cannot use different model-maturation evidence",
+            model.initial_state(),
+            model.BROKEN_MATURATION_IDENTITY_SEQUENCE,
+            ScenarioExpectation(
+                expected_status="violation",
+                expected_violation_names=(
+                    "no_complete_claim_without_closure",
+                    "closure_and_risk_use_same_maturation_identity",
+                ),
+            ),
+            workflow=model.build_broken_workflow(),
+        ),
     )
     report = review_scenarios(scenarios, default_invariants=model.INVARIANTS)
     print(report.format_text())

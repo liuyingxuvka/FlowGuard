@@ -123,6 +123,11 @@ This route recommends structure. It does not write production code and does not
 replace StructureMesh. StructureMesh uses model-derived target structure when an
 existing large script or module is being split.
 
+By default the result is recommendation-only. Set
+`implementation_ready_requested=True` only when attaching the exact current
+`ImplementationAdmissionReport`; every target module id or path must remain
+inside that admission's allowed scope.
+
 For field-heavy changes, every reader and writer should point to exactly one
 field owner. Old or replacement fields should stay visible here until
 FieldLifecycleMesh and Architecture Reduction have closed their disposition.

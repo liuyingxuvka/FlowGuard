@@ -28,7 +28,7 @@ Accept boundary/root; choose reuse, extend, child, new, or none; block duplicate
 2. Search models/specs/docs/surfaces, bind owners, classify old evidence, then attach WorkContexts with exact identities and lanes.
 3. Extract block/state/field/effect/entrypoint/commitment/intent/path/mesh ownership.
 4. Independently inventory every declared same-intent surface, not only caller candidates.
-5. Record lookup/fingerprint, primary/related hits, reuse, unknown/scoped surfaces, duplicate/stale risks, and typed handoff.
+5. Record lookup/fingerprint, hits, reuse, unknown/scoped surfaces, duplicate/stale risks, and a maturation contribution.
 6. For composition, report references, changed roots, discovery identity, and gaps through `compose_existing_models`; do not duplicate portable-system schema.
 
 ## Hard Gates
@@ -38,8 +38,9 @@ Accept boundary/root; choose reuse, extend, child, new, or none; block duplicate
 - Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks. Full mode precedes proposal/implementation.
 - Missing/stale search or ownership, duplicate owners, unresolved mesh proof, or omitted same-intent surfaces block full preflight; equivalent current semantics default to reuse.
 - Shared words cannot promote a wrong-plane hit. Missing/stale lookup falls back explicitly; ambiguity blocks full-confidence selection.
-- WorkContext is read-only context, never runtime ownership or evidence. Unknown adapters, stale fingerprints, missing roles, wrong lanes, path escape, or provider authority block.
+- WorkContext is read-only; stale, unknown, wrong-lane, path-escape, or provider bindings block.
 - Select the owner closure before reading model bodies; broad authority inventory must be explicit.
+- Full preflight proves owner/surface completeness, not task depth or implementation admission.
 
 ## Output Requirements
 - Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, hits, ownership, plane lookup, reuse, and duplicate risks.

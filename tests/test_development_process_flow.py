@@ -4,6 +4,10 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from flowguard import (
+    IMPLEMENTATION_ADMISSION_BLOCKED,
+    IMPLEMENTATION_ADMISSION_NO_CODE,
+    IMPLEMENTATION_ADMISSION_READY,
+    IMPLEMENTATION_ADMISSION_READY_SCOPED,
     PROCESS_ARTIFACT_CODE,
     PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE,
     PROCESS_ARTIFACT_FIELD_LIFECYCLE,
@@ -35,6 +39,13 @@ from flowguard import (
     PROCESS_SCOPE_ROUTINE,
     DevelopmentProcessPlan,
     FreshnessRule,
+    ImplementationAdmissionPlan,
+    ImplementationAuthorization,
+    MODEL_MATURATION_CONFIDENCE_BLOCKED,
+    MODEL_MATURATION_CONFIDENCE_FULL,
+    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+    MODEL_MATURATION_DECISION_PROGRESS_STALLED,
+    ModelMaturationEvidenceRef,
     ProofArtifactRef,
     ProcessAction,
     ProcessArtifact,
@@ -42,6 +53,7 @@ from flowguard import (
     ValidationRequirement,
     derive_revalidation_plan,
     review_development_process_flow,
+    review_implementation_admission,
 )
 
 
@@ -71,6 +83,133 @@ def proof_artifact(artifact_id="artifact:unit", *covered):
 
 
 class DevelopmentProcessFlowTests(unittest.TestCase):
+    def maturation_ref(self, *, closed=True, current=True):
+        return ModelMaturationEvidenceRef(
+            evidence_id="maturation:task",
+            task_id="task:one",
+            model_id="model:one",
+            candidate_model_fingerprint="candidate:one",
+            coverage_universe_id="coverage:one",
+            coverage_universe_fingerprint="coverage-fp:one",
+            input_fingerprint="input:one",
+            evidence_fingerprint="evidence:one",
+            decision=(
+                MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+                if closed
+                else MODEL_MATURATION_DECISION_PROGRESS_STALLED
+            ),
+            confidence=(
+                MODEL_MATURATION_CONFIDENCE_FULL
+                if closed
+                else MODEL_MATURATION_CONFIDENCE_BLOCKED
+            ),
+            terminal_reason=(
+                MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+                if closed
+                else MODEL_MATURATION_DECISION_PROGRESS_STALLED
+            ),
+            open_gap_fingerprints=() if closed else ("gap:one",),
+            current=current,
+        )
+
+    def test_implementation_admission_keeps_sufficiency_separate_from_permission(self):
+        no_code = review_implementation_admission(
+            ImplementationAdmissionPlan("admission:no-code", read_only=True)
+        )
+        self.assertEqual(no_code.status, IMPLEMENTATION_ADMISSION_NO_CODE)
+
+        ready = review_implementation_admission(
+            ImplementationAdmissionPlan(
+                "admission:ready",
+                maturation_evidence=self.maturation_ref(),
+                implementation_requested=True,
+                requested_artifact_ids=("module:one",),
+            )
+        )
+        self.assertEqual(ready.status, IMPLEMENTATION_ADMISSION_READY)
+
+        blocked = review_implementation_admission(
+            ImplementationAdmissionPlan(
+                "admission:blocked",
+                maturation_evidence=self.maturation_ref(closed=False),
+                implementation_requested=True,
+                requested_path_ids=("flowguard/one.py",),
+            )
+        )
+        self.assertEqual(blocked.status, IMPLEMENTATION_ADMISSION_BLOCKED)
+        self.assertEqual(
+            blocked.maturation_evidence.decision,
+            MODEL_MATURATION_DECISION_PROGRESS_STALLED,
+        )
+
+    def test_exact_authorization_only_admits_its_bounded_scope(self):
+        ref = self.maturation_ref(closed=False)
+        authorization = ImplementationAuthorization(
+            "authorization:one",
+            task_id=ref.task_id,
+            candidate_model_fingerprint=ref.candidate_model_fingerprint,
+            coverage_universe_fingerprint=ref.coverage_universe_fingerprint,
+            input_fingerprint=ref.input_fingerprint,
+            evidence_fingerprint=ref.evidence_fingerprint,
+            allowed_path_ids=("flowguard/one.py",),
+            accepted_gap_fingerprints=ref.open_gap_fingerprints,
+            user_direction_digest="sha256:user-direction",
+        )
+        scoped = review_implementation_admission(
+            ImplementationAdmissionPlan(
+                "admission:scoped",
+                maturation_evidence=ref,
+                implementation_requested=True,
+                requested_path_ids=("flowguard/one.py",),
+                authorization=authorization,
+            )
+        )
+        self.assertEqual(scoped.status, IMPLEMENTATION_ADMISSION_READY_SCOPED)
+        self.assertEqual(
+            scoped.maturation_evidence.decision,
+            MODEL_MATURATION_DECISION_PROGRESS_STALLED,
+        )
+
+        expanded = review_implementation_admission(
+            ImplementationAdmissionPlan(
+                "admission:expanded",
+                maturation_evidence=ref,
+                implementation_requested=True,
+                requested_path_ids=("flowguard/two.py",),
+                authorization=authorization,
+            )
+        )
+        self.assertEqual(expanded.status, IMPLEMENTATION_ADMISSION_BLOCKED)
+        self.assertIn(
+            "implementation_authorization_identity_or_scope_mismatch",
+            {finding.code for finding in expanded.findings},
+        )
+
+    def test_stale_conflicting_or_nonwaivable_admission_is_blocked(self):
+        stale = review_implementation_admission(
+            ImplementationAdmissionPlan(
+                "admission:stale",
+                maturation_evidence=self.maturation_ref(current=False),
+                implementation_requested=True,
+            )
+        )
+        self.assertFalse(stale.ok)
+        for field, value, expected in (
+            ("conflicting_owner_ids", ("agent:other",), "conflicting_implementation_ownership"),
+            ("non_waivable_blocker_codes", ("destructive-boundary",), "non_waivable_blocker"),
+        ):
+            with self.subTest(field=field):
+                report = review_implementation_admission(
+                    ImplementationAdmissionPlan(
+                        f"admission:{field}",
+                        maturation_evidence=self.maturation_ref(),
+                        implementation_requested=True,
+                        **{field: value},
+                    )
+                )
+                self.assertFalse(report.ok)
+                self.assertIn(expected, {finding.code for finding in report.findings})
+
     def test_release_claim_requires_exactly_one_verified_full_parent(self):
         base = DevelopmentProcessPlan(
             "release-claim",
@@ -936,3 +1075,10 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+    ImplementationAdmissionPlan,
+    ImplementationAuthorization,
+    MODEL_MATURATION_CONFIDENCE_BLOCKED,
+    MODEL_MATURATION_CONFIDENCE_FULL,
+    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+    MODEL_MATURATION_DECISION_PROGRESS_STALLED,
+    ModelMaturationEvidenceRef,

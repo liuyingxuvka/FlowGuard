@@ -143,6 +143,14 @@ def main() -> int:
                 False,
             ),
             FormalWorkflowCase(
+                "broken_preflight_claims_implementation_ready",
+                model.build_workflow(
+                    search_block=model.BrokenPreflightAsImplementationReadiness()
+                ),
+                False,
+                required_labels=("broken_preflight_inferred_implementation_ready",),
+            ),
+            FormalWorkflowCase(
                 "stale_spec_context_blocks",
                 model.build_workflow(search_block=model.BrokenIgnoresSurfaceInventory()),
                 False,

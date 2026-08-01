@@ -17,6 +17,10 @@ from .maintenance_obligation import (
     MaintenanceObligation,
     coerce_maintenance_obligation,
 )
+from .model_maturation import (
+    ModelMaturationEvidenceRef,
+    coerce_model_maturation_evidence_ref,
+)
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
 
@@ -61,6 +65,7 @@ RISK_GATE_FAMILY = "family"
 RISK_GATE_ANALOGOUS_SCAN = "analogous_scan"
 RISK_GATE_TOPOLOGY_HAZARD = "topology_hazard"
 RISK_GATE_MODEL_ANGLE_REVIEW = "model_angle_review"
+RISK_GATE_MODEL_MATURATION = "model_maturation"
 RISK_GATE_PARENT_MODEL_EVIDENCE = "parent_model_evidence"
 RISK_GATE_MAINTENANCE_OBLIGATION = "maintenance_obligation"
 RISK_GATE_UI_IMPLEMENTATION = "ui_implementation"
@@ -229,6 +234,7 @@ class RiskEvidenceLedgerPlan:
     rows: tuple[RiskEvidenceRow, ...] = ()
     proof_evidence: tuple[RiskEvidenceProof, ...] = ()
     maintenance_obligations: tuple[MaintenanceObligation, ...] = ()
+    model_maturation_evidence: tuple[ModelMaturationEvidenceRef, ...] = ()
     require_proof_artifacts: bool = False
     allow_scoped_confidence: bool = True
 
@@ -241,6 +247,15 @@ class RiskEvidenceLedgerPlan:
             "maintenance_obligations",
             tuple(coerce_maintenance_obligation(item) for item in self.maintenance_obligations),
         )
+        object.__setattr__(
+            self,
+            "model_maturation_evidence",
+            tuple(
+                coerce_model_maturation_evidence_ref(item)
+                for item in self.model_maturation_evidence
+                if item is not None
+            ),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -248,6 +263,9 @@ class RiskEvidenceLedgerPlan:
             "rows": [row.to_dict() for row in self.rows],
             "proof_evidence": [evidence.to_dict() for evidence in self.proof_evidence],
             "maintenance_obligations": [obligation.to_dict() for obligation in self.maintenance_obligations],
+            "model_maturation_evidence": [
+                evidence.to_dict() for evidence in self.model_maturation_evidence
+            ],
             "require_proof_artifacts": self.require_proof_artifacts,
             "allow_scoped_confidence": self.allow_scoped_confidence,
         }
@@ -459,6 +477,16 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
 
 
 GATE_CODE_MAP = {
+    RISK_GATE_MODEL_MATURATION: (
+        "missing_model_maturation_gate",
+        "model_maturation_gate_not_current",
+        "model_maturation_gate_blocked",
+        "model_maturation_gate_scoped_confidence",
+        "required risk has no task-level model-maturation evidence gate",
+        "required model-maturation evidence is stale or incomplete",
+        "required model-maturation result is not closed for the exact task",
+        "model-maturation result remains explicitly scoped",
+    ),
     RISK_GATE_DEFECT_FAMILY: (
         "missing_defect_family_gate",
         "defect_family_gate_not_current",
@@ -784,6 +812,78 @@ def _maintenance_obligation_findings(
     return findings
 
 
+def model_maturation_to_risk_evidence_gate(
+    evidence: ModelMaturationEvidenceRef | Mapping[str, Any],
+    *,
+    required: bool = True,
+) -> RiskEvidenceGate:
+    """Create the only supported risk-gate projection from typed maturation evidence."""
+
+    ref = coerce_model_maturation_evidence_ref(evidence)
+    assert ref is not None
+    if ref.supports_full_confidence():
+        confidence = RISK_CONFIDENCE_FULL
+    elif ref.open_gap_fingerprints:
+        confidence = RISK_CONFIDENCE_BLOCKED
+    else:
+        confidence = RISK_CONFIDENCE_SCOPED
+    return RiskEvidenceGate(
+        kind=RISK_GATE_MODEL_MATURATION,
+        evidence_id=ref.evidence_id,
+        required=required,
+        current=ref.current,
+        confidence=confidence,
+        scoped_reasons=ref.open_gap_fingerprints,
+    )
+
+
+def _model_maturation_gate_findings(
+    row: RiskEvidenceRow,
+    gate: RiskEvidenceGate,
+    evidence_by_id: Mapping[str, ModelMaturationEvidenceRef],
+    *,
+    allow_scoped_confidence: bool,
+) -> list[RiskEvidenceFinding]:
+    findings = _generic_gate_findings(
+        row, gate, allow_scoped_confidence=allow_scoped_confidence
+    )
+    if not gate.evidence_id:
+        return findings
+    ref = evidence_by_id.get(gate.evidence_id)
+    if ref is None:
+        findings.append(
+            _finding(
+                "unknown_model_maturation_evidence",
+                "model-maturation gate does not reference a typed evidence identity in this ledger",
+                risk_id=row.risk_id,
+                evidence_id=gate.evidence_id,
+            )
+        )
+        return findings
+    expected = model_maturation_to_risk_evidence_gate(ref, required=gate.required)
+    if gate != expected:
+        findings.append(
+            _finding(
+                "model_maturation_gate_projection_mismatch",
+                "caller-entered gate fields do not match the typed maturation evidence projection",
+                risk_id=row.risk_id,
+                evidence_id=gate.evidence_id,
+                metadata={"gate": gate.to_dict(), "expected": expected.to_dict()},
+            )
+        )
+    if gate.required and not ref.supports_full_confidence():
+        findings.append(
+            _finding(
+                "model_maturation_identity_not_closed_for_task",
+                "task, candidate, coverage, input, decision, confidence, or open-gap identity does not support full risk confidence",
+                risk_id=row.risk_id,
+                evidence_id=gate.evidence_id,
+                metadata={"maturation": ref.to_dict()},
+            )
+        )
+    return findings
+
+
 def _maintenance_gate_findings(
     row: RiskEvidenceRow,
     gate: RiskEvidenceGate,
@@ -849,6 +949,7 @@ def _maintenance_gate_findings(
 def _risk_gate_findings(
     row: RiskEvidenceRow,
     obligation_by_id: Mapping[str, MaintenanceObligation],
+    maturation_by_id: Mapping[str, ModelMaturationEvidenceRef],
     *,
     allow_scoped_confidence: bool,
 ) -> list[RiskEvidenceFinding]:
@@ -863,6 +964,15 @@ def _risk_gate_findings(
                     allow_scoped_confidence=allow_scoped_confidence,
                 )
             )
+        elif gate.kind == RISK_GATE_MODEL_MATURATION:
+            findings.extend(
+                _model_maturation_gate_findings(
+                    row,
+                    gate,
+                    maturation_by_id,
+                    allow_scoped_confidence=allow_scoped_confidence,
+                )
+            )
         else:
             findings.extend(_generic_gate_findings(row, gate, allow_scoped_confidence=allow_scoped_confidence))
     for obligation_id in row.maintenance_obligation_ids:
@@ -874,6 +984,16 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
     """Review whether modeled risks are supported by current external evidence."""
 
     findings: list[RiskEvidenceFinding] = []
+    maturation_by_id = {
+        evidence.evidence_id: evidence for evidence in plan.model_maturation_evidence
+    }
+    if len(maturation_by_id) != len(plan.model_maturation_evidence):
+        findings.append(
+            _finding(
+                "duplicate_model_maturation_evidence_id",
+                "model-maturation evidence ids must be unique inside one risk ledger",
+            )
+        )
     row_ids: set[str] = set()
     for row in plan.rows:
         if row.risk_id in row_ids:
@@ -950,6 +1070,7 @@ def review_risk_evidence_ledger(plan: RiskEvidenceLedgerPlan) -> RiskEvidenceLed
             _risk_gate_findings(
                 row,
                 obligation_by_id,
+                maturation_by_id,
                 allow_scoped_confidence=plan.allow_scoped_confidence,
             )
         )
@@ -1077,6 +1198,7 @@ __all__ = [
     "RISK_GATE_MAINTENANCE_OBLIGATION",
     "RISK_GATE_MODEL_CARTESIAN_COVERAGE",
     "RISK_GATE_MODEL_ANGLE_REVIEW",
+    "RISK_GATE_MODEL_MATURATION",
     "RISK_GATE_MODEL_SPLIT",
     "RISK_GATE_PARENT_MODEL_EVIDENCE",
     "RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE",
@@ -1114,5 +1236,6 @@ __all__ = [
     "RiskEvidenceLedgerReport",
     "RiskEvidenceProof",
     "RiskEvidenceRow",
+    "model_maturation_to_risk_evidence_gate",
     "review_risk_evidence_ledger",
 ]

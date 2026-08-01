@@ -12,6 +12,11 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
+from .development_process_flow import (
+    ImplementationAdmissionFinding,
+    ImplementationAdmissionReport,
+)
+from .model_maturation import coerce_model_maturation_evidence_ref
 from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
 
 
@@ -107,6 +112,8 @@ class CodeStructureRecommendation:
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
     hierarchical_model_used: bool = False
+    implementation_ready_requested: bool = False
+    implementation_admission: ImplementationAdmissionReport | Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "recommendation_id", str(self.recommendation_id))
@@ -129,6 +136,21 @@ class CodeStructureRecommendation:
         object.__setattr__(self, "variant_adapter_module_ids", _as_tuple(self.variant_adapter_module_ids))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
+        object.__setattr__(self, "implementation_ready_requested", bool(self.implementation_ready_requested))
+        admission = self.implementation_admission
+        if admission is not None and not isinstance(admission, ImplementationAdmissionReport):
+            values = dict(admission)
+            values["maturation_evidence"] = coerce_model_maturation_evidence_ref(
+                values.get("maturation_evidence")
+            )
+            values["findings"] = tuple(
+                item
+                if isinstance(item, ImplementationAdmissionFinding)
+                else ImplementationAdmissionFinding(**dict(item))
+                for item in values.get("findings", ())
+            )
+            admission = ImplementationAdmissionReport(**values)
+        object.__setattr__(self, "implementation_admission", admission)
 
     def module_ids(self) -> tuple[str, ...]:
         return tuple(module.module_id for module in self.target_modules)
@@ -182,6 +204,12 @@ class CodeStructureRecommendation:
             "validation_boundaries": list(self.validation_boundaries),
             "rationale": self.rationale,
             "hierarchical_model_used": self.hierarchical_model_used,
+            "implementation_ready_requested": self.implementation_ready_requested,
+            "implementation_admission": (
+                self.implementation_admission.to_dict()
+                if self.implementation_admission
+                else None
+            ),
         }
 
 
@@ -343,6 +371,46 @@ def review_code_structure_recommendation(
                 "code structure recommendation has no rationale for the target split",
             )
         )
+
+    if recommendation.implementation_ready_requested:
+        admission = recommendation.implementation_admission
+        if admission is None:
+            findings.append(
+                CodeStructureFinding(
+                    "missing_implementation_admission",
+                    "implementation-ready structure has no exact DevelopmentProcessFlow admission",
+                )
+            )
+        elif not admission.implementation_ready():
+            findings.append(
+                CodeStructureFinding(
+                    "implementation_admission_not_ready",
+                    "code structure is recommendation-only because implementation admission is blocked, stale, or no-code",
+                    metadata=admission.to_dict(),
+                )
+            )
+        else:
+            maturation = admission.maturation_evidence
+            if maturation is None or maturation.model_id != recommendation.source_model_id:
+                findings.append(
+                    CodeStructureFinding(
+                        "implementation_admission_model_mismatch",
+                        "implementation admission does not bind the recommendation source model",
+                        metadata=admission.to_dict(),
+                    )
+                )
+            allowed_modules = set(admission.allowed_artifact_ids)
+            allowed_paths = set(admission.allowed_path_ids)
+            for module in recommendation.target_modules:
+                if module.module_id not in allowed_modules and module.path not in allowed_paths:
+                    findings.append(
+                        CodeStructureFinding(
+                            "implementation_admission_scope_expansion",
+                            "target module is outside the exact admitted artifact/path scope",
+                            module_id=module.module_id,
+                            metadata=admission.to_dict(),
+                        )
+                    )
 
     for module in recommendation.target_modules:
         if not module.module_id:

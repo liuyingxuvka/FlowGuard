@@ -2,6 +2,10 @@ import unittest
 
 from flowguard import (
     CodeStructureRecommendation,
+    ImplementationAdmissionReport,
+    MODEL_MATURATION_CONFIDENCE_FULL,
+    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+    ModelMaturationEvidenceRef,
     TargetModuleRecommendation,
     review_code_structure_recommendation,
 )
@@ -17,6 +21,58 @@ def module(module_id: str, **kwargs) -> TargetModuleRecommendation:
 
 
 class CodeStructureRecommendationTests(unittest.TestCase):
+    def test_implementation_ready_claim_requires_exact_admitted_model_and_scope(self):
+        ref = ModelMaturationEvidenceRef(
+            "maturation:structure",
+            task_id="task:structure",
+            model_id="checkout-functional-model",
+            candidate_model_fingerprint="candidate:structure",
+            coverage_universe_id="coverage:structure",
+            coverage_universe_fingerprint="coverage-fp:structure",
+            input_fingerprint="input:structure",
+            evidence_fingerprint="evidence:structure",
+            decision=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+            confidence=MODEL_MATURATION_CONFIDENCE_FULL,
+            terminal_reason=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+        )
+        admission = ImplementationAdmissionReport(
+            True,
+            "admission:structure",
+            "ready",
+            maturation_evidence=ref,
+            allowed_artifact_ids=("effects",),
+        )
+        recommendation = CodeStructureRecommendation(
+            "checkout-structure-ready",
+            source_model_id="checkout-functional-model",
+            parent_module_id="checkout",
+            target_modules=(module("effects"),),
+            function_block_map=(("PersistOrder", "effects"),),
+            validation_boundaries=("model scenario replay",),
+            rationale="effects own durable writes",
+            implementation_ready_requested=True,
+            implementation_admission=admission,
+        )
+        self.assertTrue(review_code_structure_recommendation(recommendation).ok)
+
+        expanded = CodeStructureRecommendation(
+            "checkout-structure-expanded",
+            source_model_id="checkout-functional-model",
+            parent_module_id="checkout",
+            target_modules=(module("unadmitted"),),
+            function_block_map=(("PersistOrder", "unadmitted"),),
+            validation_boundaries=("model scenario replay",),
+            rationale="attempts to expand beyond admission",
+            implementation_ready_requested=True,
+            implementation_admission=admission,
+        )
+        report = review_code_structure_recommendation(expanded)
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "implementation_admission_scope_expansion",
+            {finding.code for finding in report.findings},
+        )
+
     def test_complete_recommendation_can_continue(self):
         recommendation = CodeStructureRecommendation(
             "checkout-structure",

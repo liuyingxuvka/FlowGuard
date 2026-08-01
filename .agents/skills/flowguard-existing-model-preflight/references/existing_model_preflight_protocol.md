@@ -218,3 +218,12 @@ Missing lookup, unknown adapter, path escape, stale context, mutable access,
 missing required roles/artifact identities, a wrong subject lane/primary
 owner, or any provider execution/session/cache/receipt bridge blocks full
 preflight. No provider-task-to-test-owner reconciliation is performed here.
+
+## Maturation Handoff Boundary
+
+Full preflight means the current same-plane owner map, affected surfaces,
+stable identities, and duplicate boundary are completely accounted for. It is
+not a sufficiency or implementation-ready verdict. Emit those exact owner,
+surface, commitment, intent, path, and unresolved-angle facts as one current
+typed Model Maturation contribution; Model Maturation decides depth and
+DevelopmentProcessFlow decides implementation admission.

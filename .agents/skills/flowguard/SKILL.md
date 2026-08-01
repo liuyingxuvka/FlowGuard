@@ -31,8 +31,9 @@ Route id: `model_first_function_flow`; role: `kernel`; native owner: `model_firs
 1. Extract task facts with request evidence, audit current authority for existing modeled work, and select exactly one owner or report the unresolved candidates.
 2. Build the smallest faithful executable model, including the protected error class, state, side effects, completion evidence, and a representative known-bad path.
 3. Run the declared checks, inspect counterexamples, revise the model or architecture, and load only references triggered by remaining native gaps.
-4. For non-trivial work, predict discriminating outcomes and falsifiers before observation, bind current receipts to the exact task/candidate/coverage identity, preserve iteration lineage, and continue to task-local closure or an explicit non-success terminal. Never ask the model to self-rate understanding.
-5. Preserve failed, skipped, stale, scoped, and not-run evidence; return structured owner handoffs instead of prose-only completion.
+4. For non-trivial work, compile current typed native-owner coverage contributions into Model Maturation, predict discriminating outcomes and falsifiers, bind receipts to the exact task/candidate/coverage identity, and continue to task-local closure or an explicit non-success terminal. Never ask the model to self-rate understanding.
+5. When code is requested, keep the maturation result unchanged and ask DevelopmentProcessFlow for a separate `ready`, `ready_scoped`, `no_code_requested`, `blocked`, or `stale` implementation-admission result.
+6. Preserve failed, skipped, stale, scoped, and not-run evidence; return structured owner handoffs instead of prose-only completion.
 
 ## Hard Gates
 - Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind the candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.

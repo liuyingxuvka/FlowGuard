@@ -79,3 +79,11 @@ For broad done, release, publish, archive, production, or full confidence,
 project the ledger through `behavior_commitment_contract_exhaustion_plan()`.
 Pass generated case ids, shard ids, receipt ids, and risk gate ids to
 Model-Test Alignment, TestMesh, and Risk Evidence Ledger.
+
+For task-level maturation, emit a typed contribution containing only the
+triggered task's independently frozen commitment/source/path coverage,
+unresolved ledger or PPA gaps, native evidence identity, status, and
+fingerprints. Preserve product roles and actors exactly as target-software
+semantics; do not create FlowGuard-global end-user, administrator, developer,
+or AI roles. The contribution informs the denominator but never declares the
+whole task understood.

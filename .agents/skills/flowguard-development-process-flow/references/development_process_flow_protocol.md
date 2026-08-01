@@ -213,3 +213,17 @@ evidence covers current artifact/verifier versions, specialist handoffs are
 reattached, skipped/not-run work remains visible, peer changes are preserved,
 required synchronization domains are current, and the requested claim scope
 has terminal proof. Otherwise return blocked or explicitly scoped confidence.
+
+## Implementation Admission
+
+When production work is requested, consume one exact current
+`ModelMaturationEvidenceRef` and separately decide `ready`, `ready_scoped`,
+`no_code_requested`, `blocked`, or `stale`. Normal `ready` requires
+closed-for-task full confidence with no open gaps. `ready_scoped` additionally
+requires a current authorization matching task, candidate, coverage, input,
+evidence, accepted gap set, and every requested action/artifact/path.
+
+Authorization never changes the maturation decision or hides gaps. It cannot
+waive unavailable real tooling, destructive or irreversible ambiguity, active
+owner conflicts, or other declared non-waivable blockers. Any later task,
+candidate, coverage, evidence, request-scope, or owner change stales admission.

@@ -19,6 +19,10 @@ from .behavior_plane import (
     BCL_PLANE_DEVELOPMENT_PROCESS,
 )
 from .export import to_jsonable
+from .model_maturation import (
+    ModelMaturationEvidenceRef,
+    coerce_model_maturation_evidence_ref,
+)
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 from .validation_ownership import verify_parent_receipt
 PROCESS_SCOPE_ROUTINE = "routine"
@@ -90,6 +94,12 @@ _PROCESS_OPTIMIZATION_REASONS = {
     "material_rework_risk",
     "diagnostic_boundary_choice",
 }
+
+IMPLEMENTATION_ADMISSION_READY = "ready"
+IMPLEMENTATION_ADMISSION_READY_SCOPED = "ready_scoped"
+IMPLEMENTATION_ADMISSION_NO_CODE = "no_code_requested"
+IMPLEMENTATION_ADMISSION_BLOCKED = "blocked"
+IMPLEMENTATION_ADMISSION_STALE = "stale"
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -445,6 +455,252 @@ class ValidationRequirement:
             "command": self.command,
             "description": self.description,
         }
+
+
+@dataclass(frozen=True)
+class ImplementationAuthorization:
+    """Explicit bounded permission to attempt work despite visible maturation gaps."""
+
+    authorization_id: str
+    task_id: str
+    candidate_model_fingerprint: str
+    coverage_universe_fingerprint: str
+    input_fingerprint: str
+    evidence_fingerprint: str
+    allowed_action_ids: tuple[str, ...] = ()
+    allowed_artifact_ids: tuple[str, ...] = ()
+    allowed_path_ids: tuple[str, ...] = ()
+    accepted_gap_fingerprints: tuple[str, ...] = ()
+    user_direction_digest: str = ""
+    current: bool = True
+
+    def __post_init__(self) -> None:
+        for name in (
+            "authorization_id",
+            "task_id",
+            "candidate_model_fingerprint",
+            "coverage_universe_fingerprint",
+            "input_fingerprint",
+            "evidence_fingerprint",
+            "user_direction_digest",
+        ):
+            object.__setattr__(self, name, str(getattr(self, name)))
+        object.__setattr__(self, "allowed_action_ids", _as_tuple(self.allowed_action_ids))
+        object.__setattr__(self, "allowed_artifact_ids", _as_tuple(self.allowed_artifact_ids))
+        object.__setattr__(self, "allowed_path_ids", _as_tuple(self.allowed_path_ids))
+        object.__setattr__(
+            self, "accepted_gap_fingerprints", _as_tuple(self.accepted_gap_fingerprints)
+        )
+        object.__setattr__(self, "current", bool(self.current))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "authorization_id": self.authorization_id,
+            "task_id": self.task_id,
+            "candidate_model_fingerprint": self.candidate_model_fingerprint,
+            "coverage_universe_fingerprint": self.coverage_universe_fingerprint,
+            "input_fingerprint": self.input_fingerprint,
+            "evidence_fingerprint": self.evidence_fingerprint,
+            "allowed_action_ids": list(self.allowed_action_ids),
+            "allowed_artifact_ids": list(self.allowed_artifact_ids),
+            "allowed_path_ids": list(self.allowed_path_ids),
+            "accepted_gap_fingerprints": list(self.accepted_gap_fingerprints),
+            "user_direction_digest": self.user_direction_digest,
+            "current": self.current,
+        }
+
+
+@dataclass(frozen=True)
+class ImplementationAdmissionPlan:
+    admission_id: str
+    maturation_evidence: ModelMaturationEvidenceRef | Mapping[str, Any] | None = None
+    implementation_requested: bool = False
+    read_only: bool = False
+    requested_action_ids: tuple[str, ...] = ()
+    requested_artifact_ids: tuple[str, ...] = ()
+    requested_path_ids: tuple[str, ...] = ()
+    authorization: ImplementationAuthorization | Mapping[str, Any] | None = None
+    non_waivable_blocker_codes: tuple[str, ...] = ()
+    conflicting_owner_ids: tuple[str, ...] = ()
+    toolchain_available: bool = True
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "admission_id", str(self.admission_id))
+        object.__setattr__(
+            self,
+            "maturation_evidence",
+            coerce_model_maturation_evidence_ref(self.maturation_evidence),
+        )
+        object.__setattr__(self, "implementation_requested", bool(self.implementation_requested))
+        object.__setattr__(self, "read_only", bool(self.read_only))
+        object.__setattr__(self, "requested_action_ids", _as_tuple(self.requested_action_ids))
+        object.__setattr__(self, "requested_artifact_ids", _as_tuple(self.requested_artifact_ids))
+        object.__setattr__(self, "requested_path_ids", _as_tuple(self.requested_path_ids))
+        authorization = self.authorization
+        if authorization is not None and not isinstance(authorization, ImplementationAuthorization):
+            authorization = ImplementationAuthorization(**dict(authorization))
+        object.__setattr__(self, "authorization", authorization)
+        object.__setattr__(
+            self, "non_waivable_blocker_codes", _as_tuple(self.non_waivable_blocker_codes)
+        )
+        object.__setattr__(self, "conflicting_owner_ids", _as_tuple(self.conflicting_owner_ids))
+        object.__setattr__(self, "toolchain_available", bool(self.toolchain_available))
+
+
+@dataclass(frozen=True)
+class ImplementationAdmissionFinding:
+    code: str
+    message: str
+    severity: str = "blocker"
+
+    def to_dict(self) -> dict[str, str]:
+        return {"code": self.code, "message": self.message, "severity": self.severity}
+
+
+@dataclass(frozen=True)
+class ImplementationAdmissionReport:
+    ok: bool
+    admission_id: str
+    status: str
+    maturation_evidence: ModelMaturationEvidenceRef | None = None
+    allowed_action_ids: tuple[str, ...] = ()
+    allowed_artifact_ids: tuple[str, ...] = ()
+    allowed_path_ids: tuple[str, ...] = ()
+    findings: tuple[ImplementationAdmissionFinding, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "admission_id", str(self.admission_id))
+        object.__setattr__(self, "status", str(self.status))
+        object.__setattr__(self, "allowed_action_ids", _as_tuple(self.allowed_action_ids))
+        object.__setattr__(self, "allowed_artifact_ids", _as_tuple(self.allowed_artifact_ids))
+        object.__setattr__(self, "allowed_path_ids", _as_tuple(self.allowed_path_ids))
+        object.__setattr__(self, "findings", tuple(self.findings))
+
+    def implementation_ready(self) -> bool:
+        return self.ok and self.status in {
+            IMPLEMENTATION_ADMISSION_READY,
+            IMPLEMENTATION_ADMISSION_READY_SCOPED,
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "admission_id": self.admission_id,
+            "status": self.status,
+            "maturation_evidence": (
+                self.maturation_evidence.to_dict() if self.maturation_evidence else None
+            ),
+            "allowed_action_ids": list(self.allowed_action_ids),
+            "allowed_artifact_ids": list(self.allowed_artifact_ids),
+            "allowed_path_ids": list(self.allowed_path_ids),
+            "findings": [finding.to_dict() for finding in self.findings],
+        }
+
+
+def review_implementation_admission(
+    plan: ImplementationAdmissionPlan,
+) -> ImplementationAdmissionReport:
+    ref = plan.maturation_evidence
+    if plan.read_only or not plan.implementation_requested:
+        return ImplementationAdmissionReport(
+            True,
+            plan.admission_id,
+            IMPLEMENTATION_ADMISSION_NO_CODE,
+            maturation_evidence=ref,
+        )
+    findings: list[ImplementationAdmissionFinding] = []
+    if ref is None:
+        findings.append(
+            ImplementationAdmissionFinding(
+                "missing_model_maturation_evidence",
+                "implementation admission has no task-level maturation evidence",
+            )
+        )
+    elif not ref.current:
+        findings.append(
+            ImplementationAdmissionFinding(
+                "stale_model_maturation_evidence",
+                "implementation admission references stale or incomplete maturation identity",
+            )
+        )
+    if plan.non_waivable_blocker_codes:
+        findings.append(
+            ImplementationAdmissionFinding(
+                "non_waivable_blocker",
+                "implementation has a toolchain, destructive-boundary, or ownership blocker that permission cannot waive",
+            )
+        )
+    if plan.conflicting_owner_ids:
+        findings.append(
+            ImplementationAdmissionFinding(
+                "conflicting_implementation_ownership",
+                "the requested implementation scope overlaps another active owner",
+            )
+        )
+    if not plan.toolchain_available:
+        findings.append(
+            ImplementationAdmissionFinding(
+                "implementation_toolchain_unavailable",
+                "the real implementation toolchain is unavailable",
+            )
+        )
+    hard_blocked = bool(findings)
+    if ref is not None and ref.supports_full_confidence() and not hard_blocked:
+        return ImplementationAdmissionReport(
+            True,
+            plan.admission_id,
+            IMPLEMENTATION_ADMISSION_READY,
+            maturation_evidence=ref,
+            allowed_action_ids=plan.requested_action_ids,
+            allowed_artifact_ids=plan.requested_artifact_ids,
+            allowed_path_ids=plan.requested_path_ids,
+        )
+    authorization = plan.authorization
+    exact_authorization = bool(
+        ref is not None
+        and authorization is not None
+        and authorization.current
+        and authorization.task_id == ref.task_id
+        and authorization.candidate_model_fingerprint == ref.candidate_model_fingerprint
+        and authorization.coverage_universe_fingerprint == ref.coverage_universe_fingerprint
+        and authorization.input_fingerprint == ref.input_fingerprint
+        and authorization.evidence_fingerprint == ref.evidence_fingerprint
+        and set(ref.open_gap_fingerprints).issubset(
+            set(authorization.accepted_gap_fingerprints)
+        )
+        and set(plan.requested_action_ids).issubset(set(authorization.allowed_action_ids))
+        and set(plan.requested_artifact_ids).issubset(set(authorization.allowed_artifact_ids))
+        and set(plan.requested_path_ids).issubset(set(authorization.allowed_path_ids))
+    )
+    if exact_authorization and not hard_blocked:
+        return ImplementationAdmissionReport(
+            True,
+            plan.admission_id,
+            IMPLEMENTATION_ADMISSION_READY_SCOPED,
+            maturation_evidence=ref,
+            allowed_action_ids=plan.requested_action_ids,
+            allowed_artifact_ids=plan.requested_artifact_ids,
+            allowed_path_ids=plan.requested_path_ids,
+        )
+    if authorization is not None and not exact_authorization:
+        findings.append(
+            ImplementationAdmissionFinding(
+                "implementation_authorization_identity_or_scope_mismatch",
+                "authorization does not match the exact maturation identity, open gaps, or requested scope",
+            )
+        )
+    status = (
+        IMPLEMENTATION_ADMISSION_STALE
+        if ref is not None and not ref.current
+        else IMPLEMENTATION_ADMISSION_BLOCKED
+    )
+    return ImplementationAdmissionReport(
+        False,
+        plan.admission_id,
+        status,
+        maturation_evidence=ref,
+        findings=tuple(findings),
+    )
 
 
 @dataclass(frozen=True)
@@ -1755,6 +2011,11 @@ def derive_revalidation_plan(plan: DevelopmentProcessPlan) -> tuple[Revalidation
 
 
 __all__ = [
+    "IMPLEMENTATION_ADMISSION_BLOCKED",
+    "IMPLEMENTATION_ADMISSION_NO_CODE",
+    "IMPLEMENTATION_ADMISSION_READY",
+    "IMPLEMENTATION_ADMISSION_READY_SCOPED",
+    "IMPLEMENTATION_ADMISSION_STALE",
     "PROCESS_ARTIFACT_ADAPTER",
     "PROCESS_ARTIFACT_PROCESS_OPTIMIZATION",
     "PROCESS_ARTIFACT_CODE",
@@ -1809,6 +2070,10 @@ __all__ = [
     "DevelopmentProcessFlowReport",
     "DevelopmentProcessPlan",
     "FreshnessRule",
+    "ImplementationAdmissionFinding",
+    "ImplementationAdmissionPlan",
+    "ImplementationAdmissionReport",
+    "ImplementationAuthorization",
     "ProcessAction",
     "ProcessArtifact",
     "ProcessEvidence",
@@ -1817,4 +2082,5 @@ __all__ = [
     "ValidationRequirement",
     "derive_revalidation_plan",
     "review_development_process_flow",
+    "review_implementation_admission",
 ]

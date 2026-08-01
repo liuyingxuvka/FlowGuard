@@ -19,6 +19,7 @@ from .maintenance_obligation import (
     coerce_maintenance_obligation,
     obligations_from_maturation_findings,
 )
+from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref
 
 
 MODEL_MATURATION_DECISION_CLOSED_FOR_TASK = "model_maturation_closed_for_task"
@@ -30,6 +31,7 @@ MODEL_MATURATION_DECISION_UPGRADE_REQUIRED = "model_maturation_upgrade_required"
 MODEL_MATURATION_DECISION_BLOCKED = "model_maturation_blocked"
 
 MODEL_MATURATION_PLAN_SCHEMA_VERSION = "flowguard.model-maturation-plan.v2"
+MODEL_MATURATION_INTAKE_SCHEMA_VERSION = "flowguard.model-maturation-intake.v1"
 MODEL_MATURATION_RECEIPT_STATUS_PASS = "pass"
 
 MODEL_MATURATION_CONFIDENCE_FULL = "full"
@@ -490,6 +492,290 @@ class ModelMaturationSignal:
 
 
 @dataclass(frozen=True)
+class ModelMaturationCoverageContribution:
+    """One native owner's typed contribution to the task coverage denominator."""
+
+    contribution_id: str
+    owner_route: str
+    task_id: str
+    coverage_source_refs: tuple[str, ...] = ()
+    coverage_ids: tuple[str, ...] = ()
+    required_probe_ids: tuple[str, ...] = ()
+    signals: tuple[ModelMaturationSignal, ...] = ()
+    evidence_ref: ProofArtifactRef | Mapping[str, Any] | None = None
+    subject_fingerprints: Mapping[str, str] = field(default_factory=dict)
+    status: str = "pass"
+    current: bool = True
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "contribution_id", str(self.contribution_id))
+        object.__setattr__(self, "owner_route", str(self.owner_route))
+        object.__setattr__(self, "task_id", str(self.task_id))
+        object.__setattr__(self, "coverage_source_refs", _as_tuple(self.coverage_source_refs))
+        object.__setattr__(self, "coverage_ids", _as_tuple(self.coverage_ids))
+        object.__setattr__(self, "required_probe_ids", _as_tuple(self.required_probe_ids))
+        normalized_signals = tuple(
+            signal
+            if isinstance(signal, ModelMaturationSignal)
+            else ModelMaturationSignal.from_dict(signal)
+            for signal in self.signals
+        )
+        object.__setattr__(self, "signals", normalized_signals)
+        object.__setattr__(self, "evidence_ref", coerce_proof_artifact_ref(self.evidence_ref))
+        object.__setattr__(
+            self,
+            "subject_fingerprints",
+            {str(key): str(value) for key, value in self.subject_fingerprints.items()},
+        )
+        object.__setattr__(self, "status", str(self.status))
+        object.__setattr__(self, "current", bool(self.current))
+
+    def evidence_is_current(self) -> bool:
+        proof = self.evidence_ref
+        return bool(
+            self.current
+            and self.status == "pass"
+            and proof is not None
+            and proof.producer_route == self.owner_route
+            and proof.has_current_pass()
+            and proof.covers_all(self.coverage_ids)
+            and self.subject_fingerprints
+            and all(
+                proof.artifact_fingerprints.get(key) == value
+                for key, value in self.subject_fingerprints.items()
+            )
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "contribution_id": self.contribution_id,
+            "owner_route": self.owner_route,
+            "task_id": self.task_id,
+            "coverage_source_refs": list(self.coverage_source_refs),
+            "coverage_ids": list(self.coverage_ids),
+            "required_probe_ids": list(self.required_probe_ids),
+            "signals": [signal.to_dict() for signal in self.signals],
+            "evidence_ref": self.evidence_ref.to_dict() if self.evidence_ref else None,
+            "subject_fingerprints": dict(self.subject_fingerprints),
+            "status": self.status,
+            "current": self.current,
+        }
+
+
+@dataclass(frozen=True)
+class ModelMaturationIntake:
+    """Task-local pre-code or post-code intake compiled into the existing plan."""
+
+    intake_id: str
+    plan_id: str
+    task_id: str
+    task_purpose: str
+    model_id: str
+    risk_id: str
+    base_model_fingerprint: str
+    candidate_model_fingerprint: str
+    contributions: tuple[ModelMaturationCoverageContribution, ...] = ()
+    required_contribution_ids: tuple[str, ...] = ()
+    schema_version: str = MODEL_MATURATION_INTAKE_SCHEMA_VERSION
+    iteration: int = 0
+    max_iterations: int = 8
+    prior_gap_fingerprints: tuple[str, ...] = ()
+    prior_iteration_fingerprint: str = ""
+    prior_candidate_fingerprint: str = ""
+    prior_evidence_fingerprint: str = ""
+    prior_state_fingerprints: tuple[str, ...] = ()
+    resolved_gap_receipts: Mapping[str, ModelMaturationGapResolutionReceipt] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name in (
+            "intake_id",
+            "plan_id",
+            "task_id",
+            "task_purpose",
+            "model_id",
+            "risk_id",
+            "base_model_fingerprint",
+            "candidate_model_fingerprint",
+            "schema_version",
+            "prior_iteration_fingerprint",
+            "prior_candidate_fingerprint",
+            "prior_evidence_fingerprint",
+        ):
+            object.__setattr__(self, name, str(getattr(self, name)))
+        if self.schema_version != MODEL_MATURATION_INTAKE_SCHEMA_VERSION:
+            raise ValueError(
+                f"model maturation intake must use {MODEL_MATURATION_INTAKE_SCHEMA_VERSION}"
+            )
+        contributions = tuple(
+            item
+            if isinstance(item, ModelMaturationCoverageContribution)
+            else ModelMaturationCoverageContribution(**dict(item))
+            for item in self.contributions
+        )
+        ids = [item.contribution_id for item in contributions]
+        if len(ids) != len(set(ids)):
+            raise ValueError("model maturation contribution ids must be unique")
+        for item in contributions:
+            if item.task_id != self.task_id:
+                raise ValueError("model maturation contribution task id mismatch")
+        object.__setattr__(self, "contributions", contributions)
+        object.__setattr__(self, "required_contribution_ids", _as_tuple(self.required_contribution_ids))
+        object.__setattr__(self, "iteration", max(0, int(self.iteration)))
+        object.__setattr__(self, "max_iterations", max(1, int(self.max_iterations)))
+        object.__setattr__(self, "prior_gap_fingerprints", _as_tuple(self.prior_gap_fingerprints))
+        object.__setattr__(self, "prior_state_fingerprints", _as_tuple(self.prior_state_fingerprints))
+
+
+def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMaturationPlan":
+    """Deterministically union native contributions without reinterpreting them."""
+
+    contribution_ids = {item.contribution_id for item in intake.contributions}
+    missing_contributions = tuple(
+        item for item in intake.required_contribution_ids if item not in contribution_ids
+    )
+    coverage_ids = _unique(
+        tuple(
+            coverage_id
+            for contribution in intake.contributions
+            for coverage_id in contribution.coverage_ids
+        )
+        + tuple(f"missing-contribution:{item}" for item in missing_contributions)
+    )
+    probe_ids = _unique(
+        tuple(
+            (
+                contribution.required_probe_ids[index]
+                if index < len(contribution.required_probe_ids)
+                else f"probe:{contribution.owner_route}:{coverage_id}"
+            )
+            for contribution in intake.contributions
+            for index, coverage_id in enumerate(contribution.coverage_ids)
+        )
+        + tuple(f"probe:missing-contribution:{item}" for item in missing_contributions)
+    )
+    coverage_source_refs = _unique(
+        tuple(
+            source
+            for contribution in intake.contributions
+            for source in contribution.coverage_source_refs
+        )
+        + tuple(
+            f"proof:{contribution.evidence_ref.artifact_id}"
+            for contribution in intake.contributions
+            if contribution.evidence_ref is not None
+        )
+        + tuple(f"missing:{item}" for item in missing_contributions)
+    )
+    skeleton = ModelMaturationPlan(
+        plan_id=intake.plan_id,
+        model_id=intake.model_id,
+        risk_id=intake.risk_id,
+        task_id=intake.task_id,
+        task_purpose=intake.task_purpose,
+        coverage_universe_id=f"intake:{intake.intake_id}",
+        coverage_owner=f"model_maturation_intake:{intake.intake_id}",
+        coverage_source_refs=coverage_source_refs,
+        coverage_ids=coverage_ids,
+        required_probe_ids=probe_ids,
+        iteration=intake.iteration,
+        max_iterations=intake.max_iterations,
+        prior_gap_fingerprints=intake.prior_gap_fingerprints,
+        prior_iteration_fingerprint=intake.prior_iteration_fingerprint,
+        prior_candidate_fingerprint=intake.prior_candidate_fingerprint,
+        prior_evidence_fingerprint=intake.prior_evidence_fingerprint,
+        prior_state_fingerprints=intake.prior_state_fingerprints,
+        base_model_fingerprint=intake.base_model_fingerprint,
+        candidate_model_fingerprint=intake.candidate_model_fingerprint,
+        evidence_fingerprint="pending",
+        resolved_gap_receipts=intake.resolved_gap_receipts,
+    )
+    coverage_fingerprint = skeleton.expected_coverage_fingerprint()
+    compiled_signals: list[ModelMaturationSignal] = []
+    evidence_identities: list[str] = []
+    for contribution in intake.contributions:
+        proof = contribution.evidence_ref
+        proof_current = contribution.evidence_is_current()
+        proof_fingerprint = _stable_fingerprint(proof.to_dict()) if proof else ""
+        if proof_fingerprint:
+            evidence_identities.append(proof_fingerprint)
+        supplied_by_coverage = {signal.coverage_id: signal for signal in contribution.signals}
+        for index, coverage_id in enumerate(contribution.coverage_ids):
+            probe_id = (
+                contribution.required_probe_ids[index]
+                if index < len(contribution.required_probe_ids)
+                else f"probe:{contribution.owner_route}:{coverage_id}"
+            )
+            signal = supplied_by_coverage.get(coverage_id)
+            if signal is None:
+                signal = ModelMaturationSignal(
+                    signal_id=f"contribution:{contribution.contribution_id}:{coverage_id}",
+                    signal_type=(
+                        MODEL_MATURATION_SIGNAL_MISSING_MODEL_OBLIGATION
+                        if proof_current
+                        else MODEL_MATURATION_SIGNAL_STALE_EVIDENCE
+                    ),
+                    source_route=contribution.owner_route,
+                    coverage_id=coverage_id,
+                    probe_id=probe_id,
+                    resolution_class=MODEL_MATURATION_RESOLUTION_EVIDENCE_ACQUISITION,
+                    prediction=f"{contribution.owner_route} evidence covers {coverage_id}",
+                    falsifier=f"current {contribution.owner_route} evidence does not cover {coverage_id}",
+                    description=f"typed coverage contribution for {coverage_id}",
+                    resolved=proof_current,
+                )
+            compiled_signals.append(
+                replace(
+                    signal,
+                    source_route=contribution.owner_route,
+                    coverage_id=coverage_id,
+                    probe_id=signal.probe_id or probe_id,
+                    current=proof_current,
+                    resolved=bool(signal.resolved and proof_current),
+                    evidence_id=proof.artifact_id if proof else signal.evidence_id,
+                    evidence_fingerprint=proof_fingerprint or signal.evidence_fingerprint,
+                    receipt_id=proof.artifact_id if proof else "",
+                    receipt_fingerprint=proof_fingerprint,
+                    receipt_status=(MODEL_MATURATION_RECEIPT_STATUS_PASS if proof_current else ""),
+                    receipt_task_id=intake.task_id if proof_current else "",
+                    receipt_probe_id=(signal.probe_id or probe_id) if proof_current else "",
+                    receipt_candidate_fingerprint=(
+                        intake.candidate_model_fingerprint if proof_current else ""
+                    ),
+                    receipt_coverage_fingerprint=coverage_fingerprint if proof_current else "",
+                    receipt_evidence_fingerprint=proof_fingerprint if proof_current else "",
+                    receipt_owner_route=contribution.owner_route if proof_current else "",
+                )
+            )
+    for contribution_id in missing_contributions:
+        coverage_id = f"missing-contribution:{contribution_id}"
+        probe_id = f"probe:missing-contribution:{contribution_id}"
+        compiled_signals.append(
+            ModelMaturationSignal(
+                signal_id=coverage_id,
+                signal_type=MODEL_MATURATION_SIGNAL_MISSING_MODEL_OBLIGATION,
+                source_route="model_maturation_intake",
+                coverage_id=coverage_id,
+                probe_id=probe_id,
+                resolution_class=MODEL_MATURATION_RESOLUTION_EVIDENCE_ACQUISITION,
+                prediction=f"required contribution {contribution_id} is present",
+                falsifier=f"required contribution {contribution_id} is absent",
+                description=f"required native contribution {contribution_id} is missing",
+                current=False,
+                resolved=False,
+            )
+        )
+    evidence_fingerprint = _stable_fingerprint(
+        {"intake_id": intake.intake_id, "evidence": sorted(evidence_identities)}
+    )
+    return replace(
+        skeleton,
+        coverage_universe_fingerprint=coverage_fingerprint,
+        evidence_fingerprint=evidence_fingerprint,
+        signals=tuple(compiled_signals),
+    )
+
+
+@dataclass(frozen=True)
 class ModelMaturationIteration:
     """Immutable evidence of one model-review iteration."""
 
@@ -817,6 +1103,12 @@ class ModelMaturationReport:
     maintenance_obligations: tuple[MaintenanceObligation, ...] = ()
     summary: str = ""
     task_id: str = ""
+    coverage_universe_id: str = ""
+    coverage_universe_fingerprint: str = ""
+    base_model_fingerprint: str = ""
+    candidate_model_fingerprint: str = ""
+    evidence_fingerprint: str = ""
+    evidence_id: str = ""
     iteration: int = 0
     terminal_reason: str = ""
     next_actions: tuple[str, ...] = ()
@@ -842,6 +1134,16 @@ class ModelMaturationReport:
         )
         object.__setattr__(self, "summary", str(self.summary))
         object.__setattr__(self, "task_id", str(self.task_id))
+        object.__setattr__(self, "coverage_universe_id", str(self.coverage_universe_id))
+        object.__setattr__(
+            self, "coverage_universe_fingerprint", str(self.coverage_universe_fingerprint)
+        )
+        object.__setattr__(self, "base_model_fingerprint", str(self.base_model_fingerprint))
+        object.__setattr__(
+            self, "candidate_model_fingerprint", str(self.candidate_model_fingerprint)
+        )
+        object.__setattr__(self, "evidence_fingerprint", str(self.evidence_fingerprint))
+        object.__setattr__(self, "evidence_id", str(self.evidence_id))
         object.__setattr__(self, "iteration", int(self.iteration))
         terminal = str(self.terminal_reason)
         if terminal and terminal not in MODEL_MATURATION_TERMINAL_REASONS:
@@ -866,6 +1168,12 @@ class ModelMaturationReport:
             "maintenance_obligations": [obligation.to_dict() for obligation in self.maintenance_obligations],
             "summary": self.summary,
             "task_id": self.task_id,
+            "coverage_universe_id": self.coverage_universe_id,
+            "coverage_universe_fingerprint": self.coverage_universe_fingerprint,
+            "base_model_fingerprint": self.base_model_fingerprint,
+            "candidate_model_fingerprint": self.candidate_model_fingerprint,
+            "evidence_fingerprint": self.evidence_fingerprint,
+            "evidence_id": self.evidence_id,
             "iteration": self.iteration,
             "terminal_reason": self.terminal_reason,
             "next_actions": list(self.next_actions),
@@ -909,6 +1217,107 @@ class ModelMaturationReport:
             lines.append("next actions:")
             lines.extend(f"- {action}" for action in self.next_actions)
         return "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class ModelMaturationEvidenceRef:
+    """Compact exact identity consumed by admission, risk, and closure."""
+
+    evidence_id: str
+    task_id: str
+    model_id: str
+    candidate_model_fingerprint: str
+    coverage_universe_id: str
+    coverage_universe_fingerprint: str
+    input_fingerprint: str
+    evidence_fingerprint: str
+    decision: str
+    confidence: str
+    terminal_reason: str
+    open_gap_fingerprints: tuple[str, ...] = ()
+    current: bool = True
+
+    def __post_init__(self) -> None:
+        for name in (
+            "evidence_id",
+            "task_id",
+            "model_id",
+            "candidate_model_fingerprint",
+            "coverage_universe_id",
+            "coverage_universe_fingerprint",
+            "input_fingerprint",
+            "evidence_fingerprint",
+            "decision",
+            "confidence",
+            "terminal_reason",
+        ):
+            object.__setattr__(self, name, str(getattr(self, name)))
+        object.__setattr__(self, "open_gap_fingerprints", _as_tuple(self.open_gap_fingerprints))
+        object.__setattr__(self, "current", bool(self.current))
+
+    @classmethod
+    def from_report(cls, report: ModelMaturationReport) -> "ModelMaturationEvidenceRef":
+        required_identity = all(
+            (
+                report.evidence_id,
+                report.task_id,
+                report.model_id,
+                report.candidate_model_fingerprint,
+                report.coverage_universe_id,
+                report.coverage_universe_fingerprint,
+                report.input_fingerprint,
+                report.evidence_fingerprint,
+            )
+        )
+        return cls(
+            evidence_id=report.evidence_id,
+            task_id=report.task_id,
+            model_id=report.model_id,
+            candidate_model_fingerprint=report.candidate_model_fingerprint,
+            coverage_universe_id=report.coverage_universe_id,
+            coverage_universe_fingerprint=report.coverage_universe_fingerprint,
+            input_fingerprint=report.input_fingerprint,
+            evidence_fingerprint=report.evidence_fingerprint,
+            decision=report.decision,
+            confidence=report.confidence,
+            terminal_reason=report.terminal_reason,
+            open_gap_fingerprints=report.open_gap_fingerprints,
+            current=bool(required_identity),
+        )
+
+    def supports_full_confidence(self) -> bool:
+        return bool(
+            self.current
+            and self.decision == MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+            and self.confidence == MODEL_MATURATION_CONFIDENCE_FULL
+            and self.terminal_reason == MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+            and not self.open_gap_fingerprints
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "evidence_id": self.evidence_id,
+            "task_id": self.task_id,
+            "model_id": self.model_id,
+            "candidate_model_fingerprint": self.candidate_model_fingerprint,
+            "coverage_universe_id": self.coverage_universe_id,
+            "coverage_universe_fingerprint": self.coverage_universe_fingerprint,
+            "input_fingerprint": self.input_fingerprint,
+            "evidence_fingerprint": self.evidence_fingerprint,
+            "decision": self.decision,
+            "confidence": self.confidence,
+            "terminal_reason": self.terminal_reason,
+            "open_gap_fingerprints": list(self.open_gap_fingerprints),
+            "current": self.current,
+        }
+
+
+def coerce_model_maturation_evidence_ref(
+    value: ModelMaturationEvidenceRef | Mapping[str, Any] | None,
+) -> ModelMaturationEvidenceRef | None:
+    if value is None or isinstance(value, ModelMaturationEvidenceRef):
+        return value
+    return ModelMaturationEvidenceRef(**dict(value))
 
 
 def _signal_finding(
@@ -1352,6 +1761,12 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
         scoped_signal_ids=scoped_ids,
         summary=summary,
         task_id=plan.task_id,
+        coverage_universe_id=plan.coverage_universe_id,
+        coverage_universe_fingerprint=plan.coverage_universe_fingerprint,
+        base_model_fingerprint=plan.base_model_fingerprint,
+        candidate_model_fingerprint=plan.candidate_model_fingerprint,
+        evidence_fingerprint=plan.evidence_fingerprint,
+        evidence_id=f"model-maturation:{plan.plan_id}:{input_fingerprint}",
         iteration=plan.iteration,
         terminal_reason=decision if decision in MODEL_MATURATION_TERMINAL_REASONS else "",
         next_actions=recommended,
@@ -1465,6 +1880,7 @@ __all__ = [
     "MODEL_MATURATION_RESOLUTION_MODEL_EDIT",
     "MODEL_MATURATION_RESOLUTION_SCOPE_EXCLUDED",
     "MODEL_MATURATION_PLAN_SCHEMA_VERSION",
+    "MODEL_MATURATION_INTAKE_SCHEMA_VERSION",
     "MODEL_MATURATION_RECEIPT_STATUS_PASS",
     "MODEL_MATURATION_TERMINAL_REASONS",
     "MODEL_MATURATION_SIGNAL_BOUNDARY_MISSING",
@@ -1482,13 +1898,18 @@ __all__ = [
     "MODEL_MATURATION_SIGNAL_STALE_EVIDENCE",
     "MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE",
     "MODEL_MATURATION_SIGNAL_TYPES",
+    "ModelMaturationCoverageContribution",
+    "ModelMaturationEvidenceRef",
     "ModelMaturationFinding",
     "ModelMaturationGapResolutionReceipt",
+    "ModelMaturationIntake",
     "ModelMaturationIteration",
     "ModelMaturationPlan",
     "ModelMaturationReport",
     "ModelMaturationSession",
     "ModelMaturationSignal",
+    "coerce_model_maturation_evidence_ref",
+    "compile_model_maturation_plan",
     "review_model_maturation_session",
     "review_model_maturation_loop",
 ]

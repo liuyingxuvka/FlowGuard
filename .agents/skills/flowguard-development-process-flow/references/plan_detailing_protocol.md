@@ -56,3 +56,9 @@ owner mappings, or product-runtime authority.
 `pass` means the plan is detailed enough to continue. `scoped`,
 `needs_revision`, and `blocked` remain distinct. This route does not execute
 the plan or prove implementation, release, or publication.
+
+For a plan that may lead to code, include a later internal implementation
+admission step with the exact maturation evidence identity, requested
+action/artifact/path scope, open gaps, and non-waivable blockers. A detailed
+plan is still not implementation permission, and read-only plans end as
+`no_code_requested` without inventing an execution owner.

@@ -13,7 +13,18 @@ from flowguard import (
     MODEL_ANGLE_ACTION_EXTEND_EXISTING,
     MODEL_ANGLE_ACTION_REUSE_EXISTING,
     ModelAngleDeliberation,
+    ProofArtifactRef,
 )
+
+
+def owner_proof(angle_id, owner_route):
+    return ProofArtifactRef(
+        f"proof:{angle_id}",
+        producer_route=owner_route,
+        result_status="passed",
+        artifact_fingerprints={"model": "sha256:current-model"},
+        covered_obligation_ids=(angle_id,),
+    )
 
 
 def correct_deliberations():
@@ -31,6 +42,8 @@ def correct_deliberations():
             owner_route_hint="model_maturation_loop",
             evidence_needed=("model_angle_review_report", "preflight_integration_test"),
             resolved=True,
+            owner_evidence=owner_proof("angle:route-choice", "model_maturation_loop"),
+            subject_fingerprints={"model": "sha256:current-model"},
         ),
         ModelAngleDeliberation(
             "angle:mesh-handoff",
@@ -45,6 +58,8 @@ def correct_deliberations():
             owner_route_hint="model_mesh_maintenance",
             evidence_needed=("mesh_handoff_decision",),
             resolved=True,
+            owner_evidence=owner_proof("angle:mesh-handoff", "model_mesh_maintenance"),
+            subject_fingerprints={"model": "sha256:current-model"},
         ),
         ModelAngleDeliberation(
             "angle:reuse-ok",
@@ -137,9 +152,14 @@ free-form candidate angles in plain language:
 - Should the work reuse a model, extend it, add a child model, create a new
   model, scope the angle out, defer it, or ask for human review?
 - Which owner route must produce the real evidence?
+- Does the exact current owner proof cover this angle and the same model subject?
 
 Known routes are hints, not the whole imagination space. A row can name an
 unusual angle such as pricing semantics, lifecycle, installation sync,
 human-approval policy, release evidence, or project topology as long as it also
 names the consequence and owner route.
+
+The `resolved` field is an observation, not proof. Required extend/create/split
+angles need a current passing `ProofArtifactRef` from the exact owner route,
+covering the angle id and matching the declared subject fingerprints.
 """

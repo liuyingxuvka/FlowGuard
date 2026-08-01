@@ -3,13 +3,55 @@
 from __future__ import annotations
 
 from flowguard.formal_runner import FormalWorkflowCase, run_exact_workflow_case, run_formal_workflow_suite
+from flowguard import Scenario, ScenarioExpectation, review_scenarios
 import model
 
 
 REQUIRED_LABELS = ("validation_passed", "release_accepted")
 
 
+def run_implementation_admission_model() -> bool:
+    report = review_scenarios(
+        (
+            Scenario(
+                "closed_model_admits_implementation",
+                "current closed-for-task maturation admits the requested scope",
+                model.admission_initial_state(),
+                model.GOOD_CLOSED_ADMISSION_SEQUENCE,
+                ScenarioExpectation(expected_status="ok"),
+                workflow=model.build_admission_workflow(),
+            ),
+            Scenario(
+                "exact_authorization_allows_scoped_attempt",
+                "an exact authorization permits only its bounded scope without changing understanding",
+                model.admission_initial_state(),
+                model.GOOD_SCOPED_ADMISSION_SEQUENCE,
+                ScenarioExpectation(expected_status="ok"),
+                workflow=model.build_admission_workflow(),
+            ),
+            Scenario(
+                "authorization_cannot_erase_gaps",
+                "a mismatched authorization cannot manufacture full model confidence",
+                model.admission_initial_state(),
+                model.BROKEN_AUTHORIZATION_SEQUENCE,
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=(
+                        "no_admission_without_task_sufficiency_or_exact_scope",
+                    ),
+                ),
+                workflow=model.build_admission_workflow(broken=True),
+            ),
+        ),
+        default_invariants=model.ADMISSION_INVARIANTS,
+    )
+    print(report.format_text())
+    print()
+    return report.ok
+
+
 def main() -> int:
+    admission_ok = run_implementation_admission_model()
     exact_ok = run_exact_workflow_case(
         "correct_development_process_flow",
         workflow=model.build_correct_workflow(),
@@ -57,7 +99,7 @@ def main() -> int:
         terminal_predicate=model.terminal_predicate,
         protected_error_class="stale_process_evidence",
     )
-    return 0 if exact_ok and report.ok else 1
+    return 0 if admission_ok and exact_ok and report.ok else 1
 
 
 if __name__ == "__main__":
