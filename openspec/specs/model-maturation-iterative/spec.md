@@ -1,7 +1,9 @@
 # model-maturation-iterative Specification
 
 ## Purpose
-TBD - created by archiving change make-model-maturation-iterative. Update Purpose after archive.
+Define the current task-local maturation contract for independently bound coverage,
+native receipts, explicit gap lineage, measurable progress, and evidence-backed
+terminal decisions.
 ## Requirements
 ### Requirement: Non-trivial maturation has an independent coverage universe
 
