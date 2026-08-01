@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.68.1 - 2026-07-31
+
+- Closed the clean-clone project-audit gap by keeping the adopted package
+  version and generated project rules aligned with the released package.
+- Kept every FlowGuard skill inside its frozen prompt budget by compressing the
+  shared generated rules while preserving the protected behavioral guidance.
+- Restored strict-validation parity with the CI-pinned OpenSpec `1.3.1` parser
+  without weakening the current requirement semantics.
+
 ## v0.68.0 - 2026-07-31
 
 - Replaced the permissive model-maturation reader with one strict current-only
