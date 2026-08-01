@@ -886,6 +886,17 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertLess(text.index("FLOWGUARD_ROUTE_API"), text.index("MODELING_HELPER_API"))
         self.assertIn("Use `MODELING_HELPER_API` only as the complete index", text)
 
+    def test_model_authority_api_exposes_pointer_free_revision_builder(self):
+        self.assertIn(
+            "build_current_model_revision",
+            flowguard.MODEL_SYSTEM_AUTHORITY_API,
+        )
+        self.assertIn(
+            "ModelRevisionBuildReport",
+            flowguard.MODEL_SYSTEM_AUTHORITY_API,
+        )
+        self.assertTrue(callable(flowguard.build_current_model_revision))
+
     def test_public_all_is_derived_from_api_groups_and_supplement(self):
         expected_supplement = (
             "AGENT_WORKFLOW_REHEARSAL_ROUTE_API",

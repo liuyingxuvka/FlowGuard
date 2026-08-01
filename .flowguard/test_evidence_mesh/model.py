@@ -6,7 +6,8 @@ Purpose: review the implementation plan for parent/child test evidence
 partitioning. It guards against treating a flat slow regression as trusted
 parent confidence, accepting missing or duplicate suite ownership, hiding stale
 or skipped test evidence, mistaking background progress for completion, and
-publishing without release-scope evidence.
+    publishing without release-scope evidence, and assigning a release owner a
+    timeout budget shorter than its observed normal runtime.
 
 Run:
 python .flowguard/test_evidence_mesh/run_checks.py
@@ -31,6 +32,7 @@ class TestMeshCase:
     stale_evidence_visible: bool = True
     skipped_tests_visible: bool = True
     timeout_and_failed_visible: bool = True
+    timeout_budget_covers_observed_runtime: bool = True
     background_completion_artifacts: bool = True
     routine_release_split: bool = True
     release_scope_blocks_missing_release_suite: bool = True
@@ -57,6 +59,7 @@ class TestMeshPolicy:
     stale_evidence_visible: bool = False
     skipped_tests_visible: bool = False
     timeout_and_failed_visible: bool = False
+    timeout_budget_covers_observed_runtime: bool = False
     background_completion_artifacts: bool = False
     routine_release_split: bool = False
     release_scope_blocks_missing_release_suite: bool = False
@@ -81,6 +84,10 @@ BROKEN_DUPLICATE_OWNER = TestMeshCase("broken_duplicate_owner", duplicate_owners
 BROKEN_STALE_EVIDENCE = TestMeshCase("broken_stale_evidence", stale_evidence_visible=False)
 BROKEN_HIDDEN_SKIPS = TestMeshCase("broken_hidden_skips", skipped_tests_visible=False)
 BROKEN_TIMEOUT_HIDDEN = TestMeshCase("broken_timeout_hidden", timeout_and_failed_visible=False)
+BROKEN_TIMEOUT_BUDGET = TestMeshCase(
+    "broken_timeout_budget",
+    timeout_budget_covers_observed_runtime=False,
+)
 BROKEN_BACKGROUND_PROGRESS_ONLY = TestMeshCase(
     "broken_background_progress_only",
     background_completion_artifacts=False,
@@ -127,6 +134,7 @@ class EvaluateTestMeshPlan:
         "stale_evidence_visible",
         "skipped_tests_visible",
         "timeout_and_failed_visible",
+        "timeout_budget_covers_observed_runtime",
         "background_completion_artifacts",
         "routine_release_split",
         "release_scope_blocks_missing_release_suite",
@@ -157,6 +165,7 @@ class EvaluateTestMeshPlan:
             stale_evidence_visible=input_obj.stale_evidence_visible,
             skipped_tests_visible=input_obj.skipped_tests_visible,
             timeout_and_failed_visible=input_obj.timeout_and_failed_visible,
+            timeout_budget_covers_observed_runtime=input_obj.timeout_budget_covers_observed_runtime,
             background_completion_artifacts=input_obj.background_completion_artifacts,
             routine_release_split=input_obj.routine_release_split,
             release_scope_blocks_missing_release_suite=input_obj.release_scope_blocks_missing_release_suite,
@@ -239,6 +248,17 @@ def background_needs_completion_artifacts(state: TestMeshPolicy, _trace: object)
         return _fail(
             "background_needs_completion_artifacts",
             "background progress is reported as completion without exit/result artifacts",
+        )
+    return _pass()
+
+
+def timeout_budget_covers_observed_runtime(state: TestMeshPolicy, _trace: object) -> InvariantResult:
+    if _empty(state):
+        return _pass()
+    if not state.timeout_budget_covers_observed_runtime:
+        return _fail(
+            "timeout_budget_covers_observed_runtime",
+            "release test owner timeout is shorter than its observed normal runtime",
         )
     return _pass()
 
@@ -358,6 +378,11 @@ INVARIANTS = (
         background_needs_completion_artifacts,
     ),
     Invariant(
+        "timeout_budget_covers_observed_runtime",
+        "Release test-owner timeout budgets cover the observed normal runtime.",
+        timeout_budget_covers_observed_runtime,
+    ),
+    Invariant(
         "routine_and_release_scope_are_distinct",
         "Routine confidence and release confidence are separate decisions.",
         routine_and_release_scope_are_distinct,
@@ -471,6 +496,15 @@ SCENARIOS = (
         "Failed or timeout suites must block parent confidence.",
         BROKEN_TIMEOUT_HIDDEN,
         _expect_violation("timeout/failure hiding fails", ("evidence_gaps_stay_visible",)),
+    ),
+    scenario(
+        "undersized_timeout_budget_fails",
+        "A release owner cannot use a timeout shorter than its observed normal runtime.",
+        BROKEN_TIMEOUT_BUDGET,
+        _expect_violation(
+            "undersized release-owner timeout fails",
+            ("timeout_budget_covers_observed_runtime",),
+        ),
     ),
     scenario(
         "background_progress_only_fails",

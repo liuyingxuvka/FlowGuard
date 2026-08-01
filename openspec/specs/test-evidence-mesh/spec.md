@@ -123,6 +123,10 @@ Test Evidence Mesh SHALL represent slow, large, release-only, stale, skipped, or
 - **WHEN** full regression does not complete within the practical run window
 - **THEN** Test Evidence Mesh SHALL record the timeout as a scoped gap and preserve focused child evidence instead of claiming parent pass
 
+#### Scenario: Release-owner timeout is shorter than observed normal runtime
+- **WHEN** a required release suite normally exceeds its configured owner timeout under current supported conditions
+- **THEN** Test Evidence Mesh SHALL reject the timeout budget as undersized before using that owner plan for release confidence
+
 ### Requirement: TestMesh leaf evidence preserves three-way targets
 
 TestMesh SHALL preserve model obligation and code contract targets for leaf

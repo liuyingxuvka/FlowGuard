@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.68.2 - 2026-08-01
+
+- Narrowed the ordinary FlowGuard entry to route selection and a minimum
+  valuable model, while loading deeper modeling guidance only when the chosen
+  route or an observed gap requires it.
+- Replaced order-based route fallback with explicit positive, forbidden, and
+  conflict conditions, and completed the public route table without changing
+  the existing route ownership boundaries.
+- Made prompt-budget checks derive the real local reference load graph and
+  require usable headroom instead of treating an incomplete declared bundle as
+  proof that the entry is lightweight.
+- Tightened existing-model ownership projection to exact logical identity,
+  normalized path identity, or matching fingerprints rather than basename-like
+  guesses.
+- Added a pointer-free `model-revision-build` handoff that accepts only an
+  exact-current terminal-pass full model-regression parent receipt and emits
+  typed content-addressed candidate/revision artifacts for the existing atomic
+  activation command.
+
 ## v0.68.1 - 2026-07-31
 
 - Closed the clean-clone project-audit gap by keeping the adopted package

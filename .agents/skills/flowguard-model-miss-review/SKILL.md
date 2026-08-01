@@ -12,7 +12,7 @@ Apply root-cause backpropagation from a post-green failure into its commitment, 
 This standalone FlowGuard satellite skill owns `model_miss_review` (`public_owner`) and grounded miss classification/closure, not feature invention.
 
 ## Local Material Routing
-Read `references/model_miss_protocol.md` for miss types, backpropagation, field/UI handling, same-class evidence, reattachment, and closure.
+After positive admission, read `references/model_miss_protocol.md` for miss types, backpropagation, evidence, reattachment, and closure.
 
 ## Entrypoint Acceptance Map
 Accept concrete failure evidence plus prior claim state; classify/generalize the miss; block point-fix-only or stale closure; hand follow-up work to typed owners.

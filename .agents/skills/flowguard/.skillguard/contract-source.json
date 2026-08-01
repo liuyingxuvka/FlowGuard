@@ -133,6 +133,58 @@
       "timeout_seconds": 180
     },
     {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_model_revision_builder.py",
+        "tests/test_model_authority_cli.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard:model-revision-build",
+      "command": "python",
+      "coverage_rationale": "The target-owned API and CLI regressions prove exact-current full-parent verification, typed affected-owner coverage, content-addressed output, visible stale/scoped failure, and a pointer-free build handoff.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard:model-revision-build"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard:model-revision-build",
+      "evidence_subject_id": "subject:flowguard:model-revision-build",
+      "execution_owner_id": "owner:check:flowguard:model-revision-build",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "flowguard/model_revision_builder.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/__main__.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_revision_builder.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_authority_cli.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/authoritative_model_system/model.py"
+        }
+      ],
+      "kind": "command",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard",
+      "semantic_check_id": "semantic:check:flowguard:model-revision-build",
+      "timeout_seconds": 300
+    },
+    {
       "check_id": "check:flowguard:evidence-closure",
       "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
       "coverage_scope": "declared_obligations",
@@ -165,6 +217,7 @@
         "obligation:flowguard:plane-boundary",
         "obligation:flowguard:native-authority",
         "obligation:flowguard:model-maturation-closure",
+        "obligation:flowguard:model-revision-build",
         "obligation:flowguard:evidence-closure"
       ]
     }
@@ -206,6 +259,7 @@
       "check:flowguard:plane-boundary",
       "check:flowguard:native-authority",
       "check:flowguard:model-maturation-closure",
+      "check:flowguard:model-revision-build",
       "check:flowguard:evidence-closure"
     ],
     "model_deepening_check_id": "check:flowguard:model-maturation-closure",
@@ -246,11 +300,14 @@
     "flowguard/portable_model.py",
     "flowguard/portable_checker.py",
     "flowguard/model_maturation.py",
+    "flowguard/model_revision_builder.py",
     "flowguard/__main__.py",
     ".flowguard/compositional_verification_kernel",
     "tests/test_flowguard_skill_trigger.py",
     "tests/test_flowguard_skill_collaboration.py",
-    "tests/test_model_maturation.py"
+    "tests/test_model_maturation.py",
+    "tests/test_model_revision_builder.py",
+    "tests/test_model_authority_cli.py"
   ],
   "integration_mode": "native-integrated",
   "judgment_rubrics": [],
@@ -285,6 +342,11 @@
     {
       "authority": "target-native",
       "check_id": "check:flowguard:model-maturation-closure",
+      "owner_id": "model_first_function_flow"
+    },
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard:model-revision-build",
       "owner_id": "model_first_function_flow"
     }
   ],
@@ -330,7 +392,8 @@
       },
       "check_ids": [
         "check:flowguard:evidence-closure",
-        "check:flowguard:model-maturation-closure"
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:model-revision-build"
       ],
       "output_artifact_ids": [],
       "step_id": "step:flowguard:verify"

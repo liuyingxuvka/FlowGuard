@@ -856,26 +856,74 @@ def _lookup_model_hit(
 
 
 def _normalized_model_path(value: str) -> str:
-    normalized = str(value).replace("\\", "/").removeprefix("./")
-    return normalized
+    normalized = str(value).strip().replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized.rstrip("/").casefold()
+
+
+def _path_identity_equivalent(left: str, right: str) -> bool:
+    left_value = _normalized_model_path(left)
+    right_value = _normalized_model_path(right)
+    if not left_value or not right_value:
+        return False
+    if left_value == right_value:
+        return True
+    left_pathlike = "/" in left_value or left_value.endswith(".py")
+    right_pathlike = "/" in right_value or right_value.endswith(".py")
+    if not (left_pathlike and right_pathlike):
+        return False
+    left_absolute = bool(re.match(r"^[a-z]:/|^/", left_value))
+    right_absolute = bool(re.match(r"^[a-z]:/|^/", right_value))
+    if left_absolute == right_absolute:
+        return False
+    absolute, relative = (
+        (left_value, right_value) if left_absolute else (right_value, left_value)
+    )
+    return "/" in relative and absolute.endswith("/" + relative)
+
+
+def _normalized_owner_fingerprint(value: str) -> str:
+    normalized = str(value).strip().casefold()
+    if normalized.startswith("model-authority:"):
+        normalized = normalized.split("model-authority:", 1)[1]
+    return normalized if normalized.startswith("sha256:") else ""
+
+
+def _owner_matches_instance(owner_id: str, instance) -> bool:
+    owner = str(owner_id).strip()
+    if not owner:
+        return False
+    if _normalized_model_path(owner) == _normalized_model_path(instance.logical_model_id):
+        return True
+    if _path_identity_equivalent(owner, instance.model_path):
+        return True
+    owner_fingerprint = _normalized_owner_fingerprint(owner)
+    return bool(owner_fingerprint and owner_fingerprint == str(instance.fingerprint).casefold())
+
+
+def _owner_matches_model_hit(owner_id: str, hit: ModelContextHit) -> bool:
+    owner = str(owner_id).strip()
+    if not owner:
+        return False
+    if _normalized_model_path(owner) == _normalized_model_path(hit.model_id):
+        return True
+    if _path_identity_equivalent(owner, hit.model_path):
+        return True
+    owner_fingerprint = _normalized_owner_fingerprint(owner)
+    evidence_fingerprint = _normalized_owner_fingerprint(hit.evidence_id)
+    return bool(owner_fingerprint and owner_fingerprint == evidence_fingerprint)
 
 
 def _lookup_owner_instance_fingerprints(snapshot, lookup_hits) -> set[str]:
-    owner_ids = {
-        _normalized_model_path(hit.primary_owner_model_id)
+    owner_ids = tuple(
+        hit.primary_owner_model_id
         for hit in lookup_hits
         if hit.primary_owner_model_id
-    }
+    )
     selected: set[str] = set()
     for instance in snapshot.model_instances:
-        model_path = _normalized_model_path(instance.model_path)
-        logical_id = _normalized_model_path(instance.logical_model_id)
-        if any(
-            owner_id in {model_path, logical_id}
-            or owner_id.endswith("/" + model_path)
-            or model_path.endswith("/" + owner_id)
-            for owner_id in owner_ids
-        ):
+        if any(_owner_matches_instance(owner_id, instance) for owner_id in owner_ids):
             selected.add(instance.fingerprint)
     return selected
 
@@ -1404,7 +1452,6 @@ def review_existing_model_preflight(
                 )
             )
         primary_ids = {hit.commitment_id for hit in preflight.primary_commitment_hits}
-        relevant_owner_ids = {model.model_id for model in preflight.relevant_models}
         for hit in preflight.primary_commitment_hits:
             if hit.behavior_plane != preflight.primary_behavior_plane:
                 findings.append(
@@ -1425,15 +1472,34 @@ def review_existing_model_preflight(
                         metadata=hit.to_dict(),
                     )
                 )
-            if hit.primary_owner_model_id and hit.primary_owner_model_id not in relevant_owner_ids:
-                findings.append(
-                    ExistingModelPreflightFinding(
-                        "behavior_lookup_owner_model_not_projected",
-                        "primary commitment owner model is missing from relevant model hits",
-                        model_id=hit.primary_owner_model_id,
-                        item_id=hit.commitment_id,
-                    )
+            if hit.primary_owner_model_id:
+                owner_matches = tuple(
+                    model
+                    for model in preflight.relevant_models
+                    if _owner_matches_model_hit(hit.primary_owner_model_id, model)
                 )
+                if not owner_matches:
+                    findings.append(
+                        ExistingModelPreflightFinding(
+                            "behavior_lookup_owner_model_not_projected",
+                            "primary commitment owner model is missing from relevant model hits",
+                            model_id=hit.primary_owner_model_id,
+                            item_id=hit.commitment_id,
+                        )
+                    )
+                elif len(owner_matches) > 1:
+                    findings.append(
+                        ExistingModelPreflightFinding(
+                            "behavior_lookup_owner_model_ambiguous",
+                            "primary commitment owner identity resolves to more than one relevant model hit",
+                            model_id=hit.primary_owner_model_id,
+                            item_id=hit.commitment_id,
+                            metadata={
+                                "matched_model_ids": [model.model_id for model in owner_matches],
+                                "matched_model_paths": [model.model_path for model in owner_matches],
+                            },
+                        )
+                    )
         for hit in preflight.related_commitment_hits:
             if hit.hit_role == BCL_HIT_ROLE_PRIMARY:
                 findings.append(

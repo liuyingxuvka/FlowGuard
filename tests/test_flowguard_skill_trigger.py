@@ -13,10 +13,10 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
 
     def test_skill_trigger_catalog_matches_expectations(self):
         self.assertTrue(self.report.ok, self.report.format_text(max_counterexamples=1))
-        self.assertEqual(26, self.report.total_scenarios)
-        self.assertEqual(16, self.report.passed)
+        self.assertEqual(33, self.report.total_scenarios)
+        self.assertEqual(21, self.report.passed)
         self.assertEqual(9, self.report.expected_violations_observed)
-        self.assertEqual(1, self.report.needs_human_review)
+        self.assertEqual(3, self.report.needs_human_review)
 
     def test_correct_trigger_scenarios_pass_or_need_review(self):
         for name in (
@@ -36,11 +36,24 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
             "STS15_rough_plan_enters_development_simulator",
             "STS16_multi_skill_enters_development_simulator",
             "STS17_full_plan_to_release_enters_all_simulator_modes",
+            "STS18_architecture_reduction_routes_directly",
+            "STS19_behavior_commitment_ledger_routes_directly",
+            "STS20_contract_exhaustion_routes_directly",
+            "STS21_field_lifecycle_routes_directly",
+            "STS22_topology_hazard_routes_directly",
         ):
             self.assertEqual("pass", self.statuses[name])
         self.assertEqual(
             "needs_human_review",
             self.statuses["STS05_ambiguous_scope_needs_human_review"],
+        )
+        self.assertEqual(
+            "needs_human_review",
+            self.statuses["STB10_forbidden_route_needs_review"],
+        )
+        self.assertEqual(
+            "needs_human_review",
+            self.statuses["STB11_route_conflict_needs_review"],
         )
 
     def test_broken_trigger_variants_are_caught(self):
@@ -67,7 +80,7 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
         )
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
         self.assertIn("flowguard Skill trigger review", completed.stdout)
-        self.assertIn("needs human review: 1", completed.stdout)
+        self.assertIn("needs human review: 3", completed.stdout)
 
 
 if __name__ == "__main__":

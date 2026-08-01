@@ -87,6 +87,8 @@ FULL_CHILD_IDS = (
     "distribution_parity",
 )
 
+FULL_PYTEST_TIMEOUT_SECONDS = 3600.0
+
 _NON_BROAD_STATUSES = {
     "pass_with_gaps",
     "partial",
@@ -650,6 +652,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "pyproject.toml",
             ),
             ("validation:pytest",),
+            timeout_seconds=FULL_PYTEST_TIMEOUT_SECONDS,
         ),
         ChildSpec(
             "openspec_strict",

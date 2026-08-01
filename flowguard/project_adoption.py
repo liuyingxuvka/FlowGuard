@@ -98,17 +98,15 @@ class ManagedAdoptionRule:
         ).strip()
 
 
-# Stable ids make rule loss observable without turning wording fragments into
-# a second, private policy inventory.  The rendered text intentionally mirrors
-# the complete current project rules, including the BCL and PPA additions that
-# pre-date this generator refactor.
+# Stable ids keep universal project-entry rules observable. Route-specific
+# execution detail stays in the selected installed skill/reference rather than
+# being paid by every project task.
 FLOWGUARD_MANAGED_RULES: tuple[ManagedAdoptionRule, ...] = (
     ManagedAdoptionRule(
         "project.scope",
         """## FlowGuard Project Rules
 
-Use FlowGuard for non-trivial maintenance, features, bugs, refactors, tests,
-releases, upgrades, and evidence-sensitive process changes.""",
+For non-trivial work, select the smallest current FlowGuard public owner; clear satellites are direct peers and unclear ordinary behavior/state work uses `flowguard`.""",
     ),
     ManagedAdoptionRule(
         "project.repository",
@@ -117,141 +115,87 @@ releases, upgrades, and evidence-sensitive process changes.""",
     ),
     ManagedAdoptionRule(
         "skill_suite.agent_surface",
-        """FlowGuard agent skill suite:
-- Primary agent surface: the current clean consumer projection:
-  `$CODEX_HOME/skills/flowguard/SKILL.md`.
-- This block plus sibling guidance does not copy the FlowGuard suite into its local tree.
-- Python package/CLI supports checks, not the AI-agent skill installation surface.""",
+        """FlowGuard agent skill suite: Primary agent surface: the current clean consumer projection at `$CODEX_HOME/skills/flowguard/SKILL.md`; the project does not copy the FlowGuard suite into its local tree, and the Python package/CLI is not the AI-agent skill installation surface.""",
     ),
     ManagedAdoptionRule(
         "project.record_locations",
-        """Project FlowGuard record:
-- Manifest: `{manifest}`
-- Machine log: `{machine_log}`
-- Human log: `{markdown_log}`""",
+        """Project record: `{manifest}`; machine log: `{machine_log}`; human log: `{markdown_log}`.""",
     ),
     ManagedAdoptionRule(
         "project.rendered_versions",
-        """Current adoption record:
-- FlowGuard check-engine version: `{package_version}`
-- FlowGuard schema version: `{schema_version}`""",
+        """Current adoption record: FlowGuard check-engine version: `{package_version}`; FlowGuard schema version: `{schema_version}`.""",
     ),
     ManagedAdoptionRule(
         "project.preflight_version_gate",
-        """Before non-trivial work, run `python -m flowguard project-audit --root .`
-and compare `{manifest}`. If installed is newer, run `project-upgrade` with
-artifact/model/test upgrade scanning and revalidate affected evidence; if older,
-connect the current engine.""",
+        """Before non-trivial work run `python -m flowguard project-audit --root .`; if the installed engine is newer, run full `project-upgrade` scanning and affected revalidation, and if older connect the current engine.""",
     ),
     ManagedAdoptionRule(
         "runtime.latest_schema_first",
-        """Runtime guidance is latest-schema-first: upgrade old artifacts at project/tool
-boundaries; normal routes keep no old branches for obsolete fields, aliases, or wrappers.""",
+        """Use latest-schema-first direct replacement; obsolete fields, aliases, wrappers, and alternate success paths have no normal-runtime fallback.""",
     ),
     ManagedAdoptionRule(
         "model_system.authority",
-        """Only the content-addressed `observed_implementation` snapshot selected by
-the sole project head is current. Targets/experiments stay isolated; discovery
-or green candidate checks grant no authority. Missing/invalid authority or
-required coverage blocks broad confidence.""",
+        """Only the sole content-addressed `observed_implementation` head is current; targets, experiments, discovery, and green candidates do not own current behavior.""",
     ),
     ManagedAdoptionRule(
         "model_system.revision_transaction",
-        """Replace model authority only through one accepted `ModelRevisionSet` bound
-to exact base, candidate, affected closure, changes, and owner evidence. Persist
-before the pointer. Rollback restores/compensates effects and revalidates the old
-snapshot; irreversible effects use forward repair.""",
+        """Change model authority only through one accepted `ModelRevisionSet`; persist evidence before the pointer, and restore/compensate effects before rollback.""",
     ),
     ManagedAdoptionRule(
         "lifecycle.default_replacement",
-        """Default replacement means dispose the old path, old field, alias, wrapper, or
-alternate success path. Delete, block, migrate, delegate, repair, replace, or
-scope it out with a concrete reason; do not leave it as a second successful
-route.""",
+        """Default replacement means dispose the old path: every replaced field, alias, wrapper, or alternate success needs an explicit delete/block/migrate/delegate/repair/replace/scope disposition.""",
     ),
     ManagedAdoptionRule(
         "behavior.commitment_ledger",
-        """Broad behavior claims use BehaviorCommitmentLedger: independently inventory
-admitted external promises, give each source one modeled/delegated/scoped
-disposition, one plane/actor and one primary model owner, and send
-`path_sensitive=true` rows to Primary Path Authority. Helpers are not
-automatically commitments.""",
+        """Broad behavior claims require an independent BehaviorCommitmentLedger inventory, one plane and primary owner per admitted promise, and Primary Path Authority for path-sensitive rows.""",
     ),
     ManagedAdoptionRule(
         "behavior.plane_partitioning",
-        """Classify each commitment as `product_runtime`, `agent_operation`, or
-`development_process`. A lightweight existing-model/commitment lookup selects
-a bounded same-plane owner closure; typed related-plane context never transfers
-ownership. Model Miss creates a gap only when that plane has no matching promise.""",
+        """Commitments stay in `product_runtime`, `agent_operation`, or `development_process`; select a bounded same-plane owner closure and keep related planes as typed context only.""",
     ),
     ManagedAdoptionRule(
         "behavior.commitment_ledger_modes",
-        """Declare ledger mode before coverage work. Only `bootstrap_ledger` and
-`coverage_gap_backfill` use broad history discovery; add/change/remove/miss
-work stays on the affected commitment, owner, cases, and evidence closure.""",
+        """Declare ledger mode first; only bootstrap/backfill may discover broadly, while add/change/remove/miss stays on the affected commitment closure.""",
     ),
     ManagedAdoptionRule(
         "lifecycle.field_mesh",
-        """Field-bearing work uses FieldLifecycleMesh. High-level models keep
-behavior-bearing fields; leaf inventory accounts every field's owner,
-readers/writers, projection, lifecycle, evidence, and old-field disposition.""",
+        """Field-bearing work uses FieldLifecycleMesh and accounts owner, readers/writers, projection, lifecycle evidence, and old-field disposition.""",
     ),
     ManagedAdoptionRule(
         "evidence.ui_and_payload",
-        """UI runnable claims and file/work-package claims need current UI click-through
-or artifact-payload evidence gates before broad done/release confidence.""",
+        """UI runnable claims and file/work-package claims need current real-surface or payload evidence before broad confidence.""",
     ),
     ManagedAdoptionRule(
         "behavior.primary_path_authority",
-        """Path-sensitive commitments need one Primary Path Authority, visible primary
-failure, no automatic alternate success, and current exhaustion/test/risk evidence.""",
+        """Commitments with `path_sensitive=true` need one Primary Path Authority, visible primary failure, no alternate automatic success, and current exhaustion/test/risk evidence.""",
     ),
     ManagedAdoptionRule(
         "behavior.exact_intent_reuse",
-        """One exact user purpose has one intent, active commitment, and primary path.
-Equivalent UI/API/CLI/adapter/wrapper surfaces delegate; they do not become
-independent success implementations.""",
+        """One exact purpose has one intent, commitment, and primary path; equivalent UI/API/CLI/adapter/wrapper surfaces delegate rather than own independent success.""",
     ),
     ManagedAdoptionRule(
         "ui.product_language",
-        """UI Flow Structure owns product-wide language and complete rendered-surface
-coverage. Full UI claims inventory every control, display, transition, overlay,
-recovery path, and blindspot with stable identity, evidence, and disposition.""",
+        """UI Flow Structure owns product language and complete rendered control/display/transition/overlay/recovery/blindspot coverage for full UI claims.""",
     ),
     ManagedAdoptionRule(
         "ui.content_admission",
-        """Classify UI content once as `user_visible`, `user_on_demand`, or `internal`.
-On-demand needs reveal/return; internal diagnostics and routing stay hidden.""",
+        """Classify UI content once as `user_visible`, `user_on_demand`, or `internal`; on-demand needs reveal/return and internal diagnostics stay hidden.""",
     ),
     ManagedAdoptionRule(
         "process.development_process_flow",
-        """Plans, staged/multi-skill work, sync, release, publish, and final process
-claims enter `flowguard-development-process-flow`. It owns order/freshness,
-preserves peer writes, delegates semantics, uses affected revalidation, and
-reserves one full gate for frozen source. Conditional strategy selection runs
-only for its declared triggers; progress is never completion evidence.""",
+        """Plans, staged/multi-skill work, sync, release, publish, and final process claims use `flowguard-development-process-flow`: start with lightweight existing-model/commitment lookup, preserve peers, revalidate affected owners, and reserve one full gate for frozen source.""",
     ),
     ManagedAdoptionRule(
         "process.work_context_read_only",
-        """External specs/plans enter through project-bounded read-only WorkContexts.
-Providers keep ownership; FlowGuard preserves identity/lane, rejects fallback,
-write, or execution authority, and admits behavior only by explicit mapping.
-Zero providers is valid.""",
+        """External specs/plans are optional project-bounded read-only WorkContexts; providers retain identity, lane, execution, validation, and lifecycle authority.""",
     ),
     ManagedAdoptionRule(
         "process.post_change_scan",
-        """After non-trivial work, DevelopmentProcessFlow consumes post-change scan signals:
-changes, skips, stale evidence, open obligations, and split/reduction pressure;
-route each gap to its existing specialist.""",
+        """DevelopmentProcessFlow consumes post-change scan signals—changed, skipped, stale, open, split, or reduction—and routes each to its existing specialist.""",
     ),
     ManagedAdoptionRule(
         "claim.no_fake_adoption",
-        """Do not create a fake local FlowGuard replacement. An AGENTS/manifest/log
-update alone is not completion; model checks, tests, replay, and closure evidence
-must be current. Before model build/change, freeze task-specific failures/boundary
-and bind the candidate to native good/bad-per-failure/oracle/current evidence.
-Reusable types are not fixed-purpose; no mode/fallback exists; only
-FlowGuard-declared checks support completion claims.""",
+        """Do not create a fake local FlowGuard replacement. AGENTS/manifest/log changes are not proof: freeze task-specific failures and boundary, bind native good/bad-per-failure/oracle/current evidence, and let only declared checks support completion.""",
     ),
 )
 

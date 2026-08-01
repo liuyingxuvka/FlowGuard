@@ -12,7 +12,7 @@ Govern ownership, freshness, reattachment, and closure without expanding childre
 This standalone FlowGuard satellite skill owns model hierarchy, not test or code splits.
 
 ## Local Material Routing
-Read `references/model_mesh_protocol.md` for inventory, splits, partitions, Child Reattachment Gate, closure, and evidence tiers/freshness.
+After positive admission and no forbidden condition, read `references/model_mesh_protocol.md` for splits, Child Reattachment Gate, closure, and evidence freshness.
 
 ## Entrypoint Acceptance Map
 Accept bounded children; verify partitions/receipts; block overlap, staleness, missing closure, or incomplete leaves.

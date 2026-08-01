@@ -41,6 +41,9 @@ class AuthorityCase:
     affected_closure_is_fixed_point: bool = True
     aggregate_evidence_complete: bool = True
     evidence_coverage_union_exact: bool = True
+    revision_builder_receipt_exact_current: bool = True
+    revision_builder_content_addressed_current: bool = True
+    revision_builder_pointer_unchanged: bool = True
     expected_head_matches: bool = True
     full_head_compare_and_swap: bool = True
     lock_held_live_candidate_exact: bool = True
@@ -81,6 +84,9 @@ class AuthorityState:
     affected_closure_is_fixed_point: bool = False
     aggregate_evidence_complete: bool = False
     evidence_coverage_union_exact: bool = False
+    revision_builder_receipt_exact_current: bool = False
+    revision_builder_content_addressed_current: bool = False
+    revision_builder_pointer_unchanged: bool = False
     expected_head_matches: bool = False
     full_head_compare_and_swap: bool = False
     lock_held_live_candidate_exact: bool = False
@@ -236,6 +242,29 @@ def revision_set_closes_as_one_unit(
         return _fail(
             "revision_set_closes_as_one_unit",
             "one revision-set member activated independently",
+        )
+    return _pass()
+
+
+def revision_generation_is_current_and_pointer_free(
+    state: AuthorityState, _trace: object
+) -> InvariantResult:
+    if not state.case_name:
+        return _pass()
+    if not state.revision_builder_receipt_exact_current:
+        return _fail(
+            "revision_generation_is_current_and_pointer_free",
+            "revision generation accepted stale, scoped, incomplete, or foreign parent evidence",
+        )
+    if not state.revision_builder_content_addressed_current:
+        return _fail(
+            "revision_generation_is_current_and_pointer_free",
+            "revision generation emitted a non-current or non-content-addressed artifact",
+        )
+    if not state.revision_builder_pointer_unchanged:
+        return _fail(
+            "revision_generation_is_current_and_pointer_free",
+            "revision generation changed observed authority without the activation owner",
         )
     return _pass()
 
@@ -428,6 +457,11 @@ INVARIANTS = (
         revision_set_closes_as_one_unit,
     ),
     Invariant(
+        "revision_generation_is_current_and_pointer_free",
+        "Revision generation consumes exact-current evidence and cannot activate authority.",
+        revision_generation_is_current_and_pointer_free,
+    ),
+    Invariant(
         "activation_is_compare_and_swap_pointer_last",
         "Activation validates the expected head and writes the pointer last once.",
         activation_is_compare_and_swap_pointer_last,
@@ -528,6 +562,30 @@ SCENARIOS = (
         _expect_violation(
             "candidates_never_mutate_observed_authority",
             "candidate mutation is rejected",
+        ),
+    ),
+    _scenario(
+        "revision_builder_rejects_stale_parent_evidence",
+        "A passing parent receipt cannot build a revision after its governed inputs drift.",
+        AuthorityCase(
+            "revision_builder_stale_parent",
+            revision_builder_receipt_exact_current=False,
+        ),
+        _expect_violation(
+            "revision_generation_is_current_and_pointer_free",
+            "stale revision-build evidence is rejected",
+        ),
+    ),
+    _scenario(
+        "revision_builder_cannot_activate_authority",
+        "Generation can persist candidates and revisions but cannot move the observed pointer.",
+        AuthorityCase(
+            "revision_builder_moves_pointer",
+            revision_builder_pointer_unchanged=False,
+        ),
+        _expect_violation(
+            "revision_generation_is_current_and_pointer_free",
+            "generation-side activation is rejected",
         ),
     ),
     _scenario(

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from flowguard import (
+    BehaviorCommitmentHit,
     DuplicateBoundaryRisk,
     ExistingModelPreflight,
     ExistingOwnershipSnapshot,
@@ -43,6 +44,104 @@ def model_hit(**kwargs) -> ModelContextHit:
 
 
 class ExistingModelPreflightTests(unittest.TestCase):
+    def owner_projection_report(self, owner_id: str, *models: ModelContextHit):
+        return review_existing_model_preflight(
+            ExistingModelPreflight(
+                "owner-identity",
+                "Resolve the current commitment owner",
+                mode="full",
+                model_search_performed=True,
+                search_paths=(".flowguard",),
+                behavior_lookup_required=True,
+                behavior_lookup_status="performed",
+                primary_behavior_plane="agent_operation",
+                primary_commitment_hits=(
+                    BehaviorCommitmentHit(
+                        "commitment:route",
+                        "agent_operation",
+                        owner_id,
+                        100,
+                    ),
+                ),
+                ledger_fingerprint="sha256:ledger",
+                relevant_models=models,
+                ownership_snapshot=ExistingOwnershipSnapshot(
+                    function_block_owners=(("RouteTask", models[0].model_id),),
+                ),
+                reuse_decision=REUSE_DECISION_REUSE_EXISTING,
+                downstream_routes=("development_process_flow",),
+                rationale="The exact current owner should be reused.",
+            )
+        )
+
+    def test_commitment_owner_path_matches_observed_logical_hit(self):
+        report = self.owner_projection_report(
+            ".flowguard/minimum_valuable_model_entry/model.py",
+            model_hit(
+                model_id="minimum_valuable_model_entry",
+                model_path=".flowguard/minimum_valuable_model_entry/model.py",
+                evidence_id="model-authority:sha256:minimum-entry",
+            ),
+        )
+
+        self.assertNotIn(
+            "behavior_lookup_owner_model_not_projected",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_commitment_owner_logical_id_matches(self):
+        report = self.owner_projection_report("router-flow", model_hit())
+        self.assertNotIn(
+            "behavior_lookup_owner_model_not_projected",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_commitment_owner_fingerprint_matches(self):
+        report = self.owner_projection_report(
+            "sha256:router-current",
+            model_hit(evidence_id="model-authority:sha256:router-current"),
+        )
+        self.assertNotIn(
+            "behavior_lookup_owner_model_not_projected",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_absolute_and_repository_relative_owner_paths_match(self):
+        report = self.owner_projection_report(
+            "C:/workspace/project/.flowguard/router/model.py",
+            model_hit(model_path=".flowguard/router/model.py"),
+        )
+        self.assertNotIn(
+            "behavior_lookup_owner_model_not_projected",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_similar_basename_and_wrong_fingerprint_do_not_match(self):
+        for owner_id in (
+            ".flowguard/other/router/model.py",
+            "sha256:not-router-current",
+        ):
+            with self.subTest(owner_id=owner_id):
+                report = self.owner_projection_report(
+                    owner_id,
+                    model_hit(evidence_id="model-authority:sha256:router-current"),
+                )
+                self.assertIn(
+                    "behavior_lookup_owner_model_not_projected",
+                    {finding.code for finding in report.findings},
+                )
+
+    def test_ambiguous_owner_identity_blocks(self):
+        report = self.owner_projection_report(
+            ".flowguard/router/model.py",
+            model_hit(model_id="router-flow-a"),
+            model_hit(model_id="router-flow-b"),
+        )
+        self.assertIn(
+            "behavior_lookup_owner_model_ambiguous",
+            {finding.code for finding in report.findings},
+        )
+
     def test_project_inventory_selects_before_materializing(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)

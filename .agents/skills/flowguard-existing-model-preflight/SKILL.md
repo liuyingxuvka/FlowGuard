@@ -12,7 +12,7 @@ Ground work in current model boundaries before another route changes them.
 This standalone FlowGuard satellite skill is the companion public lookup owner, not the downstream change owner.
 
 ## Local Material Routing
-Read `references/existing_model_preflight_protocol.md` for lookup, search, ownership, reuse, and proof.
+After the route's positive conditions are confirmed and forbidden conditions are absent, read `references/existing_model_preflight_protocol.md` for lookup, search, ownership, reuse, and proof.
 
 ## Entrypoint Acceptance Map
 Accept boundary/root; choose reuse, extend, child, new, or none; block duplicate ownership and select a downstream route.

@@ -181,6 +181,30 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
                 as_json=args.json,
             )
             return 0
+        if args.model_system_action == "build":
+            from .model_revision_builder import (
+                build_current_model_revision,
+                load_revision_removal_dispositions,
+            )
+
+            dispositions = (
+                load_revision_removal_dispositions(args.removal_dispositions)
+                if args.removal_dispositions
+                else ()
+            )
+            report = build_current_model_revision(
+                args.root,
+                model_parent_receipt=args.model_parent_receipt,
+                revision_set_id=args.revision_set_id,
+                task_id=args.task_id,
+                snapshot_id=args.snapshot_id,
+                receipt_root=args.receipt_root or None,
+                output_root=args.output_root or None,
+                removal_dispositions=dispositions,
+                decision_reason=args.decision_reason,
+            )
+            _emit_payload(report.to_dict(), as_json=args.json)
+            return 0
         if args.model_system_action == "activate":
             candidate = load_model_system_snapshot(args.candidate_snapshot)
             revision = ModelRevisionSet.from_dict(
@@ -294,6 +318,46 @@ def _add_model_system_parsers(
     bootstrap.set_defaults(
         handler=_run_model_system_command,
         model_system_action="bootstrap",
+    )
+
+    build = subparsers.add_parser(
+        "model-revision-build",
+        help=(
+            "Build one accepted current-format revision from an exact-current "
+            "full model-regression parent receipt without activating it."
+        ),
+    )
+    build.add_argument("--root", default=".")
+    build.add_argument("--model-parent-receipt", required=True)
+    build.add_argument("--revision-set-id", required=True)
+    build.add_argument("--task-id", required=True)
+    build.add_argument("--snapshot-id", required=True)
+    build.add_argument(
+        "--receipt-root",
+        default="",
+        help="Model owner receipt store; defaults to the project current store.",
+    )
+    build.add_argument(
+        "--output-root",
+        default="",
+        help="Model-mesh output root; defaults to .flowguard/model-mesh.",
+    )
+    build.add_argument(
+        "--removal-dispositions",
+        default="",
+        help="Current-schema JSON array covering every removed governed id.",
+    )
+    build.add_argument(
+        "--decision-reason",
+        default=(
+            "The exact-current terminal-pass full model-regression parent "
+            "receipt covers every affected native owner."
+        ),
+    )
+    build.add_argument("--json", action="store_true")
+    build.set_defaults(
+        handler=_run_model_system_command,
+        model_system_action="build",
     )
 
     activate = subparsers.add_parser(

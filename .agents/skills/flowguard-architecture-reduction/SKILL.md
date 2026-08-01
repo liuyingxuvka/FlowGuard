@@ -12,7 +12,7 @@ Classify model-backed contraction candidates without changing the declared obser
 Route id: `architecture_reduction`; role: `public_owner`; native owner: `architecture_reduction`. This standalone FlowGuard satellite skill owns reduction proof, not implementation.
 
 ## Local Material Routing
-Read `references/architecture_reduction_protocol.md` for observable contracts, compatibility classifications, proof statuses, and target actions.
+After the route's positive conditions are confirmed and forbidden conditions are absent, read `references/architecture_reduction_protocol.md` for observable contracts, compatibility classifications, proof statuses, and target actions.
 
 ## Entrypoint Acceptance Map
 Accept existing-model ownership plus code mapping; classify contraction candidates; block missing equivalence/facade evidence; hand ready public-entrypoint work to Code Structure Recommendation, StructureMesh, and DevelopmentProcessFlow.

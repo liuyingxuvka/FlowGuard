@@ -15,6 +15,6 @@ def test_agents_and_skill_guidance_include_primary_path_authority_policy():
     combined = "\n".join(texts).lower()
 
     assert "primary path authority" in combined
-    assert "primary path fails" in combined
-    assert "automatic alternate" in combined or "automatic fallback" in combined
+    assert "visible primary failure" in combined
+    assert "no alternate automatic success" in combined
     assert "cartesian coverage" in combined

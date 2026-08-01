@@ -333,4 +333,13 @@ def export_contract_model():
             "required": True,
         }
     )
+    exported["invariant_ids"].append("invariant:model-revision-build")
+    exported["obligations"].append(
+        {
+            "obligation_id": "obligation:flowguard:model-revision-build",
+            "invariant_id": "invariant:model-revision-build",
+            "owner_step_ids": ["step:flowguard:verify"],
+            "required": True,
+        }
+    )
     return exported

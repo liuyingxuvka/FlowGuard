@@ -44,24 +44,41 @@ class ProjectIntegrationTests(unittest.TestCase):
         self.assertLess(text.index("Agent Skill Suite Setup"), text.index("python -m pip install -e"))
 
     def test_skill_requires_import_preflight_and_rejects_substitute(self):
-        text = (
+        skill = (
             ROOT
             / ".agents"
             / "skills"
             / "flowguard"
             / "SKILL.md"
         ).read_text(encoding="utf-8")
+        core = (
+            ROOT
+            / ".agents"
+            / "skills"
+            / "flowguard"
+            / "references"
+            / "modeling_core_protocol.md"
+        ).read_text(encoding="utf-8")
+        evidence = (
+            ROOT
+            / ".agents"
+            / "skills"
+            / "flowguard"
+            / "references"
+            / "modeling_evidence_protocol.md"
+        ).read_text(encoding="utf-8")
 
-        self.assertIn("FlowGuard kernel", text)
-        self.assertIn("use the matching satellite directly", text)
-        self.assertIn("verify adoption", text)
-        self.assertIn("Verify the real FlowGuard check engine", text)
-        self.assertIn("never create a fake mini-framework", text)
-        self.assertIn("references/modeling_protocol.md", text)
-        self.assertIn("blocked/partial", text)
-        self.assertIn("AGENTS.md managed record", text)
-        self.assertIn("Missing, stale, skipped", text)
-        self.assertIn("cannot support broad done", text)
+        self.assertIn("role: `kernel`", skill)
+        self.assertIn("Use a clear peer satellite directly", skill)
+        self.assertIn("references/modeling_protocol.md", skill)
+        self.assertIn('python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"', core)
+        self.assertIn("AGENTS.md managed adoption record", core)
+        self.assertIn("blocked/partial", core)
+        self.assertIn("never create a replacement mini-framework", core)
+        self.assertIn("failed, timeout, error, or blocker", evidence)
+        self.assertIn("skipped/not-run with reason", evidence)
+        self.assertIn("stale or reused without current ticket/proof", evidence)
+        self.assertIn("Broad done/release/archive/publish/production confidence cannot consume", evidence)
 
     def test_import_preflight_command_works_in_this_environment(self):
         completed = subprocess.run(

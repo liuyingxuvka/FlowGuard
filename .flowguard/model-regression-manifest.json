@@ -192,6 +192,7 @@
         "flowguard/model_maturation.py",
         "flowguard/model_purpose.py",
         "flowguard/model_regressions.py",
+        "flowguard/model_revision_builder.py",
         "flowguard/model_revision_set.py",
         "flowguard/model_system_inventory.py",
         "flowguard/project_adoption.py",
@@ -206,6 +207,7 @@
         "tests/test_model_maturation.py",
         "tests/test_model_regression_manifest.py",
         "tests/test_model_regression_orchestrator.py",
+        "tests/test_model_revision_builder.py",
         "tests/test_model_system_inventory.py",
         "tests/test_project_manifest.py"
       ],
@@ -225,7 +227,7 @@
         "reusable_model_type_id": "authoritative_model_system",
         "task_intent_id": "flowguard-regression:authoritative-model-system",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent incomplete live model materialization, caller-narrowed diffs, coverage, or evidence, self-reported model understanding, premature maturation termination, stale live activation, target or experiment authority, and snapshot-only rollback replay from being accepted as current model truth.",
+        "guarded_purpose": "Prevent incomplete live materialization, caller-narrowed diffs or evidence, stale revision-build receipts, generation-side activation, self-reported understanding, premature maturation, target or experiment authority, and snapshot-only rollback from being accepted as current model truth.",
         "protected_failure_ids": [
           "model-authority:subject-lane-confusion",
           "model-authority:partial-or-stale-activation",
@@ -237,9 +239,11 @@
           "model-authority:old-head-rollback-replay",
           "model-maturation:caller-self-report",
           "model-maturation:coverage-shrink",
-          "model-maturation:premature-terminal"
+          "model-maturation:premature-terminal",
+          "model-authority:stale-revision-build-evidence",
+          "model-authority:revision-build-activates-authority"
         ],
-        "claim_boundary": "Current closure covers only the declared finite inventory, diff, affected-closure, evidence, task-local maturation, live-activation, and reverse-rollback scenarios; it does not prove unenumerated software surfaces or production restoration without separate implementation evidence.",
+        "claim_boundary": "Current closure covers only the declared finite inventory, diff, affected closure, exact-current revision-build evidence, pointer-free generation, task-local maturation, live activation, and reverse rollback scenarios; it does not prove unenumerated software surfaces or production restoration without separate implementation evidence.",
         "adoption_scope": "current_candidate_only",
         "known_good_case_id": "native-runner:authoritative-model-system:complete-transaction",
         "failure_bindings": [
@@ -297,15 +301,25 @@
             "failure_id": "model-maturation:premature-terminal",
             "known_bad_case_id": "native-runner:authoritative-model-system:maturation-upgrade-marked-terminal",
             "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:stale-revision-build-evidence",
+            "known_bad_case_id": "native-runner:authoritative-model-system:revision-builder-stale-parent",
+            "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:revision-build-activates-authority",
+            "known_bad_case_id": "native-runner:authoritative-model-system:revision-builder-moves-pointer",
+            "oracle_id": "native:authoritative-model-system:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:authoritative-model-system"
         ],
-        "model_sha256": "sha256:a288d9359047fe260e9fbda2639b4486d59070409405ed290ed88819e5c8c1d7",
+        "model_sha256": "sha256:68ee7df650b3ea8254bbcf01f1cd8741bdfc3b180991c016b7fb42992d0a5959",
         "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
-        "declaration_fingerprint": "sha256:ed0522ad6280dc59ffba398dc179a564ab8342d62031c2648a47a74710a9151d",
-        "closure_fingerprint": "sha256:843a8070f8cee80cb2d968cb1880d8ff866c4281bdafd2869c4819eb9970be16"
+        "declaration_fingerprint": "sha256:42191fa81d230ee4e6f9d6f032ddfca74d909e9d80469cfd9d65ce7e08071833",
+        "closure_fingerprint": "sha256:09e45f5603d5be61a4f2bdc45cdfc1d4c6fbd0cc74aa00433b62999b0599c71f"
       }
     },
     {
@@ -1095,9 +1109,9 @@
           "check:model-regression:existing_model_preflight"
         ],
         "model_sha256": "sha256:66791e7efec77cd2ed99c1919ad5c35d7a8d09a1b763f65d48d39684ef752017",
-        "runner_sha256": "sha256:1c44e2dc420c104d8a19cf6bba3794641e4b0852a2ff3c8fc34c9b22d9ca627b",
+        "runner_sha256": "sha256:73d81868ed199815f2c6b66622f7aabb724977512b9c978db78ddd1e020c1ee2",
         "declaration_fingerprint": "sha256:2d43b2f5745416c9249d0a1837514fe2632ac900721eec67543473871b2bbd7e",
-        "closure_fingerprint": "sha256:828bc64b1bddde0716793109ae312a93853b27fe59489011c8c8775fd92f55c0"
+        "closure_fingerprint": "sha256:910386b9b6284a7b040fabe1b80a18f002e830d8b9824d23b42965c6258b0f8c"
       }
     },
     {
@@ -1293,9 +1307,9 @@
           "check:model-regression:guidance_compression"
         ],
         "model_sha256": "sha256:92230f17471f260f68d7c6ba012c8648ebfd90fb702be8ac8b1f137bc9b31359",
-        "runner_sha256": "sha256:c22be2d2a9afc3bde07cf6892b0b381d2c40e513c3a9fbfa4668f93055c9f5bf",
+        "runner_sha256": "sha256:9beb9fe2748bed7d2ae7427dbd4e24506632c807090e4f9aaa10d7230d181dc3",
         "declaration_fingerprint": "sha256:2b6f94fe2f0de2880dfbfdc15f43251ccd46f711f2f55b64b31b005bff02677e",
-        "closure_fingerprint": "sha256:de11fe6957e8249ace8dc251d7a0ce1774502f312a990a3a92871e082d504bb8"
+        "closure_fingerprint": "sha256:223b12a6490b132f78a79b1892b7094b238fce584b88cc29ff51f728cc8714f1"
       }
     },
     {
@@ -1712,10 +1726,10 @@
         "evidence_check_ids": [
           "check:model-regression:minimum_valuable_model_entry"
         ],
-        "model_sha256": "sha256:65d2c1de7f4322f94c1271e79510c5cacda613733286fa43431290c51d6537a7",
-        "runner_sha256": "sha256:041ec928815dea9bdccdb14ea194b877f5279848729ad427b79a6f1f6a63b736",
+        "model_sha256": "sha256:3c843a0ae33ec69af915acb81079c594daff86e3659f91e4d4d4cd205c235aa6",
+        "runner_sha256": "sha256:74fcd280774a031f77caec63e5a944fcb8d2d611464a298cbe7c357101d9f2ad",
         "declaration_fingerprint": "sha256:b45a00eb181a6e7546b6e2c5090cd71580956a16c48b8b760fc6daa513400cc0",
-        "closure_fingerprint": "sha256:8fd3658de84a09a0c0a948fe509f53705e0f930d411a684a7720108bf978bff6"
+        "closure_fingerprint": "sha256:d4e6b10feb0f7ab2aa8ea01b486e31a7330d94f5cc5b87f9216cdb5e009e5c3b"
       }
     },
     {
@@ -2674,9 +2688,9 @@
           "check:model-regression:self_maintenance_mesh"
         ],
         "model_sha256": "sha256:75186d82eb603335ff0740ecd2426e8170c9db53d28d90f02c1c6f00f8fcd66e",
-        "runner_sha256": "sha256:34088eacc01eef071258d7286cbe027f20444333eaafb24936eba82d036a563d",
+        "runner_sha256": "sha256:48bb6ee31a1091519ad608d343e57e3cde68a8e2e82bdcdcc7e97237f32c0a47",
         "declaration_fingerprint": "sha256:a02cbef5dff567145b77d292b750ecc6d2ed5276609b5b3c61a9f39bbffc9545",
-        "closure_fingerprint": "sha256:65a2ebc29681340e189dc59bad3070c74d9119b9d5daa04a9bca3702b34fc9f2"
+        "closure_fingerprint": "sha256:33e2674c75156bc72f364de9410ac0e15c266f8d5aa863e8230a82dc800279e9"
       }
     },
     {
@@ -3116,6 +3130,7 @@
         "scripts/run_flowguard_model_regressions.py",
         "tests/test_model_simulator_command.py",
         "tests/test_model_test_alignment.py",
+        "tests/test_full_validation_composition.py",
         "tests/test_test_mesh.py",
         "tests/test_test_reuse.py",
         "tests/test_validation_command_surface.py"
@@ -3138,7 +3153,8 @@
         "declaration_phase": "before_candidate",
         "guarded_purpose": "Prevent the test evidence mesh model from accepting an invalid, bypassed, stale, or incomplete test evidence mesh outcome as current FlowGuard evidence.",
         "protected_failure_ids": [
-          "test_evidence_mesh:invalid-or-incomplete-outcome"
+          "test_evidence_mesh:invalid-or-incomplete-outcome",
+          "test_evidence_mesh:undersized-timeout-budget"
         ],
         "claim_boundary": "Current closure proves only that the checked-in test_evidence_mesh candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
         "adoption_scope": "current_candidate_only",
@@ -3148,15 +3164,20 @@
             "failure_id": "test_evidence_mesh:invalid-or-incomplete-outcome",
             "known_bad_case_id": "native-runner:test_evidence_mesh:declared-negative-suite",
             "oracle_id": "native:test_evidence_mesh:run-checks"
+          },
+          {
+            "failure_id": "test_evidence_mesh:undersized-timeout-budget",
+            "known_bad_case_id": "native-runner:test_evidence_mesh:undersized_timeout_budget_fails",
+            "oracle_id": "native:test_evidence_mesh:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:test_evidence_mesh"
         ],
-        "model_sha256": "sha256:f7b5573445df2493d882db0c36ecc23494b645daf288621b2b8f472ef1c5013a",
+        "model_sha256": "sha256:766490ef9c003544183da36408c604d6b92acde0e32389b59a1877d98d2e6e38",
         "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
-        "declaration_fingerprint": "sha256:bb6882342199234e456eadd9a1b276a71c4a9d158a914013ac686c0eef9e374b",
-        "closure_fingerprint": "sha256:2253a588ec63ae61b60519f002a8a81b35705e335a52e805a94b7b696424d694"
+        "declaration_fingerprint": "sha256:4c2f9de4a71002f66f6f9f8d2b00527f7b4f22d7c99a1a8e0ea6d8a8f040d468",
+        "closure_fingerprint": "sha256:907b5fdd79ab0161a07d9168033eb8da9e3cd788b57b63346024ce0d0b8b93f7"
       }
     },
     {

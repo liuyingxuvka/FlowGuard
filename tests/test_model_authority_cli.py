@@ -14,6 +14,29 @@ from flowguard.model_authority_store import (
 
 
 class ModelAuthorityCliTests(unittest.TestCase):
+    def test_model_revision_build_failure_is_visible(self):
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = main(
+                [
+                    "model-revision-build",
+                    "--model-parent-receipt",
+                    "missing-parent.json",
+                    "--revision-set-id",
+                    "revision:missing",
+                    "--task-id",
+                    "task:missing",
+                    "--snapshot-id",
+                    "observed-missing",
+                    "--json",
+                ]
+            )
+
+        payload = json.loads(output.getvalue())
+        self.assertEqual(1, exit_code)
+        self.assertEqual("blocked", payload["status"])
+        self.assertIn("missing-parent.json", payload["error"])
+
     def test_model_system_audit_fails_closed_without_authority(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

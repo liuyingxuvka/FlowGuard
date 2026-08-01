@@ -741,7 +741,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("project-audit", combined)
         self.assertIn("project-upgrade", combined)
         self.assertIn("latest-schema-first", combined)
-        self.assertIn("artifact/model/test upgrade scanning", combined)
+        self.assertIn("full `project-upgrade` scanning and affected revalidation", combined)
         self.assertIn("adopted_package_version", combined)
         self.assertIn("schema_version", combined)
 

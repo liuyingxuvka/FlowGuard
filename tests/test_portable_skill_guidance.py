@@ -17,8 +17,10 @@ class PortableSkillGuidanceTests(unittest.TestCase):
         reference = (
             SKILLS / "flowguard" / "references" / "modeling_core_protocol.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("flowguard.portable_model.v1", skill)
-        self.assertIn("do not serialize arbitrary Python", skill)
+        self.assertIn("references/modeling_core_protocol.md", skill)
+        self.assertIn("flowguard.portable_model.v1", reference)
+        self.assertIn("never attempt to serialize an", reference)
+        self.assertIn("arbitrary callable", reference)
         self.assertIn("There is no alternate reader or prose fallback", reference)
 
     def test_mesh_consumes_explicit_refinement_instead_of_reimplementing_checker(self):

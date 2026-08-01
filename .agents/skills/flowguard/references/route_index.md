@@ -1,49 +1,33 @@
 # FlowGuard Route Index
 
-This compact projection is checked against `flowguard.route_topology` and the canonical suite map. It selects owners; it does not execute a route or prove current evidence.
+This is the only pre-selection route material. It projects the current `RouteProfile` registry; it selects an owner but does not execute a route or prove evidence.
 
-## Kernel
+## Decision rule
 
-| Route id | Role | Native owner | Skill |
+Extract task facts with request spans. Match those facts to positive and forbidden condition ids in the current route profiles. Select only an exact single public owner. Zero candidates means `no_match`; multiple candidates mean `conflict`; neither may be resolved by keyword score, declaration order, or a caller saying a route applies.
+
+## Public owners
+
+| Route | Use when | Exclude when | First action |
 | --- | --- | --- | --- |
-| `model_first_function_flow` | kernel | `model_first_function_flow` | `flowguard` |
+| `model_first_function_flow` / `flowguard` | ordinary behavior/state modeling, unclear owner, or cross-route coordination | trivial work or a clear satellite owner | extract facts and build the smallest faithful executable model |
+| `existing_model_preflight` / `flowguard-existing-model-preflight` | an existing modeled system needs current ownership lookup | greenfield work without model context | audit observed authority and select a bounded owner closure |
+| `behavior_commitment_ledger` / `flowguard-behavior-commitment-ledger` | broad external promises or commitment coverage must be inventoried | helper-only inventories | declare ledger mode and inventory admitted promises independently |
+| `architecture_reduction` / `flowguard-architecture-reduction` | existing modeled implementation may shrink without behavior change | greenfield structure or intended behavior change | freeze the observable contract and reduction candidates |
+| `code_structure_recommendation` / `flowguard-code-structure-recommendation` | target module/function ownership is needed before code | an existing large refactor already needs StructureMesh | map FunctionBlocks and state owners to target boundaries |
+| `contract_exhaustion_mesh` / `flowguard-contract-exhaustion-mesh` | a declared finite universe needs canonical bad cases or Cartesian coverage | open-ended unbounded discovery | declare the finite universe, axes, and oracles |
+| `development_process_flow` / `flowguard-development-process-flow` | staged work, multi-skill order, evidence freshness, sync, or release claims | one specialist semantic check with no lifecycle concern | register artifacts, peers, order, freshness, and execution owners |
+| `field_lifecycle_mesh` / `flowguard-field-lifecycle-mesh` | fields or schemas are added, removed, renamed, migrated, or replaced | no field lifecycle change | inventory fields, readers/writers, projections, and old-field disposition |
+| `model_mesh_maintenance` / `flowguard-model-mesh` | three or more models or parent/child evidence need governance | a single bounded model | freeze parent, children, partition, and current child evidence |
+| `model_miss_review` / `flowguard-model-miss-review` | runtime/test/replay evidence fails after a model was green | no observed failure | bind the miss to its current model and commitment owner |
+| `model_test_alignment` / `flowguard-model-test-alignment` | model obligations, owner code contracts, and tests need comparison | test hierarchy only | list obligations, contracts, and current evidence |
+| `model_topology_hazard_review` / `flowguard-model-topology-hazard-review` | locally green topology needs anchored future-use hazard review | an observed runtime failure, which belongs to Model Miss | bind usage intent to topology digest and hazard candidates |
+| `structure_mesh_maintenance` / `flowguard-structure-mesh` | an existing large module/package/API must split with facade parity | pre-code structure planning only | freeze the public facade and partition inventory |
+| `test_mesh_maintenance` / `flowguard-test-mesh` | validation is large, slow, stale, layered, background, or release-only | semantic alignment only | freeze parent claims, child checks, owners, and freshness |
+| `ui_flow_structure` / `flowguard-ui-flow-structure` | UI states, journeys, controls, hierarchy, or operability are in scope | non-UI work | inventory UI states, controls, journeys, and recovery branches |
 
-## Public owner routes
+## After selection
 
-| Route id | Native owner | Skill |
-| --- | --- | --- |
-| `existing_model_preflight` | `existing_model_preflight` | `flowguard-existing-model-preflight` |
-| `behavior_commitment_ledger` | `behavior_commitment_ledger` | `flowguard-behavior-commitment-ledger` |
-| `architecture_reduction` | `architecture_reduction` | `flowguard-architecture-reduction` |
-| `code_structure_recommendation` | `code_structure_recommendation` | `flowguard-code-structure-recommendation` |
-| `contract_exhaustion_mesh` | `contract_exhaustion_mesh` | `flowguard-contract-exhaustion-mesh` |
-| `development_process_flow` | `development_process_flow` | `flowguard-development-process-flow` |
-| `field_lifecycle_mesh` | `field_lifecycle_mesh` | `flowguard-field-lifecycle-mesh` |
-| `model_mesh_maintenance` | `model_mesh_maintenance` | `flowguard-model-mesh` |
-| `model_miss_review` | `model_miss_review` | `flowguard-model-miss-review` |
-| `model_test_alignment` | `model_test_alignment` | `flowguard-model-test-alignment` |
-| `model_topology_hazard_review` | `model_topology_hazard_review` | `flowguard-model-topology-hazard-review` |
-| `structure_mesh_maintenance` | `structure_mesh_maintenance` | `flowguard-structure-mesh` |
-| `test_mesh_maintenance` | `test_mesh_maintenance` | `flowguard-test-mesh` |
-| `ui_flow_structure` | `ui_flow_structure` | `flowguard-ui-flow-structure` |
+Load only the selected skill. Its `Local Material Routing` names the first protocol. Further references require a named trigger: broad claim, prediction, Model Miss, ambiguity, high-impact gap, or still-addressable native gap. Once triggered, continue the route's model-predict-validate-revise loop until native closure or an explicit external, scoped, stalled, or bounded terminal reason.
 
-## Internal DevelopmentProcessFlow routes
-
-| Route id | Role | Native owner | Public entry |
-| --- | --- | --- | --- |
-| `plan_detailing_compiler` | internal_route | `development_process_flow` | `flowguard-development-process-flow` |
-| `agent_workflow_rehearsal` | internal_route | `development_process_flow` | `flowguard-development-process-flow` |
-
-All rough-plan, named PlanDetailing, multi-skill, or named
-AgentWorkflowRehearsal requests enter `development_process_flow`. Retired skill
-ids are not valid routes.
-
-## Internal route ownership
-
-- Kernel-owned: `flowguard_self_maintenance`, `template_structure`, `model_maturation_loop`, `risk_template_library`, `maintenance_obligation_memory`, `risk_evidence_ledger`, and `flowguard_closure_contract`.
-- DevelopmentProcessFlow-owned: `development_process_simulator`, `maintenance_scan_router`, and `evidence_field_structure`.
-- Behavior Commitment Ledger-owned: `primary_path_authority`.
-- Existing Model Preflight-owned: `model_angle_deliberation` and `model_similarity_consolidation`.
-- ContractExhaustionMesh-owned: `state_closure`.
-
-Any public or delegated route absent from this projection, the suite map, or the canonical topology is a routing-parity blocker. Internal helpers never become parallel public skill owners.
+Internal helpers and modes are reached only through their canonical public owner. They are not public aliases or fallback routes.

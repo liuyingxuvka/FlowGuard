@@ -102,15 +102,37 @@ class SkillDocsTests(unittest.TestCase):
         self.assertEqual(15, report["bundle_count"])
         for bundle in report["bundles"]:
             with self.subTest(route=bundle["route_id"]):
-                self.assertEqual(3, len(bundle["components"]))
-                self.assertLessEqual(
-                    bundle["utf8_bytes"],
-                    bundle["max_utf8_bytes"],
+                component_paths = {item["path"] for item in bundle["components"]}
+                self.assertIn("AGENTS.md", component_paths)
+                self.assertIn(
+                    f".agents/skills/{bundle['route_id']}/SKILL.md",
+                    component_paths,
                 )
+                self.assertTrue(bundle["headroom_ok"])
+                self.assertGreaterEqual(bundle["headroom_ratio"], 0.10)
                 self.assertEqual(
                     (bundle["utf8_bytes"] + 2) // 3,
-                    bundle["conservative_token_estimate"],
+                    bundle["source_size_token_proxy"],
                 )
+                if bundle["route_id"] in SATELLITE_SKILLS:
+                    protocol_path = (
+                        f".agents/skills/{bundle['route_id']}/references/"
+                        f"{SATELLITE_SKILLS[bundle['route_id']]}"
+                    )
+                    conditional_paths = {
+                        item["path"] for item in bundle["conditional_edges"]
+                    }
+                    self.assertIn(
+                        protocol_path,
+                        component_paths | conditional_paths,
+                    )
+        kernel = next(item for item in report["bundles"] if item["route_id"] == "flowguard")
+        component_paths = {item["path"] for item in kernel["components"]}
+        conditional_paths = {item["path"] for item in kernel["conditional_edges"]}
+        self.assertIn(".agents/skills/flowguard/references/route_index.md", component_paths)
+        self.assertNotIn(".agents/skills/flowguard/references/modeling_protocol.md", component_paths)
+        self.assertIn(".agents/skills/flowguard/references/modeling_protocol.md", conditional_paths)
+        self.assertFalse(report["provider_token_usage_available"])
 
     def test_active_openspec_specs_have_real_purpose_text(self):
         for path in sorted((ROOT / "openspec" / "specs").glob("*/spec.md")):
@@ -163,9 +185,6 @@ class SkillDocsTests(unittest.TestCase):
         )
         self.assertNotIn("SkillGuard", text)
         self.assertNotIn(".skillguard", text)
-        for skill_name in SATELLITE_SKILLS:
-            self.assertIn(skill_name, text)
-
         reference_paths = (
             "references/skill_kernel_protocol.md",
             "references/modeling_protocol.md",
@@ -177,13 +196,11 @@ class SkillDocsTests(unittest.TestCase):
             self.assertIn(reference_path, text)
 
     def test_kernel_preserves_route_specific_diagram_intent(self):
-        text = self.read(KERNEL_ROOT / "SKILL.md")
+        kernel = self.read(KERNEL_ROOT / "SKILL.md")
+        evidence = self.read(KERNEL_ROOT / "references" / "modeling_evidence_protocol.md")
 
-        self.assertIn("FlowGuard diagram intent gate", text)
-        self.assertIn("Do not flatten these into a generic flowchart", text)
-        self.assertIn("generic flowchart", text)
-        self.assertIn("without LogicGuard", text)
-        self.assertIn("SourceGuard/TraceGuard/WorldGuard/LogicGuard diagrams", text)
+        self.assertNotIn("SourceGuard/TraceGuard/WorldGuard/LogicGuard diagrams", kernel)
+        self.assertIn("must not flatten other Guard-family edge meanings", evidence)
 
     def test_satellite_diagrams_keep_route_specific_edge_semantics(self):
         expected = {

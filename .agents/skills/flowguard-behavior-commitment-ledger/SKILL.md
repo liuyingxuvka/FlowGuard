@@ -12,7 +12,7 @@ Maintain one `BehaviorCommitmentLedger` against an independent exact source inve
 This standalone FlowGuard satellite skill owns route/native owner `behavior_commitment_ledger` (`public_owner`) and the internal PPA handoff.
 
 ## Local Material Routing
-Read `references/behavior_commitment_ledger_protocol.md` for fields, modes, lookup, PPA, and projections.
+After positive admission, read `references/behavior_commitment_ledger_protocol.md` for fields, modes, lookup, PPA, and projections.
 
 ## Entrypoint Acceptance Map
 Accept a bounded inventory/mode; register one owner per commitment; block coverage, relation, freshness, or PPA gaps; hand evidence downstream.

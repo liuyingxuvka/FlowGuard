@@ -406,6 +406,16 @@ any undeclared change, stale head, missing evidence, or partial member switch
 blocks activation. The durable authority owner writes immutable snapshot,
 revision, and activation records before changing the sole project pointer.
 
+Use `python -m flowguard model-revision-build` only after one full
+model-regression parent receipt is terminal pass and its complete child set is
+still exact-current for the live manifest, inputs, obligations, toolchain, and
+environment. The builder derives the canonical diff and affected closure,
+writes the current content-addressed candidate/revision pair, and never changes
+the observed pointer. Activate that exact pair only through the separate
+`python -m flowguard model-revision-activate` transaction. A handwritten
+revision, scoped parent, stale child, compatibility reader, or build-time
+pointer change is blocked rather than repaired by fallback.
+
 Each model instance has a content-addressed local identity containing only its
 model, runner, purpose closure, and exact local/shared dependency inputs. The
 snapshot alone owns the global source revision. Git HEAD and dirty-state

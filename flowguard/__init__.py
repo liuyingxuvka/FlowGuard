@@ -74,6 +74,11 @@ from .model_authority_store import (
     rollback_observed_model_system,
 )
 from .model_system_inventory import build_manifest_model_system_snapshot
+from .model_revision_builder import (
+    ModelRevisionBuildReport,
+    build_current_model_revision,
+    load_revision_removal_dispositions,
+)
 from .architecture_reduction import (
     ARCHITECTURE_REDUCTION_CANDIDATE_DISPOSITIONS,
     ARCHITECTURE_REDUCTION_CANDIDATE_TYPES,
@@ -1384,13 +1389,16 @@ MODEL_SYSTEM_AUTHORITY_API = (
     "ModelAuthorityHead",
     "ModelInstanceRef",
     "ModelRevisionSet",
+    "ModelRevisionBuildReport",
     "ModelSystemSnapshot",
     "activate_model_revision_set",
     "audit_model_authority",
     "bootstrap_model_authority",
     "build_manifest_model_system_snapshot",
+    "build_current_model_revision",
     "build_model_instance_ref",
     "load_observed_model_system",
+    "load_revision_removal_dispositions",
     "rollback_observed_model_system",
 )
 FLOWGUARD_GOVERNANCE_API = tuple(
@@ -1507,6 +1515,7 @@ AGENT_DEFAULT_API = (
     "run_model_first_checks",
     "FLOWGUARD_ROUTE_API",
     "default_flowguard_route_profiles",
+    "review_route_admission",
     "audit_project_adoption",
     "review_development_process_flow",
     "review_model_test_alignment",
@@ -2832,7 +2841,7 @@ _ROUTE_STARTER_API_GROUPS = {
         "KnownBadProof",
         "review_known_bad_proofs",
         "run_model_first_checks",
-        "default_flowguard_route_profiles",
+        "review_route_admission",
     ),
     "flowguard_self_maintenance": (
         "default_flowguard_self_maintenance_plan",

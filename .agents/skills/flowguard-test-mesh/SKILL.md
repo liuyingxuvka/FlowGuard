@@ -12,7 +12,7 @@ Govern parent/child test hierarchy, validation partitions, results, and freshnes
 This standalone FlowGuard satellite skill gives `test_mesh_maintenance` evidence structure, not semantics, process shape, or execution.
 
 ## Local Material Routing
-Read `references/test_mesh_protocol.md` for ownership, diagnostics, reuse, matrices, and release scope.
+After positive admission and no forbidden condition, read `references/test_mesh_protocol.md` for ownership, diagnostics, reuse, matrices, and release scope.
 
 ## Entrypoint Acceptance Map
 Review a model-derived validation mesh; block stale, skipped, incomplete, or unowned evidence; hand semantics and lifecycle/risk to typed owners.

@@ -8,7 +8,7 @@ child closure reports. It does not replace the owning specialist routes.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
 from .evidence_receipts import (
@@ -150,6 +150,12 @@ class RouteProfile:
     absorbed_by_route: str = ""
     cleanup_disposition: str = CLEANUP_DISPOSITION_KEEP
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    positive_condition_ids: tuple[str, ...] = ()
+    forbidden_condition_ids: tuple[str, ...] = ()
+    first_action: str = ""
+    reference_edges: tuple[tuple[str, str], ...] = ()
+    deepening_trigger_ids: tuple[str, ...] = ()
+    claim_boundary: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "route_id", str(self.route_id))
@@ -181,6 +187,16 @@ class RouteProfile:
         object.__setattr__(self, "absorbed_by_route", str(self.absorbed_by_route))
         object.__setattr__(self, "cleanup_disposition", cleanup_disposition)
         object.__setattr__(self, "metadata", dict(self.metadata))
+        object.__setattr__(self, "positive_condition_ids", _as_tuple(self.positive_condition_ids))
+        object.__setattr__(self, "forbidden_condition_ids", _as_tuple(self.forbidden_condition_ids))
+        object.__setattr__(self, "first_action", str(self.first_action))
+        object.__setattr__(
+            self,
+            "reference_edges",
+            tuple((str(path), str(trigger)) for path, trigger in self.reference_edges),
+        )
+        object.__setattr__(self, "deepening_trigger_ids", _as_tuple(self.deepening_trigger_ids))
+        object.__setattr__(self, "claim_boundary", str(self.claim_boundary))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -200,7 +216,194 @@ class RouteProfile:
             "absorbed_by_route": self.absorbed_by_route,
             "cleanup_disposition": self.cleanup_disposition,
             "metadata": to_jsonable(dict(self.metadata)),
+            "positive_condition_ids": list(self.positive_condition_ids),
+            "forbidden_condition_ids": list(self.forbidden_condition_ids),
+            "first_action": self.first_action,
+            "reference_edges": [
+                {"path": path, "trigger_id": trigger}
+                for path, trigger in self.reference_edges
+            ],
+            "deepening_trigger_ids": list(self.deepening_trigger_ids),
+            "claim_boundary": self.claim_boundary,
         }
+
+
+@dataclass(frozen=True)
+class RouteAdmissionResult:
+    """Exactly-one public-route decision over caller-extracted task facts."""
+
+    status: str
+    selected_route_id: str = ""
+    candidate_route_ids: tuple[str, ...] = ()
+    excluded_routes: tuple[tuple[str, tuple[str, ...]], ...] = ()
+
+    @property
+    def ok(self) -> bool:
+        return self.status == "selected" and bool(self.selected_route_id)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "ok": self.ok,
+            "selected_route_id": self.selected_route_id,
+            "candidate_route_ids": list(self.candidate_route_ids),
+            "excluded_routes": [
+                {"route_id": route_id, "forbidden_condition_ids": list(condition_ids)}
+                for route_id, condition_ids in self.excluded_routes
+            ],
+            "claim_boundary": (
+                "This result selects one existing public owner from structured task facts. "
+                "It does not execute the route or prove its native closure."
+            ),
+        }
+
+
+COMMON_DEEPENING_TRIGGERS = (
+    "broad_claim",
+    "prediction_required",
+    "model_miss",
+    "route_ambiguity",
+    "high_impact_gap",
+    "addressable_native_gap",
+)
+
+
+PUBLIC_ROUTE_ADMISSION: Mapping[str, Mapping[str, Any]] = {
+    "model_first_function_flow": {
+        "positive_condition_ids": ("ordinary_behavior_state", "unclear_route_owner", "cross_route_coordination"),
+        "forbidden_condition_ids": ("trivial_only", "clear_satellite_owner"),
+        "first_action": "extract task facts and build the smallest faithful Input x State model",
+        "reference_edges": (("references/route_index.md", "before_route_selection"), ("references/modeling_protocol.md", "kernel_selected")),
+        "claim_boundary": "Ordinary model-first behavior and cross-route coordination only.",
+    },
+    "existing_model_preflight": {
+        "positive_condition_ids": ("existing_modeled_system", "ownership_lookup"),
+        "forbidden_condition_ids": ("trivial_only", "greenfield_without_model_context"),
+        "first_action": "audit observed authority and select the bounded owner closure",
+        "reference_edges": (("references/existing_model_preflight_protocol.md", "route_selected"),),
+        "claim_boundary": "Current ownership and downstream handoff, not implementation readiness by itself.",
+    },
+    "behavior_commitment_ledger": {
+        "positive_condition_ids": ("broad_behavior_inventory", "commitment_coverage"),
+        "forbidden_condition_ids": ("trivial_only", "helper_inventory_only"),
+        "first_action": "declare ledger mode and independently inventory admitted external promises",
+        "reference_edges": (("references/behavior_commitment_ledger_protocol.md", "route_selected"),),
+        "claim_boundary": "External behavior coverage and owner disposition only.",
+    },
+    "architecture_reduction": {
+        "positive_condition_ids": ("behavior_preserving_contraction", "duplicate_implementation"),
+        "forbidden_condition_ids": ("trivial_only", "behavior_change", "greenfield_structure"),
+        "first_action": "freeze the observable contract and candidate reduction inventory",
+        "reference_edges": (("references/architecture_reduction_protocol.md", "route_selected"),),
+        "claim_boundary": "Contraction proof and target action, not direct refactoring.",
+    },
+    "code_structure_recommendation": {
+        "positive_condition_ids": ("pre_code_structure", "target_module_ownership"),
+        "forbidden_condition_ids": ("trivial_only", "existing_large_refactor"),
+        "first_action": "map FunctionBlocks and state owners to target code boundaries",
+        "reference_edges": (("references/code_structure_recommendation_protocol.md", "route_selected"),),
+        "claim_boundary": "Pre-code target ownership, not implementation.",
+    },
+    "contract_exhaustion_mesh": {
+        "positive_condition_ids": ("finite_bad_case_universe", "cartesian_coverage"),
+        "forbidden_condition_ids": ("trivial_only", "unbounded_open_world"),
+        "first_action": "declare the finite coverage universe and canonical axes",
+        "reference_edges": (("references/contract_exhaustion_mesh_protocol.md", "route_selected"),),
+        "claim_boundary": "Finite cases, oracles, shards, and receipts only.",
+    },
+    "development_process_flow": {
+        "positive_condition_ids": ("staged_development", "release_freshness", "multi_skill_workflow"),
+        "forbidden_condition_ids": ("trivial_only", "single_domain_semantic_check_only"),
+        "first_action": "register artifacts, peers, order, freshness, and execution owners",
+        "reference_edges": (("references/development_process_flow_protocol.md", "route_selected"),),
+        "claim_boundary": "Process order and freshness; specialist semantics remain delegated.",
+    },
+    "field_lifecycle_mesh": {
+        "positive_condition_ids": ("field_lifecycle_change", "schema_field_migration"),
+        "forbidden_condition_ids": ("trivial_only", "no_field_change"),
+        "first_action": "inventory behavior fields, readers, writers, projections, and old-field disposition",
+        "reference_edges": (("references/field_lifecycle_mesh_protocol.md", "route_selected"),),
+        "claim_boundary": "Field lifecycle ownership and evidence projection only.",
+    },
+    "model_mesh_maintenance": {
+        "positive_condition_ids": ("three_plus_models", "parent_child_model_governance"),
+        "forbidden_condition_ids": ("trivial_only", "single_model_only"),
+        "first_action": "freeze parent, children, partition items, and current child evidence",
+        "reference_edges": (("references/model_mesh_protocol.md", "route_selected"),),
+        "claim_boundary": "Model partition, reattachment, and affected-sibling governance.",
+    },
+    "model_miss_review": {
+        "positive_condition_ids": ("post_green_failure", "runtime_model_miss"),
+        "forbidden_condition_ids": ("trivial_only", "no_observed_failure"),
+        "first_action": "bind the observed miss to its current model and commitment owner",
+        "reference_edges": (("references/model_miss_protocol.md", "route_selected"),),
+        "claim_boundary": "Observed and same-class repair closure only.",
+    },
+    "model_test_alignment": {
+        "positive_condition_ids": ("model_code_test_alignment", "obligation_test_binding"),
+        "forbidden_condition_ids": ("trivial_only", "test_hierarchy_only"),
+        "first_action": "list model obligations, owner code contracts, and current test evidence",
+        "reference_edges": (("references/model_test_alignment_protocol.md", "route_selected"),),
+        "claim_boundary": "Current obligation-code-test agreement, not model or test splitting.",
+    },
+    "model_topology_hazard_review": {
+        "positive_condition_ids": ("future_use_hazard", "locally_green_broad_claim"),
+        "forbidden_condition_ids": ("trivial_only", "runtime_failure_present"),
+        "first_action": "bind usage intent to the current topology digest and hazard candidates",
+        "reference_edges": (("references/topology_hazard_protocol.md", "route_selected"),),
+        "claim_boundary": "Anchored future-use hazards, not observed failure repair.",
+    },
+    "structure_mesh_maintenance": {
+        "positive_condition_ids": ("public_api_split", "large_structure_refactor"),
+        "forbidden_condition_ids": ("trivial_only", "pre_code_structure_only"),
+        "first_action": "freeze the public facade and partition inventory",
+        "reference_edges": (("references/structure_mesh_protocol.md", "route_selected"),),
+        "claim_boundary": "Behavior-preserving existing structure split and parity.",
+    },
+    "test_mesh_maintenance": {
+        "positive_condition_ids": ("large_slow_stale_validation", "parent_child_test_evidence"),
+        "forbidden_condition_ids": ("trivial_only", "semantic_alignment_only"),
+        "first_action": "freeze parent claims, child checks, evidence owners, and freshness",
+        "reference_edges": (("references/test_mesh_protocol.md", "route_selected"),),
+        "claim_boundary": "Validation hierarchy and evidence composition only.",
+    },
+    "ui_flow_structure": {
+        "positive_condition_ids": ("ui_interaction_flow", "ui_surface_operability"),
+        "forbidden_condition_ids": ("trivial_only", "non_ui_task"),
+        "first_action": "inventory UI states, controls, journeys, and visible recovery branches",
+        "reference_edges": (("references/ui_flow_structure_protocol.md", "route_selected"),),
+        "claim_boundary": "UI flow, structure, operability, and real-surface evidence.",
+    },
+}
+
+
+def review_route_admission(
+    route_profiles: Sequence[RouteProfile],
+    condition_ids: Sequence[str],
+) -> RouteAdmissionResult:
+    """Select exactly one existing public owner from structured condition ids."""
+
+    facts = set(_as_tuple(condition_ids))
+    candidates: list[str] = []
+    excluded: list[tuple[str, tuple[str, ...]]] = []
+    for profile in route_profiles:
+        if profile.route_role != ROUTE_ROLE_PUBLIC_OWNER or profile.entry_policy != ENTRY_POLICY_DIRECT:
+            continue
+        forbidden = tuple(sorted(facts.intersection(profile.forbidden_condition_ids)))
+        if forbidden:
+            excluded.append((profile.route_id, forbidden))
+            continue
+        if facts.intersection(profile.positive_condition_ids):
+            candidates.append(profile.route_id)
+    candidate_ids = tuple(sorted(candidates))
+    if len(candidate_ids) == 1:
+        return RouteAdmissionResult("selected", candidate_ids[0], candidate_ids, tuple(excluded))
+    return RouteAdmissionResult(
+        "no_match" if not candidate_ids else "conflict",
+        "",
+        candidate_ids,
+        tuple(excluded),
+    )
 
 
 @dataclass(frozen=True)
@@ -612,7 +815,7 @@ class SelfMaintenanceReport:
 def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
     """Return compact route profiles for installed FlowGuard maintenance paths."""
 
-    return (
+    profiles = (
         RouteProfile(
             "model_first_function_flow",
             "Ordinary behavior/state modeling, unclear route choice, or cross-route coordination needs the kernel front door.",
@@ -1109,6 +1312,16 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             cleanup_disposition=CLEANUP_DISPOSITION_KEEP,
         ),
     )
+    return tuple(
+        replace(
+            profile,
+            **PUBLIC_ROUTE_ADMISSION[profile.route_id],
+            deepening_trigger_ids=COMMON_DEEPENING_TRIGGERS,
+        )
+        if profile.route_role == ROUTE_ROLE_PUBLIC_OWNER
+        else profile
+        for profile in profiles
+    )
 
 
 def default_ai_maintenance_profiles() -> tuple[AIMaintenanceProfile, ...]:
@@ -1467,6 +1680,9 @@ __all__ = [
     "SELF_MAINTENANCE_STATUS_STALE",
     "SELF_MAINTENANCE_STATUSES",
     "FieldLayerProfile",
+    "COMMON_DEEPENING_TRIGGERS",
+    "PUBLIC_ROUTE_ADMISSION",
+    "RouteAdmissionResult",
     "RouteProfile",
     "SelfMaintenanceChildReport",
     "SelfMaintenanceFinding",
@@ -1476,5 +1692,6 @@ __all__ = [
     "default_field_layer_profiles",
     "default_flowguard_route_profiles",
     "review_flowguard_self_maintenance",
+    "review_route_admission",
     "route_graph_completeness_findings",
 ]

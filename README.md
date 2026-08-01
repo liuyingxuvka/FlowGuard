@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.68.1` | `1.0` | Python standard library only | MIT |
+| `v0.68.2` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -347,6 +347,7 @@ pointer; irreversible effects require forward repair.
 ```powershell
 python -m flowguard model-system-bootstrap --root . --snapshot-id <id> --evidence-fingerprint <sha256>
 python -m flowguard model-system-audit --root . --json
+python -m flowguard model-revision-build --root . --model-parent-receipt <model-parent.json> --revision-set-id <revision-id> --task-id <task-id> --snapshot-id <snapshot-id> --json
 python -m flowguard model-revision-activate --root . --candidate-snapshot <snapshot.json> --revision-set <revision.json> --receipt-id <id>
 python -m flowguard model-revision-rollback --root . --contract <rollback.json> --completed-evidence-fingerprint <sha256> --result exact --receipt-id <id> --reason <reason>
 ```
@@ -467,7 +468,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.68.1 is source-only: the immutable Git tag is the release
+FlowGuard v0.68.2 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -786,6 +787,7 @@ FlowGuard 现在明确分开三件事：
 ```powershell
 python -m flowguard model-system-bootstrap --root . --snapshot-id <id> --evidence-fingerprint <sha256>
 python -m flowguard model-system-audit --root . --json
+python -m flowguard model-revision-build --root . --model-parent-receipt <model-parent.json> --revision-set-id <revision-id> --task-id <task-id> --snapshot-id <snapshot-id> --json
 python -m flowguard model-revision-activate --root . --candidate-snapshot <snapshot.json> --revision-set <revision.json> --receipt-id <id>
 python -m flowguard model-revision-rollback --root . --contract <rollback.json> --completed-evidence-fingerprint <sha256> --result exact --receipt-id <id> --reason <reason>
 ```
@@ -929,7 +931,7 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.68.1 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.68.2 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 ## Guard Family 关系

@@ -1,59 +1,48 @@
 ---
 name: flowguard
-description: Unified FlowGuard entry for ordinary behavior/state modeling, unclear route selection, cross-route coordination, and kernel-owned internal gates. Use a matching public owner directly when ownership is clear.
+description: Unified FlowGuard entry for ordinary behavior/state modeling, unclear route selection, cross-route coordination, and kernel-owned gates. Use a matching public owner directly when ownership is clear.
 ---
 
 # FlowGuard
 
 ## Purpose
-The FlowGuard kernel selects the smallest owning route and builds the minimum valuable executable model for ordinary behavior/state work without becoming a monolith; use the matching satellite directly when ownership is clear.
+Select the smallest current owner first, then deepen only for a named route obligation or open native gap. A narrow entry reduces initial reading; it never creates a weaker correctness mode.
 
 ## Entrypoint Scope
 Route id: `model_first_function_flow`; role: `kernel`; native owner: `model_first_function_flow`. Decide `use_flowguard`, `skip_with_reason`, or `needs_human_review` through `behavior_flow`, `argument_flow`, or `decision_flow`.
 
 ## Local Material Routing
-Read `references/route_index.md` for the parity-checked route map and `references/modeling_protocol.md` as the core index; load `references/modeling_core_protocol.md`, `references/modeling_evidence_protocol.md`, `references/skill_kernel_protocol.md`, adoption, conformance, long-check, framework-upgrade, or invariant references only when that boundary is active.
+- Before route selection, read only `references/route_index.md`.
+- After the kernel route is selected, read `references/modeling_protocol.md`; it routes the smallest needed part of `references/modeling_core_protocol.md` and `references/modeling_evidence_protocol.md`.
+- When kernel maintenance or adoption is in scope, read `references/skill_kernel_protocol.md`, `references/adoption_protocol.md`, `references/framework_upgrade_protocol.md`, or `references/long_check_protocol.md` only for the named boundary.
 
 ## Entrypoint Acceptance Map
-- Accept ordinary modeling, unclear ownership, cross-route coordination, portable finite-model interchange, or kernel-owned `flowguard_self_maintenance`, `model_maturation_loop`, `risk_template_library`, `risk_evidence_ledger`, and closure work.
-- Route clear ownership directly to `flowguard-existing-model-preflight`, `flowguard-behavior-commitment-ledger`, `flowguard-architecture-reduction`, `flowguard-code-structure-recommendation`, `flowguard-contract-exhaustion-mesh`, `flowguard-development-process-flow`, `flowguard-field-lifecycle-mesh`, `flowguard-model-mesh`, `flowguard-model-miss-review`, `flowguard-model-test-alignment`, `flowguard-model-topology-hazard-review`, `flowguard-structure-mesh`, `flowguard-test-mesh`, or `flowguard-ui-flow-structure`.
-- Keep `plan_detailing` and `agent_workflow` as internal routes owned by DevelopmentProcessFlow. They have no independent skill, alias, forwarding entrypoint, or fallback.
+- Use a clear peer satellite directly; zero or multiple plausible owners remain visible rather than being guessed by keywords or declaration order.
+- Keep the kernel for ordinary executable modeling, unclear ownership, cross-route coordination, portable finite-model composition, `risk_evidence_ledger`, model maturation, and closure.
+- Once a broad-claim, prediction, Model Miss, ambiguity, high-impact, or addressable-gap trigger appears, load the mapped reference and continue until native closure or an explicit external/scope/stall/limit terminal reason.
 
 ## Use When
-- Use when behavior/state/order/retry/side-effect risk needs `Input x State -> Set(Output x State)` modeling, the correct satellite is unclear, or multiple route outputs must be coordinated.
+- Use when behavior, state, order, retry, side effects, or progress need `Input x State -> Set(Output x State)` modeling and no satellite already has clear ownership.
 
 ## Do Not Use When
-- Do not force the kernel before a clear peer satellite, use it for trivial copy/format/direct-command work, or treat check-engine helpers as independently triggerable Codex skills.
+- Do not force the kernel before a clear satellite, use it for trivial copy/format/direct-command work, or treat check-engine helpers as independently triggerable Codex skills.
 
 ## Required Workflow
-1. Decide applicability/lens, verify adoption, run the lightweight commitment/model lookup for non-trivial existing-system work, select or report the primary behavior plane, and name the protected error class and claim boundary.
-2. Build/update the smallest faithful finite model with state, side effects, completion evidence, invariants, and a representative known-bad path. When the claim crosses a process/tool boundary, project the exact finite relation into `flowguard.portable_model.v1`; do not serialize arbitrary Python or invent an ad hoc JSON model. When two or more current portable models share declared event, identity, retry, ordering, resource, cache, confirmation, atomicity, compensation, or owner-bound system-property semantics, use one strict `PortableSystemDefinition`, one task-local `SystemCompositionRequest`, and the derived declared-graph `PortableSystemSlice` before claiming executable composition.
-3. Run the formal check plan, inspect counterexamples, revise the model/architecture, and record template harvest closure.
-4. Route finite bad cases, commitments, fields, alignment, meshes, topology, UI, process freshness, conformance, and risk evidence only where triggered. External requirements/plans/tasks enter through registered read-only WorkContext adapters; they remain planning inputs and never become a second task engine, provider execution bridge, test evidence, or product UI content.
-5. Preserve checked/unchecked/blocked/scoped evidence and close only at the requested current scope. For non-trivial model work, always attempt the model's highest useful task-local depth: freeze the task purpose and independently owned coverage/probe inventory, predict a discriminating outcome and falsifier for every required probe, bind native receipts to the exact task/candidate/coverage fingerprint, preserve prior gaps through immutable iteration links, and repeat until `model_maturation_closed_for_task` or an explicit external/scope/stall/limit terminal reason. `model_maturation_upgrade_required` means continue; it is never terminal. Never ask the model to self-rate understanding; self-report is not evidence.
+1. Extract task facts with request evidence, audit current authority for existing modeled work, and select exactly one owner or report the unresolved candidates.
+2. Build the smallest faithful executable model, including the protected error class, state, side effects, completion evidence, and a representative known-bad path.
+3. Run the declared checks, inspect counterexamples, revise the model or architecture, and load only references triggered by remaining native gaps.
+4. For non-trivial work, predict discriminating outcomes and falsifiers before observation, bind current receipts to the exact task/candidate/coverage identity, preserve iteration lineage, and continue to task-local closure or an explicit non-success terminal. Never ask the model to self-rate understanding.
+5. Preserve failed, skipped, stale, scoped, and not-run evidence; return structured owner handoffs instead of prose-only completion.
 
 ## Hard Gates
-- Model-system authority gate: for an existing modeled project, load and audit the sole observed `ModelSystemSnapshot` before treating any model as current. Keep `observed_implementation`, `normative_target`, and `counterfactual_experiment` as separate subject lanes. File discovery, a prompt label, or a green candidate check is candidate context only.
-- Whole-revision gate: a target or experiment becomes observed only through one accepted `ModelRevisionSet` whose base head, affected closure, changed models/relations/fields/contracts/tests, prediction replay, and current owner receipts match exactly. Persist immutable records first and update the sole project pointer last.
-- Rollback gate: restore or compensate real code, data, configuration, side effects, and old-snapshot conformance before rewinding authority. Irreversible effects require forward repair; pointer-only rollback is forbidden.
-- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Verify the real FlowGuard check engine and AGENTS.md managed record; if absent, connect it or report blocked/partial; never create a fake mini-framework.
-- Represent every modeled block as `Input x State -> Set(Output x State)`; do not replace executable modeling with prose or weaken hard invariants to pass.
-- A portable-model, compositional, refinement, liveness, or fairness claim requires the current portable artifact identity plus the canonical reference-checker receipt. Python-only execution, prompt prose, descriptive mesh edges, or topology metadata cannot substitute for that evidence.
-- Token provider/conflict closure is not executable system proof. Bounded system composition keeps component-local, token, slice, and system stages distinct; preserves `pass|fail|blocked|invalid|not_run`; fails closed on stale/unresolved/omitted/truncated evidence; and gives the final semantic verdict only to `check_portable_model()`.
-- Default replacement disposes old fields/wrappers/aliases/alternate success paths; broad behavior needs a current Behavior Commitment Ledger and PPA for path-sensitive rows.
-- Broad coverage first derives one independent expected-source inventory from declared WorkContexts and native UI/field inventories. Every expected item must have exactly one modeled, delegated, or scoped disposition; the candidate ledger cannot define the universe used to judge itself.
-- The shared ledger has three owner planes (`product_runtime`, `agent_operation`, `development_process`). Same-plane hits may guide the owning route; cross-plane rows remain typed context and never silently become instructions or merged owners.
-- Do not impose a universal model execution gate on trivial actions. Escalate lightweight recall to route-native modeling when a non-trivial match, concrete Model Miss, recurring/high-risk operation, or broad claim makes it relevant.
-- Broad model/code/test claims bind obligation ids, owner code contract ids, and current external-contract evidence for the same behavior.
-- Missing, stale, skipped, `not_run`, `progress_only`, `scoped`, or `pass_with_gaps` evidence cannot support broad done, full-governance, release, archive, or publication claims.
-- Long-check progress is liveness only; UI/payload claims need real-surface proof; new/deepened models require template harvest closure.
-- Retain complete long-check streams once through verifiable bounded evidence descriptors. Persistent audit/GC planning is read-only, apply is quarantine-only, purge is separate and exact, and ordinary validation never silently cleans prior evidence.
-- OpenSpec, Spec Kit, Superpowers, custom skills, declared files, and other planning sources are peer providers. Each retains native authoring, execution, validation, status, and lifecycle authority. FlowGuard accepts only explicitly registered, project-bounded, content-addressed, read-only WorkContexts and remains usable with no provider selected.
-- FlowGuard diagram intent gate: preserve active model semantics. Do not flatten these into a generic flowchart; state/process/UI/SourceGuard/TraceGuard/WorldGuard/LogicGuard diagrams keep their own edge meanings, without LogicGuard being collapsed into FlowGuard control flow.
+- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind the candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
+- Require the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
+- Existing-model currentness comes only from the sole observed snapshot. Targets and experiments remain separate until one accepted whole `ModelRevisionSet` updates authority.
+- Do not weaken invariants, invent alternate success paths, or use missing/stale/skipped/`not_run`/progress-only evidence for broad confidence.
+- Portable composition, UI/payload proof, replacement, evidence lifecycle, WorkContext, diagram semantics, release freshness, and template harvest closure remain mandatory when their route trigger fires; their unique rules live in the selected references.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus route decision, model snapshot, counterexamples, and current validation status.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus route decision, loaded-reference triggers, model snapshot, counterexamples, and current validation status.
 
 
 <!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

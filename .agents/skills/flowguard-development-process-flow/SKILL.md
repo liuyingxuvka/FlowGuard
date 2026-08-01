@@ -12,7 +12,7 @@ Model order/freshness; keep specialist ownership.
 Front-door public owner `public_owner`; development-process simulator for `execution_freshness`, conditional internal process optimization, `plan_detailing_compiler`, `agent_workflow_rehearsal`.
 
 ## Local Material Routing
-Read `references/development_process_flow_protocol.md`; load selected internals.
+After the route's positive conditions are confirmed and forbidden conditions are absent, read `references/development_process_flow_protocol.md`; load only the selected internals.
 
 ## Entrypoint Acceptance Map
 Order modes, freshness, triggered equivalents, delegation.

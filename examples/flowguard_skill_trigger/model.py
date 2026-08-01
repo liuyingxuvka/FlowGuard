@@ -64,6 +64,12 @@ RISK_FLAGS = {
     "install_sync",
     "shadow_sync",
     "git_sync",
+    "behavior_preserving_contraction",
+    "broad_behavior_inventory",
+    "finite_bad_case_universe",
+    "field_lifecycle_change",
+    "future_use_hazard",
+    "route_forbidden",
 }
 
 DIRECT_SKILL_BY_ROUTE = {
@@ -76,6 +82,11 @@ DIRECT_SKILL_BY_ROUTE = {
     "structure_mesh_maintenance": "flowguard-structure-mesh",
     "development_process_flow": "flowguard-development-process-flow",
     "model_miss_review": "flowguard-model-miss-review",
+    "architecture_reduction": "flowguard-architecture-reduction",
+    "behavior_commitment_ledger": "flowguard-behavior-commitment-ledger",
+    "contract_exhaustion_mesh": "flowguard-contract-exhaustion-mesh",
+    "field_lifecycle_mesh": "flowguard-field-lifecycle-mesh",
+    "model_topology_hazard_review": "flowguard-model-topology-hazard-review",
 }
 
 FLOWGUARD_ROUTE_ACTIONS = {"use_direct_flowguard_skill", "use_model_first_kernel"}
@@ -210,13 +221,23 @@ def requires_flowguard(task: TaskDescription | TaskFact) -> bool:
         "structure_refactor",
         "model_miss",
         "model_preflight",
+        "architecture_reduction",
+        "behavior_inventory",
+        "contract_exhaustion",
+        "field_lifecycle",
+        "topology_hazard",
     }:
         return True
     return bool(set(task.risk_flags) & RISK_FLAGS)
 
 
 def needs_human_review(task: TaskDescription | TaskFact) -> bool:
-    return task.kind == "uncertain_scope" or "unclear_boundary" in task.risk_flags
+    return (
+        task.kind == "uncertain_scope"
+        or "unclear_boundary" in task.risk_flags
+        or "route_forbidden" in task.risk_flags
+        or len(direct_route_candidates(task)) > 1
+    )
 
 
 def required_checks_for(task: TaskDescription | TaskFact) -> tuple[str, ...]:
@@ -252,27 +273,38 @@ def required_checks_for(task: TaskDescription | TaskFact) -> tuple[str, ...]:
         checks.append("model_miss_review")
     if flags & {"existing_model_context"}:
         checks.append("existing_model_preflight")
+    if flags & {"behavior_preserving_contraction"}:
+        checks.append("architecture_reduction")
+    if flags & {"broad_behavior_inventory"}:
+        checks.append("behavior_commitment_ledger")
+    if flags & {"finite_bad_case_universe"}:
+        checks.append("contract_exhaustion_mesh")
+    if flags & {"field_lifecycle_change"}:
+        checks.append("field_lifecycle_mesh")
+    if flags & {"future_use_hazard"}:
+        checks.append("model_topology_hazard_review")
     return tuple(dict.fromkeys(checks))
 
 
-def direct_route_for(task: TaskDescription | TaskFact | None) -> str:
+def direct_route_candidates(task: TaskDescription | TaskFact | None) -> tuple[str, ...]:
     if task is None:
-        return ""
+        return ()
     flags = set(task.risk_flags)
+    routes: list[str] = []
     if task.kind == "model_preflight" or flags & {"existing_model_context"}:
-        return "existing_model_preflight"
+        routes.append("existing_model_preflight")
     if task.kind == "major_architecture" or flags & {"code_structure", "module_boundary", "migration"}:
-        return "code_structure_recommendation"
+        routes.append("code_structure_recommendation")
     if flags & {"ui_state_flow", "ui_display_redundancy", "ui_control_overlap"}:
-        return "ui_flow_structure"
+        routes.append("ui_flow_structure")
     if flags & {"model_test_alignment"}:
-        return "model_test_alignment"
+        routes.append("model_test_alignment")
     if flags & {"many_flowguard_models", "cross_model_evidence", "stale_model_result"}:
-        return "model_mesh_maintenance"
+        routes.append("model_mesh_maintenance")
     if flags & {"test_mesh", "stale_validation"}:
-        return "test_mesh_maintenance"
+        routes.append("test_mesh_maintenance")
     if flags & {"structure_mesh", "public_api_split"}:
-        return "structure_mesh_maintenance"
+        routes.append("structure_mesh_maintenance")
     if task.kind in {"rough_plan", "multi_skill_workflow", "full_development_process"} or flags & {
         "rough_plan",
         "plan_detailing",
@@ -283,12 +315,27 @@ def direct_route_for(task: TaskDescription | TaskFact | None) -> str:
         "shadow_sync",
         "git_sync",
     }:
-        return "development_process_flow"
+        routes.append("development_process_flow")
     if flags & {"staged_validation", "validation_freshness", "release_confidence"}:
-        return "development_process_flow"
+        routes.append("development_process_flow")
     if flags & {"model_miss", "runtime_after_pass"}:
-        return "model_miss_review"
-    return ""
+        routes.append("model_miss_review")
+    if task.kind == "architecture_reduction" or flags & {"behavior_preserving_contraction"}:
+        routes.append("architecture_reduction")
+    if task.kind == "behavior_inventory" or flags & {"broad_behavior_inventory"}:
+        routes.append("behavior_commitment_ledger")
+    if task.kind == "contract_exhaustion" or flags & {"finite_bad_case_universe"}:
+        routes.append("contract_exhaustion_mesh")
+    if task.kind == "field_lifecycle" or flags & {"field_lifecycle_change"}:
+        routes.append("field_lifecycle_mesh")
+    if task.kind == "topology_hazard" or flags & {"future_use_hazard"}:
+        routes.append("model_topology_hazard_review")
+    return tuple(dict.fromkeys(routes))
+
+
+def direct_route_for(task: TaskDescription | TaskFact | None) -> str:
+    candidates = direct_route_candidates(task)
+    return candidates[0] if len(candidates) == 1 else ""
 
 
 def direct_skill_for(task: TaskDescription | TaskFact | None) -> str:
@@ -930,6 +977,41 @@ TASK_EXISTING_MODEL_PREFLIGHT = TaskDescription(
     ("existing_model_context",),
     production_code_exists=True,
 )
+TASK_ARCHITECTURE_REDUCTION = TaskDescription(
+    "behavior-preserving-contraction",
+    "architecture_reduction",
+    ("behavior_preserving_contraction",),
+)
+TASK_BEHAVIOR_LEDGER = TaskDescription(
+    "broad-behavior-inventory",
+    "behavior_inventory",
+    ("broad_behavior_inventory",),
+)
+TASK_CONTRACT_EXHAUSTION = TaskDescription(
+    "finite-contract-universe",
+    "contract_exhaustion",
+    ("finite_bad_case_universe",),
+)
+TASK_FIELD_LIFECYCLE = TaskDescription(
+    "field-lifecycle-change",
+    "field_lifecycle",
+    ("field_lifecycle_change",),
+)
+TASK_TOPOLOGY_HAZARD = TaskDescription(
+    "future-use-topology-hazard",
+    "topology_hazard",
+    ("future_use_hazard",),
+)
+TASK_FORBIDDEN_REDUCTION = TaskDescription(
+    "contraction-with-behavior-change",
+    "architecture_reduction",
+    ("behavior_preserving_contraction", "route_forbidden"),
+)
+TASK_ROUTE_CONFLICT = TaskDescription(
+    "field-cartesian-conflict",
+    "contract_exhaustion",
+    ("finite_bad_case_universe", "field_lifecycle_change"),
+)
 
 
 def build_workflow(
@@ -1135,6 +1217,71 @@ def skill_trigger_scenarios() -> tuple[Scenario, ...]:
             _expect_ok(
                 "OK; existing-model context work selects Existing Model Preflight",
                 labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS18_architecture_reduction_routes_directly",
+            "Behavior-preserving contraction selects Architecture Reduction, not pre-code structure planning.",
+            TASK_ARCHITECTURE_REDUCTION,
+            _expect_ok(
+                "OK; contraction selects Architecture Reduction",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS19_behavior_commitment_ledger_routes_directly",
+            "Broad external behavior inventory selects Behavior Commitment Ledger.",
+            TASK_BEHAVIOR_LEDGER,
+            _expect_ok(
+                "OK; broad behavior inventory selects Behavior Commitment Ledger",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS20_contract_exhaustion_routes_directly",
+            "A declared finite bad-case universe selects Contract Exhaustion Mesh.",
+            TASK_CONTRACT_EXHAUSTION,
+            _expect_ok(
+                "OK; finite universe selects Contract Exhaustion Mesh",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS21_field_lifecycle_routes_directly",
+            "Field replacement and migration selects Field Lifecycle Mesh.",
+            TASK_FIELD_LIFECYCLE,
+            _expect_ok(
+                "OK; field change selects Field Lifecycle Mesh",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STS22_topology_hazard_routes_directly",
+            "A locally green future-use concern selects Model Topology Hazard Review, not Model Miss.",
+            TASK_TOPOLOGY_HAZARD,
+            _expect_ok(
+                "OK; future-use concern selects Model Topology Hazard Review",
+                labels=("risk_requires_flowguard", "direct_satellite_selected", "flowguard_route_completed"),
+            ),
+        ),
+        scenario(
+            "STB10_forbidden_route_needs_review",
+            "Contraction that changes behavior is excluded from Architecture Reduction.",
+            TASK_FORBIDDEN_REDUCTION,
+            ScenarioExpectation(
+                expected_status="needs_human_review",
+                required_trace_labels=("risk_needs_human_review", "skill_trigger_needs_human_review"),
+                summary="NEEDS_HUMAN_REVIEW; forbidden route condition remains visible",
+            ),
+        ),
+        scenario(
+            "STB11_route_conflict_needs_review",
+            "A request matching both field lifecycle and finite case generation must not choose by order.",
+            TASK_ROUTE_CONFLICT,
+            ScenarioExpectation(
+                expected_status="needs_human_review",
+                required_trace_labels=("risk_needs_human_review", "skill_trigger_needs_human_review"),
+                summary="NEEDS_HUMAN_REVIEW; route conflict remains visible",
             ),
         ),
         scenario(

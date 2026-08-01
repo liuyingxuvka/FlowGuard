@@ -12,8 +12,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from flowguard import (
+    FLOWGUARD_ROUTE_API,
     default_flowguard_self_maintenance_plan,
+    default_flowguard_route_profiles,
     review_flowguard_self_maintenance,
+    review_route_admission,
     validate_default_route_topology,
 )
 from flowguard.formal_runner import FormalWorkflowCase, run_exact_workflow_case, run_formal_workflow_suite
@@ -263,6 +266,44 @@ def run_route_profile_review() -> bool:
     return report.ok and not report.findings
 
 
+def run_narrow_route_admission_review() -> bool:
+    profiles = default_flowguard_route_profiles()
+    public_profiles = tuple(
+        profile for profile in profiles if profile.route_id in FLOWGUARD_ROUTE_API
+    )
+    complete = all(
+        profile.positive_condition_ids
+        and profile.forbidden_condition_ids
+        and profile.first_action
+        and profile.reference_edges
+        and profile.deepening_trigger_ids
+        and profile.claim_boundary
+        for profile in public_profiles
+    )
+    selected = review_route_admission(profiles, ("behavior_preserving_contraction",))
+    forbidden = review_route_admission(
+        profiles,
+        ("behavior_preserving_contraction", "behavior_change"),
+    )
+    conflict = review_route_admission(
+        profiles,
+        ("field_lifecycle_change", "finite_bad_case_universe"),
+    )
+    ok = (
+        len(public_profiles) == 15
+        and complete
+        and selected.selected_route_id == "architecture_reduction"
+        and forbidden.status == "no_match"
+        and conflict.status == "conflict"
+    )
+    print(
+        "narrow public route admission profiles: "
+        f"{'pass' if ok else 'fail'}; public_routes={len(public_profiles)}"
+    )
+    print()
+    return ok
+
+
 def run_receipt_parent_review() -> bool:
     context_path = ROOT / ".flowguard/evidence/skill-suite-contexts.json"
     contexts = load_verification_contexts(context_path) if context_path.exists() else {}
@@ -342,6 +383,7 @@ def main() -> int:
             typed_topology_ok=typed_topology_ok and plane_upgrade_contract_ok
         ),
         run_route_profile_review(),
+        run_narrow_route_admission_review(),
         run_receipt_parent_review(),
         typed_topology_ok,
         plane_upgrade_contract_ok,

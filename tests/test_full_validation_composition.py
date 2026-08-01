@@ -425,6 +425,15 @@ class FullValidationCompositionTests(unittest.TestCase):
         )
         self.assertNotEqual(self.output.parent, native_root)
 
+    def test_full_pytest_timeout_covers_the_observed_release_suite_runtime(self):
+        specs = {
+            item.child_id: item
+            for item in suite_command._full_child_specs(self.args(), self.root)
+        }
+
+        self.assertEqual(3600.0, specs["pytest"].timeout_seconds)
+        self.assertEqual(900.0, specs["openspec_strict"].timeout_seconds)
+
     def test_identical_second_full_request_reuses_all_nine_owners(self):
         with patch.object(
             suite_command,

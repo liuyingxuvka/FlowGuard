@@ -12,7 +12,7 @@ Turn an owner-declared finite boundary into canonical cases and typed evidence h
 Route id: `contract_exhaustion_mesh`; role: `public_owner`; native owner: `contract_exhaustion_mesh`. This standalone FlowGuard satellite skill owns canonical finite-case generation.
 
 ## Local Material Routing
-Read `references/contract_exhaustion_mesh_protocol.md` for feeders, universes, `ContractDimension`, `ContractMutationCase`, oracles, receipts, and consumers.
+After positive admission, read `references/contract_exhaustion_mesh_protocol.md` for feeders, finite universes, oracles, receipts, and consumers.
 
 ## Entrypoint Acceptance Map
 Accept finite dimensions/seeds; generate cases with oracles; block unbounded claims, missing feedback, stale receipts, or missing universe items; hand evidence to its owners.
