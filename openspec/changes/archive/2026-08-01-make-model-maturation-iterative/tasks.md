@@ -31,4 +31,4 @@
 
 - [x] 5.1 Update version and release documentation for a new immutable release without moving previous tags.
 - [x] 5.2 Regenerate the clean consumer projection and verify local source/package/installed-skill parity.
-- [ ] 5.3 Commit, tag, push, publish the GitHub Release, and verify local/remote/tag/release identities separately.
+- [x] 5.3 Commit, tag, push, publish the GitHub Release, and verify local/remote/tag/release identities separately.
