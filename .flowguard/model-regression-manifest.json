@@ -2497,10 +2497,10 @@
         "evidence_check_ids": [
           "check:model-regression:openspec_archive_cleanup"
         ],
-        "model_sha256": "sha256:115a739f0eca286cfcd351ecf6dbe48a7f4cea198e010c73d83480018a1aae74",
+      "model_sha256": "sha256:56b46833d0fb338e4f62c030688ebad20d11296d260f74a1a0635071a8653250",
         "runner_sha256": "sha256:4ed7462dfe4c6576f266b6c97faf6cc28702791e07554c58c938faaa07825224",
         "declaration_fingerprint": "sha256:eb0d2473be7acbbcac701b7c7428922efcf93f031f8e339a363634d2aad9512b",
-        "closure_fingerprint": "sha256:53431ba8edbf24c28ad3ea974b8ccd44ebe42c3746d44bf5de5c88c75b9f9936"
+      "closure_fingerprint": "sha256:51431ae14df7ab3296e6c9e461275209f97227c169f7a71ae331e0fb2b90573c"
       }
     },
     {
@@ -2815,10 +2815,10 @@
         "evidence_check_ids": [
           "check:model-regression:release_visibility_process"
         ],
-        "model_sha256": "sha256:94e9ba9e5f4c3c1b5c63fbbd83055f995f2897f39c706b5d21e6e72d8c460b13",
+      "model_sha256": "sha256:dd00181a96a5799cdd91ef84397d03bb7a8805287f5c06e364220bdbf9b56b2b",
         "runner_sha256": "sha256:5b20fc2d4d3bad29f37c316b1995790030b19b2d70266986ea7a82348afdf962",
         "declaration_fingerprint": "sha256:df3e9382693fb2ffe2b61e6cbcf08339cabf1d9fb93fe845f2c4cf6e8007fc1f",
-        "closure_fingerprint": "sha256:91faec45818d571228e021ff2e752b104214ca32667ac3ec199499f6ec042ff0"
+      "closure_fingerprint": "sha256:cc61d65d65249118ff513659bb1a01b90ba2425836b54ac26c96d2e6bb38b6e3"
       }
     },
     {
