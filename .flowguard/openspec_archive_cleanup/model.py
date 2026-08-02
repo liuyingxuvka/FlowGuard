@@ -124,7 +124,7 @@ def development_process_report():
                 "workspace.shadow",
                 PROCESS_ARTIFACT_RELEASE,
                 "0.27.0",
-                path="C:/Users/liu_y/Documents/FlowGuard_20260427",
+                path="<workspace>/FlowGuard",
                 owner="DevelopmentProcessFlow",
             ),
             ProcessArtifact(

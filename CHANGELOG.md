@@ -29,6 +29,8 @@
   evidence is current.
 - Preserved content-addressed validation evidence under deep Windows worktrees
   by using extended-path reads and atomic writes.
+- Removed user-specific absolute paths from the public model fixtures and
+  archived coordination baseline before publication.
 
 ## v0.68.4 - 2026-08-02
 
