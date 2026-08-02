@@ -1142,7 +1142,7 @@ def _run_simulator_command(args: argparse.Namespace) -> int:
                 "blockers": list(audit.errors),
             }
             print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) if args.json else "status: blocked\n" + "\n".join(f"blocker: {item}" for item in audit.errors))
-        return 2
+            return 2
         available_ids = tuple(
             entry.model_id
             for entry in manifest.entries

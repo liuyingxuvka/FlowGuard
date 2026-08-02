@@ -17,7 +17,7 @@ Route id: `model_first_function_flow`; role: `kernel`; native owner: `model_firs
 - When kernel maintenance or adoption is in scope, read `references/skill_kernel_protocol.md`, `references/adoption_protocol.md`, `references/framework_upgrade_protocol.md`, or `references/long_check_protocol.md` only for the named boundary.
 
 ## Entrypoint Acceptance Map
-- Use one clear satellite directly; zero or multiple candidates stay visible.
+- Use a clear peer satellite directly; zero or multiple candidates stay visible.
 - Keep the kernel for ordinary modeling, unclear/cross-route work, portable composition, risk, maturation, and closure.
 - On a broad-claim, prediction, Model Miss, ambiguity, high-impact, or addressable-gap trigger, load the mapped reference and continue to native closure or an explicit external/scoped/stalled/bounded terminal.
 

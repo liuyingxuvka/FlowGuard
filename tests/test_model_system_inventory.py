@@ -37,11 +37,11 @@ class ModelSystemInventoryTests(unittest.TestCase):
         self.assertFalse(snapshot.unresolved_gap_ids)
         self.assertTrue(snapshot.coverage.complete)
         inventory = inspect_manifest_model_inventory(root)
-        self.assertEqual(64, len(inventory.declared_ids))
+        self.assertEqual(65, len(inventory.declared_ids))
         self.assertEqual(inventory.declared_ids, inventory.materialized_ids)
         self.assertEqual(inventory.required_ids, inventory.covered_ids)
         self.assertFalse(inventory.missing_ids)
-        self.assertEqual(64, len(snapshot.model_instances))
+        self.assertEqual(65, len(snapshot.model_instances))
         model_dimension = next(
             item
             for item in snapshot.coverage.dimensions

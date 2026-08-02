@@ -27,7 +27,7 @@ Accept children; verify partitions/receipts; block overlap, stale or incomplete 
 1. Load observed authority; inventory hierarchy, owners, partitions, and evidence tiers/freshness. Whole-flow claims disposition every model and require consumer relations.
 2. Review disjointness, Child Reattachment Gate, siblings, receipts, leaves, and triggered closure.
 3. For explicit blueprint scope, connect purpose, producer/consumer, and realization references to independent inventory/binding identities without copying source semantics.
-4. Preserve gaps and hand exact cases/receipts to alignment, test, risk, or portable owners; do not run a joint graph here.
+4. Consume explicit `flowguard.portable_refinement.v1` for portable refinement; preserve gaps and hand exact cases/receipts to alignment, test, risk, or portable owners without running a joint graph here.
 
 ## Hard Gates
 - Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework.
