@@ -1,0 +1,105 @@
+{
+  "artifact_type": "flowguard_affected_authority_inventory",
+  "schema_version": "flowguard.affected_authority_inventory.v1",
+  "inventory_id": "flowguard-understanding-readiness",
+  "claim_boundary": "This inventory covers the upgraded understanding and implementation-admission path only; it does not claim semantic re-proof of unrelated historical FlowGuard models.",
+  "components": [
+    {
+      "component_id": "understanding:task-coverage-demand",
+      "source_surface_id": "surface:understanding:task-coverage-demand",
+      "behavior_commitment_id": "commitment:task-coverage-demand",
+      "model_owner_ids": ["task_coverage_demand"],
+      "primary_source_owner": "flowguard/task_coverage_demand.py",
+      "evidence_owner_ids": [
+        ".flowguard/task_coverage_demand/run_checks.py",
+        "tests/test_task_coverage_demand.py"
+      ],
+      "runtime_entry_ids": ["flowguard.compile_task_coverage_demand"],
+      "model_relations": [
+        {"kind": "refines", "target_model_id": "self_maintenance_mesh"}
+      ],
+      "relation_types": ["refines", "implements", "validates", "invokes", "affects"],
+      "affected_sibling_ids": ["model_maturation_loop", "self_maintenance_mesh"],
+      "gap_ids": []
+    },
+    {
+      "component_id": "understanding:model-maturation-receipt",
+      "source_surface_id": "surface:understanding:model-maturation-receipt",
+      "behavior_commitment_id": "commitment:model-maturation-receipt",
+      "model_owner_ids": ["model_maturation_loop"],
+      "primary_source_owner": "flowguard/model_maturation_receipt.py",
+      "evidence_owner_ids": [
+        ".flowguard/model_maturation_loop/run_checks.py",
+        "tests/test_model_maturation_receipt.py"
+      ],
+      "runtime_entry_ids": [
+        "flowguard.publish_model_maturation_receipt",
+        "flowguard.verify_model_maturation_receipt"
+      ],
+      "model_relations": [
+        {"kind": "consumes", "target_model_id": "task_coverage_demand"},
+        {"kind": "refines", "target_model_id": "self_maintenance_mesh"}
+      ],
+      "relation_types": ["consumes", "refines", "implements", "validates", "invokes", "affects"],
+      "affected_sibling_ids": ["task_coverage_demand", "development_process_flow", "self_maintenance_mesh"],
+      "gap_ids": []
+    },
+    {
+      "component_id": "understanding:implementation-admission",
+      "source_surface_id": "surface:understanding:implementation-admission",
+      "behavior_commitment_id": "commitment:implementation-admission",
+      "model_owner_ids": ["development_process_flow"],
+      "primary_source_owner": "flowguard/development_process_flow.py",
+      "evidence_owner_ids": [
+        ".flowguard/development_process_flow/run_checks.py",
+        "tests/test_development_process_flow.py"
+      ],
+      "runtime_entry_ids": ["flowguard.review_implementation_admission"],
+      "model_relations": [
+        {"kind": "consumes", "target_model_id": "model_maturation_loop"},
+        {"kind": "refines", "target_model_id": "self_maintenance_mesh"}
+      ],
+      "relation_types": ["consumes", "refines", "implements", "validates", "invokes", "affects"],
+      "affected_sibling_ids": ["model_maturation_loop", "self_maintenance_mesh"],
+      "gap_ids": []
+    },
+    {
+      "component_id": "understanding:risk-confidence",
+      "source_surface_id": "surface:understanding:understanding-confidence",
+      "behavior_commitment_id": "commitment:understanding-confidence",
+      "model_owner_ids": ["model_maturation_loop"],
+      "primary_source_owner": "flowguard/risk_evidence_ledger.py",
+      "evidence_owner_ids": [
+        ".flowguard/model_maturation_loop/run_checks.py",
+        "tests/test_risk_evidence_ledger.py"
+      ],
+      "runtime_entry_ids": ["flowguard.review_risk_evidence_ledger"],
+      "model_relations": [
+        {"kind": "consumes", "target_model_id": "development_process_flow"},
+        {"kind": "refines", "target_model_id": "self_maintenance_mesh"}
+      ],
+      "relation_types": ["consumes", "refines", "implements", "validates", "invokes", "affects"],
+      "affected_sibling_ids": ["development_process_flow", "flowguard_closure_contract", "self_maintenance_mesh"],
+      "gap_ids": []
+    },
+    {
+      "component_id": "understanding:closure-integrity",
+      "source_surface_id": "surface:understanding:understanding-closure-integrity",
+      "behavior_commitment_id": "commitment:understanding-closure-integrity",
+      "model_owner_ids": ["model_maturation_loop"],
+      "primary_source_owner": "flowguard/closure_contract.py",
+      "evidence_owner_ids": [
+        ".flowguard/model_maturation_loop/run_checks.py",
+        "tests/test_closure_contract.py"
+      ],
+      "runtime_entry_ids": ["flowguard.review_flowguard_closure_contract"],
+      "model_relations": [
+        {"kind": "consumes", "target_model_id": "flowguard_closure_contract"},
+        {"kind": "refines", "target_model_id": "self_maintenance_mesh"}
+      ],
+      "relation_types": ["consumes", "refines", "implements", "validates", "invokes", "affects"],
+      "affected_sibling_ids": ["flowguard_closure_contract", "self_maintenance_mesh"],
+      "gap_ids": []
+    }
+  ]
+}
