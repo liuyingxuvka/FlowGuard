@@ -58,6 +58,8 @@ Group compact prompts as `model`, `interface`, `ownership`, `evidence`, and
 - Parent confidence requires complete partition ownership, current
   parent-consumed child receipts, affected-sibling review, and closure when
   whole-flow confidence is claimed.
+- Consume the canonical `flowguard.portable_refinement.v1` result; do not build a second mesh-owned interpreter.
+  Portable checker semantics remain owned by the portable refinement route.
 - Feed reattachment, boundary, oversized-model, and duplicate-edge findings to
   Model Maturation under the exact TaskCoverageDemand; permission cannot close them.
 - RiskLedger owns broad/scoped/blocked confidence. ModelMesh proves only the

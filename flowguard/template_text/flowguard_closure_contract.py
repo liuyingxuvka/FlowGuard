@@ -51,6 +51,7 @@ from flowguard import (
     MODEL_MATURATION_CONFIDENCE_FULL,
     MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
     MODEL_MATURATION_RECEIPT_CLAIM_SCOPE,
+    RISK_LEDGER_DECISION_FULL,
     ArtifactInvalidation,
     ClosureEvidenceReport,
     FlowGuardClosureContractPlan,
@@ -155,7 +156,11 @@ def evidence_report(report_id, report_kind=CLOSURE_REPORT_RISK_LEDGER, **overrid
     values = {
         "report_id": report_id,
         "report_kind": report_kind,
-        "decision": f"{report_kind}:green",
+        "decision": (
+            RISK_LEDGER_DECISION_FULL
+            if report_kind == CLOSURE_REPORT_RISK_LEDGER
+            else f"{report_kind}:green"
+        ),
         "ok": True,
         "current": True,
         "confidence": CLOSURE_CONFIDENCE_FULL,

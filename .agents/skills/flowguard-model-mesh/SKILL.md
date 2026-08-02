@@ -1,12 +1,12 @@
 ---
 name: flowguard-model-mesh
-description: Use for affected cross-model topology, oversized models, stale child evidence, partitioning, reattachment, affected siblings, or mesh closure risk; raw model count alone is not a trigger.
+description: Use for affected topology, oversized models, stale child evidence, partitioning, reattachment, siblings, or mesh closure; model count alone is not a trigger.
 ---
 
 # FlowGuard Model Mesh
 
 ## Purpose
-Govern ownership, freshness, reattachment, and closure without absorbing children.
+Govern model ownership, freshness, reattachment, and closure.
 
 ## Entrypoint Scope
 This standalone FlowGuard satellite skill owns model hierarchy, not test or code splits.
@@ -37,7 +37,7 @@ Accept bounded children; verify partitions/receipts; block overlap, staleness, m
 - Freeze task-specific failures/boundary; bind native good, bad-per-failure, oracle, candidate, and current evidence.
 - Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Parent confidence requires complete partition ownership, legal overlap, current child evidence/receipts, and current parent consumption.
-- Portable refinement needs complete reachable mappings (or legal stutter), no stronger assumptions, and no weaker guarantees.
+- Consume `flowguard.portable_refinement.v1`; do not reinterpret it. Require reachable mappings or legal stutter, no stronger assumptions, and no weaker guarantees.
 - Progress is liveness only; missing closure feedback/bounds or template-harvest closure blocks broad confidence.
 
 ## Output Requirements
