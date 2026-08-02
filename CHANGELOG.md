@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.68.5 - 2026-08-02
+
+- Made task facts independently observable by source plane and kept unknown,
+  omitted, contradictory, unmapped, and scoped facts visible in the coverage
+  denominator.
+- Added one canonical owner-resolution identity across task coverage, model
+  maturation, receipt verification, and readiness; caller-authored `passed`
+  flags no longer substitute for command, result, time, subject, and content
+  evidence.
+- Added a read-only `model-understanding-status` API and CLI that reports model
+  understanding, user execution choice, and FlowGuard implementation admission
+  as three independent answers without running or writing anything.
+- Replaced raw model-count activation with semantic topology and classified the
+  complete 64-model observed universe into 7 parent domains with 189 explicit
+  parent/consumer relations before whole-system closure.
+- Contracted duplicate route, owner-result, Closure scoring, and count-based
+  paths while preserving current public behavior, and updated the affected
+  FlowGuard skills, contracts, tests, documentation, and release governance.
+- Added an independent implementation and reconstruction-resource inventory,
+  bidirectional model/code closure, source-independent semantics and oracles,
+  and deterministic content-addressed blueprint projection. Static completion
+  remains separate from optional empirical reconstruction, ordinary work stays
+  affected-only, and no blueprint command launches reconstruction automatically.
+- Added model-driven pre-release architecture reduction guidance that permits
+  removal or collapse only with current equivalence evidence and keeps public
+  delegation facades only when their exact owner and primary-path delegation
+  evidence is current.
+- Preserved content-addressed validation evidence under deep Windows worktrees
+  by using extended-path reads and atomic writes.
+
 ## v0.68.4 - 2026-08-02
 
 - Added an independently derived TaskCoverageDemand so task facts determine

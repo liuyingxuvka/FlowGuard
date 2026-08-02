@@ -341,3 +341,25 @@ success paths.
 #### Scenario: Removed aliases absent
 - **WHEN** API-surface tests inspect first-read and full exports
 - **THEN** removed compatibility names and old field aliases are absent
+
+### Requirement: Understanding status extends the existing kernel API group
+The public understanding-status types and functions SHALL be registered under the existing model-first kernel owner. They SHALL NOT create a new public route or skill, and registry, import, serialization, and CLI projections SHALL remain in parity.
+
+#### Scenario: Status API is added to another route
+- **WHEN** the public status surface appears under a new or unrelated route owner
+- **THEN** registry validation fails with an ownership mismatch
+
+#### Scenario: CLI field lacks API serialization parity
+- **WHEN** a status field is exposed through the CLI but omitted from the public serialized API result
+- **THEN** parity validation fails
+
+### Requirement: Implementation blueprint APIs belong to the existing kernel owner
+Public implementation-inventory, model-binding, blueprint-qualification, and deterministic-projection APIs SHALL be registered as one cohort under the existing model-first kernel owner. They SHALL NOT create a new route, skill, mutable authority head, or compatibility alias.
+
+#### Scenario: Blueprint API is registered as a new public route
+- **WHEN** registry metadata assigns the blueprint cohort to a new route identity
+- **THEN** public API topology validation fails
+
+#### Scenario: Public import and registry differ
+- **WHEN** a blueprint symbol is publicly importable but absent from its registered cohort, or the registry lists a missing symbol
+- **THEN** API parity validation fails

@@ -13,6 +13,7 @@ import hashlib
 import json
 from typing import Any, Mapping, Sequence
 
+from ._normalization import unique_strings as _unique
 from .export import to_jsonable
 from .maintenance_obligation import (
     MaintenanceObligation,
@@ -20,7 +21,11 @@ from .maintenance_obligation import (
     obligations_from_maturation_findings,
 )
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref
-from .task_coverage_demand import TaskCoverageDemand
+from .task_coverage_demand import (
+    COVERAGE_DISPOSITION_SATISFIED,
+    OwnerCoverageResolution,
+    TaskCoverageDemand,
+)
 
 
 MODEL_MATURATION_DECISION_CLOSED_FOR_TASK = "model_maturation_closed_for_task"
@@ -133,17 +138,6 @@ def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
     if values is None:
         return ()
     return tuple(str(value) for value in values)
-
-
-def _unique(values: Sequence[str]) -> tuple[str, ...]:
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for value in values:
-        text = str(value)
-        if text and text not in seen:
-            seen.add(text)
-            ordered.append(text)
-    return tuple(ordered)
 
 
 def _stable_fingerprint(value: object) -> str:
@@ -504,6 +498,8 @@ class ModelMaturationCoverageContribution:
     required_probe_ids: tuple[str, ...] = ()
     signals: tuple[ModelMaturationSignal, ...] = ()
     evidence_ref: ProofArtifactRef | Mapping[str, Any] | None = None
+    owner_resolution: OwnerCoverageResolution | Mapping[str, Any] | None = None
+    candidate_model_fingerprint: str = ""
     subject_fingerprints: Mapping[str, str] = field(default_factory=dict)
     status: str = "pass"
     current: bool = True
@@ -523,6 +519,17 @@ class ModelMaturationCoverageContribution:
         )
         object.__setattr__(self, "signals", normalized_signals)
         object.__setattr__(self, "evidence_ref", coerce_proof_artifact_ref(self.evidence_ref))
+        resolution = self.owner_resolution
+        if resolution is not None and not isinstance(resolution, OwnerCoverageResolution):
+            if not isinstance(resolution, Mapping):
+                raise TypeError("owner_resolution must be an OwnerCoverageResolution")
+            resolution = OwnerCoverageResolution(**dict(resolution))
+        object.__setattr__(self, "owner_resolution", resolution)
+        object.__setattr__(
+            self,
+            "candidate_model_fingerprint",
+            str(self.candidate_model_fingerprint),
+        )
         object.__setattr__(
             self,
             "subject_fingerprints",
@@ -531,15 +538,53 @@ class ModelMaturationCoverageContribution:
         object.__setattr__(self, "status", str(self.status))
         object.__setattr__(self, "current", bool(self.current))
 
-    def evidence_is_current(self) -> bool:
+    def evidence_is_current(
+        self,
+        *,
+        demand: TaskCoverageDemand | None = None,
+        demand_id: str = "",
+        demand_fingerprint: str = "",
+        candidate_model_fingerprint: str = "",
+    ) -> bool:
         proof = self.evidence_ref
+        resolution = self.owner_resolution
+        expected_demand_id = demand.demand_id if demand is not None else str(demand_id)
+        expected_demand_fingerprint = (
+            demand.fingerprint if demand is not None else str(demand_fingerprint)
+        )
+        expected_task_id = demand.task_id if demand is not None else self.task_id
+        demanded_obligations = (
+            {
+                coverage_id
+                for row in demand.rows
+                if row.triggered and row.owner_route == self.owner_route
+                for coverage_id in row.coverage_ids
+            }
+            if demand is not None
+            else set(self.coverage_ids)
+        )
         return bool(
             self.current
             and self.status == "pass"
             and proof is not None
+            and resolution is not None
+            and resolution.disposition == COVERAGE_DISPOSITION_SATISFIED
+            and resolution.task_id == self.task_id == expected_task_id
+            and resolution.demand_id == expected_demand_id
+            and resolution.demand_fingerprint == expected_demand_fingerprint
+            and resolution.owner_route == self.owner_route
+            and self.candidate_model_fingerprint == candidate_model_fingerprint
             and proof.producer_route == self.owner_route
             and proof.has_current_pass()
-            and proof.covers_all(self.coverage_ids)
+            and proof.subject_id == resolution.resolution_id
+            and proof.subject_fingerprint == resolution.resolution_fingerprint
+            and proof.artifact_id in resolution.evidence_ids
+            and set(resolution.evidence_fingerprints).issubset(
+                set(proof.artifact_fingerprints.values())
+            )
+            and proof.covers_all(resolution.obligation_ids)
+            and set(self.coverage_ids).issubset(set(resolution.obligation_ids))
+            and demanded_obligations.issubset(set(resolution.obligation_ids))
             and self.subject_fingerprints
             and all(
                 proof.artifact_fingerprints.get(key) == value
@@ -557,6 +602,10 @@ class ModelMaturationCoverageContribution:
             "required_probe_ids": list(self.required_probe_ids),
             "signals": [signal.to_dict() for signal in self.signals],
             "evidence_ref": self.evidence_ref.to_dict() if self.evidence_ref else None,
+            "owner_resolution": (
+                self.owner_resolution.to_dict() if self.owner_resolution else None
+            ),
+            "candidate_model_fingerprint": self.candidate_model_fingerprint,
             "subject_fingerprints": dict(self.subject_fingerprints),
             "status": self.status,
             "current": self.current,
@@ -616,13 +665,40 @@ class ModelMaturationIntake:
         ids = [item.contribution_id for item in contributions]
         if len(ids) != len(set(ids)):
             raise ValueError("model maturation contribution ids must be unique")
+        resolution_ids = [
+            item.owner_resolution.resolution_id
+            for item in contributions
+            if item.owner_resolution is not None
+        ]
+        resolution_owners = [
+            item.owner_resolution.owner_route
+            for item in contributions
+            if item.owner_resolution is not None
+        ]
+        if len(resolution_ids) != len(set(resolution_ids)):
+            raise ValueError("model maturation owner resolution ids must be unique")
+        if len(resolution_owners) != len(set(resolution_owners)):
+            raise ValueError("each demanded owner must have exactly one resolution")
         for item in contributions:
             if item.task_id != self.task_id:
                 raise ValueError("model maturation contribution task id mismatch")
+            if item.owner_resolution is not None and (
+                item.owner_resolution.task_id != self.task_id
+                or item.owner_resolution.owner_route != item.owner_route
+            ):
+                raise ValueError("model maturation owner resolution identity mismatch")
         if not isinstance(self.coverage_demand, TaskCoverageDemand):
             raise TypeError("coverage_demand must be a compiled TaskCoverageDemand")
         if self.coverage_demand.task_id != self.task_id:
             raise ValueError("model maturation coverage demand task id mismatch")
+        required_owners = set(self.coverage_demand.required_owner_ids)
+        supplied_resolution_owners = set(resolution_owners)
+        foreign_resolution_owners = supplied_resolution_owners - required_owners
+        if foreign_resolution_owners:
+            raise ValueError(
+                "owner resolution has no triggered task demand: "
+                f"{sorted(foreign_resolution_owners)}"
+            )
         object.__setattr__(self, "contributions", contributions)
         object.__setattr__(self, "iteration", max(0, int(self.iteration)))
         object.__setattr__(self, "max_iterations", max(1, int(self.max_iterations)))
@@ -633,7 +709,15 @@ class ModelMaturationIntake:
 def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMaturationPlan":
     """Compile against the independent task demand without reinterpreting owners."""
 
-    contribution_owners = {item.owner_route for item in intake.contributions}
+    contribution_owners = {
+        item.owner_route
+        for item in intake.contributions
+        if item.owner_resolution is not None
+        and item.owner_resolution.task_id == intake.task_id
+        and item.owner_resolution.demand_id == intake.coverage_demand.demand_id
+        and item.owner_resolution.demand_fingerprint == intake.coverage_demand.fingerprint
+        and item.owner_resolution.owner_route == item.owner_route
+    }
     missing_contributions = tuple(
         owner
         for owner in intake.coverage_demand.required_owner_ids
@@ -707,13 +791,42 @@ def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMatura
         candidate_model_fingerprint=intake.candidate_model_fingerprint,
         evidence_fingerprint="pending",
         resolved_gap_receipts=intake.resolved_gap_receipts,
+        owner_resolution_ids=_unique(
+            tuple(
+                contribution.owner_resolution.resolution_id
+                for contribution in intake.contributions
+                if contribution.owner_resolution is not None
+            )
+        ),
+        owner_resolution_fingerprints=_unique(
+            tuple(
+                contribution.owner_resolution.resolution_fingerprint
+                for contribution in intake.contributions
+                if contribution.owner_resolution is not None
+            )
+        ),
+        owner_resolution_owner_ids=_unique(
+            tuple(
+                contribution.owner_resolution.owner_route
+                for contribution in intake.contributions
+                if contribution.owner_resolution is not None
+            )
+        ),
+        owner_resolution_contributions=tuple(
+            contribution
+            for contribution in intake.contributions
+            if contribution.owner_resolution is not None
+        ),
     )
     coverage_fingerprint = skeleton.expected_coverage_fingerprint()
     compiled_signals: list[ModelMaturationSignal] = []
     evidence_identities: list[str] = []
     for contribution in intake.contributions:
         proof = contribution.evidence_ref
-        proof_current = contribution.evidence_is_current()
+        proof_current = contribution.evidence_is_current(
+            demand=intake.coverage_demand,
+            candidate_model_fingerprint=intake.candidate_model_fingerprint,
+        )
         proof_fingerprint = _stable_fingerprint(proof.to_dict()) if proof else ""
         if proof_fingerprint:
             evidence_identities.append(proof_fingerprint)
@@ -774,7 +887,13 @@ def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMatura
             continue
         contribution = contributions_by_owner.get(row.owner_route)
         proof = contribution.evidence_ref if contribution is not None else None
-        proof_current = bool(contribution and contribution.evidence_is_current())
+        proof_current = bool(
+            contribution
+            and contribution.evidence_is_current(
+                demand=intake.coverage_demand,
+                candidate_model_fingerprint=intake.candidate_model_fingerprint,
+            )
+        )
         proof_fingerprint = _stable_fingerprint(proof.to_dict()) if proof else ""
         if proof_fingerprint:
             evidence_identities.append(proof_fingerprint)
@@ -1028,6 +1147,10 @@ class ModelMaturationPlan:
     candidate_model_fingerprint: str = ""
     evidence_fingerprint: str = ""
     resolved_gap_receipts: Mapping[str, ModelMaturationGapResolutionReceipt] = field(default_factory=dict)
+    owner_resolution_ids: tuple[str, ...] = ()
+    owner_resolution_fingerprints: tuple[str, ...] = ()
+    owner_resolution_owner_ids: tuple[str, ...] = ()
+    owner_resolution_contributions: tuple[ModelMaturationCoverageContribution, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
@@ -1054,6 +1177,27 @@ class ModelMaturationPlan:
         object.__setattr__(self, "base_model_fingerprint", str(self.base_model_fingerprint))
         object.__setattr__(self, "candidate_model_fingerprint", str(self.candidate_model_fingerprint))
         object.__setattr__(self, "evidence_fingerprint", str(self.evidence_fingerprint))
+        object.__setattr__(self, "owner_resolution_ids", _as_tuple(self.owner_resolution_ids))
+        object.__setattr__(
+            self,
+            "owner_resolution_fingerprints",
+            _as_tuple(self.owner_resolution_fingerprints),
+        )
+        object.__setattr__(
+            self,
+            "owner_resolution_owner_ids",
+            _as_tuple(self.owner_resolution_owner_ids),
+        )
+        object.__setattr__(
+            self,
+            "owner_resolution_contributions",
+            tuple(
+                value
+                if isinstance(value, ModelMaturationCoverageContribution)
+                else ModelMaturationCoverageContribution(**dict(value))
+                for value in self.owner_resolution_contributions
+            ),
+        )
         normalized_receipts: dict[str, ModelMaturationGapResolutionReceipt] = {}
         for key, value in self.resolved_gap_receipts.items():
             if isinstance(value, ModelMaturationGapResolutionReceipt):
@@ -1077,6 +1221,9 @@ class ModelMaturationPlan:
             "prior_evidence_fingerprint", "prior_state_fingerprints",
             "base_model_fingerprint", "candidate_model_fingerprint",
             "evidence_fingerprint", "resolved_gap_receipts",
+            "owner_resolution_ids", "owner_resolution_fingerprints",
+            "owner_resolution_owner_ids",
+            "owner_resolution_contributions",
         }
         unknown = sorted(set(value) - allowed)
         if unknown:
@@ -1113,6 +1260,16 @@ class ModelMaturationPlan:
             base_model_fingerprint=str(value.get("base_model_fingerprint", "")),
             candidate_model_fingerprint=str(value.get("candidate_model_fingerprint", "")),
             evidence_fingerprint=str(value.get("evidence_fingerprint", "")),
+            owner_resolution_ids=tuple(value.get("owner_resolution_ids", ())),
+            owner_resolution_fingerprints=tuple(
+                value.get("owner_resolution_fingerprints", ())
+            ),
+            owner_resolution_owner_ids=tuple(
+                value.get("owner_resolution_owner_ids", ())
+            ),
+            owner_resolution_contributions=tuple(
+                value.get("owner_resolution_contributions", ())
+            ),
             resolved_gap_receipts=value.get("resolved_gap_receipts", {}) if isinstance(value.get("resolved_gap_receipts", {}), Mapping) else {},
         )
 
@@ -1146,6 +1303,12 @@ class ModelMaturationPlan:
                 gap: receipt.to_dict()
                 for gap, receipt in self.resolved_gap_receipts.items()
             },
+            "owner_resolution_ids": list(self.owner_resolution_ids),
+            "owner_resolution_fingerprints": list(self.owner_resolution_fingerprints),
+            "owner_resolution_owner_ids": list(self.owner_resolution_owner_ids),
+            "owner_resolution_contributions": [
+                value.to_dict() for value in self.owner_resolution_contributions
+            ],
         }
 
     def expected_coverage_fingerprint(self) -> str:
@@ -1191,6 +1354,9 @@ class ModelMaturationReport:
     input_fingerprint: str = ""
     progressed: bool = False
     iteration_record: ModelMaturationIteration | None = None
+    owner_resolution_ids: tuple[str, ...] = ()
+    owner_resolution_fingerprints: tuple[str, ...] = ()
+    owner_resolution_owner_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
@@ -1229,6 +1395,17 @@ class ModelMaturationReport:
         object.__setattr__(self, "open_gap_fingerprints", _as_tuple(self.open_gap_fingerprints))
         object.__setattr__(self, "input_fingerprint", str(self.input_fingerprint))
         object.__setattr__(self, "progressed", bool(self.progressed))
+        object.__setattr__(self, "owner_resolution_ids", _as_tuple(self.owner_resolution_ids))
+        object.__setattr__(
+            self,
+            "owner_resolution_fingerprints",
+            _as_tuple(self.owner_resolution_fingerprints),
+        )
+        object.__setattr__(
+            self,
+            "owner_resolution_owner_ids",
+            _as_tuple(self.owner_resolution_owner_ids),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1258,6 +1435,9 @@ class ModelMaturationReport:
             "input_fingerprint": self.input_fingerprint,
             "progressed": self.progressed,
             "iteration_record": self.iteration_record.to_dict() if self.iteration_record else None,
+            "owner_resolution_ids": list(self.owner_resolution_ids),
+            "owner_resolution_fingerprints": list(self.owner_resolution_fingerprints),
+            "owner_resolution_owner_ids": list(self.owner_resolution_owner_ids),
         }
 
     def format_text(self) -> str:
@@ -1409,6 +1589,100 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
         )
     if not plan.required_probe_ids:
         findings.append(_plan_finding("missing_required_probes", "the required native probe inventory is empty"))
+    resolution_shape = (
+        len(plan.owner_resolution_ids),
+        len(plan.owner_resolution_fingerprints),
+        len(plan.owner_resolution_owner_ids),
+    )
+    if not all(resolution_shape):
+        findings.append(
+            _plan_finding(
+                "missing_owner_resolution_identity",
+                "broad maturation requires canonical owner resolutions from the exact task demand",
+                action=MATURITY_ACTION_REFRESH_EVIDENCE,
+            )
+        )
+    elif len(set(resolution_shape)) != 1:
+        findings.append(
+            _plan_finding(
+                "owner_resolution_identity_shape_mismatch",
+                "owner resolution ids, fingerprints, and owners must project one-to-one",
+                action=MATURITY_ACTION_REFRESH_EVIDENCE,
+            )
+        )
+    elif (
+        len(set(plan.owner_resolution_ids)) != len(plan.owner_resolution_ids)
+        or len(set(plan.owner_resolution_fingerprints))
+        != len(plan.owner_resolution_fingerprints)
+        or len(set(plan.owner_resolution_owner_ids))
+        != len(plan.owner_resolution_owner_ids)
+    ):
+        findings.append(
+            _plan_finding(
+                "duplicate_or_conflicting_owner_resolution",
+                "each demanded owner must contribute exactly one resolution identity",
+                action=MATURITY_ACTION_REFRESH_EVIDENCE,
+            )
+        )
+    elif not all(
+        value.startswith("sha256:") for value in plan.owner_resolution_fingerprints
+    ):
+        findings.append(
+            _plan_finding(
+                "owner_resolution_fingerprint_invalid",
+                "owner resolution fingerprints must be exact sha256 identities",
+                action=MATURITY_ACTION_REFRESH_EVIDENCE,
+            )
+        )
+    contribution_resolution_ids = tuple(
+        contribution.owner_resolution.resolution_id
+        for contribution in plan.owner_resolution_contributions
+        if contribution.owner_resolution is not None
+    )
+    contribution_resolution_fingerprints = tuple(
+        contribution.owner_resolution.resolution_fingerprint
+        for contribution in plan.owner_resolution_contributions
+        if contribution.owner_resolution is not None
+    )
+    contribution_owner_ids = tuple(
+        contribution.owner_route
+        for contribution in plan.owner_resolution_contributions
+        if contribution.owner_resolution is not None
+    )
+    if not plan.owner_resolution_contributions:
+        findings.append(
+            _plan_finding(
+                "missing_owner_resolution_material",
+                "owner resolution identities require their exact current proof material",
+                action=MATURITY_ACTION_REFRESH_EVIDENCE,
+            )
+        )
+    elif (
+        set(contribution_resolution_ids) != set(plan.owner_resolution_ids)
+        or set(contribution_resolution_fingerprints)
+        != set(plan.owner_resolution_fingerprints)
+        or set(contribution_owner_ids) != set(plan.owner_resolution_owner_ids)
+    ):
+        findings.append(
+            _plan_finding(
+                "owner_resolution_projection_mismatch",
+                "declared owner resolution projections do not match their canonical material",
+                action=MATURITY_ACTION_REFRESH_EVIDENCE,
+            )
+        )
+    for contribution in plan.owner_resolution_contributions:
+        if not contribution.evidence_is_current(
+            demand_id=plan.coverage_universe_id,
+            demand_fingerprint=plan.coverage_demand_fingerprint,
+            candidate_model_fingerprint=plan.candidate_model_fingerprint,
+        ):
+            findings.append(
+                _plan_finding(
+                    "owner_resolution_material_not_current",
+                    f"owner resolution {contribution.contribution_id} lacks exact current proof",
+                    action=MATURITY_ACTION_REFRESH_EVIDENCE,
+                )
+            )
     if plan.coverage_universe_fingerprint and plan.coverage_universe_fingerprint != plan.expected_coverage_fingerprint():
         findings.append(_plan_finding("coverage_universe_fingerprint_mismatch", "coverage universe fingerprint does not match its owner, sources, coverage, and probes"))
     if plan.iteration > 0:
@@ -1758,6 +2032,9 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
         input_fingerprint=input_fingerprint,
         progressed=progressed,
         iteration_record=iteration_record,
+        owner_resolution_ids=plan.owner_resolution_ids,
+        owner_resolution_fingerprints=plan.owner_resolution_fingerprints,
+        owner_resolution_owner_ids=plan.owner_resolution_owner_ids,
     )
 
 

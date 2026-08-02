@@ -100,6 +100,24 @@ existing ModelMesh, preflight, behavior-commitment, field-lifecycle,
 model-test-alignment, TestMesh, and DevelopmentProcessFlow ownership; this API
 does not create another modeling route.
 
+## Understanding Readiness Projection
+
+`UNDERSTANDING_READINESS_API` is a read-only projection inside the existing
+`model_first_function_flow` route. `UnderstandingReadinessInput`,
+`UnderstandingReadinessStatus`, and `compose_understanding_status()` consume
+explicit task facts, model identity, coverage demand, canonical owner
+resolutions, maturation report, independent receipt verification, admission,
+and user choice. They report three independent values: understanding
+sufficiency, user execution choice, and FlowGuard implementation admission.
+
+The matching `model-understanding-status` CLI accepts explicit JSON paths. The
+API and command do not execute an owner, verify a receipt, resume a run,
+publish evidence, switch model authority, or write files. Missing inputs remain
+`not_run` or `unresolved`; mismatched current identities become `stale`; direct
+user execution never upgrades understanding or FlowGuard admission. This is a
+facade over the existing task-coverage, maturation, receipt, and process
+owners, not a new public route or skill.
+
 ## Governance And Distribution API
 
 `FLOWGUARD_GOVERNANCE_API` groups the release-facing control plane, including

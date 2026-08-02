@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
-import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -32,6 +32,80 @@ REQUIRED_LABELS = (
     "local_surfaces_synced",
     "done_accepted",
 )
+
+
+def semantic_receipt_action(
+    verification: model.SemanticMeshVerification,
+) -> model.SelfMaintenanceAction:
+    return model.SelfMaintenanceAction(
+        "consume_verified_receipt_set",
+        verified_child_receipt_ids=model.REQUIRED_SKILL_RECEIPT_IDS,
+        verification_set_fingerprint="sha256:current-skill-set",
+        verified_plane_upgrade_receipt_ids=model.CURRENT_FULL_VALIDATION_OWNER_IDS,
+        terminal_plane_upgrade_receipt_ids=model.CURRENT_FULL_VALIDATION_OWNER_IDS,
+        validation_owner_inventory_fingerprint=(
+            model.VALIDATION_OWNER_INVENTORY_FINGERPRINT
+        ),
+        verified_understanding_artifact_ids=(
+            model.REQUIRED_UNDERSTANDING_ARTIFACT_IDS
+        ),
+        understanding_chain_fingerprint=(
+            model.semantic_understanding_chain_fingerprint(
+                model.REQUIRED_UNDERSTANDING_ARTIFACT_IDS,
+                verification,
+            )
+        ),
+        semantic_mesh_verification=verification,
+        spec_context_ids=model.REQUIRED_SPEC_CONTEXT_IDS,
+        spec_context_provider="openspec",
+        spec_context_artifacts_current=True,
+        spec_context_read_only=True,
+        spec_receipt_bridge_present=False,
+    )
+
+
+def semantic_mesh_bad_cases() -> tuple[tuple[str, model.SelfMaintenanceAction], ...]:
+    current = model.ABSTRACT_SEMANTIC_MESH_VERIFICATION
+    assert current.terminal_proof is not None
+
+    foreign_fingerprint = replace(
+        current,
+        terminal_proof=replace(
+            current.terminal_proof,
+            subject_fingerprint=(
+                "sha256:" + hashlib.sha256(b"foreign-semantic-mesh").hexdigest()
+            ),
+        ),
+    )
+    forged_terminal = replace(
+        current,
+        terminal_proof=replace(
+            current.terminal_proof,
+            command="",
+            result_path="",
+            started_at="",
+            finished_at="",
+            result_status="passed",
+            exit_code=0,
+        ),
+    )
+    previous_revision = (
+        "sha256:" + hashlib.sha256(b"previous-model-revision").hexdigest()
+    )
+    previous_revision_evidence = replace(
+        current,
+        semantic_mesh_revision=previous_revision,
+        verified_subject_revision=previous_revision,
+        terminal_proof=replace(
+            current.terminal_proof,
+            subject_id=f"semantic-mesh:{previous_revision}",
+        ),
+    )
+    return (
+        ("foreign_semantic_mesh_fingerprint", semantic_receipt_action(foreign_fingerprint)),
+        ("forged_terminal_semantic_mesh_proof", semantic_receipt_action(forged_terminal)),
+        ("previous_semantic_mesh_revision", semantic_receipt_action(previous_revision_evidence)),
+    )
 
 
 def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
@@ -191,6 +265,17 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                 external_inputs=(model.SelfMaintenanceAction("declare_field_layers"),),
                 max_sequence_length=1,
             ),
+            *(
+                FormalWorkflowCase(
+                    f"broken_{case_id}",
+                    model.build_broken_unverified_plane_receipts_workflow(),
+                    False,
+                    required_labels=("unverified_receipts_consumed",),
+                    external_inputs=(action,),
+                    max_sequence_length=1,
+                )
+                for case_id, action in semantic_mesh_bad_cases()
+            ),
             FormalWorkflowCase(
                 "broken_wrong_plane_completion_authority",
                 model.build_broken_wrong_plane_completion_workflow(),
@@ -259,6 +344,44 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
         protected_error_class="self_maintenance_incomplete",
     )
     return correct_ok and report.ok and typed_topology_ok
+
+
+def run_semantic_mesh_verification_review() -> bool:
+    block = model.CorrectSelfMaintenance()
+    good_result = tuple(
+        block.apply(
+            semantic_receipt_action(model.ABSTRACT_SEMANTIC_MESH_VERIFICATION),
+            model.initial_state(),
+        )
+    )
+    good_ok = (
+        len(good_result) == 1
+        and good_result[0].output.status == "receipt_set_consumed"
+        and good_result[0].new_state.understanding_chain_current
+        and good_result[0].new_state.semantic_model_mesh_current
+    )
+    bad_results: list[str] = []
+    for case_id, action in semantic_mesh_bad_cases():
+        results = tuple(block.apply(action, model.initial_state()))
+        rejected = (
+            len(results) == 1
+            and results[0].output.status == "receipt_set_rejected"
+            and not results[0].new_state.understanding_chain_current
+            and not results[0].new_state.semantic_model_mesh_current
+        )
+        if not rejected:
+            bad_results.append(case_id)
+    ok = good_ok and not bad_results
+    print(
+        "exact semantic-mesh verification binding: "
+        f"{'pass' if ok else 'fail'}; "
+        f"models={len(model.ABSTRACT_SEMANTIC_MESH_VERIFICATION.semantic_model_ids)}; "
+        f"relations={len(model.ABSTRACT_SEMANTIC_MESH_VERIFICATION.semantic_relation_ids)}; "
+        f"bad_cases={len(semantic_mesh_bad_cases())}; "
+        f"unexpected={','.join(bad_results) or 'none'}"
+    )
+    print()
+    return ok
 
 
 def run_route_profile_review() -> bool:
@@ -386,15 +509,21 @@ def run_plane_upgrade_contract_binding() -> bool:
 def main() -> int:
     typed_topology_ok = run_route_topology_review()
     plane_upgrade_contract_ok = run_plane_upgrade_contract_binding()
+    semantic_mesh_verification_ok = run_semantic_mesh_verification_review()
     checks = (
         run_workflow_suite(
-            typed_topology_ok=typed_topology_ok and plane_upgrade_contract_ok
+            typed_topology_ok=(
+                typed_topology_ok
+                and plane_upgrade_contract_ok
+                and semantic_mesh_verification_ok
+            )
         ),
         run_route_profile_review(),
         run_narrow_route_admission_review(),
         run_receipt_parent_review(),
         typed_topology_ok,
         plane_upgrade_contract_ok,
+        semantic_mesh_verification_ok,
     )
     if all(checks):
         print("self_maintenance_mesh checks passed")

@@ -6,16 +6,16 @@ description: Use before non-trivial existing-system work to identify current own
 # FlowGuard Existing Model Preflight
 
 ## Purpose
-Ground work in current model boundaries before another route changes them.
+Ground work in current existing model boundaries and duplicate-boundary risk before proposal or change.
 
 ## Entrypoint Scope
-This standalone FlowGuard satellite skill is the companion public lookup owner, not the downstream change owner.
+This standalone FlowGuard satellite skill owns companion lookup, not the downstream route.
 
 ## Local Material Routing
-After the route's positive conditions are confirmed and forbidden conditions are absent, read `references/existing_model_preflight_protocol.md` for lookup, search, ownership, reuse, and proof.
+After admission, read `references/existing_model_preflight_protocol.md` for the full lookup, ownership, reuse, and proof contract.
 
 ## Entrypoint Acceptance Map
-Accept boundary/root; choose reuse, extend, child, new, or none; block duplicate ownership and select a downstream route.
+Accept a boundary/root; choose reuse, extend, child, new, or none; block duplicate ownership; select a downstream route.
 
 ## Use When
 - Use before non-trivial proposals/implementation where commitments, fields, similar models, or mesh evidence may own the change.
@@ -24,23 +24,19 @@ Accept boundary/root; choose reuse, extend, child, new, or none; block duplicate
 - Do not implement, split, or replace native validation; skip trivial/no-context work and return unclear scope to `flowguard`.
 
 ## Required Workflow
-1. Audit the observed authority, query canonical commitments from exact task clues, and select one primary plane or preserve ambiguity.
-2. Search models/specs/docs/surfaces, bind owners, classify old evidence, then attach WorkContexts with exact identities and lanes.
-3. Extract block/state/field/effect/entrypoint/commitment/intent/path/mesh ownership.
-4. Independently inventory every declared same-intent surface, not only caller candidates.
-5. Record lookup/fingerprint, hits, reuse, unknown/scoped surfaces, duplicate/stale risks, and a maturation contribution.
-6. For composition, report references, changed roots, discovery identity, and gaps through `compose_existing_models`; do not duplicate portable-system schema.
+1. Audit observed authority and commitments; select one plane or preserve ambiguity.
+2. Search models/specs/docs/surfaces, bind owners, classify evidence, attach WorkContexts, and inventory every same-intent surface.
+3. Emit provenance-bound facts and preserve unknown, omitted, contradictory, unmapped, and scoped facts; report lookup, reuse, risks, and a maturation contribution without claiming sufficiency.
+4. For explicit blueprint/export/qualification scope, consume the independent inventory fingerprint, required ids, terminal dispositions, and unresolved findings. Ordinary work stays affected-only.
+5. Composition reports references, changed roots, discovery identity, and gaps through `compose_existing_models`.
 
 ## Hard Gates
-- A model is current only when its exact instance is in the observed snapshot for the current revision; other discovery is `candidate_only`.
-- Missing, invalid, stale, or ambiguous authority blocks full preflight. Target and experiment snapshots may inform comparison but cannot own current behavior or current evidence.
-- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks. Full mode precedes proposal/implementation.
-- Missing/stale search or ownership, duplicate owners, unresolved mesh proof, or omitted same-intent surfaces block full preflight; equivalent current semantics default to reuse.
-- Shared words cannot promote a wrong-plane hit. Missing/stale lookup falls back explicitly; ambiguity blocks full-confidence selection.
-- WorkContext is read-only; stale, unknown, wrong-lane, path-escape, or provider bindings block.
-- Select the owner closure before reading model bodies; broad authority inventory must be explicit.
-- Full preflight proves owner/surface completeness, not task depth or implementation admission.
+- Only an exact current observed instance is authoritative; other discovery is `candidate_only`. Missing/stale/ambiguous authority, ownership, mesh, or same-intent surfaces block full preflight.
+- Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework. Full mode precedes change.
+- Shared words never promote a wrong-plane hit; WorkContext is read-only; broad authority inventory must be explicit.
+- Blueprint handoff references, but never copies or completes, the independent implementation inventory. Static closure is not reconstruction; preflight never reconstructs.
+- Route ArchitectureReduction only for a concrete current model/code candidate with observable behavior-preserving evidence.
+- Preflight proves lookup/scope only; maturation decides understanding and DevelopmentProcessFlow decides admission. Greenfield is `not_triggered`.
 
 ## Output Requirements
-- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, hits, ownership, plane lookup, reuse, and duplicate risks.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, hits, ownership, lookup, reuse, and duplicate risks. Blueprint output adds inventory fingerprint, required/unresolved ids, and binding/structure/topology/process handoffs.

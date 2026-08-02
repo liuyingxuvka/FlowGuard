@@ -640,7 +640,7 @@ class HierarchicalMeshTests(unittest.TestCase):
         )
         self.assertTrue(review_hierarchical_mesh(allowed).ok)
 
-    def test_quantity_and_large_model_activation_triggers_are_reported(self):
+    def test_model_count_does_not_activate_mesh_but_large_model_does(self):
         partition = HierarchyPartitionMap(
             parent_model_id="checkout",
             coverage_items=(
@@ -659,7 +659,7 @@ class HierarchicalMeshTests(unittest.TestCase):
         report = review_hierarchical_mesh(partition)
 
         self.assertTrue(report.ok)
-        self.assertIn("model_count", report.activation_reasons)
+        self.assertNotIn("model_count", report.activation_reasons)
         self.assertIn("large_model:b", report.activation_reasons)
         self.assertEqual({"b": "keep_as_single_model"}, report.split_decisions)
 

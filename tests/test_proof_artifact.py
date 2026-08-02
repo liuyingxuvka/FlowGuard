@@ -19,9 +19,15 @@ from flowguard import (
 def artifact(**kwargs):
     defaults = {
         "artifact_id": "proof:unit",
+        "producer_route": "test_proof_artifact",
+        "command": "python -m pytest tests/test_proof_artifact.py -q",
         "result_status": PROOF_ARTIFACT_STATUS_PASSED,
         "exit_code": 0,
         "result_path": "tmp/unit.json",
+        "started_at": "2026-08-02T00:00:00+00:00",
+        "finished_at": "2026-08-02T00:00:01+00:00",
+        "subject_id": "subject:unit",
+        "subject_fingerprint": "sha256:subject-unit",
         "artifact_fingerprints": {"tmp/unit.json": "sha256:unit"},
         "covered_obligation_ids": ("model:r1",),
     }
@@ -97,6 +103,61 @@ class ProofArtifactTests(unittest.TestCase):
         )
 
         self.assertIn("proof_artifact_missing_fingerprint", codes)
+
+    def test_caller_declared_pass_without_verifiable_material_is_not_current(self):
+        weak = ProofArtifactRef(
+            "proof:weak",
+            result_status=PROOF_ARTIFACT_STATUS_PASSED,
+            exit_code=0,
+            current=True,
+        )
+
+        self.assertFalse(weak.has_current_pass())
+        codes = {
+            code
+            for code, _ in proof_artifact_gap_codes(
+                weak,
+                require_verifiable_material=True,
+            )
+        }
+        self.assertIn("proof_artifact_missing_command", codes)
+        self.assertIn("proof_artifact_missing_result_path", codes)
+        self.assertIn("proof_artifact_missing_finished_at", codes)
+        self.assertIn("proof_artifact_missing_subject", codes)
+        self.assertIn("proof_artifact_missing_fingerprint", codes)
+        self.assertNotIn("proof_artifact_missing_exit_code", codes)
+
+    def test_malformed_timestamp_or_fingerprint_is_not_current(self):
+        weak = artifact(
+            finished_at="not-a-time",
+            subject_fingerprint="caller-says-current",
+        )
+
+        self.assertFalse(weak.has_current_pass())
+        codes = {
+            code
+            for code, _ in proof_artifact_gap_codes(
+                weak,
+                require_verifiable_material=True,
+            )
+        }
+        self.assertIn("proof_artifact_invalid_finished_at", codes)
+        self.assertIn("proof_artifact_invalid_subject_fingerprint", codes)
+
+    def test_missing_terminal_exit_code_is_not_current(self):
+        weak = artifact(exit_code=None)
+
+        self.assertFalse(weak.has_current_pass())
+        self.assertIn(
+            "proof_artifact_missing_exit_code",
+            {
+                code
+                for code, _ in proof_artifact_gap_codes(
+                    weak,
+                    require_verifiable_material=True,
+                )
+            },
+        )
 
     def test_legacy_path_unknown_blocks(self):
         report = review_legacy_path_dispositions(

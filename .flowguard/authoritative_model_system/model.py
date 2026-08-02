@@ -67,6 +67,11 @@ class AuthorityCase:
     maturation_receipts_bind_exact_candidate: bool = True
     addressable_maturation_gap_keeps_iteration_open: bool = True
     maturation_terminal_reason_is_genuine: bool = True
+    semantic_model_universe_exact: bool = True
+    semantic_model_dispositions_complete: bool = True
+    semantic_model_relations_complete: bool = True
+    semantic_derivation_fingerprint_present: bool = True
+    semantic_completion_evidence_terminal_verified: bool = True
 
 
 @dataclass(frozen=True)
@@ -110,6 +115,11 @@ class AuthorityState:
     maturation_receipts_bind_exact_candidate: bool = False
     addressable_maturation_gap_keeps_iteration_open: bool = False
     maturation_terminal_reason_is_genuine: bool = False
+    semantic_model_universe_exact: bool = False
+    semantic_model_dispositions_complete: bool = False
+    semantic_model_relations_complete: bool = False
+    semantic_derivation_fingerprint_present: bool = False
+    semantic_completion_evidence_terminal_verified: bool = False
 
 
 class EvaluateAuthorityRevision:
@@ -402,6 +412,39 @@ def maturation_proves_behavior_instead_of_accepting_self_report(
     return _pass()
 
 
+def whole_system_understanding_is_semantic_and_current(
+    state: AuthorityState, _trace: object
+) -> InvariantResult:
+    if not state.case_name:
+        return _pass()
+    if not state.semantic_model_universe_exact:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "a partial model slice was promoted to whole-system understanding",
+        )
+    if not state.semantic_model_dispositions_complete:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "inventory presence replaced per-model semantic disposition and rationale",
+        )
+    if not state.semantic_model_relations_complete:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "the semantic mesh lacks a parent or consumer relation",
+        )
+    if not state.semantic_derivation_fingerprint_present:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "the semantic universe has no content-addressed derivation base",
+        )
+    if not state.semantic_completion_evidence_terminal_verified:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "a candidate or unverified artifact was treated as whole-system completion evidence",
+        )
+    return _pass()
+
+
 def rollback_restores_reality_before_authority(
     state: AuthorityState, _trace: object
 ) -> InvariantResult:
@@ -490,6 +533,11 @@ INVARIANTS = (
         "maturation_proves_behavior_instead_of_accepting_self_report",
         "Task-local maturation closes only from predictions, falsifiers, exact receipts, and genuine terminal reasons.",
         maturation_proves_behavior_instead_of_accepting_self_report,
+    ),
+    Invariant(
+        "whole_system_understanding_is_semantic_and_current",
+        "Whole-system understanding requires the exact universe, semantic dispositions and relations, derivation identity, and current terminal evidence.",
+        whole_system_understanding_is_semantic_and_current,
     ),
     Invariant(
         "rollback_restores_reality_before_authority",
@@ -796,6 +844,55 @@ SCENARIOS = (
         _expect_violation(
             "maturation_proves_behavior_instead_of_accepting_self_report",
             "premature maturation termination is rejected",
+        ),
+    ),
+    _scenario(
+        "inventory_only_cannot_claim_whole_system_understanding",
+        "Listing every model without semantic dispositions and consumer relations is not whole-system understanding.",
+        AuthorityCase(
+            "inventory_only_semantics",
+            semantic_model_dispositions_complete=False,
+            semantic_model_relations_complete=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "inventory-only understanding is rejected",
+        ),
+    ),
+    _scenario(
+        "five_model_slice_cannot_claim_whole_system_understanding",
+        "A green five-model slice cannot stand in for the exact current model universe.",
+        AuthorityCase(
+            "five_model_slice",
+            semantic_model_universe_exact=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "partial semantic slice is rejected",
+        ),
+    ),
+    _scenario(
+        "empty_semantic_derivation_fingerprint_is_rejected",
+        "A semantic table without its content-addressed derivation base is not current evidence.",
+        AuthorityCase(
+            "empty_semantic_derivation_fingerprint",
+            semantic_derivation_fingerprint_present=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "empty semantic derivation fingerprint is rejected",
+        ),
+    ),
+    _scenario(
+        "unverified_semantic_artifact_cannot_claim_completion",
+        "A defined semantic mesh remains a candidate until terminal native evidence is independently verified.",
+        AuthorityCase(
+            "unverified_semantic_artifact",
+            semantic_completion_evidence_terminal_verified=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "unverified semantic completion artifact is rejected",
         ),
     ),
     _scenario(

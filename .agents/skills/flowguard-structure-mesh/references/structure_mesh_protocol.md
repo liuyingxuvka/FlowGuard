@@ -61,6 +61,27 @@ Every partition should have one clear owner:
 - `read_only` for inspected data that must not be written;
 - `shared_kernel` only when duplication is intentional and documented.
 
+## Independent Blueprint Partition Denominator
+
+For an explicit software-blueprint claim, bind the exact current independent
+implementation inventory id/fingerprint and its `required_surface_ids` before
+reviewing partition closure. The inventory owner discovers files and symbols;
+StructureMesh only consumes that report. A caller-supplied partition list,
+module list, or nonempty mapping cannot define completeness.
+
+Every required implementation surface must appear exactly once as a child,
+parent, read-only/shared-kernel owner, or an explicit terminal implementation
+disposition. A pure helper may be `supporting` when it identifies one unique
+owning model implementation; entrypoints, state/effect writers, unresolved
+dynamic surfaces, and other behavior-bearing surfaces cannot be hidden behind
+that helper disposition. Missing/stale inventory identity, omitted surfaces,
+duplicate owners, unresolved dispositions, or a changed fingerprint block
+blueprint structural closure.
+
+Ordinary StructureMesh work remains bounded to the affected parent/child
+partition. It does not load the whole inventory unless blueprint scope is
+explicit, and it never parses source or launches reconstruction.
+
 ## Evidence Checklist
 
 For each `ModuleStructureEvidence`, record:
@@ -117,6 +138,10 @@ these known-bad variants fail:
 - stale behavior parity;
 - insufficient evidence tier;
 - missing release-required parity under release scope.
+- caller-supplied partitions treated as the complete blueprint denominator;
+- independent inventory fingerprint missing or stale;
+- required implementation surface omitted, duplicated, or unresolved;
+- behavior-bearing writer/effect disposed as a pure supporting helper.
 
 ## Prompt Template
 
@@ -136,6 +161,13 @@ ownership, removed entrypoints, missing facades, dependency cycles, config
 drift, stale parity, and release-only parity gaps before parent refactor
 confidence is claimed.
 ```
+
+Route a contraction candidate to ArchitectureReduction only when the current
+inventory/code map and model-derived observable contract identify a specific
+behavior-preserving simplification, its proof status is explicit, and its next
+StructureMesh/lifecycle validation owner is named. StructureMesh does not use
+ArchitectureReduction as generic cleanup or as evidence that its partition is
+complete.
 
 ## Completion Standard
 
@@ -157,6 +189,12 @@ A StructureMesh is complete when:
 - stale facade, public-entrypoint, or parity gaps are exported as maintenance
   obligations so later scans can reopen StructureMesh when related files move;
 - known-bad hazards fail in executable evidence.
+
+For blueprint structural closure, the bound inventory fingerprint must be
+current and the exact required surface set must equal the union of singly
+owned and explicitly terminal-dispositioned surfaces. This proves structural
+accounting only; Model-Test Alignment owns model/code/semantic bindings and
+the blueprint owner decides static qualification.
 
 When a structure change moves model-system authority, keep the observed
 facade/source map active while the target snapshot is candidate-only. Record

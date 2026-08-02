@@ -25,6 +25,14 @@ Keep these distinct:
 
 Only the first can satisfy the matching current obligation. A summary, checkbox, configured boolean, generated contract, path-only log, or directory inventory does not manufacture pass evidence.
 
+For whole-software blueprint work, preserve two orthogonal axes. Static
+blueprint status is `complete`, `incomplete`, `stale`, or `blocked`; empirical
+reconstruction status is `not_run`, `pass`, `fail`, or `blocked`. A current
+static result does not require a reconstruction receipt unless the exact task
+explicitly requires empirical qualification. A receipt for another blueprint,
+environment, source-access policy, or oracle set is stale/blocked and never
+changes the static result.
+
 For bounded system composition, record all four stages separately:
 component-local, token composition, affected slice, and executable system.
 `invalid` means malformed/unsupported current input, `blocked` means

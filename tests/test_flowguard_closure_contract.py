@@ -69,9 +69,9 @@ class FlowGuardClosureContractModelTests(unittest.TestCase):
         )
 
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
-        self.assertIn("Scenario: good_closure_contract", completed.stdout)
-        self.assertIn("Scenario: broken_point_evidence_completion", completed.stdout)
-        self.assertIn("broken_optional_mode", completed.stdout)
+        self.assertIn("thin_closure_contract: exact model pass", completed.stdout)
+        self.assertIn("known_bad_proofs: 1", completed.stdout)
+        self.assertIn("closure_rescores_blocked_risk", completed.stdout)
 
     def test_closure_can_require_runtime_path_alignment_report(self):
         report = review_flowguard_closure_contract(

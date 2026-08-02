@@ -9,6 +9,7 @@ fresh external artifact instead of a caller-declared status string alone.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
@@ -68,6 +69,8 @@ class ProofArtifactRef:
     exit_code: int | None = None
     started_at: str = ""
     finished_at: str = ""
+    subject_id: str = ""
+    subject_fingerprint: str = ""
     artifact_fingerprints: Mapping[str, str] = field(default_factory=dict)
     covered_obligation_ids: tuple[str, ...] = ()
     assertion_scope: str = PROOF_ARTIFACT_SCOPE_EXTERNAL_CONTRACT
@@ -86,6 +89,8 @@ class ProofArtifactRef:
         object.__setattr__(self, "result_status", str(self.result_status))
         object.__setattr__(self, "started_at", str(self.started_at))
         object.__setattr__(self, "finished_at", str(self.finished_at))
+        object.__setattr__(self, "subject_id", str(self.subject_id))
+        object.__setattr__(self, "subject_fingerprint", str(self.subject_fingerprint))
         object.__setattr__(self, "artifact_fingerprints", _as_str_map(self.artifact_fingerprints))
         object.__setattr__(self, "covered_obligation_ids", _as_tuple(self.covered_obligation_ids))
         object.__setattr__(self, "assertion_scope", str(self.assertion_scope))
@@ -96,6 +101,46 @@ class ProofArtifactRef:
     def has_external_scope(self) -> bool:
         return self.assertion_scope in EXTERNAL_PROOF_ARTIFACT_SCOPES
 
+    def material_gap_codes(self) -> tuple[str, ...]:
+        """Return missing or malformed material required for current evidence.
+
+        Construction remains additive-compatible, but a caller-authored
+        ``passed``/``current`` pair is deliberately insufficient.  A current
+        proof must identify what ran, where its terminal result lives, when it
+        ran, and the exact subject whose content was checked.
+        """
+
+        gaps: list[str] = []
+        required_text = {
+            "proof_artifact_missing_id": self.artifact_id,
+            "proof_artifact_missing_producer_route": self.producer_route,
+            "proof_artifact_missing_command": self.command,
+            "proof_artifact_missing_result_path": self.result_path,
+            "proof_artifact_missing_started_at": self.started_at,
+            "proof_artifact_missing_finished_at": self.finished_at,
+            "proof_artifact_missing_subject": self.subject_id,
+            "proof_artifact_missing_subject_fingerprint": self.subject_fingerprint,
+        }
+        gaps.extend(code for code, value in required_text.items() if not value.strip())
+        if self.exit_code is None:
+            gaps.append("proof_artifact_missing_exit_code")
+        for code, value in (
+            ("proof_artifact_invalid_started_at", self.started_at),
+            ("proof_artifact_invalid_finished_at", self.finished_at),
+        ):
+            if value:
+                try:
+                    datetime.fromisoformat(value.replace("Z", "+00:00"))
+                except ValueError:
+                    gaps.append(code)
+        if self.subject_fingerprint and not self.subject_fingerprint.startswith("sha256:"):
+            gaps.append("proof_artifact_invalid_subject_fingerprint")
+        if not self.artifact_fingerprints:
+            gaps.append("proof_artifact_missing_fingerprint")
+        elif any(not value.startswith("sha256:") for value in self.artifact_fingerprints.values()):
+            gaps.append("proof_artifact_invalid_fingerprint")
+        return tuple(dict.fromkeys(gaps))
+
     def has_current_pass(self) -> bool:
         return (
             self.result_status in PASSING_PROOF_ARTIFACT_STATUSES
@@ -104,7 +149,8 @@ class ProofArtifactRef:
             and not self.progress_only
             and not self.stale_reasons
             and not self.route_gap_codes
-            and self.exit_code in (None, 0)
+            and self.exit_code == 0
+            and not self.material_gap_codes()
         )
 
     def covers_any(self, obligation_ids: Sequence[str]) -> bool:
@@ -131,6 +177,8 @@ class ProofArtifactRef:
             "exit_code": self.exit_code,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
+            "subject_id": self.subject_id,
+            "subject_fingerprint": self.subject_fingerprint,
             "artifact_fingerprints": dict(self.artifact_fingerprints),
             "covered_obligation_ids": list(self.covered_obligation_ids),
             "assertion_scope": self.assertion_scope,
@@ -159,6 +207,7 @@ def proof_artifact_gap_codes(
     require_result_path: bool = False,
     require_fingerprints: bool = False,
     require_external_scope: bool = False,
+    require_verifiable_material: bool = False,
 ) -> tuple[tuple[str, str], ...]:
     """Return normalized gap codes explaining why a proof artifact is not usable."""
 
@@ -183,6 +232,25 @@ def proof_artifact_gap_codes(
         gaps.append(("progress_only_proof_artifact", "proof artifact is progress-only"))
     if artifact.route_gap_codes:
         gaps.append(("proof_artifact_route_gap_visible", "proof artifact route still has unresolved gaps"))
+    if require_verifiable_material:
+        material_messages = {
+            "proof_artifact_missing_id": "proof artifact has no stable identity",
+            "proof_artifact_missing_producer_route": "proof artifact has no producer route",
+            "proof_artifact_missing_command": "proof artifact has no executed command",
+            "proof_artifact_missing_result_path": "proof artifact has no terminal result path",
+            "proof_artifact_missing_started_at": "proof artifact has no start timestamp",
+            "proof_artifact_missing_finished_at": "proof artifact has no finish timestamp",
+            "proof_artifact_invalid_started_at": "proof artifact start timestamp is not ISO-8601",
+            "proof_artifact_invalid_finished_at": "proof artifact finish timestamp is not ISO-8601",
+            "proof_artifact_missing_subject": "proof artifact has no evidence subject",
+            "proof_artifact_missing_subject_fingerprint": "proof artifact subject has no fingerprint",
+            "proof_artifact_missing_exit_code": "proof artifact has no terminal exit code",
+            "proof_artifact_invalid_subject_fingerprint": "proof artifact subject fingerprint is not sha256",
+            "proof_artifact_missing_fingerprint": "proof artifact has no artifact fingerprints",
+            "proof_artifact_invalid_fingerprint": "proof artifact contains a non-sha256 fingerprint",
+        }
+        for code in artifact.material_gap_codes():
+            gaps.append((code, material_messages[code]))
     if require_result_path and not artifact.result_path:
         gaps.append(("proof_artifact_missing_result_path", "proof artifact has no result path"))
     if require_fingerprints and not artifact.artifact_fingerprints:

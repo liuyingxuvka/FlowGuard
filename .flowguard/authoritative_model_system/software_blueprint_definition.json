@@ -1,0 +1,764 @@
+{
+  "schema_version": "flowguard.self_blueprint_definition.v1",
+  "blueprint_id": "blueprint:flowguard",
+  "inventory_id": "implementation-inventory:flowguard",
+  "boundary": {
+    "boundary_id": "software-boundary:flowguard",
+    "production_patterns": ["flowguard/**/*.py"],
+    "build_patterns": ["pyproject.toml", "scripts/**/*", ".github/**/*"],
+    "config_patterns": [".gitattributes", ".gitignore", ".skillguard/**/*", "AGENTS.md"],
+    "schema_patterns": ["openspec/specs/**/*", "openspec/config.yaml", "flowguard/**/*.json"],
+    "data_patterns": [".agents/**/*"],
+    "asset_patterns": ["assets/**/*", "docs/**/*", "README.md", "CHANGELOG.md", "LICENSE", "ROADMAP.md"],
+    "migration_patterns": ["openspec/changes/**/*"],
+    "test_oracle_patterns": ["tests/**/*", "examples/**/*", ".flowguard/**/*"],
+    "generated_patterns": [],
+    "external_patterns": [],
+    "exclusions": []
+  },
+  "scan_python_patterns": [
+    "flowguard/**/*.py",
+    "scripts/**/*.py",
+    ".flowguard/*/model.py",
+    ".flowguard/*/run_checks.py"
+  ],
+  "scoped_out_patterns": [
+    "openspec/changes/archive/**/*",
+    ".flowguard/model-mesh/revisions/**/*"
+  ],
+  "bounded_dynamic_prefixes": ["getattr:", "setattr:", "delattr:"],
+  "dynamic_allowances": [
+    {
+"surface_key": ".flowguard/authoritative_model_system/model.py#EvaluateAuthorityRevision.apply",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": ".flowguard/development_process_flow/model.py#_stale_if_covering",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": ".flowguard/plan_detailing_compiler/model.py#<module>",
+      "operations": [
+        "import_star"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/__init__.py#<module>",
+      "operations": [
+        "getattr",
+        "globals",
+        "import_star"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/__main__.py#_run_file_template_command",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/architecture_reduction.py#_candidate_incomplete",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/architecture_reduction.py#review_architecture_reduction",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/behavior_commitment.py#_review_commitment",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/checks.py#_field_value",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/contract.py#_changed_fields",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/corpus.py#ProblemCase.validate",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/coverage_inventory.py#ExpectedCoverageItem.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/development_process_flow.py#DistributionEvidence.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/development_process_flow.py#ImplementationAuthorization.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/development_process_strategy.py#ProcessOptimizationCandidate.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/development_process_strategy.py#ProcessOptimizationContract.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/development_process_strategy.py#ProcessRepairGroup.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/evidence_receipts.py#EvidenceReceipt.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/evidence_receipts.py#EvidenceReceipt._validate",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/evidence_receipts.py#ReceiptVerificationContext.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/existing_model_preflight.py#ExistingIntentSurface.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/existing_model_preflight.py#ExistingIntentSurface.missing_material_fields",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/existing_model_preflight.py#_missing_layered_status_fields",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/existing_model_preflight.py#review_existing_model_preflight",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/export.py#to_jsonable",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/hierarchy.py#_add_duplicate_owner_findings",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/hierarchy.py#_diff_sequence_field",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/hierarchy.py#_has_sibling_boundary_overlap",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/hierarchy.py#_receipt_attr",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/implementation_blueprint.py#ModelImplementationBinding.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/implementation_blueprint.py#SoftwareBlueprintManifest.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/implementation_blueprint.py#SoftwareBlueprintProjection.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/implementation_blueprint.py#_value",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/implementation_inventory.py#ImplementationSurface.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/implementation_inventory.py#ImplementationSurfaceInventory.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/implementation_inventory_python.py#_collect_node_specs.<locals>.visit_body",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/layered_proof.py#_duplicate_child_field_findings",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/maintenance_obligation.py#obligation_from_finding_ledger_entry",
+      "operations": [
+        "invoke_result:getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/maintenance_obligation.py#obligation_from_maintenance_action",
+      "operations": [
+        "invoke_result:getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/maintenance_obligation.py#obligation_from_maturation_finding",
+      "operations": [
+        "invoke_result:getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/maintenance_scan.py#maintenance_scan_plan_from_summary_report",
+      "operations": [
+        "invoke_result:getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_angle_deliberation.py#review_model_angle_deliberations",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_authority.py#CoverageDimension.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_authority.py#ModelAuthorityHead.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_maturation.py#ModelMaturationGapResolutionReceipt.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_maturation.py#ModelMaturationIntake.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_revision_set.py#ModelActivationReceipt.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_revision_set.py#ModelRevisionSet.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_revision_set.py#ModelRollbackContract.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_revision_set.py#PredictionReplayRef.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_revision_set.py#RevisionEvidenceRef.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_revision_set.py#derive_revision_snapshot_diff",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_similarity.py#review_model_similarity_consolidation",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_system_inventory.py#_runtime_entry_available",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_test_alignment.py#_code_contract_findings",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_test_alignment.py#_contract_field_delta",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_test_alignment.py#_field_projection_id",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_test_alignment.py#_item_id",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_test_alignment.py#_report_bool",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_test_alignment.py#_report_sequence",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_test_alignment.py#_report_str",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/model_test_alignment.py#_stable_authority_findings",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/portable_model.py#PortableModel.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/portable_system.py#PortableSystemDefinition.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/portable_system.py#SystemCompositionRequest.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/portable_system.py#SystemProperty.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/primary_path_authority.py#_review_candidate",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/primary_path_authority.py#review_primary_path_authority",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/pytest_adapter.py#assert_no_executable_corpus_regression",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/recurring_model_miss.py#review_defect_family_gates",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/replay.py#coerce_observation",
+      "operations": [
+        "invoke_result:getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/risk.py#RiskIntent.format_text",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/risk.py#RiskIntent.is_empty",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/runtime_path.py#_review_binding",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/runtime_path.py#_review_runtime_authority",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/runtime_path.py#_runtime_authority_values",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/scenario_matrix.py#_risk_family_from_trace",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/skill_self_governance.py#_parent_receipt",
+      "operations": [
+        "__import__"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/skillguard_template_adapter.py#_native_manifest",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/state_closure.py#_field_dimensions",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/structuremesh.py#_duplicate_value_findings",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/summary_report.py#_finding_value",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/task_coverage_demand.py#CoverageDemandRow.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/task_coverage_demand.py#CoverageRule.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/task_coverage_demand.py#OwnerCoverageResolution.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/task_coverage_demand.py#TaskFacts.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/task_local_model.py#TaskReplayEvidence.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/task_local_model.py#TaskReplayEvidence.from_conformance_report",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/testmesh.py#_duplicate_value_findings",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/topology_hazard.py#_block_tuple",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/topology_hazard.py#_field_values",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/ui_structure.py#_ui_behavior_authority_findings",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/understanding_readiness.py#UnderstandingReadinessInput.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/understanding_readiness.py#UnderstandingReadinessStatus.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/validation_ownership.py#ValidationOwnerContract.__post_init__",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/validation_ownership.py#build_owner_current",
+      "operations": [
+        "__import__"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "flowguard/validation_ownership.py#build_validation_parent_current",
+      "operations": [
+        "__import__"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "scripts/install_flowguard_skills.py#main",
+      "operations": [
+        "getattr"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    },
+    {
+      "surface_key": "scripts/verify_guard_simulation_readiness.py#_check_version",
+      "operations": [
+        "importlib.import_module"
+      ],
+      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
+    }
+  ],
+  "owner_overrides": {
+    "flowguard/__init__.py": "codex_skill_satellites",
+    "flowguard/__main__.py": "codex_skill_satellites",
+    "flowguard/audit.py": "compositional_verification_kernel",
+    "flowguard/budgeted.py": "compositional_verification_kernel",
+    "flowguard/checks.py": "compositional_verification_kernel",
+    "flowguard/conformance.py": "code_boundary_conformance",
+    "flowguard/contract.py": "model_test_code_alignment",
+    "flowguard/core.py": "compositional_verification_kernel",
+    "flowguard/explorer.py": "compositional_verification_kernel",
+    "flowguard/formal_runner.py": "compositional_verification_kernel",
+    "flowguard/hierarchy.py": "hierarchical_model_mesh",
+    "flowguard/modelmesh.py": "hierarchical_model_mesh",
+    "flowguard/portable_checker.py": "compositional_verification_kernel",
+    "flowguard/portable_model.py": "compositional_verification_kernel",
+    "flowguard/portable_system.py": "compositional_verification_kernel",
+    "flowguard/replay.py": "code_boundary_conformance",
+    "flowguard/review.py": "compositional_verification_kernel",
+    "flowguard/runner.py": "compositional_verification_kernel",
+    "flowguard/scenario.py": "adversarial_scenario_synthesis",
+    "flowguard/structuremesh.py": "structure_refactor_mesh",
+    "flowguard/system_composition.py": "compositional_verification_kernel",
+    "flowguard/testmesh.py": "test_evidence_mesh",
+    "flowguard/ui_structure.py": "ui_flow_structure_skill"
+  },
+  "resource_groups": {
+    "build": ["pyproject.toml", "scripts/**/*", ".github/**/*"],
+    "runtime": ["flowguard/**/*.py"],
+    "dependency": ["pyproject.toml"],
+    "configuration": ["AGENTS.md", ".flowguard/project.toml", ".agents/**/*"],
+    "schema": ["openspec/specs/**/*", "openspec/config.yaml", "flowguard/**/*.json"],
+    "data": [".flowguard/authoritative_model_system/semantic_model_mesh.json", ".flowguard/behavior_commitment_ledger/ledger.json"],
+    "asset": ["assets/**/*", "docs/**/*", "README.md", "CHANGELOG.md", "LICENSE", "ROADMAP.md"],
+    "migration": ["openspec/changes/**/*"],
+    "verification": ["tests/**/*", "examples/**/*", ".flowguard/*/model.py", ".flowguard/*/run_checks.py"]
+  },
+  "claim_boundary": "This blueprint covers the exact current FlowGuard repository boundary, its discovered implementation surfaces, source-independent semantic and oracle payloads, and reconstruction resources. It does not claim byte-identical source reproduction, empirical reconstruction unless a separate receipt is supplied, or behavior outside the declared repository boundary."
+}

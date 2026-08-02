@@ -3,8 +3,8 @@
 Risk Purpose Header:
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: review the implementation plan for multi-level parent/child model
-partition governance. It guards against treating model count as the only mesh
-trigger, trusting oversized or legacy models without split review, accepting
+partition governance. It guards against treating model count as a mesh trigger,
+omitting semantic topology triggers, trusting oversized or legacy models without split review, accepting
 child hierarchies with parent coverage gaps, hiding sibling overlap or ownership
 conflicts, and publishing without local install, shadow workspace, Git, and
 GitHub release synchronization.
@@ -27,7 +27,7 @@ class HierarchyCase:
     name: str
     partition_map_defined: bool = True
     mesh_per_parent_boundary: bool = True
-    quantity_trigger: bool = True
+    semantic_topology_trigger: bool = True
     scale_trigger: bool = True
     coverage_check: bool = True
     overlap_check: bool = True
@@ -52,7 +52,7 @@ class HierarchyPlan:
     case_name: str = ""
     partition_map_defined: bool = False
     mesh_per_parent_boundary: bool = False
-    quantity_trigger: bool = False
+    semantic_topology_trigger: bool = False
     scale_trigger: bool = False
     coverage_check: bool = False
     overlap_check: bool = False
@@ -73,6 +73,10 @@ class HierarchyPlan:
 
 
 GOOD_PLAN = HierarchyCase("good_hierarchical_mesh_plan")
+BROKEN_NO_SEMANTIC_TOPOLOGY_TRIGGER = HierarchyCase(
+    "broken_no_semantic_topology_trigger",
+    semantic_topology_trigger=False,
+)
 BROKEN_NO_SCALE_TRIGGER = HierarchyCase("broken_no_scale_trigger", scale_trigger=False)
 BROKEN_COVERAGE_GAP = HierarchyCase("broken_coverage_gap", coverage_check=False)
 BROKEN_OVERLAP_HIDDEN = HierarchyCase("broken_overlap_hidden", overlap_check=False)
@@ -108,7 +112,7 @@ class EvaluateHierarchyPlan:
         "case_name",
         "partition_map_defined",
         "mesh_per_parent_boundary",
-        "quantity_trigger",
+        "semantic_topology_trigger",
         "scale_trigger",
         "coverage_check",
         "overlap_check",
@@ -137,7 +141,7 @@ class EvaluateHierarchyPlan:
             case_name=input_obj.name,
             partition_map_defined=input_obj.partition_map_defined,
             mesh_per_parent_boundary=input_obj.mesh_per_parent_boundary,
-            quantity_trigger=input_obj.quantity_trigger,
+            semantic_topology_trigger=input_obj.semantic_topology_trigger,
             scale_trigger=input_obj.scale_trigger,
             coverage_check=input_obj.coverage_check,
             overlap_check=input_obj.overlap_check,
@@ -191,14 +195,17 @@ def partition_map_and_multilevel_mesh_exist(state: HierarchyPlan, _trace: object
     return _pass()
 
 
-def mesh_triggers_include_quantity_and_scale(state: HierarchyPlan, _trace: object) -> InvariantResult:
+def mesh_triggers_are_semantic_and_scale_aware(state: HierarchyPlan, _trace: object) -> InvariantResult:
     if _empty(state):
         return _pass()
-    if not state.quantity_trigger:
-        return _fail("mesh_triggers_include_quantity_and_scale", "model-count trigger is missing")
+    if not state.semantic_topology_trigger:
+        return _fail(
+            "mesh_triggers_are_semantic_and_scale_aware",
+            "affected relationships, whole-flow scope, or stale child evidence do not trigger mesh review",
+        )
     if not state.scale_trigger:
         return _fail(
-            "mesh_triggers_include_quantity_and_scale",
+            "mesh_triggers_are_semantic_and_scale_aware",
             "large single-model state space does not trigger split review",
         )
     return _pass()
@@ -315,9 +322,9 @@ INVARIANTS = (
         partition_map_and_multilevel_mesh_exist,
     ),
     Invariant(
-        "mesh_triggers_include_quantity_and_scale",
-        "Mesh review triggers on model count and single-model scale.",
-        mesh_triggers_include_quantity_and_scale,
+        "mesh_triggers_are_semantic_and_scale_aware",
+        "Mesh review is triggered by semantic topology or single-model scale, never raw model count.",
+        mesh_triggers_are_semantic_and_scale_aware,
     ),
     Invariant(
         "coverage_and_overlap_are_checked",
@@ -403,10 +410,19 @@ SCENARIOS = (
         _expect_ok("complete plan passes", labels=("good_hierarchical_mesh_plan",)),
     ),
     scenario(
+        "semantic_topology_trigger_required",
+        "Related-model or whole-flow semantics must trigger mesh review without using raw quantity.",
+        BROKEN_NO_SEMANTIC_TOPOLOGY_TRIGGER,
+        _expect_violation(
+            "missing semantic topology trigger fails",
+            ("mesh_triggers_are_semantic_and_scale_aware",),
+        ),
+    ),
+    scenario(
         "scale_trigger_required",
         "A single huge model must trigger split review even if model count is low.",
         BROKEN_NO_SCALE_TRIGGER,
-        _expect_violation("missing large-model trigger fails", ("mesh_triggers_include_quantity_and_scale",)),
+        _expect_violation("missing large-model trigger fails", ("mesh_triggers_are_semantic_and_scale_aware",)),
     ),
     scenario(
         "coverage_gap_fails",

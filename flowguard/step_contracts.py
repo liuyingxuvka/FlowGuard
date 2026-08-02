@@ -6,6 +6,8 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
+from ._normalization import string_tuple as _as_tuple, unique_strings as _unique
+
 from .core import FrozenMetadata, Invariant, InvariantResult, freeze_metadata
 from .export import to_json_text, to_jsonable
 from .trace import Trace, TraceStep
@@ -36,18 +38,6 @@ STEP_CONTRACT_METADATA_KEYS = (
     STEP_METADATA_CLAIM_LABELS,
     STEP_METADATA_RUNTIME_NODE_IDS,
 )
-
-
-def _as_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    if isinstance(values, str):
-        return (values,) if values else ()
-    return tuple(str(value) for value in values if str(value))
-
-
-def _unique(values: Iterable[str]) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(str(value) for value in values if str(value)))
 
 
 def _metadata_map(metadata: Mapping[str, Any] | Iterable[tuple[str, Any]] | None) -> dict[str, Any]:

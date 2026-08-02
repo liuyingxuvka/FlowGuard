@@ -9,7 +9,7 @@ the model map that already exists.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 import re
 from typing import Any, Mapping, Sequence
@@ -41,6 +41,25 @@ from .model_authority_store import (
     audit_model_authority,
     load_observed_model_system,
 )
+from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref
+from .task_coverage_demand import (
+    COVERAGE_DISPOSITION_BLOCKED,
+    COVERAGE_DISPOSITION_SATISFIED,
+    OwnerCoverageResolution,
+    TASK_FACT_DISPOSITION_CONTRADICTORY,
+    TASK_FACT_DISPOSITION_DECLARED,
+    TASK_FACT_DISPOSITION_OMITTED,
+    TASK_FACT_DISPOSITION_SCOPED_OUT,
+    TASK_FACT_DISPOSITION_UNKNOWN,
+    TASK_FACT_DISPOSITION_UNMAPPED,
+    TASK_FACT_SOURCE_CURRENT_MODEL,
+    TASK_FACT_SOURCE_STATUS_COMPLETE,
+    TaskCoverageDemand,
+    TaskFactObservation,
+    TaskFactSourceSnapshot,
+    TaskFacts,
+)
+from .evidence_receipts import fingerprint_value
 
 
 PREFLIGHT_MODE_LIGHT = "light"
@@ -645,6 +664,10 @@ class ExistingModelPreflightReport:
     def blocker_count(self) -> int:
         return sum(1 for finding in self.findings if finding.severity == "blocker")
 
+    @property
+    def fingerprint(self) -> str:
+        return fingerprint_value(self.to_dict())
+
     def format_text(self, max_findings: int = 10) -> str:
         lines = [
             "=== flowguard existing model preflight review ===",
@@ -680,6 +703,125 @@ class ExistingModelPreflightReport:
             "primary_path_id": self.primary_path_id,
             "summary": self.summary,
         }
+
+
+@dataclass(frozen=True)
+class BlueprintPreflightHandoff:
+    """Typed handoff from current model ownership to independent implementation discovery."""
+
+    ok: bool
+    preflight_fingerprint: str
+    blueprint_requested: bool
+    implementation_inventory_fingerprint: str = ""
+    implementation_surface_ids: tuple[str, ...] = ()
+    unresolved_surface_ids: tuple[str, ...] = ()
+    downstream_owner_routes: tuple[str, ...] = ()
+    claim_boundary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "preflight_fingerprint", str(self.preflight_fingerprint))
+        object.__setattr__(self, "blueprint_requested", bool(self.blueprint_requested))
+        object.__setattr__(
+            self,
+            "implementation_inventory_fingerprint",
+            str(self.implementation_inventory_fingerprint),
+        )
+        object.__setattr__(self, "implementation_surface_ids", _as_tuple(self.implementation_surface_ids))
+        object.__setattr__(self, "unresolved_surface_ids", _as_tuple(self.unresolved_surface_ids))
+        object.__setattr__(self, "downstream_owner_routes", _as_tuple(self.downstream_owner_routes))
+        object.__setattr__(self, "claim_boundary", str(self.claim_boundary))
+
+    @property
+    def fingerprint(self) -> str:
+        return fingerprint_value(self.to_dict())
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "preflight_fingerprint": self.preflight_fingerprint,
+            "blueprint_requested": self.blueprint_requested,
+            "implementation_inventory_fingerprint": self.implementation_inventory_fingerprint,
+            "implementation_surface_ids": list(self.implementation_surface_ids),
+            "unresolved_surface_ids": list(self.unresolved_surface_ids),
+            "downstream_owner_routes": list(self.downstream_owner_routes),
+            "claim_boundary": self.claim_boundary,
+        }
+
+
+def project_existing_model_preflight_blueprint_handoff(
+    report: ExistingModelPreflightReport,
+    *,
+    blueprint_requested: bool,
+    implementation_inventory_report: Any | None = None,
+) -> BlueprintPreflightHandoff:
+    """Preserve affected-only ordinary preflight and bind full discovery only on request."""
+
+    if not blueprint_requested:
+        return BlueprintPreflightHandoff(
+            ok=report.ok,
+            preflight_fingerprint=report.fingerprint,
+            blueprint_requested=False,
+            unresolved_surface_ids=report.missing_surface_ids,
+            downstream_owner_routes=("model_first_function_flow",),
+            claim_boundary=(
+                "Ordinary affected-slice preflight only; no whole-software implementation "
+                "inventory was requested or loaded."
+            ),
+        )
+    if implementation_inventory_report is None:
+        return BlueprintPreflightHandoff(
+            ok=False,
+            preflight_fingerprint=report.fingerprint,
+            blueprint_requested=True,
+            unresolved_surface_ids=tuple(sorted(set(report.missing_surface_ids) | {"implementation_inventory:missing"})),
+            downstream_owner_routes=(
+                "model_test_alignment",
+                "model_mesh_maintenance",
+                "structure_mesh_maintenance",
+                "development_process_flow",
+            ),
+            claim_boundary="Whole-software blueprint preflight is blocked until independent discovery exists.",
+        )
+    inventory_ok = bool(getattr(implementation_inventory_report, "ok", False))
+    inventory_fingerprint = str(
+        getattr(implementation_inventory_report, "inventory_fingerprint", "")
+    )
+    surface_ids = tuple(
+        sorted({str(value) for value in getattr(implementation_inventory_report, "required_surface_ids", ())})
+    )
+    inventory_findings = tuple(getattr(implementation_inventory_report, "findings", ()))
+    inventory_gaps = tuple(
+        sorted(
+            {
+                str(
+                    getattr(finding, "surface_id", "")
+                    or getattr(finding, "item_id", "")
+                    or getattr(finding, "code", "implementation_inventory:blocked")
+                )
+                for finding in inventory_findings
+                if str(getattr(finding, "severity", "blocker")) == "blocker"
+            }
+        )
+    )
+    unresolved = tuple(sorted(set(report.missing_surface_ids) | set(inventory_gaps)))
+    return BlueprintPreflightHandoff(
+        ok=report.ok and inventory_ok and bool(inventory_fingerprint) and not unresolved,
+        preflight_fingerprint=report.fingerprint,
+        blueprint_requested=True,
+        implementation_inventory_fingerprint=inventory_fingerprint,
+        implementation_surface_ids=surface_ids,
+        unresolved_surface_ids=unresolved,
+        downstream_owner_routes=(
+            "model_test_alignment",
+            "model_mesh_maintenance",
+            "structure_mesh_maintenance",
+            "development_process_flow",
+        ),
+        claim_boundary=(
+            "This handoff binds existing model ownership to an independently discovered "
+            "implementation denominator; it does not itself prove blueprint completion."
+        ),
+    )
 
 
 def _blocker_findings(
@@ -2020,7 +2162,367 @@ def review_existing_model_preflight(
     )
 
 
+def existing_model_preflight_projection_obligation_ids(
+    preflight: ExistingModelPreflight,
+    report: ExistingModelPreflightReport,
+) -> tuple[str, ...]:
+    """Return the exact native obligations consumed by the standard projection."""
+
+    if preflight.preflight_id != report.preflight_id:
+        raise ValueError("preflight input and report identities do not match")
+    obligation_ids = {
+        "existing-model-owner",
+        f"preflight:{preflight.preflight_id}",
+    }
+    obligation_ids.update(f"model:{model.model_id}" for model in preflight.relevant_models)
+    obligation_ids.update(
+        f"surface:{surface_id}"
+        for surface_id in (
+            set(preflight.expected_surface_ids)
+            | set(report.covered_surface_ids)
+            | set(report.scoped_surface_ids)
+            | set(report.missing_surface_ids)
+        )
+    )
+    return tuple(sorted(obligation_ids))
+
+
+def _validate_current_preflight_proof(
+    preflight: ExistingModelPreflight,
+    report: ExistingModelPreflightReport,
+    proof: ProofArtifactRef,
+) -> tuple[str, ...]:
+    gaps = list(proof.material_gap_codes())
+    if not proof.has_current_pass():
+        gaps.append("existing_model_preflight_proof_not_current_pass")
+    if proof.producer_route != "existing_model_preflight":
+        gaps.append("existing_model_preflight_proof_wrong_owner")
+    if proof.subject_id != preflight.preflight_id:
+        gaps.append("existing_model_preflight_proof_wrong_subject")
+    if proof.subject_fingerprint != report.fingerprint:
+        gaps.append("existing_model_preflight_proof_wrong_report_fingerprint")
+    if not proof.covers_all(
+        existing_model_preflight_projection_obligation_ids(preflight, report)
+    ):
+        gaps.append("existing_model_preflight_proof_missing_projection_obligations")
+    return tuple(dict.fromkeys(gaps))
+
+
+def _preflight_task_fact_observations(
+    preflight: ExistingModelPreflight,
+    report: ExistingModelPreflightReport,
+) -> tuple[TaskFactObservation, ...]:
+    disposition_rank = {
+        TASK_FACT_DISPOSITION_DECLARED: 0,
+        TASK_FACT_DISPOSITION_SCOPED_OUT: 1,
+        TASK_FACT_DISPOSITION_UNKNOWN: 2,
+        TASK_FACT_DISPOSITION_OMITTED: 3,
+        TASK_FACT_DISPOSITION_UNMAPPED: 4,
+        TASK_FACT_DISPOSITION_CONTRADICTORY: 5,
+    }
+    observations: dict[str, TaskFactObservation] = {}
+
+    def add(
+        fact_id: str,
+        disposition: str,
+        *,
+        reason: str,
+        owner_route: str = "existing_model_preflight",
+    ) -> None:
+        candidate = TaskFactObservation(
+            fact_id,
+            TASK_FACT_SOURCE_CURRENT_MODEL,
+            disposition,
+            owner_route=owner_route,
+            reason=reason,
+        )
+        current = observations.get(fact_id)
+        if current is None or disposition_rank[disposition] > disposition_rank[
+            current.disposition
+        ]:
+            observations[fact_id] = candidate
+
+    for model in preflight.relevant_models:
+        add(
+            f"model:{model.model_id}",
+            (
+                TASK_FACT_DISPOSITION_DECLARED
+                if model.evidence_current
+                else TASK_FACT_DISPOSITION_UNKNOWN
+            ),
+            reason=model.rationale or "current-model preflight model hit",
+        )
+    ownership = preflight.ownership_snapshot
+    if ownership is not None:
+        for prefix, pairs in (
+            ("function-block", ownership.function_block_owners),
+            ("state", ownership.state_owners),
+            ("side-effect", ownership.side_effect_owners),
+            ("entrypoint", ownership.public_entrypoint_owners),
+            ("field", ownership.field_owners),
+            ("responsibility", ownership.responsibility_owners),
+        ):
+            for item_id, owner_id in pairs:
+                add(
+                    f"{prefix}:{item_id}",
+                    TASK_FACT_DISPOSITION_DECLARED,
+                    reason=f"owned by current model {owner_id}",
+                )
+
+    covered = set(report.covered_surface_ids)
+    scoped = set(report.scoped_surface_ids)
+    missing = set(report.missing_surface_ids)
+    for surface_id in sorted(
+        set(preflight.expected_surface_ids) | covered | scoped | missing
+    ):
+        if surface_id in missing:
+            disposition = TASK_FACT_DISPOSITION_OMITTED
+            reason = "expected public surface was missing from current preflight coverage"
+        elif surface_id in scoped:
+            disposition = TASK_FACT_DISPOSITION_SCOPED_OUT
+            reason = "public surface was explicitly scoped out"
+        elif surface_id in covered:
+            disposition = TASK_FACT_DISPOSITION_DECLARED
+            reason = "public surface was covered by current preflight"
+        else:
+            disposition = TASK_FACT_DISPOSITION_UNMAPPED
+            reason = "expected public surface has no current preflight disposition"
+        add(f"surface:{surface_id}", disposition, reason=reason)
+
+    for gap_id in preflight.authority_gap_ids:
+        add(
+            f"authority-gap:{gap_id}",
+            TASK_FACT_DISPOSITION_UNKNOWN,
+            reason="current observed model authority reported a gap",
+        )
+    for index, finding in enumerate(report.findings):
+        if finding.severity != "blocker":
+            continue
+        finding_id = finding.item_id or finding.model_id or str(index)
+        if "missing" in finding.code or "omitted" in finding.code:
+            disposition = TASK_FACT_DISPOSITION_OMITTED
+        elif "duplicate" in finding.code or "conflict" in finding.code:
+            disposition = TASK_FACT_DISPOSITION_CONTRADICTORY
+        else:
+            disposition = TASK_FACT_DISPOSITION_UNKNOWN
+        add(
+            f"preflight-finding:{finding.code}:{finding_id}",
+            disposition,
+            reason=finding.message,
+        )
+    return tuple(observations[key] for key in sorted(observations))
+
+
+def project_existing_model_preflight_to_task_facts(
+    base_facts: TaskFacts,
+    preflight: ExistingModelPreflight,
+    report: ExistingModelPreflightReport,
+    proof: ProofArtifactRef | Mapping[str, Any],
+) -> TaskFacts:
+    """Replace the current-model fact plane from one exact native preflight proof."""
+
+    proof_ref = coerce_proof_artifact_ref(proof)
+    proof_gaps = _validate_current_preflight_proof(preflight, report, proof_ref)
+    if proof_gaps:
+        raise ValueError(
+            "current preflight proof is not projection-ready: " + ",".join(proof_gaps)
+        )
+    observations = _preflight_task_fact_observations(preflight, report)
+    snapshot = TaskFactSourceSnapshot(
+        TASK_FACT_SOURCE_CURRENT_MODEL,
+        proof_ref.result_path,
+        report.fingerprint,
+        status=TASK_FACT_SOURCE_STATUS_COMPLETE,
+        observations=observations,
+        reason="standard current-model projection from ExistingModelPreflight",
+    )
+
+    snapshot_observation_keys = {
+        (observation.fact_id, observation.source_plane)
+        for source_snapshot in base_facts.source_snapshots
+        for observation in source_snapshot.observations
+    }
+    explicit_observations = tuple(
+        observation
+        for observation in base_facts.fact_observations
+        if (observation.fact_id, observation.source_plane)
+        not in snapshot_observation_keys
+        and observation.source_plane != TASK_FACT_SOURCE_CURRENT_MODEL
+    )
+    source_snapshots = tuple(
+        source_snapshot
+        for source_snapshot in base_facts.source_snapshots
+        if source_snapshot.source_plane != TASK_FACT_SOURCE_CURRENT_MODEL
+    ) + (snapshot,)
+    return replace(
+        base_facts,
+        fact_observations=explicit_observations,
+        source_snapshots=source_snapshots,
+        related_model_ids=tuple(
+            sorted(
+                set(base_facts.related_model_ids)
+                | {model.model_id for model in preflight.relevant_models}
+            )
+        ),
+        affected_surface_ids=tuple(
+            sorted(
+                set(base_facts.affected_surface_ids)
+                | set(preflight.expected_surface_ids)
+                | set(report.covered_surface_ids)
+                | set(report.scoped_surface_ids)
+                | set(report.missing_surface_ids)
+            )
+        ),
+    )
+
+
+def project_existing_model_preflight_resolution(
+    facts: TaskFacts,
+    demand: TaskCoverageDemand,
+    preflight: ExistingModelPreflight,
+    report: ExistingModelPreflightReport,
+    proof: ProofArtifactRef | Mapping[str, Any],
+) -> OwnerCoverageResolution:
+    """Project the same preflight proof into the sole owner-resolution value."""
+
+    proof_ref = coerce_proof_artifact_ref(proof)
+    owned_rows = tuple(
+        row
+        for row in demand.rows
+        if row.triggered and row.owner_route == "existing_model_preflight"
+    )
+    if demand.task_id != facts.task_id or demand.task_fingerprint != facts.fingerprint:
+        raise ValueError("preflight resolution requires the exact task demand")
+    if not owned_rows:
+        raise ValueError("task demand does not require existing-model preflight")
+    obligations = tuple(
+        sorted(
+            {
+                coverage_id
+                for row in owned_rows
+                for coverage_id in row.coverage_ids
+            }
+            | set(existing_model_preflight_projection_obligation_ids(preflight, report))
+        )
+    )
+    proof_gaps = list(_validate_current_preflight_proof(preflight, report, proof_ref))
+    snapshot = next(
+        (
+            value
+            for value in facts.source_snapshots
+            if value.source_plane == TASK_FACT_SOURCE_CURRENT_MODEL
+        ),
+        None,
+    )
+    if snapshot is None or snapshot.source_fingerprint != report.fingerprint:
+        proof_gaps.append("existing_model_preflight_task_fact_snapshot_stale")
+    blocker_codes = list(proof_gaps)
+    blocker_codes.extend(
+        finding.code for finding in report.findings if finding.severity == "blocker"
+    )
+    blocker_codes.extend(
+        f"missing_surface:{surface_id}" for surface_id in report.missing_surface_ids
+    )
+    blocker_codes = list(dict.fromkeys(blocker_codes))
+    disposition = (
+        COVERAGE_DISPOSITION_SATISFIED
+        if report.ok and not blocker_codes
+        else COVERAGE_DISPOSITION_BLOCKED
+    )
+    resolution_payload = {
+        "task_id": facts.task_id,
+        "demand_id": demand.demand_id,
+        "demand_fingerprint": demand.fingerprint,
+        "preflight_id": preflight.preflight_id,
+        "report_fingerprint": report.fingerprint,
+        "proof_id": proof_ref.artifact_id,
+        "disposition": disposition,
+    }
+    resolution_id = (
+        "resolution:existing-model-preflight:"
+        + fingerprint_value(resolution_payload).removeprefix("sha256:")[:20]
+    )
+    projection_artifact_id = f"proof:{resolution_id}"
+    projection_fingerprint_values = {
+        "preflight_report": report.fingerprint,
+        "native_preflight_proof": fingerprint_value(proof_ref.to_dict()),
+        **proof_ref.artifact_fingerprints,
+    }
+    evidence_fingerprints = tuple(
+        sorted(set(projection_fingerprint_values.values()))
+    )
+    return OwnerCoverageResolution(
+        resolution_id,
+        facts.task_id,
+        demand.demand_id,
+        demand.fingerprint,
+        "existing_model_preflight",
+        disposition,
+        obligations,
+        evidence_ids=(
+            (projection_artifact_id,)
+            if disposition == COVERAGE_DISPOSITION_SATISFIED
+            else ()
+        ),
+        evidence_fingerprints=(
+            evidence_fingerprints
+            if disposition == COVERAGE_DISPOSITION_SATISFIED
+            else ()
+        ),
+        blocker_codes=tuple(blocker_codes),
+    )
+
+
+def project_existing_model_preflight_maturation_contribution(
+    facts: TaskFacts,
+    demand: TaskCoverageDemand,
+    preflight: ExistingModelPreflight,
+    report: ExistingModelPreflightReport,
+    proof: ProofArtifactRef | Mapping[str, Any],
+    *,
+    candidate_model_fingerprint: str,
+):
+    """Create the canonical maturation view without re-entering owner semantics."""
+
+    from .model_maturation import ModelMaturationCoverageContribution
+
+    proof_ref = coerce_proof_artifact_ref(proof)
+    resolution = project_existing_model_preflight_resolution(
+        facts, demand, preflight, report, proof_ref
+    )
+    projection_fingerprints = {
+        "preflight_report": report.fingerprint,
+        "native_preflight_proof": fingerprint_value(proof_ref.to_dict()),
+        **proof_ref.artifact_fingerprints,
+    }
+    projected_proof = replace(
+        proof_ref,
+        artifact_id=(
+            resolution.evidence_ids[0]
+            if resolution.evidence_ids
+            else f"proof:{resolution.resolution_id}:blocked"
+        ),
+        subject_id=resolution.resolution_id,
+        subject_fingerprint=resolution.resolution_fingerprint,
+        artifact_fingerprints=projection_fingerprints,
+        covered_obligation_ids=resolution.obligation_ids,
+    )
+    return ModelMaturationCoverageContribution(
+        f"contribution:{resolution.resolution_id}",
+        owner_route=resolution.owner_route,
+        task_id=facts.task_id,
+        coverage_source_refs=(preflight.preflight_id, proof_ref.artifact_id),
+        coverage_ids=resolution.obligation_ids,
+        required_probe_ids=(f"probe:{preflight.preflight_id}",),
+        evidence_ref=projected_proof,
+        owner_resolution=resolution,
+        candidate_model_fingerprint=candidate_model_fingerprint,
+        subject_fingerprints=dict(projected_proof.artifact_fingerprints),
+    )
+
+
 __all__ = [
+    "BlueprintPreflightHandoff",
     "DUPLICATE_RISK_RESOLUTIONS",
     "ExistingModelPreflight",
     "ExistingModelPreflightFinding",
@@ -2043,6 +2545,11 @@ __all__ = [
     "REUSE_DECISION_REUSE_EXISTING",
     "REUSE_DECISION_SKIP",
     "REUSE_DECISIONS",
+    "existing_model_preflight_projection_obligation_ids",
+    "project_existing_model_preflight_maturation_contribution",
+    "project_existing_model_preflight_blueprint_handoff",
+    "project_existing_model_preflight_resolution",
+    "project_existing_model_preflight_to_task_facts",
     "review_existing_model_preflight",
     "existing_model_preflight_from_project",
 ]

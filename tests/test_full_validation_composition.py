@@ -434,6 +434,14 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertEqual(3600.0, specs["pytest"].timeout_seconds)
         self.assertEqual(900.0, specs["openspec_strict"].timeout_seconds)
 
+    def test_static_owner_declares_self_maintenance_route_registry_input(self):
+        specs = {
+            item.child_id: item
+            for item in suite_command._full_child_specs(self.args(), self.root)
+        }
+
+        self.assertIn("flowguard/self_maintenance.py", specs["skill_suite_static"].input_patterns)
+
     def test_identical_second_full_request_reuses_all_nine_owners(self):
         with patch.object(
             suite_command,

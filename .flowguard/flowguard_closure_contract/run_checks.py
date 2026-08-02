@@ -1,65 +1,44 @@
-"""Run the FlowGuard closure-contract model checks."""
+"""Run the thin FlowGuard closure-contract model checks."""
 
 from __future__ import annotations
 
-from flowguard import Scenario, ScenarioExpectation, review_scenarios
+from flowguard import run_exact_sequence
+from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
 import model
 
 
-def run_scenarios() -> bool:
-    scenarios = (
-        Scenario(
-            "good_closure_contract",
-            "complete FlowGuard use consumes every closure gate",
-            model.initial_state(),
-            model.GOOD_SEQUENCE,
-            ScenarioExpectation(expected_status="ok"),
-            workflow=model.build_correct_workflow(),
-        ),
-        Scenario(
-            "broken_point_evidence_completion",
-            "model ownership plus alignment is not enough for complete FlowGuard use",
-            model.initial_state(),
-            model.BROKEN_POINT_SEQUENCE,
-            ScenarioExpectation(
-                expected_status="violation",
-                expected_violation_names=("no_complete_claim_without_closure",),
-            ),
-            workflow=model.build_broken_workflow(),
-        ),
-        Scenario(
-            "broken_optional_mode",
-            "closure cannot be described as an optional/default mode",
-            model.initial_state(),
-            model.BROKEN_MODE_SEQUENCE,
-            ScenarioExpectation(
-                expected_status="violation",
-                expected_violation_names=("closure_is_not_optional_mode",),
-            ),
-            workflow=model.build_correct_workflow(),
-        ),
-        Scenario(
-            "broken_maturation_identity",
-            "closure and risk cannot use different model-maturation evidence",
-            model.initial_state(),
-            model.BROKEN_MATURATION_IDENTITY_SEQUENCE,
-            ScenarioExpectation(
-                expected_status="violation",
-                expected_violation_names=(
-                    "no_complete_claim_without_closure",
-                    "closure_and_risk_use_same_maturation_identity",
-                ),
-            ),
-            workflow=model.build_broken_workflow(),
-        ),
-    )
-    report = review_scenarios(scenarios, default_invariants=model.INVARIANTS)
-    print(report.format_text())
-    return report.ok
-
-
 def main() -> int:
-    return 0 if run_scenarios() else 1
+    correct = run_exact_sequence(
+        workflow=model.build_correct_workflow(),
+        initial_state=model.initial_state(),
+        external_input_sequence=model.GOOD_SEQUENCE,
+        invariants=model.INVARIANTS,
+    )
+    correct_ok = correct.model_report.ok and len(correct.final_states) == 1
+    print(f"thin_closure_contract: {'exact model pass' if correct_ok else 'failed'}")
+    report = run_formal_workflow_suite(
+        "thin_closure_contract",
+        (
+            FormalWorkflowCase(
+                "closure_rescores_blocked_risk",
+                model.build_broken_workflow(),
+                False,
+            ),
+        ),
+        initial_states=(model.initial_state(),),
+        external_inputs=model.EXTERNAL_INPUTS,
+        invariants=model.INVARIANTS,
+        max_sequence_length=model.MAX_SEQUENCE_LENGTH,
+        terminal_predicate=model.terminal_predicate,
+        required_labels=(
+            "maturation_consumed",
+            "admission_consumed",
+            "risk_consumed",
+            "closure_accepted",
+        ),
+        protected_error_class="closure_upstream_authority_bypass",
+    )
+    return 0 if correct_ok and report.ok else 1
 
 
 if __name__ == "__main__":

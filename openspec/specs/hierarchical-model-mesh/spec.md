@@ -249,3 +249,25 @@ ModelMesh SHALL activate for affected related models, parent/child changes, stal
 - **WHEN** a task affects one bounded model with no dependent topology and no stale child evidence
 - **THEN** ModelMesh is recorded as not triggered with that reason
 
+### Requirement: Whole-flow claims require semantic disposition of every current model
+For a whole-flow claim, the system SHALL bind every current model to a semantic disposition of connected, intentional-leaf, delegated-or-supporting, or explicitly scoped-out, with a rationale and current consumer relationship where applicable. Raw model count SHALL NOT activate or satisfy ModelMesh review.
+
+#### Scenario: Inventory is complete but one model has no semantic disposition
+- **WHEN** every current model is listed but one model lacks a semantic disposition and rationale
+- **THEN** the whole-flow mesh is incomplete
+
+#### Scenario: Model count crosses a threshold
+- **WHEN** the number of models changes without any semantic topology change
+- **THEN** the count alone neither activates nor satisfies ModelMesh review
+
+### Requirement: Whole-software blueprint topology includes meaningful realization paths
+For a whole-software blueprint claim, every in-scope model SHALL have a declared purpose and either a current consumer, an intentional-leaf disposition, or a realization path into implementation and verification references. ModelMesh SHALL preserve model semantics and SHALL NOT absorb implementation details merely to satisfy this relation.
+
+#### Scenario: Model is semantically connected but has no realization or consumer
+- **WHEN** a model has parent relations but no consumer, intentional-leaf disposition, or implementation realization path
+- **THEN** whole-software blueprint topology is incomplete
+
+#### Scenario: Every model has meaningful owned relations
+- **WHEN** each in-scope model has current purpose, consumer or leaf disposition, and applicable realization references
+- **THEN** topology may contribute current evidence to blueprint closure without creating an all-to-all graph
+

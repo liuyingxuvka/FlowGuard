@@ -12,6 +12,11 @@ This index owns ordinary `core_modeling` routing. It no longer duplicates public
 - Read `long_check_protocol.md` for background artifacts and liveness/completion separation.
 - Read `framework_upgrade_protocol.md` only for FlowGuard's own benchmark/corpus/capability upgrades.
 - Read `invariant_examples.md` only when selecting reusable invariant shapes.
+- For an explicit whole-software blueprint/export/qualification, use the
+  kernel-owned implementation inventory and blueprint APIs, then route their
+  exact reports through ExistingModelPreflight, Code Structure, StructureMesh,
+  Model-Test Alignment, ModelMesh, portable references, and
+  DevelopmentProcessFlow. Ordinary work does not enter this path.
 
 ## Formal entry boundary
 

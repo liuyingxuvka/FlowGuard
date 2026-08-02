@@ -1,47 +1,43 @@
 ---
 name: flowguard-model-mesh
-description: Use for affected topology, oversized models, stale child evidence, partitioning, reattachment, siblings, or mesh closure; model count alone is not a trigger.
+description: Use for affected topology, oversized models, stale child evidence, partitioning, reattachment, siblings, or mesh closure; count alone is not a trigger.
 ---
 
 # FlowGuard Model Mesh
 
 ## Purpose
-Govern model ownership, freshness, reattachment, and closure.
+Govern model ownership, evidence tiers/freshness, partitioning, reattachment, siblings, and closure.
 
 ## Entrypoint Scope
-This standalone FlowGuard satellite skill owns model hierarchy, not test or code splits.
+This standalone FlowGuard satellite skill owns model hierarchy, not test/code splits.
 
 ## Local Material Routing
-After admission, read `references/model_mesh_protocol.md`. When its triggers apply, also read `references/model_mesh_partition_protocol.md`, `references/model_mesh_reattachment_protocol.md`, or `references/model_mesh_closure_protocol.md`; otherwise leave each unloaded.
+After admission, read `references/model_mesh_protocol.md`; load `references/model_mesh_partition_protocol.md`, `references/model_mesh_reattachment_protocol.md`, or `references/model_mesh_closure_protocol.md` only when triggered.
 
 ## Entrypoint Acceptance Map
-Accept bounded children; verify partitions/receipts; block overlap, staleness, missing closure, or incomplete leaves.
+Accept children; verify partitions/receipts; block overlap, stale or incomplete closure.
 
 ## Use When
-- An affected relation crosses model boundaries; a model is oversized/incomplete; or a changed child, stale evidence, sibling, or whole-flow claim needs review.
+- A relation crosses model boundaries, a model is oversized/incomplete, or a changed child/sibling/whole-flow claim needs review.
 
 ## Do Not Use When
 - Do not trigger on raw count, split tests/code, promote child-local green, or handle ordinary single-model work; use `flowguard`.
 
 ## Required Workflow
-1. Load observed authority; inventory affected hierarchy, owners, partitions, evidence, and freshness.
-2. Review disjointness, reattachment, siblings, receipts, leaves, and triggered closure.
-3. Preserve gaps; hand exact cases/receipts to alignment, test, risk, or portable owners. Do not run a joint graph here.
+1. Load observed authority; inventory hierarchy, owners, partitions, and evidence tiers/freshness. Whole-flow claims disposition every model and require consumer relations.
+2. Review disjointness, Child Reattachment Gate, siblings, receipts, leaves, and triggered closure.
+3. For explicit blueprint scope, connect purpose, producer/consumer, and realization references to independent inventory/binding identities without copying source semantics.
+4. Preserve gaps and hand exact cases/receipts to alignment, test, risk, or portable owners; do not run a joint graph here.
 
 ## Hard Gates
-- Model-purpose gate: declare the task-specific failure(s), bind native good/bad-per-failure/oracle/current evidence, and keep the declaration before candidate adoption. Reusable types are not fixed-purpose; there is no mode/fallback, and only FlowGuard-declared checks may support completion claims.
-- One logical model has at most one snapshot instance; every typed relation binds a contained model or current owner artifact.
-- Fingerprints bind model, runner, purpose, and owned inputs; snapshot owns global revision and Git stays release provenance.
-- Compile ownership before execution. A governed path without one exact owner blocks at zero runners; never rerun-all.
-- A multi-model replacement activates as one accepted revision set. Partial child activation, stale base heads, omitted affected siblings, or incomplete relation/coverage diffs block.
-- Freeze task-specific failures/boundary; bind native good, bad-per-failure, oracle, candidate, and current evidence.
-- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
-- Parent confidence requires complete partition ownership, legal overlap, current child evidence/receipts, and current parent consumption.
-- Consume `flowguard.portable_refinement.v1`; do not reinterpret it. Require reachable mappings or legal stutter, no stronger assumptions, and no weaker guarantees.
-- Progress is liveness only; missing closure feedback/bounds or template-harvest closure blocks broad confidence.
+- Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework.
+- One logical model has one current snapshot instance; fingerprints bind model, runner, purpose, and inputs. Compile exact ownership before execution; never rerun-all.
+- Multi-model replacement is one revision set. Partial activation, stale heads, omitted siblings, illegal overlap, incomplete relations, or stale child receipts block parent confidence.
+- Ordinary work materializes affected topology only. Blueprint-wide topology requires explicit scope and never triggers repository discovery or reconstruction.
+- ModelMesh proves relationships, not source semantics, inventory, static qualification, or reconstruction. Counts alone prove none of them.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, mesh diagram, siblings, and receipts; edges mean delegates, reattaches, consumes output, or blocks.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, Child Reattachment Gate, siblings, receipts, and a mesh diagram; edges mean delegates, reattaches, consumes output, realizes, or blocks. Blueprint output names consumed fingerprints and missing purpose/consumer/realization relations.
 
 
 <!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

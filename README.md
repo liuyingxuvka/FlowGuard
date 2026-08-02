@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.68.4` | `1.0` | Python standard library only | MIT |
+| `v0.68.5` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -43,6 +43,27 @@ is independently verified before a separate implementation-admission decision.
 Lightweight work stays lightweight because only triggered detail is loaded,
 but a smaller presentation tier cannot remove a triggered obligation. See
 [`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md).
+
+The read-only `model-understanding-status` command makes that result visible as
+three separate answers: how deeply the current task is understood, what the
+user chose to do, and whether FlowGuard itself admits implementation. It reads
+only explicit JSON artifacts; it never runs missing owners, resumes validation,
+publishes receipts, changes model authority, or writes files.
+
+The whole-system semantic mesh is the compact map of FlowGuard's existing
+model-system authority, not a second “DNA package.” It supports bounded
+task-understanding claims by loading only affected owners and evidence. It does
+not by itself prove clean-room reconstruction or claims outside the declared
+model-system boundary. See
+[`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md).
+
+For an explicit whole-software claim, the implementation blueprint starts from
+an independently discovered implementation and resource inventory, then checks
+model-to-code and code-to-model bindings plus semantic specifications and
+oracles. Static `complete` and reconstruction `not_run` remain separate; the
+three CLI entries never rebuild software automatically, and ordinary work stays
+affected-only. See
+[`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md).
 
 ## The Problem
 
@@ -477,7 +498,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.68.4 is source-only: the immutable Git tag is the release
+FlowGuard v0.68.5 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -497,6 +518,9 @@ Release asset.
 | [`docs/concept.md`](./docs/concept.md) | short conceptual introduction |
 | [`docs/modeling_protocol.md`](./docs/modeling_protocol.md) | core model-first protocol |
 | [`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md) | task-derived understanding depth, receipts, and implementation admission |
+| [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md) | complete 64-model semantic self-map and claim boundary |
+| [`docs/understanding_plumbing_reduction.md`](./docs/understanding_plumbing_reduction.md) | behavior-preserving contraction and field/surface dispositions |
+| [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md) | independent implementation inventory, bidirectional bindings, static qualification, optional reconstruction evidence, and affected-only projection |
 | [`docs/api_surface.md`](./docs/api_surface.md) | public Python API overview |
 | [`docs/invariant_examples.md`](./docs/invariant_examples.md) | examples of useful invariants |
 | [`docs/development_process_flow.md`](./docs/development_process_flow.md) | staged development, validation freshness, archive, publish, and release gates |
@@ -552,6 +576,22 @@ FlowGuard 不调用 LLM API，不是 prompt trick，也不是普通测试的替�
 才单独判断是否允许开始写代码。轻量任务仍然可以轻量走，但“显示得少”不能
 把已经触发的义务删掉。详见
 [`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md)。
+
+只读的 `model-understanding-status` 会把结果分成三个答案：当前任务理解到什么
+深度、用户选择怎样执行、以及 FlowGuard 自己是否允许进入实现。它只读取明确
+提供的 JSON 证据，不会补跑负责人、续跑验证、发布回执、切换模型权威或写文件。
+
+FlowGuard 的整套语义网格就是现有模型权威的紧凑地图，不再额外包装一套
+“DNA Package”。它会按具体任务只加载受影响的负责人和证据，因此轻量任务
+仍然可以轻量走；但这张地图本身不等于已经证明可以在干净环境里从零重建
+软件，也不能支持超出当前模型边界的更大承诺。详见
+[`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md)。
+
+当任务明确要求整套软件蓝图时，FlowGuard 会先独立盘点实际实现和重建资源，
+再检查模型到代码、代码到模型的双向绑定，以及语义说明和 oracle。静态
+`complete` 和重建 `not_run` 永远分开；三个 CLI 都不会自动重建软件，普通
+任务仍然只处理受影响范围。详见
+[`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md)。
 
 ## 为什么需要它
 
@@ -949,7 +989,7 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.68.4 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.68.5 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 ## Guard Family 关系
@@ -968,6 +1008,9 @@ FlowGuard v0.68.4 只发布源码：不可变 Git tag 是唯一发布权威，re
 | [`docs/concept.md`](./docs/concept.md) | 简短概念介绍 |
 | [`docs/modeling_protocol.md`](./docs/modeling_protocol.md) | 核心 model-first 协议 |
 | [`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md) | 任务推导的理解深度、正式收据和代码准入 |
+| [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md) | 64 个现有模型的完整语义自地图和声明边界 |
+| [`docs/understanding_plumbing_reduction.md`](./docs/understanding_plumbing_reduction.md) | 保持行为不变的结构收缩与字段/入口处置 |
+| [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md) | 独立实现清单、双向绑定、静态资格、可选重建证据和受影响范围投影 |
 | [`docs/api_surface.md`](./docs/api_surface.md) | 公开 Python API 概览 |
 | [`docs/invariant_examples.md`](./docs/invariant_examples.md) | 常用 invariant 示例 |
 | [`docs/development_process_flow.md`](./docs/development_process_flow.md) | staged development、validation freshness、archive、publish 和 release gate |

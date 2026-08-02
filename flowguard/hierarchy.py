@@ -1862,7 +1862,6 @@ def _coverage_receipt_findings(partition_map: HierarchyPartitionMap) -> list[Hie
 def review_hierarchical_mesh(
     partition_map: HierarchyPartitionMap,
     *,
-    model_count: int | None = None,
     large_model_threshold: int = DEFAULT_LARGE_MODEL_STATE_THRESHOLD,
 ) -> HierarchyMeshReport:
     """Review one parent boundary without expanding child state graphs."""
@@ -1870,9 +1869,6 @@ def review_hierarchical_mesh(
     findings: list[HierarchyMeshFinding] = []
     activation_reasons: list[str] = []
     child_ids = {child.model_id for child in partition_map.child_models}
-    effective_model_count = len(partition_map.child_models) if model_count is None else model_count
-    if effective_model_count >= 3:
-        activation_reasons.append("model_count")
 
     for child in partition_map.child_models:
         if _is_large_child(child, large_model_threshold):

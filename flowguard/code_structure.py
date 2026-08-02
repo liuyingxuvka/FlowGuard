@@ -16,6 +16,7 @@ from .development_process_flow import (
     ImplementationAdmissionReport,
 )
 from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
+from .portable_model import canonical_identity
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -32,6 +33,22 @@ def _as_pairs(values: Sequence[tuple[str, str]] | None) -> tuple[tuple[str, str]
 
 def _pair_map(pairs: Sequence[tuple[str, str]]) -> dict[str, str]:
     return {str(key): str(value) for key, value in pairs}
+
+
+BLUEPRINT_MODEL_ELEMENT_KINDS = (
+    "function_block",
+    "state",
+    "effect",
+    "config",
+    "field",
+    "entrypoint",
+)
+
+
+def implementation_coverage_obligation_id(kind: str, item_id: str) -> str:
+    """Return the deterministic reverse-source obligation for one model element."""
+
+    return f"implementation-cover:{str(kind)}:{str(item_id)}"
 
 
 @dataclass(frozen=True)
@@ -112,6 +129,10 @@ class CodeStructureRecommendation:
     hierarchical_model_used: bool = False
     implementation_ready_requested: bool = False
     implementation_admission: ImplementationAdmissionReport | None = None
+    blueprint_required: bool = False
+    model_element_universe: tuple[tuple[str, str], ...] = ()
+    model_element_universe_fingerprint: str = ""
+    reverse_implementation_obligation_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "recommendation_id", str(self.recommendation_id))
@@ -135,6 +156,18 @@ class CodeStructureRecommendation:
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
         object.__setattr__(self, "implementation_ready_requested", bool(self.implementation_ready_requested))
+        object.__setattr__(self, "blueprint_required", bool(self.blueprint_required))
+        object.__setattr__(self, "model_element_universe", _as_pairs(self.model_element_universe))
+        object.__setattr__(
+            self,
+            "model_element_universe_fingerprint",
+            str(self.model_element_universe_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "reverse_implementation_obligation_ids",
+            tuple(sorted({str(value) for value in self.reverse_implementation_obligation_ids})),
+        )
         admission = self.implementation_admission
         if admission is not None and not isinstance(admission, ImplementationAdmissionReport):
             raise TypeError("implementation_admission must be a typed current report")
@@ -197,6 +230,12 @@ class CodeStructureRecommendation:
                 self.implementation_admission.to_dict()
                 if self.implementation_admission
                 else None
+            ),
+            "blueprint_required": self.blueprint_required,
+            "model_element_universe": [list(pair) for pair in self.model_element_universe],
+            "model_element_universe_fingerprint": self.model_element_universe_fingerprint,
+            "reverse_implementation_obligation_ids": list(
+                self.reverse_implementation_obligation_ids
             ),
         }
 
@@ -359,6 +398,75 @@ def review_code_structure_recommendation(
                 "code structure recommendation has no rationale for the target split",
             )
         )
+
+    if recommendation.blueprint_required:
+        universe = tuple(sorted(set(recommendation.model_element_universe)))
+        if not universe:
+            findings.append(
+                CodeStructureFinding(
+                    "missing_model_element_universe",
+                    "blueprint structure recommendation has no exact model-element universe",
+                )
+            )
+        invalid_kinds = tuple(
+            sorted({kind for kind, _item_id in universe if kind not in BLUEPRINT_MODEL_ELEMENT_KINDS})
+        )
+        if invalid_kinds:
+            findings.append(
+                CodeStructureFinding(
+                    "invalid_model_element_kind",
+                    "blueprint model-element universe contains unsupported kinds",
+                    metadata={"kinds": invalid_kinds},
+                )
+            )
+        expected_fingerprint = canonical_identity(
+            {"model_elements": [list(pair) for pair in universe]}
+        )
+        if recommendation.model_element_universe_fingerprint != expected_fingerprint:
+            findings.append(
+                CodeStructureFinding(
+                    "model_element_universe_fingerprint_mismatch",
+                    "blueprint recommendation does not bind the exact current model-element universe",
+                    metadata={
+                        "expected": expected_fingerprint,
+                        "actual": recommendation.model_element_universe_fingerprint,
+                    },
+                )
+            )
+        mapped = {
+            *(('function_block', item_id) for item_id, _owner in recommendation.function_block_map),
+            *(('state', item_id) for item_id, _owner in recommendation.state_owner_map),
+            *(('effect', item_id) for item_id, _owner in recommendation.side_effect_owner_map),
+            *(('config', item_id) for item_id, _owner in recommendation.config_owner_map),
+            *(('field', item_id) for item_id, _owner in recommendation.field_owner_map),
+            *(('entrypoint', item_id) for item_id, _owner in recommendation.public_entrypoint_map),
+        }
+        missing = tuple(sorted(set(universe) - mapped))
+        unexpected = tuple(sorted(mapped - set(universe)))
+        if missing or unexpected:
+            findings.append(
+                CodeStructureFinding(
+                    "model_element_coverage_mismatch",
+                    "blueprint mappings do not exactly cover the bound model-element universe",
+                    metadata={"missing": missing, "unexpected": unexpected},
+                )
+            )
+        expected_obligations = {
+            implementation_coverage_obligation_id(kind, item_id)
+            for kind, item_id in universe
+        }
+        actual_obligations = set(recommendation.reverse_implementation_obligation_ids)
+        if actual_obligations != expected_obligations:
+            findings.append(
+                CodeStructureFinding(
+                    "reverse_implementation_obligations_incomplete",
+                    "blueprint recommendation does not emit one reverse implementation obligation per model element",
+                    metadata={
+                        "missing": sorted(expected_obligations - actual_obligations),
+                        "unexpected": sorted(actual_obligations - expected_obligations),
+                    },
+                )
+            )
 
     if recommendation.implementation_ready_requested:
         admission = recommendation.implementation_admission
@@ -561,9 +669,11 @@ def review_code_structure_recommendation(
 
 
 __all__ = [
+    "BLUEPRINT_MODEL_ELEMENT_KINDS",
     "CodeStructureFinding",
     "CodeStructureRecommendation",
     "CodeStructureRecommendationReport",
     "TargetModuleRecommendation",
+    "implementation_coverage_obligation_id",
     "review_code_structure_recommendation",
 ]

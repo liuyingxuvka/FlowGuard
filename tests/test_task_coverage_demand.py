@@ -14,13 +14,81 @@ from flowguard.task_coverage_demand import (
     COVERAGE_TIER_RELEASE,
     COVERAGE_TIER_STANDARD,
     MODEL_MESH_TOPOLOGY_TRIGGERS,
+    OwnerCoverageResolution,
+    TASK_FACT_DISPOSITION_OMITTED,
+    TASK_FACT_DISPOSITION_UNKNOWN,
+    TASK_FACT_SOURCE_CURRENT_MODEL,
+    TASK_FACT_SOURCE_LIFECYCLE,
+    TASK_FACT_SOURCE_PUBLIC_SURFACE,
+    TASK_FACT_SOURCE_REQUEST,
+    TaskFactObservation,
+    TaskFactSourceSnapshot,
     TaskFacts,
     compile_task_coverage_demand,
+    project_owner_resolution_to_demand,
     resolve_coverage_demand_row,
 )
 
 
+def _complete_source_snapshots() -> tuple[TaskFactSourceSnapshot, ...]:
+    return tuple(
+        TaskFactSourceSnapshot(
+            source_plane,
+            f"artifact:{source_plane}",
+            "sha256:" + source_plane.encode("utf-8").hex().ljust(64, "0")[:64],
+        )
+        for source_plane in (
+            TASK_FACT_SOURCE_REQUEST,
+            TASK_FACT_SOURCE_CURRENT_MODEL,
+            TASK_FACT_SOURCE_PUBLIC_SURFACE,
+            TASK_FACT_SOURCE_LIFECYCLE,
+        )
+    )
+
+
 class TaskCoverageDemandTests(unittest.TestCase):
+    def test_missing_independent_source_plane_blocks_the_denominator(self) -> None:
+        demand = compile_task_coverage_demand(
+            TaskFacts(
+                "task:missing-source-plane",
+                "inspect an existing command",
+                source_snapshots=_complete_source_snapshots()[:-1],
+            )
+        )
+
+        self.assertIn(
+            "task_fact_source_not_observed:lifecycle",
+            demand.fact_diagnostic_codes,
+        )
+        row = next(
+            row
+            for row in demand.rows
+            if row.demand_id == "demand:task-fact-source:lifecycle"
+        )
+        self.assertEqual(COVERAGE_DISPOSITION_BLOCKED, row.disposition)
+        with self.assertRaisesRegex(ValueError, "demand recompilation"):
+            resolve_coverage_demand_row(
+                demand,
+                row.demand_id,
+                COVERAGE_DISPOSITION_SATISFIED,
+                reason="caller tried to fill a missing source after compilation",
+                evidence_ids=("evidence:forged",),
+                evidence_fingerprints=("sha256:" + "f" * 64,),
+            )
+
+    def test_complete_source_snapshots_are_bound_into_the_demand(self) -> None:
+        facts = TaskFacts(
+            "task:complete-source-planes",
+            "inspect an existing command",
+            source_snapshots=_complete_source_snapshots(),
+        )
+        demand = compile_task_coverage_demand(facts)
+
+        self.assertEqual(4, len(demand.source_snapshots))
+        self.assertFalse(
+            any(code.startswith("task_fact_source_") for code in demand.fact_diagnostic_codes)
+        )
+
     def test_cli_derives_demand_from_frozen_task_facts(self) -> None:
         with TemporaryDirectory() as directory:
             facts_path = Path(directory) / "task-facts.json"
@@ -93,11 +161,120 @@ class TaskCoverageDemandTests(unittest.TestCase):
                 related_model_ids=("model:a", "model:b", "model:c"),
             )
         )
-        mesh = next(row for row in demand.rows if row.owner_route == "model_mesh")
+        mesh = next(
+            row for row in demand.rows if row.owner_route == "model_mesh_maintenance"
+        )
         self.assertFalse(mesh.triggered)
 
+    def test_omitted_independent_fact_remains_in_denominator_and_blocks(self) -> None:
+        demand = compile_task_coverage_demand(
+            TaskFacts(
+                "task:omitted",
+                "caller omitted one observed public command",
+                fact_observations=(
+                    TaskFactObservation(
+                        "command:model-understanding-status",
+                        TASK_FACT_SOURCE_PUBLIC_SURFACE,
+                        TASK_FACT_DISPOSITION_OMITTED,
+                        reason="the command exists in the public surface but is absent from the caller inventory",
+                    ),
+                ),
+            )
+        )
+        row = next(
+            row
+            for row in demand.rows
+            if row.coverage_ids == ("task-fact:command:model-understanding-status",)
+        )
+        self.assertEqual(COVERAGE_DISPOSITION_BLOCKED, row.disposition)
+        self.assertIn(
+            "task_fact_omitted:command:model-understanding-status",
+            demand.fact_diagnostic_codes,
+        )
+        self.assertFalse(demand.closed)
+
+    def test_unknown_fact_with_current_owner_creates_explicit_demand(self) -> None:
+        demand = compile_task_coverage_demand(
+            TaskFacts(
+                "task:unknown",
+                "resolve an unknown current-model fact",
+                fact_observations=(
+                    TaskFactObservation(
+                        "model:semantic-parent",
+                        TASK_FACT_SOURCE_CURRENT_MODEL,
+                        TASK_FACT_DISPOSITION_UNKNOWN,
+                        owner_route="model_mesh_maintenance",
+                    ),
+                ),
+            )
+        )
+        row = next(
+            row
+            for row in demand.rows
+            if row.coverage_ids == ("task-fact:model:semantic-parent",)
+        )
+        self.assertEqual("model_mesh_maintenance", row.owner_route)
+        self.assertEqual("unresolved", row.disposition)
+
+    def test_retired_model_mesh_owner_is_rejected_without_alias(self) -> None:
+        with self.assertRaisesRegex(ValueError, "retired public route identity"):
+            compile_task_coverage_demand(
+                TaskFacts(
+                    "task:retired",
+                    "reject a retired owner",
+                    caller_requested_owner_ids=("model_mesh",),
+                )
+            )
+
+    def test_one_owner_resolution_projects_to_all_of_its_rows(self) -> None:
+        demand = compile_task_coverage_demand(
+            TaskFacts(
+                "task:release-owner",
+                "release through one process owner result",
+                implementation_requested=True,
+                release_requested=True,
+            )
+        )
+        owned_rows = tuple(
+            row
+            for row in demand.rows
+            if row.triggered and row.owner_route == "development_process_flow"
+        )
+        self.assertGreater(len(owned_rows), 1)
+        resolution = OwnerCoverageResolution(
+            "resolution:process",
+            demand.task_id,
+            demand.demand_id,
+            demand.fingerprint,
+            "development_process_flow",
+            COVERAGE_DISPOSITION_SATISFIED,
+            tuple(
+                coverage_id
+                for row in owned_rows
+                for coverage_id in row.coverage_ids
+            ),
+            evidence_ids=("evidence:process",),
+            evidence_fingerprints=("sha256:" + "a" * 64,),
+        )
+        projected = project_owner_resolution_to_demand(demand, resolution)
+        projected_rows = tuple(
+            row
+            for row in projected.rows
+            if row.triggered and row.owner_route == "development_process_flow"
+        )
+        self.assertTrue(
+            all(row.disposition == COVERAGE_DISPOSITION_SATISFIED for row in projected_rows)
+        )
+        self.assertEqual(demand.fingerprint, projected.resolution_basis_fingerprint)
+
     def test_demand_closes_only_after_every_triggered_row_has_evidence(self) -> None:
-        demand = compile_task_coverage_demand(TaskFacts("task:close", "non-trivial task"))
+        demand = compile_task_coverage_demand(
+            TaskFacts(
+                "task:close",
+                "non-trivial task",
+                source_snapshots=_complete_source_snapshots(),
+            )
+        )
         self.assertFalse(demand.closed)
         for row in tuple(demand.rows):
             if row.triggered:

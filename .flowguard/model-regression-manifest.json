@@ -1,6 +1,7 @@
 {
   "governed_input_globs": [
     ".flowguard/**/*.py",
+    ".flowguard/authoritative_model_system/semantic_model_mesh.json",
     "flowguard/**/*.py",
     "scripts/run_flowguard_model_regressions.py",
     "pyproject.toml"
@@ -42,6 +43,7 @@
         "harden_ui_content_visibility_validation",
         "harden_ui_real_surface_validation",
         "hierarchical_model_mesh",
+        "implementation_blueprint",
         "legacy_compatibility_cleanup",
         "maintenance_obligation_memory",
         "maintenance_scan_router",
@@ -112,6 +114,7 @@
         "harden_ui_content_visibility_validation",
         "harden_ui_real_surface_validation",
         "hierarchical_model_mesh",
+        "implementation_blueprint",
         "legacy_compatibility_cleanup",
         "maintenance_obligation_memory",
         "maintenance_scan_router",
@@ -166,6 +169,8 @@
         ".flowguard/authoritative_model_system/model.py",
         ".flowguard/authoritative_model_system/run_checks.py",
         ".flowguard/authoritative_model_system/affected_authority_inventory.json",
+        ".flowguard/authoritative_model_system/semantic_model_mesh.json",
+        ".flowguard/authoritative_model_system/semantic_self_model.py",
         ".flowguard/behavior_commitment_ledger/ledger.json",
         ".agents/skills/flowguard/SKILL.md",
         ".agents/skills/flowguard/references/modeling_evidence_protocol.md",
@@ -257,7 +262,7 @@
         "reusable_model_type_id": "authoritative_model_system",
         "task_intent_id": "flowguard-regression:authoritative-model-system",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent incomplete live materialization, caller-narrowed diffs or evidence, stale revision-build receipts, generation-side activation, self-reported understanding, premature maturation, target or experiment authority, and snapshot-only rollback from being accepted as current model truth.",
+        "guarded_purpose": "Prevent incomplete live materialization, inventory-only or partial semantic self-modeling, empty semantic identities, unverified completion artifacts, caller-narrowed diffs or evidence, stale revision-build receipts, generation-side activation, self-reported understanding, premature maturation, target or experiment authority, and snapshot-only rollback from being accepted as current model truth.",
         "protected_failure_ids": [
           "model-authority:subject-lane-confusion",
           "model-authority:partial-or-stale-activation",
@@ -271,7 +276,11 @@
           "model-maturation:coverage-shrink",
           "model-maturation:premature-terminal",
           "model-authority:stale-revision-build-evidence",
-          "model-authority:revision-build-activates-authority"
+          "model-authority:revision-build-activates-authority",
+          "model-authority:semantic-inventory-only",
+          "model-authority:semantic-partial-slice",
+          "model-authority:semantic-empty-fingerprint",
+          "model-authority:semantic-unverified-completion"
         ],
         "claim_boundary": "Current closure covers only the declared finite inventory, diff, affected closure, exact-current revision-build evidence, pointer-free generation, task-local maturation, live activation, and reverse rollback scenarios; it does not prove unenumerated software surfaces or production restoration without separate implementation evidence.",
         "adoption_scope": "current_candidate_only",
@@ -341,15 +350,35 @@
             "failure_id": "model-authority:revision-build-activates-authority",
             "known_bad_case_id": "native-runner:authoritative-model-system:revision-builder-moves-pointer",
             "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:semantic-inventory-only",
+            "known_bad_case_id": "native-runner:authoritative-model-system:inventory-only-semantics",
+            "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:semantic-partial-slice",
+            "known_bad_case_id": "native-runner:authoritative-model-system:five-model-slice",
+            "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:semantic-empty-fingerprint",
+            "known_bad_case_id": "native-runner:authoritative-model-system:empty-semantic-derivation-fingerprint",
+            "oracle_id": "native:authoritative-model-system:run-checks"
+          },
+          {
+            "failure_id": "model-authority:semantic-unverified-completion",
+            "known_bad_case_id": "native-runner:authoritative-model-system:unverified-semantic-artifact",
+            "oracle_id": "native:authoritative-model-system:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:authoritative-model-system"
         ],
-        "model_sha256": "sha256:68ee7df650b3ea8254bbcf01f1cd8741bdfc3b180991c016b7fb42992d0a5959",
-        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
-        "declaration_fingerprint": "sha256:42191fa81d230ee4e6f9d6f032ddfca74d909e9d80469cfd9d65ce7e08071833",
-        "closure_fingerprint": "sha256:09e45f5603d5be61a4f2bdc45cdfc1d4c6fbd0cc74aa00433b62999b0599c71f"
+        "model_sha256": "sha256:a5bf6aa21fa3628b9edfb82e566014c427e30a9ed316ece9b6ada7e76eb02643",
+        "runner_sha256": "sha256:8314c070afd937163082fdd4e80257aa7a392ddbf5aa46c1db63e0044bf1ceb6",
+        "declaration_fingerprint": "sha256:182d734ab9731c32b10d66938de7afdea4835fc2628aa030b609b2cb9d20b0ae",
+        "closure_fingerprint": "sha256:e2090655c37163d2d2ba9df4d7bdb73ae05dc8cffbb0e9f0365cc90db614eedc"
       }
     },
     {
@@ -568,10 +597,10 @@
         "evidence_check_ids": [
           "check:model-regression:model_maturation_loop"
         ],
-        "model_sha256": "sha256:66cba15534187002cd72840f5a1c5543114dea501c8fd8d43da6c124b9c7db6f",
+        "model_sha256": "sha256:d7a3bf9885bcbc7fce4e5979acd5c4777a5db3315b0fda844788f537ff3b5a7d",
         "runner_sha256": "sha256:7d451109d33f42640bb6d84499b9fa338bd0dda16e885a65a7e5d945459ace23",
         "declaration_fingerprint": "sha256:6a23a6b46bdc42e722042662567ff234cc9329859e5d14c53285419e0c682e40",
-        "closure_fingerprint": "sha256:4eae5a0068961698cceb117d8fba47b6a6be277de7a337dfa0840fb303265d99"
+        "closure_fingerprint": "sha256:a6d582a6fb21386bfce86ed8843838f6913508e148331c4346f2304e5de0a68d"
       }
     },
     {
@@ -618,10 +647,10 @@
         "evidence_check_ids": [
           "check:model-regression:task_coverage_demand"
         ],
-        "model_sha256": "sha256:340f9db0296bc5beb20881047db3505e970d2f9b0aa386f3557f43ab9921f1d1",
-        "runner_sha256": "sha256:43eab3953614cc71333ffc5dbfcf8a48b572ceef9a675701753ee28fcb689e8d",
+        "model_sha256": "sha256:d3425dad220f3cb429223474953ba17298704b61839c93c47c371f9a99e336ef",
+        "runner_sha256": "sha256:d34d91fabf5f095b9bae067ca941ff0e345f39870b5d25f2f454c58694b7e9f9",
         "declaration_fingerprint": "sha256:d5344222f325c57d2f43708c8b77ccdd4c425857a1dba80c4ee8c0dbc56460ec",
-        "closure_fingerprint": "sha256:9a6c218d04ce924dad182135876a05c35bd374812155a4d44cbd40673cc2fd0c"
+        "closure_fingerprint": "sha256:acb0898b6e481fda789838047a1a832c683e5e23fdda70486cd3519eee197708"
       }
     },
     {
@@ -1347,10 +1376,10 @@
         "evidence_check_ids": [
           "check:model-regression:flowguard_closure_contract"
         ],
-        "model_sha256": "sha256:0c8c624493ef7b8a1ae277d66e3ee9e5675c890be1375d0f8ded221a9a7a6f27",
-        "runner_sha256": "sha256:50c98f5c6b43163b9a2c55d150768fa64e57086a1bda772955725b0ebb21ae83",
+        "model_sha256": "sha256:073eb887d40d133ada4a750a945e59f26b3292bbdf1475ccc16f09016ae5e22e",
+        "runner_sha256": "sha256:3e8b5d81780c5659a0e0bbcaa0c682e31b0ca9c532757a107c49443a53d478f4",
         "declaration_fingerprint": "sha256:f8bc43cd09d584705cfc7536beb42a45a5d5baa9a2e1a8cd6341a83c06517d9d",
-        "closure_fingerprint": "sha256:cc3f1fc0fc037db04765fbe43cecea0cfdb0af1050a837c52b768d702180d758"
+        "closure_fingerprint": "sha256:857b3323f4d86a87a243c531ee9a09f39197d2794940d50d2bd21f956ac422d2"
       }
     },
     {
@@ -1629,10 +1658,133 @@
         "evidence_check_ids": [
           "check:model-regression:hierarchical_model_mesh"
         ],
-        "model_sha256": "sha256:ab84882a2191d1ee8c9a232c33cf5a4523a5e939e8e4f0ef50c5a738908119f2",
+        "model_sha256": "sha256:d109cd2bbb0112ad226ef2e95690adf4844be51dc94c1738d487837b71bc00dc",
         "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
         "declaration_fingerprint": "sha256:4e6f110c8486b879c76b7790ed2c498bb00af248bca08d1485376664fb25010f",
-        "closure_fingerprint": "sha256:faaf9165db04f16f582dd72832a4d22d547008ded8f833ff1bf5597e13f35f26"
+        "closure_fingerprint": "sha256:f856fc24c65da3eb0e4ddb12492f2db399aa14bda76d60b55ca9318ea24d1637"
+      }
+    },
+    {
+      "absence_reason": "",
+      "distribution_policy": "required_public",
+      "exclusion_reason": "",
+      "expected_artifacts": [],
+      "input_globs": [
+        ".flowguard/implementation_blueprint/__init__.py",
+        ".flowguard/implementation_blueprint/model.py",
+        ".flowguard/implementation_blueprint/run_checks.py",
+        ".flowguard/authoritative_model_system/software_blueprint_definition.json",
+        "flowguard/implementation_inventory.py",
+        "flowguard/implementation_inventory_python.py",
+        "flowguard/implementation_blueprint.py",
+        "flowguard/self_blueprint.py",
+        "flowguard/code_structure.py",
+        "flowguard/existing_model_preflight.py",
+        "flowguard/model_test_alignment.py",
+        "flowguard/structuremesh.py",
+        "tests/test_implementation_inventory.py",
+        "tests/test_implementation_blueprint.py",
+        "tests/test_implementation_blueprint_cli.py",
+        "tests/test_implementation_blueprint_docs.py",
+        "docs/implementation_blueprint.md"
+      ],
+      "model_id": "implementation_blueprint",
+      "model_path": ".flowguard/implementation_blueprint/model.py",
+      "mutation_policy": "none",
+      "runner": [
+        "{python}",
+        ".flowguard/implementation_blueprint/run_checks.py"
+      ],
+      "shard_safe": true,
+      "tier": "focused",
+      "timeout_seconds": 300,
+      "purpose_closure": {
+        "schema_version": "flowguard.model_purpose_closure.v1",
+        "model_instance_id": "regression:implementation_blueprint:current",
+        "reusable_model_type_id": "implementation_blueprint",
+        "task_intent_id": "flowguard-regression:implementation-blueprint",
+        "declaration_phase": "before_candidate",
+        "guarded_purpose": "Prevent a source-shaped or incomplete software blueprint from being accepted as reconstruction-ready without independent inventory, bidirectional semantic bindings, current resources, applicable oracles, and explicit reconstruction status.",
+        "protected_failure_ids": [
+          "implementation-blueprint:omitted-file",
+          "implementation-blueprint:parse-failure",
+          "implementation-blueprint:dynamic-uncertainty",
+          "implementation-blueprint:orphan-helper",
+          "implementation-blueprint:hidden-writer-effect",
+          "implementation-blueprint:duplicate-primary",
+          "implementation-blueprint:path-only-binding",
+          "implementation-blueprint:stale-fingerprint",
+          "implementation-blueprint:missing-resource",
+          "implementation-blueprint:tampered-shard",
+          "implementation-blueprint:automatic-rebuild-attempt"
+        ],
+        "claim_boundary": "Current closure proves only the finite implementation-blueprint workflow and its declared native counterexamples. It does not prove byte-identical source reproduction, run an empirical reconstruction, or license behavior outside the declared software boundary.",
+        "adoption_scope": "current_candidate_only",
+        "known_good_case_id": "native:implementation-blueprint:static-complete-reconstruction-not-run",
+        "failure_bindings": [
+          {
+            "failure_id": "implementation-blueprint:omitted-file",
+            "known_bad_case_id": "native:implementation-blueprint:omitted-file",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:parse-failure",
+            "known_bad_case_id": "native:implementation-blueprint:parse-failure",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:dynamic-uncertainty",
+            "known_bad_case_id": "native:implementation-blueprint:dynamic-uncertainty",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:orphan-helper",
+            "known_bad_case_id": "native:implementation-blueprint:orphan-helper",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:hidden-writer-effect",
+            "known_bad_case_id": "native:implementation-blueprint:hidden-writer-effect",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:duplicate-primary",
+            "known_bad_case_id": "native:implementation-blueprint:duplicate-primary",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:path-only-binding",
+            "known_bad_case_id": "native:implementation-blueprint:path-only-binding",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:stale-fingerprint",
+            "known_bad_case_id": "native:implementation-blueprint:stale-fingerprint",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:missing-resource",
+            "known_bad_case_id": "native:implementation-blueprint:missing-resource",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:tampered-shard",
+            "known_bad_case_id": "native:implementation-blueprint:tampered-shard",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:automatic-rebuild-attempt",
+            "known_bad_case_id": "native:implementation-blueprint:automatic-rebuild-attempt",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          }
+        ],
+        "evidence_check_ids": [
+          "check:model-regression:implementation_blueprint"
+        ],
+        "model_sha256": "sha256:7ffbce716fa5378595a6bd482a7196a1e5608410f879da1d8e61d3d97530bbcf",
+        "runner_sha256": "sha256:c0a140521541b107915014df3029064a22d1760805682114899f1d256c2b058c",
+        "declaration_fingerprint": "sha256:d9344d189d4a6169a5629ad6ef850f1f63c15b14ea13f9c820999c05ebcc1ae0",
+        "closure_fingerprint": "sha256:fd421f097b58d1768e9041c6880af87179a6f82e07a894d63ffa58dded654c99"
       }
     },
     {
@@ -1869,10 +2021,10 @@
         "evidence_check_ids": [
           "check:model-regression:minimum_valuable_model_entry"
         ],
-        "model_sha256": "sha256:3c843a0ae33ec69af915acb81079c594daff86e3659f91e4d4d4cd205c235aa6",
+        "model_sha256": "sha256:55ec2f905f8bf950a3e63f9b072c57211e505ca188b72e74f90e868c30381ac6",
         "runner_sha256": "sha256:74fcd280774a031f77caec63e5a944fcb8d2d611464a298cbe7c357101d9f2ad",
         "declaration_fingerprint": "sha256:b45a00eb181a6e7546b6e2c5090cd71580956a16c48b8b760fc6daa513400cc0",
-        "closure_fingerprint": "sha256:d4e6b10feb0f7ab2aa8ea01b486e31a7330d94f5cc5b87f9216cdb5e009e5c3b"
+        "closure_fingerprint": "sha256:4f29d143b2a9e420c599f12c2c0b32cf49dbf94b05b22bc4c76eda96a01563bb"
       }
     },
     {
@@ -1917,10 +2069,10 @@
         "evidence_check_ids": [
           "check:model-regression:model_angle_deliberation"
         ],
-        "model_sha256": "sha256:1d47d2116dd13ef5f5f61048884e065dd0d49878476b6fc0bc717a99a89c8cb4",
+        "model_sha256": "sha256:957d3ee7d085e529ac65c1cd59b8fb72daf6986607827235bbb2a382bbe3a9b6",
         "runner_sha256": "sha256:b4c913f73f8f38e506e23df3d5b64439a3de1bc2373dc4069cbbfe3396ee9aa2",
         "declaration_fingerprint": "sha256:c707bd4459c93985cdd906e8b68b529c72fb03348a46da8f06ad83d0671a6d86",
-        "closure_fingerprint": "sha256:86681e192ac036e4bec413f8d0b60241195892d8b433d5e08f022c8e3eae159c"
+        "closure_fingerprint": "sha256:a8fe9df620e39d34317b8ed081a91f5604f94f70d1f67439af5e678f7bb352a8"
       }
     },
     {
@@ -1979,7 +2131,8 @@
       "input_globs": [
         ".flowguard/model_mesh_closure_model/__init__.py",
         ".flowguard/model_mesh_closure_model/model.py",
-        ".flowguard/model_mesh_closure_model/run_checks.py"
+        ".flowguard/model_mesh_closure_model/run_checks.py",
+        ".flowguard/authoritative_model_system/semantic_model_mesh.json"
       ],
       "model_id": "model_mesh_closure_model",
       "model_path": ".flowguard/model_mesh_closure_model/model.py",
@@ -1997,27 +2150,51 @@
         "reusable_model_type_id": "model_mesh_closure_model",
         "task_intent_id": "flowguard-regression:model_mesh_closure_model",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent the model mesh closure model model from accepting the native model mesh missing join failure as a valid completed outcome.",
+        "guarded_purpose": "Prevent whole-system understanding closure from accepting a missing semantic join, inventory-only relations, a partial model universe, an empty semantic fingerprint, or unverified maturation evidence.",
         "protected_failure_ids": [
-          "model_mesh_missing_join"
+          "model-mesh-closure:missing-semantic-join",
+          "model-mesh-closure:inventory-only",
+          "model-mesh-closure:partial-universe",
+          "model-mesh-closure:empty-fingerprint",
+          "model-mesh-closure:unverified-evidence"
         ],
-        "claim_boundary": "Current closure proves only that the checked-in model_mesh_closure_model candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "claim_boundary": "Current closure proves only the finite transfer shape from task facts through the 64-model semantic mesh, verified maturation, separate admission, risk, and terminal closure plus its five native counterexamples; it does not itself publish a maturation receipt, activate model authority, or prove release identity.",
         "adoption_scope": "current_candidate_only",
-        "known_good_case_id": "native-runner:model_mesh_closure_model:correct_model_mesh_closure",
+        "known_good_case_id": "native-runner:model_mesh_closure_model:correct-whole-system-understanding-closure",
         "failure_bindings": [
           {
-            "failure_id": "model_mesh_missing_join",
-            "known_bad_case_id": "native-runner:model_mesh_closure_model:broken_missing_join",
+            "failure_id": "model-mesh-closure:missing-semantic-join",
+            "known_bad_case_id": "native-runner:model_mesh_closure_model:broken-missing-semantic-join",
+            "oracle_id": "native:model_mesh_closure_model:run-checks"
+          },
+          {
+            "failure_id": "model-mesh-closure:inventory-only",
+            "known_bad_case_id": "native-runner:model_mesh_closure_model:broken-inventory-only-without-relations",
+            "oracle_id": "native:model_mesh_closure_model:run-checks"
+          },
+          {
+            "failure_id": "model-mesh-closure:partial-universe",
+            "known_bad_case_id": "native-runner:model_mesh_closure_model:broken-five-model-slice",
+            "oracle_id": "native:model_mesh_closure_model:run-checks"
+          },
+          {
+            "failure_id": "model-mesh-closure:empty-fingerprint",
+            "known_bad_case_id": "native-runner:model_mesh_closure_model:broken-empty-semantic-fingerprint",
+            "oracle_id": "native:model_mesh_closure_model:run-checks"
+          },
+          {
+            "failure_id": "model-mesh-closure:unverified-evidence",
+            "known_bad_case_id": "native-runner:model_mesh_closure_model:broken-unverified-semantic-artifact",
             "oracle_id": "native:model_mesh_closure_model:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:model_mesh_closure_model"
         ],
-        "model_sha256": "sha256:568de0b38d45814a62cca2930783685b36f786d00dac8f64b6ef2447531ee4eb",
-        "runner_sha256": "sha256:ae8d0aadcb476b12f3175bee5742beeae80f817c6fb6a1efb436446ce9d0dad5",
-        "declaration_fingerprint": "sha256:fbe5444bd67aa202909e7563f607a4152350df061830134d33ff90f9065dd822",
-        "closure_fingerprint": "sha256:91447ebc10634aa0e264b5fb60d96f98f7d196ffe2340a6c272731e50aa6b99c"
+        "model_sha256": "sha256:8a48cbfe9066d029ecda7057d90568fc29a1257dc54fa2c9ef751b0ac0b25cd7",
+        "runner_sha256": "sha256:db755e05f7e04da47fa469fa3a18cbacc3e8f0ec665371a23c0ed83c911384a4",
+        "declaration_fingerprint": "sha256:5bdeb8533ec8e13eaa65df0fd129368f37942a7720456590c17e9d60fa249d57",
+        "closure_fingerprint": "sha256:7cb2b802654d3b0272797d98f47ab019738bcb63b60d69cc8f1c8050d620418a"
       }
     },
     {
@@ -2176,10 +2353,10 @@
         "evidence_check_ids": [
           "check:model-regression:model_test_code_alignment"
         ],
-        "model_sha256": "sha256:7df0495fe9e07bcc5be5e602a6ce086e490bf4e0d6556a4e231a702eb8d04f8a",
+        "model_sha256": "sha256:346e812053ae43caf932b4c8d1a7e9556f4c50400d236d4e2129fe8d7677fb67",
         "runner_sha256": "sha256:15343d1ddeb7595625fc291481f9effd290394c2f88f429635c5e9734038c406",
         "declaration_fingerprint": "sha256:e8d158d39a09786a2b1f509f6a642c8236e1df29b4cf918f0be44f54cbd058d2",
-        "closure_fingerprint": "sha256:c8a0b18adb30045f7b44a6a1bd63b91348a02bb442e62e27594df398f7d31718"
+        "closure_fingerprint": "sha256:707abcc8d630501c73605fd2ad554154b0aedc588de468ffa530ae0984263d18"
       }
     },
     {
@@ -2320,10 +2497,10 @@
         "evidence_check_ids": [
           "check:model-regression:openspec_archive_cleanup"
         ],
-        "model_sha256": "sha256:2763f045bd46f4bda9ba03486e4f3922db89d5453189d10097a91daffdddb8a6",
+        "model_sha256": "sha256:115a739f0eca286cfcd351ecf6dbe48a7f4cea198e010c73d83480018a1aae74",
         "runner_sha256": "sha256:4ed7462dfe4c6576f266b6c97faf6cc28702791e07554c58c938faaa07825224",
         "declaration_fingerprint": "sha256:eb0d2473be7acbbcac701b7c7428922efcf93f031f8e339a363634d2aad9512b",
-        "closure_fingerprint": "sha256:372e72752fd0cb6e563a2841172652d99ed70ebae5b54cdf058f579909702b09"
+        "closure_fingerprint": "sha256:53431ba8edbf24c28ad3ea974b8ccd44ebe42c3746d44bf5de5c88c75b9f9936"
       }
     },
     {
@@ -2795,7 +2972,8 @@
       "expected_artifacts": [],
       "input_globs": [
         ".flowguard/self_maintenance_mesh/model.py",
-        ".flowguard/self_maintenance_mesh/run_checks.py"
+        ".flowguard/self_maintenance_mesh/run_checks.py",
+        ".flowguard/authoritative_model_system/semantic_model_mesh.json"
       ],
       "model_id": "self_maintenance_mesh",
       "model_path": ".flowguard/self_maintenance_mesh/model.py",
@@ -2813,9 +2991,10 @@
         "reusable_model_type_id": "self_maintenance_mesh",
         "task_intent_id": "flowguard-regression:self_maintenance_mesh",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent the self maintenance mesh model from accepting the native self maintenance incomplete failure as a valid completed outcome.",
+        "guarded_purpose": "Prevent self maintenance from accepting an incomplete route, missing semantic whole-system mesh, nonterminal understanding chain, stale child evidence, or unsynchronized release surface as completed.",
         "protected_failure_ids": [
-          "self_maintenance_incomplete"
+          "self_maintenance_incomplete",
+          "self-maintenance:semantic-mesh-not-current"
         ],
         "claim_boundary": "Current closure proves only that the checked-in self_maintenance_mesh candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
         "adoption_scope": "current_candidate_only",
@@ -2825,15 +3004,20 @@
             "failure_id": "self_maintenance_incomplete",
             "known_bad_case_id": "native-runner:self_maintenance_mesh:broken_synthetic_all_flags",
             "oracle_id": "native:self_maintenance_mesh:run-checks"
+          },
+          {
+            "failure_id": "self-maintenance:semantic-mesh-not-current",
+            "known_bad_case_id": "native-runner:self_maintenance_mesh:broken_unverified_semantic_self_mesh",
+            "oracle_id": "native:self_maintenance_mesh:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:self_maintenance_mesh"
         ],
-        "model_sha256": "sha256:57db7c4c13195c9bb2501c01cbe6b9f1d2306436bedf34a61d91a4414a60a4cb",
-        "runner_sha256": "sha256:ab0004064ca64255af3c31cfc1bc37948625a6b79cfb1a8e2c5041e0316bf284",
-        "declaration_fingerprint": "sha256:a02cbef5dff567145b77d292b750ecc6d2ed5276609b5b3c61a9f39bbffc9545",
-        "closure_fingerprint": "sha256:afec5dde3fe7df3f157fe087c72e9bd557a452341da36da92019b5bfd8ca0008"
+        "model_sha256": "sha256:63e8a95d97b808e5aba8e82d085a824e2e58cff7dee322564a2541289eb4b9f7",
+        "runner_sha256": "sha256:4cff90f5f932916ab88733c7eebe6e83b30b80e272308eb7491d3604108adc8e",
+        "declaration_fingerprint": "sha256:074c26c38348704183d1edc5aa15f78cdd528bbc8288d10a60671ccae0a5303d",
+        "closure_fingerprint": "sha256:3ce374c49bcf8fa8e2dcb0d3e4d0f1275253b7c219f7e4e5b644e7dc92a4b0ea"
       }
     },
     {

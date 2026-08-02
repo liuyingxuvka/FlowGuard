@@ -47,6 +47,9 @@ class ModelMaturationReceiptTests(unittest.TestCase):
             evidence_id="evidence:maturation",
             terminal_reason=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
             input_fingerprint="sha256:input",
+            owner_resolution_ids=("resolution:receipt",),
+            owner_resolution_fingerprints=("sha256:resolution-receipt",),
+            owner_resolution_owner_ids=("model_first_function_flow",),
         )
         self.snapshot = snapshot_bytes(
             "artifact:model",
@@ -97,6 +100,9 @@ class ModelMaturationReceiptTests(unittest.TestCase):
             "coverage_universe_fingerprint": self.report.coverage_universe_fingerprint,
             "input_fingerprint": self.report.input_fingerprint,
             "evidence_fingerprint": self.report.evidence_fingerprint,
+            "owner_resolution_ids": self.report.owner_resolution_ids,
+            "owner_resolution_fingerprints": self.report.owner_resolution_fingerprints,
+            "owner_resolution_owner_ids": self.report.owner_resolution_owner_ids,
         }
         values.update(overrides)
         return ModelMaturationVerificationContext(**values)
@@ -134,6 +140,39 @@ class ModelMaturationReceiptTests(unittest.TestCase):
         self.assertIn("maturation_receipt_subject_mismatch", result.semantic_finding_codes)
         self.assertIn("maturation_coverage_demand_fingerprint_mismatch", result.semantic_finding_codes)
 
+    def test_foreign_owner_resolution_identity_is_rejected(self) -> None:
+        with TemporaryDirectory() as directory:
+            output = Path(directory)
+            receipt = build_model_maturation_receipt(self.report, self.publication)
+            save_evidence_receipt(receipt, output_directory=output)
+            result = verify_model_maturation_receipt(
+                ModelMaturationReceiptRef(receipt.receipt_id, receipt.fingerprint),
+                self._contexts(
+                    output,
+                    owner_resolution_fingerprints=("sha256:foreign-resolution",),
+                ),
+                output_directory=output,
+            )
+
+        self.assertIsNone(result.verified_maturation)
+        self.assertIn(
+            "maturation_owner_resolution_fingerprints_mismatch",
+            result.semantic_finding_codes,
+        )
+
+    def test_full_receipt_rejects_hand_filled_report_without_owner_results(self) -> None:
+        weak = ModelMaturationReport(
+            **{
+                **self.report.__dict__,
+                "owner_resolution_ids": (),
+                "owner_resolution_fingerprints": (),
+                "owner_resolution_owner_ids": (),
+            }
+        )
+
+        with self.assertRaisesRegex(ValueError, "canonical owner resolution"):
+            build_model_maturation_receipt(weak, self.publication)
+
     def test_stale_snapshot_produces_no_verified_projection(self) -> None:
         with TemporaryDirectory() as directory:
             output = Path(directory)
@@ -158,6 +197,9 @@ class ModelMaturationReceiptTests(unittest.TestCase):
                 coverage_universe_fingerprint=base.coverage_universe_fingerprint,
                 input_fingerprint=base.input_fingerprint,
                 evidence_fingerprint=base.evidence_fingerprint,
+                owner_resolution_ids=base.owner_resolution_ids,
+                owner_resolution_fingerprints=base.owner_resolution_fingerprints,
+                owner_resolution_owner_ids=base.owner_resolution_owner_ids,
             )
             result = verify_model_maturation_receipt(
                 ModelMaturationReceiptRef(receipt.receipt_id, receipt.fingerprint),
@@ -191,6 +233,9 @@ class ModelMaturationReceiptTests(unittest.TestCase):
                     coverage_universe_fingerprint=base.coverage_universe_fingerprint,
                     input_fingerprint=base.input_fingerprint,
                     evidence_fingerprint=base.evidence_fingerprint,
+                    owner_resolution_ids=base.owner_resolution_ids,
+                    owner_resolution_fingerprints=base.owner_resolution_fingerprints,
+                    owner_resolution_owner_ids=base.owner_resolution_owner_ids,
                 ),
                 output_directory=output,
             )
@@ -244,6 +289,9 @@ class ModelMaturationReceiptTests(unittest.TestCase):
                     "coverage_universe_fingerprint": context.coverage_universe_fingerprint,
                     "input_fingerprint": context.input_fingerprint,
                     "evidence_fingerprint": context.evidence_fingerprint,
+                    "owner_resolution_ids": list(context.owner_resolution_ids),
+                    "owner_resolution_fingerprints": list(context.owner_resolution_fingerprints),
+                    "owner_resolution_owner_ids": list(context.owner_resolution_owner_ids),
                     "required_receipt_fingerprint": receipt.fingerprint,
                 },
             }

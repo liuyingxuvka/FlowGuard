@@ -102,7 +102,23 @@ class ModelMaturationVerificationContext:
     coverage_universe_fingerprint: str
     input_fingerprint: str
     evidence_fingerprint: str
+    owner_resolution_ids: tuple[str, ...] = ()
+    owner_resolution_fingerprints: tuple[str, ...] = ()
+    owner_resolution_owner_ids: tuple[str, ...] = ()
     required_receipt_fingerprint: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "owner_resolution_ids", _tuple(self.owner_resolution_ids))
+        object.__setattr__(
+            self,
+            "owner_resolution_fingerprints",
+            _tuple(self.owner_resolution_fingerprints),
+        )
+        object.__setattr__(
+            self,
+            "owner_resolution_owner_ids",
+            _tuple(self.owner_resolution_owner_ids),
+        )
 
 
 @dataclass(frozen=True, init=False)
@@ -128,6 +144,9 @@ class VerifiedModelMaturation:
     eligible_for_full_claim: bool
     verification_status: str
     verification_finding_codes: tuple[str, ...]
+    owner_resolution_ids: tuple[str, ...]
+    owner_resolution_fingerprints: tuple[str, ...]
+    owner_resolution_owner_ids: tuple[str, ...]
 
     def __new__(cls):
         raise TypeError("VerifiedModelMaturation is created only by receipt verification")
@@ -140,6 +159,17 @@ class VerifiedModelMaturation:
             and self.confidence == MODEL_MATURATION_CONFIDENCE_FULL
             and self.terminal_reason == MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
             and not self.open_gap_fingerprints
+            and bool(self.owner_resolution_ids)
+            and len(self.owner_resolution_ids)
+            == len(self.owner_resolution_fingerprints)
+            == len(self.owner_resolution_owner_ids)
+            and len(set(self.owner_resolution_ids)) == len(self.owner_resolution_ids)
+            and len(set(self.owner_resolution_owner_ids))
+            == len(self.owner_resolution_owner_ids)
+            and all(
+                value.startswith("sha256:")
+                for value in self.owner_resolution_fingerprints
+            )
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -163,6 +193,9 @@ class VerifiedModelMaturation:
             "eligible_for_full_claim": self.eligible_for_full_claim,
             "verification_status": self.verification_status,
             "verification_finding_codes": list(self.verification_finding_codes),
+            "owner_resolution_ids": list(self.owner_resolution_ids),
+            "owner_resolution_fingerprints": list(self.owner_resolution_fingerprints),
+            "owner_resolution_owner_ids": list(self.owner_resolution_owner_ids),
         }
 
 
@@ -213,6 +246,9 @@ def _maturation_metadata(report: ModelMaturationReport) -> dict[str, Any]:
         "confidence": report.confidence,
         "terminal_reason": report.terminal_reason,
         "open_gap_fingerprints": list(report.open_gap_fingerprints),
+        "owner_resolution_ids": list(report.owner_resolution_ids),
+        "owner_resolution_fingerprints": list(report.owner_resolution_fingerprints),
+        "owner_resolution_owner_ids": list(report.owner_resolution_owner_ids),
     }
 
 
@@ -239,7 +275,25 @@ def build_model_maturation_receipt(
     )
     if not all(required_identity):
         raise ValueError("terminal maturation report is missing receipt identity")
-    if report.decision == MODEL_MATURATION_DECISION_CLOSED_FOR_TASK and report.confidence == MODEL_MATURATION_CONFIDENCE_FULL and not report.open_gap_fingerprints:
+    claims_full = bool(
+        report.decision == MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+        and report.confidence == MODEL_MATURATION_CONFIDENCE_FULL
+        and not report.open_gap_fingerprints
+    )
+    if claims_full and not (
+        report.owner_resolution_ids
+        and len(report.owner_resolution_ids)
+        == len(report.owner_resolution_fingerprints)
+        == len(report.owner_resolution_owner_ids)
+        and all(
+            value.startswith("sha256:")
+            for value in report.owner_resolution_fingerprints
+        )
+    ):
+        raise ValueError(
+            "full maturation receipt requires exact canonical owner resolution identities"
+        )
+    if claims_full:
         result_status = RECEIPT_STATUS_PASS
         blockers: tuple[str, ...] = ()
     elif report.confidence == MODEL_MATURATION_CONFIDENCE_SCOPED:
@@ -330,6 +384,13 @@ def _verified_from(
         "eligible_for_full_claim": verification.eligible,
         "verification_status": verification.status,
         "verification_finding_codes": verification.finding_codes,
+        "owner_resolution_ids": _tuple(metadata.get("owner_resolution_ids", ())),
+        "owner_resolution_fingerprints": _tuple(
+            metadata.get("owner_resolution_fingerprints", ())
+        ),
+        "owner_resolution_owner_ids": _tuple(
+            metadata.get("owner_resolution_owner_ids", ())
+        ),
     }
     for name, item in values.items():
         object.__setattr__(value, name, item)
@@ -384,10 +445,21 @@ def verify_model_maturation_receipt(
         "confidence",
         "terminal_reason",
         "open_gap_fingerprints",
+        "owner_resolution_ids",
+        "owner_resolution_fingerprints",
+        "owner_resolution_owner_ids",
     )
     for name in required_metadata:
         if name not in raw:
             findings.append(f"maturation_{name}_missing")
+    expected_resolution_values = {
+        "owner_resolution_ids": context.owner_resolution_ids,
+        "owner_resolution_fingerprints": context.owner_resolution_fingerprints,
+        "owner_resolution_owner_ids": context.owner_resolution_owner_ids,
+    }
+    for name, values in expected_resolution_values.items():
+        if _tuple(raw.get(name, ())) != _tuple(values):
+            findings.append(f"maturation_{name}_mismatch")
     semantic_findings = tuple(dict.fromkeys(findings))
     verified = None
     if generic.current and not semantic_findings and raw:

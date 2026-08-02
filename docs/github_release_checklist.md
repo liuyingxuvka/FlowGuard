@@ -9,6 +9,8 @@ Include:
 
 - `flowguard/`
 - `flowguard/consumer-suite-authority.json`;
+- the manifest-declared, `required_public` model sources and native runners
+  under `.flowguard/`, including the authoritative semantic self-model;
 - the exact 15 `.agents/skills/flowguard*` members declared by
   `.skillguard/flowguard-suite/suite-map.json`;
 - `docs/`
@@ -25,9 +27,11 @@ Include:
 
 ## Internal Exclude List
 
-Do not publish local maintenance artifacts:
+Do not publish local runtime maintenance artifacts:
 
-- `.flowguard/`
+- `.flowguard/evidence/`, `.flowguard/run_artifacts/`, caches, temporary
+  projections, or other runtime receipts; do not exclude manifest-declared
+  model source merely because it lives under `.flowguard/`;
 - `kb/`
 - `PLAN.md`
 - local adoption logs;
@@ -62,6 +66,26 @@ Get-ChildItem -Recurse -Force | Where-Object {
 
 ## Required Validation
 
+Before the final validation owner starts, run the read-only self-blueprint
+check:
+
+```powershell
+python -m flowguard flowguard-self-blueprint-check --root . --json
+```
+
+Require `static_status=complete`. Keep `empirical_status=not_run` as a valid,
+separate result; this release gate never launches reconstruction.
+
+Then use that exact current blueprint and implementation-inventory fingerprint
+to inventory repeated routes, branches, adapters, wrappers, helpers, and
+validation paths. Declare the observable API/CLI/state/side-effect contract,
+run ArchitectureReduction and CodeStructureRecommendation, and use
+StructureMesh for structural moves or public entrypoints. Apply only
+`safe_by_equivalence` or current `safe_by_public_facade` candidates. Every
+other candidate must be retained with an explicit reason. Re-run the affected
+parity tests after any contraction and rebuild the self-blueprint before the
+unique final full validation.
+
 Run:
 
 ```powershell
@@ -87,7 +111,7 @@ python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_valida
 
 ## Source-only Release
 
-FlowGuard v0.68.4 uses the immutable source tag as its sole release authority.
+FlowGuard v0.68.5 uses the immutable source tag as its sole release authority.
 Do not build or upload a wheel or source distribution. The GitHub Release must
 be published with zero assets.
 
@@ -117,3 +141,8 @@ Block publication if:
 - a version-matching wheel, source distribution, or GitHub Release asset exists;
 - implemented/runnable UI claims lack current UI implementation validation
   evidence.
+- release notes promote the bounded semantic self-model to clean-room
+  reconstruction or claims outside its declared model-system boundary.
+- the current self-blueprint is not statically complete, the architecture
+  candidate inventory is incomplete or stale, a contraction lacks current
+  equivalence/facade proof, or affected parity validation has not been rerun.

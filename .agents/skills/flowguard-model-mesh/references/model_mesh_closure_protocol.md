@@ -16,6 +16,14 @@ The closure model is required for a whole-flow claim: represent repeat-input tok
 blocker tokens, repair feedback, and whether the same packet can return
 without a changed token or bounded termination.
 
+For an explicit software-blueprint topology claim, keep the model-of-models
+small and relational. Give every current model a purpose disposition, identify
+which model or external owner consumes each required output, and reference the
+current implementation binding that realizes the model boundary. The
+implementation inventory and binding fingerprints are consumed references,
+not copied source semantics or a second authority graph. Missing purpose,
+consumer, or realization relations block blueprint topology closure.
+
 `review_mesh_closure_model(...)` blocks unknown tokens, unreachable required
 outputs, unconsumed child outputs, incomplete joins, terminal states with
 pending obligations, unexplained exclusions, and loops without repair/progress
@@ -66,3 +74,7 @@ while Git identity remains separate release provenance.
 Completion requires a green finite closure model, current child and layered
 evidence, legal joins/loops/exclusions, reviewed affected siblings, and one
 atomic authority transition or an explicit scoped/blocked result.
+
+Blueprint topology completion is only one input to static blueprint
+qualification. It does not establish inventory completeness, reconstruction
+semantics, or empirical reconstruction, and no reconstruction is run here.

@@ -21,13 +21,22 @@ from flowguard import (
 )
 
 
+SELF_MODEL_FINGERPRINT = "sha256:" + "1" * 64
+
+
 def _owner_proof(angle_id: str, owner_route: str) -> ProofArtifactRef:
     return ProofArtifactRef(
         artifact_id=f"proof:{angle_id}",
         producer_route=owner_route,
+        command="python .flowguard/model_angle_deliberation/run_checks.py",
+        result_path=f".flowguard/evidence/model-angle/{angle_id.replace(':', '-')}.json",
         result_status="passed",
         exit_code=0,
-        artifact_fingerprints={"self_model": "sha256:self-model-angle"},
+        started_at="2026-08-02T00:00:00+00:00",
+        finished_at="2026-08-02T00:00:01+00:00",
+        subject_id=angle_id,
+        subject_fingerprint=SELF_MODEL_FINGERPRINT,
+        artifact_fingerprints={"self_model": SELF_MODEL_FINGERPRINT},
         covered_obligation_ids=(angle_id,),
         current=True,
     )
@@ -181,7 +190,7 @@ def correct_model_angle_deliberations():
             owner_evidence=_owner_proof(
                 "self:existing-preflight", "model_maturation_loop"
             ),
-            subject_fingerprints={"self_model": "sha256:self-model-angle"},
+            subject_fingerprints={"self_model": SELF_MODEL_FINGERPRINT},
         ),
         ModelAngleDeliberation(
             "self:model-mesh-handoff",
@@ -199,7 +208,7 @@ def correct_model_angle_deliberations():
             owner_evidence=_owner_proof(
                 "self:model-mesh-handoff", "model_mesh_maintenance"
             ),
-            subject_fingerprints={"self_model": "sha256:self-model-angle"},
+            subject_fingerprints={"self_model": SELF_MODEL_FINGERPRINT},
         ),
         ModelAngleDeliberation(
             "self:no-overfix",

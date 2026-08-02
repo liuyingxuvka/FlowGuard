@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_tuple as _as_tuple
+
 from .behavior_commitment import (
     BCL_BEHAVIOR_PLANES,
     BCL_HIT_ROLE_EVIDENCE_SOURCE,
@@ -65,14 +67,6 @@ _PLANE_HINTS = {
         "development_workflow",
     },
 }
-
-
-def _as_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    if isinstance(values, str):
-        return (values,) if values else ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _tokens(*values: str) -> tuple[str, ...]:

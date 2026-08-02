@@ -6,16 +6,16 @@ description: Use when an existing large script, module, package, command, public
 # FlowGuard Structure Mesh
 
 ## Purpose
-Govern an existing-code parent/child structural split while preserving public entrypoints, facades, configuration, side effects, and observable parity.
+Govern an existing-code split while preserving public entrypoints, facades, configuration, side effects, dependency cycles, and observable parity.
 
 ## Entrypoint Scope
-Route id: `structure_mesh_maintenance`; role: `public_owner`; native owner: `structure_mesh_maintenance`. This standalone FlowGuard satellite skill owns refactor structure evidence, not behavior invention or code edits.
+This standalone FlowGuard satellite skill owns `structure_mesh_maintenance` (`public_owner`) refactor evidence, not behavior invention or code edits.
 
 ## Local Material Routing
-Read `references/structure_mesh_protocol.md` for target derivation, partition items, module/public-entrypoint evidence, routine/release scopes, and layered handoff.
+After admission, read `references/structure_mesh_protocol.md` for target derivation, partitions, evidence scopes, and handoffs.
 
 ## Entrypoint Acceptance Map
-Accept a named source model and existing parent surface; derive child ownership; block missing facade, duplicate owner, cycle/config drift, or stale parity; hand validation/freshness/risk evidence to typed owners.
+Accept a named model and existing surface; derive child ownership; block facade/owner/cycle/config/parity gaps; hand evidence to typed owners.
 
 ## Use When
 - Use for splitting large code surfaces, moving public imports/CLI/API/data/plugin entrypoints, dividing state/config/side effects, or checking dependency cycles and parity.
@@ -24,18 +24,19 @@ Accept a named source model and existing parent surface; derive child ownership;
 - Do not derive behavior requirements from scratch, recommend greenfield modules, refactor code directly, or claim parity from internal/formatting checks; return unclear models to `flowguard`.
 
 ## Required Workflow
-1. Derive target modules from a named FlowGuard model with FunctionBlock/state/side-effect/facade/validation maps.
-2. Partition functions, state, config, side effects, contracts, dependencies, public entrypoints, and facades to single owners.
-3. Attach current routine/release parity evidence and export gaps/obligations downstream.
+1. Derive target modules from a named model and its FunctionBlock/state/effect/facade/validation maps.
+2. Partition functions, state, config, effects, contracts, dependencies, public entrypoints, and facades to single owners.
+3. For blueprint scope, consume the independent inventory fingerprint and exact required ids; require one owner or terminal disposition per surface.
+4. Attach current routine/release parity and hand gaps/obligations downstream.
 
 ## Hard Gates
-- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
-- Missing model-derived target structure, public facade, owner, compatibility, or current parity blocks the matching scope.
-- Dependency/config drift and release-only gaps remain visible; new/deepened models require template harvest closure.
+- Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework.
+- Missing target structure, facade, owner, compatibility, or current parity blocks its scope. StructureMesh does not discover source; stale inventory, omitted surfaces, or fingerprint mismatch blocks blueprint closure.
+- Route ArchitectureReduction only when a concrete candidate already names its observable contract, proof, target action, and required next route.
+- Dependency/config drift and release-only gaps stay visible; new/deepened models require template harvest closure.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus a structure mesh diagram and parity status.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, parity, and a structure mesh diagram. Blueprint output adds inventory fingerprint, exact required/partitioned/dispositioned/missing ids, and closure.
 
 
 <!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

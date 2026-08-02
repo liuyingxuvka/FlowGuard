@@ -45,6 +45,7 @@ class RolloutCase:
     plan: ModelTestAlignmentPlan
     expected_ok: bool
     expected_codes: tuple[str, ...] = ()
+    expected_pre_code_status: str = ""
 
 
 def _obligation() -> ModelObligation:
@@ -109,6 +110,20 @@ def aligned_plan() -> ModelTestAlignmentPlan:
         test_evidence=(
             _evidence("test_duplicate_happy", TEST_KIND_HAPPY_PATH),
             _evidence("test_duplicate_failure", TEST_KIND_FAILURE_PATH),
+        ),
+    )
+
+
+def pre_code_design_plan() -> ModelTestAlignmentPlan:
+    """Complete obligation/oracle design with deliberately not-run execution."""
+
+    return ModelTestAlignmentPlan(
+        model_id="checkout-pre-code",
+        obligations=(_obligation(),),
+        code_contracts=(_contract(),),
+        test_evidence=(
+            _evidence("test_duplicate_happy", TEST_KIND_HAPPY_PATH, result_status="not_run"),
+            _evidence("test_duplicate_failure", TEST_KIND_FAILURE_PATH, result_status="not_run"),
         ),
     )
 
@@ -415,6 +430,23 @@ UNDERSTANDING_ALIGNMENT_ROWS = (
         "flowguard/task_coverage_demand.py",
         "compile_task_coverage_demand",
         "tests/test_task_coverage_demand.py",
+        "development_process",
+    ),
+    (
+        "canonical_owner_resolution_exact_identity",
+        "commitment:task-coverage-demand",
+        "flowguard/task_coverage_demand.py",
+        "project_owner_resolution_to_demand",
+        "tests/test_task_coverage_demand.py",
+        "development_process",
+    ),
+    (
+        "proof_artifact_requires_verifiable_material",
+        "commitment:model-maturation-receipt",
+        "flowguard/proof_artifact.py",
+        "proof_artifact_gap_codes",
+        "tests/test_proof_artifact.py",
+        "development_process",
     ),
     (
         "model_maturation_receipt_independent_verification",
@@ -422,6 +454,7 @@ UNDERSTANDING_ALIGNMENT_ROWS = (
         "flowguard/model_maturation_receipt.py",
         "verify_model_maturation_receipt",
         "tests/test_model_maturation_receipt.py",
+        "development_process",
     ),
     (
         "implementation_admission_preserves_maturation",
@@ -429,6 +462,7 @@ UNDERSTANDING_ALIGNMENT_ROWS = (
         "flowguard/development_process_flow.py",
         "review_implementation_admission",
         "tests/test_development_process_flow.py",
+        "development_process",
     ),
     (
         "risk_ledger_owns_understanding_confidence",
@@ -436,6 +470,7 @@ UNDERSTANDING_ALIGNMENT_ROWS = (
         "flowguard/risk_evidence_ledger.py",
         "review_risk_evidence_ledger",
         "tests/test_risk_evidence_ledger.py",
+        "development_process",
     ),
     (
         "closure_preserves_risk_and_receipt_identity",
@@ -443,6 +478,23 @@ UNDERSTANDING_ALIGNMENT_ROWS = (
         "flowguard/closure_contract.py",
         "review_flowguard_closure_contract",
         "tests/test_closure_contract.py",
+        "development_process",
+    ),
+    (
+        "read_only_three_axis_understanding_status",
+        "commitment:understanding-readiness-status",
+        "flowguard/understanding_readiness.py",
+        "compose_understanding_status",
+        "tests/test_understanding_readiness.py",
+        "product_runtime",
+    ),
+    (
+        "whole_system_semantic_mesh_is_not_inventory_only",
+        "commitment:authoritative-model-system",
+        ".flowguard/authoritative_model_system/semantic_self_model.py",
+        "review_semantic_self_model",
+        ".flowguard/authoritative_model_system/run_checks.py",
+        "development_process",
     ),
 )
 
@@ -462,12 +514,12 @@ def understanding_chain_alignment_plan(
                     closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
                 ),
             ),
-            behavior_plane="development_process",
+            behavior_plane=behavior_plane,
             business_intent_id=f"intent:{obligation_id}",
             behavior_commitment_id=commitment_id,
             primary_path_id=f"path:understanding:{obligation_id}",
         )
-        for obligation_id, commitment_id, _path, _symbol, _test_path in UNDERSTANDING_ALIGNMENT_ROWS
+        for obligation_id, commitment_id, _path, _symbol, _test_path, behavior_plane in UNDERSTANDING_ALIGNMENT_ROWS
     )
     contracts = tuple(
         CodeContract(
@@ -475,15 +527,15 @@ def understanding_chain_alignment_plan(
             path=path,
             symbol=symbol,
             implements_obligations=(obligation_id,),
-            behavior_plane="development_process",
+            behavior_plane=behavior_plane,
             business_intent_id=f"intent:{obligation_id}",
             behavior_commitment_id=commitment_id,
             primary_path_id=f"path:understanding:{obligation_id}",
         )
-        for obligation_id, commitment_id, path, symbol, _test_path in UNDERSTANDING_ALIGNMENT_ROWS
+        for obligation_id, commitment_id, path, symbol, _test_path, behavior_plane in UNDERSTANDING_ALIGNMENT_ROWS
     )
     evidence: list[TestEvidence] = []
-    for obligation_id, commitment_id, _path, _symbol, test_path in UNDERSTANDING_ALIGNMENT_ROWS:
+    for obligation_id, commitment_id, _path, _symbol, test_path, behavior_plane in UNDERSTANDING_ALIGNMENT_ROWS:
         contract_id = f"flowguard.{obligation_id}"
         common = {
             "path": test_path,
@@ -491,7 +543,7 @@ def understanding_chain_alignment_plan(
             "covered_obligations": (obligation_id,),
             "covered_code_contracts": (contract_id,),
             "assertion_scope": TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
-            "behavior_plane": "development_process",
+            "behavior_plane": behavior_plane,
             "business_intent_id": f"intent:{obligation_id}",
             "behavior_commitment_id": commitment_id,
             "primary_path_id": f"path:understanding:{obligation_id}",
@@ -525,6 +577,13 @@ def understanding_chain_alignment_plan(
 def rollout_cases() -> tuple[RolloutCase, ...]:
     return (
         RolloutCase("aligned_model_code_test_contracts", aligned_plan(), True),
+        RolloutCase(
+            "pre_code_design_is_ready_but_execution_is_not_run",
+            pre_code_design_plan(),
+            False,
+            ("test_evidence_not_passing",),
+            "ready",
+        ),
         RolloutCase("source_audited_real_code_claim", source_audited_plan(), True),
         RolloutCase("missing_source_audit_blocks", missing_source_audit_plan(), False, ("missing_source_audit_report",)),
         RolloutCase("counterexample_target_closure_passes", counterexample_closure_plan(True), True),
@@ -586,7 +645,11 @@ def run_rollout_review() -> tuple[tuple[str, bool, tuple[str, ...]], ...]:
         codes = tuple(finding.code for finding in report.findings)
         ok_matches = report.ok is case.expected_ok
         codes_match = all(code in codes for code in case.expected_codes)
-        results.append((case.name, ok_matches and codes_match, codes))
+        pre_code_matches = (
+            not case.expected_pre_code_status
+            or getattr(report, "pre_code_status", "") == case.expected_pre_code_status
+        )
+        results.append((case.name, ok_matches and codes_match and pre_code_matches, codes))
     return tuple(results)
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
+from ._normalization import unique_strings as _unique
 from .export import to_jsonable
 
 
@@ -37,17 +38,6 @@ def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
     if values is None:
         return ()
     return tuple(str(value) for value in values if str(value))
-
-
-def _unique(values: Sequence[str]) -> tuple[str, ...]:
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for value in values:
-        text = str(value)
-        if text and text not in seen:
-            seen.add(text)
-            ordered.append(text)
-    return tuple(ordered)
 
 
 def _slug(value: str) -> str:

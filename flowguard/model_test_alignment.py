@@ -1187,6 +1187,8 @@ class ModelTestAlignmentPlan:
     require_stable_authority_ids: bool = False
     require_behavior_plane_binding: bool = False
     scoped_similarity_reasons: Mapping[str, str] = field(default_factory=dict)
+    require_implementation_blueprint: bool = False
+    implementation_binding_report: Any | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_id", str(self.model_id))
@@ -1258,6 +1260,11 @@ class ModelTestAlignmentPlan:
             "scoped_similarity_reasons",
             {str(key): str(value) for key, value in dict(self.scoped_similarity_reasons).items()},
         )
+        object.__setattr__(
+            self,
+            "require_implementation_blueprint",
+            bool(self.require_implementation_blueprint),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1299,6 +1306,12 @@ class ModelTestAlignmentPlan:
             "require_stable_authority_ids": self.require_stable_authority_ids,
             "require_behavior_plane_binding": self.require_behavior_plane_binding,
             "scoped_similarity_reasons": to_jsonable(dict(self.scoped_similarity_reasons)),
+            "require_implementation_blueprint": self.require_implementation_blueprint,
+            "implementation_binding_report": (
+                self.implementation_binding_report.to_dict()
+                if hasattr(self.implementation_binding_report, "to_dict")
+                else to_jsonable(self.implementation_binding_report)
+            ),
         }
 
 
@@ -1446,6 +1459,13 @@ class ModelTestAlignmentReport:
     decision: str
     findings: tuple[ModelTestAlignmentFinding, ...] = ()
     binding_rows: tuple[ModelCodeTestBindingRow, ...] = ()
+    pre_code_status: str = "incomplete"
+    executed_evidence_status: str = TEST_STATUS_NOT_RUN
+    implementation_inventory_fingerprint: str = ""
+    implementation_binding_report_fingerprint: str = ""
+    implementation_surface_ids: tuple[str, ...] = ()
+    implementation_semantic_spec_ids: tuple[str, ...] = ()
+    implementation_oracle_ids: tuple[str, ...] = ()
     summary: str = ""
 
     def __post_init__(self) -> None:
@@ -1453,6 +1473,25 @@ class ModelTestAlignmentReport:
         object.__setattr__(self, "decision", str(self.decision))
         object.__setattr__(self, "findings", tuple(self.findings))
         object.__setattr__(self, "binding_rows", tuple(self.binding_rows))
+        object.__setattr__(self, "pre_code_status", str(self.pre_code_status))
+        object.__setattr__(self, "executed_evidence_status", str(self.executed_evidence_status))
+        object.__setattr__(
+            self,
+            "implementation_inventory_fingerprint",
+            str(self.implementation_inventory_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "implementation_binding_report_fingerprint",
+            str(self.implementation_binding_report_fingerprint),
+        )
+        object.__setattr__(self, "implementation_surface_ids", _unique_sorted(self.implementation_surface_ids))
+        object.__setattr__(
+            self,
+            "implementation_semantic_spec_ids",
+            _unique_sorted(self.implementation_semantic_spec_ids),
+        )
+        object.__setattr__(self, "implementation_oracle_ids", _unique_sorted(self.implementation_oracle_ids))
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -1470,6 +1509,8 @@ class ModelTestAlignmentReport:
             f"status: {'OK' if self.ok else 'BLOCKED'}",
             f"model: {self.model_id}",
             f"decision: {self.decision}",
+            f"pre_code_status: {self.pre_code_status}",
+            f"executed_evidence_status: {self.executed_evidence_status}",
             f"binding_rows: {len(self.binding_rows)}",
             f"findings: {len(self.findings)}",
         ]
@@ -1507,6 +1548,13 @@ class ModelTestAlignmentReport:
             "ok": self.ok,
             "model_id": self.model_id,
             "decision": self.decision,
+            "pre_code_status": self.pre_code_status,
+            "executed_evidence_status": self.executed_evidence_status,
+            "implementation_inventory_fingerprint": self.implementation_inventory_fingerprint,
+            "implementation_binding_report_fingerprint": self.implementation_binding_report_fingerprint,
+            "implementation_surface_ids": list(self.implementation_surface_ids),
+            "implementation_semantic_spec_ids": list(self.implementation_semantic_spec_ids),
+            "implementation_oracle_ids": list(self.implementation_oracle_ids),
             "findings": [finding.to_dict() for finding in self.findings],
             "binding_rows": [row.to_dict() for row in self.binding_rows],
             "summary": self.summary,
@@ -4297,6 +4345,151 @@ def _coverage_findings(
     return findings
 
 
+def _pre_code_design_status(plan: ModelTestAlignmentPlan) -> str:
+    """Report oracle/contract readiness without treating planned tests as executed."""
+
+    required = tuple(obligation for obligation in plan.obligations if obligation.required)
+    if not required:
+        return "incomplete"
+    owner_contracts = tuple(contract for contract in plan.code_contracts if contract.required and contract.is_owner())
+    for obligation in required:
+        implementing = tuple(
+            contract
+            for contract in owner_contracts
+            if obligation.obligation_id in contract.implements_obligations
+        )
+        if not implementing:
+            return "incomplete"
+        for test_kind in obligation.required_test_kinds:
+            designed = any(
+                evidence.test_kind == test_kind
+                and obligation.obligation_id in evidence.covered_obligations
+                and evidence.has_external_contract_assertion()
+                and any(
+                    contract.code_contract_id in evidence.covered_code_contracts
+                    for contract in implementing
+                )
+                for evidence in plan.test_evidence
+            )
+            if not designed:
+                return "incomplete"
+        for target in obligation.required_closure_targets:
+            if not any(
+                evidence.evidence_target_id == target.target_id
+                and evidence.closure_evidence_role == target.closure_evidence_role
+                and obligation.obligation_id in evidence.covered_obligations
+                for evidence in plan.test_evidence
+            ):
+                return "incomplete"
+    return "ready"
+
+
+def _executed_evidence_status(
+    plan: ModelTestAlignmentPlan,
+    blockers: Sequence[ModelTestAlignmentFinding],
+) -> str:
+    statuses = tuple(evidence.result_status for evidence in plan.test_evidence)
+    if not statuses or all(status == TEST_STATUS_NOT_RUN for status in statuses):
+        return TEST_STATUS_NOT_RUN
+    if blockers:
+        return "blocked"
+    return TEST_STATUS_PASSED
+
+
+def _implementation_blueprint_findings(
+    plan: ModelTestAlignmentPlan,
+) -> list[ModelTestAlignmentFinding]:
+    if not plan.require_implementation_blueprint:
+        return []
+    report = plan.implementation_binding_report
+    if report is None:
+        return [
+            ModelTestAlignmentFinding(
+                "missing_implementation_binding_report",
+                "blueprint alignment has no independent model-implementation binding report",
+                metadata={"model_id": plan.model_id},
+            )
+        ]
+    findings: list[ModelTestAlignmentFinding] = []
+    if not bool(getattr(report, "ok", False)):
+        native_findings = tuple(getattr(report, "findings", ()))
+        if native_findings:
+            for finding in native_findings:
+                code = str(getattr(finding, "code", "implementation_binding_blocked"))
+                findings.append(
+                    ModelTestAlignmentFinding(
+                        code,
+                        str(getattr(finding, "message", "implementation binding is blocked")),
+                        obligation_id=str(getattr(finding, "model_obligation_id", "")),
+                        metadata=(
+                            finding.to_dict()
+                            if hasattr(finding, "to_dict")
+                            else {"binding_report_fingerprint": str(getattr(report, "fingerprint", ""))}
+                        ),
+                    )
+                )
+        else:
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "implementation_binding_blocked",
+                    "the independent model-implementation binding report is not terminal green",
+                )
+            )
+    inventory_fingerprint = str(getattr(report, "inventory_fingerprint", ""))
+    report_fingerprint = str(getattr(report, "fingerprint", ""))
+    if not inventory_fingerprint:
+        findings.append(
+            ModelTestAlignmentFinding(
+                "missing_implementation_inventory_identity",
+                "implementation binding report does not bind an independent inventory fingerprint",
+            )
+        )
+    if not report_fingerprint:
+        findings.append(
+            ModelTestAlignmentFinding(
+                "missing_implementation_binding_identity",
+                "implementation binding report has no canonical fingerprint",
+            )
+        )
+    required_obligations = {
+        obligation.obligation_id for obligation in plan.obligations if obligation.required
+    }
+    bound_obligations = {
+        str(value) for value in getattr(report, "model_obligation_ids", ())
+    }
+    missing_obligations = tuple(sorted(required_obligations - bound_obligations))
+    if missing_obligations:
+        findings.append(
+            ModelTestAlignmentFinding(
+                "model_obligation_implementation_binding_missing",
+                "one or more required model obligations are absent from the implementation binding report",
+                metadata={"missing": missing_obligations},
+            )
+        )
+    if not tuple(getattr(report, "implementation_surface_ids", ())):
+        findings.append(
+            ModelTestAlignmentFinding(
+                "implementation_surface_denominator_missing",
+                "blueprint alignment has no independently inventoried implementation surfaces",
+            )
+        )
+    if not tuple(getattr(report, "semantic_spec_ids", ())):
+        findings.append(
+            ModelTestAlignmentFinding(
+                "source_independent_semantics_missing",
+                "blueprint bindings name paths but no source-independent semantic specifications",
+            )
+        )
+    if not tuple(getattr(report, "oracle_ids", ())):
+        findings.append(
+            ModelTestAlignmentFinding(
+                "implementation_oracles_missing",
+                "blueprint bindings do not identify reconstruction or behavior oracles",
+            )
+        )
+    return findings
+
+
 def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignmentReport:
     """Review explicit model obligations against code contracts and test evidence."""
 
@@ -4361,6 +4554,7 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
         findings.extend(_family_findings_as_alignment_findings(family_report.findings))
         findings.extend(_family_alignment_findings(plan))
     findings.extend(_similarity_materialization_findings(plan))
+    findings.extend(_implementation_blueprint_findings(plan))
     similarity_handoff = plan.similarity_handoff
     same_family_relation_ids = similarity_handoff.same_family_relation_ids if similarity_handoff else ()
     similarity_maintenance_group_ids = similarity_handoff.maintenance_group_ids if similarity_handoff else ()
@@ -4416,6 +4610,23 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
         decision=_decision_for_findings(findings),
         findings=tuple(findings),
         binding_rows=binding_rows,
+        pre_code_status=_pre_code_design_status(plan),
+        executed_evidence_status=_executed_evidence_status(plan, blockers),
+        implementation_inventory_fingerprint=str(
+            getattr(plan.implementation_binding_report, "inventory_fingerprint", "")
+        ),
+        implementation_binding_report_fingerprint=str(
+            getattr(plan.implementation_binding_report, "fingerprint", "")
+        ),
+        implementation_surface_ids=tuple(
+            getattr(plan.implementation_binding_report, "implementation_surface_ids", ())
+        ),
+        implementation_semantic_spec_ids=tuple(
+            getattr(plan.implementation_binding_report, "semantic_spec_ids", ())
+        ),
+        implementation_oracle_ids=tuple(
+            getattr(plan.implementation_binding_report, "oracle_ids", ())
+        ),
     )
 
 

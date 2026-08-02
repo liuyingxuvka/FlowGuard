@@ -111,12 +111,15 @@ class ValidationExecutionOwnershipTests(unittest.TestCase):
             direct = root / "flowguard" / "direct.py"
             nested = root / "flowguard" / "nested" / "deep.py"
             ignored = root / ".flowguard" / "evidence" / "run" / "noise.py"
+            lookalike = root / ".agents" / "skills" / "flowguard" / "noise.py"
             direct.parent.mkdir(parents=True)
             nested.parent.mkdir(parents=True)
             ignored.parent.mkdir(parents=True)
+            lookalike.parent.mkdir(parents=True)
             direct.write_text("DIRECT = True\n", encoding="utf-8")
             nested.write_text("DEEP = True\n", encoding="utf-8")
             ignored.write_text("NOISE = True\n", encoding="utf-8")
+            lookalike.write_text("LOOKALIKE = True\n", encoding="utf-8")
             (root / ".gitignore").write_text(
                 ".flowguard/evidence/\n",
                 encoding="utf-8",
@@ -134,6 +137,7 @@ class ValidationExecutionOwnershipTests(unittest.TestCase):
                 ".flowguard/evidence/run/noise.py",
                 paths,
             )
+            self.assertNotIn(".agents/skills/flowguard/noise.py", paths)
 
     @staticmethod
     def _repository(root: Path) -> Path:

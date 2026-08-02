@@ -423,3 +423,32 @@ The main AI route SHALL present one sequence of task facts, coverage demand, own
 #### Scenario: Ordinary tier triggers a specialist owner
 - **WHEN** ordinary task facts trigger one specialist coverage row
 - **THEN** that owner is included even though the remaining deep workflow stays not triggered
+
+### Requirement: Understanding, implementation admission, and user choice remain independent
+The AI entry path SHALL report understanding sufficiency, FlowGuard implementation admission, and user execution choice as three independent values. A user choice to proceed directly SHALL NOT upgrade understanding sufficiency or create a FlowGuard-ready result.
+
+#### Scenario: User permits direct code with unresolved understanding
+- **WHEN** the user chooses direct execution while required model coverage remains unresolved
+- **THEN** the result preserves direct-user-choice, reports unresolved understanding, and does not report FlowGuard-ready
+
+#### Scenario: User requests discussion only
+- **WHEN** the user requests no code
+- **THEN** the result reports no-code independently of the understanding status
+
+### Requirement: Lightweight use remains available
+The AI entry path SHALL permit lightweight or direct work when the caller does not request a complete FlowGuard claim, while preserving all non-waivable authorization and safety boundaries.
+
+#### Scenario: Small task uses a bounded path
+- **WHEN** a task has a declared bounded scope and no complete FlowGuard claim is requested
+- **THEN** the path can remain lightweight and its result is explicitly scoped
+
+### Requirement: Whole-software blueprint work is task-triggered rather than a selectable depth mode
+The AI entry path SHALL derive a whole-software blueprint obligation only from explicit blueprint, export, reconstruction-qualification, or owner-declared release facts. It SHALL NOT add a user-selectable `DNA` or reconstruction depth, and ordinary work SHALL continue loading only the smallest affected current owner closure.
+
+#### Scenario: User asks for an ordinary bounded code change
+- **WHEN** no whole-software blueprint or reconstruction claim is requested or required
+- **THEN** the entry path does not scan, export, or reconstruct the complete software
+
+#### Scenario: User asks for a complete portable software blueprint
+- **WHEN** the request explicitly claims or exports a whole-software blueprint
+- **THEN** the entry path triggers the existing inventory, alignment, mesh, portable, and process owners and preserves their independent results

@@ -97,6 +97,16 @@ IMPLEMENTATION_ADMISSION_READY_SCOPED = "ready_scoped"
 IMPLEMENTATION_ADMISSION_NO_CODE = "no_code_requested"
 IMPLEMENTATION_ADMISSION_BLOCKED = "blocked"
 IMPLEMENTATION_ADMISSION_STALE = "stale"
+IMPLEMENTATION_ADMISSION_NOT_REQUESTED = "not_requested"
+
+USER_EXECUTION_CHOICE_MODEL_FIRST = "model_first"
+USER_EXECUTION_CHOICE_DIRECT = "direct_user_choice"
+USER_EXECUTION_CHOICE_NO_CODE = "no_code"
+USER_EXECUTION_CHOICES = {
+    USER_EXECUTION_CHOICE_MODEL_FIRST,
+    USER_EXECUTION_CHOICE_DIRECT,
+    USER_EXECUTION_CHOICE_NO_CODE,
+}
 
 
 def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
@@ -532,6 +542,7 @@ class ImplementationAdmissionPlan:
     non_waivable_blocker_codes: tuple[str, ...] = ()
     conflicting_owner_ids: tuple[str, ...] = ()
     toolchain_available: bool = True
+    user_execution_choice: str = USER_EXECUTION_CHOICE_MODEL_FIRST
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "admission_id", str(self.admission_id))
@@ -553,6 +564,9 @@ class ImplementationAdmissionPlan:
         )
         object.__setattr__(self, "conflicting_owner_ids", _as_tuple(self.conflicting_owner_ids))
         object.__setattr__(self, "toolchain_available", bool(self.toolchain_available))
+        object.__setattr__(self, "user_execution_choice", str(self.user_execution_choice))
+        if self.user_execution_choice not in USER_EXECUTION_CHOICES:
+            raise ValueError("unknown user execution choice")
 
 
 @dataclass(frozen=True)
@@ -575,6 +589,7 @@ class ImplementationAdmissionReport:
     allowed_artifact_ids: tuple[str, ...] = ()
     allowed_path_ids: tuple[str, ...] = ()
     findings: tuple[ImplementationAdmissionFinding, ...] = ()
+    user_execution_choice: str = USER_EXECUTION_CHOICE_MODEL_FIRST
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "admission_id", str(self.admission_id))
@@ -583,6 +598,9 @@ class ImplementationAdmissionReport:
         object.__setattr__(self, "allowed_artifact_ids", _as_tuple(self.allowed_artifact_ids))
         object.__setattr__(self, "allowed_path_ids", _as_tuple(self.allowed_path_ids))
         object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "user_execution_choice", str(self.user_execution_choice))
+        if self.user_execution_choice not in USER_EXECUTION_CHOICES:
+            raise ValueError("unknown user execution choice")
 
     def implementation_ready(self) -> bool:
         return self.ok and self.status in {
@@ -595,6 +613,7 @@ class ImplementationAdmissionReport:
             "ok": self.ok,
             "admission_id": self.admission_id,
             "status": self.status,
+            "user_execution_choice": self.user_execution_choice,
             "maturation_evidence": (
                 self.maturation_evidence.to_dict() if self.maturation_evidence else None
             ),
@@ -615,16 +634,23 @@ def review_implementation_admission(
             plan.admission_id,
             IMPLEMENTATION_ADMISSION_NO_CODE,
             maturation_evidence=ref,
+            user_execution_choice=USER_EXECUTION_CHOICE_NO_CODE,
         )
+    user_choice = plan.user_execution_choice
+    if plan.authorization is not None and user_choice == USER_EXECUTION_CHOICE_MODEL_FIRST:
+        # The historical authorization object means "the user chose to proceed
+        # despite visible gaps".  Preserve that as a user choice, not as a
+        # FlowGuard maturation or admission result.
+        user_choice = USER_EXECUTION_CHOICE_DIRECT
     findings: list[ImplementationAdmissionFinding] = []
-    if ref is None:
+    if ref is None and user_choice == USER_EXECUTION_CHOICE_MODEL_FIRST:
         findings.append(
             ImplementationAdmissionFinding(
                 "missing_model_maturation_evidence",
                 "implementation admission has no task-level maturation evidence",
             )
         )
-    elif not ref.current:
+    elif ref is not None and not ref.current and user_choice == USER_EXECUTION_CHOICE_MODEL_FIRST:
         findings.append(
             ImplementationAdmissionFinding(
                 "stale_model_maturation_evidence",
@@ -662,6 +688,7 @@ def review_implementation_admission(
             allowed_action_ids=plan.requested_action_ids,
             allowed_artifact_ids=plan.requested_artifact_ids,
             allowed_path_ids=plan.requested_path_ids,
+            user_execution_choice=user_choice,
         )
     authorization = plan.authorization
     exact_authorization = bool(
@@ -680,15 +707,20 @@ def review_implementation_admission(
         and set(plan.requested_artifact_ids).issubset(set(authorization.allowed_artifact_ids))
         and set(plan.requested_path_ids).issubset(set(authorization.allowed_path_ids))
     )
+    if user_choice == USER_EXECUTION_CHOICE_DIRECT and authorization is None:
+        findings.append(
+            ImplementationAdmissionFinding(
+                "direct_user_choice_missing_authorization",
+                "direct execution choice has no exact evidence-bound user authorization",
+            )
+        )
     if exact_authorization and not hard_blocked:
         return ImplementationAdmissionReport(
             True,
             plan.admission_id,
-            IMPLEMENTATION_ADMISSION_READY_SCOPED,
+            IMPLEMENTATION_ADMISSION_NOT_REQUESTED,
             maturation_evidence=ref,
-            allowed_action_ids=plan.requested_action_ids,
-            allowed_artifact_ids=plan.requested_artifact_ids,
-            allowed_path_ids=plan.requested_path_ids,
+            user_execution_choice=USER_EXECUTION_CHOICE_DIRECT,
         )
     if authorization is not None and not exact_authorization:
         findings.append(
@@ -708,6 +740,7 @@ def review_implementation_admission(
         status,
         maturation_evidence=ref,
         findings=tuple(findings),
+        user_execution_choice=user_choice,
     )
 
 
@@ -1412,6 +1445,7 @@ def _evidence_quality_findings(evidence: ProcessEvidence, *, require_proof_artif
             required_obligation_ids=evidence.validation_requirement_ids,
             require_result_path=True,
             require_fingerprints=True,
+            require_verifiable_material=True,
         ):
             findings.append(
                 ProcessFlowFinding(
@@ -2132,9 +2166,13 @@ def derive_revalidation_plan(plan: DevelopmentProcessPlan) -> tuple[Revalidation
 __all__ = [
     "IMPLEMENTATION_ADMISSION_BLOCKED",
     "IMPLEMENTATION_ADMISSION_NO_CODE",
+    "IMPLEMENTATION_ADMISSION_NOT_REQUESTED",
     "IMPLEMENTATION_ADMISSION_READY",
     "IMPLEMENTATION_ADMISSION_READY_SCOPED",
     "IMPLEMENTATION_ADMISSION_STALE",
+    "USER_EXECUTION_CHOICE_DIRECT",
+    "USER_EXECUTION_CHOICE_MODEL_FIRST",
+    "USER_EXECUTION_CHOICE_NO_CODE",
     "PROCESS_ARTIFACT_ADAPTER",
     "PROCESS_ARTIFACT_PROCESS_OPTIMIZATION",
     "PROCESS_ARTIFACT_CODE",

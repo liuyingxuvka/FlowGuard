@@ -12,6 +12,13 @@ Discovery breadth follows the declared ledger mode. `bootstrap_ledger` and
 bounded to the affected commitment, its owner, and typed relations unless a
 concrete unregistered external behavior is found.
 
+The source inventory in this protocol is an external-promise inventory. It is
+not the software-blueprint implementation inventory. Internal production
+files, modules, symbols, helper calls, implementation dispositions, build
+internals, and developer/user activity logs remain with their native target
+model or independent implementation-inventory owner and must not be copied
+into `ledger.json`.
+
 Freeze the exact expected source ids, source-inventory revision/fingerprint,
 and discovery evidence before assigning dispositions. Every expected source
 has exactly one disposition:
@@ -80,6 +87,14 @@ project the ledger through `behavior_commitment_contract_exhaustion_plan()`.
 Pass generated case ids, shard ids, receipt ids, and risk gate ids to
 Model-Test Alignment, TestMesh, and Risk Evidence Ledger.
 
+For an explicit software-blueprint qualification, BCL contributes only its
+current ledger fingerprint and exact external commitment/source/primary-path
+ids plus unresolved external-promise gaps. The blueprint owner references that
+handoff alongside the separately owned implementation inventory and binding
+report. BCL does not discover internal implementation surfaces, decide their
+terminal dispositions, prove source-independent reconstruction semantics,
+export blueprint shards, or run reconstruction.
+
 For task-level maturation, emit a typed contribution containing only the
 triggered task's independently frozen commitment/source/path coverage,
 unresolved ledger or PPA gaps, native evidence identity, status, and
@@ -87,3 +102,7 @@ fingerprints. Preserve product roles and actors exactly as target-software
 semantics; do not create FlowGuard-global end-user, administrator, developer,
 or AI roles. The contribution informs the denominator but never declares the
 whole task understood.
+
+Ordinary ledger work remains in the affected commitment closure. The presence
+of a whole-software blueprint does not turn `change_behavior` or
+`model_miss_check` into broad discovery.

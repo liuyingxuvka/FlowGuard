@@ -1,44 +1,39 @@
 ---
 name: flowguard-behavior-commitment-ledger
-description: Use for external behavior registration, bidirectional source coverage, exactly one primary owner model, change-mode accounting, internal Primary Path Authority handoff, or broad done/release/archive/publish confidence.
+description: Use for external behavior registration, source coverage, one primary owner, change accounting, Primary Path Authority handoff, or broad confidence.
 ---
 
 # FlowGuard Behavior Commitment Ledger
 
 ## Purpose
-Maintain one `BehaviorCommitmentLedger` against an independent exact source inventory, with one disposition per source and one owner per commitment.
+Maintain one `BehaviorCommitmentLedger`: every external promise has source evidence, one disposition, one owner, and current Primary Path Authority.
 
 ## Entrypoint Scope
-This standalone FlowGuard satellite skill owns route/native owner `behavior_commitment_ledger` (`public_owner`) and the internal PPA handoff.
+This standalone FlowGuard satellite skill owns `behavior_commitment_ledger` (`public_owner`) and its PPA handoff.
 
 ## Local Material Routing
-After positive admission, read `references/behavior_commitment_ledger_protocol.md` for fields, modes, lookup, PPA, and projections.
+After admission, read `references/behavior_commitment_ledger_protocol.md` for all fields, modes, lookup, and projections.
 
 ## Entrypoint Acceptance Map
-Accept a bounded inventory/mode; register one owner per commitment; block coverage, relation, freshness, or PPA gaps; hand evidence downstream.
+Accept a bounded source inventory and mode; register ownership; block coverage, relation, freshness, or PPA gaps.
 
 ## Use When
 - Use for the six ledger modes: bootstrap, add, change, remove/replace, gap backfill, or miss check.
 
 ## Do Not Use When
-- Do not inventory helper internals or replace sibling evidence owners; return ordinary modeling to `flowguard`.
+- Do not inventory internals or replace sibling evidence owners; return ordinary modeling to `flowguard`.
 
 ## Required Workflow
-1. Define boundary/mode; derive expected sources independently from WorkContexts and native UI/field inventories.
-2. Freeze the inventory revision, fingerprint, discovery evidence, and exact expected ids before reviewing ledger dispositions.
-3. Give every source one `modeled`, `delegated`, or `scoped` disposition with owner/evidence or reason.
-4. For modeled behavior, set one `product_runtime`, `agent_operation`, or `development_process` plane plus `actor_kind`; kind is form, not plane.
-5. Give each exact same-plane intent one stable id/active commitment; equivalent surfaces map to it, never a delegate commitment.
-6. Set one owner, typed variants/relations with cross-plane rationale, lookup binding, lifecycle, and evidence.
-7. Bind one current-green `primary_path_id`; run `review_behavior_commitment_ledger()` and project DCAR/TestMesh/risk evidence.
+1. Freeze boundary, mode, inventory revision/fingerprint, discovery evidence, and exact source ids.
+2. Give every source one `modeled|delegated|scoped` disposition with evidence or reason; modeled behavior gets one plane, actor kind, stable commitment, owner, typed relations, lookup, and lifecycle.
+3. Bind one current-green `primary_path_id`; run `review_behavior_commitment_ledger()` and hand DCAR/TestMesh/risk evidence downstream.
+4. For an explicit blueprint claim, hand off only external commitment/source/path ids, owner references, and the ledger fingerprint. Internal files, symbols, helpers, implementation dispositions, and developer activity never enter BCL.
 
 ## Hard Gates
-- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks and second success paths.
-- Missing/duplicate sources, identity/evidence gaps, conflicting dispositions, owner overlap, stale PPA/shards, and untyped cross-plane relations block broad confidence.
-- Supporting, observed, and historical sources cannot displace a declared normative target. Provider status and the ledger's own candidate rows cannot prove expected-inventory completeness.
-- Cross-plane language never merges owners. `unclassified`, legacy dependencies, and ambiguous plural paths are upgrade-only blockers.
-- Broad discovery is for bootstrap or coverage-gap backfill; ordinary changes stay in the affected commitment closure.
+- Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework.
+- Missing/duplicate sources, conflicting dispositions, owner overlap, stale PPA, untyped relations, or ambiguous authority block broad confidence.
+- Broad discovery is only for bootstrap/gap backfill; ordinary changes stay affected-only.
+- BCL owns visible promises, not target roles, permissions, activity logs, internal code, resources, or implementation completeness. A blueprint may reference both independent owners by fingerprint; BCL never reconstructs software.
 
 ## Output Requirements
-- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, and commitment/source/owner/lookup/PPA status.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, and source/commitment/owner/lookup/PPA status. Blueprint handoff includes only current external ids and ledger fingerprint.

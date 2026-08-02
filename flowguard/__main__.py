@@ -337,6 +337,43 @@ def _run_model_maturation_receipt_verify_command(args: argparse.Namespace) -> in
         return 1
 
 
+def _run_model_understanding_status_command(args: argparse.Namespace) -> int:
+    from .understanding_readiness import (
+        UnderstandingReadinessInput,
+        compose_understanding_status,
+    )
+
+    def optional_artifact(path: str) -> dict[str, object]:
+        return _read_json_object(path) if path else {}
+
+    try:
+        status = compose_understanding_status(
+            UnderstandingReadinessInput(
+                task_facts=optional_artifact(args.task_facts),
+                model_identity=optional_artifact(args.model_identity),
+                coverage_demand=optional_artifact(args.coverage_demand),
+                owner_resolutions=tuple(
+                    _read_json_object(path) for path in args.owner_resolution
+                ),
+                maturation_report=optional_artifact(args.maturation_report),
+                receipt_verification=optional_artifact(args.receipt_verification),
+                implementation_admission=optional_artifact(
+                    args.implementation_admission
+                ),
+                user_choice=args.user_choice,
+                flowguard_claim_requested=args.flowguard_claim_requested,
+            )
+        )
+        _emit_payload(
+            {**status.to_dict(), "fingerprint": status.fingerprint},
+            as_json=args.json,
+        )
+        return 0 if status.ok else 1
+    except (OSError, TypeError, ValueError) as exc:
+        _emit_payload({"status": "blocked", "error": str(exc)}, as_json=args.json)
+        return 1
+
+
 def _add_model_system_parsers(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
@@ -488,6 +525,48 @@ def _add_model_maturation_parser(
     receipt.add_argument("--receipt-root", default="", help="Optional explicit receipt output directory.")
     receipt.add_argument("--json", action="store_true", help="Print canonical JSON output.")
     receipt.set_defaults(handler=_run_model_maturation_receipt_verify_command)
+
+    status = subparsers.add_parser(
+        "model-understanding-status",
+        help=(
+            "Read already-produced understanding artifacts without running "
+            "owners or publishing evidence."
+        ),
+    )
+    status.add_argument("--task-facts", default="", help="Exact TaskFacts JSON artifact.")
+    status.add_argument("--model-identity", default="", help="Exact current model identity JSON artifact.")
+    status.add_argument("--coverage-demand", default="", help="Exact TaskCoverageDemand JSON artifact.")
+    status.add_argument(
+        "--owner-resolution",
+        action="append",
+        default=[],
+        help="Exact owner-resolution JSON artifact; repeat once per demanded owner.",
+    )
+    status.add_argument("--maturation-report", default="", help="Exact maturation report JSON artifact.")
+    status.add_argument(
+        "--receipt-verification",
+        default="",
+        help="Existing independent maturation receipt-verification JSON artifact.",
+    )
+    status.add_argument(
+        "--implementation-admission",
+        default="",
+        help="Existing implementation-admission JSON artifact.",
+    )
+    status.add_argument(
+        "--user-choice",
+        choices=("model_first", "direct_user_choice", "no_code"),
+        default="model_first",
+    )
+    status.add_argument(
+        "--no-flowguard-claim",
+        action="store_false",
+        dest="flowguard_claim_requested",
+        help="Report a lightweight/direct path without claiming FlowGuard readiness.",
+    )
+    status.set_defaults(flowguard_claim_requested=True)
+    status.add_argument("--json", action="store_true", help="Print canonical JSON output.")
+    status.set_defaults(handler=_run_model_understanding_status_command)
 
 
 def _run_adoption_template() -> int:
@@ -1063,7 +1142,7 @@ def _run_simulator_command(args: argparse.Namespace) -> int:
                 "blockers": list(audit.errors),
             }
             print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) if args.json else "status: blocked\n" + "\n".join(f"blocker: {item}" for item in audit.errors))
-            return 2
+        return 2
         available_ids = tuple(
             entry.model_id
             for entry in manifest.entries
@@ -1117,6 +1196,160 @@ def _run_simulator_command(args: argparse.Namespace) -> int:
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) if args.json else f"status: invalid_input\nerror: {exc}")
         return 3
+
+
+def _blueprint_error_payload(code: str, exc: Exception) -> dict[str, object]:
+    return {
+        "ok": False,
+        "status": "invalid",
+        "findings": [
+            {
+                "code": code,
+                "message": str(exc),
+                "member_ids": [],
+                "severity": "blocked",
+            }
+        ],
+    }
+
+
+def _run_implementation_inventory_audit_command(args: argparse.Namespace) -> int:
+    from .implementation_inventory import (
+        ImplementationInventoryError,
+        audit_implementation_surface_inventory,
+    )
+
+    try:
+        report = audit_implementation_surface_inventory(args.inventory, root=args.root)
+    except (ImplementationInventoryError, OSError, ValueError) as exc:
+        _emit_payload(
+            _blueprint_error_payload("implementation_inventory_invalid", exc),
+            as_json=args.json,
+        )
+        return 2
+    _emit_payload(report.to_dict(), as_json=args.json)
+    return 0 if report.ok else 1
+
+
+def _blueprint_current_maps(args: argparse.Namespace) -> tuple[dict[str, str], ...]:
+    values: list[dict[str, str]] = []
+    for option, raw in (
+        ("--portable-owner-fingerprints", args.portable_owner_fingerprints),
+        ("--resource-fingerprints", args.resource_fingerprints),
+        ("--oracle-fingerprints", args.oracle_fingerprints),
+    ):
+        parsed = _parse_json_mapping_arg(raw, option)
+        values.append({str(key): str(value) for key, value in parsed.items()})
+    return tuple(values)
+
+
+def _load_and_qualify_blueprint(args: argparse.Namespace):
+    from .implementation_blueprint import (
+        load_model_implementation_binding_report,
+        load_reconstruction_evidence,
+        load_software_blueprint_manifest,
+        qualify_software_blueprint,
+    )
+    from .implementation_inventory import (
+        load_implementation_surface_inventory,
+        review_implementation_surface_inventory,
+    )
+
+    manifest = load_software_blueprint_manifest(args.manifest)
+    binding_report = load_model_implementation_binding_report(args.binding_report)
+    inventory = load_implementation_surface_inventory(args.inventory)
+    inventory_audit = review_implementation_surface_inventory(inventory, root=args.root)
+    if not inventory_audit.ok:
+        raise ValueError("implementation inventory audit is blocked")
+    reconstruction = (
+        load_reconstruction_evidence(args.reconstruction_evidence)
+        if args.reconstruction_evidence
+        else None
+    )
+    portable, resources, oracles = _blueprint_current_maps(args)
+    report = qualify_software_blueprint(
+        manifest,
+        binding_report,
+        implementation_inventory=inventory,
+        reconstruction_evidence=reconstruction,
+        reconstruction_required=args.require_reconstruction,
+        current_observed_snapshot_fingerprint=args.observed_snapshot_fingerprint,
+        current_semantic_mesh_fingerprint=args.semantic_mesh_fingerprint,
+        current_portable_owner_fingerprints=portable,
+        current_resource_fingerprints=resources,
+        current_oracle_fingerprints=oracles,
+    )
+    return manifest, binding_report, inventory, report
+
+
+def _run_model_blueprint_check_command(args: argparse.Namespace) -> int:
+    from .implementation_blueprint import BlueprintValidationError
+
+    try:
+        _manifest, _binding_report, _inventory, report = _load_and_qualify_blueprint(args)
+    except (BlueprintValidationError, OSError, ValueError) as exc:
+        _emit_payload(
+            _blueprint_error_payload("software_blueprint_invalid", exc),
+            as_json=args.json,
+        )
+        return 2
+    _emit_payload(report.to_dict(), as_json=args.json)
+    return 0 if report.ok else 1
+
+
+def _run_model_blueprint_export_command(args: argparse.Namespace) -> int:
+    from .implementation_blueprint import (
+        BlueprintValidationError,
+        project_software_blueprint,
+        write_software_blueprint_projection,
+    )
+
+    try:
+        manifest, binding_report, inventory, report = _load_and_qualify_blueprint(args)
+        if not report.ok:
+            _emit_payload(report.to_dict(), as_json=args.json)
+            return 1
+        projection = project_software_blueprint(
+            manifest,
+            binding_report,
+            implementation_inventory=inventory,
+        )
+        written = write_software_blueprint_projection(projection, args.output)
+    except (BlueprintValidationError, OSError, ValueError) as exc:
+        _emit_payload(
+            _blueprint_error_payload("software_blueprint_export_failed", exc),
+            as_json=args.json,
+        )
+        return 2
+    root = Path(args.output).resolve()
+    payload: dict[str, object] = {
+        "ok": True,
+        "status": "complete",
+        "blueprint_fingerprint": manifest.fingerprint,
+        "projection_fingerprint": projection.fingerprint,
+        "written_paths": [path.relative_to(root).as_posix() for path in written],
+        "reconstruction_status": report.empirical_status,
+        "claim_text": report.claim_text,
+    }
+    _emit_payload(payload, as_json=args.json)
+    return 0
+
+
+def _run_flowguard_self_blueprint_check_command(args: argparse.Namespace) -> int:
+    """Build and qualify FlowGuard's current self-blueprint without writing it."""
+
+    from .self_blueprint import FlowGuardSelfBlueprintError, build_flowguard_self_blueprint
+
+    try:
+        bundle = build_flowguard_self_blueprint(args.root)
+    except (FlowGuardSelfBlueprintError, OSError, ValueError) as exc:
+        _emit_payload(
+            _blueprint_error_payload("flowguard_self_blueprint_invalid", exc),
+            as_json=args.json,
+        )
+        return 2
+    _emit_payload(bundle.to_dict(), as_json=args.json)
+    return 0 if bundle.ok else 1
 
 
 def _print_lifecycle(payload: dict[str, object], *, as_json: bool) -> int:
@@ -1436,6 +1669,60 @@ def _add_portable_model_parsers(
     system_check.set_defaults(handler=_run_portable_system_check_command)
 
 
+def _add_implementation_blueprint_parsers(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    inventory = subparsers.add_parser(
+        "implementation-inventory-audit",
+        help="Read-only audit of one current implementation-surface inventory.",
+    )
+    inventory.add_argument("--inventory", required=True)
+    inventory.add_argument("--root", default=None, help="Optional current source root.")
+    inventory.add_argument("--json", action="store_true")
+    inventory.set_defaults(handler=_run_implementation_inventory_audit_command)
+
+    def add_blueprint_inputs(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--inventory", required=True)
+        parser.add_argument("--root", default=None, help="Optional current source root for inventory freshness.")
+        parser.add_argument("--manifest", required=True)
+        parser.add_argument("--binding-report", required=True)
+        parser.add_argument("--observed-snapshot-fingerprint", required=True)
+        parser.add_argument("--semantic-mesh-fingerprint", required=True)
+        parser.add_argument("--portable-owner-fingerprints", default="{}")
+        parser.add_argument("--resource-fingerprints", default="{}")
+        parser.add_argument("--oracle-fingerprints", default="{}")
+        parser.add_argument("--reconstruction-evidence", default="")
+        parser.add_argument(
+            "--require-reconstruction",
+            action="store_true",
+            help="Require a supplied passing receipt; never launches reconstruction.",
+        )
+        parser.add_argument("--json", action="store_true")
+
+    check = subparsers.add_parser(
+        "model-blueprint-check",
+        help="Read-only static/empirical blueprint qualification; never rebuilds software.",
+    )
+    add_blueprint_inputs(check)
+    check.set_defaults(handler=_run_model_blueprint_check_command)
+
+    export = subparsers.add_parser(
+        "model-blueprint-export",
+        help="Explicitly write one current deterministic blueprint projection.",
+    )
+    add_blueprint_inputs(export)
+    export.add_argument("--output", required=True)
+    export.set_defaults(handler=_run_model_blueprint_export_command)
+
+    self_check = subparsers.add_parser(
+        "flowguard-self-blueprint-check",
+        help="Read-only audit of FlowGuard's current checked-in self-blueprint.",
+    )
+    self_check.add_argument("--root", default=".", help="FlowGuard repository root.")
+    self_check.add_argument("--json", action="store_true")
+    self_check.set_defaults(handler=_run_flowguard_self_blueprint_check_command)
+
+
 def _add_simulator_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
@@ -1513,6 +1800,7 @@ def main(argv: list[str] | None = None) -> int:
     _add_risk_template_harvest_review_parser(subparsers)
     _add_work_context_parser(subparsers)
     _add_portable_model_parsers(subparsers)
+    _add_implementation_blueprint_parsers(subparsers)
     _add_simulator_parser(subparsers)
     _add_evidence_lifecycle_parsers(subparsers)
     _add_model_system_parsers(subparsers)

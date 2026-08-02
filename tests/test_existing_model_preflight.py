@@ -19,7 +19,20 @@ from flowguard import (
     REUSE_DECISION_NO_MODEL_FOUND,
     REUSE_DECISION_REUSE_EXISTING,
     REUSE_DECISION_SKIP,
+    TASK_FACT_DISPOSITION_OMITTED,
+    TASK_FACT_SOURCE_CURRENT_MODEL,
+    TASK_FACT_SOURCE_LIFECYCLE,
+    TASK_FACT_SOURCE_PUBLIC_SURFACE,
+    TASK_FACT_SOURCE_REQUEST,
+    TaskFactSourceSnapshot,
+    TaskFacts,
+    compile_task_coverage_demand,
+    existing_model_preflight_projection_obligation_ids,
     existing_model_preflight_from_project,
+    project_existing_model_preflight_maturation_contribution,
+    project_existing_model_preflight_blueprint_handoff,
+    project_existing_model_preflight_resolution,
+    project_existing_model_preflight_to_task_facts,
     review_existing_model_preflight,
 )
 from flowguard.existing_model_preflight import (
@@ -46,6 +59,208 @@ def model_hit(**kwargs) -> ModelContextHit:
 
 
 class ExistingModelPreflightTests(unittest.TestCase):
+    def _green_preflight_report(self):
+        hit = model_hit()
+        preflight = ExistingModelPreflight(
+            "preflight:blueprint",
+            "qualify the whole-software blueprint",
+            model_search_performed=True,
+            search_paths=(".flowguard",),
+            relevant_models=(hit,),
+            ownership_snapshot=ExistingOwnershipSnapshot(
+                function_block_owners=(("RouteTask", hit.model_id),),
+                public_entrypoint_owners=(("router.dispatch", hit.model_id),),
+            ),
+            reuse_decision=REUSE_DECISION_REUSE_EXISTING,
+            downstream_routes=("model_test_alignment",),
+            rationale="reuse current owner",
+        )
+        return review_existing_model_preflight(preflight)
+
+    def test_ordinary_preflight_does_not_require_or_load_whole_software_inventory(self):
+        report = self._green_preflight_report()
+        handoff = project_existing_model_preflight_blueprint_handoff(
+            report,
+            blueprint_requested=False,
+        )
+        self.assertTrue(handoff.ok)
+        self.assertFalse(handoff.blueprint_requested)
+        self.assertEqual("", handoff.implementation_inventory_fingerprint)
+        self.assertEqual(("model_first_function_flow",), handoff.downstream_owner_routes)
+
+    def test_blueprint_preflight_binds_independent_inventory_identity(self):
+        report = self._green_preflight_report()
+        inventory = SimpleNamespace(
+            ok=True,
+            inventory_fingerprint="sha256:inventory",
+            required_surface_ids=("surface:router.dispatch",),
+            findings=(),
+        )
+        handoff = project_existing_model_preflight_blueprint_handoff(
+            report,
+            blueprint_requested=True,
+            implementation_inventory_report=inventory,
+        )
+        self.assertTrue(handoff.ok)
+        self.assertEqual("sha256:inventory", handoff.implementation_inventory_fingerprint)
+        self.assertEqual(("surface:router.dispatch",), handoff.implementation_surface_ids)
+        self.assertIn("model_test_alignment", handoff.downstream_owner_routes)
+
+    def test_blueprint_preflight_cannot_treat_missing_inventory_as_complete(self):
+        handoff = project_existing_model_preflight_blueprint_handoff(
+            self._green_preflight_report(),
+            blueprint_requested=True,
+        )
+        self.assertFalse(handoff.ok)
+        self.assertIn("implementation_inventory:missing", handoff.unresolved_surface_ids)
+
+    def _base_task_facts_without_current_model(self) -> TaskFacts:
+        return TaskFacts(
+            "task:preflight-projection",
+            "change the current router entrypoint",
+            implementation_requested=True,
+            source_snapshots=tuple(
+                TaskFactSourceSnapshot(
+                    source_plane,
+                    f"artifact:{source_plane}",
+                    "sha256:"
+                    + source_plane.encode("utf-8").hex().ljust(64, "0")[:64],
+                )
+                for source_plane in (
+                    TASK_FACT_SOURCE_REQUEST,
+                    TASK_FACT_SOURCE_PUBLIC_SURFACE,
+                    TASK_FACT_SOURCE_LIFECYCLE,
+                )
+            ),
+        )
+
+    def _preflight_proof(
+        self,
+        preflight: ExistingModelPreflight,
+        report,
+    ) -> ProofArtifactRef:
+        return ProofArtifactRef(
+            "proof:existing-model-preflight",
+            producer_route="existing_model_preflight",
+            command="python -m pytest tests/test_existing_model_preflight.py -q",
+            result_path="tmp/existing-model-preflight.json",
+            result_status="passed",
+            exit_code=0,
+            started_at="2026-08-02T00:00:00+00:00",
+            finished_at="2026-08-02T00:00:01+00:00",
+            subject_id=preflight.preflight_id,
+            subject_fingerprint=report.fingerprint,
+            artifact_fingerprints={"report": report.fingerprint},
+            covered_obligation_ids=existing_model_preflight_projection_obligation_ids(
+                preflight, report
+            ),
+        )
+
+    def test_standard_projection_preserves_preflight_facts_resolution_and_maturation(self):
+        hit = model_hit()
+        preflight = ExistingModelPreflight(
+            "preflight:projection",
+            "change the current router entrypoint",
+            mode="full",
+            model_search_performed=True,
+            search_paths=(".flowguard",),
+            relevant_models=(hit,),
+            ownership_snapshot=ExistingOwnershipSnapshot(
+                function_block_owners=(("RouteTask", hit.model_id),),
+                public_entrypoint_owners=(("router.dispatch", hit.model_id),),
+            ),
+            reuse_decision=REUSE_DECISION_REUSE_EXISTING,
+            downstream_routes=("development_process_flow",),
+            rationale="Reuse the current router owner.",
+        )
+        report = review_existing_model_preflight(preflight)
+        self.assertTrue(report.ok)
+        proof = self._preflight_proof(preflight, report)
+
+        facts = project_existing_model_preflight_to_task_facts(
+            self._base_task_facts_without_current_model(),
+            preflight,
+            report,
+            proof,
+        )
+        self.assertIn(hit.model_id, facts.related_model_ids)
+        current_snapshot = next(
+            value
+            for value in facts.source_snapshots
+            if value.source_plane == TASK_FACT_SOURCE_CURRENT_MODEL
+        )
+        self.assertEqual(report.fingerprint, current_snapshot.source_fingerprint)
+        self.assertIn(
+            "entrypoint:router.dispatch",
+            {value.fact_id for value in facts.fact_observations},
+        )
+
+        demand = compile_task_coverage_demand(facts)
+        resolution = project_existing_model_preflight_resolution(
+            facts, demand, preflight, report, proof
+        )
+        self.assertEqual("satisfied", resolution.disposition)
+        contribution = project_existing_model_preflight_maturation_contribution(
+            facts,
+            demand,
+            preflight,
+            report,
+            proof,
+            candidate_model_fingerprint="candidate:router",
+        )
+        self.assertEqual(resolution.resolution_id, contribution.owner_resolution.resolution_id)
+        self.assertTrue(
+            contribution.evidence_is_current(
+                demand=demand,
+                candidate_model_fingerprint="candidate:router",
+            )
+        )
+
+    def test_missing_preflight_surface_remains_omitted_and_blocks_resolution(self):
+        hit = model_hit()
+        preflight = ExistingModelPreflight(
+            "preflight:missing-surface",
+            "change every current router surface",
+            mode="full",
+            model_search_performed=True,
+            search_paths=(".flowguard",),
+            relevant_models=(hit,),
+            ownership_snapshot=ExistingOwnershipSnapshot(
+                function_block_owners=(("RouteTask", hit.model_id),),
+            ),
+            reuse_decision=REUSE_DECISION_REUSE_EXISTING,
+            downstream_routes=("development_process_flow",),
+            rationale="Reuse the current router owner.",
+            affected_business_intent_id="intent:router",
+            selected_commitment_id="commitment:router",
+            selected_primary_path_id="path:router",
+            expected_surface_ids=("cli:missing",),
+            require_complete_surface_inventory=True,
+            surface_inventory_revision="surface-revision:1",
+            surface_inventory_evidence_ids=("evidence:surface-inventory",),
+        )
+        report = review_existing_model_preflight(preflight)
+        self.assertFalse(report.ok)
+        proof = self._preflight_proof(preflight, report)
+        facts = project_existing_model_preflight_to_task_facts(
+            self._base_task_facts_without_current_model(),
+            preflight,
+            report,
+            proof,
+        )
+        omitted = next(
+            value
+            for value in facts.fact_observations
+            if value.fact_id == "surface:cli:missing"
+        )
+        self.assertEqual(TASK_FACT_DISPOSITION_OMITTED, omitted.disposition)
+        demand = compile_task_coverage_demand(facts)
+        resolution = project_existing_model_preflight_resolution(
+            facts, demand, preflight, report, proof
+        )
+        self.assertEqual("blocked", resolution.disposition)
+        self.assertTrue(resolution.blocker_codes)
+
     def owner_projection_report(self, owner_id: str, *models: ModelContextHit):
         return review_existing_model_preflight(
             ExistingModelPreflight(
@@ -418,8 +633,14 @@ class ExistingModelPreflightTests(unittest.TestCase):
                     owner_evidence=ProofArtifactRef(
                         "proof:ai-routing",
                         producer_route=MODEL_ANGLE_ROUTE_MODEL_MATURATION,
+                        command="python -m pytest tests/test_existing_model_preflight.py",
+                        result_path=".flowguard/evidence/existing-model-preflight.json",
                         result_status="passed",
                         exit_code=0,
+                        started_at="2026-08-02T00:00:00+00:00",
+                        finished_at="2026-08-02T00:00:01+00:00",
+                        subject_id="model:router-model",
+                        subject_fingerprint="sha256:router-model",
                         artifact_fingerprints={"model": "sha256:router-model"},
                         covered_obligation_ids=("angle:ai-routing",),
                     ),

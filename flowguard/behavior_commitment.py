@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_tuple as _as_tuple
+
 from .contract_exhaustion import (
     CONTRACT_ORACLE_BLOCK_BEFORE_DOWNSTREAM,
     ContractAxis,
@@ -309,14 +311,6 @@ BCL_EXTERNAL_DIFFERENCE_KINDS = (
     BCL_EXTERNAL_DIFFERENCE_FAILURE_BOUNDARY,
     BCL_EXTERNAL_DIFFERENCE_PUBLIC_SURFACE,
 )
-
-
-def _as_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    if isinstance(values, str):
-        return (values,) if values else ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _metadata(values: Mapping[str, Any] | None) -> dict[str, Any]:

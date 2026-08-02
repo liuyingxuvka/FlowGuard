@@ -13,6 +13,7 @@ import json
 from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Any, Iterable, Mapping, Sequence
 
+from ._normalization import unique_strings as _unique
 from .export import to_jsonable
 
 
@@ -103,17 +104,6 @@ def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
     if values is None:
         return ()
     return tuple(str(value) for value in values if str(value))
-
-
-def _unique(values: Iterable[str]) -> tuple[str, ...]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for value in values:
-        text = str(value)
-        if text and text not in seen:
-            seen.add(text)
-            result.append(text)
-    return tuple(result)
 
 
 def _value_text(value: Any) -> str:

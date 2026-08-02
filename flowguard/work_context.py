@@ -15,6 +15,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
+from ._normalization import string_tuple as _string_tuple
 from .model_authority import SUBJECT_NORMATIVE_TARGET
 
 
@@ -52,14 +53,6 @@ def _wire_hash(value: bytes) -> str:
 
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-
-
-def _string_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    if isinstance(values, str):
-        return (values,) if values else ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _bounded_path(project_root: Path, path: Path, label: str) -> Path:

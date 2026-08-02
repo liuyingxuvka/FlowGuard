@@ -133,6 +133,12 @@
             "rationale": "The development-process ledger registers the product-runtime CLI promise without becoming its command owner.",
             "relation_type": "governs",
             "target_commitment_id": "commitment:flowguard-template-cli-dispatch"
+          },
+          {
+            "metadata": {},
+            "rationale": "The development-process ledger registers the read-only product status promise without owning its projection.",
+            "relation_type": "governs",
+            "target_commitment_id": "commitment:understanding-readiness-status"
           }
         ],
         "replacement_state": "active",
@@ -2150,6 +2156,12 @@
             "relation_type": "depends_on",
             "rationale": "The understanding chain preserves typed ownership and evidence flow.",
             "metadata": {}
+          },
+          {
+            "target_commitment_id": "commitment:understanding-readiness-status",
+            "relation_type": "governs",
+            "rationale": "The development-process admission decision is presented by the product-runtime status without transferring admission ownership.",
+            "metadata": {}
           }
         ],
         "lookup_binding": {
@@ -2624,6 +2636,130 @@
         "metadata": {
           "implementation_owner": "flowguard/closure_contract.py"
         }
+      },
+      {
+        "commitment_id": "commitment:understanding-readiness-status",
+        "business_intent_id": "intent:understanding-readiness-read-only-projection",
+        "label": "FlowGuard reports understanding depth, user choice, and implementation admission as separate read-only answers",
+        "commitment_kind": "workflow",
+        "behavior_plane": "product_runtime",
+        "actor_kind": "developer",
+        "actor": "FlowGuard CLI or API user",
+        "trigger": "a user or AI asks what FlowGuard currently understands and whether FlowGuard itself admits implementation",
+        "expected_result": "one deterministic status reports understanding sufficiency, user execution choice, and FlowGuard implementation admission independently from exact supplied artifacts",
+        "failure_boundary": "missing, stale, mismatched, duplicate, or unverified artifacts remain visible; the status path never runs owners, resumes checks, publishes receipts, changes authority, or writes files",
+        "preconditions": [],
+        "expected_terminal": "one deterministic three-axis status is returned with exact identities, gaps, blockers, and mismatches",
+        "state_writes": [],
+        "side_effects": [],
+        "variant_of_business_intent_id": "",
+        "external_differences": [],
+        "similarity_relation_ids": [],
+        "similarity_obligation_ids": [],
+        "surface_delegation_only": false,
+        "source_surface_ids": [
+          "surface:understanding:readiness-status-api",
+          "surface:understanding:readiness-status-cli"
+        ],
+        "source_refs": [
+          "flowguard/understanding_readiness.py",
+          "flowguard/__main__.py"
+        ],
+        "primary_owner_model_id": ".flowguard/model_mesh_closure_model/model.py",
+        "supporting_model_ids": [
+          ".flowguard/task_coverage_demand/model.py",
+          ".flowguard/model_maturation_loop/model.py",
+          ".flowguard/development_process_flow/model.py"
+        ],
+        "child_model_ids": [],
+        "relations": [],
+        "lookup_binding": {
+          "task_terms": [
+            "model understanding status",
+            "understanding depth",
+            "ready to code",
+            "three axis status"
+          ],
+          "path_patterns": [
+            "flowguard/understanding_readiness.py",
+            "flowguard/__main__.py",
+            "tests/test_understanding_readiness.py"
+          ],
+          "tool_ids": [
+            "model-understanding-status",
+            "compose_understanding_status"
+          ],
+          "error_signatures": [],
+          "workflow_families": [
+            "model_first_understanding",
+            "implementation_admission"
+          ],
+          "metadata": {}
+        },
+        "excluded_behavior_ids": [],
+        "replacement_state": "active",
+        "model_sync_state": "owner_model_current",
+        "miss_origin_state": "no_miss",
+        "path_authority": {
+          "path_sensitive": false,
+          "business_intent": "",
+          "business_intent_id": "",
+          "behavior_commitment_id": "",
+          "ppa_report_id": "",
+          "ppa_decision": "",
+          "ppa_confidence": "",
+          "ppa_ok": null,
+          "primary_path_id": "",
+          "fallback_candidate_ids": [],
+          "ppa_coverage_receipt_ids": [],
+          "ppa_coverage_shard_ids": [],
+          "ppa_risk_gate_ids": [],
+          "scoped_out_reason": "",
+          "evidence_refs": [],
+          "runtime_observation_ids": [],
+          "proof_artifact_ids": [],
+          "evidence_current": false,
+          "metadata": {}
+        },
+        "evidence": {
+          "model_obligation_ids": [
+            "obligation:model_mesh_closure_model:read-only-three-axis-status"
+          ],
+          "code_contract_ids": [
+            "contract:compose-understanding-status-read-only"
+          ],
+          "test_evidence_ids": [
+            "tests/test_understanding_readiness.py",
+            ".flowguard/model_mesh_closure_model/run_checks.py"
+          ],
+          "proof_artifact_ids": [
+            "proof:understanding:readiness-status"
+          ],
+          "risk_gate_ids": [
+            "risk_gate:understanding:readiness-status"
+          ],
+          "coverage_case_ids": [
+            "case:understanding:readiness-status:current"
+          ],
+          "coverage_shard_ids": [
+            "shard:understanding:readiness-status"
+          ],
+          "coverage_receipt_ids": [
+            "receipt:understanding:readiness-status"
+          ],
+          "evidence_state": "current_pass",
+          "test_mesh_state": "shard_current",
+          "current": true,
+          "metadata": {}
+        },
+        "in_scope": true,
+        "scoped_out_reason": "",
+        "owner": "",
+        "validation_boundary": "the pure composer, explicit-path CLI, exact identity continuity, no-write test, closure meta-model, and release evidence",
+        "rationale": "This registers a FlowGuard product-runtime status promise. It does not register target-application users, roles, accounts, or permissions.",
+        "metadata": {
+          "implementation_owner": "flowguard/understanding_readiness.py"
+        }
       }
     ],
     "current_revision": "flowguard-self-maintenance-current-understanding-readiness",
@@ -2646,7 +2782,8 @@
       "intent:model-maturation-receipt-verified",
       "intent:implementation-admission-separate",
       "intent:understanding-confidence-owned-by-risk-ledger",
-      "intent:understanding-closure-integrity"
+      "intent:understanding-closure-integrity",
+      "intent:understanding-readiness-read-only-projection"
     ],
     "expected_commitment_ids": [
       "commitment:behavior-ledger-current",
@@ -2667,7 +2804,8 @@
       "commitment:model-maturation-receipt",
       "commitment:implementation-admission",
       "commitment:understanding-confidence",
-      "commitment:understanding-closure-integrity"
+      "commitment:understanding-closure-integrity",
+      "commitment:understanding-readiness-status"
     ],
     "expected_source_surface_ids": [
       "surface:project-rules:behavior-ledger-current",
@@ -2717,7 +2855,9 @@
       "surface:understanding:model-maturation-receipt",
       "surface:understanding:implementation-admission",
       "surface:understanding:understanding-confidence",
-      "surface:understanding:understanding-closure-integrity"
+      "surface:understanding:understanding-closure-integrity",
+      "surface:understanding:readiness-status-api",
+      "surface:understanding:readiness-status-cli"
     ],
     "ledger_id": "flowguard-self-maintenance-ledger",
     "metadata": {
@@ -2736,10 +2876,10 @@
     "require_current_evidence": true,
     "require_risk_gates_for_broad_claim": true,
     "source_inventory_evidence_ids": [
-      "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+      "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
     ],
-    "source_inventory_fingerprint": "sha256:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
-    "source_inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+    "source_inventory_fingerprint": "sha256:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
+    "source_inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
     "source_surfaces": [
       {
         "business_intent_ids": [
@@ -2755,11 +2895,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "project rules",
         "metadata": {},
         "native_artifact_id": "AGENTS.md#FlowGuard Project Rules",
@@ -2791,11 +2931,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "project rules",
         "metadata": {},
         "native_artifact_id": "AGENTS.md#FlowGuard Project Rules",
@@ -2827,11 +2967,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "agents snippet",
         "metadata": {},
         "native_artifact_id": "docs/agents_snippet.md#Hard Gates",
@@ -2856,18 +2996,18 @@
         "commitment_ids": [
           "commitment:behavior-ledger-current"
         ],
-        "content_fingerprint": "sha256:91ad8cf00ebcd996cfa4312c94ab10ab96334bbe81e297883a5169a5242a5c00",
+        "content_fingerprint": "sha256:6fe84a47190a508dc0e5b36074cb6f908e0c88e566453597860a30310a71fc42",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:6398f9fbb1b3c317148a8b942a8997beecd946c5213bd0262788f4bd5a9bb255",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl skill",
         "metadata": {},
         "native_artifact_id": ".agents/skills/flowguard-behavior-commitment-ledger/SKILL.md",
@@ -2892,18 +3032,18 @@
         "commitment_ids": [
           "commitment:ordinary-ui-content-admission"
         ],
-        "content_fingerprint": "sha256:9190629e6ac0eb86b68c6c07b2e1c0847eb08d42f38042b6258f08591d74ea01",
+        "content_fingerprint": "sha256:f23a9eb9df65c7dfc71566f28d557a7332a9f89dcff137d81dc743667f612616",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:ad2e0cfdc4363f4668032a6e9d108634c7d2a345da47dd8ef9ee880e5fb647c1",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "ui content visibility openspec",
         "metadata": {},
         "native_artifact_id": "openspec/specs/flowguard-ui-flow-structure/spec.md",
@@ -2928,18 +3068,18 @@
         "commitment_ids": [
           "commitment:ordinary-ui-content-admission"
         ],
-        "content_fingerprint": "sha256:0eb2330098cb7a0bf6196b4403b21bc186b797de6c9aa75749701a3a619bb191",
+        "content_fingerprint": "sha256:5ef03113c58f93999dbaf02417e718f94673d27ad56bcdc6a34bca11eb667c84",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:ad2e0cfdc4363f4668032a6e9d108634c7d2a345da47dd8ef9ee880e5fb647c1",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "ui flow structure skill",
         "metadata": {},
         "native_artifact_id": ".agents/skills/flowguard-ui-flow-structure/SKILL.md",
@@ -2971,11 +3111,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "ui content visibility models",
         "metadata": {},
         "native_artifact_id": ".flowguard/ui_flow_structure_skill/model.py; .flowguard/harden_ui_real_surface_validation/model.py",
@@ -3007,11 +3147,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "read-only official OpenSpec context executable model",
         "metadata": {},
         "native_artifact_id": ".flowguard/work_context/model.py; .flowguard/work_context/run_checks.py",
@@ -3043,11 +3183,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "read-only official OpenSpec context implementation",
         "metadata": {},
         "native_artifact_id": "flowguard/work_context.py; flowguard/work_context_adapters/openspec.py; flowguard/work_context_adapters/declared_files.py",
@@ -3079,11 +3219,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "read-only official OpenSpec context and CLI tests",
         "metadata": {},
         "native_artifact_id": "tests/test_work_context.py; tests/test_existing_model_preflight.py; tests/test_plan_detailing.py; tests/test_development_process_flow.py",
@@ -3115,11 +3255,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "conditional development-process optimization executable model",
         "metadata": {},
         "native_artifact_id": ".flowguard/development_process_strategy/model.py; .flowguard/development_process_strategy/run_checks.py",
@@ -3151,11 +3291,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "development-process optimization implementation and owner projections",
         "metadata": {},
         "native_artifact_id": "flowguard/development_process_strategy.py; flowguard/development_process_flow.py; flowguard/work_context.py; flowguard/plan_detailing.py",
@@ -3187,11 +3327,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "development-process optimization focused and trajectory tests",
         "metadata": {},
         "native_artifact_id": "tests/test_development_process_strategy.py; tests/test_development_process_flow.py; tests/test_work_context.py; tests/test_plan_detailing.py",
@@ -3223,11 +3363,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "ui content visibility tests",
         "metadata": {},
         "native_artifact_id": ".flowguard/ui_flow_structure_skill/run_checks.py; .flowguard/harden_ui_real_surface_validation/run_checks.py; tests/test_ui_structure.py; tests/test_behavior_commitment_ledger.py",
@@ -3252,18 +3392,18 @@
         "commitment_ids": [
           "commitment:behavior-dcar-full-axis"
         ],
-        "content_fingerprint": "sha256:3da31ac45b9c0dd5c55d063182f1ed6ab8320b5cc7eb71b86e04fcfe5b17d1db",
+        "content_fingerprint": "sha256:c05158c55fcb3d6f3ab4bda90edc5fd3e92e2388d8f91d1e19baf6abafc3918e",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:1d226f32d386fd2a06ebfd569c359d74b4987f9ec8502610f7bfc8f0289e9c93",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "contract exhaustion skill",
         "metadata": {},
         "native_artifact_id": ".agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md",
@@ -3288,18 +3428,18 @@
         "commitment_ids": [
           "commitment:test-mesh-current-for-bcl"
         ],
-        "content_fingerprint": "sha256:c4b4db23bd2c3c659707f2259968571e16c911b4560da4d344a3e7d463df0f63",
+        "content_fingerprint": "sha256:b9308373ce643031b4f3e71f2fa02ca3d8495d3297ee0f6f4c3c8fb9d86f7b6b",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:83bfa09535dbac8144f2d9ced490039bf776727a4f3243c3b140c0902746f12a",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "test mesh skill",
         "metadata": {},
         "native_artifact_id": ".agents/skills/flowguard-test-mesh/SKILL.md",
@@ -3324,18 +3464,18 @@
         "commitment_ids": [
           "commitment:model-miss-backfeeds-existing-commitment"
         ],
-        "content_fingerprint": "sha256:73506f9790db7b7cca9829ae059583124d549e4d61452f128243790840335835",
+        "content_fingerprint": "sha256:cc56b339cc98075c4cca14cd7ae0bf40925d9e9e77fba377a43c9b9dacded930",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:8ebd1736cbb707b7765d465d4dafdedd5dd42dd67fa943182d78c0b0b7fe8ff4",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "model miss skill",
         "metadata": {},
         "native_artifact_id": ".agents/skills/flowguard-model-miss-review/SKILL.md",
@@ -3360,18 +3500,18 @@
         "commitment_ids": [
           "commitment:model-miss-backfeeds-existing-commitment"
         ],
-        "content_fingerprint": "sha256:51609400b36d583690fbe45d1107d9d4be8fd9bc43c2fd3295f4555ef1e0a0c5",
+        "content_fingerprint": "sha256:593700c5b58ffb2f79034cf7fd7818569aba9c0a2e940d15d52453fb5ebc3c75",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:8ebd1736cbb707b7765d465d4dafdedd5dd42dd67fa943182d78c0b0b7fe8ff4",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "existing model preflight skill",
         "metadata": {},
         "native_artifact_id": ".agents/skills/flowguard-existing-model-preflight/SKILL.md",
@@ -3396,18 +3536,18 @@
         "commitment_ids": [
           "commitment:behavior-ledger-current"
         ],
-        "content_fingerprint": "sha256:382d5382291a5cef9ecfb4697143476d093a7489405cdf8abba247f04e7a2e37",
+        "content_fingerprint": "sha256:596a6e706f373ec73014235800a903f998181fb219cf58fb770bd44d7279c519",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:6398f9fbb1b3c317148a8b942a8997beecd946c5213bd0262788f4bd5a9bb255",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl open spec",
         "metadata": {},
         "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md",
@@ -3432,18 +3572,18 @@
         "commitment_ids": [
           "commitment:behavior-dcar-full-axis"
         ],
-        "content_fingerprint": "sha256:382d5382291a5cef9ecfb4697143476d093a7489405cdf8abba247f04e7a2e37",
+        "content_fingerprint": "sha256:596a6e706f373ec73014235800a903f998181fb219cf58fb770bd44d7279c519",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:1d226f32d386fd2a06ebfd569c359d74b4987f9ec8502610f7bfc8f0289e9c93",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl open spec",
         "metadata": {},
         "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md",
@@ -3468,18 +3608,18 @@
         "commitment_ids": [
           "commitment:model-miss-backfeeds-existing-commitment"
         ],
-        "content_fingerprint": "sha256:382d5382291a5cef9ecfb4697143476d093a7489405cdf8abba247f04e7a2e37",
+        "content_fingerprint": "sha256:596a6e706f373ec73014235800a903f998181fb219cf58fb770bd44d7279c519",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:8ebd1736cbb707b7765d465d4dafdedd5dd42dd67fa943182d78c0b0b7fe8ff4",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl open spec",
         "metadata": {},
         "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md",
@@ -3504,18 +3644,18 @@
         "commitment_ids": [
           "commitment:self-maintenance-child-gates"
         ],
-        "content_fingerprint": "sha256:382d5382291a5cef9ecfb4697143476d093a7489405cdf8abba247f04e7a2e37",
+        "content_fingerprint": "sha256:596a6e706f373ec73014235800a903f998181fb219cf58fb770bd44d7279c519",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:ad3be556e4bf05a1a0de09485cb2a06bd56c5811923f2c43e0e2770478784d5c",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl open spec",
         "metadata": {},
         "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md",
@@ -3540,18 +3680,18 @@
         "commitment_ids": [
           "commitment:single-path-replacement-disposition"
         ],
-        "content_fingerprint": "sha256:382d5382291a5cef9ecfb4697143476d093a7489405cdf8abba247f04e7a2e37",
+        "content_fingerprint": "sha256:596a6e706f373ec73014235800a903f998181fb219cf58fb770bd44d7279c519",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:36ea7b9f7bf8d05919f31b691e921e7364bc443629029b25959f32d59e86d37b",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl open spec",
         "metadata": {},
         "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md",
@@ -3576,18 +3716,18 @@
         "commitment_ids": [
           "commitment:behavior-ledger-current"
         ],
-        "content_fingerprint": "sha256:72201eefa8cbed5ce871be52d73eb2fddc64d803b26a9910ef33a977e4ef7386",
+        "content_fingerprint": "sha256:f23384043dd46b29b1e74d013b1cd363d482bc5d8bdc6e11c401cc3620b53dbd",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:6398f9fbb1b3c317148a8b942a8997beecd946c5213bd0262788f4bd5a9bb255",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl code",
         "metadata": {},
         "native_artifact_id": "flowguard/behavior_commitment.py",
@@ -3612,18 +3752,18 @@
         "commitment_ids": [
           "commitment:behavior-dcar-full-axis"
         ],
-        "content_fingerprint": "sha256:72201eefa8cbed5ce871be52d73eb2fddc64d803b26a9910ef33a977e4ef7386",
+        "content_fingerprint": "sha256:f23384043dd46b29b1e74d013b1cd363d482bc5d8bdc6e11c401cc3620b53dbd",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:1d226f32d386fd2a06ebfd569c359d74b4987f9ec8502610f7bfc8f0289e9c93",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl code",
         "metadata": {},
         "native_artifact_id": "flowguard/behavior_commitment.py",
@@ -3648,18 +3788,18 @@
         "commitment_ids": [
           "commitment:test-mesh-current-for-bcl"
         ],
-        "content_fingerprint": "sha256:72201eefa8cbed5ce871be52d73eb2fddc64d803b26a9910ef33a977e4ef7386",
+        "content_fingerprint": "sha256:f23384043dd46b29b1e74d013b1cd363d482bc5d8bdc6e11c401cc3620b53dbd",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:83bfa09535dbac8144f2d9ced490039bf776727a4f3243c3b140c0902746f12a",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl code",
         "metadata": {},
         "native_artifact_id": "flowguard/behavior_commitment.py",
@@ -3684,18 +3824,18 @@
         "commitment_ids": [
           "commitment:model-miss-backfeeds-existing-commitment"
         ],
-        "content_fingerprint": "sha256:72201eefa8cbed5ce871be52d73eb2fddc64d803b26a9910ef33a977e4ef7386",
+        "content_fingerprint": "sha256:f23384043dd46b29b1e74d013b1cd363d482bc5d8bdc6e11c401cc3620b53dbd",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:8ebd1736cbb707b7765d465d4dafdedd5dd42dd67fa943182d78c0b0b7fe8ff4",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl code",
         "metadata": {},
         "native_artifact_id": "flowguard/behavior_commitment.py",
@@ -3720,18 +3860,18 @@
         "commitment_ids": [
           "commitment:self-maintenance-child-gates"
         ],
-        "content_fingerprint": "sha256:2e282f765cbd2188c219a7935faeb0ad955cb79d1bd3c79f34fa4b29f5d68ec3",
+        "content_fingerprint": "sha256:6270eb16dfc792f5030f2c84351bcf8fb391fd93634552df07237f67fd8a5182",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:ad3be556e4bf05a1a0de09485cb2a06bd56c5811923f2c43e0e2770478784d5c",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "self maintenance code",
         "metadata": {},
         "native_artifact_id": "flowguard/self_maintenance.py",
@@ -3756,18 +3896,18 @@
         "commitment_ids": [
           "commitment:single-path-replacement-disposition"
         ],
-        "content_fingerprint": "sha256:2e282f765cbd2188c219a7935faeb0ad955cb79d1bd3c79f34fa4b29f5d68ec3",
+        "content_fingerprint": "sha256:6270eb16dfc792f5030f2c84351bcf8fb391fd93634552df07237f67fd8a5182",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:36ea7b9f7bf8d05919f31b691e921e7364bc443629029b25959f32d59e86d37b",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "self maintenance code",
         "metadata": {},
         "native_artifact_id": "flowguard/self_maintenance.py",
@@ -3792,18 +3932,18 @@
         "commitment_ids": [
           "commitment:self-maintenance-child-gates"
         ],
-        "content_fingerprint": "sha256:1633e1a692d018296c4894eb8f7b4a9b84e3198aab9a5af91e3bf04cad39fc07",
+        "content_fingerprint": "sha256:41c966f6624de11c82f1fad42e0eab0d7c92280d3c4a96e877dfc71e7dd228ab",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:ad3be556e4bf05a1a0de09485cb2a06bd56c5811923f2c43e0e2770478784d5c",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "self maintenance model",
         "metadata": {},
         "native_artifact_id": ".flowguard/self_maintenance_mesh/model.py",
@@ -3835,11 +3975,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl tests",
         "metadata": {},
         "native_artifact_id": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
@@ -3871,11 +4011,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl tests",
         "metadata": {},
         "native_artifact_id": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
@@ -3907,11 +4047,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl tests",
         "metadata": {},
         "native_artifact_id": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
@@ -3943,11 +4083,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "bcl tests",
         "metadata": {},
         "native_artifact_id": "tests/test_behavior_commitment_ledger.py; tests/test_behavior_commitment_contract_exhaustion.py",
@@ -3979,11 +4119,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "self maintenance tests",
         "metadata": {},
         "native_artifact_id": "tests/test_api_surface.py; .flowguard/self_maintenance_mesh/run_checks.py",
@@ -4015,11 +4155,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "self maintenance tests",
         "metadata": {},
         "native_artifact_id": "tests/test_api_surface.py; .flowguard/self_maintenance_mesh/run_checks.py",
@@ -4051,11 +4191,11 @@
         "delegates_to_primary_path": true,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "FlowGuard kernel and satellite agent guidance",
         "metadata": {
           "behavior_plane": "agent_operation"
@@ -4089,11 +4229,11 @@
         "delegates_to_primary_path": true,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "FlowGuard portable verification API and CLI cohort",
         "metadata": {
           "behavior_plane": "product_runtime",
@@ -4122,18 +4262,18 @@
         "commitment_ids": [
           "commitment:flowguard-public-api-surface"
         ],
-        "content_fingerprint": "sha256:e6b9af5ebdffb4f37b17c85a3bcabe93d4f0fe9def51e914516a65bb2315e527",
+        "content_fingerprint": "sha256:9fea1b6a027ecd2990f6239655c72768242be8119f0d1f846ff7c2f4ac4f5bb8",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:de68357468fbf6a3057f94fce30053a5e96ca92b0244a7a0454d02b3642b8828",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": true,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "FlowGuard public import facade",
         "metadata": {
           "behavior_plane": "product_runtime"
@@ -4167,11 +4307,11 @@
         "delegates_to_primary_path": true,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "FlowGuard template CLI facade",
         "metadata": {
           "behavior_plane": "product_runtime"
@@ -4205,11 +4345,11 @@
         "delegates_to_primary_path": true,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "FlowGuard model-system authority Python API",
         "metadata": {
           "behavior_plane": "product_runtime",
@@ -4244,11 +4384,11 @@
         "delegates_to_primary_path": true,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "FlowGuard model-system authority CLI",
         "metadata": {
           "behavior_plane": "product_runtime"
@@ -4282,11 +4422,11 @@
         "delegates_to_primary_path": true,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "label": "FlowGuard authoritative model, specification, and regression evidence",
         "metadata": {
           "behavior_plane": "product_runtime"
@@ -4313,10 +4453,10 @@
         "source_ref": "flowguard/task_coverage_demand.py",
         "source_system_id": "flowguard:source",
         "native_artifact_id": "flowguard/task_coverage_demand.py",
-        "content_fingerprint": "sha256:7f83a496c28da8d24c3ebb72ec71d7d3c6e7590e0c3b88882d77540f0f8cb1ed",
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "content_fingerprint": "sha256:a6e29c051701ee3378d56f55dff161010fe4a58a936f4a120842abe7e3d71d1e",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "source_authority_role": "normative",
         "declared_semantics_fingerprint": "sha256:ce2fab0361a0ee69796ee066243ccef32c52461b42041dc664f9b738f42d02b9",
@@ -4351,10 +4491,10 @@
         "source_ref": "flowguard/model_maturation_receipt.py",
         "source_system_id": "flowguard:source",
         "native_artifact_id": "flowguard/model_maturation_receipt.py",
-        "content_fingerprint": "sha256:fd1f90000a1e5bb5f1c743e1d4582a3dde1a28e15a7020a780e9017aea04ed4e",
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "content_fingerprint": "sha256:19769e8c9b40b3d6e64b9eaa89ca3384470250091057ff044cb3afa35149a597",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "source_authority_role": "normative",
         "declared_semantics_fingerprint": "sha256:509667be74b6d842511b08491fc160530485000f1b28bc221e76f030d4489d58",
@@ -4389,10 +4529,10 @@
         "source_ref": "flowguard/development_process_flow.py",
         "source_system_id": "flowguard:source",
         "native_artifact_id": "flowguard/development_process_flow.py",
-        "content_fingerprint": "sha256:88baa4475c9ae2e5586666716b2a23d8907cf10340ad4c8d645e7253f6f732d3",
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "content_fingerprint": "sha256:46ee6c071c690231b98e3194df20e49d120715fc1b03a73e15e584927a4177ac",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "source_authority_role": "normative",
         "declared_semantics_fingerprint": "sha256:b275e07723933dd17f257d3aad55e1556ff1b9059cfd67c4fe3fddf3ca70d687",
@@ -4428,9 +4568,9 @@
         "source_system_id": "flowguard:source",
         "native_artifact_id": "flowguard/risk_evidence_ledger.py",
         "content_fingerprint": "sha256:b9c0dfd5f808ce17d0086239113b1ac7f0b3dbe753f457b3feb6a7d4ec05f8f1",
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "source_authority_role": "normative",
         "declared_semantics_fingerprint": "sha256:cd791e013f1d64348e7bae36b9473396ce49da496319f036fd93c0da413348d5",
@@ -4465,10 +4605,10 @@
         "source_ref": "flowguard/closure_contract.py",
         "source_system_id": "flowguard:source",
         "native_artifact_id": "flowguard/closure_contract.py",
-        "content_fingerprint": "sha256:5107c6c64a0e2dfa034435ae95583e135e8c8953f996a092adccdc6620c010f4",
-        "inventory_revision": "source-inventory:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37",
+        "content_fingerprint": "sha256:72dbb14b4396bbbfb495a8d58200e77905359ca1859f0ebacd12e7cb47066b30",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:48eba7cf4d8f2818f2db26be07b03239602f453abba28651dfa4fae4411c7d37"
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
         ],
         "source_authority_role": "normative",
         "declared_semantics_fingerprint": "sha256:5bf7a910276ff7cb1903fc31c372ba4796db2b8ebd6f535ca6fef1c2ed9e734e",
@@ -4494,6 +4634,82 @@
         "rationale": "The independent source inventory identifies this file as the single current implementation owner for this public FlowGuard behavior.",
         "metadata": {
           "behavior_plane": "development_process"
+        }
+      },
+      {
+        "surface_id": "surface:understanding:readiness-status-api",
+        "surface_kind": "api",
+        "label": "Read-only understanding readiness API projection",
+        "source_ref": "flowguard/understanding_readiness.py",
+        "source_system_id": "flowguard:api",
+        "native_artifact_id": "flowguard/understanding_readiness.py",
+        "content_fingerprint": "sha256:5ebefaddc8f32660352788166414b73e7e6fe9565cdf22e206adf9e5d55b78e6",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
+        ],
+        "source_authority_role": "normative",
+        "declared_semantics_fingerprint": "sha256:0e84dcedcf02500100c0ca8820d905a7e0f31d6e342e7e4c73426cb57903d273",
+        "coverage_disposition": "modeled",
+        "delegated_owner_inventory_id": "",
+        "delegation_relation_type": "",
+        "native_evidence_ids": [],
+        "commitment_ids": [
+          "commitment:understanding-readiness-status"
+        ],
+        "business_intent_ids": [
+          "intent:understanding-readiness-read-only-projection"
+        ],
+        "primary_path_id": "path:understanding:readiness-status",
+        "delegates_to_primary_path": false,
+        "similarity_relation_ids": [],
+        "similarity_obligation_ids": [],
+        "freshness_state": "current",
+        "in_scope": true,
+        "scoped_out_reason": "",
+        "owner": "flowguard/understanding_readiness.py",
+        "validation_boundary": "flowguard/understanding_readiness.py plus tests/test_understanding_readiness.py and the whole-flow closure model",
+        "rationale": "This file is the single pure implementation owner for the read-only three-axis status.",
+        "metadata": {
+          "behavior_plane": "product_runtime"
+        }
+      },
+      {
+        "surface_id": "surface:understanding:readiness-status-cli",
+        "surface_kind": "cli",
+        "label": "Read-only model-understanding-status command",
+        "source_ref": "flowguard/__main__.py",
+        "source_system_id": "flowguard:cli",
+        "native_artifact_id": "flowguard/__main__.py:model-understanding-status",
+        "content_fingerprint": "sha256:de910cf0148c7a89999347f4a596e5f6832a53e531b9678614fbb37be35878e7",
+        "inventory_revision": "source-inventory:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791",
+        "discovery_evidence_ids": [
+          "source-inventory-discovery:7885f23f0f9465b273966896ecb33d9f14ff3f449727a559a625b90c1ea2e791"
+        ],
+        "source_authority_role": "observed",
+        "declared_semantics_fingerprint": "sha256:0e84dcedcf02500100c0ca8820d905a7e0f31d6e342e7e4c73426cb57903d273",
+        "coverage_disposition": "modeled",
+        "delegated_owner_inventory_id": "",
+        "delegation_relation_type": "",
+        "native_evidence_ids": [],
+        "commitment_ids": [
+          "commitment:understanding-readiness-status"
+        ],
+        "business_intent_ids": [
+          "intent:understanding-readiness-read-only-projection"
+        ],
+        "primary_path_id": "path:understanding:readiness-status",
+        "delegates_to_primary_path": true,
+        "similarity_relation_ids": [],
+        "similarity_obligation_ids": [],
+        "freshness_state": "current",
+        "in_scope": true,
+        "scoped_out_reason": "",
+        "owner": "flowguard/understanding_readiness.py",
+        "validation_boundary": "CLI parser and explicit JSON readers plus no-write and output parity tests",
+        "rationale": "The CLI is a public adapter for the same registered status promise and has no independent evidence or execution path.",
+        "metadata": {
+          "behavior_plane": "product_runtime"
         }
       }
     ],

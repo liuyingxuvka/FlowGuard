@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from flowguard import (
+    COVERAGE_DISPOSITION_SATISFIED,
     MATURITY_ACTION_ADD_MODEL_OBLIGATION,
     MATURITY_ACTION_ADD_STATE_FIELD,
     MATURITY_ACTION_DOWNGRADE_CLAIM,
@@ -29,11 +30,17 @@ from flowguard import (
     ModelMaturationIntake,
     ModelMaturationPlan,
     ModelMaturationSignal,
+    OwnerCoverageResolution,
     ProofArtifactRef,
     compile_model_maturation_plan,
     review_model_maturation_loop,
     review_model_maturation_session,
     CoverageRule,
+    TASK_FACT_SOURCE_CURRENT_MODEL,
+    TASK_FACT_SOURCE_LIFECYCLE,
+    TASK_FACT_SOURCE_PUBLIC_SURFACE,
+    TASK_FACT_SOURCE_REQUEST,
+    TaskFactSourceSnapshot,
     TaskFacts,
     compile_task_coverage_demand,
 )
@@ -45,7 +52,24 @@ def _fingerprint(value):
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _complete_source_snapshots():
+    return tuple(
+        TaskFactSourceSnapshot(
+            source_plane,
+            f"artifact:{source_plane}",
+            "sha256:" + source_plane.encode("utf-8").hex().ljust(64, "0")[:64],
+        )
+        for source_plane in (
+            TASK_FACT_SOURCE_REQUEST,
+            TASK_FACT_SOURCE_CURRENT_MODEL,
+            TASK_FACT_SOURCE_PUBLIC_SURFACE,
+            TASK_FACT_SOURCE_LIFECYCLE,
+        )
+    )
+
+
 def _plan(**overrides):
+    strong_material = overrides.pop("_strong_material", True)
     values = {
         "plan_id": "maturation-checkout",
         "task_id": "task-checkout",
@@ -66,6 +90,49 @@ def _plan(**overrides):
     plan = ModelMaturationPlan(**values)
     if "coverage_universe_fingerprint" not in overrides:
         plan = replace(plan, coverage_universe_fingerprint=plan.expected_coverage_fingerprint())
+    if strong_material and plan.coverage_ids:
+        resolution = OwnerCoverageResolution(
+            "resolution:model-miss-review",
+            task_id=plan.task_id,
+            demand_id=plan.coverage_universe_id,
+            demand_fingerprint=plan.coverage_demand_fingerprint,
+            owner_route="model_miss_review",
+            disposition=COVERAGE_DISPOSITION_SATISFIED,
+            obligation_ids=plan.coverage_ids,
+            evidence_ids=("proof:model-miss-review",),
+            evidence_fingerprints=("sha256:native-evidence",),
+        )
+        proof = ProofArtifactRef(
+            "proof:model-miss-review",
+            producer_route="model_miss_review",
+            command="python -m pytest tests/test_model_maturation.py -q",
+            result_path="tmp/model-maturation.json",
+            result_status="passed",
+            exit_code=0,
+            started_at="2026-08-02T00:00:00+00:00",
+            finished_at="2026-08-02T00:00:01+00:00",
+            subject_id=resolution.resolution_id,
+            subject_fingerprint=resolution.resolution_fingerprint,
+            artifact_fingerprints={"candidate": "sha256:native-evidence"},
+            covered_obligation_ids=plan.coverage_ids,
+        )
+        contribution = ModelMaturationCoverageContribution(
+            "contribution:model-miss-review",
+            owner_route="model_miss_review",
+            task_id=plan.task_id,
+            coverage_ids=plan.coverage_ids,
+            evidence_ref=proof,
+            owner_resolution=resolution,
+            candidate_model_fingerprint=plan.candidate_model_fingerprint,
+            subject_fingerprints={"candidate": "sha256:native-evidence"},
+        )
+        plan = replace(
+            plan,
+            owner_resolution_ids=(resolution.resolution_id,),
+            owner_resolution_fingerprints=(resolution.resolution_fingerprint,),
+            owner_resolution_owner_ids=(resolution.owner_route,),
+            owner_resolution_contributions=(contribution,),
+        )
     return plan
 
 
@@ -134,7 +201,11 @@ class ModelMaturationTests(unittest.TestCase):
             for owner in owner_ids
         )
         return compile_task_coverage_demand(
-            TaskFacts("task-compile", "compile independent pre-code coverage"),
+            TaskFacts(
+                "task-compile",
+                "compile independent pre-code coverage",
+                source_snapshots=_complete_source_snapshots(),
+            ),
             rules=rules,
         )
 
@@ -146,13 +217,17 @@ class ModelMaturationTests(unittest.TestCase):
             "coverage_source_refs": ("spec:task-compile",),
             "coverage_ids": ("requirement:submit",),
             "required_probe_ids": ("probe:submit",),
-            "subject_fingerprints": {"candidate": "candidate-compile"},
+            "subject_fingerprints": {"candidate": "sha256:candidate-compile"},
             "evidence_ref": ProofArtifactRef(
                 f"proof:{contribution_id}",
                 producer_route="existing_model_preflight",
+                command="python -m pytest tests/test_model_maturation.py -q",
+                result_path=f"tmp/{contribution_id}.json",
                 result_status="passed",
                 exit_code=0,
-                artifact_fingerprints={"candidate": "candidate-compile"},
+                started_at="2026-08-02T00:00:00+00:00",
+                finished_at="2026-08-02T00:00:01+00:00",
+                artifact_fingerprints={"candidate": "sha256:candidate-compile"},
                 covered_obligation_ids=("requirement:submit",),
             ),
         }
@@ -164,6 +239,49 @@ class ModelMaturationTests(unittest.TestCase):
             "required_owner_ids",
             tuple(dict.fromkeys(item.owner_route for item in contributions)),
         )
+        demand = self._demand(*required_owner_ids)
+        canonical: list[ModelMaturationCoverageContribution] = []
+        for contribution in contributions:
+            proof = contribution.evidence_ref
+            assert proof is not None
+            demanded = tuple(
+                coverage_id
+                for row in demand.rows
+                if row.triggered and row.owner_route == contribution.owner_route
+                for coverage_id in row.coverage_ids
+            )
+            obligations = tuple(dict.fromkeys(contribution.coverage_ids + demanded))
+            evidence_fingerprints = tuple(proof.artifact_fingerprints.values())
+            resolution = OwnerCoverageResolution(
+                f"resolution:{contribution.contribution_id}",
+                task_id="task-compile",
+                demand_id=demand.demand_id,
+                demand_fingerprint=demand.fingerprint,
+                owner_route=contribution.owner_route,
+                disposition=COVERAGE_DISPOSITION_SATISFIED,
+                obligation_ids=obligations,
+                evidence_ids=(proof.artifact_id,),
+                evidence_fingerprints=evidence_fingerprints,
+            )
+            canonical_proof = replace(
+                proof,
+                command=proof.command or "python -m pytest tests/test_model_maturation.py -q",
+                result_path=proof.result_path or f"tmp/{contribution.contribution_id}.json",
+                started_at=proof.started_at or "2026-08-02T00:00:00+00:00",
+                finished_at=proof.finished_at or "2026-08-02T00:00:01+00:00",
+                subject_id=resolution.resolution_id,
+                subject_fingerprint=resolution.resolution_fingerprint,
+                covered_obligation_ids=obligations,
+            )
+            canonical.append(
+                replace(
+                    contribution,
+                    evidence_ref=canonical_proof,
+                    owner_resolution=resolution,
+                    candidate_model_fingerprint="candidate-compile",
+                    subject_fingerprints=dict(canonical_proof.artifact_fingerprints),
+                )
+            )
         values = {
             "intake_id": "intake-compile",
             "plan_id": "plan-compile",
@@ -173,8 +291,8 @@ class ModelMaturationTests(unittest.TestCase):
             "risk_id": "risk-submit",
             "base_model_fingerprint": "base-compile",
             "candidate_model_fingerprint": "candidate-compile",
-            "coverage_demand": self._demand(*required_owner_ids),
-            "contributions": contributions,
+            "coverage_demand": demand,
+            "contributions": tuple(canonical),
         }
         values.update(overrides)
         return ModelMaturationIntake(**values)
@@ -191,7 +309,8 @@ class ModelMaturationTests(unittest.TestCase):
                 "proof:behavior",
                 producer_route="behavior_commitment_ledger",
                 result_status="passed",
-                artifact_fingerprints={"candidate": "candidate-compile"},
+                exit_code=0,
+                artifact_fingerprints={"candidate": "sha256:candidate-compile"},
                 covered_obligation_ids=("behavior:submit",),
             ),
         )
@@ -264,6 +383,19 @@ class ModelMaturationTests(unittest.TestCase):
         self.assertEqual(report.decision, MODEL_MATURATION_DECISION_CLOSED_FOR_TASK)
         self.assertEqual(report.terminal_reason, MODEL_MATURATION_DECISION_CLOSED_FOR_TASK)
         self.assertEqual(report.iteration_record.native_receipt_fingerprints, ("receipt-fingerprint-1",))
+
+    def test_raw_hand_filled_signal_cannot_close_broad_maturation(self):
+        plan = _plan(_strong_material=False)
+        report = review_model_maturation_loop(
+            replace(plan, signals=(_verified_signal(plan),))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_UPGRADE_REQUIRED)
+        self.assertIn(
+            "missing_owner_resolution_material",
+            {finding.code for finding in report.findings},
+        )
 
     def test_caller_resolved_boolean_is_not_evidence(self):
         plan = _plan()

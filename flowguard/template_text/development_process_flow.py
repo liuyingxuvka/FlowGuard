@@ -71,9 +71,15 @@ def proof_artifact(artifact_id: str, *covered: str) -> ProofArtifactRef:
     result_path = f"tmp/{artifact_id.replace(':', '_')}.json"
     return ProofArtifactRef(
         artifact_id,
+        producer_route="test_mesh_maintenance",
+        command="python -m unittest tests.test_checkout",
         result_status=PROCESS_EVIDENCE_PASSED,
         exit_code=0,
         result_path=result_path,
+        started_at="2026-08-02T00:00:00+00:00",
+        finished_at="2026-08-02T00:00:01+00:00",
+        subject_id="model:checkout",
+        subject_fingerprint="sha256:checkout",
         artifact_fingerprints={result_path: "sha256:template"},
         covered_obligation_ids=covered,
     )
@@ -114,6 +120,9 @@ def implementation_admission():
         decision=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
         confidence=MODEL_MATURATION_CONFIDENCE_FULL,
         terminal_reason=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+        owner_resolution_ids=("resolution:checkout",),
+        owner_resolution_fingerprints=("sha256:resolution-checkout",),
+        owner_resolution_owner_ids=("model_first_function_flow",),
     )
     snapshot = snapshot_bytes(
         "artifact:checkout-model",
@@ -158,16 +167,19 @@ def implementation_admission():
         verification = verify_model_maturation_receipt(
             ModelMaturationReceiptRef(receipt.receipt_id, receipt.fingerprint),
             ModelMaturationVerificationContext(
-                receipt_context,
-                report.task_id,
-                report.model_id,
-                report.candidate_model_fingerprint,
-                report.coverage_demand_fingerprint,
-                report.coverage_universe_id,
-                report.coverage_universe_fingerprint,
-                report.input_fingerprint,
-                report.evidence_fingerprint,
-                receipt.fingerprint,
+                receipt_context=receipt_context,
+                task_id=report.task_id,
+                model_id=report.model_id,
+                candidate_model_fingerprint=report.candidate_model_fingerprint,
+                coverage_demand_fingerprint=report.coverage_demand_fingerprint,
+                coverage_universe_id=report.coverage_universe_id,
+                coverage_universe_fingerprint=report.coverage_universe_fingerprint,
+                input_fingerprint=report.input_fingerprint,
+                evidence_fingerprint=report.evidence_fingerprint,
+                owner_resolution_ids=report.owner_resolution_ids,
+                owner_resolution_fingerprints=report.owner_resolution_fingerprints,
+                owner_resolution_owner_ids=report.owner_resolution_owner_ids,
+                required_receipt_fingerprint=receipt.fingerprint,
             ),
             output_directory=receipt_root,
         )

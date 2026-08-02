@@ -211,6 +211,9 @@ class StructureMeshPlan:
     allowed_shared_side_effects: tuple[str, ...] = ()
     allowed_shared_config: tuple[str, ...] = ()
     allowed_dependency_cycles: tuple[str, ...] = ()
+    blueprint_required: bool = False
+    implementation_inventory_fingerprint: str = ""
+    implementation_inventory_report: Any | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_module_id", str(self.parent_module_id))
@@ -223,6 +226,12 @@ class StructureMeshPlan:
         object.__setattr__(self, "allowed_shared_side_effects", _as_tuple(self.allowed_shared_side_effects))
         object.__setattr__(self, "allowed_shared_config", _as_tuple(self.allowed_shared_config))
         object.__setattr__(self, "allowed_dependency_cycles", _as_tuple(self.allowed_dependency_cycles))
+        object.__setattr__(self, "blueprint_required", bool(self.blueprint_required))
+        object.__setattr__(
+            self,
+            "implementation_inventory_fingerprint",
+            str(self.implementation_inventory_fingerprint),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -238,6 +247,13 @@ class StructureMeshPlan:
             "allowed_shared_side_effects": list(self.allowed_shared_side_effects),
             "allowed_shared_config": list(self.allowed_shared_config),
             "allowed_dependency_cycles": list(self.allowed_dependency_cycles),
+            "blueprint_required": self.blueprint_required,
+            "implementation_inventory_fingerprint": self.implementation_inventory_fingerprint,
+            "implementation_inventory_report": (
+                self.implementation_inventory_report.to_dict()
+                if hasattr(self.implementation_inventory_report, "to_dict")
+                else to_jsonable(self.implementation_inventory_report)
+            ),
         }
 
 
@@ -281,6 +297,8 @@ class StructureMeshReport:
     decision_scope: str
     findings: tuple[StructureMeshFinding, ...] = ()
     release_obligations: tuple[str, ...] = ()
+    implementation_inventory_fingerprint: str = ""
+    covered_partition_surface_ids: tuple[str, ...] = ()
     summary: str = ""
 
     def __post_init__(self) -> None:
@@ -289,6 +307,16 @@ class StructureMeshReport:
         object.__setattr__(self, "decision_scope", str(self.decision_scope))
         object.__setattr__(self, "findings", tuple(self.findings))
         object.__setattr__(self, "release_obligations", _as_tuple(self.release_obligations))
+        object.__setattr__(
+            self,
+            "implementation_inventory_fingerprint",
+            str(self.implementation_inventory_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "covered_partition_surface_ids",
+            _as_tuple(self.covered_partition_surface_ids),
+        )
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -334,6 +362,8 @@ class StructureMeshReport:
             "decision_scope": self.decision_scope,
             "findings": [finding.to_dict() for finding in self.findings],
             "release_obligations": list(self.release_obligations),
+            "implementation_inventory_fingerprint": self.implementation_inventory_fingerprint,
+            "covered_partition_surface_ids": list(self.covered_partition_surface_ids),
             "summary": self.summary,
         }
 
@@ -439,6 +469,52 @@ def _partition_findings(plan: StructureMeshPlan) -> list[StructureMeshFinding]:
                     metadata={"owners": [owner.to_dict() for owner in owners]},
                 )
             )
+    return findings
+
+
+def _blueprint_inventory_findings(plan: StructureMeshPlan) -> list[StructureMeshFinding]:
+    if not plan.blueprint_required:
+        return []
+    report = plan.implementation_inventory_report
+    if report is None:
+        return [
+            StructureMeshFinding(
+                "missing_implementation_inventory",
+                "blueprint StructureMesh has no independently discovered implementation inventory",
+            )
+        ]
+    findings: list[StructureMeshFinding] = []
+    actual_fingerprint = str(getattr(report, "inventory_fingerprint", ""))
+    if not bool(getattr(report, "ok", False)):
+        findings.append(
+            StructureMeshFinding(
+                "implementation_inventory_blocked",
+                "the independent implementation inventory is not terminal green",
+            )
+        )
+    if not actual_fingerprint or plan.implementation_inventory_fingerprint != actual_fingerprint:
+        findings.append(
+            StructureMeshFinding(
+                "implementation_inventory_fingerprint_mismatch",
+                "StructureMesh does not bind the exact independent inventory identity",
+                metadata={
+                    "expected": actual_fingerprint,
+                    "actual": plan.implementation_inventory_fingerprint,
+                },
+            )
+        )
+    required = {str(value) for value in getattr(report, "required_surface_ids", ())}
+    partitioned = {item.item_id for item in plan.partition_items}
+    missing = tuple(sorted(required - partitioned))
+    unexpected = tuple(sorted(partitioned - required))
+    if missing or unexpected:
+        findings.append(
+            StructureMeshFinding(
+                "implementation_partition_coverage_mismatch",
+                "StructureMesh partition rows do not exactly cover the independent required surface set",
+                metadata={"missing": missing, "unexpected": unexpected},
+            )
+        )
     return findings
 
 
@@ -806,6 +882,7 @@ def review_structure_mesh(plan: StructureMeshPlan) -> StructureMeshReport:
     findings: list[StructureMeshFinding] = []
     release_obligations: list[str] = []
     findings.extend(_target_structure_findings(plan))
+    findings.extend(_blueprint_inventory_findings(plan))
     findings.extend(_partition_findings(plan))
     findings.extend(
         _duplicate_value_findings(
@@ -848,6 +925,10 @@ def review_structure_mesh(plan: StructureMeshPlan) -> StructureMeshReport:
         decision_scope=plan.decision_scope,
         findings=tuple(findings),
         release_obligations=tuple(release_obligations),
+        implementation_inventory_fingerprint=plan.implementation_inventory_fingerprint,
+        covered_partition_surface_ids=tuple(
+            sorted(item.item_id for item in plan.partition_items)
+        ),
     )
 
 

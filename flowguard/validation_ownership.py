@@ -163,9 +163,13 @@ def _glob_pattern_variants(
 
 
 def _matches_declared_pattern(relative: str, pattern: str) -> bool:
-    candidate = PurePosixPath(relative)
+    # ``PurePath.match`` right-anchors relative patterns, which would make
+    # ``flowguard/**/*.py`` also match ``.agents/skills/flowguard/x.py``.
+    # Validation manifests are repository-root relative, so anchor both sides
+    # under a synthetic root before applying the expanded recursive variants.
+    candidate = PurePosixPath("/__flowguard_manifest_root__") / relative
     return any(
-        candidate.match(variant)
+        candidate.match(f"/__flowguard_manifest_root__/{variant}")
         for variant in _glob_pattern_variants(
             pattern,
             max_depth=len(candidate.parts),

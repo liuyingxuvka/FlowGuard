@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import unique_strings as _unique
 from .evidence_fields import PASSING_EVIDENCE_GATE_STATUSES
 from .export import to_jsonable
 from .maintenance_obligation import (
@@ -83,17 +84,6 @@ def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
     if values is None:
         return ()
     return tuple(str(value) for value in values)
-
-
-def _unique(values: Sequence[str]) -> tuple[str, ...]:
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for value in values:
-        text = str(value)
-        if text and text not in seen:
-            seen.add(text)
-            ordered.append(text)
-    return tuple(ordered)
 
 
 @dataclass(frozen=True)

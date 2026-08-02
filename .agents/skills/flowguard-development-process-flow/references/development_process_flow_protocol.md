@@ -72,6 +72,12 @@ Capture grouped rows for:
 - final claim: routine versus release/archive/publish scope and consuming Risk
   Evidence Ledger evidence.
 
+For an explicitly triggered software blueprint, additionally capture the
+observed snapshot, implementation inventory, binding report, resource/oracle
+manifest, projection, and static qualification identities. Track any empirical
+reconstruction receipt as a separate optional evidence row; it is never an
+implicit child of static qualification.
+
 Keep read-only WorkContext adapter/native/artifact/fingerprint ids distinct from
 FlowGuard's own obligation, validation, execution, and receipt ids.
 
@@ -87,6 +93,12 @@ not run with a reason.
 After the diagnostic boundary closes, relate findings, repair the primary
 owner/root cause, and rerun only affected obligations. Repeat diagnosis only
 when the repair or new material evidence changes the remaining boundary.
+
+Ordinary changes consume the compact current blueprint identity and invalidate
+only affected inventory/binding/resource/projection shards plus their declared
+graph neighborhood. They do not rescan, materialize, export, or reconstruct the
+whole software. Full inventory and static qualification run only for an
+explicit blueprint/export/qualification scope or a named release obligation.
 
 Reserve broad full verification for a stable frozen integration snapshot.
 Freeze source, toolchain, check inventory, dependencies, and exactly one owner
@@ -120,6 +132,25 @@ When distribution or release identity is in scope, load
 `distribution_release_protocol.md`. DevelopmentProcessFlow consumes the typed
 owner evidence and orders gates; it never owns suite inventory or installation
 semantics.
+
+## Static Blueprint Versus Empirical Reconstruction
+
+Keep two independent state machines:
+
+- static blueprint: `complete`, `incomplete`, `stale`, or `blocked`;
+- empirical reconstruction: `not_run`, `pass`, `fail`, or `blocked`.
+
+Static complete with empirical not-run is a successful static result whose
+claim is exactly “blueprint complete; reconstruction not verified.” Static
+status cannot inherit a reconstruction result, and reconstruction failure does
+not rewrite already established static facts.
+
+Never schedule reconstruction for ordinary work, inventory audit, blueprint
+check/export, installation, synchronization, or release. Only an explicit
+user reconstruction request or an exact separately owned qualification/release
+requirement may schedule one, after static closure is complete. The receipt
+must bind the blueprint fingerprint, isolated environment, source-access
+policy, covered oracle set, and evidence fingerprint.
 
 ## Read-only WorkContext
 
@@ -164,6 +195,9 @@ its id.
   optimum.
 - Material new evidence stales the decision. A repair stays open until every
   affected obligation has current revalidation.
+- A static blueprint result described as reconstructed, an automatic
+  reconstruction step, or a reconstruction receipt bound to another blueprint
+  is a hard claim-boundary failure.
 - Broad done/release/archive/publish claims require current proof artifacts,
   current Risk Evidence Ledger closure, and all required freshness domains.
 
@@ -203,6 +237,10 @@ evidence covers current artifact/verifier versions, specialist handoffs are
 reattached, skipped/not-run work remains visible, peer changes are preserved,
 required synchronization domains are current, and the requested claim scope
 has terminal proof. Otherwise return blocked or explicitly scoped confidence.
+
+For blueprint scope, report static and empirical status separately with their
+own identities and gaps. A not-run reconstruction remains visible and does not
+block a static-only claim unless the exact request separately requires it.
 
 ## Implementation Admission
 

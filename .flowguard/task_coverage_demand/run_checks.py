@@ -18,7 +18,10 @@ def main() -> int:
     print(f"correct_task_coverage_demand: {'exact model pass' if correct_ok else 'failed'}")
     report = run_formal_workflow_suite(
         "task_coverage_demand",
-        (FormalWorkflowCase("broken_caller_reduces_minimum", model.broken_caller_only_workflow(), False),),
+        (
+            FormalWorkflowCase("broken_caller_reduces_minimum", model.broken_caller_only_workflow(), False),
+            FormalWorkflowCase("broken_missing_fact_source", model.broken_missing_source_workflow(), False),
+        ),
         initial_states=(model.initial_state(),),
         external_inputs=model.EXTERNAL_INPUTS,
         invariants=model.INVARIANTS,

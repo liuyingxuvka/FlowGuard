@@ -11,6 +11,8 @@ import json
 from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_tuple as _as_tuple
+
 from .evidence_receipts import (
     EvidenceReceipt,
     ReceiptVerificationResult,
@@ -112,14 +114,6 @@ CLEANUP_DISPOSITIONS = (
     CLEANUP_DISPOSITION_DELETE,
     CLEANUP_DISPOSITION_FACADE_REVIEW,
 )
-
-
-def _as_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    if isinstance(values, str):
-        return (values,) if values else ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _coerce_child_report(value: Any) -> "SelfMaintenanceChildReport":

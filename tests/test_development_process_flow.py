@@ -52,6 +52,10 @@ from flowguard import (
     review_development_process_flow,
     review_implementation_admission,
 )
+from flowguard.development_process_flow import (
+    IMPLEMENTATION_ADMISSION_NOT_REQUESTED,
+    USER_EXECUTION_CHOICE_DIRECT,
+)
 from tests._maturation_receipt_support import verified_maturation
 
 
@@ -72,9 +76,15 @@ def base_artifacts(*, code_version="2", test_version="1", requirement_version="1
 def proof_artifact(artifact_id="artifact:unit", *covered):
     return ProofArtifactRef(
         artifact_id,
+        producer_route="development_process_flow",
+        command="python -m pytest tests/test_development_process_flow.py -q",
         result_status=PROCESS_EVIDENCE_PASSED,
         exit_code=0,
         result_path=f"tmp/{artifact_id.replace(':', '_')}.json",
+        started_at="2026-08-02T00:00:00+00:00",
+        finished_at="2026-08-02T00:00:01+00:00",
+        subject_id=f"subject:{artifact_id}",
+        subject_fingerprint="sha256:subject-test",
         artifact_fingerprints={f"tmp/{artifact_id.replace(':', '_')}.json": "sha256:test"},
         covered_obligation_ids=covered,
     )
@@ -143,7 +153,9 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
                 authorization=authorization,
             )
         )
-        self.assertEqual(scoped.status, IMPLEMENTATION_ADMISSION_READY_SCOPED)
+        self.assertEqual(scoped.status, IMPLEMENTATION_ADMISSION_NOT_REQUESTED)
+        self.assertEqual(scoped.user_execution_choice, USER_EXECUTION_CHOICE_DIRECT)
+        self.assertFalse(scoped.implementation_ready())
         self.assertEqual(
             scoped.maturation_evidence.decision,
             MODEL_MATURATION_DECISION_PROGRESS_STALLED,
@@ -162,6 +174,25 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
         self.assertIn(
             "implementation_authorization_identity_or_scope_mismatch",
             {finding.code for finding in expanded.findings},
+        )
+
+    def test_direct_choice_without_exact_authorization_is_not_flowguard_ready(self):
+        report = review_implementation_admission(
+            ImplementationAdmissionPlan(
+                "admission:direct-without-proof",
+                maturation_evidence=self.maturation_ref(closed=False),
+                implementation_requested=True,
+                requested_path_ids=("flowguard/one.py",),
+                user_execution_choice=USER_EXECUTION_CHOICE_DIRECT,
+            )
+        )
+
+        self.assertEqual(report.status, IMPLEMENTATION_ADMISSION_BLOCKED)
+        self.assertEqual(report.user_execution_choice, USER_EXECUTION_CHOICE_DIRECT)
+        self.assertFalse(report.implementation_ready())
+        self.assertIn(
+            "direct_user_choice_missing_authorization",
+            {finding.code for finding in report.findings},
         )
 
     def test_stale_conflicting_or_nonwaivable_admission_is_blocked(self):

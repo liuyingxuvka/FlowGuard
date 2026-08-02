@@ -15,6 +15,8 @@ from importlib import metadata as importlib_metadata
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_tuple as _as_tuple
+
 from .evidence_receipts import (
     ChildReceiptRequirement,
     ConsumedChildReceipt,
@@ -66,14 +68,6 @@ def skill_contract_obligation_id(skill_id: str) -> str:
     """Return the stable umbrella obligation consumed for one deep contract."""
 
     return f"flowguard.skill_contract.{str(skill_id)}.deep"
-
-
-def _as_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    if isinstance(values, str):
-        return (values,) if values else ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _package_version() -> str:

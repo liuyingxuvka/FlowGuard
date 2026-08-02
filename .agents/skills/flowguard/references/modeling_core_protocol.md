@@ -88,3 +88,28 @@ contains a reachable forbidden-state safety witness, in which case a
 safety-only witness graph is checked once; temporal/fairness observations from
 an incomplete graph never become failures. Exact declared-graph closure does
 not prove that production code has no undeclared dependencies.
+
+## Whole-software blueprint boundary
+
+Use the implementation-blueprint API cohort only when task facts explicitly
+request a complete software blueprint, deterministic export, reconstruction
+qualification, or an owner-declared release obligation. First derive the exact
+tracked plus admitted non-ignored file boundary independently of declared
+models and contracts. Discover language surfaces with the registered adapter,
+give every file and symbol one terminal disposition, and preserve parse,
+dynamic-call, hidden-writer, missing-adapter, path, and freshness uncertainty as
+blockers.
+
+Bind required model obligations to implementation surfaces in both directions.
+A path and symbol prove traceability only; blueprint closure additionally needs
+source-independent input/output, state/effect, error, order/retry/timeout or
+decision semantics plus applicable oracles. Join build, runtime, dependency,
+configuration, schema, data, asset, migration, external-service, and test-oracle
+references by current fingerprint. Export canonical content-addressed shards
+only on explicit request and exclude production source text by default.
+
+The blueprint is a derived view of the sole observed model-system authority,
+not another head. Report static status separately from empirical reconstruction
+status. `complete + not_run` is valid static closure and does not mean a rebuild
+occurred. Ordinary work loads at most the compact identity and affected
+neighborhood; it never scans, exports, or reconstructs the whole repository.

@@ -12,6 +12,8 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_tuple as _as_tuple
+
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
 from .model_maturation_receipt import VerifiedModelMaturation
@@ -89,14 +91,6 @@ MODEL_QUALITY_SIGNAL_TYPES = (
     MODEL_QUALITY_MISSING_PUBLIC_BOUNDARY,
     MODEL_QUALITY_PARENT_CHILD_GAP,
 )
-
-
-def _as_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    if isinstance(values, str):
-        return (values,) if values else ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _metadata(metadata: Mapping[str, Any] | Sequence[tuple[str, Any]] | None) -> FrozenMetadata:
@@ -553,7 +547,7 @@ class FlowGuardClosureContractReport:
         findings = tuple(self.findings)
         object.__setattr__(self, "findings", findings)
         if not self.decision or not self.confidence:
-            decision, confidence = _decision_for(self.plan, findings)
+            decision, confidence = _project_upstream_terminal_decision(self.plan, findings)
             object.__setattr__(self, "decision", self.decision or decision)
             object.__setattr__(self, "confidence", self.confidence or confidence)
         if not self.summary:
@@ -1034,10 +1028,15 @@ def _review_gateway_closure(
     return tuple(findings)
 
 
-def _decision_for(
+def _project_upstream_terminal_decision(
     plan: FlowGuardClosureContractPlan,
     findings: tuple[FlowGuardClosureFinding, ...],
 ) -> tuple[str, str]:
+    """Preserve RiskLedger's terminal pair after identity/material blockers.
+
+    Closure owns no route-specific scoring. It can only block on its integrity
+    findings or project the one current RiskLedger full/scoped terminal pair.
+    """
     blockers = [finding for finding in findings if finding.blocks_full_confidence]
     if blockers:
         return CLOSURE_DECISION_BLOCKED, CLOSURE_CONFIDENCE_BLOCKED

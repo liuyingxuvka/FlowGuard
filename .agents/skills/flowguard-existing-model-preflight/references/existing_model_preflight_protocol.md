@@ -17,6 +17,9 @@ work:
 - UI state, control, journey, or implemented UI claim: UI Flow Structure;
 - validation hierarchy or slow/stale tests: TestMesh;
 - staged development or release confidence: DevelopmentProcessFlow;
+- evidence-backed contraction of an existing mapped implementation boundary:
+  ArchitectureReduction, only after its observable contract and proof status
+  are explicit;
 - unclear or ordinary behavior/state modeling: model-first kernel.
 
 When the downstream work will make a final confidence claim, preserve model ids,
@@ -68,6 +71,11 @@ Light mode is enough for early thinking. It should say:
 
 Light mode should not claim implementation readiness.
 
+Light mode and ordinary full mode remain affected-only. They select the
+current commitment/model/path owner closure and its declared one-hop relations;
+they do not scan the whole repository merely because a software blueprint
+exists.
+
 ## Full Mode
 
 Full mode is required before implementation, OpenSpec proposal, major
@@ -101,6 +109,25 @@ unknown or scoped rows explicitly. If external semantics match an existing
 current path, hand that commitment/path to BCL/PPA and recommend reuse or
 extension. A new page, command, or wrapper alone is not a new behavior.
 
+### Explicit whole-software blueprint handoff
+
+Enter this handoff only when the task explicitly claims, exports, or qualifies
+a whole-software blueprint, or when a current release requirement names that
+qualification. Consume the independent implementation inventory rather than
+deriving the implementation denominator from models, CodeContracts, BCL, or a
+caller-supplied file list. Preserve:
+
+- observed model-system snapshot identity;
+- implementation inventory id/fingerprint and declared software boundary;
+- exact required, dispositioned, and unresolved file/surface ids;
+- inventory findings including parse, dynamic, adapter, path, and freshness gaps;
+- downstream owners for bidirectional binding, structure partition, model
+  topology, resource/oracle closure, and process freshness.
+
+Preflight does not copy internal inventory rows into BCL, interpret source
+semantics, qualify the blueprint, export shards, or execute reconstruction.
+Static blueprint closure and empirical reconstruction remain separate facts.
+
 ## Required Hazards
 
 Known-bad variants should fail or be reported:
@@ -124,6 +151,13 @@ Known-bad variants should fail or be reported:
 - parent model found but parent coverage, child disjointness, child
   reattachment, or leaf boundary-matrix status is unknown when the downstream
   work needs parent/child confidence.
+- a whole-software blueprint inferred from model/contract declarations without
+  an independent current implementation inventory;
+- ordinary affected work widened into a whole-repository inventory scan;
+- static blueprint completeness described as reconstructed, or reconstruction
+  launched by preflight;
+- ArchitectureReduction proposed from size, style, or cost alone without a
+  current model/code map and observable behavior-preservation evidence.
 
 ## Output Shape
 
@@ -155,6 +189,11 @@ Duplicate-risk check:
 
 Recommended downstream route:
 - ...
+
+Blueprint handoff (only when explicitly triggered):
+- inventory fingerprint:
+- required/unresolved surface ids:
+- binding/structure/topology/process owners:
 ```
 
 ## Boundary

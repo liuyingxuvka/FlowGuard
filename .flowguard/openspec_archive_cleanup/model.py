@@ -23,6 +23,7 @@ Function blocks:
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 
 from flowguard import (
     EVIDENCE_ABSTRACT_GREEN,
@@ -61,6 +62,9 @@ class ArchiveCleanupReview:
 
 
 def _proof(artifact_id: str, command: str, result_path: str, obligations: tuple[str, ...]) -> ProofArtifactRef:
+    digest = hashlib.sha256(
+        f"{artifact_id}|{command}|{result_path}|{'|'.join(obligations)}".encode("utf-8")
+    ).hexdigest()
     return ProofArtifactRef(
         artifact_id=artifact_id,
         producer_route="openspec_archive_cleanup",
@@ -68,7 +72,11 @@ def _proof(artifact_id: str, command: str, result_path: str, obligations: tuple[
         result_path=result_path,
         result_status=PROCESS_EVIDENCE_PASSED,
         exit_code=0,
-        artifact_fingerprints={result_path: "sha256:recorded-at-runtime"},
+        started_at="2026-08-02T00:00:00+00:00",
+        finished_at="2026-08-02T00:00:01+00:00",
+        subject_id=f"subject:{artifact_id}",
+        subject_fingerprint=f"sha256:{digest}",
+        artifact_fingerprints={result_path: f"sha256:{digest}"},
         covered_obligation_ids=obligations,
     )
 

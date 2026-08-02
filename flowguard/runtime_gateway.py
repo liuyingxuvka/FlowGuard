@@ -6,6 +6,8 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
+from ._normalization import string_tuple as _as_tuple, unique_strings as _unique
+
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
 
@@ -37,20 +39,8 @@ RUNTIME_GATEWAY_DECISION_BLOCKED = "runtime_gateway_adoption_blocked"
 RUNTIME_GATEWAY_DECISION_SCOPED = "runtime_gateway_adoption_scoped"
 
 
-def _as_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    if isinstance(values, str):
-        return (values,) if values else ()
-    return tuple(str(value) for value in values if str(value))
-
-
 def _metadata(metadata: Mapping[str, Any] | Iterable[tuple[str, Any]] | None) -> FrozenMetadata:
     return freeze_metadata(metadata)
-
-
-def _unique(values: Iterable[str]) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(str(value) for value in values if str(value)))
 
 
 @dataclass(frozen=True)

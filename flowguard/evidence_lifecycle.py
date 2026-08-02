@@ -45,10 +45,11 @@ def _sha256_bytes(value: bytes) -> str:
 
 
 def _sha256_file(path: Path) -> str:
-    return _sha256_bytes(path.read_bytes())
+    return _sha256_bytes(Path(_extended_windows_path(path)).read_bytes())
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
+    path = Path(_extended_windows_path(path))
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     temporary.write_bytes(data)
@@ -70,10 +71,11 @@ def _publish_content_addressed_object(
 ) -> None:
     """Converge concurrent identical publishers without hiding conflicts."""
 
+    storage_path = Path(_extended_windows_path(path))
     last_error: OSError | None = None
     for attempt in range(50):
         try:
-            existing = path.read_bytes()
+            existing = storage_path.read_bytes()
         except FileNotFoundError:
             pass
         except OSError as exc:
@@ -85,7 +87,7 @@ def _publish_content_addressed_object(
                 )
             return
         try:
-            _atomic_write(path, data)
+            _atomic_write(storage_path, data)
             return
         except OSError as exc:
             last_error = exc
@@ -171,7 +173,7 @@ def resolve_object_path(run_dir: str | Path, descriptor: Mapping[str, Any]) -> P
 def verify_text_object(run_dir: str | Path, descriptor: Mapping[str, Any]) -> bool:
     try:
         path = resolve_object_path(run_dir, descriptor)
-        stored = path.read_bytes()
+        stored = Path(_extended_windows_path(path)).read_bytes()
         if _sha256_bytes(stored) != descriptor.get("storage_sha256"):
             return False
         logical = gzip.decompress(stored)

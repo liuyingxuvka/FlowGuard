@@ -32,6 +32,11 @@ standalone satellite skills.
   model obligation ids, owner code contract ids, and current external-contract
   test evidence to name the same behavior. Model+test-only rows are scoped or
   blocked, not green.
+- task-fact selection of whole-software blueprint work. The kernel coordinates
+  independent implementation inventory, ExistingModelPreflight, Code Structure,
+  StructureMesh, Model-Test Alignment, ModelMesh, portable references, and
+  DevelopmentProcessFlow without adding a `DNA` route, a second authority head,
+  or a selectable reconstruction depth.
 
 ## Public Owner Satellite Skills
 
@@ -65,6 +70,7 @@ no independent Codex skill, alias, forwarding entrypoint, or fallback path.
 | Sub-protocol | Owns |
 | --- | --- |
 | `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, formal CheckPlan, known-bad proof, and the internal finite runner |
+| `implementation_blueprint` | kernel-owned API cohort for independent implementation inventory, bidirectional model bindings, resource/oracle closure, deterministic projection, and separate static/empirical qualification; it is not a public route or skill |
 | `development_process_simulator` | internal request helper consumed by `development_process_flow` for rough-plan, multi-skill, execution-freshness, install/sync, release/archive/publish, and final claim modes |
 | `plan_detailing_compiler` | internal `plan_detailing` route rows, receipts, validation, rework, human questions, and projection to downstream routes |
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
@@ -93,6 +99,9 @@ These are check-engine helpers:
   `TemplateHarvestReview`, and `review_known_bad_proofs`;
 - property factories and packs;
 - `review_model_test_alignment()` and `review_code_boundary_conformance()`;
+- implementation inventory and blueprint helpers for explicit whole-software
+  qualification; their read-only checks do not scan automatically, execute
+  missing owners, change model authority, or run reconstruction;
 - `TransitionCoverageMatrix`, `transition_coverage_to_model_obligations()`,
   `transition_coverage_to_code_contracts()`, and
   `transition_coverage_to_required_leaf_cell_ids()`;
@@ -188,6 +197,11 @@ sub-skills.
 - Preserve standalone FlowGuard use; external planner handoffs remain optional.
 - Before broad release, verify the installed kernel and satellite skills match
   the source skill directories.
+- Keep a whole-software blueprint as a derived qualification of the sole current
+  observed model-system snapshot. Ordinary work may consume only its compact
+  identity and affected neighborhood. Static completion and empirical
+  reconstruction remain independent, and no ordinary or release path launches
+  reconstruction unless an exact explicit requirement demands it.
 
 ## Task Sufficiency And Implementation Admission
 

@@ -299,7 +299,67 @@ def source_audit_finding_codes(report):
     return [finding.code for finding in report.findings]
 
 
+class ImplementationBindingReportStub:
+    def __init__(self, *, model_obligation_ids=("accept_valid_order",), ok=True):
+        self.ok = ok
+        self.fingerprint = "sha256:bindings"
+        self.inventory_fingerprint = "sha256:inventory"
+        self.implementation_surface_ids = ("surface:checkout.submit",)
+        self.model_obligation_ids = tuple(model_obligation_ids)
+        self.semantic_spec_ids = ("semantic:accept-valid-order",)
+        self.oracle_ids = ("oracle:test-accept-valid-order",)
+        self.findings = ()
+
+    def to_dict(self):
+        return {
+            "ok": self.ok,
+            "fingerprint": self.fingerprint,
+            "inventory_fingerprint": self.inventory_fingerprint,
+            "implementation_surface_ids": list(self.implementation_surface_ids),
+            "model_obligation_ids": list(self.model_obligation_ids),
+            "semantic_spec_ids": list(self.semantic_spec_ids),
+            "oracle_ids": list(self.oracle_ids),
+        }
+
+
 class ModelTestAlignmentTests(unittest.TestCase):
+    def test_blueprint_alignment_consumes_bidirectional_implementation_report(self):
+        binding_report = ImplementationBindingReportStub()
+        plan = ModelTestAlignmentPlan(
+            "checkout",
+            obligations=(obligation("accept_valid_order"),),
+            code_contracts=(owner_contract("accept_valid_order"),),
+            test_evidence=(bound_evidence("test_accept_valid_order", "accept_valid_order"),),
+            require_implementation_blueprint=True,
+            implementation_binding_report=binding_report,
+        )
+
+        report = review_model_test_alignment(plan)
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(binding_report.inventory_fingerprint, report.implementation_inventory_fingerprint)
+        self.assertEqual(binding_report.fingerprint, report.implementation_binding_report_fingerprint)
+        self.assertEqual(binding_report.implementation_surface_ids, report.implementation_surface_ids)
+
+    def test_blueprint_alignment_rejects_path_only_or_missing_obligation_binding(self):
+        binding_report = ImplementationBindingReportStub(model_obligation_ids=())
+        binding_report.semantic_spec_ids = ()
+        binding_report.oracle_ids = ()
+        plan = ModelTestAlignmentPlan(
+            "checkout",
+            obligations=(obligation("accept_valid_order"),),
+            code_contracts=(owner_contract("accept_valid_order"),),
+            test_evidence=(bound_evidence("test_accept_valid_order", "accept_valid_order"),),
+            require_implementation_blueprint=True,
+            implementation_binding_report=binding_report,
+        )
+
+        report = review_model_test_alignment(plan)
+        codes = set(finding_codes(report))
+        self.assertFalse(report.ok)
+        self.assertIn("model_obligation_implementation_binding_missing", codes)
+        self.assertIn("source_independent_semantics_missing", codes)
+        self.assertIn("implementation_oracles_missing", codes)
+
     def test_repair_closure_uses_ordinary_obligation_code_and_test_owners(self):
         model_obligation = obligation("obligation:strategy-repair")
         owner = code_contract("contract:strategy-owner", model_obligation.obligation_id)
@@ -2339,6 +2399,28 @@ def test_submit_order():
 
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual("", report.binding_rows[0].behavior_plane)
+
+    def test_pre_code_design_ready_does_not_promote_not_run_evidence(self):
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                model_id="pre-code-checkout",
+                obligations=(obligation("accept_valid_order"),),
+                code_contracts=(owner_contract("accept_valid_order"),),
+                test_evidence=(
+                    bound_evidence(
+                        "test_accept_valid_order",
+                        "accept_valid_order",
+                        result_status="not_run",
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("ready", report.pre_code_status)
+        self.assertEqual("not_run", report.executed_evidence_status)
+        self.assertIn("test_evidence_not_passing", finding_codes(report))
+        self.assertEqual("not_run", report.to_dict()["executed_evidence_status"])
 
 
 if __name__ == "__main__":

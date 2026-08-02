@@ -40,11 +40,42 @@ LOOP_DECISION_BLOCKED_UNCHANGED = "blocked_unchanged_progress"
 LOOP_DECISION_BLOCKED_BOUND = "blocked_reentry_bound"
 
 
-# This is the machine route-owner projection.  Skill ids are derived from
-# stable route ids so this module does not become a second literal suite
-# inventory.  The suite map remains the declared membership authority and is
-# checked against this projection.
-PUBLIC_ROUTE_IDS = (
+def _skill_id_for_public_route(route_id: str) -> str:
+    if route_id == "model_first_function_flow":
+        return "flowguard"
+    route_stem = {
+        "model_mesh_maintenance": "model_mesh",
+        "structure_mesh_maintenance": "structure_mesh",
+        "test_mesh_maintenance": "test_mesh",
+    }.get(route_id, route_id)
+    return f"flowguard-{route_stem.replace('_', '-')}"
+
+
+@dataclass(frozen=True)
+class PublicOwnerDescriptor:
+    """Dependency-light canonical identity for one public FlowGuard owner."""
+
+    route_id: str
+    skill_id: str
+    coverage_owner_id: str
+    admission_owner_id: str
+
+    def __post_init__(self) -> None:
+        values = (
+            self.route_id,
+            self.skill_id,
+            self.coverage_owner_id,
+            self.admission_owner_id,
+        )
+        if not all(str(value) for value in values):
+            raise ValueError("public owner descriptors require complete identities")
+        if self.coverage_owner_id != self.route_id:
+            raise ValueError("coverage owner identity must equal the canonical route id")
+        if self.admission_owner_id != self.route_id:
+            raise ValueError("admission owner identity must equal the canonical route id")
+
+
+_PUBLIC_ROUTE_ORDER = (
     "model_first_function_flow",
     "existing_model_preflight",
     "behavior_commitment_ledger",
@@ -62,21 +93,40 @@ PUBLIC_ROUTE_IDS = (
     "ui_flow_structure",
 )
 
+# One direct-current declaration owns route, coverage, admission, and skill
+# identity.  All public projections below are derived from this value.
+PUBLIC_OWNER_DESCRIPTORS = tuple(
+    PublicOwnerDescriptor(
+        route_id=route_id,
+        skill_id=_skill_id_for_public_route(route_id),
+        coverage_owner_id=route_id,
+        admission_owner_id=route_id,
+    )
+    for route_id in _PUBLIC_ROUTE_ORDER
+)
+PUBLIC_OWNER_DESCRIPTORS_BY_ROUTE: Mapping[str, PublicOwnerDescriptor] = {
+    descriptor.route_id: descriptor for descriptor in PUBLIC_OWNER_DESCRIPTORS
+}
+PUBLIC_ROUTE_IDS = tuple(descriptor.route_id for descriptor in PUBLIC_OWNER_DESCRIPTORS)
 
-def _skill_id_for_public_route(route_id: str) -> str:
-    if route_id == "model_first_function_flow":
-        return "flowguard"
-    route_stem = {
-        "model_mesh_maintenance": "model_mesh",
-        "structure_mesh_maintenance": "structure_mesh",
-        "test_mesh_maintenance": "test_mesh",
-    }.get(route_id, route_id)
-    return f"flowguard-{route_stem.replace('_', '-')}"
+# Direct-current replacement: these historical coverage ids are rejected and
+# are deliberately not translated to their current public owners.
+RETIRED_PUBLIC_ROUTE_IDS = frozenset({"model_mesh", "structure_mesh", "test_mesh"})
+
+
+def public_owner_descriptor(route_id: str) -> PublicOwnerDescriptor:
+    route_id = str(route_id)
+    if route_id in RETIRED_PUBLIC_ROUTE_IDS:
+        raise ValueError(f"retired public route identity: {route_id}")
+    try:
+        return PUBLIC_OWNER_DESCRIPTORS_BY_ROUTE[route_id]
+    except KeyError as exc:
+        raise ValueError(f"unknown public route identity: {route_id}") from exc
 
 
 PUBLIC_ROUTE_SKILL_OWNERS: Mapping[str, str] = {
-    route_id: _skill_id_for_public_route(route_id)
-    for route_id in PUBLIC_ROUTE_IDS
+    descriptor.route_id: descriptor.skill_id
+    for descriptor in PUBLIC_OWNER_DESCRIPTORS
 }
 
 # Internal and delegated routes resolve through exactly one public owner.
@@ -980,8 +1030,12 @@ __all__ = [
     "LOOP_DECISION_CONTINUE",
     "LOOP_DECISION_SUCCESS",
     "LegacyRouteHandoffError",
+    "PUBLIC_OWNER_DESCRIPTORS",
+    "PUBLIC_OWNER_DESCRIPTORS_BY_ROUTE",
     "PUBLIC_ROUTE_SKILL_OWNERS",
     "PUBLIC_ROUTE_IDS",
+    "PublicOwnerDescriptor",
+    "RETIRED_PUBLIC_ROUTE_IDS",
     "RouteCycleLiveness",
     "RouteHandoff",
     "RouteLoopProbe",
@@ -998,6 +1052,7 @@ __all__ = [
     "helper_handoff",
     "load_suite_routing_snapshot",
     "probe_cycle_liveness",
+    "public_owner_descriptor",
     "require_typed_handoff",
     "route_handoff",
     "route_handoffs",

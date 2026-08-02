@@ -11,6 +11,8 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_tuple as _as_tuple
+
 from .behavior_plane import (
     BCL_BEHAVIOR_PLANES,
     BCL_PLANE_AGENT_OPERATION,
@@ -116,14 +118,6 @@ PLAN_DETAIL_NON_PASSING_EVIDENCE_STATUSES = {
     "failed",
     "error",
 }
-
-
-def _as_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    if isinstance(values, str):
-        return (values,) if values else ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _as_mapping(values: Mapping[str, Any] | None) -> dict[str, Any]:

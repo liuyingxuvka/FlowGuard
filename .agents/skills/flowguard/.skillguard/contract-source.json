@@ -111,6 +111,38 @@
         },
         {
           "kind": "path",
+          "path": "flowguard/model_maturation_receipt.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/task_coverage_demand.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/route_topology.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/understanding_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/development_process_flow.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/risk_evidence_ledger.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/closure_contract.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/api_registry.py"
+        },
+        {
+          "kind": "path",
           "path": "flowguard/__main__.py"
         },
         {
@@ -131,6 +163,103 @@
       "member_skill_id": "flowguard",
       "semantic_check_id": "semantic:check:flowguard:model-maturation-closure",
       "timeout_seconds": 180
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_task_coverage_demand.py",
+        "tests/test_proof_artifact.py",
+        "tests/test_model_maturation.py",
+        "tests/test_model_maturation_receipt.py",
+        "tests/test_understanding_readiness.py",
+        "tests/test_development_process_flow.py",
+        "tests/test_evidence_lifecycle.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard:understanding-readiness",
+      "command": "python",
+      "coverage_rationale": "The target-owned regressions prove independent task facts, one canonical owner resolution, verifiable proof material, exact maturation receipts, separate user choice and admission, a read-only three-axis status, and publishable parent evidence on deep Windows paths.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard:understanding-readiness"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard:understanding-readiness",
+      "evidence_subject_id": "subject:flowguard:understanding-readiness",
+      "execution_owner_id": "owner:check:flowguard:understanding-readiness",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "flowguard/task_coverage_demand.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/proof_artifact.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_maturation.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_maturation_receipt.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/understanding_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/development_process_flow.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/evidence_lifecycle.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/__main__.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_task_coverage_demand.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_proof_artifact.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_maturation.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_maturation_receipt.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_understanding_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_development_process_flow.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_evidence_lifecycle.py"
+        }
+      ],
+      "kind": "command",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard",
+      "semantic_check_id": "semantic:check:flowguard:understanding-readiness",
+      "timeout_seconds": 240
     },
     {
       "args": [
@@ -217,6 +346,7 @@
         "obligation:flowguard:plane-boundary",
         "obligation:flowguard:native-authority",
         "obligation:flowguard:model-maturation-closure",
+        "obligation:flowguard:understanding-readiness",
         "obligation:flowguard:model-revision-build",
         "obligation:flowguard:evidence-closure"
       ]
@@ -259,6 +389,7 @@
       "check:flowguard:plane-boundary",
       "check:flowguard:native-authority",
       "check:flowguard:model-maturation-closure",
+      "check:flowguard:understanding-readiness",
       "check:flowguard:model-revision-build",
       "check:flowguard:evidence-closure"
     ],
@@ -271,7 +402,8 @@
     "provider_runtime": {
       "provider_id": "skillguard-local-provider",
       "readiness_check_ids": [
-        "check:flowguard:native-authority"
+        "check:flowguard:native-authority",
+        "check:flowguard:understanding-readiness"
       ],
       "required_capability_ids": [
         "declared-check-inventory.v1",
@@ -295,17 +427,41 @@
     ".agents/skills/flowguard",
     ".flowguard/minimum_valuable_model_entry",
     ".flowguard/authoritative_model_system",
+    ".flowguard/model_mesh_closure_model",
+    ".flowguard/task_coverage_demand",
+    ".flowguard/model_maturation_loop",
+    ".flowguard/behavior_commitment_ledger/ledger.json",
     "flowguard/skill_contract_model.py",
     "flowguard/behavior_commitment_lookup.py",
     "flowguard/portable_model.py",
     "flowguard/portable_checker.py",
     "flowguard/model_maturation.py",
+    "flowguard/model_maturation_receipt.py",
+    "flowguard/task_coverage_demand.py",
+    "flowguard/proof_artifact.py",
+    "flowguard/route_topology.py",
+    "flowguard/understanding_readiness.py",
+    "flowguard/development_process_flow.py",
+    "flowguard/evidence_lifecycle.py",
+    "flowguard/risk_evidence_ledger.py",
+    "flowguard/closure_contract.py",
+    "flowguard/api_registry.py",
     "flowguard/model_revision_builder.py",
+    "flowguard/__init__.py",
     "flowguard/__main__.py",
     ".flowguard/compositional_verification_kernel",
     "tests/test_flowguard_skill_trigger.py",
     "tests/test_flowguard_skill_collaboration.py",
     "tests/test_model_maturation.py",
+    "tests/test_model_maturation_receipt.py",
+    "tests/test_task_coverage_demand.py",
+    "tests/test_proof_artifact.py",
+    "tests/test_understanding_readiness.py",
+    "tests/test_development_process_flow.py",
+    "tests/test_evidence_lifecycle.py",
+    "tests/test_risk_evidence_ledger.py",
+    "tests/test_closure_contract.py",
+    "tests/test_api_registry.py",
     "tests/test_model_revision_builder.py",
     "tests/test_model_authority_cli.py"
   ],
@@ -342,6 +498,11 @@
     {
       "authority": "target-native",
       "check_id": "check:flowguard:model-maturation-closure",
+      "owner_id": "model_first_function_flow"
+    },
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard:understanding-readiness",
       "owner_id": "model_first_function_flow"
     },
     {
@@ -393,6 +554,7 @@
       "check_ids": [
         "check:flowguard:evidence-closure",
         "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
         "check:flowguard:model-revision-build"
       ],
       "output_artifact_ids": [],

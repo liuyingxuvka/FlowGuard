@@ -22,6 +22,15 @@ A commitment is not every helper function, private class, implementation file,
 internal field, or model. A model proves a commitment; it is not automatically
 the whole feature inventory.
 
+The ledger is also not a user-account, persona, or permission catalog for the
+target software. Product roles such as administrator, operator, customer, or
+service account belong in that software's own behavior model. The ledger only
+registers the externally verifiable promise and its one primary model owner.
+
+The read-only understanding-status API and CLI are therefore registered as one
+FlowGuard product promise, not as new target-software roles and not as an
+activity log. Its two public surfaces share one intent and one model owner.
+
 ## Execution Plane And Actor
 
 Every production commitment is classified exactly once by who owns the

@@ -59,6 +59,9 @@ def verified_maturation(
         terminal_reason=decision,
         open_gap_fingerprints=gaps,
         input_fingerprint="sha256:input",
+        owner_resolution_ids=("resolution:test",),
+        owner_resolution_fingerprints=("sha256:resolution-test",),
+        owner_resolution_owner_ids=("model_first_function_flow",),
     )
     snapshot = snapshot_bytes(
         "artifact:model",
@@ -111,6 +114,9 @@ def verified_maturation(
             coverage_universe_fingerprint=report.coverage_universe_fingerprint,
             input_fingerprint=report.input_fingerprint,
             evidence_fingerprint=report.evidence_fingerprint,
+            owner_resolution_ids=report.owner_resolution_ids,
+            owner_resolution_fingerprints=report.owner_resolution_fingerprints,
+            owner_resolution_owner_ids=report.owner_resolution_owner_ids,
             required_receipt_fingerprint=receipt.fingerprint,
         )
         result = verify_model_maturation_receipt(

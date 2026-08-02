@@ -22,7 +22,133 @@ import hashlib
 from dataclasses import dataclass, replace
 from typing import Iterable
 
-from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
+from flowguard import (
+    FunctionResult,
+    Invariant,
+    InvariantResult,
+    ProofArtifactRef,
+    Workflow,
+)
+
+
+SEMANTIC_MESH_PRODUCER_ROUTE = "authoritative_model_system.semantic_self_mesh"
+
+
+def _sha256_text(value: str) -> str:
+    return "sha256:" + hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _is_sha256(value: str) -> bool:
+    prefix = "sha256:"
+    digest = value.removeprefix(prefix)
+    return (
+        value.startswith(prefix)
+        and len(digest) == 64
+        and all(character in "0123456789abcdefABCDEF" for character in digest)
+    )
+
+
+def _is_exact_identity_set(values: tuple[str, ...]) -> bool:
+    return bool(values) and all(value.strip() for value in values) and len(values) == len(set(values))
+
+
+@dataclass(frozen=True)
+class TerminalSemanticMeshProof:
+    """Hashable projection of one native terminal proof artifact."""
+
+    artifact_id: str
+    producer_route: str
+    command: str
+    result_path: str
+    result_status: str
+    exit_code: int | None
+    started_at: str
+    finished_at: str
+    subject_id: str
+    subject_fingerprint: str
+    artifact_fingerprints: tuple[tuple[str, str], ...]
+    covered_obligation_ids: tuple[str, ...]
+    assertion_scope: str = "external_contract"
+    current: bool = True
+    route_evidence_current: bool = True
+    progress_only: bool = False
+    stale_reasons: tuple[str, ...] = ()
+    route_gap_codes: tuple[str, ...] = ()
+
+    def as_proof_artifact(self) -> ProofArtifactRef:
+        return ProofArtifactRef(
+            artifact_id=self.artifact_id,
+            producer_route=self.producer_route,
+            command=self.command,
+            result_path=self.result_path,
+            result_status=self.result_status,
+            exit_code=self.exit_code,
+            started_at=self.started_at,
+            finished_at=self.finished_at,
+            subject_id=self.subject_id,
+            subject_fingerprint=self.subject_fingerprint,
+            artifact_fingerprints=dict(self.artifact_fingerprints),
+            covered_obligation_ids=self.covered_obligation_ids,
+            assertion_scope=self.assertion_scope,
+            current=self.current,
+            route_evidence_current=self.route_evidence_current,
+            progress_only=self.progress_only,
+            stale_reasons=self.stale_reasons,
+            route_gap_codes=self.route_gap_codes,
+        )
+
+
+@dataclass(frozen=True)
+class SemanticMeshVerification:
+    """Exact binding between the current model system, its mesh, and native proof."""
+
+    current_model_revision: str
+    semantic_mesh_revision: str
+    verified_subject_revision: str
+    semantic_mesh_fingerprint: str
+    current_model_ids: tuple[str, ...]
+    semantic_model_ids: tuple[str, ...]
+    semantic_relation_ids: tuple[str, ...]
+    terminal_proof: TerminalSemanticMeshProof | None
+
+    def required_obligation_ids(self) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                tuple(f"model:{model_id}" for model_id in self.semantic_model_ids)
+                + tuple(f"relation:{relation_id}" for relation_id in self.semantic_relation_ids)
+            )
+        )
+
+    def evidence_fingerprint(self) -> str:
+        return _sha256_text(repr(self))
+
+    def is_current_verified(self) -> bool:
+        proof_projection = self.terminal_proof
+        if proof_projection is None:
+            return False
+        proof = proof_projection.as_proof_artifact()
+        required_obligation_ids = self.required_obligation_ids()
+        return (
+            _is_sha256(self.current_model_revision)
+            and self.semantic_mesh_revision == self.current_model_revision
+            and self.verified_subject_revision == self.current_model_revision
+            and _is_sha256(self.semantic_mesh_fingerprint)
+            and _is_exact_identity_set(self.current_model_ids)
+            and _is_exact_identity_set(self.semantic_model_ids)
+            and set(self.semantic_model_ids) == set(self.current_model_ids)
+            and _is_exact_identity_set(self.semantic_relation_ids)
+            and proof_projection.producer_route == SEMANTIC_MESH_PRODUCER_ROUTE
+            and proof_projection.subject_id
+            == f"semantic-mesh:{self.current_model_revision}"
+            and proof_projection.subject_fingerprint == self.semantic_mesh_fingerprint
+            and proof_projection.artifact_fingerprints
+            == (("semantic_model_mesh", self.semantic_mesh_fingerprint),)
+            and _is_exact_identity_set(proof_projection.covered_obligation_ids)
+            and set(proof_projection.covered_obligation_ids)
+            == set(required_obligation_ids)
+            and proof.has_external_scope()
+            and proof.has_current_pass()
+        )
 
 
 @dataclass(frozen=True)
@@ -37,6 +163,7 @@ class SelfMaintenanceAction:
     validation_owner_inventory_fingerprint: str = ""
     verified_understanding_artifact_ids: tuple[str, ...] = ()
     understanding_chain_fingerprint: str = ""
+    semantic_mesh_verification: SemanticMeshVerification | None = None
     spec_context_ids: tuple[str, ...] = ()
     spec_context_provider: str = "openspec"
     spec_context_artifacts_current: bool = True
@@ -60,6 +187,7 @@ class SelfMaintenanceState:
     child_reports_current: bool = False
     plane_upgrade_reports_current: bool = False
     understanding_chain_current: bool = False
+    semantic_model_mesh_current: bool = False
     behavior_ledger_current: bool = False
     dcar_coverage_current: bool = False
     test_mesh_shards_current: bool = False
@@ -78,6 +206,7 @@ class SelfMaintenanceState:
     validation_owner_inventory_fingerprint: str = ""
     consumed_understanding_artifact_ids: tuple[str, ...] = ()
     understanding_chain_fingerprint: str = ""
+    semantic_mesh_verification: SemanticMeshVerification | None = None
     completion_authority_plane: str = ""
     done_claim: str = "none"
 
@@ -92,6 +221,7 @@ class SelfMaintenanceState:
             and self.child_reports_current
             and self.plane_upgrade_reports_current
             and self.understanding_chain_current
+            and self.semantic_model_mesh_current
             and self.behavior_ledger_current
             and self.dcar_coverage_current
             and self.test_mesh_shards_current
@@ -103,6 +233,17 @@ class SelfMaintenanceState:
             and self.git_status_checked
             and self.spec_context_current
         )
+
+
+def semantic_understanding_chain_fingerprint(
+    artifact_ids: tuple[str, ...],
+    semantic_mesh_verification: SemanticMeshVerification,
+) -> str:
+    return _sha256_text(
+        "\n".join(sorted(artifact_ids))
+        + "\n"
+        + semantic_mesh_verification.evidence_fingerprint()
+    )
 
 
 def _receipt_sets_current(input_obj: SelfMaintenanceAction) -> tuple[bool, bool, bool, bool]:
@@ -132,10 +273,17 @@ def _receipt_sets_current(input_obj: SelfMaintenanceAction) -> tuple[bool, bool,
         and not input_obj.spec_receipt_bridge_present
     )
     understanding_artifact_ids = tuple(input_obj.verified_understanding_artifact_ids)
+    semantic_mesh_verification = input_obj.semantic_mesh_verification
     understanding_chain_current = (
         len(understanding_artifact_ids) == len(REQUIRED_UNDERSTANDING_ARTIFACT_IDS)
         and set(understanding_artifact_ids) == set(REQUIRED_UNDERSTANDING_ARTIFACT_IDS)
-        and bool(input_obj.understanding_chain_fingerprint)
+        and semantic_mesh_verification is not None
+        and semantic_mesh_verification.is_current_verified()
+        and input_obj.understanding_chain_fingerprint
+        == semantic_understanding_chain_fingerprint(
+            understanding_artifact_ids,
+            semantic_mesh_verification,
+        )
     )
     return skill_set_current, plane_set_current, spec_set_current, understanding_chain_current
 
@@ -152,6 +300,7 @@ class CorrectSelfMaintenance:
         "child_reports_current",
         "plane_upgrade_reports_current",
         "understanding_chain_current",
+        "semantic_model_mesh_current",
         "behavior_ledger_current",
         "dcar_coverage_current",
         "test_mesh_shards_current",
@@ -170,6 +319,7 @@ class CorrectSelfMaintenance:
         "validation_owner_inventory_fingerprint",
         "consumed_understanding_artifact_ids",
         "understanding_chain_fingerprint",
+        "semantic_mesh_verification",
         "completion_authority_plane",
         "done_claim",
     )
@@ -228,6 +378,7 @@ class CorrectSelfMaintenance:
                         child_reports_current=exact_set,
                         plane_upgrade_reports_current=plane_exact_set,
                         understanding_chain_current=understanding_exact_set,
+                        semantic_model_mesh_current=understanding_exact_set,
                         behavior_ledger_current=plane_exact_set,
                         dcar_coverage_current=plane_exact_set,
                         test_mesh_shards_current=plane_exact_set,
@@ -251,6 +402,11 @@ class CorrectSelfMaintenance:
                             input_obj.understanding_chain_fingerprint
                             if understanding_exact_set
                             else ""
+                        ),
+                        semantic_mesh_verification=(
+                            input_obj.semantic_mesh_verification
+                            if understanding_exact_set
+                            else None
                         ),
                         spec_context_current=spec_exact_set,
                         consumed_spec_context_ids=(
@@ -318,6 +474,7 @@ class CorrectSelfMaintenance:
                     child_reports_current=exact_set,
                     plane_upgrade_reports_current=plane_exact_set,
                     understanding_chain_current=understanding_exact_set,
+                    semantic_model_mesh_current=understanding_exact_set,
                     behavior_ledger_current=plane_exact_set,
                     dcar_coverage_current=plane_exact_set,
                     test_mesh_shards_current=plane_exact_set,
@@ -341,6 +498,11 @@ class CorrectSelfMaintenance:
                         input_obj.understanding_chain_fingerprint
                         if understanding_exact_set
                         else ""
+                    ),
+                    semantic_mesh_verification=(
+                        input_obj.semantic_mesh_verification
+                        if understanding_exact_set
+                        else None
                     ),
                     spec_context_current=spec_exact_set,
                     consumed_spec_context_ids=(
@@ -434,6 +596,7 @@ class BrokenSyntheticAllFlags(CorrectSelfMaintenance):
                     child_reports_current=True,
                     plane_upgrade_reports_current=True,
                     understanding_chain_current=True,
+                    semantic_model_mesh_current=True,
                     behavior_ledger_current=True,
                     dcar_coverage_current=True,
                     test_mesh_shards_current=True,
@@ -459,6 +622,7 @@ class BrokenAcceptsUnverifiedPlaneReceipts(CorrectSelfMaintenance):
                     child_reports_current=True,
                     plane_upgrade_reports_current=True,
                     understanding_chain_current=True,
+                    semantic_model_mesh_current=True,
                     behavior_ledger_current=True,
                     dcar_coverage_current=True,
                     test_mesh_shards_current=True,
@@ -479,6 +643,7 @@ class BrokenAcceptsUnverifiedPlaneReceipts(CorrectSelfMaintenance):
                         input_obj.verified_understanding_artifact_ids
                     ),
                     understanding_chain_fingerprint=input_obj.understanding_chain_fingerprint,
+                    semantic_mesh_verification=input_obj.semantic_mesh_verification,
                 ),
                 label="unverified_receipts_consumed",
             )
@@ -659,15 +824,23 @@ def no_evidence_flags_without_exact_receipt_set(state: SelfMaintenanceState, tra
         return InvariantResult.fail(
             "plane-upgrade evidence became current without exact terminal check identities and the current verification-contract fingerprint"
         )
+    semantic_mesh_verification = state.semantic_mesh_verification
     if state.understanding_chain_current and not (
         len(state.consumed_understanding_artifact_ids)
         == len(REQUIRED_UNDERSTANDING_ARTIFACT_IDS)
         and set(state.consumed_understanding_artifact_ids)
         == set(REQUIRED_UNDERSTANDING_ARTIFACT_IDS)
-        and bool(state.understanding_chain_fingerprint)
+        and state.semantic_model_mesh_current
+        and semantic_mesh_verification is not None
+        and semantic_mesh_verification.is_current_verified()
+        and state.understanding_chain_fingerprint
+        == semantic_understanding_chain_fingerprint(
+            state.consumed_understanding_artifact_ids,
+            semantic_mesh_verification,
+        )
     ):
         return InvariantResult.fail(
-            "understanding chain became current without the exact independently verified artifact identities"
+            "understanding chain became current without an exact current revision, exact model/relation sets, matching semantic-mesh fingerprint, terminal native proof material, and independently verified artifact identities"
         )
     if state.spec_context_current and not (
         set(state.consumed_spec_context_ids) == set(REQUIRED_SPEC_CONTEXT_IDS)
@@ -737,6 +910,7 @@ REQUIRED_SKILL_RECEIPT_IDS = (
 REQUIRED_RECEIPT_COUNT = len(REQUIRED_SKILL_RECEIPT_IDS)
 ABSTRACT_RECEIPT_IDS = REQUIRED_SKILL_RECEIPT_IDS
 REQUIRED_UNDERSTANDING_ARTIFACT_IDS = (
+    "semantic_model_mesh",
     "task_coverage_demand",
     "model_maturation_receipt",
     "implementation_admission_report",
@@ -761,10 +935,61 @@ VALIDATION_OWNER_INVENTORY_FINGERPRINT = (
     ).hexdigest().upper()
 )
 REQUIRED_SPEC_CONTEXT_IDS = (
+    "openspec:close-flowguard-self-understanding-loop",
+    "openspec:reduce-flowguard-understanding-plumbing",
     "openspec:derive-task-coverage-demand",
     "openspec:bind-maturation-receipts-to-admission",
     "openspec:materialize-flowguard-self-understanding",
     "openspec:simplify-flowguard-evidence-workflow",
+)
+
+ABSTRACT_CURRENT_MODEL_REVISION = _sha256_text("abstract-current-model-revision")
+ABSTRACT_SEMANTIC_MESH_FINGERPRINT = _sha256_text("abstract-current-semantic-mesh")
+ABSTRACT_SEMANTIC_MODEL_IDS = (
+    "authoritative_model_system",
+    "self_maintenance_mesh",
+)
+ABSTRACT_SEMANTIC_RELATION_IDS = (
+    "authoritative_model_system->self_maintenance_mesh",
+    "self_maintenance_mesh->claim:whole-flowguard-self-understanding",
+)
+ABSTRACT_SEMANTIC_OBLIGATION_IDS = tuple(
+    sorted(
+        tuple(f"model:{model_id}" for model_id in ABSTRACT_SEMANTIC_MODEL_IDS)
+        + tuple(
+            f"relation:{relation_id}"
+            for relation_id in ABSTRACT_SEMANTIC_RELATION_IDS
+        )
+    )
+)
+ABSTRACT_SEMANTIC_MESH_VERIFICATION = SemanticMeshVerification(
+    current_model_revision=ABSTRACT_CURRENT_MODEL_REVISION,
+    semantic_mesh_revision=ABSTRACT_CURRENT_MODEL_REVISION,
+    verified_subject_revision=ABSTRACT_CURRENT_MODEL_REVISION,
+    semantic_mesh_fingerprint=ABSTRACT_SEMANTIC_MESH_FINGERPRINT,
+    current_model_ids=ABSTRACT_SEMANTIC_MODEL_IDS,
+    semantic_model_ids=ABSTRACT_SEMANTIC_MODEL_IDS,
+    semantic_relation_ids=ABSTRACT_SEMANTIC_RELATION_IDS,
+    terminal_proof=TerminalSemanticMeshProof(
+        artifact_id="proof:abstract-current-semantic-mesh",
+        producer_route=SEMANTIC_MESH_PRODUCER_ROUTE,
+        command="python .flowguard/authoritative_model_system/run_checks.py",
+        result_path="evidence/abstract-current-semantic-mesh.json",
+        result_status="passed",
+        exit_code=0,
+        started_at="2026-08-02T00:00:00+00:00",
+        finished_at="2026-08-02T00:00:01+00:00",
+        subject_id=f"semantic-mesh:{ABSTRACT_CURRENT_MODEL_REVISION}",
+        subject_fingerprint=ABSTRACT_SEMANTIC_MESH_FINGERPRINT,
+        artifact_fingerprints=(
+            ("semantic_model_mesh", ABSTRACT_SEMANTIC_MESH_FINGERPRINT),
+        ),
+        covered_obligation_ids=ABSTRACT_SEMANTIC_OBLIGATION_IDS,
+    ),
+)
+ABSTRACT_UNDERSTANDING_CHAIN_FINGERPRINT = semantic_understanding_chain_fingerprint(
+    REQUIRED_UNDERSTANDING_ARTIFACT_IDS,
+    ABSTRACT_SEMANTIC_MESH_VERIFICATION,
 )
 EXTERNAL_INPUTS = (
     SelfMaintenanceAction(
@@ -775,7 +1000,8 @@ EXTERNAL_INPUTS = (
         terminal_plane_upgrade_receipt_ids=CURRENT_FULL_VALIDATION_OWNER_IDS,
         validation_owner_inventory_fingerprint=VALIDATION_OWNER_INVENTORY_FINGERPRINT,
         verified_understanding_artifact_ids=REQUIRED_UNDERSTANDING_ARTIFACT_IDS,
-        understanding_chain_fingerprint="sha256:abstract-current-understanding-chain",
+        understanding_chain_fingerprint=ABSTRACT_UNDERSTANDING_CHAIN_FINGERPRINT,
+        semantic_mesh_verification=ABSTRACT_SEMANTIC_MESH_VERIFICATION,
         spec_context_ids=REQUIRED_SPEC_CONTEXT_IDS,
         spec_context_provider="openspec",
         spec_context_artifacts_current=True,
@@ -847,12 +1073,15 @@ def build_broken_missing_spec_context_workflow() -> Workflow:
 
 
 __all__ = [
+    "ABSTRACT_SEMANTIC_MESH_VERIFICATION",
     "EXTERNAL_INPUTS",
     "INVARIANTS",
     "MAX_SEQUENCE_LENGTH",
+    "SemanticMeshVerification",
     "SelfMaintenanceAction",
     "SelfMaintenanceOutput",
     "SelfMaintenanceState",
+    "TerminalSemanticMeshProof",
     "build_broken_missing_behavior_ledger_workflow",
     "build_broken_missing_dcar_coverage_workflow",
     "build_broken_missing_model_miss_backfeed_workflow",
@@ -867,5 +1096,6 @@ __all__ = [
     "build_broken_wrong_plane_completion_workflow",
     "build_correct_workflow",
     "initial_state",
+    "semantic_understanding_chain_fingerprint",
     "terminal_predicate",
 ]

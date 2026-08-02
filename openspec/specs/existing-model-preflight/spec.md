@@ -437,3 +437,32 @@ Existing Model Preflight SHALL project its selected current owners, expected sam
 #### Scenario: Current surface omitted by candidate
 - **WHEN** preflight independently identifies an in-scope current surface that the candidate maturation input omits
 - **THEN** the compiled maturation universe MUST retain that surface as an uncovered item
+
+### Requirement: Preflight emits provenance-bound observations without claiming sufficiency
+Existing-model preflight SHALL identify task-relevant current-model observations, unknown surfaces, unmapped surfaces, ownership conflicts, and not-triggered routes with provenance. It SHALL NOT claim that the task is sufficiently understood.
+
+#### Scenario: Existing model is found but task coverage has not run
+- **WHEN** preflight identifies a current model and its owner
+- **THEN** it reports the observation and leaves understanding sufficiency not-run
+
+#### Scenario: Greenfield work has no existing model
+- **WHEN** no existing modeled system is in scope
+- **THEN** preflight reports a typed not-triggered result rather than a successful existing-model claim
+
+### Requirement: Preflight has one lossless task-coverage projection
+The current preflight input and native report SHALL project model, surface, ownership, unknown, scoped, and blocking findings into task facts and one existing-model owner resolution without AI-authored field copying. A satisfied resolution SHALL require one current native proof artifact covering the exact projection obligations.
+
+#### Scenario: AI omits one preflight surface while copying fields
+- **WHEN** the standard projection contains a current covered or missing surface that a hand-written subset omits
+- **THEN** the standard projection remains authoritative and the smaller hand-written subset cannot support sufficiency
+
+### Requirement: Whole-software blueprint preflight consumes an independent implementation inventory
+Existing-model preflight SHALL request and preserve the independently discovered implementation and non-code inventory when the task explicitly claims, exports, or qualifies a whole-software blueprint. For ordinary work it SHALL continue selecting only the affected current owner closure and SHALL NOT scan or load the whole software solely because many models exist.
+
+#### Scenario: Ordinary affected change
+- **WHEN** a task changes one bounded behavior without requesting a whole-software blueprint claim
+- **THEN** preflight selects the affected owner closure and does not require a full implementation inventory
+
+#### Scenario: Whole-software blueprint requested
+- **WHEN** the task explicitly requests blueprint closure or export
+- **THEN** preflight includes the independent inventory identity and every unresolved implementation surface in its downstream handoff

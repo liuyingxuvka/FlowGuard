@@ -12,6 +12,8 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_tuple as _as_tuple
+
 from .export import to_jsonable
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref
 from .model_maturation import (
@@ -67,14 +69,6 @@ _BROAD_ACTIONS = {
     MODEL_ANGLE_ACTION_ADD_CHILD_MODEL,
     MODEL_ANGLE_ACTION_NEEDS_HUMAN_REVIEW,
 }
-
-
-def _as_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    if isinstance(values, str):
-        return (values,) if values else ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _coerce_deliberation(value: Any) -> "ModelAngleDeliberation":

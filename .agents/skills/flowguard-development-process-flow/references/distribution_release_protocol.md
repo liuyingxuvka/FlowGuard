@@ -12,6 +12,12 @@ are separate evidence domains. A pass in one cannot stand in for another.
 For bounded-system capability delivery, native API/CLI and benchmark evidence
 must precede prompt/skill activation.
 
+When a release explicitly claims software-blueprint closure, freeze the
+observed model-system snapshot, implementation inventory, binding report,
+resource/oracle manifest, deterministic projection, and static qualification
+identities as separate domains. Releasing or installing a projection does not
+itself verify empirical reconstruction.
+
 ## Typed Distribution Evidence
 
 Consume exactly one `DistributionEvidence` published by the distribution
@@ -33,6 +39,12 @@ full gate. Freeze source, toolchain, impact plan, inventory, and exactly one
 execution owner. Receipt consumers verify the immutable parent; they do not
 rerun it.
 
+Empirical reconstruction is not part of the final gate unless the exact
+release requirement explicitly names it and supplies a separately owned
+current receipt bound to the released blueprint fingerprint. Inventory audit,
+blueprint export, package installation, skill synchronization, tagging, and
+publication never launch reconstruction automatically.
+
 `ValidationInputManifest` binds what each validation owner consumed.
 `ReleaseTreeManifest` separately binds every tag path, mode, and blob. A
 source-only release follows the frozen final validation; post-push checks
@@ -48,3 +60,6 @@ entire descendant process tree is zero before any retry.
 Return source, installation, consumer projection, Git, tag, and Release status
 separately. Missing or stale distribution evidence blocks distribution/release
 confidence but does not retroactively invalidate unrelated source-only facts.
+For a blueprint release, also report static blueprint status and empirical
+reconstruction status separately; `complete` plus `not_run` means the static
+blueprint is released but reconstruction was not verified.

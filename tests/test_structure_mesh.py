@@ -77,7 +77,75 @@ def recommendation(
     )
 
 
+class InventoryReportStub:
+    def __init__(self, *, required_surface_ids, ok=True, fingerprint="sha256:inventory"):
+        self.ok = ok
+        self.inventory_fingerprint = fingerprint
+        self.required_surface_ids = tuple(required_surface_ids)
+
+    def to_dict(self):
+        return {
+            "ok": self.ok,
+            "inventory_fingerprint": self.inventory_fingerprint,
+            "required_surface_ids": list(self.required_surface_ids),
+        }
+
+
 class StructureMeshTests(unittest.TestCase):
+    def test_blueprint_structure_consumes_exact_independent_inventory_surface_set(self):
+        inventory = InventoryReportStub(required_surface_ids=("cli", "dispatch"))
+        plan = StructureMeshPlan(
+            parent_module_id="router",
+            target_structure=recommendation(),
+            partition_items=(
+                StructurePartitionItem("cli", item_type="entrypoint", owner_module_id="facade"),
+                StructurePartitionItem("dispatch", owner_module_id="dispatch"),
+            ),
+            child_modules=(
+                module("facade", facade_retained=True, owns_functions=("main",)),
+                module("dispatch"),
+            ),
+            public_entrypoints=(entrypoint("python -m router"),),
+            blueprint_required=True,
+            implementation_inventory_fingerprint=inventory.inventory_fingerprint,
+            implementation_inventory_report=inventory,
+        )
+
+        report = review_structure_mesh(plan)
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(inventory.inventory_fingerprint, report.implementation_inventory_fingerprint)
+        self.assertEqual(("cli", "dispatch"), report.covered_partition_surface_ids)
+
+    def test_blueprint_structure_rejects_caller_partition_that_omits_discovered_method(self):
+        inventory = InventoryReportStub(
+            required_surface_ids=("cli", "dispatch", "hidden_writer")
+        )
+        plan = StructureMeshPlan(
+            parent_module_id="router",
+            target_structure=recommendation(),
+            partition_items=(
+                StructurePartitionItem("cli", item_type="entrypoint", owner_module_id="facade"),
+                StructurePartitionItem("dispatch", owner_module_id="dispatch"),
+            ),
+            child_modules=(
+                module("facade", facade_retained=True, owns_functions=("main",)),
+                module("dispatch"),
+            ),
+            public_entrypoints=(entrypoint("python -m router"),),
+            blueprint_required=True,
+            implementation_inventory_fingerprint=inventory.inventory_fingerprint,
+            implementation_inventory_report=inventory,
+        )
+
+        report = review_structure_mesh(plan)
+        self.assertFalse(report.ok)
+        finding = next(
+            finding
+            for finding in report.findings
+            if finding.code == "implementation_partition_coverage_mismatch"
+        )
+        self.assertEqual(("hidden_writer",), finding.metadata["missing"])
+
     def test_non_ui_currentness_children_have_one_exact_release_structure(self):
         plan = StructureMeshPlan(
             parent_module_id="flowguard_currentness",

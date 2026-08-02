@@ -4,8 +4,10 @@ from flowguard import (
     CodeStructureRecommendation,
     ImplementationAdmissionReport,
     TargetModuleRecommendation,
+    implementation_coverage_obligation_id,
     review_code_structure_recommendation,
 )
+from flowguard.portable_model import canonical_identity
 from tests._maturation_receipt_support import verified_maturation
 
 
@@ -19,6 +21,56 @@ def module(module_id: str, **kwargs) -> TargetModuleRecommendation:
 
 
 class CodeStructureRecommendationTests(unittest.TestCase):
+    def test_blueprint_recommendation_requires_exact_model_universe_and_reverse_obligations(self):
+        universe = (("effect", "write_order"), ("function_block", "PersistOrder"))
+        recommendation = CodeStructureRecommendation(
+            "checkout-blueprint-structure",
+            source_model_id="checkout-functional-model",
+            parent_module_id="checkout",
+            target_modules=(module("effects"),),
+            function_block_map=(("PersistOrder", "effects"),),
+            side_effect_owner_map=(("write_order", "effects"),),
+            validation_boundaries=("model scenario replay",),
+            rationale="the exact model universe drives the target owner",
+            blueprint_required=True,
+            model_element_universe=universe,
+            model_element_universe_fingerprint=canonical_identity(
+                {"model_elements": [list(pair) for pair in sorted(universe)]}
+            ),
+            reverse_implementation_obligation_ids=tuple(
+                implementation_coverage_obligation_id(kind, item_id)
+                for kind, item_id in universe
+            ),
+        )
+
+        self.assertTrue(review_code_structure_recommendation(recommendation).ok)
+
+    def test_nonempty_blueprint_mapping_cannot_hide_one_current_effect(self):
+        universe = (("effect", "write_order"), ("function_block", "PersistOrder"))
+        recommendation = CodeStructureRecommendation(
+            "checkout-blueprint-structure",
+            source_model_id="checkout-functional-model",
+            parent_module_id="checkout",
+            target_modules=(module("effects"),),
+            function_block_map=(("PersistOrder", "effects"),),
+            validation_boundaries=("model scenario replay",),
+            rationale="a partial nonempty mapping is still incomplete",
+            blueprint_required=True,
+            model_element_universe=universe,
+            model_element_universe_fingerprint=canonical_identity(
+                {"model_elements": [list(pair) for pair in sorted(universe)]}
+            ),
+            reverse_implementation_obligation_ids=(
+                implementation_coverage_obligation_id("function_block", "PersistOrder"),
+            ),
+        )
+
+        report = review_code_structure_recommendation(recommendation)
+        codes = {finding.code for finding in report.findings}
+        self.assertFalse(report.ok)
+        self.assertIn("model_element_coverage_mismatch", codes)
+        self.assertIn("reverse_implementation_obligations_incomplete", codes)
+
     def test_implementation_ready_claim_requires_exact_admitted_model_and_scope(self):
         ref = verified_maturation(
             task_id="task:structure",

@@ -21,7 +21,14 @@ def owner_proof(angle_id, owner_route):
     return ProofArtifactRef(
         f"proof:{angle_id}",
         producer_route=owner_route,
+        command="python .flowguard/model_angle_deliberation/run_checks.py",
+        result_path=".flowguard/evidence/model-angle-deliberation.json",
         result_status="passed",
+        exit_code=0,
+        started_at="2026-08-02T00:00:00+00:00",
+        finished_at="2026-08-02T00:00:01+00:00",
+        subject_id=f"model:{angle_id}",
+        subject_fingerprint="sha256:current-model",
         artifact_fingerprints={"model": "sha256:current-model"},
         covered_obligation_ids=(angle_id,),
     )

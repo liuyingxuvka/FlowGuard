@@ -262,13 +262,16 @@ from .step_contracts import (
     step_contracts_to_validation_requirements,
 )
 from .code_structure import (
+    BLUEPRINT_MODEL_ELEMENT_KINDS,
     CodeStructureFinding,
     CodeStructureRecommendation,
     CodeStructureRecommendationReport,
     TargetModuleRecommendation,
+    implementation_coverage_obligation_id,
     review_code_structure_recommendation,
 )
 from .existing_model_preflight import (
+    BlueprintPreflightHandoff,
     DUPLICATE_RISK_RESOLUTIONS,
     ExistingModelPreflight,
     ExistingModelPreflightFinding,
@@ -288,7 +291,12 @@ from .existing_model_preflight import (
     REUSE_DECISION_REUSE_EXISTING,
     REUSE_DECISION_SKIP,
     REUSE_DECISIONS,
+    existing_model_preflight_projection_obligation_ids,
     existing_model_preflight_from_project,
+    project_existing_model_preflight_maturation_contribution,
+    project_existing_model_preflight_blueprint_handoff,
+    project_existing_model_preflight_resolution,
+    project_existing_model_preflight_to_task_facts,
     review_existing_model_preflight,
 )
 from .agent_workflow_rehearsal import (
@@ -884,7 +892,12 @@ from . import ui_structure as _ui_structure
 from . import model_freshness as _model_freshness
 from . import model_maturation as _model_maturation
 from . import model_maturation_receipt as _model_maturation_receipt
+from . import implementation_inventory as _implementation_inventory
+from . import implementation_inventory_python as _implementation_inventory_python
+from . import implementation_blueprint as _implementation_blueprint
+from . import self_blueprint as _self_blueprint
 from . import task_coverage_demand as _task_coverage_demand
+from . import understanding_readiness as _understanding_readiness
 from . import model_miss_diagnostics as _model_miss_diagnostics
 from . import distribution_sync as _distribution_sync
 from . import evidence_receipts as _evidence_receipts
@@ -914,16 +927,25 @@ from .topology_hazard import *  # noqa: F403
 from .model_freshness import *  # noqa: F403
 from .model_maturation import *  # noqa: F403
 from .model_maturation_receipt import *  # noqa: F403
+from .implementation_inventory import *  # noqa: F403
+from .implementation_inventory_python import *  # noqa: F403
+from .implementation_blueprint import *  # noqa: F403
+from .self_blueprint import *  # noqa: F403
 from .task_coverage_demand import *  # noqa: F403
+from .understanding_readiness import *  # noqa: F403
 from .route_topology import *  # noqa: F403
 from .development_process_simulator import *  # noqa: F403
 from .development_process_strategy import *  # noqa: F403
 from .development_process_flow import (
     IMPLEMENTATION_ADMISSION_BLOCKED,
     IMPLEMENTATION_ADMISSION_NO_CODE,
+    IMPLEMENTATION_ADMISSION_NOT_REQUESTED,
     IMPLEMENTATION_ADMISSION_READY,
     IMPLEMENTATION_ADMISSION_READY_SCOPED,
     IMPLEMENTATION_ADMISSION_STALE,
+    USER_EXECUTION_CHOICE_DIRECT,
+    USER_EXECUTION_CHOICE_MODEL_FIRST,
+    USER_EXECUTION_CHOICE_NO_CODE,
     PROCESS_ARTIFACT_ADAPTER,
     PROCESS_ARTIFACT_BEHAVIOR_COMMITMENT_LEDGER,
     PROCESS_ARTIFACT_BUG_REPAIR_CLOSURE,
@@ -1505,6 +1527,15 @@ TOPOLOGY_HAZARD_ROUTE_API = tuple(_topology_hazard.__all__)
 UI_FLOW_STRUCTURE_ROUTE_API = tuple(name for name in _ui_structure.__all__ if name in globals())
 MODEL_IMPACT_FRESHNESS_API = tuple(_model_freshness.__all__)
 TASK_COVERAGE_DEMAND_API = tuple(_task_coverage_demand.__all__)
+UNDERSTANDING_READINESS_API = tuple(_understanding_readiness.__all__)
+IMPLEMENTATION_BLUEPRINT_API = tuple(
+    dict.fromkeys(
+        tuple(_implementation_inventory.__all__)
+        + tuple(_implementation_inventory_python.__all__)
+        + tuple(_implementation_blueprint.__all__)
+        + tuple(_self_blueprint.__all__)
+    )
+)
 MODEL_MATURATION_RECEIPT_API = tuple(_model_maturation_receipt.__all__)
 MODEL_MATURATION_API = tuple(
     dict.fromkeys(
@@ -1541,7 +1572,9 @@ AGENT_DEFAULT_API = (
     "RiskProfile",
     "TaskFacts",
     "compile_task_coverage_demand",
-    "verify_model_maturation_receipt",
+    "UnderstandingReadinessInput",
+    "UnderstandingReadinessStatus",
+    "compose_understanding_status",
     "review_implementation_admission",
     "FlowGuardCheckPlan",
     "MinimumModelContract",
@@ -1552,15 +1585,15 @@ AGENT_DEFAULT_API = (
     "run_model_first_checks",
     "FLOWGUARD_ROUTE_API",
     "default_flowguard_route_profiles",
-    "review_route_admission",
     "audit_project_adoption",
     "review_development_process_flow",
     "review_model_test_alignment",
     "review_field_lifecycle",
-    "review_topology_hazards",
 )
 
 MODELING_HELPER_API = (
+    "IMPLEMENTATION_BLUEPRINT_API",
+    *IMPLEMENTATION_BLUEPRINT_API,
     "ARTIFACT_PAYLOAD_METHOD_AUTOMATED_TEST",
     "ARTIFACT_PAYLOAD_METHOD_BROWSER",
     "ARTIFACT_PAYLOAD_METHOD_DESKTOP",
@@ -1818,7 +1851,13 @@ MODELING_HELPER_API = (
     "REUSE_DECISION_SKIP",
     "REUSE_DECISIONS",
     "DUPLICATE_RISK_RESOLUTIONS",
+    "BlueprintPreflightHandoff",
+    "existing_model_preflight_projection_obligation_ids",
     "existing_model_preflight_from_project",
+    "project_existing_model_preflight_maturation_contribution",
+    "project_existing_model_preflight_blueprint_handoff",
+    "project_existing_model_preflight_resolution",
+    "project_existing_model_preflight_to_task_facts",
     "review_existing_model_preflight",
     "AgentWorkflowPlan",
     "AgentWorkflowRehearsalFinding",
@@ -2346,6 +2385,7 @@ MODELING_HELPER_API = (
 )
 
 REPORTING_HELPER_API = (
+    *UNDERSTANDING_READINESS_API,
     "AssumptionCard",
     "ConditionalAssumption",
     "assumption_card",
@@ -2805,7 +2845,9 @@ PLAN_DETAILING_ROUTE_API = (
 )
 
 _FLOWGUARD_ROUTE_API_GROUPS = {
-    "model_first_function_flow": AGENT_DEFAULT_API,
+    "model_first_function_flow": tuple(
+        dict.fromkeys((*AGENT_DEFAULT_API, *IMPLEMENTATION_BLUEPRINT_API))
+    ),
     "flowguard_self_maintenance": FLOWGUARD_SELF_MAINTENANCE_ROUTE_API,
     "template_structure": TEMPLATE_STRUCTURE_API,
     "evidence_field_structure": EVIDENCE_FIELD_STRUCTURE_API,
@@ -2902,7 +2944,11 @@ _ROUTE_STARTER_API_GROUPS = {
         "ExistingModelPreflight",
         "ExistingModelPreflightFinding",
         "ExistingModelPreflightReport",
+        "existing_model_preflight_projection_obligation_ids",
         "existing_model_preflight_from_project",
+        "project_existing_model_preflight_maturation_contribution",
+        "project_existing_model_preflight_resolution",
+        "project_existing_model_preflight_to_task_facts",
         "review_existing_model_preflight",
         "existing_model_preflight_template_files",
     ),

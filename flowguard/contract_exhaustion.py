@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from itertools import product
 from typing import Any, Iterable, Mapping, Sequence
 
+from ._normalization import unique_strings as _unique
 from .export import to_json_text, to_jsonable
 from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
 
@@ -171,17 +172,6 @@ def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
     if values is None:
         return ()
     return tuple(str(value) for value in values if str(value))
-
-
-def _unique(values: Iterable[str]) -> tuple[str, ...]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for value in values:
-        text = str(value)
-        if text and text not in seen:
-            seen.add(text)
-            result.append(text)
-    return tuple(result)
 
 
 def _metadata(value: Mapping[str, Any] | None) -> dict[str, Any]:

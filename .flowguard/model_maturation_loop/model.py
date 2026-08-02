@@ -9,24 +9,41 @@ from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 
 
 @dataclass(frozen=True)
+class OwnerResolution:
+    owner_id: str
+    resolution_id: str
+    resolution_fingerprint: str
+    disposition: str
+    evidence_id: str
+    evidence_fingerprint: str
+
+
+@dataclass(frozen=True)
 class MaturationRequest:
     task_id: str
+    demand_id: str
     demand_fingerprint: str
-    unresolved_owner_ids: tuple[str, ...]
+    required_owner_ids: tuple[str, ...]
+    owner_resolutions: tuple[OwnerResolution, ...]
+    open_gap_ids: tuple[str, ...]
     implementation_authorized: bool
 
 
 @dataclass(frozen=True)
 class MaturationEvaluated:
     task_id: str
+    demand_id: str
     demand_fingerprint: str
+    resolution_set_fingerprint: str
     decision: str
 
 
 @dataclass(frozen=True)
 class ReceiptPublished:
     task_id: str
+    demand_id: str
     demand_fingerprint: str
+    resolution_set_fingerprint: str
     decision: str
     receipt_fingerprint: str
 
@@ -34,7 +51,9 @@ class ReceiptPublished:
 @dataclass(frozen=True)
 class ReceiptVerified:
     task_id: str
+    demand_id: str
     demand_fingerprint: str
+    resolution_set_fingerprint: str
     decision: str
     receipt_fingerprint: str
 
@@ -65,8 +84,8 @@ class ClosureChecked:
 @dataclass(frozen=True)
 class State:
     maturation_decisions: tuple[tuple[str, str], ...] = ()
-    published_receipts: tuple[str, ...] = ()
-    verified_receipts: tuple[str, ...] = ()
+    published_receipts: tuple[tuple[str, str, str, str, str, str], ...] = ()
+    verified_receipts: tuple[tuple[str, str, str, str, str, str], ...] = ()
     ready_task_ids: tuple[str, ...] = ()
     confidence_by_task: tuple[tuple[str, str], ...] = ()
     closed_task_ids: tuple[str, ...] = ()
@@ -82,9 +101,49 @@ class EvaluateMaturation:
     output_description = "Closed or blocked maturation result"
 
     def apply(self, input_obj: MaturationRequest, state: State) -> Iterable[FunctionResult]:
-        decision = "closed" if not input_obj.unresolved_owner_ids else "blocked"
+        required_owners = tuple(sorted(set(input_obj.required_owner_ids)))
+        resolutions = tuple(sorted(input_obj.owner_resolutions, key=lambda item: item.owner_id))
+        resolution_owners = tuple(item.owner_id for item in resolutions)
+        exact_owner_set = (
+            bool(required_owners)
+            and len(required_owners) == len(input_obj.required_owner_ids)
+            and len(resolution_owners) == len(set(resolution_owners))
+            and set(resolution_owners) == set(required_owners)
+        )
+        exact_resolution_ids = len({item.resolution_id for item in resolutions}) == len(resolutions)
+        current_evidence = all(
+            item.disposition == "satisfied"
+            and bool(item.resolution_id)
+            and item.resolution_fingerprint.startswith("sha256:")
+            and bool(item.evidence_id)
+            and item.evidence_fingerprint.startswith("sha256:")
+            for item in resolutions
+        )
+        exact_demand = (
+            bool(input_obj.task_id)
+            and bool(input_obj.demand_id)
+            and input_obj.demand_fingerprint.startswith("sha256:")
+        )
+        decision = (
+            "closed"
+            if exact_demand
+            and exact_owner_set
+            and exact_resolution_ids
+            and current_evidence
+            and not input_obj.open_gap_ids
+            else "blocked"
+        )
+        resolution_set_fingerprint = "sha256:resolution-set:" + ":".join(
+            item.resolution_fingerprint.removeprefix("sha256:") for item in resolutions
+        )
         yield FunctionResult(
-            MaturationEvaluated(input_obj.task_id, input_obj.demand_fingerprint, decision),
+            MaturationEvaluated(
+                input_obj.task_id,
+                input_obj.demand_id,
+                input_obj.demand_fingerprint,
+                resolution_set_fingerprint,
+                decision,
+            ),
             replace(
                 state,
                 maturation_decisions=state.maturation_decisions + ((input_obj.task_id, decision),),
@@ -103,10 +162,32 @@ class PublishReceipt:
     output_description = "Content-addressed maturation receipt"
 
     def apply(self, input_obj: MaturationEvaluated, state: State) -> Iterable[FunctionResult]:
-        fingerprint = f"receipt:{input_obj.task_id}:{input_obj.demand_fingerprint}:{input_obj.decision}"
+        fingerprint = (
+            f"receipt:{input_obj.task_id}:{input_obj.demand_id}:"
+            f"{input_obj.demand_fingerprint}:{input_obj.resolution_set_fingerprint}:"
+            f"{input_obj.decision}"
+        )
         yield FunctionResult(
-            ReceiptPublished(input_obj.task_id, input_obj.demand_fingerprint, input_obj.decision, fingerprint),
-            replace(state, published_receipts=state.published_receipts + (fingerprint,)),
+            ReceiptPublished(
+                input_obj.task_id,
+                input_obj.demand_id,
+                input_obj.demand_fingerprint,
+                input_obj.resolution_set_fingerprint,
+                input_obj.decision,
+                fingerprint,
+            ),
+            replace(
+                state,
+                published_receipts=state.published_receipts
+                + ((
+                    input_obj.task_id,
+                    input_obj.demand_id,
+                    input_obj.demand_fingerprint,
+                    input_obj.resolution_set_fingerprint,
+                    input_obj.decision,
+                    fingerprint,
+                ),),
+            ),
             label="maturation_receipt_published",
         )
 
@@ -120,11 +201,26 @@ class VerifyReceipt:
     output_description = "Independently verified maturation projection"
 
     def apply(self, input_obj: ReceiptPublished, state: State) -> Iterable[FunctionResult]:
-        if input_obj.receipt_fingerprint not in state.published_receipts:
+        identity = (
+            input_obj.task_id,
+            input_obj.demand_id,
+            input_obj.demand_fingerprint,
+            input_obj.resolution_set_fingerprint,
+            input_obj.decision,
+            input_obj.receipt_fingerprint,
+        )
+        if identity not in state.published_receipts:
             return
         yield FunctionResult(
-            ReceiptVerified(input_obj.task_id, input_obj.demand_fingerprint, input_obj.decision, input_obj.receipt_fingerprint),
-            replace(state, verified_receipts=state.verified_receipts + (input_obj.receipt_fingerprint,)),
+            ReceiptVerified(
+                input_obj.task_id,
+                input_obj.demand_id,
+                input_obj.demand_fingerprint,
+                input_obj.resolution_set_fingerprint,
+                input_obj.decision,
+                input_obj.receipt_fingerprint,
+            ),
+            replace(state, verified_receipts=state.verified_receipts + (identity,)),
             label="maturation_receipt_verified",
         )
 
@@ -139,7 +235,15 @@ class DecideAdmission:
 
     def apply(self, input_obj: ReceiptVerified, state: State) -> Iterable[FunctionResult]:
         authorized = next((value for task_id, value in state.authorization_by_task if task_id == input_obj.task_id), False)
-        if input_obj.receipt_fingerprint not in state.verified_receipts or input_obj.decision != "closed":
+        identity = (
+            input_obj.task_id,
+            input_obj.demand_id,
+            input_obj.demand_fingerprint,
+            input_obj.resolution_set_fingerprint,
+            input_obj.decision,
+            input_obj.receipt_fingerprint,
+        )
+        if identity not in state.verified_receipts or input_obj.decision != "closed":
             admission = "blocked"
         elif not authorized:
             admission = "no_code_requested"
@@ -169,7 +273,12 @@ class DecideConfidence:
     output_description = "Broad, scoped, or blocked confidence decision"
 
     def apply(self, input_obj: AdmissionDecided, state: State) -> Iterable[FunctionResult]:
-        verified = input_obj.receipt_fingerprint in state.verified_receipts
+        verified = any(
+            task_id == input_obj.task_id
+            and decision == input_obj.maturation_decision
+            and fingerprint == input_obj.receipt_fingerprint
+            for task_id, _demand_id, _demand_fingerprint, _resolution_set, decision, fingerprint in state.verified_receipts
+        )
         if verified and input_obj.maturation_decision == "closed" and input_obj.admission == "ready":
             confidence = "full"
         elif verified and input_obj.maturation_decision == "closed" and input_obj.admission == "no_code_requested":
@@ -196,7 +305,10 @@ class VerifyClosure:
 
     def apply(self, input_obj: ConfidenceDecided, state: State) -> Iterable[FunctionResult]:
         exact = (
-            input_obj.receipt_fingerprint in state.verified_receipts
+            any(
+                task_id == input_obj.task_id and fingerprint == input_obj.receipt_fingerprint
+                for task_id, _demand_id, _demand_fingerprint, _resolution_set, _decision, fingerprint in state.verified_receipts
+            )
             and dict(state.confidence_by_task).get(input_obj.task_id) == input_obj.confidence
         )
         closure = "closed" if exact and input_obj.confidence in {"full", "scoped"} else "blocked"
@@ -236,7 +348,11 @@ class BrokenPermissionUpgradesMaturation(DecideAdmission):
 def ready_requires_verified_closed_receipt(state: State, _trace) -> InvariantResult:
     decisions = dict(state.maturation_decisions)
     for task_id in state.ready_task_ids:
-        if decisions.get(task_id) != "closed" or not state.verified_receipts:
+        exact_verified = any(
+            receipt_task_id == task_id and decision == "closed"
+            for receipt_task_id, _demand_id, _demand_fingerprint, _resolution_set, decision, _fingerprint in state.verified_receipts
+        )
+        if decisions.get(task_id) != "closed" or not exact_verified:
             return InvariantResult.fail(f"implementation ready without verified closed maturation: {task_id}")
     return InvariantResult.pass_()
 
@@ -261,10 +377,44 @@ INVARIANTS = (
         confidence_and_closure_preserve_verified_maturation,
     ),
 )
-CLOSED_REQUEST = MaturationRequest("task:closed", "sha256:demand-closed", (), True)
-BLOCKED_REQUEST = MaturationRequest("task:blocked", "sha256:demand-blocked", ("ui-flow",), True)
+CLOSED_RESOLUTIONS = (
+    OwnerResolution(
+        "existing-model-preflight",
+        "resolution:preflight",
+        "sha256:resolution-preflight",
+        "satisfied",
+        "evidence:preflight",
+        "sha256:evidence-preflight",
+    ),
+    OwnerResolution(
+        "model-test-alignment",
+        "resolution:alignment",
+        "sha256:resolution-alignment",
+        "satisfied",
+        "evidence:alignment",
+        "sha256:evidence-alignment",
+    ),
+)
+CLOSED_REQUEST = MaturationRequest(
+    "task:closed",
+    "demand:closed",
+    "sha256:demand-closed",
+    ("existing-model-preflight", "model-test-alignment"),
+    CLOSED_RESOLUTIONS,
+    (),
+    True,
+)
+BLOCKED_REQUEST = MaturationRequest(
+    "task:blocked",
+    "demand:blocked",
+    "sha256:demand-blocked",
+    ("existing-model-preflight", "model-test-alignment", "ui-flow"),
+    CLOSED_RESOLUTIONS,
+    ("missing_owner_resolution:ui-flow",),
+    True,
+)
 EXTERNAL_INPUTS = (CLOSED_REQUEST, BLOCKED_REQUEST)
-MAX_SEQUENCE_LENGTH = 4
+MAX_SEQUENCE_LENGTH = 6
 
 
 def initial_state() -> State:

@@ -75,6 +75,25 @@ side effects, and error paths for complete boundary-matrix tests, recommend a
 smaller model/code boundary before implementation. The answer should not hide a
 too-large leaf behind a facade that cannot be observed.
 
+## Software Blueprint Handoff
+
+This extension applies only when the recommendation will support an explicit
+whole-software blueprint claim. Freeze the exact current model-element
+universe and its fingerprint, including required FunctionBlocks, state,
+fields, effects, and public entrypoints. For every element record exactly one
+target module/owner or a typed unresolved disposition. A nonempty mapping is
+not enough: required ids and mapped-or-dispositioned ids must be exact sets.
+
+Emit reverse implementation-coverage obligations naming the target owner,
+expected public or internal realization role, observable boundary, and later
+source-audit owner. Those obligations let independent discovery ask whether
+every behavior-bearing implementation surface realizes a current model
+obligation without turning this recommendation into a source scanner.
+
+This route does not bind source paths as reconstruction semantics, prove
+implementation completeness, or run reconstruction. Any model-universe
+fingerprint change makes the blueprint recommendation stale.
+
 ## Relationship To StructureMesh
 
 Code structure recommendation handles direct no-code or pre-code architecture
@@ -85,6 +104,13 @@ or API surface split, it must include model-derived target structure evidence
 inside the StructureMesh plan. That evidence can use the same recommendation
 shape, but the StructureMesh protocol owns the requirement for existing-code
 decomposition.
+
+ArchitectureReduction is a later conditional route, not a default follow-up.
+Use it only when a current model/code map identifies a concrete duplicated or
+over-complex implementation responsibility, the observable contract is
+frozen, behavior-preservation proof status is explicit, and the required
+StructureMesh/DevelopmentProcessFlow revalidation route is named. Size,
+neatness, token cost, or a blueprint claim alone is insufficient.
 
 ## Completion Standard
 
@@ -106,6 +132,11 @@ A recommendation is complete when:
 - known-bad alternatives such as a monolithic target, duplicate owners, hidden
   side effects, missing facade, or unexplained mechanical over-splitting are
   rejected or documented as out of scope.
+
+For blueprint use, completion additionally requires exact equality between the
+frozen model-element universe and mapped-or-typed-unresolved elements, plus a
+reverse implementation-coverage obligation for each required element. This is
+still recommendation completeness, not static blueprint qualification.
 
 Implementation-ready requires current admission for the same task, model, and
 every proposed module/path. Otherwise it remains recommendation-only.

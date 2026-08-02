@@ -19,6 +19,12 @@ Do not enter merely because the repository contains three or more models. Do
 not split tests or code here, execute a portable joint graph, or treat
 child-local green as parent proof.
 
+An explicit whole-software blueprint claim is a whole-flow trigger only when
+the model-system owner supplies the current observed snapshot plus the
+independent implementation-inventory and binding identities. Ordinary tasks
+continue selecting only affected models, ancestors, consumers, and siblings;
+the existence of a blueprint never widens them to the whole model universe.
+
 ## Conditional references
 
 Load only what the admitted signal needs:
@@ -64,6 +70,14 @@ Group compact prompts as `model`, `interface`, `ownership`, `evidence`, and
   Model Maturation under the exact TaskCoverageDemand; permission cannot close them.
 - RiskLedger owns broad/scoped/blocked confidence. ModelMesh proves only the
   declared relationship boundary.
+- For blueprint topology, every model has a reasoned `connected`,
+  `intentional_leaf`, `delegated_or_supporting`, or `scoped_out` disposition
+  plus meaningful purpose, producer/consumer, and realization references.
+  Inventory and binding fingerprints are references only; source semantics,
+  implementation disposition, and blueprint qualification remain with their
+  native owners.
+- ModelMesh never scans the repository, exports blueprint shards, or launches
+  empirical reconstruction.
 
 ## Output
 
@@ -71,3 +85,7 @@ Return route trigger, loaded conditional references, affected topology,
 partition/reattachment/closure decisions, evidence, failures, blockers,
 skipped checks, residual risk, claim boundary, and typed next actions. Diagram
 edges must say delegates, reattaches, consumes, affects, or blocks.
+
+For blueprint topology, also return consumed inventory/binding fingerprints
+and the exact missing purpose, consumer, or realization relation ids; do not
+describe this relationship report as implementation or reconstruction proof.

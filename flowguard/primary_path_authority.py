@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_tuple as _as_tuple
+
 from .contract_exhaustion import (
     CONTRACT_ORACLE_BLOCK_BEFORE_DOWNSTREAM,
     ContractAxis,
@@ -200,13 +202,6 @@ PPA_DEFAULT_EVIDENCE_STATES = (
     PPA_EVIDENCE_RELEASE_ONLY,
 )
 
-
-def _as_tuple(values: Sequence[str] | str | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    if isinstance(values, str):
-        return (values,) if values else ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _metadata(values: Mapping[str, Any] | None) -> dict[str, Any]:

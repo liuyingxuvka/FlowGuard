@@ -3,6 +3,7 @@ from __future__ import annotations
 import gzip
 import json
 import os
+import shutil
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -66,6 +67,19 @@ class EvidenceObjectTests(unittest.TestCase):
             objects = list((run / "objects" / "sha256").glob("*.gz"))
             self.assertEqual(1, len(objects))
             self.assertEqual(b"", gzip.decompress(objects[0].read_bytes()))
+
+    @unittest.skipUnless(os.name == "nt", "Windows long-path behavior")
+    def test_object_store_supports_windows_paths_beyond_legacy_limit(self) -> None:
+        temporary = Path(tempfile.mkdtemp())
+        try:
+            run = temporary / ("deep-a-" + "a" * 80) / ("deep-b-" + "b" * 80) / ("deep-c-" + "c" * 80)
+            descriptor = store_text_object(run, "long-path evidence\n")
+            object_path = run / descriptor["object_path"]
+
+            self.assertGreater(len(str(object_path.resolve())), 260)
+            self.assertTrue(verify_text_object(run, descriptor))
+        finally:
+            shutil.rmtree("\\\\?\\" + str(temporary.resolve()), ignore_errors=True)
 
     def test_run_directory_must_be_empty_before_execution(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
