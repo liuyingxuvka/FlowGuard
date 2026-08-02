@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.68.4 - 2026-08-02
+
+- Added an independently derived TaskCoverageDemand so task facts determine
+  the minimum modeling owners and depth while callers may only add coverage.
+- Added canonical maturation receipt publication and verification, then bound
+  implementation admission, risk confidence, closure, and code structure to
+  the same exact verified model identity.
+- Materialized the upgraded understanding path in FlowGuard's own executable
+  models, behavior commitments, affected topology, and model/test alignment.
+- Simplified the ordinary AI route into a short facts-to-demand workflow while
+  keeping deeper ModelMesh, Model-Test Alignment, TestMesh, and release rules
+  reachable through explicit conditional protocols.
+
 ## v0.68.3 - 2026-08-01
 
 - Added task-local model-maturation intake that combines independently owned

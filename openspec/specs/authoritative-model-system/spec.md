@@ -214,3 +214,10 @@ historical evidence artifact SHALL NOT satisfy release authority.
 - **WHEN** the model file is tracked but its snapshot-declared runner or another resolved input is ignored or untracked
 - **THEN** the same authority-input reachability gate blocks publication
 - **AND** a locally passing runner execution does not substitute for committed reachability
+
+### Requirement: Affected authority is relationship-complete
+For an upgraded behavior surface, the authoritative model system SHALL identify its model owner, source owner, test or check owner, runtime entry when applicable, and explicit gaps; an inventory row alone SHALL NOT prove this relationship coverage.
+
+#### Scenario: Model exists without a validating owner edge
+- **WHEN** an affected model is inventoried but no current test/check owner or declared gap is attached
+- **THEN** the authority audit reports incomplete affected coverage

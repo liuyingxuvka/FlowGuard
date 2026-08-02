@@ -114,3 +114,17 @@ DevelopmentProcessFlow admission, broad Risk Evidence Ledger rows, and Closure C
 - **WHEN** downstream consumers reference different task, candidate, coverage, input, or maturation evidence identities
 - **THEN** the broad claim MUST be blocked as an identity mismatch
 
+### Requirement: Maturation consumes an independent coverage demand
+The model maturation loop SHALL evaluate candidate completeness against a current compiled TaskCoverageDemand and SHALL NOT treat a caller-authored list of contribution identifiers as the minimum denominator.
+
+#### Scenario: Supplied contributions are internally green but demand is incomplete
+- **WHEN** all supplied contribution evidence passes but at least one demanded row is unresolved or blocked
+- **THEN** the maturation result is not closed for the task
+
+### Requirement: Maturation publishes one downstream authority
+The model maturation loop SHALL publish its terminal result through the canonical maturation receipt boundary, and downstream normal paths SHALL consume only the verified projection of that receipt.
+
+#### Scenario: In-memory report is passed directly downstream
+- **WHEN** a caller presents an unreceipted maturation report to an admission or broad-confidence gate
+- **THEN** the consumer rejects it as non-authoritative
+

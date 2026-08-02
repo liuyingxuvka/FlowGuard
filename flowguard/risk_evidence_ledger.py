@@ -17,10 +17,7 @@ from .maintenance_obligation import (
     MaintenanceObligation,
     coerce_maintenance_obligation,
 )
-from .model_maturation import (
-    ModelMaturationEvidenceRef,
-    coerce_model_maturation_evidence_ref,
-)
+from .model_maturation_receipt import VerifiedModelMaturation
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
 
@@ -234,7 +231,7 @@ class RiskEvidenceLedgerPlan:
     rows: tuple[RiskEvidenceRow, ...] = ()
     proof_evidence: tuple[RiskEvidenceProof, ...] = ()
     maintenance_obligations: tuple[MaintenanceObligation, ...] = ()
-    model_maturation_evidence: tuple[ModelMaturationEvidenceRef, ...] = ()
+    model_maturation_evidence: tuple[VerifiedModelMaturation, ...] = ()
     require_proof_artifacts: bool = False
     allow_scoped_confidence: bool = True
 
@@ -247,15 +244,12 @@ class RiskEvidenceLedgerPlan:
             "maintenance_obligations",
             tuple(coerce_maintenance_obligation(item) for item in self.maintenance_obligations),
         )
-        object.__setattr__(
-            self,
-            "model_maturation_evidence",
-            tuple(
-                coerce_model_maturation_evidence_ref(item)
-                for item in self.model_maturation_evidence
-                if item is not None
-            ),
+        maturation = tuple(
+            item for item in self.model_maturation_evidence if item is not None
         )
+        if any(not isinstance(item, VerifiedModelMaturation) for item in maturation):
+            raise TypeError("model_maturation_evidence must be independently verified")
+        object.__setattr__(self, "model_maturation_evidence", maturation)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -813,14 +807,15 @@ def _maintenance_obligation_findings(
 
 
 def model_maturation_to_risk_evidence_gate(
-    evidence: ModelMaturationEvidenceRef | Mapping[str, Any],
+    evidence: VerifiedModelMaturation,
     *,
     required: bool = True,
 ) -> RiskEvidenceGate:
     """Create the only supported risk-gate projection from typed maturation evidence."""
 
-    ref = coerce_model_maturation_evidence_ref(evidence)
-    assert ref is not None
+    if not isinstance(evidence, VerifiedModelMaturation):
+        raise TypeError("risk evidence requires independently verified maturation")
+    ref = evidence
     if ref.supports_full_confidence():
         confidence = RISK_CONFIDENCE_FULL
     elif ref.open_gap_fingerprints:
@@ -840,7 +835,7 @@ def model_maturation_to_risk_evidence_gate(
 def _model_maturation_gate_findings(
     row: RiskEvidenceRow,
     gate: RiskEvidenceGate,
-    evidence_by_id: Mapping[str, ModelMaturationEvidenceRef],
+    evidence_by_id: Mapping[str, VerifiedModelMaturation],
     *,
     allow_scoped_confidence: bool,
 ) -> list[RiskEvidenceFinding]:
@@ -949,7 +944,7 @@ def _maintenance_gate_findings(
 def _risk_gate_findings(
     row: RiskEvidenceRow,
     obligation_by_id: Mapping[str, MaintenanceObligation],
-    maturation_by_id: Mapping[str, ModelMaturationEvidenceRef],
+    maturation_by_id: Mapping[str, VerifiedModelMaturation],
     *,
     allow_scoped_confidence: bool,
 ) -> list[RiskEvidenceFinding]:

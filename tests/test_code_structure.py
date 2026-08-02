@@ -3,12 +3,10 @@ import unittest
 from flowguard import (
     CodeStructureRecommendation,
     ImplementationAdmissionReport,
-    MODEL_MATURATION_CONFIDENCE_FULL,
-    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
-    ModelMaturationEvidenceRef,
     TargetModuleRecommendation,
     review_code_structure_recommendation,
 )
+from tests._maturation_receipt_support import verified_maturation
 
 
 def module(module_id: str, **kwargs) -> TargetModuleRecommendation:
@@ -22,18 +20,10 @@ def module(module_id: str, **kwargs) -> TargetModuleRecommendation:
 
 class CodeStructureRecommendationTests(unittest.TestCase):
     def test_implementation_ready_claim_requires_exact_admitted_model_and_scope(self):
-        ref = ModelMaturationEvidenceRef(
-            "maturation:structure",
+        ref = verified_maturation(
             task_id="task:structure",
+            evidence_id="maturation:structure",
             model_id="checkout-functional-model",
-            candidate_model_fingerprint="candidate:structure",
-            coverage_universe_id="coverage:structure",
-            coverage_universe_fingerprint="coverage-fp:structure",
-            input_fingerprint="input:structure",
-            evidence_fingerprint="evidence:structure",
-            decision=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
-            confidence=MODEL_MATURATION_CONFIDENCE_FULL,
-            terminal_reason=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
         )
         admission = ImplementationAdmissionReport(
             True,

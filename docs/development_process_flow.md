@@ -28,7 +28,10 @@ claim rule.
 For product-language and validated-path changes, repository source, shadow
 workspace, formal repository, editable package, installed skills, and local Git
 are separate freshness domains. A passing receipt from one cannot stand in for
-another. Peer or unknown-writer edits stale affected evidence and must be
+another. DevelopmentProcessFlow consumes one typed `DistributionEvidence`
+from the distribution owner when installation or release parity is required;
+it does not own a fixed suite count or execute installation semantics. Peer or
+unknown-writer edits stale affected evidence and must be
 re-read and merged; restoring an older green snapshot is not permission to
 overwrite concurrent work. Background logs, PIDs, and heartbeats prove only
 liveness until a terminal TestMesh receipt exists.

@@ -235,3 +235,17 @@ promoting them into current authority.
 - **WHEN** a historical model is preserved but is not a member of the observed-head snapshot
 - **THEN** ModelMesh keeps its historical disposition visible and excludes it from current-system coverage
 
+### Requirement: Self topology records semantic model relationships
+The FlowGuard self topology SHALL record affected parent/child, refinement, sibling-impact, and consumer relationships between models rather than representing the model set only as a flat inventory.
+
+#### Scenario: Child behavior changes
+- **WHEN** an affected child model changes an obligation consumed by a parent or sibling
+- **THEN** the topology identifies the dependent relationship and its freshness impact
+
+### Requirement: ModelMesh activation follows affected topology
+ModelMesh SHALL activate for affected related models, parent/child changes, stale child evidence, oversized model partitioning, cross-model refinement, or whole-flow claims. The mere presence of three or more unrelated models in a repository SHALL NOT require mesh execution.
+
+#### Scenario: Repository contains many unrelated models
+- **WHEN** a task affects one bounded model with no dependent topology and no stale child evidence
+- **THEN** ModelMesh is recorded as not triggered with that reason
+

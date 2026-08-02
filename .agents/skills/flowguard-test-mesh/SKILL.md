@@ -12,7 +12,7 @@ Govern parent/child test hierarchy, validation partitions, results, and freshnes
 This standalone FlowGuard satellite skill gives `test_mesh_maintenance` evidence structure, not semantics, process shape, or execution.
 
 ## Local Material Routing
-After positive admission and no forbidden condition, read `references/test_mesh_protocol.md` for ownership, diagnostics, reuse, matrices, and release scope.
+After admission, read `references/test_mesh_protocol.md`. When its triggers apply, also read `references/test_mesh_reuse_protocol.md`, `references/test_mesh_long_check_protocol.md`, or `references/test_mesh_release_protocol.md`; otherwise leave each unloaded.
 
 ## Entrypoint Acceptance Map
 Review a model-derived validation mesh; block stale, skipped, incomplete, or unowned evidence; hand semantics and lifecycle/risk to typed owners.
@@ -37,7 +37,6 @@ Review a model-derived validation mesh; block stale, skipped, incomplete, or uno
 - One test receipt may fan out only within its declared boundary; never count copies as executions.
 - Require `planned = executed + not_run`, `failed <= executed`, no not-run under `declared_complete`, visible reasons elsewhere, and stable finding ids for failures.
 - Locally green subsets cannot prove a declared complete inventory. Every required item has one executed or delegated disposition; delegation needs one native owner and current evidence.
-- Reuse requires an independent terminal producer receipt whose owner and current fingerprints match.
 - Resolve every owner before execution: missing/stale=`execute`; exact-current pass=`reuse_current`; malformed/tampered/ambiguous/unknown-impact/in-flight=`blocked`.
 - Persist each successful child immediately. Parent/sibling failure cannot erase it; later requests execute only failed/stale owners and recompose from exact child ids/fingerprints.
 

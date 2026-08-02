@@ -285,6 +285,58 @@ def _run_model_maturation_review_command(args: argparse.Namespace) -> int:
         return 1
 
 
+def _run_task_coverage_demand_command(args: argparse.Namespace) -> int:
+    from .task_coverage_demand import TaskFacts, compile_task_coverage_demand
+
+    try:
+        facts = TaskFacts(**_read_json_object(args.facts))
+        demand = compile_task_coverage_demand(facts)
+        _emit_payload(
+            {**demand.to_dict(), "fingerprint": demand.fingerprint},
+            as_json=args.json,
+        )
+        return 0
+    except (OSError, TypeError, ValueError) as exc:
+        _emit_payload({"status": "blocked", "error": str(exc)}, as_json=args.json)
+        return 1
+
+
+def _run_model_maturation_receipt_verify_command(args: argparse.Namespace) -> int:
+    from .evidence_receipts import ReceiptVerificationContext
+    from .model_maturation_receipt import (
+        ModelMaturationReceiptRef,
+        ModelMaturationVerificationContext,
+        verify_model_maturation_receipt,
+    )
+
+    try:
+        payload = _read_json_object(args.context)
+        receipt_ref = ModelMaturationReceiptRef(**dict(payload["receipt_ref"]))
+        raw_model_context = dict(payload["verification_context"])
+        raw_receipt_context = dict(raw_model_context.pop("receipt_context"))
+        raw_snapshots = raw_receipt_context.get("input_snapshots", {})
+        if isinstance(raw_snapshots, list):
+            raw_receipt_context["input_snapshots"] = {
+                str(item["artifact_id"]): item for item in raw_snapshots
+            }
+        receipt_context = ReceiptVerificationContext(**raw_receipt_context)
+        context = ModelMaturationVerificationContext(
+            receipt_context=receipt_context,
+            **raw_model_context,
+        )
+        result = verify_model_maturation_receipt(
+            receipt_ref,
+            context,
+            args.root,
+            output_directory=args.receipt_root or None,
+        )
+        _emit_payload(result.to_dict(), as_json=args.json)
+        return 0 if result.verified_maturation is not None else 1
+    except (KeyError, OSError, TypeError, ValueError) as exc:
+        _emit_payload({"status": "blocked", "error": str(exc)}, as_json=args.json)
+        return 1
+
+
 def _add_model_system_parsers(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
@@ -418,6 +470,24 @@ def _add_model_maturation_parser(
     parser.add_argument("--session-id", default="")
     parser.add_argument("--json", action="store_true", help="Print canonical JSON output.")
     parser.set_defaults(handler=_run_model_maturation_review_command)
+
+    demand = subparsers.add_parser(
+        "task-coverage-demand",
+        help="Derive the minimum model coverage from frozen task facts.",
+    )
+    demand.add_argument("--facts", required=True, help="Current TaskFacts JSON artifact.")
+    demand.add_argument("--json", action="store_true", help="Print canonical JSON output.")
+    demand.set_defaults(handler=_run_task_coverage_demand_command)
+
+    receipt = subparsers.add_parser(
+        "model-maturation-receipt-verify",
+        help="Independently verify one canonical model-maturation receipt.",
+    )
+    receipt.add_argument("--context", required=True, help="Receipt reference and verification context JSON.")
+    receipt.add_argument("--root", default=".", help="Repository root containing the receipt store.")
+    receipt.add_argument("--receipt-root", default="", help="Optional explicit receipt output directory.")
+    receipt.add_argument("--json", action="store_true", help="Print canonical JSON output.")
+    receipt.set_defaults(handler=_run_model_maturation_receipt_verify_command)
 
 
 def _run_adoption_template() -> int:

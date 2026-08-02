@@ -13,10 +13,8 @@ from typing import Any, Mapping, Sequence
 
 from .export import to_jsonable
 from .development_process_flow import (
-    ImplementationAdmissionFinding,
     ImplementationAdmissionReport,
 )
-from .model_maturation import coerce_model_maturation_evidence_ref
 from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
 
 
@@ -113,7 +111,7 @@ class CodeStructureRecommendation:
     rationale: str = ""
     hierarchical_model_used: bool = False
     implementation_ready_requested: bool = False
-    implementation_admission: ImplementationAdmissionReport | Mapping[str, Any] | None = None
+    implementation_admission: ImplementationAdmissionReport | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "recommendation_id", str(self.recommendation_id))
@@ -139,17 +137,7 @@ class CodeStructureRecommendation:
         object.__setattr__(self, "implementation_ready_requested", bool(self.implementation_ready_requested))
         admission = self.implementation_admission
         if admission is not None and not isinstance(admission, ImplementationAdmissionReport):
-            values = dict(admission)
-            values["maturation_evidence"] = coerce_model_maturation_evidence_ref(
-                values.get("maturation_evidence")
-            )
-            values["findings"] = tuple(
-                item
-                if isinstance(item, ImplementationAdmissionFinding)
-                else ImplementationAdmissionFinding(**dict(item))
-                for item in values.get("findings", ())
-            )
-            admission = ImplementationAdmissionReport(**values)
+            raise TypeError("implementation_admission must be a typed current report")
         object.__setattr__(self, "implementation_admission", admission)
 
     def module_ids(self) -> tuple[str, ...]:

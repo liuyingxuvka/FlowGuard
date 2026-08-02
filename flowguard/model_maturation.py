@@ -20,6 +20,7 @@ from .maintenance_obligation import (
     obligations_from_maturation_findings,
 )
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref
+from .task_coverage_demand import TaskCoverageDemand
 
 
 MODEL_MATURATION_DECISION_CLOSED_FOR_TASK = "model_maturation_closed_for_task"
@@ -574,8 +575,8 @@ class ModelMaturationIntake:
     risk_id: str
     base_model_fingerprint: str
     candidate_model_fingerprint: str
+    coverage_demand: TaskCoverageDemand
     contributions: tuple[ModelMaturationCoverageContribution, ...] = ()
-    required_contribution_ids: tuple[str, ...] = ()
     schema_version: str = MODEL_MATURATION_INTAKE_SCHEMA_VERSION
     iteration: int = 0
     max_iterations: int = 8
@@ -618,8 +619,11 @@ class ModelMaturationIntake:
         for item in contributions:
             if item.task_id != self.task_id:
                 raise ValueError("model maturation contribution task id mismatch")
+        if not isinstance(self.coverage_demand, TaskCoverageDemand):
+            raise TypeError("coverage_demand must be a compiled TaskCoverageDemand")
+        if self.coverage_demand.task_id != self.task_id:
+            raise ValueError("model maturation coverage demand task id mismatch")
         object.__setattr__(self, "contributions", contributions)
-        object.__setattr__(self, "required_contribution_ids", _as_tuple(self.required_contribution_ids))
         object.__setattr__(self, "iteration", max(0, int(self.iteration)))
         object.__setattr__(self, "max_iterations", max(1, int(self.max_iterations)))
         object.__setattr__(self, "prior_gap_fingerprints", _as_tuple(self.prior_gap_fingerprints))
@@ -627,14 +631,23 @@ class ModelMaturationIntake:
 
 
 def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMaturationPlan":
-    """Deterministically union native contributions without reinterpreting them."""
+    """Compile against the independent task demand without reinterpreting owners."""
 
-    contribution_ids = {item.contribution_id for item in intake.contributions}
+    contribution_owners = {item.owner_route for item in intake.contributions}
     missing_contributions = tuple(
-        item for item in intake.required_contribution_ids if item not in contribution_ids
+        owner
+        for owner in intake.coverage_demand.required_owner_ids
+        if owner not in contribution_owners
+    )
+    demanded_coverage_ids = tuple(
+        coverage_id
+        for row in intake.coverage_demand.rows
+        if row.triggered
+        for coverage_id in row.coverage_ids
     )
     coverage_ids = _unique(
-        tuple(
+        demanded_coverage_ids
+        + tuple(
             coverage_id
             for contribution in intake.contributions
             for coverage_id in contribution.coverage_ids
@@ -642,7 +655,8 @@ def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMatura
         + tuple(f"missing-contribution:{item}" for item in missing_contributions)
     )
     probe_ids = _unique(
-        tuple(
+        tuple(f"probe:demand:{coverage_id}" for coverage_id in demanded_coverage_ids)
+        + tuple(
             (
                 contribution.required_probe_ids[index]
                 if index < len(contribution.required_probe_ids)
@@ -654,7 +668,11 @@ def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMatura
         + tuple(f"probe:missing-contribution:{item}" for item in missing_contributions)
     )
     coverage_source_refs = _unique(
-        tuple(
+        (
+            f"task-coverage-demand:{intake.coverage_demand.demand_id}",
+            f"task-coverage-fingerprint:{intake.coverage_demand.fingerprint}",
+        )
+        + tuple(
             source
             for contribution in intake.contributions
             for source in contribution.coverage_source_refs
@@ -672,8 +690,9 @@ def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMatura
         risk_id=intake.risk_id,
         task_id=intake.task_id,
         task_purpose=intake.task_purpose,
-        coverage_universe_id=f"intake:{intake.intake_id}",
-        coverage_owner=f"model_maturation_intake:{intake.intake_id}",
+        coverage_universe_id=intake.coverage_demand.demand_id,
+        coverage_demand_fingerprint=intake.coverage_demand.fingerprint,
+        coverage_owner="task_coverage_demand",
         coverage_source_refs=coverage_source_refs,
         coverage_ids=coverage_ids,
         required_probe_ids=probe_ids,
@@ -746,6 +765,56 @@ def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMatura
                     receipt_owner_route=contribution.owner_route if proof_current else "",
                 )
             )
+    represented_demand_coverage = {signal.coverage_id for signal in compiled_signals}
+    contributions_by_owner = {
+        contribution.owner_route: contribution for contribution in intake.contributions
+    }
+    for row in intake.coverage_demand.rows:
+        if not row.triggered:
+            continue
+        contribution = contributions_by_owner.get(row.owner_route)
+        proof = contribution.evidence_ref if contribution is not None else None
+        proof_current = bool(contribution and contribution.evidence_is_current())
+        proof_fingerprint = _stable_fingerprint(proof.to_dict()) if proof else ""
+        if proof_fingerprint:
+            evidence_identities.append(proof_fingerprint)
+        for coverage_id in row.coverage_ids:
+            if coverage_id in represented_demand_coverage:
+                continue
+            probe_id = f"probe:demand:{coverage_id}"
+            compiled_signals.append(
+                ModelMaturationSignal(
+                    signal_id=f"task-demand:{row.demand_id}:{coverage_id}",
+                    signal_type=(
+                        MODEL_MATURATION_SIGNAL_MISSING_MODEL_OBLIGATION
+                        if proof_current
+                        else MODEL_MATURATION_SIGNAL_STALE_EVIDENCE
+                    ),
+                    source_route=row.owner_route,
+                    coverage_id=coverage_id,
+                    probe_id=probe_id,
+                    resolution_class=MODEL_MATURATION_RESOLUTION_EVIDENCE_ACQUISITION,
+                    prediction=f"{row.owner_route} evidence closes demanded coverage {coverage_id}",
+                    falsifier=f"current {row.owner_route} evidence does not close {coverage_id}",
+                    description=row.reason,
+                    current=proof_current,
+                    resolved=proof_current,
+                    evidence_id=proof.artifact_id if proof else "",
+                    evidence_fingerprint=proof_fingerprint,
+                    receipt_id=proof.artifact_id if proof else "",
+                    receipt_fingerprint=proof_fingerprint,
+                    receipt_status=(MODEL_MATURATION_RECEIPT_STATUS_PASS if proof_current else ""),
+                    receipt_task_id=intake.task_id if proof_current else "",
+                    receipt_probe_id=probe_id if proof_current else "",
+                    receipt_candidate_fingerprint=(
+                        intake.candidate_model_fingerprint if proof_current else ""
+                    ),
+                    receipt_coverage_fingerprint=coverage_fingerprint if proof_current else "",
+                    receipt_evidence_fingerprint=proof_fingerprint if proof_current else "",
+                    receipt_owner_route=row.owner_route if proof_current else "",
+                )
+            )
+            represented_demand_coverage.add(coverage_id)
     for contribution_id in missing_contributions:
         coverage_id = f"missing-contribution:{contribution_id}"
         probe_id = f"probe:missing-contribution:{contribution_id}"
@@ -942,6 +1011,7 @@ class ModelMaturationPlan:
     task_id: str = ""
     task_purpose: str = ""
     coverage_universe_id: str = ""
+    coverage_demand_fingerprint: str = ""
     coverage_universe_fingerprint: str = ""
     coverage_owner: str = ""
     coverage_source_refs: tuple[str, ...] = ()
@@ -968,6 +1038,7 @@ class ModelMaturationPlan:
         object.__setattr__(self, "task_id", str(self.task_id))
         object.__setattr__(self, "task_purpose", str(self.task_purpose))
         object.__setattr__(self, "coverage_universe_id", str(self.coverage_universe_id))
+        object.__setattr__(self, "coverage_demand_fingerprint", str(self.coverage_demand_fingerprint))
         object.__setattr__(self, "coverage_universe_fingerprint", str(self.coverage_universe_fingerprint))
         object.__setattr__(self, "coverage_owner", str(self.coverage_owner))
         object.__setattr__(self, "coverage_source_refs", _as_tuple(self.coverage_source_refs))
@@ -999,7 +1070,7 @@ class ModelMaturationPlan:
         allowed = {
             "plan_id", "schema_version", "model_id", "risk_id", "signals",
             "task_id", "task_purpose", "coverage_universe_id",
-            "coverage_universe_fingerprint", "coverage_owner",
+            "coverage_demand_fingerprint", "coverage_universe_fingerprint", "coverage_owner",
             "coverage_source_refs", "coverage_ids", "required_probe_ids",
             "iteration", "max_iterations", "prior_gap_fingerprints",
             "prior_iteration_fingerprint", "prior_candidate_fingerprint",
@@ -1026,6 +1097,7 @@ class ModelMaturationPlan:
             task_id=str(value.get("task_id", "")),
             task_purpose=str(value.get("task_purpose", "")),
             coverage_universe_id=str(value.get("coverage_universe_id", "")),
+            coverage_demand_fingerprint=str(value.get("coverage_demand_fingerprint", "")),
             coverage_universe_fingerprint=str(value.get("coverage_universe_fingerprint", "")),
             coverage_owner=str(value.get("coverage_owner", "")),
             coverage_source_refs=tuple(value.get("coverage_source_refs", ())),
@@ -1054,6 +1126,7 @@ class ModelMaturationPlan:
             "task_id": self.task_id,
             "task_purpose": self.task_purpose,
             "coverage_universe_id": self.coverage_universe_id,
+            "coverage_demand_fingerprint": self.coverage_demand_fingerprint,
             "coverage_universe_fingerprint": self.coverage_universe_fingerprint,
             "coverage_owner": self.coverage_owner,
             "coverage_source_refs": list(self.coverage_source_refs),
@@ -1079,6 +1152,7 @@ class ModelMaturationPlan:
         return _stable_fingerprint(
             {
                 "coverage_universe_id": self.coverage_universe_id,
+                "coverage_demand_fingerprint": self.coverage_demand_fingerprint,
                 "coverage_owner": self.coverage_owner,
                 "coverage_source_refs": list(self.coverage_source_refs),
                 "coverage_ids": list(self.coverage_ids),
@@ -1104,6 +1178,7 @@ class ModelMaturationReport:
     summary: str = ""
     task_id: str = ""
     coverage_universe_id: str = ""
+    coverage_demand_fingerprint: str = ""
     coverage_universe_fingerprint: str = ""
     base_model_fingerprint: str = ""
     candidate_model_fingerprint: str = ""
@@ -1135,6 +1210,7 @@ class ModelMaturationReport:
         object.__setattr__(self, "summary", str(self.summary))
         object.__setattr__(self, "task_id", str(self.task_id))
         object.__setattr__(self, "coverage_universe_id", str(self.coverage_universe_id))
+        object.__setattr__(self, "coverage_demand_fingerprint", str(self.coverage_demand_fingerprint))
         object.__setattr__(
             self, "coverage_universe_fingerprint", str(self.coverage_universe_fingerprint)
         )
@@ -1169,6 +1245,7 @@ class ModelMaturationReport:
             "summary": self.summary,
             "task_id": self.task_id,
             "coverage_universe_id": self.coverage_universe_id,
+            "coverage_demand_fingerprint": self.coverage_demand_fingerprint,
             "coverage_universe_fingerprint": self.coverage_universe_fingerprint,
             "base_model_fingerprint": self.base_model_fingerprint,
             "candidate_model_fingerprint": self.candidate_model_fingerprint,
@@ -1217,107 +1294,6 @@ class ModelMaturationReport:
             lines.append("next actions:")
             lines.extend(f"- {action}" for action in self.next_actions)
         return "\n".join(lines)
-
-
-@dataclass(frozen=True)
-class ModelMaturationEvidenceRef:
-    """Compact exact identity consumed by admission, risk, and closure."""
-
-    evidence_id: str
-    task_id: str
-    model_id: str
-    candidate_model_fingerprint: str
-    coverage_universe_id: str
-    coverage_universe_fingerprint: str
-    input_fingerprint: str
-    evidence_fingerprint: str
-    decision: str
-    confidence: str
-    terminal_reason: str
-    open_gap_fingerprints: tuple[str, ...] = ()
-    current: bool = True
-
-    def __post_init__(self) -> None:
-        for name in (
-            "evidence_id",
-            "task_id",
-            "model_id",
-            "candidate_model_fingerprint",
-            "coverage_universe_id",
-            "coverage_universe_fingerprint",
-            "input_fingerprint",
-            "evidence_fingerprint",
-            "decision",
-            "confidence",
-            "terminal_reason",
-        ):
-            object.__setattr__(self, name, str(getattr(self, name)))
-        object.__setattr__(self, "open_gap_fingerprints", _as_tuple(self.open_gap_fingerprints))
-        object.__setattr__(self, "current", bool(self.current))
-
-    @classmethod
-    def from_report(cls, report: ModelMaturationReport) -> "ModelMaturationEvidenceRef":
-        required_identity = all(
-            (
-                report.evidence_id,
-                report.task_id,
-                report.model_id,
-                report.candidate_model_fingerprint,
-                report.coverage_universe_id,
-                report.coverage_universe_fingerprint,
-                report.input_fingerprint,
-                report.evidence_fingerprint,
-            )
-        )
-        return cls(
-            evidence_id=report.evidence_id,
-            task_id=report.task_id,
-            model_id=report.model_id,
-            candidate_model_fingerprint=report.candidate_model_fingerprint,
-            coverage_universe_id=report.coverage_universe_id,
-            coverage_universe_fingerprint=report.coverage_universe_fingerprint,
-            input_fingerprint=report.input_fingerprint,
-            evidence_fingerprint=report.evidence_fingerprint,
-            decision=report.decision,
-            confidence=report.confidence,
-            terminal_reason=report.terminal_reason,
-            open_gap_fingerprints=report.open_gap_fingerprints,
-            current=bool(required_identity),
-        )
-
-    def supports_full_confidence(self) -> bool:
-        return bool(
-            self.current
-            and self.decision == MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
-            and self.confidence == MODEL_MATURATION_CONFIDENCE_FULL
-            and self.terminal_reason == MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
-            and not self.open_gap_fingerprints
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "evidence_id": self.evidence_id,
-            "task_id": self.task_id,
-            "model_id": self.model_id,
-            "candidate_model_fingerprint": self.candidate_model_fingerprint,
-            "coverage_universe_id": self.coverage_universe_id,
-            "coverage_universe_fingerprint": self.coverage_universe_fingerprint,
-            "input_fingerprint": self.input_fingerprint,
-            "evidence_fingerprint": self.evidence_fingerprint,
-            "decision": self.decision,
-            "confidence": self.confidence,
-            "terminal_reason": self.terminal_reason,
-            "open_gap_fingerprints": list(self.open_gap_fingerprints),
-            "current": self.current,
-        }
-
-
-def coerce_model_maturation_evidence_ref(
-    value: ModelMaturationEvidenceRef | Mapping[str, Any] | None,
-) -> ModelMaturationEvidenceRef | None:
-    if value is None or isinstance(value, ModelMaturationEvidenceRef):
-        return value
-    return ModelMaturationEvidenceRef(**dict(value))
 
 
 def _signal_finding(
@@ -1424,6 +1400,13 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
         findings.append(_plan_finding("missing_coverage_source_refs", "independent coverage source references are required"))
     if not plan.coverage_ids:
         findings.append(_plan_finding("missing_coverage_universe", "the independent coverage universe is empty"))
+    if not plan.coverage_demand_fingerprint:
+        findings.append(
+            _plan_finding(
+                "missing_task_coverage_demand",
+                "model maturation is not bound to a compiled TaskCoverageDemand",
+            )
+        )
     if not plan.required_probe_ids:
         findings.append(_plan_finding("missing_required_probes", "the required native probe inventory is empty"))
     if plan.coverage_universe_fingerprint and plan.coverage_universe_fingerprint != plan.expected_coverage_fingerprint():
@@ -1762,6 +1745,7 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
         summary=summary,
         task_id=plan.task_id,
         coverage_universe_id=plan.coverage_universe_id,
+        coverage_demand_fingerprint=plan.coverage_demand_fingerprint,
         coverage_universe_fingerprint=plan.coverage_universe_fingerprint,
         base_model_fingerprint=plan.base_model_fingerprint,
         candidate_model_fingerprint=plan.candidate_model_fingerprint,
@@ -1899,7 +1883,6 @@ __all__ = [
     "MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE",
     "MODEL_MATURATION_SIGNAL_TYPES",
     "ModelMaturationCoverageContribution",
-    "ModelMaturationEvidenceRef",
     "ModelMaturationFinding",
     "ModelMaturationGapResolutionReceipt",
     "ModelMaturationIntake",
@@ -1908,7 +1891,6 @@ __all__ = [
     "ModelMaturationReport",
     "ModelMaturationSession",
     "ModelMaturationSignal",
-    "coerce_model_maturation_evidence_ref",
     "compile_model_maturation_plan",
     "review_model_maturation_session",
     "review_model_maturation_loop",

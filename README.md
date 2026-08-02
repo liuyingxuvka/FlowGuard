@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.68.3` | `1.0` | Python standard library only | MIT |
+| `v0.68.4` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -34,6 +34,15 @@ as incomplete, and rejects a proposed repair that only deletes the obligation
 or loses every named positive behavior.
 
 It does not call an LLM API. It is not a prompt trick. It is not a replacement for tests. It is a model-first preflight layer for work where order, state, retries, side effects, UI paths, validation evidence, or release confidence matter. The executable Python code is the check-script engine used by the skills; it is not the skill installation itself.
+
+FlowGuard now makes “does the AI understand enough to proceed?” an evidence
+question, not a self-rating. Frozen task facts derive a `TaskCoverageDemand`;
+every triggered owner must return current evidence or a visible unresolved or
+blocked disposition. Model Maturation then publishes a canonical receipt that
+is independently verified before a separate implementation-admission decision.
+Lightweight work stays lightweight because only triggered detail is loaded,
+but a smaller presentation tier cannot remove a triggered obligation. See
+[`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md).
 
 ## The Problem
 
@@ -468,7 +477,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.68.3 is source-only: the immutable Git tag is the release
+FlowGuard v0.68.4 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -487,6 +496,7 @@ Release asset.
 | --- | --- |
 | [`docs/concept.md`](./docs/concept.md) | short conceptual introduction |
 | [`docs/modeling_protocol.md`](./docs/modeling_protocol.md) | core model-first protocol |
+| [`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md) | task-derived understanding depth, receipts, and implementation admission |
 | [`docs/api_surface.md`](./docs/api_surface.md) | public Python API overview |
 | [`docs/invariant_examples.md`](./docs/invariant_examples.md) | examples of useful invariants |
 | [`docs/development_process_flow.md`](./docs/development_process_flow.md) | staged development, validation freshness, archive, publish, and release gates |
@@ -534,6 +544,14 @@ FlowGuard 是一套由可执行检查引擎驱动的 AI-agent 技能套件，同
 从 v0.66.0 开始，已经“模型检查通过”却又在运行时暴露的问题，还可以得到一份有边界的最小诊断：它会把观察事实、模型预期、代码/测试位置和失败边界绑定起来，找出删除任何一项都会破坏解释的冲突集合。这个诊断只负责解释，不会取代原来的 Model-Miss Review；父级仍然阻塞时，它也必须阻塞，并且会拒绝那种靠删掉义务或牺牲所有正向行为来“修好”问题的空洞方案。
 
 FlowGuard 不调用 LLM API，不是 prompt trick，也不是普通测试的替代品。它更像一个结构化预检层：当顺序、状态、重试、副作用、UI 路径、验证证据或发布信心会影响结果时，先把这些关系说清楚、跑一遍、看反例。仓库里的 Python 代码是技能使用的检查脚本/检查引擎，不是 AI-agent 技能安装本身。
+
+现在 FlowGuard 不再让 AI 自己说“我已经理解够了”，而是要求它交出一条
+可以检查的证据链：先把任务事实冻结下来，自动推导这个任务必须经过哪些
+子模型和检查；每个被触发的负责人都要给出当前证据，或者明确写出还没解决
+或已经阻塞；模型成熟度完成后生成正式收据，再由另一个边界独立验证，最后
+才单独判断是否允许开始写代码。轻量任务仍然可以轻量走，但“显示得少”不能
+把已经触发的义务删掉。详见
+[`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md)。
 
 ## 为什么需要它
 
@@ -931,7 +949,7 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.68.3 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.68.4 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 ## Guard Family 关系
@@ -949,6 +967,7 @@ FlowGuard v0.68.3 只发布源码：不可变 Git tag 是唯一发布权威，re
 | --- | --- |
 | [`docs/concept.md`](./docs/concept.md) | 简短概念介绍 |
 | [`docs/modeling_protocol.md`](./docs/modeling_protocol.md) | 核心 model-first 协议 |
+| [`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md) | 任务推导的理解深度、正式收据和代码准入 |
 | [`docs/api_surface.md`](./docs/api_surface.md) | 公开 Python API 概览 |
 | [`docs/invariant_examples.md`](./docs/invariant_examples.md) | 常用 invariant 示例 |
 | [`docs/development_process_flow.md`](./docs/development_process_flow.md) | staged development、validation freshness、archive、publish 和 release gate |

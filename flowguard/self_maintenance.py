@@ -315,7 +315,10 @@ PUBLIC_ROUTE_ADMISSION: Mapping[str, Mapping[str, Any]] = {
         "positive_condition_ids": ("staged_development", "release_freshness", "multi_skill_workflow"),
         "forbidden_condition_ids": ("trivial_only", "single_domain_semantic_check_only"),
         "first_action": "register artifacts, peers, order, freshness, and execution owners",
-        "reference_edges": (("references/development_process_flow_protocol.md", "route_selected"),),
+        "reference_edges": (
+            ("references/development_process_flow_protocol.md", "route_selected"),
+            ("references/distribution_release_protocol.md", "distribution_or_release_identity"),
+        ),
         "claim_boundary": "Process order and freshness; specialist semantics remain delegated.",
     },
     "field_lifecycle_mesh": {
@@ -326,10 +329,15 @@ PUBLIC_ROUTE_ADMISSION: Mapping[str, Mapping[str, Any]] = {
         "claim_boundary": "Field lifecycle ownership and evidence projection only.",
     },
     "model_mesh_maintenance": {
-        "positive_condition_ids": ("three_plus_models", "parent_child_model_governance"),
-        "forbidden_condition_ids": ("trivial_only", "single_model_only"),
+        "positive_condition_ids": ("affected_model_topology", "parent_child_model_governance"),
+        "forbidden_condition_ids": ("trivial_only", "unrelated_model_count_only"),
         "first_action": "freeze parent, children, partition items, and current child evidence",
-        "reference_edges": (("references/model_mesh_protocol.md", "route_selected"),),
+        "reference_edges": (
+            ("references/model_mesh_protocol.md", "route_selected"),
+            ("references/model_mesh_partition_protocol.md", "partition_or_oversized_model"),
+            ("references/model_mesh_reattachment_protocol.md", "child_boundary_or_evidence_changed"),
+            ("references/model_mesh_closure_protocol.md", "closure_or_whole_flow_claim"),
+        ),
         "claim_boundary": "Model partition, reattachment, and affected-sibling governance.",
     },
     "model_miss_review": {
@@ -343,7 +351,12 @@ PUBLIC_ROUTE_ADMISSION: Mapping[str, Mapping[str, Any]] = {
         "positive_condition_ids": ("model_code_test_alignment", "obligation_test_binding"),
         "forbidden_condition_ids": ("trivial_only", "test_hierarchy_only"),
         "first_action": "list model obligations, owner code contracts, and current test evidence",
-        "reference_edges": (("references/model_test_alignment_protocol.md", "route_selected"),),
+        "reference_edges": (
+            ("references/model_test_alignment_protocol.md", "route_selected"),
+            ("references/model_test_transition_protocol.md", "transition_or_closure_cells"),
+            ("references/model_test_field_protocol.md", "field_lifecycle_projection"),
+            ("references/model_test_payload_protocol.md", "artifact_payload_contract"),
+        ),
         "claim_boundary": "Current obligation-code-test agreement, not model or test splitting.",
     },
     "model_topology_hazard_review": {
@@ -364,7 +377,12 @@ PUBLIC_ROUTE_ADMISSION: Mapping[str, Mapping[str, Any]] = {
         "positive_condition_ids": ("large_slow_stale_validation", "parent_child_test_evidence"),
         "forbidden_condition_ids": ("trivial_only", "semantic_alignment_only"),
         "first_action": "freeze parent claims, child checks, evidence owners, and freshness",
-        "reference_edges": (("references/test_mesh_protocol.md", "route_selected"),),
+        "reference_edges": (
+            ("references/test_mesh_protocol.md", "route_selected"),
+            ("references/test_mesh_reuse_protocol.md", "reuse_or_selective_rerun"),
+            ("references/test_mesh_long_check_protocol.md", "long_background_or_timeout"),
+            ("references/test_mesh_release_protocol.md", "release_or_full_parent_gate"),
+        ),
         "claim_boundary": "Validation hierarchy and evidence composition only.",
     },
     "ui_flow_structure": {

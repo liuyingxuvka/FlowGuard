@@ -379,3 +379,17 @@ Closure Contract SHALL require a current task/candidate/coverage-bound Model Mat
 #### Scenario: Risk and closure share exact maturation
 - **WHEN** the matching closed-for-task maturation result is current and the risk ledger identifies the same result
 - **THEN** the maturation gate MAY support full closure while Closure Contract remains a material and identity checker rather than a second sufficiency judge
+
+### Requirement: Closure validates identity and terminal integrity without recomputing confidence
+ClosureContract SHALL verify that the TaskCoverageDemand, maturation receipt, admission result, RiskLedger decision, and required terminal evidence share exact identities and materially agree. It SHALL preserve the RiskLedger confidence decision rather than deriving another one.
+
+#### Scenario: Closure inputs disagree on demand identity
+- **WHEN** downstream artifacts refer to different coverage-demand fingerprints
+- **THEN** closure fails with an identity mismatch regardless of each artifact's local status
+
+### Requirement: Closure is a thin terminal integrity boundary
+ClosureContract SHALL validate final identity continuity, required material presence, terminal evidence integrity, and agreement with the RiskLedger decision. It SHALL NOT repeat route-specific maturation, installation, test, or risk-scoring logic.
+
+#### Scenario: All upstream decisions agree
+- **WHEN** exact identities match, required materials are present, terminal evidence verifies, and RiskLedger is terminal
+- **THEN** closure preserves the RiskLedger confidence and reports integrity success without recomputation

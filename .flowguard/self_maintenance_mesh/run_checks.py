@@ -184,6 +184,14 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                 max_sequence_length=1,
             ),
             FormalWorkflowCase(
+                "broken_missing_understanding_chain",
+                model.build_broken_missing_understanding_chain_workflow(),
+                False,
+                required_labels=("field_layers_declared",),
+                external_inputs=(model.SelfMaintenanceAction("declare_field_layers"),),
+                max_sequence_length=1,
+            ),
+            FormalWorkflowCase(
                 "broken_wrong_plane_completion_authority",
                 model.build_broken_wrong_plane_completion_workflow(),
                 False,
@@ -290,7 +298,7 @@ def run_narrow_route_admission_review() -> bool:
         ("field_lifecycle_change", "finite_bad_case_universe"),
     )
     ok = (
-        len(public_profiles) == 15
+        {profile.route_id for profile in public_profiles} == set(FLOWGUARD_ROUTE_API)
         and complete
         and selected.selected_route_id == "architecture_reduction"
         and forbidden.status == "no_match"

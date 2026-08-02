@@ -12,7 +12,7 @@ Compare model obligations, owner external `CodeContract`, and current tests for 
 This standalone FlowGuard satellite skill owns `model_test_alignment` (`public_owner`) rows and hands large evidence to TestMesh.
 
 ## Local Material Routing
-After the route's positive conditions are confirmed and forbidden conditions are absent, read `references/model_test_alignment_protocol.md` for contracts, audits, matrices, targets, and bindings.
+After admission, read `references/model_test_alignment_protocol.md`. When its triggers apply, also read `references/model_test_transition_protocol.md`, `references/model_test_field_protocol.md`, or `references/model_test_payload_protocol.md`; otherwise leave each unloaded.
 
 ## Entrypoint Acceptance Map
 Accept obligations/contracts/evidence; compare bindings/freshness; block missing/stale/orphan rows and hand gaps to owners.

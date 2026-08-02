@@ -19,10 +19,7 @@ from .behavior_plane import (
     BCL_PLANE_DEVELOPMENT_PROCESS,
 )
 from .export import to_jsonable
-from .model_maturation import (
-    ModelMaturationEvidenceRef,
-    coerce_model_maturation_evidence_ref,
-)
+from .model_maturation_receipt import VerifiedModelMaturation
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 from .validation_ownership import verify_parent_receipt
 PROCESS_SCOPE_ROUTINE = "routine"
@@ -472,7 +469,8 @@ class ImplementationAuthorization:
     allowed_path_ids: tuple[str, ...] = ()
     accepted_gap_fingerprints: tuple[str, ...] = ()
     user_direction_digest: str = ""
-    current: bool = True
+    authorization_evidence_id: str = ""
+    authorization_evidence_fingerprint: str = ""
 
     def __post_init__(self) -> None:
         for name in (
@@ -483,6 +481,8 @@ class ImplementationAuthorization:
             "input_fingerprint",
             "evidence_fingerprint",
             "user_direction_digest",
+            "authorization_evidence_id",
+            "authorization_evidence_fingerprint",
         ):
             object.__setattr__(self, name, str(getattr(self, name)))
         object.__setattr__(self, "allowed_action_ids", _as_tuple(self.allowed_action_ids))
@@ -491,7 +491,15 @@ class ImplementationAuthorization:
         object.__setattr__(
             self, "accepted_gap_fingerprints", _as_tuple(self.accepted_gap_fingerprints)
         )
-        object.__setattr__(self, "current", bool(self.current))
+        if not self.authorization_evidence_id or not self.authorization_evidence_fingerprint:
+            raise ValueError("implementation authorization requires provenance evidence")
+
+    def has_current_evidence(self) -> bool:
+        return bool(
+            self.authorization_evidence_id
+            and self.authorization_evidence_fingerprint.startswith("sha256:")
+            and self.user_direction_digest.startswith("sha256:")
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -506,40 +514,40 @@ class ImplementationAuthorization:
             "allowed_path_ids": list(self.allowed_path_ids),
             "accepted_gap_fingerprints": list(self.accepted_gap_fingerprints),
             "user_direction_digest": self.user_direction_digest,
-            "current": self.current,
+            "authorization_evidence_id": self.authorization_evidence_id,
+            "authorization_evidence_fingerprint": self.authorization_evidence_fingerprint,
         }
 
 
 @dataclass(frozen=True)
 class ImplementationAdmissionPlan:
     admission_id: str
-    maturation_evidence: ModelMaturationEvidenceRef | Mapping[str, Any] | None = None
+    maturation_evidence: VerifiedModelMaturation | None = None
     implementation_requested: bool = False
     read_only: bool = False
     requested_action_ids: tuple[str, ...] = ()
     requested_artifact_ids: tuple[str, ...] = ()
     requested_path_ids: tuple[str, ...] = ()
-    authorization: ImplementationAuthorization | Mapping[str, Any] | None = None
+    authorization: ImplementationAuthorization | None = None
     non_waivable_blocker_codes: tuple[str, ...] = ()
     conflicting_owner_ids: tuple[str, ...] = ()
     toolchain_available: bool = True
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "admission_id", str(self.admission_id))
-        object.__setattr__(
-            self,
-            "maturation_evidence",
-            coerce_model_maturation_evidence_ref(self.maturation_evidence),
-        )
+        if self.maturation_evidence is not None and not isinstance(
+            self.maturation_evidence, VerifiedModelMaturation
+        ):
+            raise TypeError("maturation_evidence must be independently verified")
         object.__setattr__(self, "implementation_requested", bool(self.implementation_requested))
         object.__setattr__(self, "read_only", bool(self.read_only))
         object.__setattr__(self, "requested_action_ids", _as_tuple(self.requested_action_ids))
         object.__setattr__(self, "requested_artifact_ids", _as_tuple(self.requested_artifact_ids))
         object.__setattr__(self, "requested_path_ids", _as_tuple(self.requested_path_ids))
-        authorization = self.authorization
-        if authorization is not None and not isinstance(authorization, ImplementationAuthorization):
-            authorization = ImplementationAuthorization(**dict(authorization))
-        object.__setattr__(self, "authorization", authorization)
+        if self.authorization is not None and not isinstance(
+            self.authorization, ImplementationAuthorization
+        ):
+            raise TypeError("authorization must be typed evidence-bound authorization")
         object.__setattr__(
             self, "non_waivable_blocker_codes", _as_tuple(self.non_waivable_blocker_codes)
         )
@@ -562,7 +570,7 @@ class ImplementationAdmissionReport:
     ok: bool
     admission_id: str
     status: str
-    maturation_evidence: ModelMaturationEvidenceRef | None = None
+    maturation_evidence: VerifiedModelMaturation | None = None
     allowed_action_ids: tuple[str, ...] = ()
     allowed_artifact_ids: tuple[str, ...] = ()
     allowed_path_ids: tuple[str, ...] = ()
@@ -659,7 +667,7 @@ def review_implementation_admission(
     exact_authorization = bool(
         ref is not None
         and authorization is not None
-        and authorization.current
+        and authorization.has_current_evidence()
         and authorization.task_id == ref.task_id
         and authorization.candidate_model_fingerprint == ref.candidate_model_fingerprint
         and authorization.coverage_universe_fingerprint == ref.coverage_universe_fingerprint
@@ -704,6 +712,64 @@ def review_implementation_admission(
 
 
 @dataclass(frozen=True)
+class DistributionEvidence:
+    """Projection-parity evidence published by the distribution owner.
+
+    DevelopmentProcessFlow consumes this identity. It deliberately does not
+    enumerate suite members or reproduce installation/SkillGuard semantics.
+    """
+
+    evidence_id: str
+    owner_route: str
+    suite_identity: str
+    source_projection_fingerprint: str
+    installed_projection_fingerprint: str
+    verification_fingerprint: str
+    status: str = PROCESS_EVIDENCE_NOT_RUN
+    result_path: str = ""
+
+    def __post_init__(self) -> None:
+        for name in (
+            "evidence_id",
+            "owner_route",
+            "suite_identity",
+            "source_projection_fingerprint",
+            "installed_projection_fingerprint",
+            "verification_fingerprint",
+            "status",
+            "result_path",
+        ):
+            object.__setattr__(self, name, str(getattr(self, name)))
+
+    @property
+    def current(self) -> bool:
+        return bool(
+            self.evidence_id
+            and self.owner_route
+            and self.suite_identity
+            and self.status == PROCESS_EVIDENCE_PASSED
+            and self.source_projection_fingerprint.startswith("sha256:")
+            and self.source_projection_fingerprint
+            == self.installed_projection_fingerprint
+            and self.verification_fingerprint.startswith("sha256:")
+            and self.result_path
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "evidence_id": self.evidence_id,
+            "owner_route": self.owner_route,
+            "suite_identity": self.suite_identity,
+            "source_projection_fingerprint": self.source_projection_fingerprint,
+            "installed_projection_fingerprint": self.installed_projection_fingerprint,
+            "verification_fingerprint": self.verification_fingerprint,
+            "status": self.status,
+            "result_path": self.result_path,
+            "current": self.current,
+        }
+
+
+@dataclass(frozen=True)
 class DevelopmentProcessPlan:
     """A lifecycle process and the evidence used for a routine/release claim."""
 
@@ -725,6 +791,8 @@ class DevelopmentProcessPlan:
     full_validation_parent_receipt_ids: tuple[str, ...] = ()
     validation_repository_root: str = ""
     validation_receipt_root: str = ""
+    require_distribution_evidence: bool = False
+    distribution_evidence: DistributionEvidence | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "process_id", str(self.process_id))
@@ -767,6 +835,15 @@ class DevelopmentProcessPlan:
             "validation_receipt_root",
             str(self.validation_receipt_root),
         )
+        object.__setattr__(
+            self,
+            "require_distribution_evidence",
+            bool(self.require_distribution_evidence),
+        )
+        if self.distribution_evidence is not None and not isinstance(
+            self.distribution_evidence, DistributionEvidence
+        ):
+            raise TypeError("distribution_evidence must be typed owner evidence")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -794,6 +871,12 @@ class DevelopmentProcessPlan:
             ),
             "validation_repository_root": self.validation_repository_root,
             "validation_receipt_root": self.validation_receipt_root,
+            "require_distribution_evidence": self.require_distribution_evidence,
+            "distribution_evidence": (
+                self.distribution_evidence.to_dict()
+                if self.distribution_evidence is not None
+                else None
+            ),
         }
 
 
@@ -1842,6 +1925,41 @@ def _full_validation_parent_findings(
     return []
 
 
+def _distribution_evidence_findings(
+    plan: DevelopmentProcessPlan,
+) -> list[ProcessFlowFinding]:
+    distribution_actions = {
+        "claim_install",
+        "claim_distribution",
+        "install",
+        "distribute",
+        "sync_installation",
+    }
+    required = plan.require_distribution_evidence or any(
+        action.action_type in distribution_actions for action in plan.actions
+    )
+    evidence = plan.distribution_evidence
+    if evidence is None:
+        if not required:
+            return []
+        return [
+            ProcessFlowFinding(
+                "distribution_evidence_missing",
+                "this process claim requires typed current distribution evidence from its owner route",
+            )
+        ]
+    if not evidence.current:
+        return [
+            ProcessFlowFinding(
+                "distribution_evidence_not_current",
+                "source and installed projections are not independently verified exact-current",
+                evidence_id=evidence.evidence_id,
+                metadata={"distribution_evidence": evidence.to_dict()},
+            )
+        ]
+    return []
+
+
 def _ambiguous_policy_findings(
     plan: DevelopmentProcessPlan,
     artifacts: Mapping[str, ProcessArtifact],
@@ -1986,6 +2104,7 @@ def review_development_process_flow(plan: DevelopmentProcessPlan) -> Development
     findings.extend(requirement_findings)
     findings.extend(_claim_findings(plan, stale_by_evidence))
     findings.extend(_full_validation_parent_findings(plan))
+    findings.extend(_distribution_evidence_findings(plan))
 
     blockers = _blocker_findings(findings)
     process_optimization_status = "not_needed"
@@ -2069,6 +2188,7 @@ __all__ = [
     "ActionEffect",
     "DevelopmentProcessFlowReport",
     "DevelopmentProcessPlan",
+    "DistributionEvidence",
     "FreshnessRule",
     "ImplementationAdmissionFinding",
     "ImplementationAdmissionPlan",

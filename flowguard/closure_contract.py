@@ -14,9 +14,12 @@ from typing import Any, Mapping, Sequence
 
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
-from .model_maturation import (
-    ModelMaturationEvidenceRef,
-    coerce_model_maturation_evidence_ref,
+from .model_maturation_receipt import VerifiedModelMaturation
+from .risk_evidence_ledger import (
+    RISK_CONFIDENCE_FULL,
+    RISK_CONFIDENCE_SCOPED,
+    RISK_LEDGER_DECISION_FULL,
+    RISK_LEDGER_DECISION_SCOPED,
 )
 
 
@@ -396,7 +399,7 @@ class FlowGuardClosureContractPlan:
     runtime_gateway_closures: tuple[RuntimeGatewayInventoryClosure, ...] = ()
     field_lifecycle_reports: tuple[Any, ...] = ()
     model_angle_reports: tuple[Any, ...] = ()
-    model_maturation_evidence: tuple[ModelMaturationEvidenceRef, ...] = ()
+    model_maturation_evidence: tuple[VerifiedModelMaturation, ...] = ()
     evidence_reports: tuple[ClosureEvidenceReport, ...] = ()
     require_runtime_trace_mapping: bool = True
     require_artifact_freshness: bool = True
@@ -428,15 +431,12 @@ class FlowGuardClosureContractPlan:
         object.__setattr__(self, "runtime_gateway_closures", tuple(self.runtime_gateway_closures))
         object.__setattr__(self, "field_lifecycle_reports", tuple(self.field_lifecycle_reports))
         object.__setattr__(self, "model_angle_reports", tuple(self.model_angle_reports))
-        object.__setattr__(
-            self,
-            "model_maturation_evidence",
-            tuple(
-                coerce_model_maturation_evidence_ref(item)
-                for item in self.model_maturation_evidence
-                if item is not None
-            ),
+        maturation = tuple(
+            item for item in self.model_maturation_evidence if item is not None
         )
+        if any(not isinstance(item, VerifiedModelMaturation) for item in maturation):
+            raise TypeError("model_maturation_evidence must be independently verified")
+        object.__setattr__(self, "model_maturation_evidence", maturation)
         object.__setattr__(self, "evidence_reports", tuple(self.evidence_reports))
         object.__setattr__(self, "require_runtime_trace_mapping", bool(self.require_runtime_trace_mapping))
         object.__setattr__(self, "require_artifact_freshness", bool(self.require_artifact_freshness))
@@ -629,7 +629,7 @@ def review_flowguard_closure_contract(
     maturation_by_id = {
         item.evidence_id: item for item in plan.model_maturation_evidence
     }
-    selected_maturation: ModelMaturationEvidenceRef | None = None
+    selected_maturation: VerifiedModelMaturation | None = None
     if plan.require_model_maturation:
         if not plan.model_maturation_evidence:
             findings.append(
@@ -739,37 +739,72 @@ def review_flowguard_closure_contract(
                 )
             )
 
+    selected_risk_report: ClosureEvidenceReport | None = None
     if plan.require_risk_ledger:
         risk_reports = reports_by_kind.get(CLOSURE_REPORT_RISK_LEDGER, [])
         if not risk_reports:
             findings.append(_finding("missing_risk_evidence_ledger", "no Risk Evidence Ledger report was supplied"))
-        elif not any(report.supports_full_confidence() for report in risk_reports):
+        elif len(risk_reports) != 1:
+            findings.append(
+                _finding(
+                    "ambiguous_risk_evidence_ledger",
+                    "closure requires exactly one terminal Risk Evidence Ledger decision",
+                    risk_reports[0].report_id,
+                    {"risk_reports": [report.to_dict() for report in risk_reports]},
+                )
+            )
+        else:
+            selected_risk_report = risk_reports[0]
+        if selected_risk_report is not None and (
+            selected_risk_report.decision,
+            selected_risk_report.confidence,
+        ) not in {
+            (RISK_LEDGER_DECISION_FULL, RISK_CONFIDENCE_FULL),
+            (RISK_LEDGER_DECISION_SCOPED, RISK_CONFIDENCE_SCOPED),
+        }:
+            findings.append(
+                _finding(
+                    "risk_ledger_decision_confidence_mismatch",
+                    "Risk Evidence Ledger decision and confidence do not form a canonical terminal pair",
+                    selected_risk_report.report_id,
+                    selected_risk_report.to_dict(),
+                )
+            )
+        if selected_risk_report is not None and not selected_risk_report.supports_full_confidence():
             severity = "warning" if plan.allow_scoped_confidence else "blocker"
             findings.append(
                 _finding(
                     "risk_ledger_not_full_confidence",
                     "Risk Evidence Ledger does not support full confidence",
-                    risk_reports[0].report_id,
-                    {"risk_reports": [report.to_dict() for report in risk_reports]},
+                    selected_risk_report.report_id,
+                    {"risk_reports": [selected_risk_report.to_dict()]},
                     severity=severity,
                 )
             )
-        elif selected_maturation is not None:
+        if selected_risk_report is not None and selected_maturation is not None:
             matching_risk_reports = [
                 report
-                for report in risk_reports
-                if dict(report.metadata).get("model_maturation_evidence_id")
-                == selected_maturation.evidence_id
+                for report in (selected_risk_report,)
+                if (
+                    dict(report.metadata).get("model_maturation_evidence_id")
+                    == selected_maturation.evidence_id
+                    and dict(report.metadata).get("model_maturation_receipt_id")
+                    == selected_maturation.receipt_id
+                    and dict(report.metadata).get("model_maturation_receipt_fingerprint")
+                    == selected_maturation.receipt_fingerprint
+                )
             ]
             if not matching_risk_reports:
                 findings.append(
                     _finding(
                         "risk_closure_model_maturation_identity_mismatch",
-                        "Risk Evidence Ledger and Closure Contract did not consume the same maturation evidence identity",
+                        "Risk Evidence Ledger and Closure Contract did not consume the same verified maturation receipt",
                         selected_maturation.evidence_id,
                         {
                             "expected_maturation_evidence_id": selected_maturation.evidence_id,
-                            "risk_reports": [report.to_dict() for report in risk_reports],
+                            "expected_maturation_receipt_id": selected_maturation.receipt_id,
+                            "expected_maturation_receipt_fingerprint": selected_maturation.receipt_fingerprint,
+                            "risk_reports": [selected_risk_report.to_dict()],
                         },
                     )
                 )
@@ -857,6 +892,20 @@ def review_flowguard_closure_contract(
                     severity=severity,
                 )
             )
+
+    if (
+        selected_risk_report is not None
+        and selected_risk_report.confidence == RISK_CONFIDENCE_FULL
+        and any(finding.severity == "warning" for finding in findings)
+    ):
+        findings.append(
+            _finding(
+                "risk_closure_confidence_disagreement",
+                "Risk Evidence Ledger claims full confidence while terminal material carries scoped warnings",
+                selected_risk_report.report_id,
+                selected_risk_report.to_dict(),
+            )
+        )
 
     return FlowGuardClosureContractReport(plan=plan, findings=tuple(findings))
 
@@ -992,10 +1041,27 @@ def _decision_for(
     blockers = [finding for finding in findings if finding.blocks_full_confidence]
     if blockers:
         return CLOSURE_DECISION_BLOCKED, CLOSURE_CONFIDENCE_BLOCKED
-    if findings:
-        if not plan.allow_scoped_confidence:
-            return CLOSURE_DECISION_BLOCKED, CLOSURE_CONFIDENCE_BLOCKED
-        return CLOSURE_DECISION_SCOPED, CLOSURE_CONFIDENCE_SCOPED
+    risk_reports = tuple(
+        report
+        for report in plan.evidence_reports
+        if report.report_kind == CLOSURE_REPORT_RISK_LEDGER
+    )
+    if len(risk_reports) == 1:
+        risk_report = risk_reports[0]
+        if (
+            risk_report.decision == RISK_LEDGER_DECISION_SCOPED
+            and risk_report.confidence == RISK_CONFIDENCE_SCOPED
+            and plan.allow_scoped_confidence
+        ):
+            return CLOSURE_DECISION_SCOPED, CLOSURE_CONFIDENCE_SCOPED
+        if (
+            risk_report.decision == RISK_LEDGER_DECISION_FULL
+            and risk_report.confidence == RISK_CONFIDENCE_FULL
+        ):
+            return CLOSURE_DECISION_FULL, CLOSURE_CONFIDENCE_FULL
+        return CLOSURE_DECISION_BLOCKED, CLOSURE_CONFIDENCE_BLOCKED
+    if plan.require_risk_ledger:
+        return CLOSURE_DECISION_BLOCKED, CLOSURE_CONFIDENCE_BLOCKED
     return CLOSURE_DECISION_FULL, CLOSURE_CONFIDENCE_FULL
 
 

@@ -17,7 +17,7 @@ Never select by keyword score or declaration order. A narrow entry reduces initi
 
 After selecting the kernel, state the protected failure and claim boundary, reuse a current public/local risk template when applicable, model each block as `Input x State -> Set(Output x State)`, include state, side effects, completion evidence, and a known-bad case, then run the declared checks and inspect counterexamples.
 
-If a broad claim, prediction, Model Miss, ambiguity, high-impact gap, or addressable native gap appears, load only its reference and continue model-predict-validate-revise work. Finish only at route-native closure or an explicit external, scoped, stalled, or bounded terminal. Never ask the model to self-rate understanding.
+If a broad claim, prediction, Model Miss, ambiguity, high-impact gap, or addressable native gap appears, load only its reference and continue model-predict-validate-revise work. Finish only at route-native closure or an explicit external, scoped, stalled, or bounded terminal. Never ask the model to self-rate understanding; derive `TaskCoverageDemand`, close its triggered rows, and independently verify the canonical maturation receipt.
 
 ### Route Map
 
@@ -32,7 +32,7 @@ Clear ownership routes directly to the matching peer:
 | finite bad-case/Cartesian coverage | `flowguard-contract-exhaustion-mesh` |
 | staged work, freshness, sync, release | `flowguard-development-process-flow` |
 | field/schema lifecycle | `flowguard-field-lifecycle-mesh` |
-| model hierarchy or three-plus models | `flowguard-model-mesh` |
+| affected model topology, parent/child change, stale child, partition, or whole-flow claim | `flowguard-model-mesh` |
 | observed post-green miss | `flowguard-model-miss-review` |
 | model/code/test alignment | `flowguard-model-test-alignment` |
 | anchored future-use topology hazard | `flowguard-model-topology-hazard-review` |

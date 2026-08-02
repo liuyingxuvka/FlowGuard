@@ -35,6 +35,8 @@ class SelfMaintenanceAction:
     terminal_plane_upgrade_receipt_ids: tuple[str, ...] = ()
     progress_only_plane_upgrade_receipt_ids: tuple[str, ...] = ()
     validation_owner_inventory_fingerprint: str = ""
+    verified_understanding_artifact_ids: tuple[str, ...] = ()
+    understanding_chain_fingerprint: str = ""
     spec_context_ids: tuple[str, ...] = ()
     spec_context_provider: str = "openspec"
     spec_context_artifacts_current: bool = True
@@ -57,6 +59,7 @@ class SelfMaintenanceState:
     field_layers_declared: bool = False
     child_reports_current: bool = False
     plane_upgrade_reports_current: bool = False
+    understanding_chain_current: bool = False
     behavior_ledger_current: bool = False
     dcar_coverage_current: bool = False
     test_mesh_shards_current: bool = False
@@ -73,6 +76,8 @@ class SelfMaintenanceState:
     consumed_plane_upgrade_receipt_ids: tuple[str, ...] = ()
     terminal_plane_upgrade_receipt_ids: tuple[str, ...] = ()
     validation_owner_inventory_fingerprint: str = ""
+    consumed_understanding_artifact_ids: tuple[str, ...] = ()
+    understanding_chain_fingerprint: str = ""
     completion_authority_plane: str = ""
     done_claim: str = "none"
 
@@ -86,6 +91,7 @@ class SelfMaintenanceState:
             and self.field_layers_declared
             and self.child_reports_current
             and self.plane_upgrade_reports_current
+            and self.understanding_chain_current
             and self.behavior_ledger_current
             and self.dcar_coverage_current
             and self.test_mesh_shards_current
@@ -99,7 +105,7 @@ class SelfMaintenanceState:
         )
 
 
-def _receipt_sets_current(input_obj: SelfMaintenanceAction) -> tuple[bool, bool, bool]:
+def _receipt_sets_current(input_obj: SelfMaintenanceAction) -> tuple[bool, bool, bool, bool]:
     skill_receipt_ids = tuple(input_obj.verified_child_receipt_ids)
     skill_set_current = (
         len(skill_receipt_ids) == len(REQUIRED_SKILL_RECEIPT_IDS)
@@ -125,7 +131,13 @@ def _receipt_sets_current(input_obj: SelfMaintenanceAction) -> tuple[bool, bool,
         and input_obj.spec_context_read_only
         and not input_obj.spec_receipt_bridge_present
     )
-    return skill_set_current, plane_set_current, spec_set_current
+    understanding_artifact_ids = tuple(input_obj.verified_understanding_artifact_ids)
+    understanding_chain_current = (
+        len(understanding_artifact_ids) == len(REQUIRED_UNDERSTANDING_ARTIFACT_IDS)
+        and set(understanding_artifact_ids) == set(REQUIRED_UNDERSTANDING_ARTIFACT_IDS)
+        and bool(input_obj.understanding_chain_fingerprint)
+    )
+    return skill_set_current, plane_set_current, spec_set_current, understanding_chain_current
 
 
 class CorrectSelfMaintenance:
@@ -139,6 +151,7 @@ class CorrectSelfMaintenance:
         "field_layers_declared",
         "child_reports_current",
         "plane_upgrade_reports_current",
+        "understanding_chain_current",
         "behavior_ledger_current",
         "dcar_coverage_current",
         "test_mesh_shards_current",
@@ -155,6 +168,8 @@ class CorrectSelfMaintenance:
         "consumed_plane_upgrade_receipt_ids",
         "terminal_plane_upgrade_receipt_ids",
         "validation_owner_inventory_fingerprint",
+        "consumed_understanding_artifact_ids",
+        "understanding_chain_fingerprint",
         "completion_authority_plane",
         "done_claim",
     )
@@ -204,14 +219,15 @@ class CorrectSelfMaintenance:
                 receipt_ids = tuple(input_obj.verified_child_receipt_ids)
                 plane_receipt_ids = tuple(input_obj.verified_plane_upgrade_receipt_ids)
                 terminal_receipt_ids = tuple(input_obj.terminal_plane_upgrade_receipt_ids)
-                exact_set, plane_exact_set, spec_exact_set = _receipt_sets_current(input_obj)
-                all_current = exact_set and plane_exact_set and spec_exact_set
+                exact_set, plane_exact_set, spec_exact_set, understanding_exact_set = _receipt_sets_current(input_obj)
+                all_current = exact_set and plane_exact_set and spec_exact_set and understanding_exact_set
                 yield FunctionResult(
                     SelfMaintenanceOutput("receipt_set_consumed" if all_current else "receipt_set_rejected"),
                     replace(
                         state,
                         child_reports_current=exact_set,
                         plane_upgrade_reports_current=plane_exact_set,
+                        understanding_chain_current=understanding_exact_set,
                         behavior_ledger_current=plane_exact_set,
                         dcar_coverage_current=plane_exact_set,
                         test_mesh_shards_current=plane_exact_set,
@@ -224,6 +240,16 @@ class CorrectSelfMaintenance:
                         validation_owner_inventory_fingerprint=(
                             input_obj.validation_owner_inventory_fingerprint
                             if plane_exact_set
+                            else ""
+                        ),
+                        consumed_understanding_artifact_ids=(
+                            tuple(input_obj.verified_understanding_artifact_ids)
+                            if understanding_exact_set
+                            else ()
+                        ),
+                        understanding_chain_fingerprint=(
+                            input_obj.understanding_chain_fingerprint
+                            if understanding_exact_set
                             else ""
                         ),
                         spec_context_current=spec_exact_set,
@@ -283,14 +309,15 @@ class CorrectSelfMaintenance:
             receipt_ids = tuple(input_obj.verified_child_receipt_ids)
             plane_receipt_ids = tuple(input_obj.verified_plane_upgrade_receipt_ids)
             terminal_receipt_ids = tuple(input_obj.terminal_plane_upgrade_receipt_ids)
-            exact_set, plane_exact_set, spec_exact_set = _receipt_sets_current(input_obj)
-            all_current = exact_set and plane_exact_set and spec_exact_set
+            exact_set, plane_exact_set, spec_exact_set, understanding_exact_set = _receipt_sets_current(input_obj)
+            all_current = exact_set and plane_exact_set and spec_exact_set and understanding_exact_set
             yield FunctionResult(
                 SelfMaintenanceOutput("receipt_set_consumed" if all_current else "receipt_set_rejected"),
                 replace(
                     state,
                     child_reports_current=exact_set,
                     plane_upgrade_reports_current=plane_exact_set,
+                    understanding_chain_current=understanding_exact_set,
                     behavior_ledger_current=plane_exact_set,
                     dcar_coverage_current=plane_exact_set,
                     test_mesh_shards_current=plane_exact_set,
@@ -303,6 +330,16 @@ class CorrectSelfMaintenance:
                     validation_owner_inventory_fingerprint=(
                         input_obj.validation_owner_inventory_fingerprint
                         if plane_exact_set
+                        else ""
+                    ),
+                    consumed_understanding_artifact_ids=(
+                        tuple(input_obj.verified_understanding_artifact_ids)
+                        if understanding_exact_set
+                        else ()
+                    ),
+                    understanding_chain_fingerprint=(
+                        input_obj.understanding_chain_fingerprint
+                        if understanding_exact_set
                         else ""
                     ),
                     spec_context_current=spec_exact_set,
@@ -396,6 +433,7 @@ class BrokenSyntheticAllFlags(CorrectSelfMaintenance):
                     field_layers_declared=True,
                     child_reports_current=True,
                     plane_upgrade_reports_current=True,
+                    understanding_chain_current=True,
                     behavior_ledger_current=True,
                     dcar_coverage_current=True,
                     test_mesh_shards_current=True,
@@ -420,6 +458,7 @@ class BrokenAcceptsUnverifiedPlaneReceipts(CorrectSelfMaintenance):
                     state,
                     child_reports_current=True,
                     plane_upgrade_reports_current=True,
+                    understanding_chain_current=True,
                     behavior_ledger_current=True,
                     dcar_coverage_current=True,
                     test_mesh_shards_current=True,
@@ -436,6 +475,10 @@ class BrokenAcceptsUnverifiedPlaneReceipts(CorrectSelfMaintenance):
                     validation_owner_inventory_fingerprint=(
                         input_obj.validation_owner_inventory_fingerprint
                     ),
+                    consumed_understanding_artifact_ids=tuple(
+                        input_obj.verified_understanding_artifact_ids
+                    ),
+                    understanding_chain_fingerprint=input_obj.understanding_chain_fingerprint,
                 ),
                 label="unverified_receipts_consumed",
             )
@@ -454,6 +497,7 @@ class BrokenMissingCoverageGate(CorrectSelfMaintenance):
                 "field_layers_declared": True,
                 "child_reports_current": True,
                 "plane_upgrade_reports_current": True,
+                "understanding_chain_current": True,
                 "behavior_ledger_current": True,
                 "dcar_coverage_current": True,
                 "test_mesh_shards_current": True,
@@ -478,6 +522,7 @@ class BrokenMissingCoverageGate(CorrectSelfMaintenance):
                 "field_layers_declared": state.field_layers_declared,
                 "child_reports_current": state.child_reports_current,
                 "plane_upgrade_reports_current": state.plane_upgrade_reports_current,
+                "understanding_chain_current": state.understanding_chain_current,
                 "behavior_ledger_current": state.behavior_ledger_current,
                 "dcar_coverage_current": state.dcar_coverage_current,
                 "test_mesh_shards_current": state.test_mesh_shards_current,
@@ -523,6 +568,11 @@ class BrokenMissingModelMissBackfeed(BrokenMissingCoverageGate):
 class BrokenMissingPlaneUpgradeReports(BrokenMissingCoverageGate):
     name = "BrokenMissingPlaneUpgradeReports"
     omitted_gate = "plane_upgrade_reports_current"
+
+
+class BrokenMissingUnderstandingChain(BrokenMissingCoverageGate):
+    name = "BrokenMissingUnderstandingChain"
+    omitted_gate = "understanding_chain_current"
 
 
 class BrokenWrongPlaneCompletionAuthority(CorrectSelfMaintenance):
@@ -609,6 +659,16 @@ def no_evidence_flags_without_exact_receipt_set(state: SelfMaintenanceState, tra
         return InvariantResult.fail(
             "plane-upgrade evidence became current without exact terminal check identities and the current verification-contract fingerprint"
         )
+    if state.understanding_chain_current and not (
+        len(state.consumed_understanding_artifact_ids)
+        == len(REQUIRED_UNDERSTANDING_ARTIFACT_IDS)
+        and set(state.consumed_understanding_artifact_ids)
+        == set(REQUIRED_UNDERSTANDING_ARTIFACT_IDS)
+        and bool(state.understanding_chain_fingerprint)
+    ):
+        return InvariantResult.fail(
+            "understanding chain became current without the exact independently verified artifact identities"
+        )
     if state.spec_context_current and not (
         set(state.consumed_spec_context_ids) == set(REQUIRED_SPEC_CONTEXT_IDS)
     ):
@@ -676,6 +736,14 @@ REQUIRED_SKILL_RECEIPT_IDS = (
 )
 REQUIRED_RECEIPT_COUNT = len(REQUIRED_SKILL_RECEIPT_IDS)
 ABSTRACT_RECEIPT_IDS = REQUIRED_SKILL_RECEIPT_IDS
+REQUIRED_UNDERSTANDING_ARTIFACT_IDS = (
+    "task_coverage_demand",
+    "model_maturation_receipt",
+    "implementation_admission_report",
+    "risk_evidence_ledger_report",
+    "closure_contract_report",
+    "model_test_code_alignment",
+)
 CURRENT_FULL_VALIDATION_OWNER_IDS = (
     "project_audit",
     "skill_suite_static",
@@ -693,7 +761,10 @@ VALIDATION_OWNER_INVENTORY_FINGERPRINT = (
     ).hexdigest().upper()
 )
 REQUIRED_SPEC_CONTEXT_IDS = (
-    "openspec:separate-flowguard-consumer-skills-from-skillguard-maintenance",
+    "openspec:derive-task-coverage-demand",
+    "openspec:bind-maturation-receipts-to-admission",
+    "openspec:materialize-flowguard-self-understanding",
+    "openspec:simplify-flowguard-evidence-workflow",
 )
 EXTERNAL_INPUTS = (
     SelfMaintenanceAction(
@@ -703,6 +774,8 @@ EXTERNAL_INPUTS = (
         verified_plane_upgrade_receipt_ids=CURRENT_FULL_VALIDATION_OWNER_IDS,
         terminal_plane_upgrade_receipt_ids=CURRENT_FULL_VALIDATION_OWNER_IDS,
         validation_owner_inventory_fingerprint=VALIDATION_OWNER_INVENTORY_FINGERPRINT,
+        verified_understanding_artifact_ids=REQUIRED_UNDERSTANDING_ARTIFACT_IDS,
+        understanding_chain_fingerprint="sha256:abstract-current-understanding-chain",
         spec_context_ids=REQUIRED_SPEC_CONTEXT_IDS,
         spec_context_provider="openspec",
         spec_context_artifacts_current=True,
@@ -761,6 +834,10 @@ def build_broken_missing_plane_upgrade_reports_workflow() -> Workflow:
     return Workflow((BrokenMissingPlaneUpgradeReports(),), name="self_maintenance_broken_missing_plane_upgrade_reports")
 
 
+def build_broken_missing_understanding_chain_workflow() -> Workflow:
+    return Workflow((BrokenMissingUnderstandingChain(),), name="self_maintenance_broken_missing_understanding_chain")
+
+
 def build_broken_wrong_plane_completion_workflow() -> Workflow:
     return Workflow((BrokenWrongPlaneCompletionAuthority(),), name="self_maintenance_broken_wrong_plane_completion")
 
@@ -780,6 +857,7 @@ __all__ = [
     "build_broken_missing_dcar_coverage_workflow",
     "build_broken_missing_model_miss_backfeed_workflow",
     "build_broken_missing_plane_upgrade_reports_workflow",
+    "build_broken_missing_understanding_chain_workflow",
     "build_broken_missing_spec_context_workflow",
     "build_broken_missing_sync_workflow",
     "build_broken_synthetic_all_flags_workflow",

@@ -409,3 +409,17 @@ The compact entry SHALL coordinate current preflight, maturation, admission, str
 #### Scenario: Public route topology is inspected
 - **WHEN** the upgraded skill suite is validated
 - **THEN** the public FlowGuard route set MUST remain unchanged and lightweight or read-only work MUST still skip unrelated deep routes with a reason
+
+### Requirement: Main entry exposes understanding state before implementation state
+The main FlowGuard route SHALL freeze task facts, compile coverage demand, show owner dispositions, and evaluate model maturation before separately evaluating implementation permission.
+
+#### Scenario: User directly asks for code
+- **WHEN** the user authorizes immediate implementation for a non-trivial affected behavior
+- **THEN** the route records that authorization but still reports unresolved required understanding before any implementation-ready claim
+
+### Requirement: One adaptive route preserves all triggered obligations
+The main AI route SHALL present one sequence of task facts, coverage demand, owner disposition, maturation, receipt verification, and separate implementation admission. Derived cost tiers MAY aggregate or defer untriggered detail but MUST NOT remove a triggered obligation.
+
+#### Scenario: Ordinary tier triggers a specialist owner
+- **WHEN** ordinary task facts trigger one specialist coverage row
+- **THEN** that owner is included even though the remaining deep workflow stays not triggered

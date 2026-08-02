@@ -29,6 +29,9 @@ a mandatory choice for every task.
 - Read `failure_triage_protocol.md` only after failed, stale, skipped,
   timeout, not-run, progress-only, ambiguous, or materially surprising
   evidence needs classification or root-cause grouping.
+- Read `distribution_release_protocol.md` only when installation,
+  distribution, sync, full validation, release, archive, publish, or broad-done
+  identity is in scope.
 
 With no optimization reason, record `not_needed` and add no candidates, cost
 records, repair groups, or optimization evidence gate.
@@ -104,10 +107,6 @@ tree is gone before accepting evidence or starting another owner.
 
 ## Freshness And Sync
 
-Repository source, shadow workspace, formal repository, editable/installed
-package, installed skills, and local Git are separate evidence domains. A pass
-in one cannot stand in for another.
-
 Peer or unknown-writer changes are preserved. Re-read and merge them, stale
 only affected evidence, and derive affected revalidation; never roll back peer
 work to recover an older green snapshot.
@@ -117,19 +116,10 @@ evidence requires terminal status, exit code, concrete result artifact and
 fingerprint, covered ids, inventory revision, and current artifact/verifier
 versions.
 
-For bounded-system capability delivery, native API/CLI and benchmark evidence
-must precede prompt/skill activation. Build one clean fifteen-skill consumer
-projection only after its author source is frozen. Keep source, editable/installed
-package, consumer skills, repository commit, tag, and GitHub Release identities
-separate. A source-only release follows one frozen final validation; post-push
-parity verifies every identity. If governed source changes after publication,
-the correction uses a new immutable version rather than moving the tag.
-`ValidationInputManifest` binds what each validation owner consumed;
-`ReleaseTreeManifest` separately binds every tag path, mode, and blob. Finish
-version, docs, OpenSpec lifecycle, model authority, consumer projection, and
-installation parity before the single final gate. Tag and published checks
-compare the immutable tree and receipts only; they never use mtime or restart
-heavy producers.
+When distribution or release identity is in scope, load
+`distribution_release_protocol.md`. DevelopmentProcessFlow consumes the typed
+owner evidence and orders gates; it never owns suite inventory or installation
+semantics.
 
 ## Read-only WorkContext
 
@@ -216,8 +206,9 @@ has terminal proof. Otherwise return blocked or explicitly scoped confidence.
 
 ## Implementation Admission
 
-When production work is requested, consume one exact current
-`ModelMaturationEvidenceRef` and separately decide `ready`, `ready_scoped`,
+When production work is requested, consume one independently verified current
+`VerifiedModelMaturation` produced from a canonical EvidenceReceipt and
+separately decide `ready`, `ready_scoped`,
 `no_code_requested`, `blocked`, or `stale`. Normal `ready` requires
 closed-for-task full confidence with no open gaps. `ready_scoped` additionally
 requires a current authorization matching task, candidate, coverage, input,

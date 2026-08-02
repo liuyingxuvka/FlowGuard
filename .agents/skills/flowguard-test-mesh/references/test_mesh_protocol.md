@@ -1,290 +1,99 @@
 # TestMesh Protocol
 
-Use TestMesh when the question is not "does this FlowGuard model pass?" but
-"can this parent/child test hierarchy support the parent validation claim?"
-
-TestMesh is the test-side sibling of ModelMesh and StructureMesh. All three use
-the same parent/child partition principle:
-
-- ModelMesh partitions a large FlowGuard model into child model regions.
-- TestMesh partitions a large test script, suite, or validation flow into child
-  test scripts or child suites.
-- StructureMesh partitions a large script, module, package, command, or API
-  surface into child structural owners.
-
-The parent TestMesh should consume child ownership and evidence contracts. It
-should not inline every child test case, fixture, or internal state route. When
-a child suite grows too large, it can become its own parent gate with another
-local TestMesh.
-
-For a same-intent behavior/product claim, declare the required inventory and
-revision independently from the child suites that happened to run. Include
-every required surface, materialized model/test obligation, family member,
-transition cell, ContractExhaustion case, and shard. A smaller caller-selected
-set cannot be promoted to complete evidence even when every declared child is
-green. Inventory changes stale prior child evidence.
-
-Before child suite evidence can support parent confidence, derive the target
-child suite/script structure from a FlowGuard validation-structure model. The
-target split derivation should name the source model, target suite ids, covered
-partition items, state ownership fields, side-effect ownership fields, and the
-rationale for the validation split. A flat list of suites is not enough.
-
-Layered proof adds four evidence kinds that TestMesh must keep distinct:
-parent coverage tests, child disjointness tests, child reattachment tests, and
-leaf boundary-matrix tests. A broad parent test command cannot replace missing
-leaf matrix evidence, and release-only/background progress cannot support a
-routine parent proof until it has final current pass artifacts.
-
-Transition coverage matrices can also feed TestMesh. When Model-Test Alignment
-or UI Flow Structure produces required transition cell ids for a large, slow,
-or browser-heavy matrix, TestMesh owns the parent/child evidence hierarchy for
-those ids. It preserves the model obligation and code contract target ids for
-downstream alignment. It does not decide the semantic transition obligation;
-Model-Test Alignment still proves that model obligation, owner code contract,
-and external-contract test evidence bind the same behavior.
-
-ModelMesh closure models can feed this route after
-`model_mesh_closure_to_transition_coverage(...)` projects parent/child closure
-transitions into required cell ids. Retry or rejection cells from repeated input
-tokens should have child-suite evidence for failure, negative, replay, and
-repair-feedback/no-delta behavior before parent validation confidence is broad.
-
-Artifact payload matrices can feed TestMesh the same way. When import/export,
-generated artifact, or AI work-package validation has many accepted/rejected
-payload cases, TestMesh owns child-suite partitioning, result artifacts,
-background completion, execution proof refs, and freshness for those case ids.
-It preserves payload contract ids and case ids for downstream Model-Test
-Alignment, which still decides whether the real surface's observed output,
-error path, state writes, side effects, and round-trip behavior match the
-payload contract.
+TestMesh governs validation partitions, ownership, terminal evidence, and
+freshness. It does not define behavior semantics, choose code/model structure,
+or execute checks.
 
 ## Trigger
 
-Create or update a TestMesh when:
+Use TestMesh when evidence is large, layered, slow, background, stale, reused,
+skipped, release-only, or needs parent/child ownership. Keep small direct tests
+in `flowguard` unless another owner requires a mesh.
 
-- a test or regression command is slow enough that routine agents skip it,
-  timeout, or cannot wait for it before continuing useful work;
-- a large test script or suite is being split into smaller child suites or
-  child test scripts;
-- one large command mixes unrelated behavior, state, side effects, or release
-  gates;
-- a parent validation claim depends on several child suites, background jobs,
-  adapters, or manual checks;
-- skipped, stale, timeout, not-run, or progress-only evidence could be hidden
-  inside a green summary;
-- `review_auto_mesh_splits(...)` reports a required test split for slow,
-  large, broad, progress-only, or release-only direct validation evidence;
-- release-only suites should stay visible without blocking routine local
-  confidence.
-- a transition coverage matrix is too large, slow, browser/manual-heavy, or
-  release-only for direct flat evidence rows.
-- an artifact payload matrix for file import/export or AI work packages is too
-  large, slow, browser/manual-heavy, or release-only for direct flat evidence.
+## Conditional Local Material
 
-When DevelopmentProcessFlow classifies a failed or blocked validation as
-`test_too_thick`, slow/layered validation, stale/skipped/progress-only
-evidence, release-only evidence, or automatic split evidence that is being
-hidden inside a parent confidence claim, this protocol owns the handoff. Keep
-the broad command as a parent gate or compatibility check, derive child
-suites/scripts, record child evidence status, and require parent validation
-confidence to consume current child evidence. A later green broad command by
-itself does not close a
-TestMesh handoff if child evidence remains hidden.
+Read only the files whose trigger is present; a triggered file is mandatory.
 
-## Partition Checklist
+| Trigger | Required reference |
+|---|---|
+| any result reuse or selective rerun | `test_mesh_reuse_protocol.md` |
+| long, background, bounded-system, timeout, or progress evidence | `test_mesh_long_check_protocol.md` |
+| release/full/parent gate or source freeze | `test_mesh_release_protocol.md` |
 
-## Target Split Derivation
+## Ownership Boundary
 
-For the parent test gate, record a target split derivation before green parent
-confidence:
+- TestMesh owns the test inventory, parent/child evidence graph, terminal
+  receipts, and freshness decisions.
+- Model/Test Alignment supplies semantic coverage rows.
+- DevelopmentProcessFlow owns execution sequence and final lifecycle claims.
+- The native check owner runs the check and publishes its result.
+- WorkContext and provider status are read-only planning context, never test
+  receipts or execution owners.
 
-- source FlowGuard validation-structure model id;
-- target child suite or script ids;
-- parent partition items represented by the target validation split;
-- state and side-effect owner fields that shaped the split;
-- rationale for why these suites/scripts are the target validation structure.
+## Required Intake
 
-Missing, source-less, target-less, unknown-suite, prose-only, or
-coverage-incomplete derivations are blockers. TestMesh still does not run tests;
-it derives the target validation layout, then reviews the evidence supplied by
-the registered child suites/scripts.
+- Parent gate — claim scope, protected failures, model obligations, inventory
+  revision, and completion boundary.
+- Ownership map — every surface, obligation, member, cell, case, and shard to
+  exactly one native owner.
+- Child suite evidence — status, run identity, input/tool/environment
+  fingerprints, exit/result artifact, covered ids, versions, and freshness.
+- Target split derivation — why each child exists, what it covers, and why the
+  partition is disjoint or intentionally overlapping.
 
-For the parent test gate, list each partition item as a grouped ownership row:
+Provider context is not test evidence. Filenames, PIDs, logs, and progress do
+not prove terminal success.
 
-- boundary: behavior, workflow, state, module, command, side effect, invariant,
-  replay adapter, release-only obligation, or layered-proof obligation;
-- owner: child, parent, read-only, or shared-kernel plus the owning suite when
-  child-owned;
-- overlap note: duplicate state or side-effect ownership and the explicit
-  sharing rationale, if any.
+## Core Mesh Rules
 
-Assign every item one owner: `child`, `parent`, `read_only`, or
-`shared_kernel`. A child-owned item must name the owning suite. Duplicate state
-or side-effect owners are blockers unless the overlap is explicitly allowed.
+1. Derive the child split from a FlowGuard validation-structure model.
+2. Declare an independent current inventory; every required item has exactly
+   one executed, reused, or delegated disposition.
+3. Require `planned = executed + not_run` and `failed <= executed`; a
+   `declared_complete` run cannot contain not-run work.
+4. Persist each successful child immediately. Parent or sibling failure cannot
+   erase reusable current child evidence.
+5. Reject stale, skipped, progress-only, malformed, tampered, ambiguous,
+   unknown-impact, and unowned evidence.
+6. A receipt may fan out only within its declared covered-id boundary; copies
+   are not additional executions.
 
-## Evidence Checklist
+## Model-Purpose Gate
 
-For each child suite or child test script, record grouped evidence:
+Before creating or materially changing a concrete mesh, freeze task-specific
+protected failures and claim boundary. Bind the exact candidate to native good,
+per-failure bad, oracle, and current evidence. Only declared FlowGuard checks
+may support completion claims.
 
-- identity: suite id, command, layer, and owned leaf matrix cell ids when the
-  layer is `leaf_matrix_cell`, `leaf_boundary_matrix`, or `artifact_payload`;
-- result summary: status, evidence tier, freshness or stale reason, selected
-  and skipped counts, duration, timeout, exit code, and result path;
-- visibility caveats: skipped visibility, not-run reason, background log root,
-  final exit/result artifact flags, proof artifact, and test-result reuse
-  ticket when an old result is reused;
-- ownership summary: owned state, side effects, partition items, and release
-  scope.
-- payload ownership summary when applicable: payload contract ids, required
-  case ids, result artifact path, and downstream Model-Test Alignment owner.
+## Closure Coverage
 
-For a diagnostic child, also record `diagnostic_boundary` as `targeted`,
-`declared_complete`, or `budgeted`; planned, executed, failed, and not-run
-counts; campaign id; not-run reason; and stable Finding Ledger ids. Require
-`planned = executed + not_run` and `failed <= executed`.
-`declared_complete` cannot contain not-run work. Other boundaries may leave a
-remainder only with a visible reason. TestMesh reports this evidence; it does
-not choose DPF process optimization or group findings into root causes.
+When ModelMesh closure is in scope, include
+`model_mesh_closure_to_transition_coverage` for repeat-input, blocker-token,
+repair-feedback/no-delta behavior, and same-packet termination. The mesh must
+cover happy, failure, negative, and replay cases; missing rows remain open.
 
-Progress output is liveness evidence only. It is not completion evidence.
-An old `passed` result is not reusable parent evidence unless
-`TestResultReuseTicket` and `ProofArtifactRef` are both current for the command,
-test source, tested artifact, dependency, environment, result fingerprint, and
-coverage scope.
-The receipt must be independently produced: producer status is terminal
-success, execution owner matches the current request, and the producer/current
-fingerprints match exactly. A copied `current=true` flag is not proof.
-When a final confidence claim depends on the parent gate, export child evidence
-ids, status, freshness, and release-scope gaps to the Risk Evidence Ledger.
-Background runs need final exit/result artifacts before a parent gate can treat
-them as complete.
+## Evidence States
 
-Cross-run composition starts by freezing every required owner and resolving a
-complete `execute | reuse_current | blocked` plan before any producer starts.
-Absence and valid staleness select only the exact affected producer. Malformed
-or tampered proof, unknown impact ownership, ambiguous exact authority, or a
-live single-flight lease blocks without a run-all fallback. Persist child proof
-before parent composition so successful siblings remain reusable after parent
-failure. A parent receipt binds every consumed child receipt id and fingerprint
-and exists only for an all-current exact-pass composition.
+- `execute`: no current exact result exists;
+- `reuse_current`: one independently verified producer receipt matches owner,
+  request, inputs, dependencies, toolchain, environment, and covered ids;
+- `blocked`: malformed/tampered/ambiguous/unknown-impact/in-flight evidence;
+- `not_run`: visible terminal nonexecution with a reason, never a pass.
 
-A valid background final receipt names the run identity, terminal status/exit
-code, result artifact, fingerprint, covered required ids, inventory revision,
-and covered artifact and verifier versions. PIDs, heartbeats, logs, and
-progress-only/running status are never final evidence.
+## Failure And Handoff
 
-For bounded system composition, keep the definition, request, derived slice,
-every component, compiled model, scheduler/bound, truncation frontier, and
-mapped trace identities in the existing
-`ProofArtifactRef.artifact_fingerprints` map. Preserve exactly one execution
-owner and the complete terminal artifacts for background checks. A running PID,
-explored-state count, or log line is liveness only; a truncated receipt stays
-blocked. Do not add dedicated generic TestMesh fields unless focused evidence
-proves the fingerprint map cannot represent an identity.
+Return semantic gaps to Model-Test Alignment, model partition gaps to
+ModelMesh, code partition gaps to StructureMesh, lifecycle sequencing to
+DevelopmentProcessFlow, and broad confidence to RiskLedger. Stable finding ids
+must survive selective reruns.
 
-When `required_leaf_cell_ids` are declared on the parent gate, every required
-cell must be owned by a registered child suite/script with current passing
-evidence. A leaf matrix-cell suite that does not name its cells is a blocker,
-because the parent cannot tell which finite boundary cell was proved.
-Transition coverage cells use the same required id surface when they are routed
-through TestMesh.
-ModelMesh-derived closure cells use that same required id surface after
-projection; do not collapse all retry/rejection closure behavior into a single
-generic suite result.
+## Output And Completion
 
-## Routine And Release Scope
+Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`,
+`claim_boundary`, `typed_next_actions`, a validation mesh diagram, exact test
+denominator, child freshness, and terminal receipt identities.
 
-Use `TEST_SCOPE_ROUTINE` for fast local confidence. Release-only suites may be
-deferred only when the report keeps the release obligation visible.
-
-Use `TEST_SCOPE_RELEASE` for publish, tag, deployment, or broad completion
-claims. Release-required suites must be current and passed.
-
-## Prompt Template
-
-```text
-Build a FlowGuard TestMesh for this repository's validation flow. Treat the
-current broad test command or suite as the parent test gate and the extracted
-or selected suites/scripts as child validation regions. Do not inline every
-child test case into the parent; expose each child through ownership and
-evidence contracts.
-
-Use these groups:
-
-- Parent gate: identity and routine/release scope.
-- Ownership map: boundary, owner, and overlap note.
-- Child suite evidence: identity, result summary, visibility caveats, and
-  ownership summary.
-- Required cell ids: transition or leaf matrix cells that child suites must own
-  with current evidence, plus the model obligation and code contract targets
-  that downstream Model-Test Alignment must bind.
-- Target split derivation: source model, target suites, coverage, and
-  rationale.
-
-Known hazards that must fail:
-- missing target split derivation;
-- target split derivation not sourced from a FlowGuard model;
-- target split derivation omits target suites or partition coverage;
-- missing child owner;
-- unregistered owner suite;
-- flat test split with no parent/child ownership map;
-- parent gate expands every child test case instead of consuming child
-  contracts;
-- duplicate partition or state owner;
-- hidden skipped tests;
-- stale evidence;
-- timeout or failed suite;
-- background progress without final exit/result artifacts;
-- release-required suite missing under release scope.
-- transition coverage required cell id missing child evidence.
-- DevelopmentProcessFlow `test_too_thick` handoff treated as an ordinary
-  implementation failure without child validation structure.
-```
-
-## Completion Standard
-
-A TestMesh review can support the parent only when:
-
-- every partition item is owned;
-- the target suite/script layout is derived from a FlowGuard model and covers
-  the parent partition items used by the decision;
-- every child owner is registered;
-- sibling ownership conflicts are absent or explicitly shared;
-- parent confidence is based on child contracts rather than expanded child
-  internals;
-- all required suites have current pass evidence for the requested scope;
-- all required transition or leaf matrix cell ids have current passing child
-  evidence;
-- skipped, not-run, timeout, and stale evidence remain visible;
-- background jobs have final completion artifacts;
-- DevelopmentProcessFlow `test_too_thick` handoffs have explicit child
-  evidence status and parent consumption;
-- release-only obligations are either current or explicitly deferred only under
-  routine scope.
-
-For a model-system revision, TestMesh freezes the exact affected models,
-relations, commitments, fields, contracts, tests, and affected siblings. Its
-terminal receipts bind the candidate snapshot fingerprint and cannot be reused
-for another revision set. Background progress never makes the candidate
-current. Parent full validation begins only after source and the whole
-affected-closure plan are frozen.
-## WorkContext is not TestMesh evidence
-
-External requirements, plans, designs, tasks, and status may enter
-DevelopmentProcessFlow through read-only WorkContexts. They do not become
-TestMesh children, sessions, caches, receipts, execution owners, or consumer
-fan-out rows. Every provider keeps its native validation and lifecycle
-authority.
-
-Any FlowGuard test prompted by that context is a normal FlowGuard-owned test
-with its own declared boundary and evidence. Never treat provider task/status
-projection as proof that a FlowGuard check ran.
-
-When TestMesh is triggered, emit a typed maturation contribution containing
-the independently declared required test surface/cell/case/shard denominator,
-terminal receipt identities, and every failed, skipped, stale, not-run,
-progress-only, or uncovered item. Preserve TestMesh execution and receipt
-semantics; Model Maturation may union this coverage but cannot turn liveness or
-partial execution into a pass. Untriggered TestMesh inventory is not required
-for lightweight tasks.
+Complete only when every required inventory item has one current executed,
+reused, or typed delegated disposition and the parent gate recomposes from
+those exact child ids/fingerprints. A locally green subset is never the full
+inventory.

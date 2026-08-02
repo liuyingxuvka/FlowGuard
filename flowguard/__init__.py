@@ -73,7 +73,12 @@ from .model_authority_store import (
     load_observed_model_system,
     rollback_observed_model_system,
 )
-from .model_system_inventory import build_manifest_model_system_snapshot
+from .model_system_inventory import (
+    AffectedAuthorityComponent,
+    AffectedAuthorityInventory,
+    build_manifest_model_system_snapshot,
+    load_affected_authority_inventory,
+)
 from .model_revision_builder import (
     ModelRevisionBuildReport,
     build_current_model_revision,
@@ -878,6 +883,8 @@ from . import topology_hazard as _topology_hazard
 from . import ui_structure as _ui_structure
 from . import model_freshness as _model_freshness
 from . import model_maturation as _model_maturation
+from . import model_maturation_receipt as _model_maturation_receipt
+from . import task_coverage_demand as _task_coverage_demand
 from . import model_miss_diagnostics as _model_miss_diagnostics
 from . import distribution_sync as _distribution_sync
 from . import evidence_receipts as _evidence_receipts
@@ -906,6 +913,8 @@ from .state_closure import *  # noqa: F403
 from .topology_hazard import *  # noqa: F403
 from .model_freshness import *  # noqa: F403
 from .model_maturation import *  # noqa: F403
+from .model_maturation_receipt import *  # noqa: F403
+from .task_coverage_demand import *  # noqa: F403
 from .route_topology import *  # noqa: F403
 from .development_process_simulator import *  # noqa: F403
 from .development_process_strategy import *  # noqa: F403
@@ -968,6 +977,7 @@ from .development_process_flow import (
     ActionEffect,
     DevelopmentProcessFlowReport,
     DevelopmentProcessPlan,
+    DistributionEvidence,
     FreshnessRule,
     ImplementationAdmissionFinding,
     ImplementationAdmissionPlan,
@@ -1397,6 +1407,8 @@ FLOWGUARD_GOVERNANCE_API = tuple(
     if name not in _GOVERNANCE_EXCLUDED_TOP_LEVEL_NAMES
 )
 MODEL_SYSTEM_AUTHORITY_API = (
+    "AffectedAuthorityComponent",
+    "AffectedAuthorityInventory",
     "CoverageUniverse",
     "ModelAuthorityHead",
     "ModelInstanceRef",
@@ -1410,6 +1422,7 @@ MODEL_SYSTEM_AUTHORITY_API = (
     "build_current_model_revision",
     "build_model_instance_ref",
     "load_observed_model_system",
+    "load_affected_authority_inventory",
     "load_revision_removal_dispositions",
     "rollback_observed_model_system",
 )
@@ -1491,7 +1504,15 @@ TEST_MESH_ROUTE_API = tuple(name for name in _testmesh.__all__ if name in global
 TOPOLOGY_HAZARD_ROUTE_API = tuple(_topology_hazard.__all__)
 UI_FLOW_STRUCTURE_ROUTE_API = tuple(name for name in _ui_structure.__all__ if name in globals())
 MODEL_IMPACT_FRESHNESS_API = tuple(_model_freshness.__all__)
-MODEL_MATURATION_API = tuple(_model_maturation.__all__)
+TASK_COVERAGE_DEMAND_API = tuple(_task_coverage_demand.__all__)
+MODEL_MATURATION_RECEIPT_API = tuple(_model_maturation_receipt.__all__)
+MODEL_MATURATION_API = tuple(
+    dict.fromkeys(
+        tuple(_model_maturation.__all__)
+        + TASK_COVERAGE_DEMAND_API
+        + MODEL_MATURATION_RECEIPT_API
+    )
+)
 
 CORE_API = (
     "FunctionBlock",
@@ -1518,6 +1539,10 @@ AGENT_DEFAULT_API = (
     "FunctionResult",
     "RiskIntent",
     "RiskProfile",
+    "TaskFacts",
+    "compile_task_coverage_demand",
+    "verify_model_maturation_receipt",
+    "review_implementation_admission",
     "FlowGuardCheckPlan",
     "MinimumModelContract",
     "KnownBadProof",
@@ -2848,8 +2873,8 @@ _ROUTE_STARTER_API_GROUPS = {
         "Invariant",
         "FunctionBlock",
         "FunctionResult",
-        "RiskIntent",
-        "RiskProfile",
+        "TaskFacts",
+        "compile_task_coverage_demand",
         "FlowGuardCheckPlan",
         "MinimumModelContract",
         "KnownBadProof",
@@ -3033,7 +3058,7 @@ _ROUTE_STARTER_API_GROUPS = {
         "ProcessOptimizationDecision",
         "review_process_optimization",
         "review_development_process_flow",
-        "development_process_flow_template_files",
+        "DistributionEvidence",
     ),
     "development_process_simulator": (
         "DevelopmentProcessSimulationRequest",

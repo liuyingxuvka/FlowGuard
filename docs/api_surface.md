@@ -105,7 +105,7 @@ does not create another modeling route.
 `FLOWGUARD_GOVERNANCE_API` groups the release-facing control plane, including
 local/published release verification, without
 turning it into another modeling route. It exposes immutable evidence receipts,
-fifteen-skill inventory and contract compilation, receipt-bound self
+manifest-declared suite inventory and contract compilation, receipt-bound self
 governance, canonical validation results, manifest-owned model regressions, and
 safe skill install/check/uninstall/parity helpers. Import route behavior from
 the owning route group; use this group to verify that current route evidence is
@@ -456,13 +456,16 @@ inventory.
   family surface; canonical same-class bad-case coverage should flow through
   ContractExhaustionMesh so each sibling case has a stable case id, oracle, and
   MTA/TestMesh/Risk Ledger handoff.
-- optional model maturation helpers such as `ModelMaturationSignal`,
-  `ModelMaturationPlan`, `ModelMaturationIteration`, `ModelMaturationReport`,
-  `ModelMaturationSession`, `review_model_maturation_loop()`, and
-  `review_model_maturation_session()` for turning model-miss, model-test,
+- optional model maturation helpers such as `TaskFacts`,
+  `TaskCoverageDemand`, `ModelMaturationSignal`, `ModelMaturationPlan`,
+  `ModelMaturationIteration`, `ModelMaturationReport`,
+  `ModelMaturationSession`, `compile_task_coverage_demand()`,
+  `review_model_maturation_loop()`, and `review_model_maturation_session()` for turning model-miss, model-test,
   ModelMesh, code-boundary, and freshness signals into task-bound prediction,
   falsifier, exact native-receipt, gap-continuity, and terminal evidence before
-  a broad FlowGuard claim is made.
+  a broad FlowGuard claim is made. `ModelMaturationReceiptRef` and
+  `verify_model_maturation_receipt()` keep receipt publication separate from
+  independent currentness verification; raw mappings do not carry authority.
 - optional model-angle deliberation helpers such as
   `ModelAngleDeliberation`, `ModelAngleReviewReport`, and
   `review_model_angle_deliberations()` for preserving open-ended AI reasoning

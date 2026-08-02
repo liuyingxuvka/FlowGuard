@@ -467,6 +467,12 @@ class SkillDocsTests(unittest.TestCase):
         model_mesh = self.read(
             SKILLS_ROOT / "flowguard-model-mesh" / "references" / "model_mesh_protocol.md"
         )
+        model_mesh_closure = self.read(
+            SKILLS_ROOT
+            / "flowguard-model-mesh"
+            / "references"
+            / "model_mesh_closure_protocol.md"
+        )
         model_mesh_template = self.read(
             SKILLS_ROOT
             / "flowguard-model-mesh"
@@ -493,7 +499,7 @@ class SkillDocsTests(unittest.TestCase):
             "closure model is required",
             "same packet",
         ):
-            self.assertIn(phrase, model_mesh)
+            self.assertIn(phrase, model_mesh + model_mesh_closure)
         self.assertIn("mesh_closure_required", model_mesh_template)
         self.assertIn("model_mesh_closure_to_transition_coverage", model_test_alignment)
         self.assertIn("happy-path, failure-path, negative-path, and replay", model_test_alignment)
@@ -502,6 +508,36 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("repeatedly returns the same packet", model_miss)
         self.assertIn("Model-Test Alignment/TestMesh", model_miss)
         self.assertIn("MODEL_MESH_CLOSURE_RETRY_TEST_KINDS", kernel)
+
+    def test_conditional_protocol_splits_are_reachable(self):
+        report = review_prompt_bundles(ROOT)
+        conditional_by_route = {
+            row["route_id"]: {item["path"] for item in row["conditional_edges"]}
+            for row in report["bundles"]
+        }
+        expected = {
+            "flowguard-model-mesh": {
+                ".agents/skills/flowguard-model-mesh/references/model_mesh_partition_protocol.md",
+                ".agents/skills/flowguard-model-mesh/references/model_mesh_reattachment_protocol.md",
+                ".agents/skills/flowguard-model-mesh/references/model_mesh_closure_protocol.md",
+            },
+            "flowguard-model-test-alignment": {
+                ".agents/skills/flowguard-model-test-alignment/references/model_test_transition_protocol.md",
+                ".agents/skills/flowguard-model-test-alignment/references/model_test_field_protocol.md",
+                ".agents/skills/flowguard-model-test-alignment/references/model_test_payload_protocol.md",
+            },
+            "flowguard-test-mesh": {
+                ".agents/skills/flowguard-test-mesh/references/test_mesh_reuse_protocol.md",
+                ".agents/skills/flowguard-test-mesh/references/test_mesh_long_check_protocol.md",
+                ".agents/skills/flowguard-test-mesh/references/test_mesh_release_protocol.md",
+            },
+            "flowguard-development-process-flow": {
+                ".agents/skills/flowguard-development-process-flow/references/distribution_release_protocol.md",
+            },
+        }
+        for route_id, paths in expected.items():
+            with self.subTest(route=route_id):
+                self.assertTrue(paths.issubset(conditional_by_route[route_id]))
 
     def test_reduced_field_prompts_use_grouped_families(self):
         model_test_alignment = self.read(

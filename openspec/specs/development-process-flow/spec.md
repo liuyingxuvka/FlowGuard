@@ -958,3 +958,21 @@ An implementation authorization SHALL bind the current task, request evidence, a
 #### Scenario: Authorized scope changes
 - **WHEN** the task, allowed path, candidate model, coverage universe, accepted gaps, source identity, or required validation changes
 - **THEN** the prior authorization MUST become stale and MUST NOT admit implementation
+
+### Requirement: Implementation admission requires verified sufficiency and separate permission
+DevelopmentProcessFlow SHALL issue `ready` or `ready_scoped` only when the exact task has a current eligible maturation receipt and independently evidenced implementation authorization. `no_code_requested` and `blocked` SHALL remain distinct terminal states.
+
+#### Scenario: Model is sufficient but code was not authorized
+- **WHEN** the maturation receipt verifies as closed but the task contains no current implementation authorization
+- **THEN** admission returns `no_code_requested` and does not weaken the maturation result
+
+#### Scenario: Code is authorized but model is insufficient
+- **WHEN** authorization is current but the maturation receipt is blocked, stale, or incomplete
+- **THEN** implementation admission returns `blocked`
+
+### Requirement: Development process consumes distribution evidence without owning distribution inventory
+DevelopmentProcessFlow SHALL consume typed, current installation or distribution evidence when the task requires it, but SHALL NOT own a fixed satellite count, installation algorithm, or SkillGuard validation procedure.
+
+#### Scenario: Suite inventory changes
+- **WHEN** the maintained FlowGuard suite adds or removes a member
+- **THEN** DevelopmentProcessFlow relies on the current distribution evidence identity rather than requiring its own inventory update

@@ -408,6 +408,120 @@ def counterexample_closure_plan(include_target_evidence: bool) -> ModelTestAlign
     )
 
 
+UNDERSTANDING_ALIGNMENT_ROWS = (
+    (
+        "task_coverage_demand_no_caller_reduction",
+        "commitment:task-coverage-demand",
+        "flowguard/task_coverage_demand.py",
+        "compile_task_coverage_demand",
+        "tests/test_task_coverage_demand.py",
+    ),
+    (
+        "model_maturation_receipt_independent_verification",
+        "commitment:model-maturation-receipt",
+        "flowguard/model_maturation_receipt.py",
+        "verify_model_maturation_receipt",
+        "tests/test_model_maturation_receipt.py",
+    ),
+    (
+        "implementation_admission_preserves_maturation",
+        "commitment:implementation-admission",
+        "flowguard/development_process_flow.py",
+        "review_implementation_admission",
+        "tests/test_development_process_flow.py",
+    ),
+    (
+        "risk_ledger_owns_understanding_confidence",
+        "commitment:understanding-confidence",
+        "flowguard/risk_evidence_ledger.py",
+        "review_risk_evidence_ledger",
+        "tests/test_risk_evidence_ledger.py",
+    ),
+    (
+        "closure_preserves_risk_and_receipt_identity",
+        "commitment:understanding-closure-integrity",
+        "flowguard/closure_contract.py",
+        "review_flowguard_closure_contract",
+        "tests/test_closure_contract.py",
+    ),
+)
+
+
+def understanding_chain_alignment_plan(
+    *, omit_failure_evidence_for: str = ""
+) -> ModelTestAlignmentPlan:
+    obligations = tuple(
+        ModelObligation(
+            obligation_id,
+            obligation_type="invariant",
+            description=f"{obligation_id} remains bound to its exact public owner and evidence",
+            required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),
+            required_closure_targets=(
+                ClosureEvidenceTarget(
+                    f"understanding:{obligation_id}:known-bad",
+                    closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
+                ),
+            ),
+            behavior_plane="development_process",
+            business_intent_id=f"intent:{obligation_id}",
+            behavior_commitment_id=commitment_id,
+            primary_path_id=f"path:understanding:{obligation_id}",
+        )
+        for obligation_id, commitment_id, _path, _symbol, _test_path in UNDERSTANDING_ALIGNMENT_ROWS
+    )
+    contracts = tuple(
+        CodeContract(
+            f"flowguard.{obligation_id}",
+            path=path,
+            symbol=symbol,
+            implements_obligations=(obligation_id,),
+            behavior_plane="development_process",
+            business_intent_id=f"intent:{obligation_id}",
+            behavior_commitment_id=commitment_id,
+            primary_path_id=f"path:understanding:{obligation_id}",
+        )
+        for obligation_id, commitment_id, path, symbol, _test_path in UNDERSTANDING_ALIGNMENT_ROWS
+    )
+    evidence: list[TestEvidence] = []
+    for obligation_id, commitment_id, _path, _symbol, test_path in UNDERSTANDING_ALIGNMENT_ROWS:
+        contract_id = f"flowguard.{obligation_id}"
+        common = {
+            "path": test_path,
+            "result_status": "passed",
+            "covered_obligations": (obligation_id,),
+            "covered_code_contracts": (contract_id,),
+            "assertion_scope": TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
+            "behavior_plane": "development_process",
+            "business_intent_id": f"intent:{obligation_id}",
+            "behavior_commitment_id": commitment_id,
+            "primary_path_id": f"path:understanding:{obligation_id}",
+        }
+        evidence.append(
+            TestEvidence(
+                f"test_{obligation_id}_happy",
+                test_name=f"test_{obligation_id}_happy",
+                test_kind=TEST_KIND_HAPPY_PATH,
+                **common,
+            )
+        )
+        if obligation_id != omit_failure_evidence_for:
+            evidence.append(
+                TestEvidence(
+                    f"test_{obligation_id}_known_bad",
+                    test_name=f"test_{obligation_id}_known_bad",
+                    test_kind=TEST_KIND_FAILURE_PATH,
+                    closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
+                    evidence_target_id=f"understanding:{obligation_id}:known-bad",
+                    **common,
+                )
+            )
+    return ModelTestAlignmentPlan(
+        model_id="flowguard-understanding-readiness",
+        obligations=obligations,
+        code_contracts=contracts,
+        test_evidence=tuple(evidence),
+        require_behavior_plane_binding=True,
+    )
 def rollout_cases() -> tuple[RolloutCase, ...]:
     return (
         RolloutCase("aligned_model_code_test_contracts", aligned_plan(), True),
@@ -448,6 +562,19 @@ def rollout_cases() -> tuple[RolloutCase, ...]:
             plane_aware_alignment_plan(mismatch=True),
             False,
             ("behavior_plane_mismatch",),
+        ),
+        RolloutCase(
+            "understanding_chain_obligations_are_explicitly_owned",
+            understanding_chain_alignment_plan(),
+            True,
+        ),
+        RolloutCase(
+            "understanding_chain_missing_failure_owner_blocks",
+            understanding_chain_alignment_plan(
+                omit_failure_evidence_for="closure_preserves_risk_and_receipt_identity"
+            ),
+            False,
+            ("missing_required_test_kind", "missing_known_bad_replay_test"),
         ),
     )
 

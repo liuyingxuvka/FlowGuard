@@ -38,14 +38,11 @@ from flowguard import (
     PROCESS_SCOPE_RELEASE,
     PROCESS_SCOPE_ROUTINE,
     DevelopmentProcessPlan,
+    DistributionEvidence,
     FreshnessRule,
     ImplementationAdmissionPlan,
     ImplementationAuthorization,
-    MODEL_MATURATION_CONFIDENCE_BLOCKED,
-    MODEL_MATURATION_CONFIDENCE_FULL,
-    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
     MODEL_MATURATION_DECISION_PROGRESS_STALLED,
-    ModelMaturationEvidenceRef,
     ProofArtifactRef,
     ProcessAction,
     ProcessArtifact,
@@ -55,6 +52,7 @@ from flowguard import (
     review_development_process_flow,
     review_implementation_admission,
 )
+from tests._maturation_receipt_support import verified_maturation
 
 
 def base_artifacts(*, code_version="2", test_version="1", requirement_version="1"):
@@ -83,33 +81,12 @@ def proof_artifact(artifact_id="artifact:unit", *covered):
 
 
 class DevelopmentProcessFlowTests(unittest.TestCase):
-    def maturation_ref(self, *, closed=True, current=True):
-        return ModelMaturationEvidenceRef(
-            evidence_id="maturation:task",
+    def maturation_ref(self, *, closed=True):
+        return verified_maturation(
+            closed=closed,
             task_id="task:one",
-            model_id="model:one",
-            candidate_model_fingerprint="candidate:one",
-            coverage_universe_id="coverage:one",
-            coverage_universe_fingerprint="coverage-fp:one",
-            input_fingerprint="input:one",
-            evidence_fingerprint="evidence:one",
-            decision=(
-                MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
-                if closed
-                else MODEL_MATURATION_DECISION_PROGRESS_STALLED
-            ),
-            confidence=(
-                MODEL_MATURATION_CONFIDENCE_FULL
-                if closed
-                else MODEL_MATURATION_CONFIDENCE_BLOCKED
-            ),
-            terminal_reason=(
-                MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
-                if closed
-                else MODEL_MATURATION_DECISION_PROGRESS_STALLED
-            ),
-            open_gap_fingerprints=() if closed else ("gap:one",),
-            current=current,
+            evidence_id="maturation:task",
+            gap="gap:one",
         )
 
     def test_implementation_admission_keeps_sufficiency_separate_from_permission(self):
@@ -154,6 +131,8 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
             allowed_path_ids=("flowguard/one.py",),
             accepted_gap_fingerprints=ref.open_gap_fingerprints,
             user_direction_digest="sha256:user-direction",
+            authorization_evidence_id="work-context:user-direction",
+            authorization_evidence_fingerprint="sha256:authorization",
         )
         scoped = review_implementation_admission(
             ImplementationAdmissionPlan(
@@ -186,14 +165,12 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
         )
 
     def test_stale_conflicting_or_nonwaivable_admission_is_blocked(self):
-        stale = review_implementation_admission(
+        with self.assertRaises(TypeError):
             ImplementationAdmissionPlan(
-                "admission:stale",
-                maturation_evidence=self.maturation_ref(current=False),
+                "admission:fabricated-current",
+                maturation_evidence={"current": True},
                 implementation_requested=True,
             )
-        )
-        self.assertFalse(stale.ok)
         for field, value, expected in (
             ("conflicting_owner_ids", ("agent:other",), "conflicting_implementation_ownership"),
             ("non_waivable_blocker_codes", ("destructive-boundary",), "non_waivable_blocker"),
@@ -257,6 +234,60 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
         self.assertNotIn(
             "full_validation_parent_not_current",
             {item.code for item in report.findings},
+        )
+
+    def test_distribution_evidence_is_typed_and_owned_outside_dpf(self):
+        with self.assertRaises(TypeError):
+            DevelopmentProcessPlan(
+                "raw-distribution",
+                require_distribution_evidence=True,
+                distribution_evidence={"current": True},
+            )
+
+        missing = review_development_process_flow(
+            DevelopmentProcessPlan(
+                "missing-distribution",
+                require_distribution_evidence=True,
+            )
+        )
+        self.assertIn(
+            "distribution_evidence_missing",
+            {finding.code for finding in missing.findings},
+        )
+
+        current = DistributionEvidence(
+            "distribution:flowguard-suite",
+            owner_route="skillguard",
+            suite_identity="manifest:flowguard-suite:v2",
+            source_projection_fingerprint="sha256:projection",
+            installed_projection_fingerprint="sha256:projection",
+            verification_fingerprint="sha256:verification",
+            status=PROCESS_EVIDENCE_PASSED,
+            result_path="receipts/distribution.json",
+        )
+        report = review_development_process_flow(
+            DevelopmentProcessPlan(
+                "current-distribution",
+                require_distribution_evidence=True,
+                distribution_evidence=current,
+            )
+        )
+        self.assertTrue(report.ok, report.format_text())
+        self.assertNotIn("member_count", current.to_dict())
+
+        stale = review_development_process_flow(
+            DevelopmentProcessPlan(
+                "stale-distribution",
+                require_distribution_evidence=True,
+                distribution_evidence=replace(
+                    current,
+                    installed_projection_fingerprint="sha256:stale",
+                ),
+            )
+        )
+        self.assertIn(
+            "distribution_evidence_not_current",
+            {finding.code for finding in stale.findings},
         )
 
     def test_active_process_optimization_requires_current_typed_evidence(self):
@@ -1075,10 +1106,3 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-    ImplementationAdmissionPlan,
-    ImplementationAuthorization,
-    MODEL_MATURATION_CONFIDENCE_BLOCKED,
-    MODEL_MATURATION_CONFIDENCE_FULL,
-    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
-    MODEL_MATURATION_DECISION_PROGRESS_STALLED,
-    ModelMaturationEvidenceRef,

@@ -15,53 +15,30 @@ from flowguard import (
     CLOSURE_REPORT_UI_HUMAN_OPERABILITY,
     CLOSURE_REPORT_UI_FUNCTIONAL_CAPABILITY_COVERAGE,
     MODEL_QUALITY_HIDDEN_STATE,
-    MODEL_MATURATION_CONFIDENCE_BLOCKED,
-    MODEL_MATURATION_CONFIDENCE_FULL,
-    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
-    MODEL_MATURATION_DECISION_PROGRESS_STALLED,
     ArtifactInvalidation,
     ClosureEvidenceReport,
     FlowGuardClosureContractPlan,
     ModelAngleReviewReport,
     ModelQualitySignal,
-    ModelMaturationEvidenceRef,
     RuntimeGatewayInventoryClosure,
     RuntimeTraceMapping,
     SameClassMissClosure,
     review_flowguard_closure_contract,
 )
+from tests._maturation_receipt_support import verified_maturation
 
 
 def maturation(*, closed=True, evidence_id="maturation:closure"):
-    return ModelMaturationEvidenceRef(
-        evidence_id,
+    return verified_maturation(
+        closed=closed,
         task_id="task:closure",
-        model_id="model:runtime-route",
-        candidate_model_fingerprint="candidate:closure",
-        coverage_universe_id="coverage:closure",
-        coverage_universe_fingerprint="coverage-fp:closure",
-        input_fingerprint="input:closure",
-        evidence_fingerprint="evidence:closure",
-        decision=(
-            MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
-            if closed
-            else MODEL_MATURATION_DECISION_PROGRESS_STALLED
-        ),
-        confidence=(
-            MODEL_MATURATION_CONFIDENCE_FULL
-            if closed
-            else MODEL_MATURATION_CONFIDENCE_BLOCKED
-        ),
-        terminal_reason=(
-            MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
-            if closed
-            else MODEL_MATURATION_DECISION_PROGRESS_STALLED
-        ),
-        open_gap_fingerprints=() if closed else ("gap:closure",),
+        evidence_id=evidence_id,
+        gap="gap:closure",
     )
 
 
 def evidence_report(report_id="report:risk-ledger", **overrides):
+    maturation_identity = maturation()
     values = {
         "report_id": report_id,
         "report_kind": CLOSURE_REPORT_RISK_LEDGER,
@@ -72,7 +49,9 @@ def evidence_report(report_id="report:risk-ledger", **overrides):
         "result_status": "passed",
         "proof_artifact_ids": ("artifact:risk-ledger",),
         "metadata": {
-            "model_maturation_evidence_id": "maturation:closure",
+            "model_maturation_evidence_id": maturation_identity.evidence_id,
+            "model_maturation_receipt_id": maturation_identity.receipt_id,
+            "model_maturation_receipt_fingerprint": maturation_identity.receipt_fingerprint,
         },
     }
     values.update(overrides)
@@ -139,7 +118,25 @@ def finding_codes(report):
     return [finding.code for finding in report.findings]
 
 
+def reports_with_scoped_risk(*additional):
+    return (
+        evidence_report(
+            "report:runtime-gateway",
+            report_kind=CLOSURE_REPORT_RUNTIME_GATEWAY,
+            decision="runtime_gateway_adoption_green",
+        ),
+        evidence_report(
+            confidence=CLOSURE_CONFIDENCE_SCOPED,
+            decision="risk_evidence_scoped_confidence",
+        ),
+    ) + tuple(additional)
+
+
 class FlowGuardClosureContractTests(unittest.TestCase):
+    def test_raw_maturation_mapping_is_not_authority(self):
+        with self.assertRaises(TypeError):
+            green_plan(model_maturation_evidence=({"current": True},))
+
     def test_closure_and_risk_require_the_same_closed_maturation_identity(self):
         missing = review_flowguard_closure_contract(
             green_plan(model_maturation_evidence=())
@@ -168,6 +165,27 @@ class FlowGuardClosureContractTests(unittest.TestCase):
         self.assertIn(
             "risk_closure_model_maturation_identity_mismatch",
             finding_codes(mismatch),
+        )
+
+        mismatched_fingerprint = evidence_report(
+            metadata={
+                "model_maturation_receipt_fingerprint": "sha256:other-receipt"
+            }
+        )
+        fingerprint_mismatch = review_flowguard_closure_contract(
+            green_plan(
+                evidence_reports=(
+                    evidence_report(
+                        "report:runtime-gateway",
+                        report_kind=CLOSURE_REPORT_RUNTIME_GATEWAY,
+                    ),
+                    mismatched_fingerprint,
+                )
+            )
+        )
+        self.assertIn(
+            "risk_closure_model_maturation_identity_mismatch",
+            finding_codes(fingerprint_mismatch),
         )
 
     def test_complete_closure_contract_supports_full_confidence(self):
@@ -294,6 +312,46 @@ class FlowGuardClosureContractTests(unittest.TestCase):
         self.assertIn("closure_report_not_full_confidence", finding_codes(report))
         self.assertIn("risk_ledger_not_full_confidence", finding_codes(report))
 
+    def test_closure_preserves_risk_decision_and_rejects_disagreement(self):
+        mismatched_pair = review_flowguard_closure_contract(
+            green_plan(
+                evidence_reports=(
+                    evidence_report(
+                        "report:runtime-gateway",
+                        report_kind=CLOSURE_REPORT_RUNTIME_GATEWAY,
+                    ),
+                    evidence_report(
+                        decision="risk_evidence_full_confidence",
+                        confidence=CLOSURE_CONFIDENCE_SCOPED,
+                    ),
+                )
+            )
+        )
+        self.assertFalse(mismatched_pair.ok)
+        self.assertIn(
+            "risk_ledger_decision_confidence_mismatch",
+            finding_codes(mismatched_pair),
+        )
+
+        scoped_material_with_full_risk = review_flowguard_closure_contract(
+            green_plan(
+                require_model_angle_review=True,
+                model_angle_reports=(
+                    ModelAngleReviewReport(
+                        True,
+                        "model-angle:scoped",
+                        "model_angle_scoped_confidence",
+                        CLOSURE_CONFIDENCE_SCOPED,
+                    ),
+                ),
+            )
+        )
+        self.assertFalse(scoped_material_with_full_risk.ok)
+        self.assertIn(
+            "risk_closure_confidence_disagreement",
+            finding_codes(scoped_material_with_full_risk),
+        )
+
     def test_required_model_angle_report_is_final_confidence_input(self):
         missing = review_flowguard_closure_contract(
             green_plan(require_model_angle_review=True)
@@ -304,6 +362,7 @@ class FlowGuardClosureContractTests(unittest.TestCase):
         scoped = review_flowguard_closure_contract(
             green_plan(
                 require_model_angle_review=True,
+                evidence_reports=reports_with_scoped_risk(),
                 model_angle_reports=(
                     ModelAngleReviewReport(
                         True,
@@ -321,8 +380,7 @@ class FlowGuardClosureContractTests(unittest.TestCase):
         evidence_scoped = review_flowguard_closure_contract(
             green_plan(
                 require_model_angle_review=True,
-                evidence_reports=green_plan().evidence_reports
-                + (
+                evidence_reports=reports_with_scoped_risk(
                     evidence_report(
                         "report:model-angle",
                         report_kind=CLOSURE_REPORT_MODEL_ANGLE,
@@ -345,8 +403,7 @@ class FlowGuardClosureContractTests(unittest.TestCase):
         scoped = review_flowguard_closure_contract(
             green_plan(
                 require_ui_done_claim_review=True,
-                evidence_reports=green_plan().evidence_reports
-                + (
+                evidence_reports=reports_with_scoped_risk(
                     evidence_report(
                         "report:ui-done-claim",
                         report_kind=CLOSURE_REPORT_UI_DONE_CLAIM,
@@ -432,8 +489,7 @@ class FlowGuardClosureContractTests(unittest.TestCase):
         scoped = review_flowguard_closure_contract(
             green_plan(
                 require_ui_functional_capability_coverage=True,
-                evidence_reports=green_plan().evidence_reports
-                + (
+                evidence_reports=reports_with_scoped_risk(
                     evidence_report(
                         "report:ui-functional-capability",
                         report_kind=CLOSURE_REPORT_UI_FUNCTIONAL_CAPABILITY_COVERAGE,

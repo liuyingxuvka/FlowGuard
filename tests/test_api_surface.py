@@ -154,6 +154,15 @@ class ApiSurfaceTests(unittest.TestCase):
                     self.assertIn(name, flowguard.__all__, name)
                     self.assertTrue(hasattr(flowguard, name), name)
 
+        self.assertIn(
+            "compile_task_coverage_demand",
+            flowguard.ROUTE_STARTER_API["model_first_function_flow"],
+        )
+        self.assertIn(
+            "DistributionEvidence",
+            flowguard.ROUTE_STARTER_API["development_process_flow"],
+        )
+
     def test_core_group_keeps_minimal_path_visible(self):
         self.assertIn("Workflow", flowguard.CORE_API)
         self.assertNotIn("Explorer", flowguard.CORE_API)

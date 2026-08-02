@@ -13,10 +13,13 @@ Run: python .flowguard/risk_evidence_ledger/run_checks.py
 
 from __future__ import annotations
 
+from tempfile import TemporaryDirectory
+
 from flowguard import (
     OBLIGATION_STATUS_RESOLVED,
     MODEL_MATURATION_CONFIDENCE_FULL,
     MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+    MODEL_MATURATION_RECEIPT_CLAIM_SCOPE,
     RISK_GATE_ARTIFACT_PAYLOAD,
     RISK_GATE_CONTRACT_COVERAGE_SHARD,
     RISK_GATE_DEFECT_FAMILY,
@@ -35,22 +38,34 @@ from flowguard import (
     RISK_PROOF_STATUS_PASSED,
     RISK_PROOF_STATUS_PROGRESS_ONLY,
     MaintenanceObligation,
-    ModelMaturationEvidenceRef,
+    ModelMaturationReceiptPublication,
+    ModelMaturationReceiptRef,
+    ModelMaturationReport,
+    ModelMaturationVerificationContext,
     ProofArtifactRef,
     RiskEvidenceGate,
     RiskEvidenceLedgerPlan,
     RiskEvidenceProof,
     RiskEvidenceRow,
+    ReceiptVerificationContext,
+    build_model_maturation_receipt,
+    fingerprint_value,
     model_maturation_to_risk_evidence_gate,
     review_risk_evidence_ledger,
+    save_evidence_receipt,
+    snapshot_bytes,
+    verify_model_maturation_receipt,
 )
 
 
 def maturation_evidence():
-    return ModelMaturationEvidenceRef(
-        "maturation:checkout",
+    report = ModelMaturationReport(
+        ok=True,
+        plan_id="plan:checkout",
+        evidence_id="maturation:checkout",
         task_id="task:checkout",
         model_id="model:checkout",
+        coverage_demand_fingerprint="sha256:demand",
         candidate_model_fingerprint="sha256:candidate",
         coverage_universe_id="coverage:checkout",
         coverage_universe_fingerprint="sha256:coverage",
@@ -60,6 +75,65 @@ def maturation_evidence():
         confidence=MODEL_MATURATION_CONFIDENCE_FULL,
         terminal_reason=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
     )
+    snapshot = snapshot_bytes(
+        "artifact:checkout-model",
+        b"checkout-model",
+        path_token="<WORKSPACE>/.flowguard/checkout/model.py",
+        obligation_ids=("obligation:checkout-maturation",),
+    )
+    environment = {"python_version": "template"}
+    publication = ModelMaturationReceiptPublication(
+        producer_id="flowguard.model_maturation",
+        producer_version="template",
+        command=("python", ".flowguard/checkout/run_checks.py"),
+        started_at="2026-01-01T00:00:00+00:00",
+        finished_at="2026-01-01T00:00:01+00:00",
+        environment_metadata=environment,
+        contract_hash="sha256:contract",
+        check_manifest_hash="sha256:manifest",
+        suite_map_hash="sha256:suite",
+        input_snapshots=(snapshot,),
+        covered_obligation_ids=("obligation:checkout-maturation",),
+    )
+    receipt = build_model_maturation_receipt(report, publication)
+    with TemporaryDirectory() as receipt_root:
+        save_evidence_receipt(receipt, output_directory=receipt_root)
+        receipt_context = ReceiptVerificationContext(
+            input_snapshots={snapshot.artifact_id: snapshot},
+            contract_hash=publication.contract_hash,
+            check_manifest_hash=publication.check_manifest_hash,
+            suite_map_hash=publication.suite_map_hash,
+            producer_id=publication.producer_id,
+            producer_version=publication.producer_version,
+            environment_fingerprint=fingerprint_value(environment),
+            proof_artifact_fingerprint=report.evidence_fingerprint,
+            result_fingerprint=fingerprint_value(report.to_dict()),
+            command=publication.command,
+            working_directory_token=publication.working_directory_token,
+            proof_artifact_id=report.evidence_id,
+            required_obligation_ids=publication.covered_obligation_ids,
+            eligible_claim_scopes=(MODEL_MATURATION_RECEIPT_CLAIM_SCOPE,),
+            receipt_store_output_directory=receipt_root,
+        )
+        verification = verify_model_maturation_receipt(
+            ModelMaturationReceiptRef(receipt.receipt_id, receipt.fingerprint),
+            ModelMaturationVerificationContext(
+                receipt_context,
+                report.task_id,
+                report.model_id,
+                report.candidate_model_fingerprint,
+                report.coverage_demand_fingerprint,
+                report.coverage_universe_id,
+                report.coverage_universe_fingerprint,
+                report.input_fingerprint,
+                report.evidence_fingerprint,
+                receipt.fingerprint,
+            ),
+            output_directory=receipt_root,
+        )
+    if verification.verified_maturation is None:
+        raise RuntimeError("template maturation receipt did not verify")
+    return verification.verified_maturation
 
 
 def correct_ledger() -> RiskEvidenceLedgerPlan:

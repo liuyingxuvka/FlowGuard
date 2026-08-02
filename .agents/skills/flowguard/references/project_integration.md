@@ -192,8 +192,8 @@ docs, and guidance for deterministic upgrades into the current FlowGuard
 shape. Use `--records-only` only when intentionally scoping out that scan, and
 run `python -m flowguard artifact-upgrade --root . --apply` when you need the
 upgrade scan directly. Before writing, it must first prove exact parity between
-the authority shipped in the installed package, the global 15-skill consumer
-projection, and the distribution ownership manifest.
+the authority shipped in the installed package, the current manifest-declared
+consumer projection, and the distribution ownership manifest.
 
 Then check release notes or the changelog, rerun affected FlowGuard models and
 tests, and record the evidence. If the installed check-engine version is older

@@ -50,6 +50,14 @@ The report returns `flowguard_closure_full_confidence`,
 `flowguard_closure_scoped_confidence`, or `flowguard_closure_blocked`. A scoped
 report is still not a full-confidence claim.
 
+The Risk Evidence Ledger is the sole broad-confidence owner. ClosureContract
+requires exactly one terminal RiskLedger report, verifies its canonical
+decision/confidence pair and exact maturation receipt identity, and preserves
+that confidence when terminal integrity passes. If other required material is
+scoped while RiskLedger says full, closure reports an agreement failure; it
+does not calculate a new risk score. Missing, duplicate, stale, or mismatched
+RiskLedger reports block.
+
 To create a project scaffold:
 
 ```bash

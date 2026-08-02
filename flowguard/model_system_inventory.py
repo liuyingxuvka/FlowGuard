@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from importlib import import_module
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -68,6 +69,115 @@ class ManifestModelInventory:
             "missing_ids": list(self.missing_ids),
             "complete": self.complete,
         }
+
+
+@dataclass(frozen=True)
+class AffectedAuthorityComponent:
+    """One independently inventoried behavior/model/source/evidence relation set."""
+
+    component_id: str
+    source_surface_id: str
+    behavior_commitment_id: str
+    model_owner_ids: tuple[str, ...]
+    primary_source_owner: str
+    evidence_owner_ids: tuple[str, ...]
+    runtime_entry_ids: tuple[str, ...]
+    model_relations: tuple[tuple[str, str], ...]
+    relation_types: tuple[str, ...]
+    affected_sibling_ids: tuple[str, ...]
+    gap_ids: tuple[str, ...]
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> "AffectedAuthorityComponent":
+        required = {
+            "component_id",
+            "source_surface_id",
+            "behavior_commitment_id",
+            "model_owner_ids",
+            "primary_source_owner",
+            "evidence_owner_ids",
+            "runtime_entry_ids",
+            "model_relations",
+            "relation_types",
+            "affected_sibling_ids",
+            "gap_ids",
+        }
+        if set(value) != required:
+            raise ModelSystemInventoryError(
+                "affected authority component fields differ from the current schema: "
+                f"{sorted(set(value) ^ required)}"
+            )
+        raw_relations = value["model_relations"]
+        if not isinstance(raw_relations, list):
+            raise ModelSystemInventoryError("affected authority model_relations must be an array")
+        relations: list[tuple[str, str]] = []
+        for relation in raw_relations:
+            if not isinstance(relation, Mapping) or set(relation) != {"kind", "target_model_id"}:
+                raise ModelSystemInventoryError("affected authority model relation is not exact current format")
+            relations.append((str(relation["kind"]), str(relation["target_model_id"])))
+        return cls(
+            component_id=str(value["component_id"]),
+            source_surface_id=str(value["source_surface_id"]),
+            behavior_commitment_id=str(value["behavior_commitment_id"]),
+            model_owner_ids=_string_values(value["model_owner_ids"]),
+            primary_source_owner=str(value["primary_source_owner"]),
+            evidence_owner_ids=_string_values(value["evidence_owner_ids"]),
+            runtime_entry_ids=_string_values(value["runtime_entry_ids"]),
+            model_relations=tuple(relations),
+            relation_types=_string_values(value["relation_types"]),
+            affected_sibling_ids=_string_values(value["affected_sibling_ids"]),
+            gap_ids=_string_values(value["gap_ids"]),
+        )
+
+
+@dataclass(frozen=True)
+class AffectedAuthorityInventory:
+    inventory_id: str
+    claim_boundary: str
+    components: tuple[AffectedAuthorityComponent, ...]
+    artifact_path: str
+    fingerprint: str
+
+
+def load_affected_authority_inventory(
+    root: str | Path,
+) -> AffectedAuthorityInventory | None:
+    """Load the independent affected-path inventory when the project declares one."""
+
+    root_path = Path(root).resolve()
+    path = root_path / ".flowguard" / "authoritative_model_system" / "affected_authority_inventory.json"
+    if not path.is_file():
+        return None
+    payload = _load_json_object(path)
+    required = {
+        "artifact_type",
+        "schema_version",
+        "inventory_id",
+        "claim_boundary",
+        "components",
+    }
+    if set(payload) != required:
+        raise ModelSystemInventoryError(
+            "affected authority inventory fields differ from the current schema"
+        )
+    if payload["artifact_type"] != "flowguard_affected_authority_inventory":
+        raise ModelSystemInventoryError("affected authority inventory artifact type is invalid")
+    if payload["schema_version"] != "flowguard.affected_authority_inventory.v1":
+        raise ModelSystemInventoryError("affected authority inventory schema is not current")
+    raw_components = payload["components"]
+    if not isinstance(raw_components, list) or not raw_components:
+        raise ModelSystemInventoryError("affected authority inventory requires components")
+    components = tuple(AffectedAuthorityComponent.from_mapping(item) for item in raw_components)
+    component_ids = tuple(item.component_id for item in components)
+    if len(component_ids) != len(set(component_ids)):
+        raise ModelSystemInventoryError("affected authority component ids must be unique")
+    return AffectedAuthorityInventory(
+        inventory_id=str(payload["inventory_id"]),
+        claim_boundary=str(payload["claim_boundary"]),
+        components=components,
+        artifact_path=path.relative_to(root_path).as_posix(),
+        fingerprint=file_fingerprint(path),
+    )
 
 
 def _stable_id(prefix: str, value: Any) -> str:
@@ -210,6 +320,21 @@ def _string_values(
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         return ()
     return tuple(str(item) for item in value if str(item).strip())
+
+
+def _runtime_entry_available(value: str) -> bool:
+    parts = tuple(part for part in str(value).split(".") if part)
+    if len(parts) < 2 or parts[0] != "flowguard":
+        return False
+    try:
+        current: Any = import_module(parts[0])
+    except ImportError:
+        return False
+    for part in parts[1:]:
+        if not hasattr(current, part):
+            return False
+        current = getattr(current, part)
+    return callable(current) or isinstance(current, type)
 
 
 def build_manifest_model_system_snapshot(
@@ -594,23 +719,233 @@ def build_manifest_model_system_snapshot(
                     ),
                 )
 
+    affected_inventory = load_affected_authority_inventory(root_path)
+    affected_required_ids: list[str] = []
+    affected_covered_ids: list[str] = []
+    affected_unresolved_ids: list[str] = []
+    if affected_inventory is not None:
+        inventory_endpoint = AuthorityEndpointRef(
+            endpoint_kind="source_owner",
+            endpoint_id=f"inventory:{affected_inventory.inventory_id}",
+            fingerprint=affected_inventory.fingerprint,
+            owner_route="authoritative_model_system",
+        )
+        owner_refs.append(inventory_endpoint)
+        owner_ref_keys.add((inventory_endpoint.endpoint_kind, inventory_endpoint.endpoint_id))
+        commitment_ids_present = {
+            str(item.get("commitment_id", "")).strip()
+            for item in commitments
+            if str(item.get("commitment_id", "")).strip()
+        }
+        for component in affected_inventory.components:
+            affected_required_ids.append(component.component_id)
+            issues: list[str] = []
+            if not component.model_owner_ids:
+                issues.append("model_owner_missing")
+            unknown_models = tuple(
+                sorted(set(component.model_owner_ids) - model_ids)
+            )
+            if unknown_models:
+                issues.extend(f"unknown_model:{item}" for item in unknown_models)
+            source_path = root_path / component.primary_source_owner
+            if not source_path.is_file():
+                issues.append("primary_source_missing")
+            missing_evidence = tuple(
+                path
+                for path in component.evidence_owner_ids
+                if not (root_path / path).is_file()
+            )
+            if (not component.evidence_owner_ids or missing_evidence) and not component.gap_ids:
+                issues.extend(
+                    ("evidence_owner_missing",)
+                    if not component.evidence_owner_ids
+                    else tuple(f"evidence_owner_missing:{item}" for item in missing_evidence)
+                )
+            if not component.runtime_entry_ids:
+                issues.append("runtime_entry_missing")
+            invalid_runtime_entries = tuple(
+                entry
+                for entry in component.runtime_entry_ids
+                if not _runtime_entry_available(entry)
+            )
+            issues.extend(
+                f"runtime_entry_unavailable:{entry}"
+                for entry in invalid_runtime_entries
+            )
+            if component.behavior_commitment_id not in commitment_ids_present:
+                issues.append("behavior_commitment_missing")
+            source_record = surfaces_by_id.get(component.source_surface_id)
+            if source_record is None:
+                issues.append("source_surface_missing")
+            elif (
+                str(source_record.get("source_ref", "")) != component.primary_source_owner
+                or component.behavior_commitment_id
+                not in _string_values(source_record.get("commitment_ids"))
+            ):
+                issues.append("source_surface_owner_mismatch")
+            declared_relation_types = set(component.relation_types)
+            actual_relation_types = {
+                "implements",
+                "validates",
+                "invokes",
+                "affects",
+                *(kind for kind, _target in component.model_relations),
+            }
+            if not actual_relation_types.issubset(declared_relation_types):
+                issues.append("declared_relation_types_incomplete")
+            unknown_siblings = tuple(
+                sorted(set(component.affected_sibling_ids) - model_ids)
+            )
+            if unknown_siblings:
+                issues.extend(f"unknown_sibling:{item}" for item in unknown_siblings)
+            for relation_kind, target_model_id in component.model_relations:
+                if relation_kind not in {"refines", "consumes", "depends_on"}:
+                    issues.append(f"unsupported_component_relation:{relation_kind}")
+                if target_model_id not in model_ids:
+                    issues.append(f"unknown_relation_target:{target_model_id}")
+
+            if issues:
+                affected_unresolved_ids.extend(
+                    f"{component.component_id}:{issue}" for issue in sorted(set(issues))
+                )
+                continue
+
+            affected_covered_ids.append(component.component_id)
+            primary_model_id = component.model_owner_ids[0]
+            primary_model = by_id[primary_model_id]
+            model_endpoint = AuthorityEndpointRef(
+                endpoint_kind="model_instance",
+                endpoint_id=f"model:{primary_model_id}",
+                fingerprint=primary_model.fingerprint,
+                owner_route="model_regression_manifest",
+            )
+            source_endpoint = AuthorityEndpointRef(
+                endpoint_kind="source_owner",
+                endpoint_id=f"source:{component.primary_source_owner}",
+                fingerprint=file_fingerprint(source_path),
+                owner_route="affected_authority_inventory",
+            )
+            source_key = (source_endpoint.endpoint_kind, source_endpoint.endpoint_id)
+            if source_key not in owner_ref_keys:
+                owner_refs.append(source_endpoint)
+                owner_ref_keys.add(source_key)
+            relations.append(
+                ModelRelation(
+                    relation_id=_stable_id("relation:source-implements-model", component.component_id),
+                    kind="implements",
+                    source=source_endpoint,
+                    target=model_endpoint,
+                    evidence_fingerprints=(affected_inventory.fingerprint, source_endpoint.fingerprint),
+                )
+            )
+            for evidence_owner in component.evidence_owner_ids:
+                evidence_path = root_path / evidence_owner
+                evidence_endpoint = AuthorityEndpointRef(
+                    endpoint_kind="test_evidence",
+                    endpoint_id=f"evidence:{evidence_owner}",
+                    fingerprint=file_fingerprint(evidence_path),
+                    owner_route="affected_authority_inventory",
+                )
+                evidence_key = (evidence_endpoint.endpoint_kind, evidence_endpoint.endpoint_id)
+                if evidence_key not in owner_ref_keys:
+                    owner_refs.append(evidence_endpoint)
+                    owner_ref_keys.add(evidence_key)
+                relations.append(
+                    ModelRelation(
+                        relation_id=_stable_id(
+                            "relation:evidence-validates-model",
+                            f"{component.component_id}:{evidence_owner}",
+                        ),
+                        kind="validates",
+                        source=evidence_endpoint,
+                        target=model_endpoint,
+                        evidence_fingerprints=(affected_inventory.fingerprint, evidence_endpoint.fingerprint),
+                    )
+                )
+            for runtime_entry in component.runtime_entry_ids:
+                runtime_endpoint = AuthorityEndpointRef(
+                    endpoint_kind="runtime_entry",
+                    endpoint_id=f"runtime:{runtime_entry}",
+                    fingerprint=canonical_fingerprint({"runtime_entry": runtime_entry}),
+                    owner_route="affected_authority_inventory",
+                )
+                runtime_key = (runtime_endpoint.endpoint_kind, runtime_endpoint.endpoint_id)
+                if runtime_key not in owner_ref_keys:
+                    owner_refs.append(runtime_endpoint)
+                    owner_ref_keys.add(runtime_key)
+                relations.append(
+                    ModelRelation(
+                        relation_id=_stable_id(
+                            "relation:model-invokes-runtime",
+                            f"{component.component_id}:{runtime_entry}",
+                        ),
+                        kind="invokes",
+                        source=model_endpoint,
+                        target=runtime_endpoint,
+                        evidence_fingerprints=(affected_inventory.fingerprint,),
+                    )
+                )
+            for sibling_id in component.affected_sibling_ids:
+                sibling_endpoint = AuthorityEndpointRef(
+                    endpoint_kind="model_instance",
+                    endpoint_id=f"model:{sibling_id}",
+                    fingerprint=by_id[sibling_id].fingerprint,
+                    owner_route="model_regression_manifest",
+                )
+                relations.append(
+                    ModelRelation(
+                        relation_id=_stable_id(
+                            "relation:model-affects-sibling",
+                            f"{component.component_id}:{sibling_id}",
+                        ),
+                        kind="affects",
+                        source=model_endpoint,
+                        target=sibling_endpoint,
+                        evidence_fingerprints=(affected_inventory.fingerprint,),
+                    )
+                )
+            for relation_kind, target_model_id in component.model_relations:
+                target_endpoint = AuthorityEndpointRef(
+                    endpoint_kind="model_instance",
+                    endpoint_id=f"model:{target_model_id}",
+                    fingerprint=by_id[target_model_id].fingerprint,
+                    owner_route="model_regression_manifest",
+                )
+                relations.append(
+                    ModelRelation(
+                        relation_id=_stable_id(
+                            f"relation:model-{relation_kind}-model",
+                            f"{component.component_id}:{target_model_id}",
+                        ),
+                        kind=relation_kind,
+                        source=model_endpoint,
+                        target=target_endpoint,
+                        evidence_fingerprints=(affected_inventory.fingerprint,),
+                    )
+                )
+
     surface_ids = tuple(
         str(item.get("surface_id", "")).strip()
         for item in surfaces
         if str(item.get("surface_id", "")).strip()
     )
-    expected_surface_ids = (
+    declared_surface_ids = (
         behavior_ledger.expected_source_surface_ids
-        if behavior_ledger is not None
-        and behavior_ledger.expected_source_surface_ids
+        if behavior_ledger is not None and behavior_ledger.expected_source_surface_ids
         else surface_ids
     )
+    affected_surface_ids = (
+        tuple(item.source_surface_id for item in affected_inventory.components)
+        if affected_inventory is not None
+        else ()
+    )
+    expected_surface_ids = tuple(sorted(set(declared_surface_ids) | set(affected_surface_ids)))
     commitment_ids = tuple(
         str(item.get("commitment_id", "")).strip()
         for item in commitments
         if str(item.get("commitment_id", "")).strip()
     )
-    dimensions = (
+    dimensions_list = [
         CoverageDimension(
             "external_surfaces",
             required_ids=expected_surface_ids,
@@ -680,7 +1015,16 @@ def build_manifest_model_system_snapshot(
                 sorted(set(test_required) - set(tests_covered))
             ),
         ),
+    ]
+    dimensions_list.append(
+        CoverageDimension(
+            "affected_authority_relations",
+            required_ids=tuple(sorted(affected_required_ids)),
+            covered_ids=tuple(sorted(affected_covered_ids)),
+            unresolved_ids=tuple(sorted(affected_unresolved_ids)),
+        )
     )
+    dimensions = tuple(dimensions_list)
     inventory_payload = {
         "manifest_fingerprint": manifest_fingerprint,
         "ledger_fingerprint": ledger_fingerprint,
@@ -693,6 +1037,9 @@ def build_manifest_model_system_snapshot(
             behavior_ledger.source_inventory_revision
             if behavior_ledger is not None
             else ""
+        ),
+        "affected_authority_inventory_fingerprint": (
+            affected_inventory.fingerprint if affected_inventory is not None else ""
         ),
         "expected_behavior_source_ids": list(expected_surface_ids),
         "model_instances": {
@@ -757,8 +1104,11 @@ def build_manifest_model_system_snapshot(
 
 
 __all__ = [
+    "AffectedAuthorityComponent",
+    "AffectedAuthorityInventory",
     "ManifestModelInventory",
     "ModelSystemInventoryError",
     "build_manifest_model_system_snapshot",
     "inspect_manifest_model_inventory",
+    "load_affected_authority_inventory",
 ]

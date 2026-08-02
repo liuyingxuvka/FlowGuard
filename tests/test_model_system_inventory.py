@@ -11,6 +11,7 @@ from flowguard.model_regressions import MANIFEST_SCHEMA
 from flowguard.model_system_inventory import (
     build_manifest_model_system_snapshot,
     inspect_manifest_model_inventory,
+    load_affected_authority_inventory,
 )
 from flowguard.behavior_commitment import (
     BehaviorCommitment,
@@ -36,11 +37,11 @@ class ModelSystemInventoryTests(unittest.TestCase):
         self.assertFalse(snapshot.unresolved_gap_ids)
         self.assertTrue(snapshot.coverage.complete)
         inventory = inspect_manifest_model_inventory(root)
-        self.assertEqual(62, len(inventory.declared_ids))
+        self.assertEqual(64, len(inventory.declared_ids))
         self.assertEqual(inventory.declared_ids, inventory.materialized_ids)
         self.assertEqual(inventory.required_ids, inventory.covered_ids)
         self.assertFalse(inventory.missing_ids)
-        self.assertEqual(62, len(snapshot.model_instances))
+        self.assertEqual(64, len(snapshot.model_instances))
         model_dimension = next(
             item
             for item in snapshot.coverage.dimensions
@@ -49,6 +50,24 @@ class ModelSystemInventoryTests(unittest.TestCase):
         self.assertEqual(inventory.required_ids, model_dimension.required_ids)
         self.assertEqual(inventory.covered_ids, model_dimension.covered_ids)
         self.assertFalse(model_dimension.excluded_ids)
+        affected_dimension = next(
+            item
+            for item in snapshot.coverage.dimensions
+            if item.dimension_id == "affected_authority_relations"
+        )
+        self.assertEqual(5, len(affected_dimension.required_ids))
+        self.assertEqual(
+            affected_dimension.required_ids,
+            affected_dimension.covered_ids,
+        )
+        self.assertFalse(affected_dimension.unresolved_ids)
+        inventory_artifact = load_affected_authority_inventory(root)
+        self.assertIsNotNone(inventory_artifact)
+        self.assertEqual(5, len(inventory_artifact.components))
+        self.assertTrue(
+            {"refines", "consumes", "validates", "implements", "invokes", "affects"}
+            <= {relation.kind for relation in snapshot.relations}
+        )
         self.assertEqual("flowguard.model_system_snapshot.v2", snapshot.schema)
         self.assertTrue(
             all(

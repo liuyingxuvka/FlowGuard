@@ -6,7 +6,7 @@ description: Unified FlowGuard entry for ordinary behavior/state modeling, uncle
 # FlowGuard
 
 ## Purpose
-Select the smallest current owner first, then deepen only for a named route obligation or open native gap. A narrow entry reduces initial reading; it never creates a weaker correctness mode.
+Select the smallest current owner first. Derive how much understanding the task actually needs, then deepen only for a triggered owner or open native gap. Lightweight use stays available; claim strength, not user freedom, determines how much evidence is required.
 
 ## Entrypoint Scope
 Route id: `model_first_function_flow`; role: `kernel`; native owner: `model_first_function_flow`. Decide `use_flowguard`, `skip_with_reason`, or `needs_human_review` through `behavior_flow`, `argument_flow`, or `decision_flow`.
@@ -28,18 +28,19 @@ Route id: `model_first_function_flow`; role: `kernel`; native owner: `model_firs
 - Do not force the kernel before a clear satellite, use it for trivial copy/format/direct-command work, or treat check-engine helpers as independently triggerable Codex skills.
 
 ## Required Workflow
-1. Extract task facts with request evidence, audit current authority for existing modeled work, and select exactly one owner or report the unresolved candidates.
-2. Build the smallest faithful executable model, including the protected error class, state, side effects, completion evidence, and a representative known-bad path.
-3. Run the declared checks, inspect counterexamples, revise the model or architecture, and load only references triggered by remaining native gaps.
-4. For non-trivial work, compile current typed native-owner coverage contributions into Model Maturation, predict discriminating outcomes and falsifiers, bind receipts to the exact task/candidate/coverage identity, and continue to task-local closure or an explicit non-success terminal. Never ask the model to self-rate understanding.
-5. When code is requested, keep the maturation result unchanged and ask DevelopmentProcessFlow for a separate `ready`, `ready_scoped`, `no_code_requested`, `blocked`, or `stale` implementation-admission result.
-6. Preserve failed, skipped, stale, scoped, and not-run evidence; return structured owner handoffs instead of prose-only completion.
+1. Freeze evidenced `TaskFacts`, audit observed authority for existing modeled work, and compile `TaskCoverageDemand`. Built-in owner rows are the minimum denominator; callers may add rows but cannot remove them.
+2. Show each owner as `satisfied`, `not_triggered`, `unresolved`, or `blocked`. The derived `ordinary|standard|deep|release` tier is a presentation and work-depth result, never a user-selectable weak correctness mode.
+3. Build the smallest faithful executable model for triggered owners, including protected failures, state, side effects, completion evidence, and representative known-bad paths.
+4. Run declared checks, inspect counterexamples, and mature the model until every demanded row has current evidence or an explicit external/scope/stall/limit terminal. Publish the result as a canonical receipt and independently verify task, demand, candidate, inputs, obligations, result, evidence, and gaps. Never ask the model to self-rate understanding or trust a caller-authored `current` flag.
+5. When code is requested, preserve the verified maturation decision and ask DevelopmentProcessFlow for a separate `ready`, `ready_scoped`, `no_code_requested`, `blocked`, or `stale` implementation admission. Permission may bound an attempt; it cannot upgrade understanding.
+6. RiskLedger alone decides full/scoped/blocked confidence. Closure checks exact identity, material presence, and terminal integrity without rescoring risk. Preserve failed, skipped, stale, scoped, and not-run evidence.
 
 ## Hard Gates
 - Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind the candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Require the real FlowGuard check engine and AGENTS.md managed record; never create a fake mini-framework.
 - Existing-model currentness comes only from the sole observed snapshot. Targets and experiments remain separate until one accepted whole `ModelRevisionSet` updates authority.
 - Do not weaken invariants, invent alternate success paths, or use missing/stale/skipped/`not_run`/progress-only evidence for broad confidence.
+- Target-product people, roles, permissions, and transitions belong inside the target software model. FlowGuard supplies modeling and evidence owners; it does not invent a global catalog of application roles.
 - Portable composition, UI/payload proof, replacement, evidence lifecycle, WorkContext, diagram semantics, release freshness, and template harvest closure remain mandatory when their route trigger fires; their unique rules live in the selected references.
 
 ## Output Requirements

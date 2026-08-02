@@ -72,6 +72,9 @@ MODEL_RELATION_KINDS = frozenset(
         "supersedes",
         "validates",
         "shares_kernel_with",
+        "implements",
+        "invokes",
+        "affects",
     }
 )
 AUTHORITY_ENDPOINT_KINDS = frozenset(
@@ -86,6 +89,8 @@ AUTHORITY_ENDPOINT_KINDS = frozenset(
         "parent_closure",
         "portable_system",
         "development_process",
+        "source_owner",
+        "runtime_entry",
     }
 )
 
@@ -97,7 +102,11 @@ COVERAGE_DIMENSIONS = frozenset(
         "fields_state_side_effects",
         "code_contracts",
         "tests_evidence",
+        "affected_authority_relations",
     }
+)
+BASE_COVERAGE_DIMENSIONS = frozenset(
+    COVERAGE_DIMENSIONS - {"affected_authority_relations"}
 )
 
 REVISION_PROPOSED = "proposed"
@@ -681,9 +690,9 @@ class CoverageUniverse:
                 "coverage universe dimensions must be CoverageDimension"
             )
         ids = tuple(item.dimension_id for item in dimensions)
-        if set(ids) != COVERAGE_DIMENSIONS:
+        if set(ids) not in {BASE_COVERAGE_DIMENSIONS, COVERAGE_DIMENSIONS}:
             raise ModelAuthorityError(
-                "coverage universe must declare every canonical dimension exactly once"
+                "coverage universe must declare every base dimension exactly once; affected authority is required when that inventory is present"
             )
         object.__setattr__(self, "dimensions", dimensions)
         object.__setattr__(
@@ -1138,6 +1147,7 @@ from .model_revision_set import (
 __all__ = [
     "AUTHORITY_ENDPOINT_KINDS",
     "COVERAGE_DIMENSIONS",
+    "BASE_COVERAGE_DIMENSIONS",
     "LIFECYCLE_ACTIVE",
     "LIFECYCLE_CANDIDATE",
     "LIFECYCLE_HISTORICAL",

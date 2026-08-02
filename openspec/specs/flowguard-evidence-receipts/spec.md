@@ -57,3 +57,10 @@ Evidence lifecycle operations SHALL never mutate a retained receipt in place. Qu
 #### Scenario: Collectible run is quarantined
 - **WHEN** an exact current GC plan is applied
 - **THEN** the original run bytes move together without receipt rewriting and the quarantine receipt records their prior identities
+
+### Requirement: Specialized maturation receipts reuse the canonical receipt authority
+FlowGuard SHALL represent maturation evidence as a typed projection of the canonical immutable evidence receipt and SHALL NOT create a second store, currentness flag, or fallback receipt format.
+
+#### Scenario: Canonical receipt verification fails
+- **WHEN** the underlying evidence receipt is missing, altered, stale, ineligible, or bound to different obligations
+- **THEN** the specialized maturation verification also fails visibly

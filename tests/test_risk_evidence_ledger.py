@@ -36,11 +36,6 @@ from flowguard import (
     RISK_PROOF_STATUS_SKIPPED,
     RISK_PROOF_STATUS_STALE,
     MaintenanceObligation,
-    MODEL_MATURATION_CONFIDENCE_BLOCKED,
-    MODEL_MATURATION_CONFIDENCE_FULL,
-    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
-    MODEL_MATURATION_DECISION_PROGRESS_STALLED,
-    ModelMaturationEvidenceRef,
     ProofArtifactRef,
     RiskEvidenceGate,
     RiskEvidenceLedgerPlan,
@@ -49,6 +44,7 @@ from flowguard import (
     model_maturation_to_risk_evidence_gate,
     review_risk_evidence_ledger,
 )
+from tests._maturation_receipt_support import verified_maturation
 
 
 def proof(evidence_id="e1", **kwargs):
@@ -106,37 +102,20 @@ def finding_codes(report):
     return [finding.code for finding in report.findings]
 
 
-def maturation(*, closed=True, current=True):
-    return ModelMaturationEvidenceRef(
-        "maturation:risk",
+def maturation(*, closed=True):
+    return verified_maturation(
+        closed=closed,
         task_id="task:risk",
-        model_id="model:risk",
-        candidate_model_fingerprint="candidate:risk",
-        coverage_universe_id="coverage:risk",
-        coverage_universe_fingerprint="coverage-fp:risk",
-        input_fingerprint="input:risk",
-        evidence_fingerprint="evidence:risk",
-        decision=(
-            MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
-            if closed
-            else MODEL_MATURATION_DECISION_PROGRESS_STALLED
-        ),
-        confidence=(
-            MODEL_MATURATION_CONFIDENCE_FULL
-            if closed
-            else MODEL_MATURATION_CONFIDENCE_BLOCKED
-        ),
-        terminal_reason=(
-            MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
-            if closed
-            else MODEL_MATURATION_DECISION_PROGRESS_STALLED
-        ),
-        open_gap_fingerprints=() if closed else ("gap:risk",),
-        current=current,
+        evidence_id="maturation:risk",
+        gap="gap:risk",
     )
 
 
 class RiskEvidenceLedgerTests(unittest.TestCase):
+    def test_raw_maturation_mapping_is_not_authority(self):
+        with self.assertRaises(TypeError):
+            plan(model_maturation_evidence=({"current": True},))
+
     def test_typed_model_maturation_gate_requires_exact_closed_identity(self):
         ref = maturation()
         exact = review_risk_evidence_ledger(

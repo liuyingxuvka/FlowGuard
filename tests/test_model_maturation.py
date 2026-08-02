@@ -26,7 +26,6 @@ from flowguard import (
     MODEL_MATURATION_SIGNAL_STATE_TOO_COARSE,
     ModelMaturationGapResolutionReceipt,
     ModelMaturationCoverageContribution,
-    ModelMaturationEvidenceRef,
     ModelMaturationIntake,
     ModelMaturationPlan,
     ModelMaturationSignal,
@@ -34,6 +33,9 @@ from flowguard import (
     compile_model_maturation_plan,
     review_model_maturation_loop,
     review_model_maturation_session,
+    CoverageRule,
+    TaskFacts,
+    compile_task_coverage_demand,
 )
 from flowguard.__main__ import main
 
@@ -51,6 +53,7 @@ def _plan(**overrides):
         "model_id": "checkout",
         "risk_id": "risk-checkout",
         "coverage_universe_id": "checkout-obligations-v1",
+        "coverage_demand_fingerprint": "sha256:task-demand",
         "coverage_owner": "existing-model-preflight",
         "coverage_source_refs": ("model:checkout@base-1", "code-map:checkout@code-1"),
         "coverage_ids": ("checkout.failure",),
@@ -119,6 +122,22 @@ def _gap_receipt(plan, gap, **overrides):
 
 
 class ModelMaturationTests(unittest.TestCase):
+    def _demand(self, *owner_ids):
+        rules = tuple(
+            CoverageRule(
+                f"rule:{owner}",
+                owner,
+                (f"demand:{owner}",),
+                f"{owner} is required by this test task",
+                always_for_non_trivial=True,
+            )
+            for owner in owner_ids
+        )
+        return compile_task_coverage_demand(
+            TaskFacts("task-compile", "compile independent pre-code coverage"),
+            rules=rules,
+        )
+
     def _contribution(self, contribution_id="requirements", **overrides):
         values = {
             "contribution_id": contribution_id,
@@ -141,6 +160,10 @@ class ModelMaturationTests(unittest.TestCase):
         return ModelMaturationCoverageContribution(**values)
 
     def _intake(self, *contributions, **overrides):
+        required_owner_ids = overrides.pop(
+            "required_owner_ids",
+            tuple(dict.fromkeys(item.owner_route for item in contributions)),
+        )
         values = {
             "intake_id": "intake-compile",
             "plan_id": "plan-compile",
@@ -150,6 +173,7 @@ class ModelMaturationTests(unittest.TestCase):
             "risk_id": "risk-submit",
             "base_model_fingerprint": "base-compile",
             "candidate_model_fingerprint": "candidate-compile",
+            "coverage_demand": self._demand(*required_owner_ids),
             "contributions": contributions,
         }
         values.update(overrides)
@@ -175,12 +199,17 @@ class ModelMaturationTests(unittest.TestCase):
         report = review_model_maturation_loop(plan)
 
         self.assertEqual(
-            set(plan.coverage_ids), {"requirement:submit", "behavior:submit"}
+            set(plan.coverage_ids),
+            {
+                "requirement:submit",
+                "behavior:submit",
+                "demand:existing_model_preflight",
+                "demand:behavior_commitment_ledger",
+            },
         )
         self.assertTrue(report.ok, report.format_text())
-        ref = ModelMaturationEvidenceRef.from_report(report)
-        self.assertTrue(ref.supports_full_confidence())
-        self.assertEqual(ref.candidate_model_fingerprint, "candidate-compile")
+        self.assertEqual(report.coverage_demand_fingerprint, plan.coverage_demand_fingerprint)
+        self.assertEqual(report.candidate_model_fingerprint, "candidate-compile")
 
     def test_missing_or_stale_contribution_remains_an_open_gap(self):
         for owner in ("behavior", "model_angle", "ui", "field", "test"):
@@ -188,7 +217,7 @@ class ModelMaturationTests(unittest.TestCase):
                 missing_plan = compile_model_maturation_plan(
                     self._intake(
                         self._contribution(),
-                        required_contribution_ids=("requirements", owner),
+                        required_owner_ids=("existing_model_preflight", owner),
                     )
                 )
                 missing = review_model_maturation_loop(missing_plan)
@@ -207,9 +236,12 @@ class ModelMaturationTests(unittest.TestCase):
 
     def test_low_risk_intake_does_not_invent_untriggered_specialists(self):
         plan = compile_model_maturation_plan(
-            self._intake(self._contribution(), required_contribution_ids=("requirements",))
+            self._intake(self._contribution(), required_owner_ids=("existing_model_preflight",))
         )
-        self.assertEqual(plan.coverage_ids, ("requirement:submit",))
+        self.assertEqual(
+            set(plan.coverage_ids),
+            {"requirement:submit", "demand:existing_model_preflight"},
+        )
         self.assertFalse(any(source.startswith("ui:") for source in plan.coverage_source_refs))
 
     def test_duplicate_contribution_identity_is_rejected(self):
@@ -692,6 +724,7 @@ class ModelMaturationTests(unittest.TestCase):
         expected = _fingerprint(
             {
                 "coverage_universe_id": plan.coverage_universe_id,
+                "coverage_demand_fingerprint": plan.coverage_demand_fingerprint,
                 "coverage_owner": plan.coverage_owner,
                 "coverage_source_refs": list(plan.coverage_source_refs),
                 "coverage_ids": list(plan.coverage_ids),

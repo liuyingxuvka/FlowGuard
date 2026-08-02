@@ -17,8 +17,11 @@ from flowguard import (
     MODEL_ANGLE_ROUTE_MODEL_MATURATION,
     ModelAngleDeliberation,
     ModelMaturationIntake,
+    CoverageRule,
+    TaskFacts,
     ProofArtifactRef,
     compile_model_maturation_plan,
+    compile_task_coverage_demand,
     model_angle_report_to_maturation_contribution,
     review_model_angle_deliberations,
     review_model_maturation_loop,
@@ -87,6 +90,18 @@ class ModelAngleDeliberationTests(unittest.TestCase):
                 "risk:angle",
                 "base:angle",
                 "candidate:angle",
+                compile_task_coverage_demand(
+                    TaskFacts("task:angle", "resolve every required model angle"),
+                    rules=(
+                        CoverageRule(
+                            "model-angle",
+                            contribution.owner_route,
+                            ("angle:route",),
+                            "model angle is required",
+                            always_for_non_trivial=True,
+                        ),
+                    ),
+                ),
                 contributions=(contribution,),
             )
         )

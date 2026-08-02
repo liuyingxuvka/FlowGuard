@@ -36,7 +36,9 @@ clean truncation, or an incomplete temporal prefix cannot project system pass.
 
 If runtime, tests, replay, logs, manual validation, or UI behavior fails after green, use `flowguard-model-miss-review`. Preserve prior claim/failure, identify the affected behavior plane, search that plane for the existing commitment/owner first, keep related planes typed and separate, classify/backpropagate the miss, generate a canonical same-class case, bind owner code/tests, close old paths/fields, and rerun affected parent/sibling/freshness/risk gates.
 
-Use internal `model_maturation_loop` when miss/alignment/state-closure/mesh/code-boundary/freshness evidence shows the model is too coarse, stale, disconnected, or supports only a scoped claim. It is an iterative task-local loop: freeze one task purpose plus an independently owned coverage/probe universe and fingerprint; record a prediction and falsifier for every required probe; bind each terminal native receipt to the exact task, candidate, and coverage fingerprint; make the model/evidence change; and link every later candidate to the immutable prior iteration, candidate, and gap set. Addressable gaps (`model_edit` or `evidence_acquisition`) cannot disappear without a resolution receipt and cannot be scoped away. `model_maturation_upgrade_required` is a continuation decision with no terminal reason. A terminal result is allowed only when the current candidate reaches `model_maturation_closed_for_task`, or when the receipt names `model_maturation_external_input_required`, `model_maturation_scope_excluded`, `model_maturation_progress_stalled`, or `model_maturation_iteration_limit`. A model's self-reported understanding, caller-authored `resolved` flag, progress log, or unrelated later green command alone never closes the maturation action. Former or missing maturation schemas are rejected; there is one current writer and reader only.
+Use internal `model_maturation_loop` whenever a triggered `TaskCoverageDemand` row is unresolved or evidence shows the model is too coarse, stale, disconnected, or supports only a scoped claim. Freeze the task, demand fingerprint, candidate, inputs, obligations, prediction/falsifier, evidence, and gaps. Addressable gaps (`model_edit` or `evidence_acquisition`) cannot disappear without a resolution receipt and cannot be scoped away. `model_maturation_upgrade_required` continues the loop. A terminal result is allowed only for `model_maturation_closed_for_task`, `model_maturation_external_input_required`, `model_maturation_scope_excluded`, `model_maturation_progress_stalled`, or `model_maturation_iteration_limit`.
+
+Publish that terminal result through the canonical EvidenceReceipt store. Only independent verification of the exact task, demand, candidate, input snapshots, obligations, result fingerprint, evidence fingerprint, decision, confidence, and gaps may create `VerifiedModelMaturation`. Raw dictionaries, direct evidence references, model self-reports, caller-authored `current`/`resolved` flags, progress logs, or unrelated later green commands have no authority. Former or missing schemas are rejected; there is one direct-current producer and verifier.
 
 ## Maintenance and final claims
 
@@ -65,16 +67,23 @@ or expose planning context as product UI or test evidence.
 
 ## Coverage Intake, Sufficiency, And Permission
 
-Before code when feasible, or after new evidence when necessary, compile one
-task-local maturation intake from task requirements, current owner/surface
-preflight, required model-angle owner proof, and only triggered BCL, field, UI,
-mesh, or test contributors. The denominator is independent of the candidate;
-omitted, stale, skipped, scoped, blocked, progress-only, or not-run
-contributions stay open. A `resolved` or `understood` self-report is never
-evidence.
+Before code when feasible, or after new evidence when necessary, freeze
+`TaskFacts` and compile one `TaskCoverageDemand`. Built-in rules derive the
+minimum owner rows from task purpose, affected surfaces, change kinds, risk,
+topology, implementation, and release facts. A caller may request extra owners
+but cannot remove built-in rows. Every row remains visibly `satisfied`,
+`not_triggered`, `unresolved`, or `blocked`; the demand fingerprint is
+independent of the candidate. The derived `ordinary|standard|deep|release`
+tier changes presentation and required work depth, not correctness semantics.
 
-Return two separate statements when code is relevant: the unchanged
+Target-software roles and permissions stay inside that software's own model.
+Behavior Commitment Ledger registers FlowGuard's externally observable
+promises and unique owners; it is not a global catalog of the target product's
+users, administrators, or domain roles.
+
+Return two separate statements when code is relevant: the unchanged verified
 ModelMaturation sufficiency result and the DevelopmentProcessFlow
 implementation admission. Permission can bound an attempt; it cannot upgrade
-understanding. Risk Evidence Ledger and Closure Contract must consume the same
-current maturation evidence id for a broad claim.
+understanding. Risk Evidence Ledger alone owns broad/scoped/blocked confidence.
+Closure Contract consumes the same evidence id, receipt id, and receipt
+fingerprint and checks only identity, material presence, and terminal integrity.
