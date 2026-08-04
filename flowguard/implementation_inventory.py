@@ -710,7 +710,7 @@ def _boundary_manifest(
     for path, memberships in categories.items():
         # A specific exclusion intentionally narrows a broader admitted pattern.
         # Other overlaps remain ambiguous because they would give one file two
-        # incompatible reconstruction roles.
+        # incompatible blueprint ownership roles.
         if "excluded" in memberships:
             categories[path] = {"excluded"}
         elif len(memberships) > 1:
@@ -740,7 +740,7 @@ def build_implementation_surface_inventory(
     discovery_adapters: Mapping[str, DiscoveryAdapter] | None = None,
     claim_boundary: str = (
         "Static implementation discovery and disposition only; model bindings, "
-        "source-independent reconstruction semantics, and empirical reconstruction are not proven."
+        "source-independent behavior semantics, and current validation evidence are not proven."
     ),
 ) -> ImplementationSurfaceInventory:
     """Build one independent inventory from the validation-owned file manifest.

@@ -465,6 +465,14 @@ class ModelAuthorityTests(unittest.TestCase):
                 for removed_id in diff.removed_ids
                 if not removed_id.startswith("unresolved_gap:")
             ),
+            no_declared_intent_rationale_id="no-intent:authority-fixture",
+            no_declared_intent_evidence_fingerprints=(
+                ("fixture_scope", candidate.fingerprint),
+            ),
+            no_declared_intent_rationale=(
+                "This isolated authority transaction fixture has no external "
+                "product intent beyond exercising its declared test boundary."
+            ),
             required_evidence_refs=required,
         )
         return proposed.accept(
@@ -607,6 +615,14 @@ class ModelAuthorityTests(unittest.TestCase):
             originating_activation_receipt_fingerprint=(
                 contract.originating_activation_receipt_fingerprint
             ),
+            no_declared_intent_rationale_id="no-intent:rollback-fixture",
+            no_declared_intent_evidence_fingerprints=(
+                ("rollback_contract", contract.fingerprint),
+            ),
+            no_declared_intent_rationale=(
+                "This isolated rollback fixture has no external product intent "
+                "beyond verifying the declared reverse transaction."
+            ),
         )
         return proposed.accept(
             (replace(required, status="pass"),),
@@ -652,7 +668,7 @@ class ModelAuthorityTests(unittest.TestCase):
                 reason="contains unrelated evidence",
             )
 
-    def test_revision_set_v2_round_trip_rejects_legacy_evidence_shape(self):
+    def test_revision_set_v4_round_trip_rejects_legacy_revision_shape(self):
         base = snapshot(
             SUBJECT_OBSERVED_IMPLEMENTATION,
             LIFECYCLE_ACTIVE,
@@ -666,13 +682,13 @@ class ModelAuthorityTests(unittest.TestCase):
             snapshot_id="observed-b",
         )
         accepted = self._accepted_revision(self._head(base), base, candidate)
-        self.assertEqual("flowguard.model_revision_set.v2", accepted.schema)
+        self.assertEqual("flowguard.model_revision_set.v4", accepted.schema)
         self.assertEqual(
             accepted,
             ModelRevisionSet.from_dict(accepted.to_dict()),
         )
         legacy = accepted.to_dict()
-        legacy["schema"] = "flowguard.model_revision_set.v1"
+        legacy["schema"] = "flowguard.model_revision_set.v3"
         for evidence_list in (
             legacy["required_evidence_refs"],
             legacy["completed_evidence_refs"],

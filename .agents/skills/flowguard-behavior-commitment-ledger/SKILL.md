@@ -33,7 +33,7 @@ Accept a bounded source inventory and mode; register ownership; block coverage, 
 - Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework.
 - Missing/duplicate sources, conflicting dispositions, owner overlap, stale PPA, untyped relations, or ambiguous authority block broad confidence.
 - Broad discovery is only for bootstrap/gap backfill; ordinary changes stay affected-only.
-- BCL owns visible promises, not target roles, permissions, activity logs, internal code, resources, or implementation completeness. A blueprint may reference both independent owners by fingerprint; BCL never reconstructs software.
+- BCL owns visible promises, not target roles, permissions, activity logs, internal code, resources, or implementation completeness. A blueprint may reference both independent owners by fingerprint.
 
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, and source/commitment/owner/lookup/PPA status. Blueprint handoff includes only current external ids and ledger fingerprint.

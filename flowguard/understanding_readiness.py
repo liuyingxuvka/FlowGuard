@@ -108,6 +108,8 @@ class UnderstandingReadinessInput:
     maturation_report: Mapping[str, Any] = field(default_factory=dict)
     receipt_verification: Mapping[str, Any] = field(default_factory=dict)
     implementation_admission: Mapping[str, Any] = field(default_factory=dict)
+    blueprint_summary: Mapping[str, Any] = field(default_factory=dict)
+    blueprint_scope_required: str = "none"
     user_choice: str = USER_CHOICE_MODEL_FIRST
     flowguard_claim_requested: bool = True
 
@@ -119,6 +121,7 @@ class UnderstandingReadinessInput:
             "maturation_report",
             "receipt_verification",
             "implementation_admission",
+            "blueprint_summary",
         ):
             object.__setattr__(self, name, _mapping(getattr(self, name)))
         object.__setattr__(
@@ -132,6 +135,13 @@ class UnderstandingReadinessInput:
         )
         if self.user_choice not in USER_EXECUTION_CHOICES:
             raise ValueError(f"unknown user execution choice: {self.user_choice}")
+        object.__setattr__(
+            self,
+            "blueprint_scope_required",
+            str(self.blueprint_scope_required),
+        )
+        if self.blueprint_scope_required not in {"none", "affected", "whole"}:
+            raise ValueError("blueprint scope required must be none, affected, or whole")
 
 
 @dataclass(frozen=True)
@@ -144,6 +154,11 @@ class UnderstandingReadinessStatus:
     blocker_codes: tuple[str, ...] = ()
     mismatch_fields: tuple[str, ...] = ()
     scoped_fact_ids: tuple[str, ...] = ()
+    blueprint_status: str = "not_required"
+    blueprint_scope: str = "none"
+    blueprint_deepest_proven_layer: str = ""
+    blueprint_first_gap: str = ""
+    blueprint_gap_count: int = 0
     schema_version: str = UNDERSTANDING_READINESS_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -158,6 +173,19 @@ class UnderstandingReadinessStatus:
                 f"unknown implementation admission: {self.implementation_admission}"
             )
         object.__setattr__(self, "identity", MappingProxyType(dict(self.identity)))
+        if self.blueprint_status not in {
+            "not_required",
+            "not_run",
+            "pass",
+            "incomplete",
+            "stale",
+            "blocked",
+        }:
+            raise ValueError(f"unknown blueprint status: {self.blueprint_status}")
+        if self.blueprint_scope not in {"none", "affected", "whole"}:
+            raise ValueError(f"unknown blueprint scope: {self.blueprint_scope}")
+        if not isinstance(self.blueprint_gap_count, int) or self.blueprint_gap_count < 0:
+            raise ValueError("blueprint gap count must be a non-negative integer")
         for name in (
             "gap_codes",
             "blocker_codes",
@@ -195,6 +223,11 @@ class UnderstandingReadinessStatus:
             "blocker_codes": list(self.blocker_codes),
             "mismatch_fields": list(self.mismatch_fields),
             "scoped_fact_ids": list(self.scoped_fact_ids),
+            "blueprint_status": self.blueprint_status,
+            "blueprint_scope": self.blueprint_scope,
+            "blueprint_deepest_proven_layer": self.blueprint_deepest_proven_layer,
+            "blueprint_first_gap": self.blueprint_first_gap,
+            "blueprint_gap_count": self.blueprint_gap_count,
         }
 
 
@@ -212,10 +245,17 @@ def compose_understanding_status(
     maturation = inputs.maturation_report
     receipt = inputs.receipt_verification
     admission = inputs.implementation_admission
+    blueprint = inputs.blueprint_summary
 
     gaps: list[str] = []
     blockers: list[str] = []
     mismatches: list[str] = []
+
+    blueprint_status = "not_required"
+    blueprint_scope = "none"
+    blueprint_deepest = ""
+    blueprint_first_gap = ""
+    blueprint_gap_count = 0
 
     task_id = _first_text(facts, "task_id")
     task_fingerprint = _artifact_fingerprint(facts) if facts else ""
@@ -250,6 +290,59 @@ def compose_understanding_status(
     ):
         if not value:
             gaps.append(f"not_run:{name}")
+
+    if inputs.blueprint_scope_required != "none":
+        if not blueprint:
+            gaps.append("not_run:blueprint_summary")
+            blueprint_status = "not_run"
+        else:
+            declared_blueprint_fingerprint = _first_text(blueprint, "fingerprint")
+            computed_blueprint_fingerprint = _artifact_fingerprint(blueprint)
+            if (
+                declared_blueprint_fingerprint
+                and declared_blueprint_fingerprint != computed_blueprint_fingerprint
+            ):
+                mismatches.append("blueprint_summary.fingerprint")
+            blueprint_scope = _first_text(blueprint, "scope")
+            if blueprint_scope not in {"affected", "whole"}:
+                blockers.append("blueprint_summary_scope_invalid")
+                blueprint_scope = "none"
+            if (
+                inputs.blueprint_scope_required == "whole"
+                and blueprint_scope != "whole"
+            ):
+                blockers.append("whole_blueprint_summary_required")
+            layer_statuses = blueprint.get("layer_statuses", {})
+            if not isinstance(layer_statuses, Mapping):
+                blockers.append("blueprint_layer_statuses_invalid")
+                layer_statuses = {}
+            blueprint_status = str(layer_statuses.get("static_blueprint", "incomplete"))
+            if blueprint_status not in {"pass", "incomplete", "stale", "blocked"}:
+                blockers.append("blueprint_static_status_invalid")
+                blueprint_status = "blocked"
+            blueprint_deepest = _first_text(blueprint, "deepest_proven_layer")
+            raw_first_gap = blueprint.get("first_gap")
+            if isinstance(raw_first_gap, Mapping):
+                blueprint_first_gap = ":".join(
+                    value
+                    for value in (
+                        _first_text(raw_first_gap, "layer"),
+                        _first_text(raw_first_gap, "object_kind"),
+                        _first_text(raw_first_gap, "object_id"),
+                    )
+                    if value
+                )
+            raw_gap_count = blueprint.get("gap_count", 0)
+            if not isinstance(raw_gap_count, int) or raw_gap_count < 0:
+                blockers.append("blueprint_gap_count_invalid")
+            else:
+                blueprint_gap_count = raw_gap_count
+            if blueprint_status != "pass":
+                gaps.append(
+                    "blueprint_static_"
+                    + blueprint_status
+                    + (f":{blueprint_first_gap}" if blueprint_first_gap else "")
+                )
 
     if facts and not task_id:
         blockers.append("invalid_task_identity")
@@ -516,6 +609,8 @@ def compose_understanding_status(
             else ""
         ),
         "admission_id": _first_text(admission, "admission_id"),
+        "blueprint_id": _first_text(blueprint, "blueprint_fingerprint"),
+        "blueprint_summary_fingerprint": _first_text(blueprint, "fingerprint"),
     }
     return UnderstandingReadinessStatus(
         sufficiency,
@@ -526,6 +621,11 @@ def compose_understanding_status(
         blocker_codes=tuple(blockers),
         mismatch_fields=tuple(mismatches),
         scoped_fact_ids=tuple(scoped_fact_ids),
+        blueprint_status=blueprint_status,
+        blueprint_scope=blueprint_scope,
+        blueprint_deepest_proven_layer=blueprint_deepest,
+        blueprint_first_gap=blueprint_first_gap,
+        blueprint_gap_count=blueprint_gap_count,
     )
 
 

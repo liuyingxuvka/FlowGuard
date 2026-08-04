@@ -760,6 +760,17 @@ def _safe_artifact_dir(output_dir: Path, model_id: str) -> Path:
     return path
 
 
+def _shard_safety_proof_dir(output_dir: Path, model_id: str) -> Path:
+    """Keep nested shard-proof paths bounded while receipts retain model ids."""
+
+    proof_root = (output_dir / "shard-safety").resolve()
+    digest = hashlib.sha256(model_id.encode("utf-8")).hexdigest()[:16]
+    path = (proof_root / f"p-{digest}").resolve()
+    if proof_root not in path.parents:
+        raise ValueError(f"unsafe shard-safety proof path: {model_id}")
+    return path
+
+
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -1189,15 +1200,16 @@ def _execute_pending_models(
             for entry in pending:
                 if not entry.shard_safety_proof:
                     continue
+                proof_dir = _shard_safety_proof_dir(output_path, entry.model_id)
                 proof = prove_model_shard_safety(
                     root_path,
                     entry,
-                    output_dir=output_path / "shard-safety" / entry.model_id,
+                    output_dir=proof_dir,
                 )
                 if not proof["ok"]:
                     raise ValueError(
                         f"parallel execution proof failed for {entry.model_id}; "
-                        f"see {output_path / 'shard-safety' / entry.model_id / 'result.json'}"
+                        f"see {proof_dir / 'result.json'}"
                     )
 
         if jobs == 1:

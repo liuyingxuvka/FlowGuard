@@ -937,9 +937,67 @@ omitted surfaces or narrow reports cannot be silently upgraded.
 
 `WORK_CONTEXT_API` exposes the adapter registry, project-bounded read and
 discovery helpers, and current review. Built-in OpenSpec and declared-files
-adapters are peers; declared files can represent Spec Kit, Superpowers, custom
-skills, or ordinary repository documents. The common layer preserves native
+adapters are peers; declared files can represent Spec Kit, Superpowers,
+Spark/OpenSpark, changelog/history, custom skills, or ordinary repository
+documents. Exact mapped artifacts may become immutable `ModelIntentContribution`
+rows, but only ModelRevisionSet can accept their effects into the current model
+lineage. The common layer preserves native
 identity and content fingerprints without provider writes, sessions, caches,
 receipts, check execution, or lifecycle authority. See
 [`work_context.md`](work_context.md). WorkContext belongs to planning and is
 intentionally absent from product UI and test-evidence projection.
+
+## Project blueprint and test-inventory API
+
+`IMPLEMENTATION_BLUEPRINT_API` exposes the provider-neutral
+`TargetSystemDescriptor`, provider declaration/registry/result, frozen
+`TargetSystemSnapshot`, canonical compiler, compact understanding projection,
+and the project-specialized blueprint builder. Python AST and pytest are
+software observation providers, not a core language gate. The cohort also
+contains the strict project document loader, independent implementation inventory,
+behavior-block contracts, resource and intent inventories, static blueprint
+readiness, project test inventory, topology review, model-test alignment,
+deterministic normalized projection, affected-neighborhood loading, and the
+FlowGuard self preset. The generic builder reports
+`inventory`, `traceability`, `independent_semantics`, `model_code_test`,
+`resource_oracle`, and `static_blueprint` independently. A missing deep provider
+is an exact capability gap for that boundary; workflows, other languages, and
+mixed targets remain valid target kinds.
+`ProjectResourceInventory` stores one canonical `BlueprintResourceReference`
+per admitted resource category, retaining owner, artifact, current fingerprint,
+purpose, lifecycle role, and source-independent semantics. Its category row
+adds only independently fingerprinted disposition evidence; it is not a second,
+weaker resource authority.
+The strict project document embeds the complete `ProjectTestInventory` rather
+than only a caller-supplied fingerprint. Loading it re-audits current test
+files, nodes, assertions, adapter identity, and structure before those nodes
+can satisfy a model-code-test row. The alignment identity is derived from the
+newly reviewed `ModelTestAlignmentReport` instead of echoing a caller claim or
+reusing the binding-report fingerprint.
+Bounded native model checkers are represented separately from pytest nodes and
+their current files are independently fingerprinted before use.
+
+`build_project_test_inventory()` records static pytest node ids,
+parameterization, calls, assertion kinds and targets, and source/structure
+fingerprints. Aggregate full-suite evidence remains a parent reference; it
+cannot manufacture a missing child test binding. Ordinary work consumes only
+the compact blueprint identity and affected neighborhood unless whole-software
+scope was explicitly requested.
+
+`review_behavior_blueprint()` checks one primary owner for every declared
+behavior block, all ten behavior dimensions, portable bindings, placeholder-
+free case contracts, explicit evidence-bound supporting-surface relations,
+real assertion/native-member coverage, delegated assertion-helper termination,
+separate execution evidence, and terminal dispositions for every discovered
+test node. `review_static_blueprint_readiness()` then reports
+`ready`, `incomplete`, `stale`, or `blocked`, together with every known gap,
+the deepest complete layer, and the first incomplete layer. A `ready` static
+report means the declared finite blueprint has closed its static evidence
+obligations; execution receipts remain separate.
+
+`review_flowguard_self_architecture_reduction()` is a read-only self-audit. It
+derives module-size, repeated-shape, route, branch, adapter, wrapper/facade,
+helper, and repeated-validation candidates independently from the exact self
+blueprint, binds the complete candidate denominator to a fingerprint, and routes
+unproved candidates to StructureMesh and ModelTestAlignment. It never treats
+size or similarity as equivalence proof and never edits source code.

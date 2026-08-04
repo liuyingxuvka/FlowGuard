@@ -76,8 +76,7 @@ Group compact prompts as `model`, `interface`, `ownership`, `evidence`, and
   Inventory and binding fingerprints are references only; source semantics,
   implementation disposition, and blueprint qualification remain with their
   native owners.
-- ModelMesh never scans the repository, exports blueprint shards, or launches
-  empirical reconstruction.
+- ModelMesh never scans the repository or exports blueprint shards.
 
 ## Output
 
@@ -88,4 +87,29 @@ edges must say delegates, reattaches, consumes, affects, or blocks.
 
 For blueprint topology, also return consumed inventory/binding fingerprints
 and the exact missing purpose, consumer, or realization relation ids; do not
-describe this relationship report as implementation or reconstruction proof.
+describe this relationship report as implementation proof.
+
+## Blueprint Layer Contribution
+
+ModelMesh contributes relationship/topology evidence to `traceability`: each
+model has a current purpose, producer, consumer, relation, and realization
+reference. It may consume exact `inventory`, `independent_semantics`,
+`model_code_test`, and `resource_oracle` fingerprints, but it never copies or
+reinterprets those owners' semantics and cannot qualify `static_blueprint`.
+
+Whole-software topology is explicit-only. Ordinary work stays on affected
+models, ancestors, consumers, and siblings. Report any supplied canonical
+`deepest_proven_layer` unchanged plus the first unresolved native
+owner/relation/evidence gap. Missing or ambiguous owners block; do not assign
+the FlowGuard self-model or authoritative root as a target-software fallback.
+
+User choice, model maturation, and implementation admission remain separate.
+Portable exchange, combination, or language translation is a typed relation
+use case selected only when that outcome is requested.
+
+Blueprint topology references canonical normalized shared objects for owners,
+contracts, semantics, oracles, tests, resources, and intent; it never duplicates
+or rewrites them. Ordinary work starts from a verified
+`AffectedBlueprintNeighborhood` and follows only declared behavior, support,
+producer/consumer, ancestor, and sibling edges. A different shard layout with
+the same logical content is not a model change.

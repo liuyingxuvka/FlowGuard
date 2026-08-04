@@ -25,13 +25,12 @@ Keep these distinct:
 
 Only the first can satisfy the matching current obligation. A summary, checkbox, configured boolean, generated contract, path-only log, or directory inventory does not manufacture pass evidence.
 
-For whole-software blueprint work, preserve two orthogonal axes. Static
-blueprint status is `complete`, `incomplete`, `stale`, or `blocked`; empirical
-reconstruction status is `not_run`, `pass`, `fail`, or `blocked`. A current
-static result does not require a reconstruction receipt unless the exact task
-explicitly requires empirical qualification. A receipt for another blueprint,
-environment, source-access policy, or oracle set is stale/blocked and never
-changes the static result.
+For whole-target blueprint work, preserve static blueprint status as
+`complete`, `incomplete`, `stale`, or `blocked`. It consumes exact behavior,
+resource, intent, projection, test-design, and current-execution identities and
+reports every gap, the deepest complete layer, and the first incomplete layer.
+A parent or full-suite receipt cannot manufacture missing per-block or per-test
+evidence.
 
 For bounded system composition, record all four stages separately:
 component-local, token composition, affected slice, and executable system.
@@ -95,3 +94,19 @@ implementation admission. Permission can bound an attempt; it cannot upgrade
 understanding. Risk Evidence Ledger alone owns broad/scoped/blocked confidence.
 Closure Contract consumes the same evidence id, receipt id, and receipt
 fingerprint and checks only identity, material presence, and terminal integrity.
+
+## Blueprint Depth Evidence
+
+When blueprint scope is explicit, publish exact-current layer results in this
+order: `inventory`, `traceability`, `independent_semantics`,
+`model_code_test`, `resource_oracle`, and `static_blueprint`. Each row names its native owner, evidence
+fingerprints, covered member ids, status, and findings. Compute
+`deepest_proven_layer` only as the longest `complete` prefix through
+`static_blueprint`; also return the first unresolved layer and its exact owner,
+member, and evidence gap. Missing, stale, skipped, planned, aggregate-only,
+ambiguous-owner, or not-run evidence cannot advance the prefix.
+
+The three decisions `user_execution_choice`, `verified_model_maturation`, and
+`implementation_admission` remain separate fields with separate identities.
+No user authorization or process result rewrites model sufficiency. Static
+status uses `complete|incomplete|stale|blocked`.

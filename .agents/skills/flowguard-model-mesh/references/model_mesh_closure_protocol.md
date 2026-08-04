@@ -76,5 +76,5 @@ evidence, legal joins/loops/exclusions, reviewed affected siblings, and one
 atomic authority transition or an explicit scoped/blocked result.
 
 Blueprint topology completion is only one input to static blueprint
-qualification. It does not establish inventory completeness, reconstruction
-semantics, or empirical reconstruction, and no reconstruction is run here.
+qualification. It does not establish inventory completeness or behavior
+semantics.

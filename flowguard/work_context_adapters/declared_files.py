@@ -17,6 +17,60 @@ from ..work_context import (
 
 
 DECLARED_FILES_ADAPTER_ID = "declared-files"
+DECLARED_PROFILE_SPARK = "spark"
+DECLARED_PROFILE_OPENSPARK = "openspark"
+DECLARED_PROFILE_CHANGELOG = "changelog"
+DECLARED_FILE_SOURCE_PROFILES = {
+    DECLARED_PROFILE_SPARK: frozenset({"scope", "requirement", "acceptance", "design", "plan", "task", "history"}),
+    DECLARED_PROFILE_OPENSPARK: frozenset({"scope", "requirement", "acceptance", "design", "plan", "task", "history"}),
+    DECLARED_PROFILE_CHANGELOG: frozenset({"history"}),
+}
+
+
+def declared_files_source_profile(
+    profile_id: str,
+    *,
+    native_work_id: str,
+    artifacts: Sequence[Mapping[str, str]],
+    context_root: str = ".",
+    required_artifact_roles: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Create a bounded declared-files profile without provider authority.
+
+    Spark/OpenSpark and changelog/history are source shapes only.  The caller
+    still declares exact project-local paths and later maps individual current
+    artifacts into intent contributions; the profile cannot execute, accept,
+    archive, or activate a model change.
+    """
+
+    normalized_profile = str(profile_id).strip().lower()
+    allowed_roles = DECLARED_FILE_SOURCE_PROFILES.get(normalized_profile)
+    if allowed_roles is None:
+        raise ValueError(f"unknown declared-files source profile: {profile_id}")
+    rows: list[dict[str, str]] = []
+    for raw in artifacts:
+        row = {str(key): str(value) for key, value in raw.items()}
+        role = row.get("artifact_role", "").strip()
+        if role not in allowed_roles:
+            raise ValueError(
+                f"declared-files profile {normalized_profile} forbids role: {role}"
+            )
+        if not row.get("path", "").strip():
+            raise ValueError("declared-files profile artifact requires path")
+        rows.append(row)
+    required = tuple(str(item) for item in required_artifact_roles)
+    if set(required) - allowed_roles:
+        raise ValueError("declared-files profile requires a role outside its source shape")
+    return {
+        "native_work_id": str(native_work_id),
+        "context_root": str(context_root),
+        "artifacts": rows,
+        "required_artifact_roles": list(required),
+        "native_metadata": {
+            "source_profile": normalized_profile,
+            "authority": "read_only_declared_source",
+        },
+    }
 
 
 class DeclaredFilesWorkContextAdapter:
@@ -119,5 +173,10 @@ class DeclaredFilesWorkContextAdapter:
 
 __all__ = [
     "DECLARED_FILES_ADAPTER_ID",
+    "DECLARED_FILE_SOURCE_PROFILES",
+    "DECLARED_PROFILE_CHANGELOG",
+    "DECLARED_PROFILE_OPENSPARK",
+    "DECLARED_PROFILE_SPARK",
     "DeclaredFilesWorkContextAdapter",
+    "declared_files_source_profile",
 ]

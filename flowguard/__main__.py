@@ -182,6 +182,10 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
             )
             return 0
         if args.model_system_action == "build":
+            from .model_intent import (
+                ModelIntentContribution,
+                ModelIntentDisposition,
+            )
             from .model_revision_builder import (
                 build_current_model_revision,
                 load_revision_removal_dispositions,
@@ -192,6 +196,35 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
                 if args.removal_dispositions
                 else ()
             )
+            intent_contributions = ()
+            intent_dispositions = ()
+            if args.intent_inventory:
+                intent_payload = _read_json_object(args.intent_inventory)
+                if set(intent_payload) != {"contributions", "dispositions"}:
+                    raise ValueError(
+                        "intent inventory must contain exactly contributions and dispositions"
+                    )
+                intent_contributions = tuple(
+                    ModelIntentContribution.from_dict(item)
+                    for item in intent_payload["contributions"]
+                )
+                intent_dispositions = tuple(
+                    ModelIntentDisposition.from_dict(item)
+                    for item in intent_payload["dispositions"]
+                )
+            no_intent_evidence = ()
+            if args.no_declared_intent_evidence_fingerprints:
+                evidence_payload = json.loads(
+                    args.no_declared_intent_evidence_fingerprints
+                )
+                if not isinstance(evidence_payload, dict):
+                    raise ValueError(
+                        "no-declared-intent evidence fingerprints must be a JSON object"
+                    )
+                no_intent_evidence = tuple(
+                    (str(role), str(fingerprint))
+                    for role, fingerprint in evidence_payload.items()
+                )
             report = build_current_model_revision(
                 args.root,
                 model_parent_receipt=args.model_parent_receipt,
@@ -201,6 +234,15 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
                 receipt_root=args.receipt_root or None,
                 output_root=args.output_root or None,
                 removal_dispositions=dispositions,
+                intent_contributions=intent_contributions,
+                intent_dispositions=intent_dispositions,
+                no_declared_intent_rationale_id=(
+                    args.no_declared_intent_rationale_id
+                ),
+                no_declared_intent_evidence_fingerprints=no_intent_evidence,
+                no_declared_intent_rationale=(
+                    args.no_declared_intent_rationale
+                ),
                 decision_reason=args.decision_reason,
             )
             _emit_payload(report.to_dict(), as_json=args.json)
@@ -360,6 +402,8 @@ def _run_model_understanding_status_command(args: argparse.Namespace) -> int:
                 implementation_admission=optional_artifact(
                     args.implementation_admission
                 ),
+                blueprint_summary=optional_artifact(args.blueprint_summary),
+                blueprint_scope_required=args.blueprint_scope_required,
                 user_choice=args.user_choice,
                 flowguard_claim_requested=args.flowguard_claim_requested,
             )
@@ -436,6 +480,21 @@ def _add_model_system_parsers(
         default="",
         help="Current-schema JSON array covering every removed governed id.",
     )
+    build.add_argument(
+        "--intent-inventory",
+        default="",
+        help=(
+            "Current contribution/disposition JSON for this revision. It is "
+            "exclusive with the no-declared-intent rationale fields."
+        ),
+    )
+    build.add_argument("--no-declared-intent-rationale-id", default="")
+    build.add_argument(
+        "--no-declared-intent-evidence-fingerprints",
+        default="",
+        help="JSON object mapping evidence roles to exact sha256 fingerprints.",
+    )
+    build.add_argument("--no-declared-intent-rationale", default="")
     build.add_argument(
         "--decision-reason",
         default=(
@@ -552,6 +611,17 @@ def _add_model_maturation_parser(
         "--implementation-admission",
         default="",
         help="Existing implementation-admission JSON artifact.",
+    )
+    status.add_argument(
+        "--blueprint-summary",
+        default="",
+        help="Existing compact target-system blueprint summary JSON artifact.",
+    )
+    status.add_argument(
+        "--blueprint-scope-required",
+        choices=("none", "affected", "whole"),
+        default="none",
+        help="Require no blueprint, an affected summary, or a whole-target summary.",
     )
     status.add_argument(
         "--user-choice",
@@ -1275,6 +1345,10 @@ def _load_and_qualify_blueprint(args: argparse.Namespace):
         reconstruction_required=args.require_reconstruction,
         current_observed_snapshot_fingerprint=args.observed_snapshot_fingerprint,
         current_semantic_mesh_fingerprint=args.semantic_mesh_fingerprint,
+        current_test_inventory_fingerprint=args.test_inventory_fingerprint,
+        current_model_test_alignment_report_fingerprint=(
+            args.model_test_alignment_report_fingerprint
+        ),
         current_portable_owner_fingerprints=portable,
         current_resource_fingerprints=resources,
         current_oracle_fingerprints=oracles,
@@ -1339,17 +1413,239 @@ def _run_flowguard_self_blueprint_check_command(args: argparse.Namespace) -> int
     """Build and qualify FlowGuard's current self-blueprint without writing it."""
 
     from .self_blueprint import FlowGuardSelfBlueprintError, build_flowguard_self_blueprint
+    from .self_architecture_reduction import (
+        review_flowguard_self_architecture_reduction,
+    )
 
     try:
         bundle = build_flowguard_self_blueprint(args.root)
+        reduction_report = (
+            review_flowguard_self_architecture_reduction(
+                args.root,
+                self_blueprint=bundle,
+            )
+            if getattr(args, "include_architecture_reduction", False)
+            else None
+        )
     except (FlowGuardSelfBlueprintError, OSError, ValueError) as exc:
         _emit_payload(
             _blueprint_error_payload("flowguard_self_blueprint_invalid", exc),
             as_json=args.json,
         )
         return 2
+    if args.compact:
+        required_test_ids = set(bundle.test_inventory.required_node_ids)
+        payload = {
+            "ok": bundle.ok,
+            "owner_status": bundle.behavior_report.owner_structure_status,
+            "behavior_status": bundle.behavior_report.behavior_closure_status,
+            "resource_status": (
+                "complete" if bundle.resource_inventory.complete else "incomplete"
+            ),
+            "intent_status": (
+                "complete" if bundle.intent_inventory.complete else "incomplete"
+            ),
+            "static_blueprint_status": bundle.target_system_report.status,
+            "static_readiness": bundle.static_readiness.status,
+            "deepest_proven_layer": (
+                bundle.understanding_summary.deepest_proven_layer
+            ),
+            "first_gap": (
+                bundle.understanding_summary.first_gap.to_dict()
+                if bundle.understanding_summary.first_gap
+                else None
+            ),
+            "gap_count": bundle.understanding_summary.gap_count,
+            "test_nodes_total": len(bundle.test_inventory.nodes),
+            "test_nodes_required": len(required_test_ids),
+            "test_nodes_supporting": (
+                len(bundle.test_inventory.nodes) - len(required_test_ids)
+            ),
+            "real_coverage_edges": len(bundle.behavior_report.coverage_edges),
+            "binding_finding_codes": sorted(
+                {row.code for row in bundle.binding_report.findings}
+            ),
+            "behavior_finding_codes": sorted(
+                {row.code for row in bundle.behavior_report.findings}
+            ),
+            "planned_checker_gaps": sum(
+                row.code
+                in {
+                    "behavior_test_design_missing",
+                    "coverage_oracle_member_missing",
+                    "coverage_test_node_missing",
+                }
+                for row in bundle.behavior_report.findings
+            ),
+            "blueprint_fingerprint": bundle.target_system_report.fingerprint,
+            "self_blueprint_fingerprint": bundle.manifest.fingerprint,
+            "claim_boundary": (
+                "Compact read-only self-blueprint status for current static model depth."
+            ),
+        }
+    else:
+        payload = bundle.to_dict()
+        payload["self_blueprint_fingerprint"] = bundle.manifest.fingerprint
+    if reduction_report is not None:
+        payload["composed_self_maintenance_review"] = True
+        payload["architecture_reduction_review"] = (
+            _compact_self_architecture_reduction_payload(reduction_report)
+            if args.compact
+            else reduction_report.to_dict()
+        )
+        payload["composed_claim_boundary"] = (
+            "Both bounded reviews consume one exact in-memory self-blueprint; "
+            "no cache or target-system artifact is written."
+        )
+    _emit_payload(payload, as_json=args.json)
+    return 0 if bundle.ok and (reduction_report is None or reduction_report.ok) else 1
+
+
+def _compact_self_architecture_reduction_payload(report: Any) -> dict[str, Any]:
+    signal_counts: dict[str, int] = {}
+    disposition_counts: dict[str, int] = {}
+    for candidate in report.candidates:
+        signal = str(candidate.metadata.get("signal", "unclassified"))
+        disposition = str(candidate.metadata.get("disposition", "unresolved"))
+        signal_counts[signal] = signal_counts.get(signal, 0) + 1
+        disposition_counts[disposition] = disposition_counts.get(disposition, 0) + 1
+    return {
+        "schema_version": report.schema_version,
+        "status": report.status,
+        "ok": report.ok,
+        "fingerprint": report.fingerprint,
+        "self_blueprint_fingerprint": report.self_blueprint_fingerprint,
+        "candidate_inventory_fingerprint": report.candidate_inventory_fingerprint,
+        "candidate_count": len(report.candidates),
+        "candidate_counts_by_signal": dict(sorted(signal_counts.items())),
+        "candidate_counts_by_disposition": dict(
+            sorted(disposition_counts.items())
+        ),
+        "denominator_complete": report.denominator_complete,
+        "safe_unapplied_candidate_ids": list(
+            report.safe_unapplied_candidate_ids
+        ),
+        "decision": report.reduction_report.decision,
+        "required_next_routes": list(
+            report.reduction_report.required_next_routes
+        ),
+        "claim_boundary": report.claim_boundary,
+    }
+
+
+def _run_flowguard_self_architecture_reduction_command(
+    args: argparse.Namespace,
+) -> int:
+    """Review exact self-blueprint contraction signals without writing code."""
+
+    from .self_architecture_reduction import (
+        review_flowguard_self_architecture_reduction,
+    )
+    from .self_blueprint import FlowGuardSelfBlueprintError
+
+    try:
+        report = review_flowguard_self_architecture_reduction(args.root)
+    except (FlowGuardSelfBlueprintError, OSError, ValueError) as exc:
+        _emit_payload(
+            _blueprint_error_payload(
+                "flowguard_self_architecture_reduction_invalid", exc
+            ),
+            as_json=args.json,
+        )
+        return 2
+    payload = report.to_dict()
+    if args.compact:
+        payload = _compact_self_architecture_reduction_payload(report)
+    _emit_payload(payload, as_json=args.json)
+    return 0 if report.ok else 1
+
+
+def _run_project_blueprint_audit_command(args: argparse.Namespace) -> int:
+    """Build a declared target-system software blueprint in memory only."""
+
+    from .implementation_inventory_python import (
+        PYTHON_AST_IMPLEMENTATION_ADAPTER_ID,
+        discover_python_implementation_surfaces,
+    )
+    from .project_blueprint import (
+        ProjectBlueprintError,
+        build_project_blueprint,
+        load_project_blueprint_document,
+    )
+    from .test_inventory_python import (
+        PYTHON_AST_TEST_ADAPTER_ID,
+        discover_python_test_file,
+    )
+
+    try:
+        definition, evidence = load_project_blueprint_document(args.definition)
+        bundle = build_project_blueprint(
+            args.root,
+            definition,
+            evidence,
+            discovery_adapters={
+                PYTHON_AST_IMPLEMENTATION_ADAPTER_ID: (
+                    discover_python_implementation_surfaces
+                )
+            },
+            test_discovery_adapters={
+                PYTHON_AST_TEST_ADAPTER_ID: discover_python_test_file
+            },
+        )
+    except (ProjectBlueprintError, OSError, ValueError) as exc:
+        _emit_payload(
+            _blueprint_error_payload("project_blueprint_invalid", exc),
+            as_json=args.json,
+        )
+        return 2
     _emit_payload(bundle.to_dict(), as_json=args.json)
     return 0 if bundle.ok else 1
+
+
+def _run_project_blueprint_candidate_command(args: argparse.Namespace) -> int:
+    """Discover unresolved behavior candidates without writing the target."""
+
+    from .implementation_inventory import (
+        ImplementationInventoryError,
+        load_implementation_surface_inventory,
+        review_implementation_surface_inventory,
+    )
+    from .software_blueprint_readiness import generate_candidate_blueprint
+
+    try:
+        inventory = load_implementation_surface_inventory(args.inventory)
+        audit = review_implementation_surface_inventory(inventory, root=args.root)
+        if not audit.ok:
+            raise ValueError("implementation inventory audit is blocked")
+        candidate = generate_candidate_blueprint(
+            inventory,
+            target_kind=args.target_kind,
+            observation_provider_ids=tuple(args.provider),
+        )
+    except (ImplementationInventoryError, OSError, ValueError) as exc:
+        _emit_payload(
+            _blueprint_error_payload("project_blueprint_candidate_invalid", exc),
+            as_json=args.json,
+        )
+        return 2
+    payload = candidate.to_dict()
+    if args.compact:
+        payload = {
+            "schema_version": payload["schema_version"],
+            "inventory_fingerprint": payload["inventory_fingerprint"],
+            "target_kind": payload["target_kind"],
+            "observation_provider_ids": payload["observation_provider_ids"],
+            "status": payload["status"],
+            "behavior_contract_count": len(candidate.behavior_contracts),
+            "unresolved_count": len(candidate.unresolved_ids),
+            "first_unresolved_id": (
+                candidate.unresolved_ids[0] if candidate.unresolved_ids else ""
+            ),
+            "blockers": list(candidate.blockers),
+            "claim_boundary": payload["claim_boundary"],
+        }
+    _emit_payload(payload, as_json=args.json)
+    return 0 if candidate.status == "ready" else 1
 
 
 def _print_lifecycle(payload: dict[str, object], *, as_json: bool) -> int:
@@ -1377,6 +1673,7 @@ def _run_evidence_lifecycle_command(args: argparse.Namespace) -> int:
         plan_evidence_gc,
         purge_evidence_quarantine,
         restore_evidence_quarantine,
+        settle_interrupted_execution_leases,
         write_json_atomic,
     )
 
@@ -1396,6 +1693,36 @@ def _run_evidence_lifecycle_command(args: argparse.Namespace) -> int:
             payload = apply_evidence_gc(args.root, args.plan)
         elif args.evidence_action == "restore":
             payload = restore_evidence_quarantine(args.root, args.quarantine_id)
+        elif args.evidence_action == "settle_interruption":
+            leases = []
+            for index, serialized in enumerate(args.lease_json):
+                try:
+                    row = json.loads(serialized)
+                except json.JSONDecodeError as exc:
+                    raise EvidenceLifecycleError(
+                        f"--lease-json row {index} is not valid JSON"
+                    ) from exc
+                if not isinstance(row, dict):
+                    raise EvidenceLifecycleError(
+                        f"--lease-json row {index} must be one JSON object"
+                    )
+                leases.append(row)
+            payload = settle_interrupted_execution_leases(
+                args.lock_root,
+                {
+                    "schema_version": "flowguard.evidence_interruption_settlement_request.v1",
+                    "plan_id": args.plan_id,
+                    "process_id": args.process_id,
+                    "operator_reason": args.operator_reason,
+                    "zero_descendant_observation": {
+                        "descendant_process_ids": list(args.descendant_process_id),
+                        "observed_at_epoch": args.observed_at_epoch,
+                        "observed_by": args.observed_by,
+                        "method": args.observation_method,
+                    },
+                    "leases": leases,
+                },
+            )
         else:
             payload = purge_evidence_quarantine(args.root, args.quarantine_id)
         return _print_lifecycle(dict(payload), as_json=args.json)
@@ -1688,6 +2015,10 @@ def _add_implementation_blueprint_parsers(
         parser.add_argument("--binding-report", required=True)
         parser.add_argument("--observed-snapshot-fingerprint", required=True)
         parser.add_argument("--semantic-mesh-fingerprint", required=True)
+        parser.add_argument("--test-inventory-fingerprint", required=True)
+        parser.add_argument(
+            "--model-test-alignment-report-fingerprint", required=True
+        )
         parser.add_argument("--portable-owner-fingerprints", default="{}")
         parser.add_argument("--resource-fingerprints", default="{}")
         parser.add_argument("--oracle-fingerprints", default="{}")
@@ -1719,8 +2050,73 @@ def _add_implementation_blueprint_parsers(
         help="Read-only audit of FlowGuard's current checked-in self-blueprint.",
     )
     self_check.add_argument("--root", default=".", help="FlowGuard repository root.")
+    self_check.add_argument("--compact", action="store_true")
+    self_check.add_argument(
+        "--include-architecture-reduction",
+        action="store_true",
+        help=(
+            "Reuse this exact in-memory self-blueprint for the read-only "
+            "architecture-reduction review."
+        ),
+    )
     self_check.add_argument("--json", action="store_true")
     self_check.set_defaults(handler=_run_flowguard_self_blueprint_check_command)
+
+    self_reduction = subparsers.add_parser(
+        "flowguard-self-architecture-reduction-review",
+        help=(
+            "Read-only self-blueprint contraction audit; reports candidates "
+            "and never rewrites production code."
+        ),
+    )
+    self_reduction.add_argument(
+        "--root", default=".", help="FlowGuard repository root."
+    )
+    self_reduction.add_argument("--compact", action="store_true")
+    self_reduction.add_argument("--json", action="store_true")
+    self_reduction.set_defaults(
+        handler=_run_flowguard_self_architecture_reduction_command
+    )
+
+    project_check = subparsers.add_parser(
+        "project-blueprint-audit",
+        help=(
+            "Read-only provider-neutral project blueprint audit; never writes the target "
+            "or executes a target-system action."
+        ),
+    )
+    project_check.add_argument("--root", required=True, help="Bounded project root.")
+    project_check.add_argument(
+        "--definition", required=True, help="Strict current project-blueprint JSON."
+    )
+    project_check.add_argument("--json", action="store_true")
+    project_check.set_defaults(handler=_run_project_blueprint_audit_command)
+
+    candidate = subparsers.add_parser(
+        "project-blueprint-candidate",
+        help=(
+            "Read-only unresolved behavior candidate discovery from one current implementation inventory."
+        ),
+    )
+    candidate.add_argument("--inventory", required=True)
+    candidate.add_argument("--root", required=True, help="Bounded current project root.")
+    candidate.add_argument("--target-kind", default="software")
+    candidate.add_argument(
+        "--provider",
+        action="append",
+        default=[],
+        help=(
+            "Exact observation provider id; repeatable. When omitted, current "
+            "inventory surface provider identities are used."
+        ),
+    )
+    candidate.add_argument(
+        "--compact",
+        action="store_true",
+        help="Return only depth/count/first-gap data for ordinary AI routing.",
+    )
+    candidate.add_argument("--json", action="store_true")
+    candidate.set_defaults(handler=_run_project_blueprint_candidate_command)
 
 
 def _add_simulator_parser(
@@ -1782,6 +2178,38 @@ def _add_evidence_lifecycle_parsers(
     purge.add_argument("--quarantine-id", required=True)
     purge.add_argument("--json", action="store_true")
     purge.set_defaults(handler=_run_evidence_lifecycle_command, evidence_action="purge")
+
+    settle = subparsers.add_parser(
+        "evidence-settle-interruption",
+        help="Settle only named dead-process residual leases into immutable interrupted evidence.",
+    )
+    settle.add_argument("--lock-root", required=True, help="Exact execution-lease directory.")
+    settle.add_argument("--plan-id", required=True, help="Exact frozen validation plan id.")
+    settle.add_argument("--process-id", required=True, type=int, help="Former producer process id.")
+    settle.add_argument("--operator-reason", required=True)
+    settle.add_argument("--observed-by", required=True)
+    settle.add_argument("--observation-method", required=True)
+    settle.add_argument("--observed-at-epoch", required=True, type=float)
+    settle.add_argument(
+        "--descendant-process-id",
+        action="append",
+        type=int,
+        default=[],
+        help="Observed live descendant; any supplied id blocks settlement.",
+    )
+    settle.add_argument(
+        "--lease-json",
+        action="append",
+        required=True,
+        help=(
+            "Exact JSON object with owner_id, resource_key, execution_key, and lease_token; repeat."
+        ),
+    )
+    settle.add_argument("--json", action="store_true")
+    settle.set_defaults(
+        handler=_run_evidence_lifecycle_command,
+        evidence_action="settle_interruption",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

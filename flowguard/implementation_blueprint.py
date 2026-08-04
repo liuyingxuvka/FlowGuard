@@ -53,7 +53,35 @@ SEMANTIC_DIMENSIONS = frozenset(
         "retry",
         "timeout",
         "decision",
+        "completion",
     }
+)
+SEMANTIC_AUTHORITY_DECLARED_BEHAVIOR = "declared_behavior"
+SEMANTIC_AUTHORITY_IMPORTED_MODEL = "imported_model"
+SEMANTIC_AUTHORITY_OBSERVED_CANDIDATE = "observed_candidate"
+SEMANTIC_AUTHORITY_KINDS = frozenset(
+    {
+        SEMANTIC_AUTHORITY_DECLARED_BEHAVIOR,
+        SEMANTIC_AUTHORITY_IMPORTED_MODEL,
+        SEMANTIC_AUTHORITY_OBSERVED_CANDIDATE,
+    }
+)
+
+BLUEPRINT_LAYER_INVENTORY = "inventory"
+BLUEPRINT_LAYER_TRACEABILITY = "traceability"
+BLUEPRINT_LAYER_INDEPENDENT_SEMANTICS = "independent_semantics"
+BLUEPRINT_LAYER_MODEL_CODE_TEST = "model_code_test"
+BLUEPRINT_LAYER_RESOURCE_ORACLE = "resource_oracle"
+BLUEPRINT_LAYER_STATIC = "static_blueprint"
+BLUEPRINT_LAYER_EMPIRICAL = "empirical_reconstruction"
+BLUEPRINT_LAYER_IDS = (
+    BLUEPRINT_LAYER_INVENTORY,
+    BLUEPRINT_LAYER_TRACEABILITY,
+    BLUEPRINT_LAYER_INDEPENDENT_SEMANTICS,
+    BLUEPRINT_LAYER_MODEL_CODE_TEST,
+    BLUEPRINT_LAYER_RESOURCE_ORACLE,
+    BLUEPRINT_LAYER_STATIC,
+    BLUEPRINT_LAYER_EMPIRICAL,
 )
 RELATION_KINDS = frozenset(
     {
@@ -176,6 +204,8 @@ class SemanticSpecReference:
     covered_model_element_ids: tuple[str, ...]
     covered_dimensions: tuple[str, ...]
     semantics: tuple[tuple[str, str], ...]
+    authority_kind: str = SEMANTIC_AUTHORITY_DECLARED_BEHAVIOR
+    provenance_fingerprints: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -183,6 +213,19 @@ class SemanticSpecReference:
         )
         object.__setattr__(self, "covered_dimensions", _tuple(self.covered_dimensions))
         object.__setattr__(self, "semantics", _pairs(self.semantics))
+        object.__setattr__(
+            self,
+            "provenance_fingerprints",
+            _pairs(self.provenance_fingerprints),
+        )
+        if self.authority_kind not in SEMANTIC_AUTHORITY_KINDS:
+            raise BlueprintValidationError(
+                f"unknown semantic authority kind: {self.authority_kind}"
+            )
+        if self.authority_kind != SEMANTIC_AUTHORITY_OBSERVED_CANDIDATE and not self.provenance_fingerprints:
+            raise BlueprintValidationError(
+                "independent semantic specification requires provenance fingerprints"
+            )
         unknown = set(self.covered_dimensions) - SEMANTIC_DIMENSIONS
         if unknown:
             raise BlueprintValidationError(f"unknown semantic dimensions: {sorted(unknown)}")
@@ -210,6 +253,8 @@ class SemanticSpecReference:
             "covered_model_element_ids": list(self.covered_model_element_ids),
             "covered_dimensions": list(self.covered_dimensions),
             "semantics": dict(self.semantics),
+            "authority_kind": self.authority_kind,
+            "provenance_fingerprints": dict(self.provenance_fingerprints),
         }
 
     @property
@@ -271,12 +316,27 @@ class BlueprintResourceReference:
     kind: str
     owner_id: str
     artifact_id: str
+    purpose: str
+    lifecycle_role: str
     disposition: str = "current"
     artifact_fingerprint: str | None = None
     rationale: str | None = None
     semantics: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
+        if not all(
+            value.strip()
+            for value in (
+                self.resource_id,
+                self.owner_id,
+                self.artifact_id,
+                self.purpose,
+                self.lifecycle_role,
+            )
+        ):
+            raise BlueprintValidationError(
+                "resource identity, purpose, and lifecycle role are required"
+            )
         if self.kind not in RESOURCE_KINDS:
             raise BlueprintValidationError(f"unknown blueprint resource kind: {self.kind}")
         if self.disposition not in RESOURCE_DISPOSITIONS:
@@ -292,7 +352,7 @@ class BlueprintResourceReference:
         object.__setattr__(self, "semantics", _pairs(self.semantics))
         if self.disposition == "current" and not self.semantics:
             raise BlueprintValidationError(
-                "current resource requires source-independent reconstruction semantics"
+                "current resource requires source-independent blueprint semantics"
             )
         if _contains_secret(dict(self.semantics)):
             raise BlueprintValidationError("resource semantics must not embed secrets")
@@ -303,6 +363,8 @@ class BlueprintResourceReference:
             "kind": self.kind,
             "owner_id": self.owner_id,
             "artifact_id": self.artifact_id,
+            "purpose": self.purpose,
+            "lifecycle_role": self.lifecycle_role,
             "disposition": self.disposition,
             "artifact_fingerprint": self.artifact_fingerprint,
             "rationale": self.rationale,
@@ -325,6 +387,8 @@ class ModelImplementationBinding:
     oracle_ids: tuple[str, ...]
     required_dimensions: tuple[str, ...] = ("input", "output", "error")
     consumer_surface_ids: tuple[str, ...] = ()
+    test_evidence_ids: tuple[str, ...] = ()
+    test_evidence_fingerprints: tuple[tuple[str, str], ...] = ()
     primary: bool = True
     delegating: bool = False
     model_fingerprint: str | None = None
@@ -334,8 +398,19 @@ class ModelImplementationBinding:
     def __post_init__(self) -> None:
         if self.relation_kind not in RELATION_KINDS:
             raise BlueprintValidationError(f"unknown binding relation: {self.relation_kind}")
-        for name in ("semantic_spec_ids", "oracle_ids", "required_dimensions", "consumer_surface_ids"):
+        for name in (
+            "semantic_spec_ids",
+            "oracle_ids",
+            "required_dimensions",
+            "consumer_surface_ids",
+            "test_evidence_ids",
+        ):
             object.__setattr__(self, name, _tuple(getattr(self, name)))
+        object.__setattr__(
+            self,
+            "test_evidence_fingerprints",
+            _pairs(self.test_evidence_fingerprints),
+        )
         unknown = set(self.required_dimensions) - SEMANTIC_DIMENSIONS
         if unknown:
             raise BlueprintValidationError(f"unknown required dimensions: {sorted(unknown)}")
@@ -360,6 +435,8 @@ class ModelImplementationBinding:
             "oracle_ids": list(self.oracle_ids),
             "required_dimensions": list(self.required_dimensions),
             "consumer_surface_ids": list(self.consumer_surface_ids),
+            "test_evidence_ids": list(self.test_evidence_ids),
+            "test_evidence_fingerprints": dict(self.test_evidence_fingerprints),
             "primary": self.primary,
             "delegating": self.delegating,
             "model_fingerprint": self.model_fingerprint,
@@ -407,6 +484,7 @@ class ModelImplementationBindingReport:
             "model_obligation_ids": list(self.model_obligation_ids),
             "semantic_spec_ids": list(self.semantic_spec_ids),
             "oracle_ids": list(self.oracle_ids),
+            "test_evidence_ids": list(self.test_evidence_ids),
             "bindings": [binding.to_dict() for binding in self.bindings],
             "semantic_specs": [reference.to_dict() for reference in self.semantic_specs],
             "oracles": [reference.to_dict() for reference in self.oracles],
@@ -441,6 +519,14 @@ class ModelImplementationBindingReport:
     @property
     def oracle_ids(self) -> tuple[str, ...]:
         return tuple(reference.oracle_id for reference in self.oracles)
+
+    @property
+    def test_evidence_ids(self) -> tuple[str, ...]:
+        return _tuple(
+            test_id
+            for binding in self.bindings
+            for test_id in binding.test_evidence_ids
+        )
 
 
 def _surface_id(surface: Any) -> str:
@@ -487,6 +573,7 @@ def review_model_implementation_bindings(
     current_contract_fingerprints: Mapping[str, str] | None = None,
     current_semantic_spec_fingerprints: Mapping[str, str] | None = None,
     current_oracle_fingerprints: Mapping[str, str] | None = None,
+    current_test_evidence_fingerprints: Mapping[str, str] | None = None,
 ) -> ModelImplementationBindingReport:
     """Review the independent inventory against model bindings in both directions."""
 
@@ -627,6 +714,44 @@ def review_model_implementation_bindings(
                     (binding.binding_id, *missing_oracles),
                 )
             )
+        if not binding.test_evidence_ids:
+            findings.append(
+                BlueprintFinding(
+                    "model_test_binding_missing",
+                    "Binding has no exact project test evidence identity.",
+                    (binding.binding_id,),
+                )
+            )
+        declared_test_fingerprints = dict(binding.test_evidence_fingerprints)
+        missing_test_fingerprints = set(binding.test_evidence_ids) - set(
+            declared_test_fingerprints
+        )
+        if missing_test_fingerprints:
+            findings.append(
+                BlueprintFinding(
+                    "test_evidence_fingerprint_missing",
+                    "Binding test identities require exact source or evidence fingerprints.",
+                    (binding.binding_id, *missing_test_fingerprints),
+                )
+            )
+        if current_test_evidence_fingerprints is not None:
+            stale_test_ids = tuple(
+                sorted(
+                    test_id
+                    for test_id in binding.test_evidence_ids
+                    if declared_test_fingerprints.get(test_id)
+                    != current_test_evidence_fingerprints.get(test_id)
+                )
+            )
+            if stale_test_ids:
+                findings.append(
+                    BlueprintFinding(
+                        "stale_test_evidence_binding",
+                        "Binding consumes a non-current test source or evidence fingerprint.",
+                        (binding.binding_id, *stale_test_ids),
+                        "stale",
+                    )
+                )
 
         spec_dimensions: set[str] = set()
         oracle_dimensions: set[str] = set()
@@ -657,6 +782,28 @@ def review_model_implementation_bindings(
                     "semantic_dimensions_incomplete",
                     "Semantic specifications do not cover every required behavior dimension.",
                     (binding.binding_id, *missing_semantics),
+                )
+            )
+        independent_dimensions: set[str] = set()
+        for spec_id in binding.semantic_spec_ids:
+            reference = spec_by_id.get(spec_id)
+            if (
+                reference
+                and reference.authority_kind
+                in {
+                    SEMANTIC_AUTHORITY_DECLARED_BEHAVIOR,
+                    SEMANTIC_AUTHORITY_IMPORTED_MODEL,
+                }
+                and binding.model_element_id in reference.covered_model_element_ids
+            ):
+                independent_dimensions.update(reference.covered_dimensions)
+        missing_independent = required_dimensions - independent_dimensions
+        if missing_independent:
+            findings.append(
+                BlueprintFinding(
+                    "source_observation_not_independent",
+                    "Production-source observations cannot independently certify intended semantics.",
+                    (binding.binding_id, *missing_independent),
                 )
             )
         if missing_oracle_dimensions:
@@ -808,6 +955,10 @@ class SoftwareBlueprintManifest:
     binding_report_fingerprint: str
     semantic_mesh_id: str
     semantic_mesh_fingerprint: str
+    test_inventory_id: str
+    test_inventory_fingerprint: str
+    model_test_alignment_report_id: str
+    model_test_alignment_report_fingerprint: str
     portable_owner_fingerprints: tuple[tuple[str, str], ...]
     resources: tuple[BlueprintResourceReference, ...]
     oracles: tuple[OracleReference, ...]
@@ -837,6 +988,10 @@ class SoftwareBlueprintManifest:
             self.binding_report_fingerprint,
             self.semantic_mesh_id,
             self.semantic_mesh_fingerprint,
+            self.test_inventory_id,
+            self.test_inventory_fingerprint,
+            self.model_test_alignment_report_id,
+            self.model_test_alignment_report_fingerprint,
         )
         if not all(identities):
             raise BlueprintValidationError("blueprint manifest authority identity is incomplete")
@@ -853,6 +1008,10 @@ class SoftwareBlueprintManifest:
             "binding_report_fingerprint": self.binding_report_fingerprint,
             "semantic_mesh_id": self.semantic_mesh_id,
             "semantic_mesh_fingerprint": self.semantic_mesh_fingerprint,
+            "test_inventory_id": self.test_inventory_id,
+            "test_inventory_fingerprint": self.test_inventory_fingerprint,
+            "model_test_alignment_report_id": self.model_test_alignment_report_id,
+            "model_test_alignment_report_fingerprint": self.model_test_alignment_report_fingerprint,
             "portable_owner_fingerprints": dict(self.portable_owner_fingerprints),
             "resources": [resource.to_dict() for resource in self.resources],
             "oracles": [oracle.to_dict() for oracle in self.oracles],
@@ -897,6 +1056,33 @@ class ReconstructionEvidence:
 
 
 @dataclass(frozen=True)
+class BlueprintLayerResult:
+    layer_id: str
+    status: str
+    finding_codes: tuple[str, ...] = ()
+    member_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.layer_id not in BLUEPRINT_LAYER_IDS:
+            raise BlueprintValidationError(f"unknown blueprint layer: {self.layer_id}")
+        allowed = RECONSTRUCTION_STATUSES if self.layer_id == BLUEPRINT_LAYER_EMPIRICAL else STATIC_STATUSES
+        if self.status not in allowed:
+            raise BlueprintValidationError(
+                f"invalid status for blueprint layer {self.layer_id}: {self.status}"
+            )
+        object.__setattr__(self, "finding_codes", _tuple(self.finding_codes))
+        object.__setattr__(self, "member_ids", _tuple(self.member_ids))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "layer_id": self.layer_id,
+            "status": self.status,
+            "finding_codes": list(self.finding_codes),
+            "member_ids": list(self.member_ids),
+        }
+
+
+@dataclass(frozen=True)
 class SoftwareBlueprintQualificationReport:
     blueprint_id: str
     blueprint_fingerprint: str
@@ -905,6 +1091,15 @@ class SoftwareBlueprintQualificationReport:
     static_findings: tuple[BlueprintFinding, ...] = ()
     empirical_findings: tuple[BlueprintFinding, ...] = ()
     reconstruction_required: bool = False
+    layers: tuple[BlueprintLayerResult, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "static_findings", tuple(self.static_findings))
+        object.__setattr__(self, "empirical_findings", tuple(self.empirical_findings))
+        object.__setattr__(self, "layers", tuple(self.layers))
+        layer_ids = tuple(layer.layer_id for layer in self.layers)
+        if layer_ids and layer_ids != BLUEPRINT_LAYER_IDS:
+            raise BlueprintValidationError("blueprint qualification layers are not exact-current")
 
     @property
     def ok(self) -> bool:
@@ -915,10 +1110,25 @@ class SoftwareBlueprintQualificationReport:
     @property
     def claim_text(self) -> str:
         if self.static_status == STATIC_COMPLETE and self.empirical_status == RECONSTRUCTION_NOT_RUN:
-            return "blueprint complete; reconstruction not verified"
+            return "blueprint complete; reconstruction not run"
         if self.static_status == STATIC_COMPLETE and self.empirical_status == RECONSTRUCTION_PASS:
             return "blueprint complete; reconstruction verified"
         return f"blueprint {self.static_status}; reconstruction {self.empirical_status}"
+
+    def layer_status(self, layer_id: str) -> str:
+        for layer in self.layers:
+            if layer.layer_id == layer_id:
+                return layer.status
+        raise BlueprintValidationError(f"qualification has no layer: {layer_id}")
+
+    @property
+    def deepest_proven_layer(self) -> str:
+        deepest = "none"
+        for layer_id in BLUEPRINT_LAYER_IDS[:-1]:
+            if self.layer_status(layer_id) != STATIC_COMPLETE:
+                break
+            deepest = layer_id
+        return deepest
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -929,9 +1139,33 @@ class SoftwareBlueprintQualificationReport:
             "static_findings": [finding.to_dict() for finding in self.static_findings],
             "empirical_findings": [finding.to_dict() for finding in self.empirical_findings],
             "reconstruction_required": self.reconstruction_required,
+            "layers": [layer.to_dict() for layer in self.layers],
+            "deepest_proven_layer": self.deepest_proven_layer,
             "ok": self.ok,
             "claim_text": self.claim_text,
         }
+
+    def to_static_dict(self) -> dict[str, Any]:
+        """Project ordinary static qualification without specialist execution state."""
+
+        return {
+            "blueprint_id": self.blueprint_id,
+            "blueprint_fingerprint": self.blueprint_fingerprint,
+            "static_status": self.static_status,
+            "static_findings": [finding.to_dict() for finding in self.static_findings],
+            "layers": [
+                layer.to_dict()
+                for layer in self.layers
+                if layer.layer_id != BLUEPRINT_LAYER_EMPIRICAL
+            ],
+            "deepest_proven_layer": self.deepest_proven_layer,
+            "ok": self.static_status == STATIC_COMPLETE,
+            "claim_text": f"blueprint {self.static_status}",
+        }
+
+    @property
+    def static_fingerprint(self) -> str:
+        return _fingerprinted(self.to_static_dict())
 
     @property
     def fingerprint(self) -> str:
@@ -947,6 +1181,8 @@ def qualify_software_blueprint(
     reconstruction_required: bool = False,
     current_observed_snapshot_fingerprint: str | None = None,
     current_semantic_mesh_fingerprint: str | None = None,
+    current_test_inventory_fingerprint: str | None = None,
+    current_model_test_alignment_report_fingerprint: str | None = None,
     current_portable_owner_fingerprints: Mapping[str, str] | None = None,
     current_resource_fingerprints: Mapping[str, str] | None = None,
     current_oracle_fingerprints: Mapping[str, str] | None = None,
@@ -1016,6 +1252,31 @@ def qualify_software_blueprint(
                 "stale",
             )
         )
+    if (
+        current_test_inventory_fingerprint is not None
+        and manifest.test_inventory_fingerprint != current_test_inventory_fingerprint
+    ):
+        static_findings.append(
+            BlueprintFinding(
+                "stale_test_inventory",
+                "Blueprint does not consume the current project test inventory.",
+                (manifest.test_inventory_id,),
+                "stale",
+            )
+        )
+    if (
+        current_model_test_alignment_report_fingerprint is not None
+        and manifest.model_test_alignment_report_fingerprint
+        != current_model_test_alignment_report_fingerprint
+    ):
+        static_findings.append(
+            BlueprintFinding(
+                "stale_model_test_alignment_report",
+                "Blueprint does not consume the current model-code-test alignment report.",
+                (manifest.model_test_alignment_report_id,),
+                "stale",
+            )
+        )
     if current_portable_owner_fingerprints is not None:
         for owner_id, owner_fingerprint in manifest.portable_owner_fingerprints:
             if owner_fingerprint != current_portable_owner_fingerprints.get(owner_id):
@@ -1036,7 +1297,7 @@ def qualify_software_blueprint(
         static_findings.append(
             BlueprintFinding(
                 "required_resource_missing",
-                "A required reconstruction resource is omitted.",
+                "A required blueprint resource is omitted.",
                 tuple(missing_resource_ids),
                 "blocked",
             )
@@ -1045,7 +1306,7 @@ def qualify_software_blueprint(
         static_findings.append(
             BlueprintFinding(
                 "required_resource_kind_missing",
-                "A required reconstruction resource kind is omitted.",
+                "A required blueprint resource kind is omitted.",
                 tuple(missing_resource_kinds),
                 "blocked",
             )
@@ -1071,7 +1332,7 @@ def qualify_software_blueprint(
         static_findings.append(
             BlueprintFinding(
                 "required_oracle_missing",
-                "A required reconstruction oracle is omitted.",
+                "A required blueprint oracle is omitted.",
                 tuple(missing_oracle_ids),
                 "blocked",
             )
@@ -1149,14 +1410,98 @@ def qualify_software_blueprint(
                 )
             )
 
+    ordered_static_findings = tuple(
+        sorted(static_findings, key=lambda item: (item.severity, item.code, item.member_ids))
+    )
+    ordered_empirical_findings = tuple(
+        sorted(empirical_findings, key=lambda item: (item.severity, item.code, item.member_ids))
+    )
+
+    inventory_codes = {
+        "inventory_identity_missing",
+        "stale_inventory_artifact",
+        "stale_inventory_reference",
+        "implementation_inventory_blocker",
+        "hidden_state_or_effect_writer",
+        "unresolved_implementation_surface",
+        "implementation_parse_failure",
+    }
+    traceability_codes = {
+        "duplicate_binding_identity",
+        "missing_primary_implementation",
+        "duplicate_primary_implementation",
+        "unbound_behavior_surface",
+        "missing_inventory_surface",
+        "orphan_supporting_surface",
+        "stale_implementation_binding",
+        "stale_model_binding",
+        "stale_owner_contract",
+        "stale_binding_report_reference",
+    }
+    semantic_codes = {
+        "missing_semantic_reference",
+        "semantic_dimensions_incomplete",
+        "source_observation_not_independent",
+        "stale_semantic_specification",
+        "stale_semantic_mesh",
+        "stale_observed_model_snapshot",
+    }
+    test_codes = {
+        "model_test_binding_missing",
+        "test_evidence_fingerprint_missing",
+        "stale_test_evidence_binding",
+        "stale_test_inventory",
+        "stale_model_test_alignment_report",
+    }
+    resource_codes = {
+        "missing_oracle_reference",
+        "oracle_dimensions_incomplete",
+        "stale_oracle_reference",
+        "required_resource_missing",
+        "required_resource_kind_missing",
+        "stale_resource_reference",
+        "required_oracle_missing",
+        "stale_portable_owner",
+    }
+
+    def layer_result(layer_id: str, codes: set[str]) -> BlueprintLayerResult:
+        selected = tuple(item for item in ordered_static_findings if item.code in codes)
+        return BlueprintLayerResult(
+            layer_id=layer_id,
+            status=_status_from_findings(selected),
+            finding_codes=tuple(item.code for item in selected),
+            member_ids=tuple(member for item in selected for member in item.member_ids),
+        )
+
+    layers = (
+        layer_result(BLUEPRINT_LAYER_INVENTORY, inventory_codes),
+        layer_result(BLUEPRINT_LAYER_TRACEABILITY, traceability_codes),
+        layer_result(BLUEPRINT_LAYER_INDEPENDENT_SEMANTICS, semantic_codes),
+        layer_result(BLUEPRINT_LAYER_MODEL_CODE_TEST, test_codes),
+        layer_result(BLUEPRINT_LAYER_RESOURCE_ORACLE, resource_codes),
+        BlueprintLayerResult(
+            BLUEPRINT_LAYER_STATIC,
+            static_status,
+            tuple(item.code for item in ordered_static_findings),
+            tuple(member for item in ordered_static_findings for member in item.member_ids),
+        ),
+        BlueprintLayerResult(
+            BLUEPRINT_LAYER_EMPIRICAL,
+            empirical_status,
+            tuple(item.code for item in ordered_empirical_findings),
+            tuple(member for item in ordered_empirical_findings for member in item.member_ids),
+        ),
+    )
+
     return SoftwareBlueprintQualificationReport(
         blueprint_id=manifest.blueprint_id,
         blueprint_fingerprint=manifest.fingerprint,
         static_status=static_status,
         empirical_status=empirical_status,
-        static_findings=tuple(sorted(static_findings, key=lambda item: (item.severity, item.code, item.member_ids))),
-        empirical_findings=tuple(sorted(empirical_findings, key=lambda item: (item.severity, item.code, item.member_ids))),
+        static_findings=ordered_static_findings,
+        empirical_findings=ordered_empirical_findings,
         reconstruction_required=reconstruction_required,
+        layers=layers,
     )
 
 
@@ -1542,9 +1887,16 @@ def _semantic_spec_from_dict(value: Any) -> SemanticSpecReference:
                 "covered_model_element_ids",
                 "covered_dimensions",
                 "semantics",
+                "authority_kind",
+                "provenance_fingerprints",
             }
         ),
     )
+    provenance = data["provenance_fingerprints"]
+    if not isinstance(provenance, Mapping):
+        raise BlueprintValidationError(
+            "semantic specification provenance fingerprints must be a JSON object"
+        )
     return SemanticSpecReference(
         semantic_spec_id=str(data["semantic_spec_id"]),
         owner_id=str(data["owner_id"]),
@@ -1561,6 +1913,10 @@ def _semantic_spec_from_dict(value: Any) -> SemanticSpecReference:
                 context="semantic specification semantics",
                 required=frozenset(str(item) for item in data["covered_dimensions"]),
             ).items()
+        ),
+        authority_kind=str(data["authority_kind"]),
+        provenance_fingerprints=tuple(
+            (str(key), str(item)) for key, item in provenance.items()
         ),
     )
 
@@ -1611,6 +1967,8 @@ def _resource_from_dict(value: Any) -> BlueprintResourceReference:
                 "kind",
                 "owner_id",
                 "artifact_id",
+                "purpose",
+                "lifecycle_role",
                 "disposition",
                 "artifact_fingerprint",
                 "rationale",
@@ -1626,6 +1984,8 @@ def _resource_from_dict(value: Any) -> BlueprintResourceReference:
         kind=str(data["kind"]),
         owner_id=str(data["owner_id"]),
         artifact_id=str(data["artifact_id"]),
+        purpose=str(data["purpose"]),
+        lifecycle_role=str(data["lifecycle_role"]),
         disposition=str(data["disposition"]),
         artifact_fingerprint=(
             None
@@ -1652,6 +2012,8 @@ def _binding_from_dict(value: Any) -> ModelImplementationBinding:
                 "oracle_ids",
                 "required_dimensions",
                 "consumer_surface_ids",
+                "test_evidence_ids",
+                "test_evidence_fingerprints",
                 "primary",
                 "delegating",
                 "model_fingerprint",
@@ -1670,6 +2032,15 @@ def _binding_from_dict(value: Any) -> ModelImplementationBinding:
         oracle_ids=tuple(str(item) for item in data["oracle_ids"]),
         required_dimensions=tuple(str(item) for item in data["required_dimensions"]),
         consumer_surface_ids=tuple(str(item) for item in data["consumer_surface_ids"]),
+        test_evidence_ids=tuple(str(item) for item in data["test_evidence_ids"]),
+        test_evidence_fingerprints=tuple(
+            (str(key), str(item))
+            for key, item in _strict_payload(
+                data["test_evidence_fingerprints"],
+                context="binding test evidence fingerprints",
+                required=frozenset(str(item) for item in data["test_evidence_ids"]),
+            ).items()
+        ),
         primary=bool(data["primary"]),
         delegating=bool(data["delegating"]),
         model_fingerprint=(
@@ -1704,6 +2075,7 @@ def model_implementation_binding_report_from_dict(
             "model_obligation_ids",
             "semantic_spec_ids",
             "oracle_ids",
+            "test_evidence_ids",
             "bindings",
             "semantic_specs",
             "oracles",
@@ -1741,6 +2113,7 @@ def model_implementation_binding_report_from_dict(
         "model_obligation_ids": list(report.model_obligation_ids),
         "semantic_spec_ids": list(report.semantic_spec_ids),
         "oracle_ids": list(report.oracle_ids),
+        "test_evidence_ids": list(report.test_evidence_ids),
     }
     for key, expected in derived.items():
         if data[key] != expected:
@@ -1764,6 +2137,10 @@ def software_blueprint_manifest_from_dict(value: Any) -> SoftwareBlueprintManife
                 "binding_report_fingerprint",
                 "semantic_mesh_id",
                 "semantic_mesh_fingerprint",
+                "test_inventory_id",
+                "test_inventory_fingerprint",
+                "model_test_alignment_report_id",
+                "model_test_alignment_report_fingerprint",
                 "portable_owner_fingerprints",
                 "resources",
                 "oracles",
@@ -1788,6 +2165,12 @@ def software_blueprint_manifest_from_dict(value: Any) -> SoftwareBlueprintManife
         binding_report_fingerprint=str(data["binding_report_fingerprint"]),
         semantic_mesh_id=str(data["semantic_mesh_id"]),
         semantic_mesh_fingerprint=str(data["semantic_mesh_fingerprint"]),
+        test_inventory_id=str(data["test_inventory_id"]),
+        test_inventory_fingerprint=str(data["test_inventory_fingerprint"]),
+        model_test_alignment_report_id=str(data["model_test_alignment_report_id"]),
+        model_test_alignment_report_fingerprint=str(
+            data["model_test_alignment_report_fingerprint"]
+        ),
         portable_owner_fingerprints=tuple(
             (str(key), str(item)) for key, item in portable.items()
         ),

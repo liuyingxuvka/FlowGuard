@@ -895,7 +895,14 @@ from . import model_maturation_receipt as _model_maturation_receipt
 from . import implementation_inventory as _implementation_inventory
 from . import implementation_inventory_python as _implementation_inventory_python
 from . import implementation_blueprint as _implementation_blueprint
+from . import blueprint_topology as _blueprint_topology
+from . import software_blueprint_readiness as _software_blueprint_readiness
+from . import target_system_blueprint as _target_system_blueprint
+from . import project_blueprint as _project_blueprint
+from . import test_inventory as _test_inventory
+from . import test_inventory_python as _test_inventory_python
 from . import self_blueprint as _self_blueprint
+from . import self_architecture_reduction as _self_architecture_reduction
 from . import task_coverage_demand as _task_coverage_demand
 from . import understanding_readiness as _understanding_readiness
 from . import model_miss_diagnostics as _model_miss_diagnostics
@@ -905,6 +912,8 @@ from . import model_regressions as _model_regressions
 from . import model_purpose as _model_purpose
 from . import release_verification as _release_verification
 from . import work_context as _work_context
+from . import model_intent as _model_intent
+from . import work_context_adapters as _work_context_adapters
 from .work_context_adapters import register_builtin_work_context_adapters
 
 register_builtin_work_context_adapters()
@@ -930,7 +939,14 @@ from .model_maturation_receipt import *  # noqa: F403
 from .implementation_inventory import *  # noqa: F403
 from .implementation_inventory_python import *  # noqa: F403
 from .implementation_blueprint import *  # noqa: F403
+from .blueprint_topology import *  # noqa: F403
+from .software_blueprint_readiness import *  # noqa: F403
+from .target_system_blueprint import *  # noqa: F403
+from .project_blueprint import *  # noqa: F403
+from .test_inventory import *  # noqa: F403
+from .test_inventory_python import *  # noqa: F403
 from .self_blueprint import *  # noqa: F403
+from .self_architecture_reduction import *  # noqa: F403
 from .task_coverage_demand import *  # noqa: F403
 from .understanding_readiness import *  # noqa: F403
 from .route_topology import *  # noqa: F403
@@ -1415,6 +1431,8 @@ _GOVERNANCE_MODULES = (
     _release_verification,
     _coverage_inventory,
     _work_context,
+    _model_intent,
+    _work_context_adapters,
 )
 _GOVERNANCE_EXCLUDED_TOP_LEVEL_NAMES = {"MANIFEST_SCHEMA"}
 for _governance_module in _GOVERNANCE_MODULES:
@@ -1451,7 +1469,13 @@ MODEL_SYSTEM_AUTHORITY_API = (
 FLOWGUARD_GOVERNANCE_API = tuple(
     dict.fromkeys(FLOWGUARD_GOVERNANCE_API + MODEL_SYSTEM_AUTHORITY_API)
 )
-WORK_CONTEXT_API = tuple(_work_context.__all__)
+WORK_CONTEXT_API = tuple(
+    dict.fromkeys(
+        tuple(_work_context.__all__)
+        + tuple(_model_intent.__all__)
+        + tuple(_work_context_adapters.__all__)
+    )
+)
 COVERAGE_INVENTORY_API = tuple(_coverage_inventory.__all__)
 
 PLAN_INTAKE_CLAIM_API = tuple(_plan_intake.__all__)
@@ -1533,7 +1557,14 @@ IMPLEMENTATION_BLUEPRINT_API = tuple(
         tuple(_implementation_inventory.__all__)
         + tuple(_implementation_inventory_python.__all__)
         + tuple(_implementation_blueprint.__all__)
+        + tuple(_blueprint_topology.__all__)
+        + tuple(_software_blueprint_readiness.__all__)
+        + tuple(_target_system_blueprint.__all__)
+        + tuple(_project_blueprint.__all__)
+        + tuple(_test_inventory.__all__)
+        + tuple(_test_inventory_python.__all__)
         + tuple(_self_blueprint.__all__)
+        + tuple(_self_architecture_reduction.__all__)
     )
 )
 MODEL_MATURATION_RECEIPT_API = tuple(_model_maturation_receipt.__all__)

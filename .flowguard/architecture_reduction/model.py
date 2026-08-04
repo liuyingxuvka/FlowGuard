@@ -38,9 +38,15 @@ class ArchitectureReductionCase:
     validation_gates_visible: bool = True
     expected_candidate_inventory_declared: bool = True
     expected_candidates_materialized: bool = True
+    all_reduction_signal_families_dispositioned: bool = True
     similarity_provenance_materialized: bool = True
     facade_delegation_current: bool = True
     facade_has_no_independent_success: bool = True
+    caller_relations_indexed_once: bool = True
+    self_maintenance_blueprint_built_once: bool = True
+    compact_projection_avoids_full_expansion: bool = True
+    large_immutable_report_fingerprints_cached: bool = True
+    large_payload_fingerprints_streamed: bool = True
 
 
 @dataclass(frozen=True)
@@ -60,9 +66,15 @@ class ArchitectureReductionPolicy:
     validation_gates_visible: bool = False
     expected_candidate_inventory_declared: bool = False
     expected_candidates_materialized: bool = False
+    all_reduction_signal_families_dispositioned: bool = False
     similarity_provenance_materialized: bool = False
     facade_delegation_current: bool = False
     facade_has_no_independent_success: bool = False
+    caller_relations_indexed_once: bool = False
+    self_maintenance_blueprint_built_once: bool = False
+    compact_projection_avoids_full_expansion: bool = False
+    large_immutable_report_fingerprints_cached: bool = False
+    large_payload_fingerprints_streamed: bool = False
 
 
 GOOD_PLAN = ArchitectureReductionCase("good_architecture_reduction_plan")
@@ -101,6 +113,10 @@ BROKEN_OMITTED_EXPECTED_CANDIDATE = ArchitectureReductionCase(
     "broken_omitted_expected_candidate",
     expected_candidates_materialized=False,
 )
+BROKEN_INCOMPLETE_SIGNAL_FAMILIES = ArchitectureReductionCase(
+    "broken_incomplete_signal_families",
+    all_reduction_signal_families_dispositioned=False,
+)
 BROKEN_OPAQUE_SIMILARITY_PROVENANCE = ArchitectureReductionCase(
     "broken_opaque_similarity_provenance",
     similarity_provenance_materialized=False,
@@ -112,6 +128,26 @@ BROKEN_STALE_FACADE_DELEGATION = ArchitectureReductionCase(
 BROKEN_FACADE_PARALLEL_SUCCESS = ArchitectureReductionCase(
     "broken_facade_parallel_success",
     facade_has_no_independent_success=False,
+)
+BROKEN_REPEATED_CALLER_SCAN = ArchitectureReductionCase(
+    "broken_repeated_caller_scan",
+    caller_relations_indexed_once=False,
+)
+BROKEN_DUPLICATE_SELF_BLUEPRINT_BUILD = ArchitectureReductionCase(
+    "broken_duplicate_self_blueprint_build",
+    self_maintenance_blueprint_built_once=False,
+)
+BROKEN_COMPACT_FULL_EXPANSION = ArchitectureReductionCase(
+    "broken_compact_full_expansion",
+    compact_projection_avoids_full_expansion=False,
+)
+BROKEN_REPEATED_LARGE_REPORT_FINGERPRINT = ArchitectureReductionCase(
+    "broken_repeated_large_report_fingerprint",
+    large_immutable_report_fingerprints_cached=False,
+)
+BROKEN_MATERIALIZED_LARGE_PAYLOAD_FINGERPRINT = ArchitectureReductionCase(
+    "broken_materialized_large_payload_fingerprint",
+    large_payload_fingerprints_streamed=False,
 )
 
 
@@ -134,9 +170,15 @@ class EvaluateArchitectureReductionPlan:
         "validation_gates_visible",
         "expected_candidate_inventory_declared",
         "expected_candidates_materialized",
+        "all_reduction_signal_families_dispositioned",
         "similarity_provenance_materialized",
         "facade_delegation_current",
         "facade_has_no_independent_success",
+        "caller_relations_indexed_once",
+        "self_maintenance_blueprint_built_once",
+        "compact_projection_avoids_full_expansion",
+        "large_immutable_report_fingerprints_cached",
+        "large_payload_fingerprints_streamed",
     )
     accepted_input_type = ArchitectureReductionCase
     input_description = "architecture reduction route case"
@@ -160,9 +202,23 @@ class EvaluateArchitectureReductionPlan:
             validation_gates_visible=input_obj.validation_gates_visible,
             expected_candidate_inventory_declared=input_obj.expected_candidate_inventory_declared,
             expected_candidates_materialized=input_obj.expected_candidates_materialized,
+            all_reduction_signal_families_dispositioned=input_obj.all_reduction_signal_families_dispositioned,
             similarity_provenance_materialized=input_obj.similarity_provenance_materialized,
             facade_delegation_current=input_obj.facade_delegation_current,
             facade_has_no_independent_success=input_obj.facade_has_no_independent_success,
+            caller_relations_indexed_once=input_obj.caller_relations_indexed_once,
+            self_maintenance_blueprint_built_once=(
+                input_obj.self_maintenance_blueprint_built_once
+            ),
+            compact_projection_avoids_full_expansion=(
+                input_obj.compact_projection_avoids_full_expansion
+            ),
+            large_immutable_report_fingerprints_cached=(
+                input_obj.large_immutable_report_fingerprints_cached
+            ),
+            large_payload_fingerprints_streamed=(
+                input_obj.large_payload_fingerprints_streamed
+            ),
         )
         return (
             FunctionResult(
@@ -295,6 +351,11 @@ def expected_candidate_inventory_is_complete(state: ArchitectureReductionPolicy,
             "expected_candidate_inventory_is_complete",
             "an expected reduction candidate is omitted without a scoped disposition",
         )
+    if not state.all_reduction_signal_families_dispositioned:
+        return _fail(
+            "expected_candidate_inventory_is_complete",
+            "route, branch, adapter, wrapper/facade, helper, validation, size, and repeated-shape signals require retain, contract, or unresolved dispositions",
+        )
     return _pass()
 
 
@@ -321,6 +382,40 @@ def retained_facades_delegate_only(state: ArchitectureReductionPolicy, _trace: o
         return _fail(
             "retained_facades_delegate_only",
             "retained facade still owns an independent success or primary side effect",
+        )
+    return _pass()
+
+
+def self_reduction_execution_is_single_pass(
+    state: ArchitectureReductionPolicy,
+    _trace: object,
+) -> InvariantResult:
+    if _empty(state):
+        return _pass()
+    if not state.caller_relations_indexed_once:
+        return _fail(
+            "self_reduction_execution_is_single_pass",
+            "self-reduction must index governed caller relations once instead of rescanning all surfaces per candidate member",
+        )
+    if not state.self_maintenance_blueprint_built_once:
+        return _fail(
+            "self_reduction_execution_is_single_pass",
+            "composed self-maintenance must pass one exact in-memory self-blueprint to both bounded reviews",
+        )
+    if not state.compact_projection_avoids_full_expansion:
+        return _fail(
+            "self_reduction_execution_is_single_pass",
+            "compact self-maintenance must project bounded fields directly instead of expanding and discarding the complete blueprint or reduction payload",
+        )
+    if not state.large_immutable_report_fingerprints_cached:
+        return _fail(
+            "self_reduction_execution_is_single_pass",
+            "immutable large behavior evidence must reuse its exact fingerprint instead of rebuilding the complete payload for every consumer",
+        )
+    if not state.large_payload_fingerprints_streamed:
+        return _fail(
+            "self_reduction_execution_is_single_pass",
+            "large canonical payloads must stream fingerprint and size computation instead of retaining several complete serialized copies",
         )
     return _pass()
 
@@ -395,6 +490,11 @@ INVARIANTS = (
         "retained_facades_delegate_only",
         "Retained facades have current delegation proof and no independent authority.",
         retained_facades_delegate_only,
+    ),
+    Invariant(
+        "self_reduction_execution_is_single_pass",
+        "Self-maintenance builds one blueprint and indexes caller relations once.",
+        self_reduction_execution_is_single_pass,
     ),
 )
 
@@ -524,6 +624,15 @@ SCENARIOS = (
         _expect_violation("omitted expected candidate fails", ("expected_candidate_inventory_is_complete",)),
     ),
     scenario(
+        "incomplete_signal_families_fail",
+        "Every supported self-reduction signal family needs a terminal disposition.",
+        BROKEN_INCOMPLETE_SIGNAL_FAMILIES,
+        _expect_violation(
+            "incomplete signal-family inventory fails",
+            ("expected_candidate_inventory_is_complete",),
+        ),
+    ),
+    scenario(
         "opaque_similarity_provenance_fails",
         "Similarity ids must bind concrete candidates and actions.",
         BROKEN_OPAQUE_SIMILARITY_PROVENANCE,
@@ -540,6 +649,51 @@ SCENARIOS = (
         "Facade cannot own an independent business success.",
         BROKEN_FACADE_PARALLEL_SUCCESS,
         _expect_violation("facade parallel success fails", ("retained_facades_delegate_only",)),
+    ),
+    scenario(
+        "repeated_caller_scan_fails",
+        "Candidate caller discovery must not rescan all surfaces per member.",
+        BROKEN_REPEATED_CALLER_SCAN,
+        _expect_violation(
+            "repeated caller scan fails",
+            ("self_reduction_execution_is_single_pass",),
+        ),
+    ),
+    scenario(
+        "duplicate_self_blueprint_build_fails",
+        "Composed self-maintenance must reuse one exact in-memory blueprint.",
+        BROKEN_DUPLICATE_SELF_BLUEPRINT_BUILD,
+        _expect_violation(
+            "duplicate self-blueprint build fails",
+            ("self_reduction_execution_is_single_pass",),
+        ),
+    ),
+    scenario(
+        "compact_full_expansion_fails",
+        "Compact self-maintenance must not expand the complete blueprint before emitting its bounded projection.",
+        BROKEN_COMPACT_FULL_EXPANSION,
+        _expect_violation(
+            "compact full expansion fails",
+            ("self_reduction_execution_is_single_pass",),
+        ),
+    ),
+    scenario(
+        "repeated_large_report_fingerprint_fails",
+        "Immutable large behavior evidence must not rebuild its complete fingerprint payload for each consumer.",
+        BROKEN_REPEATED_LARGE_REPORT_FINGERPRINT,
+        _expect_violation(
+            "repeated large-report fingerprint fails",
+            ("self_reduction_execution_is_single_pass",),
+        ),
+    ),
+    scenario(
+        "materialized_large_payload_fingerprint_fails",
+        "Large canonical blueprint payloads must not retain several complete serialized copies while computing size and fingerprint.",
+        BROKEN_MATERIALIZED_LARGE_PAYLOAD_FINGERPRINT,
+        _expect_violation(
+            "materialized large-payload fingerprint fails",
+            ("self_reduction_execution_is_single_pass",),
+        ),
     ),
 )
 

@@ -170,6 +170,14 @@ def revision(head, base, candidate) -> ModelRevisionSet:
         added_ids=diff.added_ids,
         removed_ids=diff.removed_ids,
         fingerprint_changed_ids=diff.fingerprint_changed_ids,
+        no_declared_intent_rationale_id="no-intent:store-fixture",
+        no_declared_intent_evidence_fingerprints=(
+            ("fixture_scope", candidate.fingerprint),
+        ),
+        no_declared_intent_rationale=(
+            "This isolated durable-store fixture has no external product intent "
+            "beyond exercising its declared transaction boundary."
+        ),
         required_evidence_refs=required,
     )
     return proposed.accept(

@@ -47,6 +47,15 @@ active changes. The built-in `declared-files` adapter can represent Spec Kit,
 Superpowers, custom skill output, ordinary repository documents, or any other
 explicit bounded file set without embedding provider logic in the core.
 
+`declared_files_source_profile()` supplies bounded source shapes for `spark`,
+`openspark`, and `changelog`. These are still ordinary declared files, not
+provider execution bridges. A changelog row is `history`; it does not silently
+become intended current behavior. Only an explicit, content-addressed
+`WorkContextIntentMapping` can project one current artifact into a
+`ModelIntentContribution`. ModelRevisionSet then accepts, defers, rejects, or
+supersedes that contribution inside the same model lineage; unresolved or
+conflicting effects block acceptance.
+
 ## Commands
 
 Read one native work item:

@@ -16,22 +16,28 @@ def test_blueprint_document_explains_the_complete_claim_boundary_in_plain_langua
         "Bind The Model And The Code In Both Directions",
         "source-independent semantic references",
         "applicable oracles",
+        "BehaviorBlockContract",
+        "input, state, output, effect, error, decision, order, retry, timeout, and completion",
+        "StaticBlueprintReadinessReport",
+        "ModelTestAlignmentReport",
+        "AffectedBlueprintNeighborhood",
         "build, runtime, dependency, configuration, schema, data, asset, migration",
-        "static_status=complete",
-        "empirical_status=not_run",
-        "blueprint complete; reconstruction not verified",
+        "Test/checker execution remains a separate receipt-backed status",
         "Ordinary Tasks Stay Affected-Only",
-        "never launches reconstruction",
+        "parent/child output-to-input relations",
         "safe_by_equivalence",
         "safe_by_public_facade",
     ):
         assert phrase in normalized
 
 
-def test_blueprint_document_names_exactly_the_four_current_cli_entries():
+def test_blueprint_document_names_exactly_the_seven_current_cli_entries():
     text = BLUEPRINT_DOC.read_text(encoding="utf-8")
     commands = (
+        "python -m flowguard project-blueprint-audit",
         "python -m flowguard flowguard-self-blueprint-check",
+        "python -m flowguard project-blueprint-candidate",
+        "python -m flowguard flowguard-self-architecture-reduction-review",
         "python -m flowguard implementation-inventory-audit",
         "python -m flowguard model-blueprint-check",
         "python -m flowguard model-blueprint-export",
@@ -39,8 +45,8 @@ def test_blueprint_document_names_exactly_the_four_current_cli_entries():
 
     for command in commands:
         assert text.count(command) == 1
-    assert "--require-reconstruction" in text
-    assert text.count("--inventory implementation-inventory.json") == 3
+    assert "--require-reconstruction" not in text
+    assert text.count("--inventory implementation-inventory.json") == 4
     assert "--output exported-blueprint" in text
 
 
@@ -48,16 +54,20 @@ def test_readme_links_the_blueprint_in_both_language_sections():
     text = README.read_text(encoding="utf-8")
 
     assert text.count("docs/implementation_blueprint.md") >= 4
-    assert "Static `complete` and reconstruction `not_run` remain separate" in text
-    assert "静态\n`complete` 和重建 `not_run` 永远分开" in text
+    assert "parent/child output-to-input relations" in text
+    assert "test design stays" in text
+    assert "测试设计是否齐全" in text
 
 
-def test_patch_release_notes_include_blueprint_without_claiming_automatic_rebuild():
+def test_patch_release_notes_include_blueprint_depth_and_exact_bindings():
     text = CHANGELOG.read_text(encoding="utf-8")
-    release = text.split("## v0.68.5 - 2026-08-02", 1)[1].split("## v0.68.4", 1)[0]
+    release = text.split("## v0.68.6 - 2026-08-03", 1)[1].split("## v0.68.5", 1)[0]
+    release_text = " ".join(release.split())
 
-    assert "independent implementation and reconstruction-resource inventory" in release
-    assert "Static completion" in release
-    assert "affected-only" in release
-    assert "no blueprint command launches reconstruction automatically" in release
-    assert "current equivalence evidence" in release
+    assert "provider-neutral target-system blueprint" in release_text
+    assert "independently re-audited project-test inventory" in release_text
+    assert "static blueprint completion" in release_text
+    assert "affected-only" in release_text
+    assert "exact parent/child interface" in release_text
+    assert "real ModelTestAlignmentReport" in release_text
+    assert "behavior-preserving architecture contraction" in release_text

@@ -209,3 +209,49 @@ boundary, source model, observable contract, compatibility-surface
 classification, reduction candidates, proof status, target structure, and
 required next route. The diagram explains the review and does not replace
 tests, conformance replay, LegacyPathDisposition, or StructureMesh evidence.
+
+## Blueprint Layer Boundary
+
+Architecture Reduction consumes exact-current `inventory`, `traceability`,
+`independent_semantics`, and affected `model_code_test` evidence when judging a
+candidate. It owns only the observable-contract equivalence and target-action
+decision for that candidate. It does not upgrade consumed layers or qualify
+`resource_oracle` or `static_blueprint`.
+
+Ordinary cleanup remains affected-only. A whole-target reduction inventory
+requires an explicit blueprint self-audit or named release-cleanup obligation;
+even then, this review authorizes no deletion or refactor. Uncertain
+equivalence, missing candidate coverage, or missing/duplicate/ambiguous native
+ownership stays unresolved or blocked with no fallback.
+
+Return any supplied canonical `deepest_proven_layer` unchanged plus the first
+unresolved owner/equivalence/evidence gap. Keep user choice, maturation, and
+implementation admission independent.
+
+For FlowGuard self-cleanup, bind the review to the exact current self-blueprint
+fingerprint and independently derive a complete denominator covering oversized
+modules, repeated shapes, command routes, branches, adapters, wrappers/facades,
+helpers, and repeated validation paths. Every row receives `retain`, `contract`,
+or `unresolved`; absent proof defaults to `unresolved` plus `risky_keep`. These
+signals justify the next
+StructureMesh and Model-Test Alignment proof, not removal. Only current
+observable equivalence or facade-delegation proof can produce a ready
+contraction candidate; zero ready candidates is a valid clean audit result.
+
+For a composed self-maintenance or release-cleanup pass, build the exact
+self-blueprint once and pass that in-memory bundle to the reduction reviewer.
+Build one deterministic reverse call-alias index over the governed surfaces;
+do not rescan the complete surface inventory for every candidate member. The
+reduction result must bind the consumed blueprint, implementation inventory,
+and behavior-report fingerprints. Do not persist or silently reuse a stale
+blueprint cache, and do not split the composed pass into duplicate validation
+owners that rebuild the same authority.
+When compact output is requested, project its bounded fields directly from the
+in-memory reviews. Do not expand the complete blueprint or reduction payload
+only to discard it before emission.
+Reuse the exact canonical fingerprint already computed by immutable large
+behavior evidence; do not rebuild the complete evidence payload for every
+downstream review.
+For large normalized payloads, stream the exact canonical representation into
+the digest and byte counter. Release the logical payload before constructing
+the physical projection; several complete serialized copies must never coexist.

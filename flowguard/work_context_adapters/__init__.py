@@ -6,7 +6,14 @@ from ..work_context import (
     register_work_context_adapter,
     registered_work_context_adapter_ids,
 )
-from .declared_files import DeclaredFilesWorkContextAdapter
+from .declared_files import (
+    DECLARED_FILE_SOURCE_PROFILES,
+    DECLARED_PROFILE_CHANGELOG,
+    DECLARED_PROFILE_OPENSPARK,
+    DECLARED_PROFILE_SPARK,
+    DeclaredFilesWorkContextAdapter,
+    declared_files_source_profile,
+)
 from .openspec import OpenSpecWorkContextAdapter
 
 
@@ -25,6 +32,11 @@ def register_builtin_work_context_adapters() -> None:
 
 __all__ = [
     "DeclaredFilesWorkContextAdapter",
+    "DECLARED_FILE_SOURCE_PROFILES",
+    "DECLARED_PROFILE_CHANGELOG",
+    "DECLARED_PROFILE_OPENSPARK",
+    "DECLARED_PROFILE_SPARK",
     "OpenSpecWorkContextAdapter",
     "register_builtin_work_context_adapters",
+    "declared_files_source_profile",
 ]

@@ -15,6 +15,7 @@ from .evidence_receipts import (
     EvidenceReceipt,
     ReceiptVerificationContext,
     ReceiptVerificationResult,
+    fingerprint_value,
     verify_evidence_receipt,
     verified_receipt_binding_gap_codes,
 )
@@ -1502,6 +1503,17 @@ class ModelTestAlignmentReport:
 
     def blocker_count(self) -> int:
         return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    @property
+    def fingerprint(self) -> str:
+        """Return the report's own stable identity.
+
+        A binding-report fingerprint is not interchangeable with an alignment
+        report fingerprint: the latter also commits to the obligation/code/test
+        rows, their execution state, and every visible gap.
+        """
+
+        return fingerprint_value(self.to_dict())
 
     def format_text(self, max_findings: int = 10, max_binding_rows: int = 10) -> str:
         lines = [
@@ -4484,7 +4496,7 @@ def _implementation_blueprint_findings(
         findings.append(
             ModelTestAlignmentFinding(
                 "implementation_oracles_missing",
-                "blueprint bindings do not identify reconstruction or behavior oracles",
+                "blueprint bindings do not identify behavior or validation oracles",
             )
         )
     return findings

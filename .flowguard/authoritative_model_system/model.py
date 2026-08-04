@@ -72,6 +72,13 @@ class AuthorityCase:
     semantic_model_relations_complete: bool = True
     semantic_derivation_fingerprint_present: bool = True
     semantic_completion_evidence_terminal_verified: bool = True
+    target_provider_registry_exact_current: bool = True
+    target_snapshot_exact_current: bool = True
+    broad_blueprint_claim_consumes_provider_lineage: bool = True
+    intent_inventory_exact_current: bool = True
+    intent_present_or_evidence_bound_no_intent: bool = True
+    accepted_intent_effects_resolved: bool = True
+    intent_conflicts_block_activation: bool = True
 
 
 @dataclass(frozen=True)
@@ -120,6 +127,13 @@ class AuthorityState:
     semantic_model_relations_complete: bool = False
     semantic_derivation_fingerprint_present: bool = False
     semantic_completion_evidence_terminal_verified: bool = False
+    target_provider_registry_exact_current: bool = False
+    target_snapshot_exact_current: bool = False
+    broad_blueprint_claim_consumes_provider_lineage: bool = False
+    intent_inventory_exact_current: bool = False
+    intent_present_or_evidence_bound_no_intent: bool = False
+    accepted_intent_effects_resolved: bool = False
+    intent_conflicts_block_activation: bool = False
 
 
 class EvaluateAuthorityRevision:
@@ -297,7 +311,7 @@ def activation_is_compare_and_swap_pointer_last(
     if not state.lock_held_live_candidate_exact:
         return _fail(
             "activation_is_compare_and_swap_pointer_last",
-            "lock-held live reconstruction differs from the accepted candidate",
+            "lock-held live candidate materialization differs from the accepted candidate",
         )
     if not state.final_live_resample_exact:
         return _fail(
@@ -442,6 +456,49 @@ def whole_system_understanding_is_semantic_and_current(
             "whole_system_understanding_is_semantic_and_current",
             "a candidate or unverified artifact was treated as whole-system completion evidence",
         )
+    if not state.target_provider_registry_exact_current:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "target-system provider identities and capabilities are not frozen in one current registry",
+        )
+    if not state.target_snapshot_exact_current:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "target-system descriptor and provider results do not match one current snapshot",
+        )
+    if not state.broad_blueprint_claim_consumes_provider_lineage:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "a broad static-blueprint claim omits its provider registry or snapshot lineage",
+        )
+    return _pass()
+
+
+def revision_intent_lineage_is_exact_and_resolved(
+    state: AuthorityState, _trace: object
+) -> InvariantResult:
+    if not state.case_name:
+        return _pass()
+    if not state.intent_inventory_exact_current:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "revision lineage omits or accepts stale declared intent contributions",
+        )
+    if not state.intent_present_or_evidence_bound_no_intent:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "an empty revision intent inventory passed without an evidence-bound no-intent rationale",
+        )
+    if not state.accepted_intent_effects_resolved:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "an accepted intent contribution has no changed model identity or explicit gap disposition",
+        )
+    if not state.intent_conflicts_block_activation:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "conflicting accepted intent contributions do not block activation",
+        )
     return _pass()
 
 
@@ -540,6 +597,11 @@ INVARIANTS = (
         whole_system_understanding_is_semantic_and_current,
     ),
     Invariant(
+        "revision_intent_lineage_is_exact_and_resolved",
+        "Revision lineage consumes one exact intent inventory and blocks unresolved or conflicting accepted effects.",
+        revision_intent_lineage_is_exact_and_resolved,
+    ),
+    Invariant(
         "rollback_restores_reality_before_authority",
         "Operational rollback restores or compensates reality and revalidates it before moving authority.",
         rollback_restores_reality_before_authority,
@@ -601,6 +663,54 @@ SCENARIOS = (
         _expect_violation(
             "lanes_and_head_are_unambiguous",
             "mutable current label is rejected",
+        ),
+    ),
+    _scenario(
+        "stale_intent_inventory_blocks_revision",
+        "A revision cannot activate from an incomplete or stale intent-contribution inventory.",
+        AuthorityCase(
+            "stale_intent_inventory",
+            intent_inventory_exact_current=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "stale intent inventory is rejected",
+        ),
+    ),
+    _scenario(
+        "empty_intent_inventory_cannot_pass_by_vacuity",
+        "A non-trivial revision needs admitted intent or an evidence-bound no-intent rationale.",
+        AuthorityCase(
+            "empty_intent_inventory_without_rationale",
+            intent_present_or_evidence_bound_no_intent=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "vacuous empty intent acceptance is rejected",
+        ),
+    ),
+    _scenario(
+        "accepted_intent_requires_model_effect_or_gap",
+        "Every accepted contribution must map to changed models or an explicit gap disposition.",
+        AuthorityCase(
+            "accepted_intent_unresolved",
+            accepted_intent_effects_resolved=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "unresolved accepted intent is rejected",
+        ),
+    ),
+    _scenario(
+        "conflicting_accepted_intent_blocks_activation",
+        "Conflicting accepted contributions cannot activate together.",
+        AuthorityCase(
+            "intent_conflict_ignored",
+            intent_conflicts_block_activation=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "ignored intent conflict is rejected",
         ),
     ),
     _scenario(
@@ -893,6 +1003,42 @@ SCENARIOS = (
         _expect_violation(
             "whole_system_understanding_is_semantic_and_current",
             "unverified semantic completion artifact is rejected",
+        ),
+    ),
+    _scenario(
+        "unfrozen_provider_registry_cannot_support_broad_blueprint",
+        "A broad target blueprint requires one exact current provider denominator.",
+        AuthorityCase(
+            "unfrozen_provider_registry",
+            target_provider_registry_exact_current=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "unfrozen provider registry is rejected",
+        ),
+    ),
+    _scenario(
+        "stale_target_snapshot_cannot_support_broad_blueprint",
+        "Target descriptor and provider results must share one current revision-bound snapshot.",
+        AuthorityCase(
+            "stale_target_snapshot",
+            target_snapshot_exact_current=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "stale target-system snapshot is rejected",
+        ),
+    ),
+    _scenario(
+        "provider_lineage_cannot_be_omitted_from_broad_blueprint",
+        "A broad static claim consumes its exact provider registry and snapshot lineage.",
+        AuthorityCase(
+            "provider_lineage_omitted",
+            broad_blueprint_claim_consumes_provider_lineage=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "provider-lineage-free broad claim is rejected",
         ),
     ),
     _scenario(

@@ -16,7 +16,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.68.5` | `1.0` | Python standard library only | MIT |
+| `v0.68.6` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -52,16 +52,28 @@ publishes receipts, changes model authority, or writes files.
 
 The whole-system semantic mesh is the compact map of FlowGuard's existing
 model-system authority, not a second “DNA package.” It supports bounded
-task-understanding claims by loading only affected owners and evidence. It does
-not by itself prove clean-room reconstruction or claims outside the declared
-model-system boundary. See
+task-understanding claims by loading only affected owners and evidence, and its
+claim remains inside the declared model-system boundary. See
 [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md).
 
-For an explicit whole-software claim, the implementation blueprint starts from
-an independently discovered implementation and resource inventory, then checks
-model-to-code and code-to-model bindings plus semantic specifications and
-oracles. Static `complete` and reconstruction `not_run` remain separate; the
-three CLI entries never rebuild software automatically, and ordinary work stays
+For an explicit whole-target claim, the provider-neutral blueprint composes
+exact observation and authority providers for software, workflows, services,
+agents, pipelines, or mixed systems. A programming language is a provider
+detail, never the core admission gate. For software, it starts from an
+independently discovered implementation and resource inventory, then checks
+model-to-code and code-to-model bindings, independently sourced semantics,
+an embedded test inventory rechecked against current test source,
+exact behavior blocks, concrete or symbolic-contract cases, exact checker
+designs, admitted intent, parent/child output-to-input relations, and owned
+resources. Every admitted resource keeps its exact owner,
+artifact fingerprint, purpose, lifecycle role, and source-independent
+semantics instead of being flattened into a weaker checklist row. Each
+behavior block has one primary owner and ten
+explicit dimensions: input, state, output, effect, error, decision, order,
+retry, timeout, and completion. It reports every gap, the deepest proven layer,
+and the first incomplete layer instead of letting AI award itself one opaque
+green status. Placeholder cases cannot make the graph green; test design stays
+separate from current execution evidence; and ordinary work stays
 affected-only. See
 [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md).
 
@@ -223,7 +235,8 @@ owner and `path_sensitive=true` rows go to Primary Path Authority.
 
 External requirements, plans, designs, tasks, and status enter through
 provider-neutral read-only `WorkContext` adapters. OpenSpec, Spec Kit,
-Superpowers, custom skills, declared files, or no provider at all are supported
+Superpowers, Spark/OpenSpark, changelog/history, custom skills, declared files,
+or no provider at all are supported
 as peers. Their native identity and content fingerprints are preserved, but
 their commands, sessions, receipts, validation status, and lifecycle never
 become FlowGuard execution or test authority.
@@ -498,7 +511,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.68.5 is source-only: the immutable Git tag is the release
+FlowGuard v0.68.6 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -520,7 +533,7 @@ Release asset.
 | [`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md) | task-derived understanding depth, receipts, and implementation admission |
 | [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md) | complete 64-model semantic self-map and claim boundary |
 | [`docs/understanding_plumbing_reduction.md`](./docs/understanding_plumbing_reduction.md) | behavior-preserving contraction and field/surface dispositions |
-| [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md) | independent implementation inventory, bidirectional bindings, static qualification, optional reconstruction evidence, and affected-only projection |
+| [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md) | independent inventory, bidirectional bindings, exact model/code/test/topology qualification, and affected-only projection |
 | [`docs/api_surface.md`](./docs/api_surface.md) | public Python API overview |
 | [`docs/invariant_examples.md`](./docs/invariant_examples.md) | examples of useful invariants |
 | [`docs/development_process_flow.md`](./docs/development_process_flow.md) | staged development, validation freshness, archive, publish, and release gates |
@@ -583,14 +596,18 @@ FlowGuard 不调用 LLM API，不是 prompt trick，也不是普通测试的替�
 
 FlowGuard 的整套语义网格就是现有模型权威的紧凑地图，不再额外包装一套
 “DNA Package”。它会按具体任务只加载受影响的负责人和证据，因此轻量任务
-仍然可以轻量走；但这张地图本身不等于已经证明可以在干净环境里从零重建
-软件，也不能支持超出当前模型边界的更大承诺。详见
+仍然可以轻量走；同时，任何理解声明都不能超出当前模型和证据边界。详见
 [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md)。
 
-当任务明确要求整套软件蓝图时，FlowGuard 会先独立盘点实际实现和重建资源，
-再检查模型到代码、代码到模型的双向绑定，以及语义说明和 oracle。静态
-`complete` 和重建 `not_run` 永远分开；三个 CLI 都不会自动重建软件，普通
-任务仍然只处理受影响范围。详见
+当任务明确要求整套目标系统蓝图时，FlowGuard 会用同一套核心组合精确的观察
+提供者和权威提供者；目标可以是软件、工作流程、服务、Agent、数据管线或混合
+系统，编程语言只是某个提供者的细节，不是 FlowGuard 的总入口限制。对于软件，
+它会先独立盘点实际实现和所需资源，再检查模型到代码、代码到模型的双向绑定、每个行为块的输入、状态、输出、
+副作用、错误、判断、顺序、重试、超时和完成条件，以及精确测试、意图来源、
+语义说明和 oracle。每项资源都会保留负责人、产物指纹、用途、生命周期角色
+和不依赖源码的语义，不会被压扁成另一份更弱的清单。占位案例不能把蓝图判绿；
+测试设计是否齐全与本轮实际执行证据是否通过会分开；父子模型还必须说明子模型
+的哪个输出接入父模型的哪个输入。普通任务仍然只处理受影响范围。详见
 [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md)。
 
 ## 为什么需要它
@@ -854,7 +871,7 @@ python -m flowguard model-revision-rollback --root . --contract <rollback.json> 
 开发流程；没有另造第二套产品流程，也没有把任何规格工具塞进 FlowGuard。
 
 外部需求、方案、设计、任务和状态统一通过只读 `WorkContext` 进入。OpenSpec、
-Spec Kit、Superpowers、自定义技能、显式文件，或者完全不使用外部规格工具，
+Spec Kit、Superpowers、Spark/OpenSpark、changelog/history、自定义技能、显式文件，或者完全不使用外部规格工具，
 都是平级选择。FlowGuard 会保留来源工具、原生负责人、文件身份和内容指纹，
 但不会代替它们写文件、执行命令、建 session/cache/receipt，也不会把它们的
 完成状态当成 FlowGuard 测试证据。
@@ -989,7 +1006,7 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.68.5 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.68.6 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 ## Guard Family 关系
@@ -1010,7 +1027,7 @@ FlowGuard v0.68.5 只发布源码：不可变 Git tag 是唯一发布权威，re
 | [`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md) | 任务推导的理解深度、正式收据和代码准入 |
 | [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md) | 64 个现有模型的完整语义自地图和声明边界 |
 | [`docs/understanding_plumbing_reduction.md`](./docs/understanding_plumbing_reduction.md) | 保持行为不变的结构收缩与字段/入口处置 |
-| [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md) | 独立实现清单、双向绑定、静态资格、可选重建证据和受影响范围投影 |
+| [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md) | 独立实现清单、双向绑定、模型/代码/测试/父子接口静态资格和受影响范围投影 |
 | [`docs/api_surface.md`](./docs/api_surface.md) | 公开 Python API 概览 |
 | [`docs/invariant_examples.md`](./docs/invariant_examples.md) | 常用 invariant 示例 |
 | [`docs/development_process_flow.md`](./docs/development_process_flow.md) | staged development、validation freshness、archive、publish 和 release gate |

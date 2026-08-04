@@ -34,9 +34,10 @@ Accept a named current model; derive owners and boundaries; block omissions/dupl
 - Do not invent modules before responsibilities. Every write needs one owner; public facades and validation boundaries stay explicit; oversized leaves split or remain scoped.
 - A diagram or nonempty map is not readiness. Omitted elements, missing reverse obligations, fingerprint drift, or scope beyond admission block blueprint use. This route neither scans source nor proves static closure.
 - Route ArchitectureReduction only for a concrete evidence-backed contraction candidate. Any model/maturation/admission identity drift makes this recommendation stale.
+- Blueprint traceability targets, depth/first gap, explicit whole scope, affected-only default, no owner fallback, and separate decision axes follow the protocol.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, ownership map, and code structure diagram; edges mean owns, calls, adapts, exposes, or validates. Blueprint output adds the model fingerprint, exact mapped/unresolved ids, and reverse obligations.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, ownership map, and code structure diagram; edges mean owns, calls, adapts, exposes, or validates. Blueprint output adds depth/first gap, fingerprint, unresolved ids, and reverse obligations.
 
 
 <!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

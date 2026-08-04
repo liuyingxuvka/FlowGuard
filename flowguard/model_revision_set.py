@@ -37,9 +37,16 @@ from .model_authority import (
     _text,
     canonical_fingerprint,
 )
+from .model_intent import (
+    ModelIntentContribution,
+    ModelIntentDisposition,
+    ModelIntentReview,
+    model_intent_inventory_fingerprint,
+    review_model_intent_inventory,
+)
 
 MODEL_REVISION_EVIDENCE_CURRENT_SCHEMA = "flowguard.model_revision_evidence.v2"
-MODEL_REVISION_SET_CURRENT_SCHEMA = "flowguard.model_revision_set.v2"
+MODEL_REVISION_SET_CURRENT_SCHEMA = "flowguard.model_revision_set.v4"
 MODEL_ROLLBACK_CONTRACT_CURRENT_SCHEMA = "flowguard.model_rollback_contract.v2"
 MODEL_ROLLBACK_RECEIPT_CURRENT_SCHEMA = "flowguard.model_rollback_receipt.v2"
 REVISION_REMOVAL_DISPOSITION_SCHEMA = (
@@ -1016,6 +1023,14 @@ class ModelRevisionSet:
     required_evidence_refs: tuple[RevisionEvidenceRef, ...] = ()
     completed_evidence_refs: tuple[RevisionEvidenceRef, ...] = ()
     prediction_replay_refs: tuple[PredictionReplayRef, ...] = ()
+    intent_contributions: tuple[ModelIntentContribution, ...] = ()
+    intent_dispositions: tuple[ModelIntentDisposition, ...] = ()
+    intent_contribution_inventory_fingerprint: str = ""
+    intent_conflict_ids: tuple[str, ...] = ()
+    intent_unresolved_ids: tuple[str, ...] = ()
+    no_declared_intent_rationale_id: str = ""
+    no_declared_intent_evidence_fingerprints: tuple[tuple[str, str], ...] = ()
+    no_declared_intent_rationale: str = ""
     implementation_bundle_fingerprint: str = ""
     rollback_contract_fingerprint: str = ""
     originating_revision_set_fingerprint: str = ""
@@ -1234,6 +1249,137 @@ class ModelRevisionSet:
                 "prediction replay is not bound to a candidate member"
             )
         object.__setattr__(self, "prediction_replay_refs", replay_refs)
+        intent_contributions = tuple(
+            sorted(
+                self.intent_contributions,
+                key=lambda item: item.contribution_id,
+            )
+        )
+        intent_dispositions = tuple(
+            sorted(
+                self.intent_dispositions,
+                key=lambda item: item.contribution_id,
+            )
+        )
+        if any(
+            not isinstance(item, ModelIntentContribution)
+            for item in intent_contributions
+        ) or any(
+            not isinstance(item, ModelIntentDisposition)
+            for item in intent_dispositions
+        ):
+            raise ModelAuthorityError(
+                "revision intent inventory requires typed current records"
+            )
+        object.__setattr__(
+            self,
+            "intent_contributions",
+            intent_contributions,
+        )
+        object.__setattr__(
+            self,
+            "intent_dispositions",
+            intent_dispositions,
+        )
+        intent_review = review_model_intent_inventory(
+            intent_contributions,
+            intent_dispositions,
+            changed_model_ids=self._changed_model_identity_ids(),
+            changed_gap_ids=self.changed_gap_ids,
+            enforce_changed_targets=True,
+        )
+        expected_intent_fingerprint = model_intent_inventory_fingerprint(
+            intent_contributions,
+            intent_dispositions,
+        )
+        if self.intent_contribution_inventory_fingerprint:
+            supplied_intent_fingerprint = _sha(
+                self.intent_contribution_inventory_fingerprint,
+                "intent_contribution_inventory_fingerprint",
+            )
+            if supplied_intent_fingerprint != expected_intent_fingerprint:
+                raise ModelAuthorityError(
+                    "stale intent contribution inventory fingerprint"
+                )
+        object.__setattr__(
+            self,
+            "intent_contribution_inventory_fingerprint",
+            expected_intent_fingerprint,
+        )
+        supplied_conflict_ids = _ids(
+            self.intent_conflict_ids,
+            "intent_conflict_id",
+        )
+        if supplied_conflict_ids and supplied_conflict_ids != intent_review.conflict_ids:
+            raise ModelAuthorityError("stale revision intent conflict ids")
+        supplied_unresolved_ids = _ids(
+            self.intent_unresolved_ids,
+            "intent_unresolved_id",
+        )
+        if (
+            supplied_unresolved_ids
+            and supplied_unresolved_ids != intent_review.unresolved_ids
+        ):
+            raise ModelAuthorityError("stale revision intent unresolved ids")
+        object.__setattr__(
+            self,
+            "intent_conflict_ids",
+            intent_review.conflict_ids,
+        )
+        object.__setattr__(
+            self,
+            "intent_unresolved_ids",
+            intent_review.unresolved_ids,
+        )
+        no_intent_id = str(self.no_declared_intent_rationale_id or "").strip()
+        no_intent_rationale = str(self.no_declared_intent_rationale or "").strip()
+        no_intent_evidence: list[tuple[str, str]] = []
+        seen_no_intent_roles: set[str] = set()
+        for role, fingerprint in self.no_declared_intent_evidence_fingerprints:
+            normalized_role = _id(role, "no_declared_intent_evidence_role")
+            if normalized_role in seen_no_intent_roles:
+                raise ModelAuthorityError(
+                    "no-declared-intent evidence roles must be unique"
+                )
+            seen_no_intent_roles.add(normalized_role)
+            no_intent_evidence.append(
+                (
+                    normalized_role,
+                    _sha(
+                        fingerprint,
+                        "no_declared_intent_evidence_fingerprint",
+                    ),
+                )
+            )
+        no_intent_evidence.sort()
+        supplied_no_intent = bool(
+            no_intent_id or no_intent_rationale or no_intent_evidence
+        )
+        if supplied_no_intent and not (
+            no_intent_id and no_intent_rationale and no_intent_evidence
+        ):
+            raise ModelAuthorityError(
+                "no-declared-intent rationale requires identity, evidence, and rationale"
+            )
+        if intent_contributions and supplied_no_intent:
+            raise ModelAuthorityError(
+                "intent contributions and no-declared-intent rationale are exclusive"
+            )
+        object.__setattr__(
+            self,
+            "no_declared_intent_rationale_id",
+            no_intent_id,
+        )
+        object.__setattr__(
+            self,
+            "no_declared_intent_evidence_fingerprints",
+            tuple(no_intent_evidence),
+        )
+        object.__setattr__(
+            self,
+            "no_declared_intent_rationale",
+            no_intent_rationale,
+        )
         for name in (
             "implementation_bundle_fingerprint",
             "rollback_contract_fingerprint",
@@ -1271,6 +1417,10 @@ class ModelRevisionSet:
             raise ModelAuthorityError(
                 "accepted revision set requires exact evidence closure"
             )
+        if self.status == REVISION_ACCEPTED and not self.intent_acceptance_ready:
+            raise ModelAuthorityError(
+                "accepted revision set requires exact resolved intent closure"
+            )
         if self.status != REVISION_PROPOSED and not self.decision_reason:
             raise ModelAuthorityError(
                 "terminal revision set requires a decision reason"
@@ -1304,6 +1454,52 @@ class ModelRevisionSet:
             == self.affected_closure_ids
             and self._coverage_union(self.completed_evidence_refs)
             == self.affected_closure_ids
+        )
+
+    def _changed_model_identity_ids(self) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                {
+                    _id(item_id, "changed_model_identity_id")
+                    for item_id in (
+                        *(
+                            changed_id
+                            for member in self.members
+                            for changed_id in member.changed_element_ids
+                        ),
+                        *self.changed_root_ids,
+                        *self.changed_relation_ids,
+                        *self.changed_commitment_ids,
+                        *self.changed_field_ids,
+                        *self.changed_side_effect_ids,
+                        *self.changed_contract_ids,
+                        *self.changed_system_property_ids,
+                        *self.added_ids,
+                        *self.fingerprint_changed_ids,
+                    )
+                }
+            )
+        )
+
+    @property
+    def intent_review(self) -> ModelIntentReview:
+        return review_model_intent_inventory(
+            self.intent_contributions,
+            self.intent_dispositions,
+            changed_model_ids=self._changed_model_identity_ids(),
+            changed_gap_ids=self.changed_gap_ids,
+            enforce_changed_targets=True,
+        )
+
+    @property
+    def intent_acceptance_ready(self) -> bool:
+        no_intent_complete = bool(
+            self.no_declared_intent_rationale_id
+            and self.no_declared_intent_evidence_fingerprints
+            and self.no_declared_intent_rationale
+        )
+        return self.intent_review.acceptance_ready and bool(
+            self.intent_contributions or no_intent_complete
         )
 
     @property
@@ -1367,6 +1563,25 @@ class ModelRevisionSet:
             "prediction_replay_refs": [
                 item.to_dict() for item in self.prediction_replay_refs
             ],
+            "intent_contributions": [
+                item.to_dict() for item in self.intent_contributions
+            ],
+            "intent_dispositions": [
+                item.to_dict() for item in self.intent_dispositions
+            ],
+            "intent_contribution_inventory_fingerprint": (
+                self.intent_contribution_inventory_fingerprint
+            ),
+            "intent_conflict_ids": list(self.intent_conflict_ids),
+            "intent_unresolved_ids": list(self.intent_unresolved_ids),
+            "no_declared_intent_rationale_id": (
+                self.no_declared_intent_rationale_id
+            ),
+            "no_declared_intent_evidence_fingerprints": [
+                {"role": role, "fingerprint": fingerprint}
+                for role, fingerprint in self.no_declared_intent_evidence_fingerprints
+            ],
+            "no_declared_intent_rationale": self.no_declared_intent_rationale,
             "implementation_bundle_fingerprint": (
                 self.implementation_bundle_fingerprint
             ),
@@ -1387,6 +1602,7 @@ class ModelRevisionSet:
         return {
             **self.identity_payload(),
             "evidence_complete": self.evidence_complete,
+            "intent_acceptance_ready": self.intent_acceptance_ready,
             "fingerprint": self.fingerprint,
         }
 
@@ -1399,6 +1615,10 @@ class ModelRevisionSet:
         if self.status != REVISION_PROPOSED:
             raise ModelAuthorityError(
                 "only a proposed revision set can be accepted"
+            )
+        if not self.intent_acceptance_ready:
+            raise ModelAuthorityError(
+                "revision intent conflicts or unresolved effects block acceptance"
             )
         completed = tuple(
             sorted(
@@ -1486,6 +1706,14 @@ class ModelRevisionSet:
                 "required_evidence_refs",
                 "completed_evidence_refs",
                 "prediction_replay_refs",
+                "intent_contributions",
+                "intent_dispositions",
+                "intent_contribution_inventory_fingerprint",
+                "intent_conflict_ids",
+                "intent_unresolved_ids",
+                "no_declared_intent_rationale_id",
+                "no_declared_intent_evidence_fingerprints",
+                "no_declared_intent_rationale",
                 "implementation_bundle_fingerprint",
                 "rollback_contract_fingerprint",
                 "originating_revision_set_fingerprint",
@@ -1493,6 +1721,7 @@ class ModelRevisionSet:
                 "status",
                 "decision_reason",
                 "evidence_complete",
+                "intent_acceptance_ready",
                 "fingerprint",
             ),
         )
@@ -1626,6 +1855,52 @@ class ModelRevisionSet:
                     "prediction_replay_refs",
                 )
             ),
+            intent_contributions=tuple(
+                ModelIntentContribution.from_dict(item)
+                for item in _array(
+                    data["intent_contributions"],
+                    "intent_contributions",
+                )
+            ),
+            intent_dispositions=tuple(
+                ModelIntentDisposition.from_dict(item)
+                for item in _array(
+                    data["intent_dispositions"],
+                    "intent_dispositions",
+                )
+            ),
+            intent_contribution_inventory_fingerprint=data[
+                "intent_contribution_inventory_fingerprint"
+            ],
+            intent_conflict_ids=tuple(
+                _array(data["intent_conflict_ids"], "intent_conflict_ids")
+            ),
+            intent_unresolved_ids=tuple(
+                _array(
+                    data["intent_unresolved_ids"],
+                    "intent_unresolved_ids",
+                )
+            ),
+            no_declared_intent_rationale_id=data[
+                "no_declared_intent_rationale_id"
+            ],
+            no_declared_intent_evidence_fingerprints=tuple(
+                (
+                    _strict(
+                        item,
+                        "no_declared_intent_evidence",
+                        ("role", "fingerprint"),
+                    )["role"],
+                    item["fingerprint"],
+                )
+                for item in _array(
+                    data["no_declared_intent_evidence_fingerprints"],
+                    "no_declared_intent_evidence_fingerprints",
+                )
+            ),
+            no_declared_intent_rationale=data[
+                "no_declared_intent_rationale"
+            ],
             implementation_bundle_fingerprint=data[
                 "implementation_bundle_fingerprint"
             ],
@@ -1644,6 +1919,11 @@ class ModelRevisionSet:
         )
         if bool(data["evidence_complete"]) != result.evidence_complete:
             raise ModelAuthorityError("stale revision evidence_complete")
+        if (
+            bool(data["intent_acceptance_ready"])
+            != result.intent_acceptance_ready
+        ):
+            raise ModelAuthorityError("stale revision intent_acceptance_ready")
         if data["fingerprint"] != result.fingerprint:
             raise ModelAuthorityError("stale revision-set fingerprint")
         return result

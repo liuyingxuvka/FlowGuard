@@ -46,6 +46,9 @@ class WorkContextInput:
     validation_requested: bool = False
     authority_bridge_requested: bool = False
     behavior_source_surface_ids: tuple[str, ...] = ()
+    intent_provenance_current: bool = True
+    intent_dispositions_terminal: bool = True
+    intent_conflict: bool = False
 
 
 @dataclass(frozen=True)
@@ -59,6 +62,7 @@ class WorkContextState:
     provider_validation_count: int = 0
     authority_bridge_count: int = 0
     behavior_admitted: bool = False
+    intent_contributions_projected: bool = False
 
 
 class SelectAdapter:
@@ -147,7 +151,12 @@ class ReadArtifacts:
 class ProjectContext:
     name = "project_work_context"
     reads = ("artifacts_read",)
-    writes = ("context_projected", "behavior_admitted", "blocked")
+    writes = (
+        "context_projected",
+        "behavior_admitted",
+        "intent_contributions_projected",
+        "blocked",
+    )
     input_description = "Read-only current WorkContext"
     output_description = "Planning-context projection without native authority"
     idempotency = "idempotent"
@@ -161,6 +170,9 @@ class ProjectContext:
             or state.provider_execution_count
             or state.provider_validation_count
             or state.authority_bridge_count
+            or not input_obj.intent_provenance_current
+            or not input_obj.intent_dispositions_terminal
+            or input_obj.intent_conflict
         ):
             return (
                 FunctionResult(
@@ -176,6 +188,7 @@ class ProjectContext:
                     state,
                     context_projected=True,
                     behavior_admitted=bool(input_obj.behavior_source_surface_ids),
+                    intent_contributions_projected=True,
                 ),
                 "read_only_context_projected",
             ),
@@ -262,6 +275,7 @@ def run_model_checks() -> dict[str, object]:
         context_read.output != "context-read"
         or projected.output != "projected"
         or not projected.new_state.context_projected
+        or not projected.new_state.intent_contributions_projected
         or projected.new_state.behavior_admitted
     ):
         findings.append("current_context_not_projected")
@@ -276,6 +290,20 @@ def run_model_checks() -> dict[str, object]:
     )
     if not admitted.new_state.behavior_admitted:
         findings.append("explicit_behavior_source_not_admitted")
+
+    for name, case in {
+        "stale_intent_provenance": WorkContextInput(
+            "project", intent_provenance_current=False
+        ),
+        "unresolved_intent_disposition": WorkContextInput(
+            "project", intent_dispositions_terminal=False
+        ),
+        "conflicting_intent": WorkContextInput("project", intent_conflict=True),
+    }.items():
+        result = _run(case, context_read.new_state, 2)
+        known_bad[name] = str(result.output)
+        if result.output != "blocked":
+            findings.append(f"{name}_not_blocked")
 
     second_context = _run(
         WorkContextInput(
@@ -300,7 +328,8 @@ def run_model_checks() -> dict[str, object]:
         "claim_boundary": (
             "The model proves a provider-neutral read-only planning-context "
             "boundary. Native providers retain authoring, execution, validation, "
-            "status, completion, receipt, and archive authority."
+            "status, completion, receipt, and archive authority. Projection creates "
+            "bounded intent contributions but cannot activate model authority."
         ),
     }
 

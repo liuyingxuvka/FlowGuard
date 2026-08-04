@@ -261,3 +261,63 @@ Any portable software-blueprint projection SHALL bind the exact current observed
 #### Scenario: Observed snapshot changes after export
 - **WHEN** the observed model-system snapshot changes after a blueprint projection is produced
 - **THEN** the projection becomes stale until deterministically regenerated
+
+### Requirement: Project-neutral blueprint qualification preserves one model authority
+The authoritative model system SHALL qualify a software blueprint from one exact current `observed_implementation` snapshot plus independently identified implementation, semantic, test, resource, oracle, and intent-lineage evidence. The qualification SHALL remain a derived view and SHALL NOT create another model-system head, relabel a target as current, or let a project-specific preset own generic blueprint semantics.
+
+#### Scenario: Another Python project requests blueprint qualification
+- **WHEN** a Python project supplies a bounded project definition, a current observed model-system snapshot, and supported discovery inputs
+- **THEN** FlowGuard qualifies the project through the project-neutral blueprint path
+- **AND** no FlowGuard-repository preset or FlowGuard-specific owner is required for the generic result
+
+#### Scenario: A target contribution is present
+- **WHEN** a future-intent contribution describes a candidate behavior that is not implemented by the current observed source
+- **THEN** the contribution remains attached to a non-current candidate revision in the same logical model lineage
+- **AND** the current observed head remains unchanged
+
+#### Scenario: A project-specific preset attempts to become authority
+- **WHEN** a project preset supplies inventory or binding defaults for the generic builder
+- **THEN** the resulting blueprint continues to derive authority from the exact observed snapshot and native evidence owners
+- **AND** the preset cannot create an alternate model head or evidence owner
+
+### Requirement: Blueprint depth is licensed one independent layer at a time
+Blueprint qualification SHALL report the status of implementation inventory, traceability, independent semantics, model-code-test binding, resource/oracle closure, static blueprint closure, and empirical reconstruction separately. It SHALL expose the deepest proven layer and the exact missing, stale, or blocked owner and evidence for every higher layer.
+
+#### Scenario: Source scanning produced model and binding text
+- **WHEN** the same production-source scan supplies an implementation surface, its claimed intended semantics, and its binding description without independent semantic evidence
+- **THEN** inventory and traceability MAY pass
+- **AND** independent-semantic and deeper blueprint layers remain incomplete
+
+#### Scenario: One required evidence layer is stale
+- **WHEN** model, semantic, code, test, resource, oracle, or intent-lineage evidence does not match the current consumed identity
+- **THEN** the qualification reports the deepest lower layer that remains proven
+- **AND** it names the stale layer, owner, subject, and fingerprint rather than collapsing the result into one broad boolean
+
+#### Scenario: No discovery adapter supports a required source language
+- **WHEN** the declared software boundary contains a behavior-bearing source for which no current discovery adapter is registered
+- **THEN** static blueprint closure is blocked with the exact unsupported boundary member
+- **AND** FlowGuard does not substitute a FlowGuard-specific fallback owner
+
+### Requirement: Observed authority binds behavior-level blueprint evidence
+The sole observed model-system authority SHALL reference the exact owner-level, behavior-block, resource, intent, test-binding, and reconstruction-readiness identities used for a self-qualification claim. A later layer SHALL NOT hide an earlier incomplete or stale layer.
+
+#### Scenario: Current model snapshot points to an owner-level-only blueprint
+- **WHEN** the observed snapshot is current but its behavior-block or readiness evidence is incomplete
+- **THEN** observed model authority SHALL remain current for its declared model boundary
+- **AND** the stronger software-DNA readiness claim SHALL remain incomplete
+
+### Requirement: Observed authority binds target-system provider lineage
+The sole observed model-system authority SHALL bind the exact target-system descriptor, provider-result identities, canonical intent inventory, behavior semantics, portable bindings, resource inventory, test inventory, and blueprint-readiness identity consumed by a broad DNA claim.
+
+#### Scenario: Provider result changes after blueprint compilation
+- **WHEN** a consumed provider input or result fingerprint changes after a blueprint was compiled
+- **THEN** the affected blueprint layers and broad DNA claim SHALL become stale
+- **AND** the observed model head SHALL remain truthful for its separately declared model boundary
+
+### Requirement: Target kinds do not create alternate model heads
+Composing software, workflow, service, agent, data-pipeline, or mixed target providers SHALL remain a derived projection of the current observed and target authorities. Target kind and provider selection SHALL NOT create a second observed model-system head.
+
+#### Scenario: Workflow authority joins software observations
+- **WHEN** a mixed target combines an observed software snapshot with an independently governed workflow contract
+- **THEN** the blueprint SHALL preserve both authority identities and claim boundaries
+- **AND** neither provider SHALL silently replace the observed model-system head

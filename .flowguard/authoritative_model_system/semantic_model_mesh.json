@@ -9,12 +9,12 @@
   ],
   "declared_model_count": 65,
   "semantic_universe_fingerprint": "sha256:4d6baac9a6cc91d61ef50cd0e4e13420cbfcadacd0bd5e9abc83c40423bad2bd",
-  "semantic_disposition_fingerprint": "sha256:0eb3e2c53f6638d53645e0761a9d3615a642ff92d93c46d41e270305310ff4aa",
+  "semantic_disposition_fingerprint": "sha256:c803937307f762101642b99625cfc1aca8f0541f095f4f55ecbf7673eb820584",
   "semantic_relation_fingerprint": "sha256:a6f04653297f22913d3c772803479fce81a8bce77dd34d0a4076a1db165d897b",
   "semantic_model_status": "candidate_defined_not_verified",
   "whole_system_completion_claim": "not_licensed_until_current_terminal_evidence",
   "currentness_owner": "authoritative_model_system_revision",
-  "claim_boundary": "This artifact semantically classifies the exact 64-model derivation-base universe plus the explicitly declared implementation_blueprint candidate. It is a candidate model, not a current completion receipt. Whole-system understanding additionally requires current native semantic checks, exact full-regression evidence, verified maturation, and an accepted model revision set. It does not by itself license clean-room reconstruction or claims outside the declared model-system boundary.",
+  "claim_boundary": "This artifact semantically classifies the exact declared model universe. It is a candidate topology, not a current completion receipt. Whole-system understanding additionally requires current native semantic checks, exact validation evidence, verified maturation, and an accepted model revision set. It licenses no claims outside the declared model-system boundary.",
   "allowed_dispositions": [
     "connected",
     "intentional_leaf",
@@ -346,7 +346,7 @@
         "model:model_test_code_alignment",
         "claim:whole-flowguard-self-understanding"
       ],
-      "rationale": "Owns the independent implementation inventory, bidirectional model-code semantics, reconstruction resources, and explicit static-versus-empirical blueprint status consumed by self-understanding and release contraction review."
+      "rationale": "Owns the independent implementation inventory, bidirectional model-code semantics, resource and intent lineage, exact model-test alignment, and static blueprint status consumed by self-understanding and release contraction review."
     },
     {
       "model_id": "legacy_compatibility_cleanup",

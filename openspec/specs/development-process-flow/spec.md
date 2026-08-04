@@ -1005,3 +1005,87 @@ Before a release claims current software-blueprint closure, the process SHALL fr
 #### Scenario: Peer writes after the freeze
 - **WHEN** a peer changes a consumed artifact after the final plan is frozen
 - **THEN** affected evidence becomes stale and release publication remains blocked without rolling back the peer change
+
+### Requirement: Blueprint-guided self-maintenance has an explicit ordered lifecycle
+DevelopmentProcessFlow SHALL order blueprint-guided FlowGuard maintenance as: freeze current source and observed authority identities; qualify the project-neutral self-blueprint; audit current architecture-reduction candidates; accept only evidence-ready contractions; execute the affected model/code/test checks; synchronize package and consumer projections; freeze and execute one final full validation; then verify Git, tag, and release identities when publication is authorized.
+
+#### Scenario: Self-blueprint qualification is incomplete
+- **WHEN** the current self-blueprint has an unresolved required inventory, semantic, code, test, resource, oracle, or lineage row
+- **THEN** reduction and release remain blocked for the affected broad claim
+- **AND** ordinary unrelated affected-only work is not automatically widened
+
+#### Scenario: A reduction candidate lacks equivalence evidence
+- **WHEN** self-audit finds a duplicate-looking path but ArchitectureReduction has not proven equivalence or facade-only delegation
+- **THEN** the process records the candidate as unresolved and does not schedule deletion
+- **AND** other evidence-ready candidates MAY proceed through their own affected closures
+
+#### Scenario: Final validation passes before peer source changes
+- **WHEN** the frozen full gate passes and a peer subsequently changes a consumed source or owner artifact
+- **THEN** the affected evidence becomes stale before release
+- **AND** peer work is preserved rather than rolled back
+
+### Requirement: Blueprint layers and distribution identities have independent freshness
+DevelopmentProcessFlow SHALL track blueprint definition, implementation inventory, intent lineage, semantic evidence, model-code-test bindings, test inventory, resource/oracle closure, optional reconstruction receipt, source tree, installed package, installed skill projection, repository commit, tag, and release as distinct versioned artifacts. A passing or current identity in one domain SHALL NOT fill another domain.
+
+#### Scenario: Installed package is current but consumer skills are stale
+- **WHEN** editable package parity passes and one affected installed skill differs from its frozen source projection
+- **THEN** installation synchronization remains incomplete
+- **AND** source, Git, tag, and release status are reported separately
+
+#### Scenario: Static blueprint changes after qualification
+- **WHEN** a consumed model, semantic source, implementation surface, test node, resource, oracle, intent contribution, or project definition changes
+- **THEN** only the exact affected blueprint neighborhood and its consumers become stale
+- **AND** unrelated current evidence MAY be reused when its identity remains exact
+
+### Requirement: Reconstruction remains optional and never starts from lifecycle continuation
+Inventory, audit, qualification, ordinary regression, architecture reduction, installation, final validation, archive, and release steps SHALL leave empirical reconstruction `not_run` unless the user explicitly requests reconstruction as a separate action.
+
+#### Scenario: Release requires static blueprint evidence only
+- **WHEN** the declared release gate requires a complete static blueprint but no empirical reconstruction claim
+- **THEN** a current static qualification with reconstruction `not_run` MAY satisfy that blueprint child
+- **AND** the process does not add a reconstruction producer
+
+#### Scenario: User explicitly requests reconstruction
+- **WHEN** the user separately authorizes an empirical reconstruction exercise with an exact blueprint fingerprint and boundary
+- **THEN** DevelopmentProcessFlow records a separate owner, environment, evidence, and result lifecycle
+- **AND** the reconstruction result cannot replace static closure or ordinary validation evidence
+
+### Requirement: External interruption has an exact settlement lifecycle
+After an externally interrupted validation process tree is confirmed absent, DevelopmentProcessFlow SHALL allow an authorized exact settlement that converts only the named residual leases into immutable interrupted evidence. Partial child results SHALL remain non-reusable unless independently current under their own unchanged producer identities.
+
+#### Scenario: Ordinary residual leases remain after process termination
+- **WHEN** exact leases name a dead process and lack an internal cleanup marker because the launcher did not execute its finalizer
+- **THEN** settlement SHALL bind the exact plan, owners, process identity, zero-descendant observation, operator reason, and terminal interrupted status
+- **AND** it SHALL NOT delete unrelated leases or create passing evidence
+
+### Requirement: Parent and child current pointers have separate owners
+Child validations SHALL update only child-scoped current pointers. A parent current pointer SHALL be published only with a terminal parent result that accounts for every planned child as executed, reused, blocked, or not run.
+
+#### Scenario: One child passes before parent completion
+- **WHEN** a child result is terminal pass and the parent has unfinished children
+- **THEN** the child pointer MAY identify that child result
+- **AND** the parent pointer SHALL remain absent or explicitly interrupted
+
+### Requirement: Process freshness includes target-system provider identities
+DevelopmentProcessFlow SHALL track the target-system descriptor, every consumed provider input and result, canonical intent inventory, portable behavior bindings, formal coverage edges, coverage execution evidence, compact understanding summary, and static blueprint result as distinct freshness-sensitive artifacts.
+
+#### Scenario: Only one provider input changes
+- **WHEN** a source, workflow, trace, resource, or authority provider input changes
+- **THEN** the process SHALL stale the exact affected blueprint neighborhood and consumers
+- **AND** unrelated provider evidence MAY remain reusable when its identities still match
+
+### Requirement: Final release gate consumes static blueprint and provider freeze
+Before the unique final full release validation, the process SHALL freeze the exact target-system descriptor, provider registry and results, observed model revision set, source tree, test and resource inventories, static blueprint result, reduction review, skill projections, toolchain, and owner plan.
+
+#### Scenario: Provider registry changes after the final plan
+- **WHEN** a provider identity or capability mapping changes after the final plan is frozen
+- **THEN** the final plan and affected evidence SHALL become stale
+- **AND** publication SHALL wait for one newly frozen full gate without rolling back peer work
+
+### Requirement: Nested validation evidence paths are bounded without losing identity
+DevelopmentProcessFlow SHALL keep deeply nested internal validation work directories within the supported platform path budget. Short internal names SHALL be deterministic projections of the exact owner identity, while the immutable receipt SHALL retain the complete owner, input, run, artifact, and result identities.
+
+#### Scenario: A readable evidence root and long model id feed a shard-safety proof
+- **WHEN** the complete nested path would exceed the supported Windows path budget
+- **THEN** the proof uses a short deterministic owner hash for its internal directory
+- **AND** the terminal receipt still records the full model id and exact evidence identities

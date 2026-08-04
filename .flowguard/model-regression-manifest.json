@@ -219,6 +219,7 @@
         "flowguard/model_regressions.py",
         "flowguard/model_revision_builder.py",
         "flowguard/model_revision_set.py",
+        "flowguard/model_intent.py",
         "flowguard/model_system_inventory.py",
         "flowguard/risk_evidence_ledger.py",
         "flowguard/self_maintenance.py",
@@ -240,6 +241,7 @@
         "tests/test_model_regression_manifest.py",
         "tests/test_model_regression_orchestrator.py",
         "tests/test_model_revision_builder.py",
+        "tests/test_model_intent.py",
         "tests/test_model_system_inventory.py",
         "tests/test_risk_evidence_ledger.py",
         "tests/test_skill_docs.py",
@@ -262,7 +264,7 @@
         "reusable_model_type_id": "authoritative_model_system",
         "task_intent_id": "flowguard-regression:authoritative-model-system",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent incomplete live materialization, inventory-only or partial semantic self-modeling, empty semantic identities, unverified completion artifacts, caller-narrowed diffs or evidence, stale revision-build receipts, generation-side activation, self-reported understanding, premature maturation, target or experiment authority, and snapshot-only rollback from being accepted as current model truth.",
+        "guarded_purpose": "Prevent incomplete live materialization, inventory-only or partial semantic self-modeling, empty semantic identities, unverified completion artifacts, vacuous empty-intent acceptance, caller-narrowed diffs or evidence, stale revision-build receipts, generation-side activation, self-reported understanding, premature maturation, target or experiment authority, and snapshot-only rollback from being accepted as current model truth.",
         "protected_failure_ids": [
           "model-authority:subject-lane-confusion",
           "model-authority:partial-or-stale-activation",
@@ -280,7 +282,11 @@
           "model-authority:semantic-inventory-only",
           "model-authority:semantic-partial-slice",
           "model-authority:semantic-empty-fingerprint",
-          "model-authority:semantic-unverified-completion"
+          "model-authority:semantic-unverified-completion",
+        "model-authority:vacuous-empty-intent",
+        "model-authority:unfrozen-target-provider-registry",
+        "model-authority:stale-target-snapshot",
+        "model-authority:omitted-provider-lineage"
         ],
         "claim_boundary": "Current closure covers only the declared finite inventory, diff, affected closure, exact-current revision-build evidence, pointer-free generation, task-local maturation, live activation, and reverse rollback scenarios; it does not prove unenumerated software surfaces or production restoration without separate implementation evidence.",
         "adoption_scope": "current_candidate_only",
@@ -370,15 +376,35 @@
             "failure_id": "model-authority:semantic-unverified-completion",
             "known_bad_case_id": "native-runner:authoritative-model-system:unverified-semantic-artifact",
             "oracle_id": "native:authoritative-model-system:run-checks"
-          }
+          },
+        {
+          "failure_id": "model-authority:vacuous-empty-intent",
+          "known_bad_case_id": "native-runner:authoritative-model-system:empty-intent-inventory-without-rationale",
+          "oracle_id": "native:authoritative-model-system:run-checks"
+        },
+        {
+          "failure_id": "model-authority:unfrozen-target-provider-registry",
+          "known_bad_case_id": "native-runner:authoritative-model-system:unfrozen-provider-registry",
+          "oracle_id": "native:authoritative-model-system:run-checks"
+        },
+        {
+          "failure_id": "model-authority:stale-target-snapshot",
+          "known_bad_case_id": "native-runner:authoritative-model-system:stale-target-snapshot",
+          "oracle_id": "native:authoritative-model-system:run-checks"
+        },
+        {
+          "failure_id": "model-authority:omitted-provider-lineage",
+          "known_bad_case_id": "native-runner:authoritative-model-system:provider-lineage-omitted",
+          "oracle_id": "native:authoritative-model-system:run-checks"
+        }
         ],
         "evidence_check_ids": [
           "check:model-regression:authoritative-model-system"
         ],
-        "model_sha256": "sha256:a5bf6aa21fa3628b9edfb82e566014c427e30a9ed316ece9b6ada7e76eb02643",
-        "runner_sha256": "sha256:8314c070afd937163082fdd4e80257aa7a392ddbf5aa46c1db63e0044bf1ceb6",
-        "declaration_fingerprint": "sha256:182d734ab9731c32b10d66938de7afdea4835fc2628aa030b609b2cb9d20b0ae",
-        "closure_fingerprint": "sha256:e2090655c37163d2d2ba9df4d7bdb73ae05dc8cffbb0e9f0365cc90db614eedc"
+    "model_sha256": "sha256:6b0f49bbcaa6926d83d86b2087593660951296e12ff2f7bdd4b6d5b8623e5cf2",
+    "runner_sha256": "sha256:8314c070afd937163082fdd4e80257aa7a392ddbf5aa46c1db63e0044bf1ceb6",
+    "declaration_fingerprint": "sha256:a3b597d1ffc50187ab86308e22bf11094d91dee5dd3c0f168ad1cfb971be65da",
+    "closure_fingerprint": "sha256:f64dfec6e9d50d6118e47f243315cf250a2310e7d5bf034700eb35f74c32c23c"
       }
     },
     {
@@ -854,7 +880,20 @@
       "expected_artifacts": [],
       "input_globs": [
         ".flowguard/architecture_reduction/model.py",
-        ".flowguard/architecture_reduction/run_checks.py"
+        ".flowguard/architecture_reduction/run_checks.py",
+        ".flowguard/authoritative_model_system/software_blueprint_definition.json",
+        ".agents/skills/flowguard-architecture-reduction/references/architecture_reduction_protocol.md",
+        "flowguard/architecture_reduction.py",
+        "flowguard/__main__.py",
+        "flowguard/self_architecture_reduction.py",
+        "flowguard/self_blueprint.py",
+        "flowguard/software_blueprint_readiness.py",
+        "scripts/check_flowguard_skill_suite.py",
+        "tests/test_architecture_reduction.py",
+        "tests/test_self_architecture_reduction.py",
+        "tests/test_full_validation_composition.py",
+        "docs/implementation_blueprint.md",
+        "docs/github_release_checklist.md"
       ],
       "model_id": "architecture_reduction",
       "model_path": ".flowguard/architecture_reduction/model.py",
@@ -872,11 +911,16 @@
         "reusable_model_type_id": "architecture_reduction",
         "task_intent_id": "flowguard-regression:architecture_reduction",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent the architecture reduction model from accepting an invalid, bypassed, stale, or incomplete architecture reduction outcome as current FlowGuard evidence.",
+        "guarded_purpose": "Prevent architecture reduction from accepting an invalid, bypassed, stale, incomplete, quadratic caller-scan, duplicate self-blueprint, compact full-payload amplification, repeated large-report fingerprint, or materialized large-payload fingerprint path as current FlowGuard evidence.",
         "protected_failure_ids": [
-          "architecture_reduction:invalid-or-incomplete-outcome"
+          "architecture_reduction:invalid-or-incomplete-outcome",
+          "architecture_reduction:repeated-caller-scan",
+          "architecture_reduction:duplicate-self-blueprint-build",
+          "architecture_reduction:compact-full-expansion",
+          "architecture_reduction:repeated-large-report-fingerprint",
+          "architecture_reduction:materialized-large-payload-fingerprint"
         ],
-        "claim_boundary": "Current closure proves only that the checked-in architecture_reduction candidate and its native runner reject the declared failure; it does not prove other tasks, other instances, production truth, or historical declaration order.",
+        "claim_boundary": "Current closure covers the declared architecture-reduction governance scenarios plus single-pass caller indexing, composed self-blueprint reuse, direct compact projection, one-time immutable large-evidence fingerprinting, and streamed canonical payload hashing; it does not prove unenumerated targets, production equivalence, or apply any contraction.",
         "adoption_scope": "current_candidate_only",
         "known_good_case_id": "native-runner:architecture_reduction:declared-positive-suite",
         "failure_bindings": [
@@ -884,15 +928,40 @@
             "failure_id": "architecture_reduction:invalid-or-incomplete-outcome",
             "known_bad_case_id": "native-runner:architecture_reduction:declared-negative-suite",
             "oracle_id": "native:architecture_reduction:run-checks"
+          },
+          {
+            "failure_id": "architecture_reduction:repeated-caller-scan",
+            "known_bad_case_id": "native-runner:architecture_reduction:repeated-caller-scan",
+            "oracle_id": "native:architecture_reduction:run-checks"
+          },
+          {
+            "failure_id": "architecture_reduction:duplicate-self-blueprint-build",
+            "known_bad_case_id": "native-runner:architecture_reduction:duplicate-self-blueprint-build",
+            "oracle_id": "native:architecture_reduction:run-checks"
+          },
+          {
+            "failure_id": "architecture_reduction:compact-full-expansion",
+            "known_bad_case_id": "native-runner:architecture_reduction:compact-full-expansion",
+            "oracle_id": "native:architecture_reduction:run-checks"
+          },
+          {
+            "failure_id": "architecture_reduction:repeated-large-report-fingerprint",
+            "known_bad_case_id": "native-runner:architecture_reduction:repeated-large-report-fingerprint",
+            "oracle_id": "native:architecture_reduction:run-checks"
+          },
+          {
+            "failure_id": "architecture_reduction:materialized-large-payload-fingerprint",
+            "known_bad_case_id": "native-runner:architecture_reduction:materialized-large-payload-fingerprint",
+            "oracle_id": "native:architecture_reduction:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:architecture_reduction"
         ],
-        "model_sha256": "sha256:816e0786a8709ac0641c0a7bc0ac1bc9c08458c9b551702ae377877928ff0099",
+        "model_sha256": "sha256:1d71139d93058d8ec9f20dd023c8f6a7ce74aab59ec7ec521be304fe3f003d12",
         "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
-        "declaration_fingerprint": "sha256:95632d5126d398955b32a368114d8f3cf2a7e67c700fb0f88a6b542af29fc146",
-        "closure_fingerprint": "sha256:3a8868dbf4334ee530e2be8680df23ed5ad8dd2d4c5a8f44aea1173ddcba3a66"
+        "declaration_fingerprint": "sha256:babee6c63ac7c8d2460c0f203787e791cc7bbf8229cbddacb2891ea75c3d4a61",
+        "closure_fingerprint": "sha256:df14e5e71172392ad77cd0c3388bac6680d00f9adef76096b0e1fc7fb7dcef1e"
       }
     },
     {
@@ -1677,7 +1746,13 @@
         "flowguard/implementation_inventory.py",
         "flowguard/implementation_inventory_python.py",
         "flowguard/implementation_blueprint.py",
+        "flowguard/blueprint_topology.py",
+        "flowguard/project_blueprint.py",
+        "flowguard/software_blueprint_readiness.py",
+        "flowguard/self_architecture_reduction.py",
         "flowguard/self_blueprint.py",
+        "flowguard/test_inventory.py",
+        "flowguard/test_inventory_python.py",
         "flowguard/code_structure.py",
         "flowguard/existing_model_preflight.py",
         "flowguard/model_test_alignment.py",
@@ -1686,6 +1761,11 @@
         "tests/test_implementation_blueprint.py",
         "tests/test_implementation_blueprint_cli.py",
         "tests/test_implementation_blueprint_docs.py",
+        "tests/test_blueprint_topology.py",
+        "tests/test_project_blueprint.py",
+        "tests/test_software_blueprint_readiness.py",
+        "tests/test_self_architecture_reduction.py",
+        "tests/test_test_inventory.py",
         "docs/implementation_blueprint.md"
       ],
       "model_id": "implementation_blueprint",
@@ -1704,7 +1784,7 @@
         "reusable_model_type_id": "implementation_blueprint",
         "task_intent_id": "flowguard-regression:implementation-blueprint",
         "declaration_phase": "before_candidate",
-        "guarded_purpose": "Prevent a source-shaped or incomplete software blueprint from being accepted as reconstruction-ready without independent inventory, bidirectional semantic bindings, current resources, applicable oracles, and explicit reconstruction status.",
+        "guarded_purpose": "Prevent a source-shaped or incomplete software blueprint from being accepted as static-complete without independent inventory, bidirectional semantic bindings, exact parent-child interfaces, current resources, intent lineage, and applicable oracles.",
         "protected_failure_ids": [
           "implementation-blueprint:omitted-file",
           "implementation-blueprint:parse-failure",
@@ -1713,14 +1793,18 @@
           "implementation-blueprint:hidden-writer-effect",
           "implementation-blueprint:duplicate-primary",
           "implementation-blueprint:path-only-binding",
+          "implementation-blueprint:source-observation-semantics",
+          "implementation-blueprint:missing-exact-test",
           "implementation-blueprint:stale-fingerprint",
           "implementation-blueprint:missing-resource",
           "implementation-blueprint:tampered-shard",
-          "implementation-blueprint:automatic-rebuild-attempt"
+          "implementation-blueprint:behavior-contract-unaccepted",
+          "implementation-blueprint:intent-inventory-missing",
+          "implementation-blueprint:circular-behavior-evidence"
         ],
-        "claim_boundary": "Current closure proves only the finite implementation-blueprint workflow and its declared native counterexamples. It does not prove byte-identical source reproduction, run an empirical reconstruction, or license behavior outside the declared software boundary.",
+        "claim_boundary": "Current closure proves only the finite static implementation-blueprint workflow and its declared native counterexamples. It licenses no behavior outside the declared software boundary.",
         "adoption_scope": "current_candidate_only",
-        "known_good_case_id": "native:implementation-blueprint:static-complete-reconstruction-not-run",
+        "known_good_case_id": "native:implementation-blueprint:static-complete",
         "failure_bindings": [
           {
             "failure_id": "implementation-blueprint:omitted-file",
@@ -1758,6 +1842,16 @@
             "oracle_id": "native:implementation_blueprint:run-checks"
           },
           {
+            "failure_id": "implementation-blueprint:source-observation-semantics",
+            "known_bad_case_id": "native:implementation-blueprint:source-observation-semantics",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:missing-exact-test",
+            "known_bad_case_id": "native:implementation-blueprint:missing-exact-test",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
             "failure_id": "implementation-blueprint:stale-fingerprint",
             "known_bad_case_id": "native:implementation-blueprint:stale-fingerprint",
             "oracle_id": "native:implementation_blueprint:run-checks"
@@ -1773,18 +1867,28 @@
             "oracle_id": "native:implementation_blueprint:run-checks"
           },
           {
-            "failure_id": "implementation-blueprint:automatic-rebuild-attempt",
-            "known_bad_case_id": "native:implementation-blueprint:automatic-rebuild-attempt",
+            "failure_id": "implementation-blueprint:behavior-contract-unaccepted",
+            "known_bad_case_id": "native:implementation-blueprint:behavior-contract-unaccepted",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:intent-inventory-missing",
+            "known_bad_case_id": "native:implementation-blueprint:intent-inventory-missing",
+            "oracle_id": "native:implementation_blueprint:run-checks"
+          },
+          {
+            "failure_id": "implementation-blueprint:circular-behavior-evidence",
+            "known_bad_case_id": "native:implementation-blueprint:circular-behavior-evidence",
             "oracle_id": "native:implementation_blueprint:run-checks"
           }
         ],
         "evidence_check_ids": [
           "check:model-regression:implementation_blueprint"
         ],
-        "model_sha256": "sha256:7ffbce716fa5378595a6bd482a7196a1e5608410f879da1d8e61d3d97530bbcf",
-        "runner_sha256": "sha256:c0a140521541b107915014df3029064a22d1760805682114899f1d256c2b058c",
-        "declaration_fingerprint": "sha256:d9344d189d4a6169a5629ad6ef850f1f63c15b14ea13f9c820999c05ebcc1ae0",
-        "closure_fingerprint": "sha256:fd421f097b58d1768e9041c6880af87179a6f82e07a894d63ffa58dded654c99"
+    "model_sha256": "sha256:b8fc2a60bb0110a2c97ad79c660168fa08d23107ee71c8b417cc20c612599457",
+    "runner_sha256": "sha256:feb0f9dad4690330d429ba729c05225405690aecb6537c8d5bf3887055ab9a99",
+    "declaration_fingerprint": "sha256:9e3e8c9f3520027044cd38af519fcb63f67f9c3f7bef4adf4dc0650160976306",
+    "closure_fingerprint": "sha256:76f290191d1c9f81679128884c041e64cb7b67b0379a9d462ffcd3a2fa800e6c"
       }
     },
     {
@@ -2318,7 +2422,18 @@
       "expected_artifacts": [],
       "input_globs": [
         ".flowguard/model_test_code_alignment/model.py",
-        ".flowguard/model_test_code_alignment/run_checks.py"
+        ".flowguard/model_test_code_alignment/run_checks.py",
+        "flowguard/implementation_blueprint.py",
+        "flowguard/project_blueprint.py",
+        "flowguard/software_blueprint_readiness.py",
+        "flowguard/model_test_alignment.py",
+        "flowguard/test_inventory.py",
+        "tests/test_implementation_blueprint.py",
+        "tests/test_model_test_alignment.py",
+        "tests/test_project_blueprint.py",
+        "tests/test_self_blueprint.py",
+        "tests/test_software_blueprint_readiness.py",
+        "tests/test_test_inventory.py"
       ],
       "model_id": "model_test_code_alignment",
       "model_path": ".flowguard/model_test_code_alignment/model.py",
@@ -3451,6 +3566,8 @@
         ".flowguard/test_evidence_mesh/model.py",
         ".flowguard/test_evidence_mesh/run_checks.py",
         "flowguard/model_regressions.py",
+        "flowguard/test_inventory.py",
+        "flowguard/test_inventory_python.py",
         "flowguard/test_reuse.py",
         "flowguard/validation_results.py",
         "scripts/check_flowguard_skill_suite.py",
@@ -3460,6 +3577,7 @@
         "tests/test_full_validation_composition.py",
         "tests/test_test_mesh.py",
         "tests/test_test_reuse.py",
+        "tests/test_test_inventory.py",
         "tests/test_validation_command_surface.py"
       ],
       "model_id": "test_evidence_mesh",
@@ -3712,7 +3830,13 @@
         ".flowguard/work_context/model.py",
         ".flowguard/work_context/run_checks.py",
         "flowguard/coverage_inventory.py",
+        "flowguard/model_intent.py",
+        "flowguard/model_revision_set.py",
+        "flowguard/work_context.py",
+        "flowguard/work_context_adapters/declared_files.py",
+        "flowguard/work_context_adapters/openspec.py",
         "tests/test_coverage_inventory.py",
+        "tests/test_model_intent.py",
         "tests/test_work_context.py"
       ],
       "model_id": "work_context",
@@ -3796,10 +3920,10 @@
         "evidence_check_ids": [
           "check:model-regression:work_context"
         ],
-        "model_sha256": "sha256:15be83d2c5684c42ecafe625522da69bc8c183bfe9cbbd0f6ca6be7358f50dd9",
+        "model_sha256": "sha256:56d78e73a3b7401f9b203f5383403ebfdccc9c4b3691a8d1b247dd6146a944d0",
         "runner_sha256": "sha256:38cc45ffa69cac91f3263f0375cc68ddc322427095d1c3fa7954c7445088081e",
         "declaration_fingerprint": "sha256:c36ccf16feb1e74b5052a0e43305026ed64f35e2649ffcde066e6ad9af8246c5",
-        "closure_fingerprint": "sha256:e62ffe6148d50c3347e70f084b6224bee62a7344836bb402b8e8d29a6dfe870f"
+        "closure_fingerprint": "sha256:929d7d3f6bd41617acca6e1ead256beee869d4cdc71cbea07cf79151cc936f82"
       }
     },
     {

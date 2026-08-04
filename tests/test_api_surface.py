@@ -107,6 +107,38 @@ class ApiSurfaceTests(unittest.TestCase):
         public_first_read_names = set(canonical_grouped_names) | set(flowguard._PUBLIC_API_SUPPLEMENT)
         self.assertTrue(set(flowguard.AGENT_DEFAULT_API).issubset(public_first_read_names))
 
+    def test_implementation_blueprint_api_exposes_behavior_readiness_and_self_reduction(self):
+        expected = {
+            "BehaviorBlockContract",
+            "BehaviorCaseContract",
+            "BehaviorCoverageEdge",
+            "CoverageExecutionEvidence",
+            "PortableBehaviorBinding",
+            "TargetSystemDescriptor",
+            "TargetSystemProviderDeclaration",
+            "TargetSystemProviderRegistry",
+            "TargetSystemProviderResult",
+            "TargetSystemSnapshot",
+            "build_target_system_provider_registry",
+            "capture_target_system_snapshot",
+            "BlueprintUnderstandingSummary",
+            "ProjectIntentInventory",
+            "ProjectResourceInventory",
+            "StaticBlueprintReadinessReport",
+            "AffectedBlueprintNeighborhood",
+            "review_behavior_blueprint",
+            "review_static_blueprint_readiness",
+            "normalize_behavior_blueprint",
+            "load_affected_behavior_neighborhood",
+            "generate_candidate_blueprint",
+            "SelfArchitectureReductionReview",
+            "review_flowguard_self_architecture_reduction",
+        }
+        self.assertTrue(expected.issubset(set(flowguard.IMPLEMENTATION_BLUEPRINT_API)))
+        for name in expected:
+            self.assertIn(name, flowguard.__all__)
+            self.assertTrue(hasattr(flowguard, name), name)
+
     def test_agent_default_api_is_compact_first_read_surface(self):
         self.assertLessEqual(len(flowguard.AGENT_DEFAULT_API), 24)
         expected = {

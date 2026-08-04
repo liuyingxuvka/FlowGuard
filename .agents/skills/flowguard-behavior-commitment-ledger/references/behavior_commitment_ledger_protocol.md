@@ -92,8 +92,8 @@ current ledger fingerprint and exact external commitment/source/primary-path
 ids plus unresolved external-promise gaps. The blueprint owner references that
 handoff alongside the separately owned implementation inventory and binding
 report. BCL does not discover internal implementation surfaces, decide their
-terminal dispositions, prove source-independent reconstruction semantics,
-export blueprint shards, or run reconstruction.
+terminal dispositions, prove source-independent behavior semantics, or export
+blueprint shards.
 
 For task-level maturation, emit a typed contribution containing only the
 triggered task's independently frozen commitment/source/path coverage,

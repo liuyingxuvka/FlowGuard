@@ -34,9 +34,10 @@ Accept a boundary/root; choose reuse, extend, child, new, or none; block duplica
 - Only an exact current observed instance is authoritative; other discovery is `candidate_only`. Missing/stale/ambiguous authority, ownership, mesh, or same-intent surfaces block full preflight.
 - Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework. Full mode precedes change.
 - Shared words never promote a wrong-plane hit; WorkContext is read-only; broad authority inventory must be explicit.
-- Blueprint handoff references, but never copies or completes, the independent implementation inventory. Static closure is not reconstruction; preflight never reconstructs.
+- Blueprint handoff references, but never copies or completes, the independent implementation inventory.
+- Blueprint layers/depth, explicit whole scope, affected-only default, no owner fallback, and separate user/sufficiency/admission axes follow the protocol.
 - Route ArchitectureReduction only for a concrete current model/code candidate with observable behavior-preserving evidence.
 - Preflight proves lookup/scope only; maturation decides understanding and DevelopmentProcessFlow decides admission. Greenfield is `not_triggered`.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, hits, ownership, lookup, reuse, and duplicate risks. Blueprint output adds inventory fingerprint, required/unresolved ids, and binding/structure/topology/process handoffs.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, hits, ownership, lookup, reuse, and duplicate risks. Blueprint output adds depth/first gap, inventory fingerprint, unresolved ids, and handoffs.

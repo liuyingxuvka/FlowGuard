@@ -109,10 +109,8 @@ an intentional leaf, with no undispositioned member. See
 [`flowguard_self_understanding_semantic_mesh.md`](./flowguard_self_understanding_semantic_mesh.md).
 This semantic map is the model-system authority used to understand and evolve
 the software; it is not wrapped in a second package or registry. Its current
-claim is task-bounded understanding. Clean-room reconstruction would require
-additional source, asset, dependency, build, environment, data-migration, and
-external rebuild-equivalence evidence, so that stronger claim remains outside
-the v0.68.5 boundary.
+claim is task-bounded understanding, with deeper whole-target status reported
+only when the exact inventories and relations are present.
 The behavior-preserving code contraction is recorded separately in
 [`understanding_plumbing_reduction.md`](./understanding_plumbing_reduction.md),
 because fewer modules or fields are not themselves evidence of deeper

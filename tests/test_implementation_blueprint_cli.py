@@ -38,6 +38,7 @@ def _artifacts(root: Path) -> tuple[Path, Path, Path, SoftwareBlueprintManifest]
             ("output", "return the declared save result"),
             ("error", "reject invalid requests without success"),
         ),
+        provenance_fingerprints=(("requirements", "fp:requirements"),),
     )
     oracle = OracleReference(
         oracle_id="oracle:save",
@@ -60,6 +61,8 @@ def _artifacts(root: Path) -> tuple[Path, Path, Path, SoftwareBlueprintManifest]
         owner_contract_id="contract:save",
         semantic_spec_ids=(semantic.semantic_spec_id,),
         oracle_ids=(oracle.oracle_id,),
+        test_evidence_ids=("test:save",),
+        test_evidence_fingerprints=(("test:save", "fp:test:save"),),
         implementation_fingerprint="fp:surface:save",
     )
     inventory = ImplementationSurfaceInventory(
@@ -101,12 +104,15 @@ def _artifacts(root: Path) -> tuple[Path, Path, Path, SoftwareBlueprintManifest]
         bindings=(binding,),
         semantic_specs=(semantic,),
         oracles=(oracle,),
+        current_test_evidence_fingerprints={"test:save": "fp:test:save"},
     )
     resource = BlueprintResourceReference(
         resource_id="resource:runtime",
         kind="runtime",
         owner_id="owner:runtime",
         artifact_id="artifact:runtime",
+        purpose="execute the declared target",
+        lifecycle_role="runtime_dependency",
         artifact_fingerprint="fp:runtime",
         semantics=(("requirement", "provide the declared runtime capability"),),
     )
@@ -120,6 +126,10 @@ def _artifacts(root: Path) -> tuple[Path, Path, Path, SoftwareBlueprintManifest]
         binding_report_fingerprint=report.fingerprint,
         semantic_mesh_id="mesh:current",
         semantic_mesh_fingerprint="fp:mesh",
+        test_inventory_id="test-inventory:current",
+        test_inventory_fingerprint="fp:test-inventory",
+        model_test_alignment_report_id="alignment:current",
+        model_test_alignment_report_fingerprint="fp:alignment",
         portable_owner_fingerprints=(("portable:system", "fp:portable"),),
         resources=(resource,),
         oracles=(oracle,),
@@ -152,6 +162,10 @@ def _current_args() -> tuple[str, ...]:
         "fp:snapshot",
         "--semantic-mesh-fingerprint",
         "fp:mesh",
+        "--test-inventory-fingerprint",
+        "fp:test-inventory",
+        "--model-test-alignment-report-fingerprint",
+        "fp:alignment",
         "--portable-owner-fingerprints",
         '{"portable:system":"fp:portable"}',
         "--resource-fingerprints",

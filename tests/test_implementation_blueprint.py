@@ -12,6 +12,7 @@ from flowguard.implementation_blueprint import (
     ModelImplementationBinding,
     OracleReference,
     ReconstructionEvidence,
+    SEMANTIC_AUTHORITY_OBSERVED_CANDIDATE,
     SemanticSpecReference,
     SoftwareBlueprintManifest,
     derive_affected_blueprint_neighborhood,
@@ -43,7 +44,12 @@ class FakeInventory:
     parse_failure_ids: tuple[str, ...] = ()
 
 
-def spec(spec_id: str = "spec:save", model_id: str = "model:save") -> SemanticSpecReference:
+def spec(
+    spec_id: str = "spec:save",
+    model_id: str = "model:save",
+    *,
+    authority_kind: str = "declared_behavior",
+) -> SemanticSpecReference:
     return SemanticSpecReference(
         semantic_spec_id=spec_id,
         owner_id="owner:model",
@@ -57,6 +63,8 @@ def spec(spec_id: str = "spec:save", model_id: str = "model:save") -> SemanticSp
             ("error", "reject invalid input without reporting success"),
             ("state_effect", "apply the declared state write exactly once"),
         ),
+        authority_kind=authority_kind,
+        provenance_fingerprints=(("model-purpose", "fp:model-purpose"),),
     )
 
 
@@ -96,6 +104,8 @@ def binding(
         semantic_spec_ids=(spec_id,),
         oracle_ids=(oracle_id,),
         required_dimensions=("input", "output", "error", "state_effect"),
+        test_evidence_ids=("test:save",),
+        test_evidence_fingerprints=(("test:save", "fp:test:save"),),
         primary=primary,
         implementation_fingerprint=implementation_fingerprint,
     )
@@ -113,6 +123,7 @@ def good_report():
         bindings=(binding(),),
         semantic_specs=(spec(),),
         oracles=(oracle(),),
+        current_test_evidence_fingerprints={"test:save": "fp:test:save"},
     )
 
 
@@ -122,6 +133,8 @@ def resource(resource_id: str = "resource:runtime", kind: str = "runtime"):
         kind=kind,
         owner_id="owner:build",
         artifact_id=f"artifact:{resource_id}",
+        purpose="satisfy the declared blueprint resource obligation",
+        lifecycle_role="reconstruction_input",
         artifact_fingerprint=f"fp:{resource_id}",
         semantics=(("requirement", "provide the declared runtime capability"),),
     )
@@ -141,6 +154,10 @@ def manifest(report=None, resources=None, oracles=None):
         binding_report_fingerprint=report.fingerprint,
         semantic_mesh_id="mesh:current",
         semantic_mesh_fingerprint="fp:mesh:current",
+        test_inventory_id="test-inventory:current",
+        test_inventory_fingerprint="fp:test-inventory:current",
+        model_test_alignment_report_id="alignment:current",
+        model_test_alignment_report_fingerprint="fp:alignment:current",
         portable_owner_fingerprints=(("portable:system", "fp:portable:system"),),
         resources=resources,
         oracles=oracles,
@@ -191,6 +208,64 @@ def test_path_binding_without_semantics_and_oracles_is_only_traceability():
         "semantic_dimensions_incomplete",
         "oracle_dimensions_incomplete",
     }
+
+
+def test_source_observation_cannot_certify_independent_semantics():
+    inventory = FakeInventory(
+        "inventory:one",
+        "fp:inventory:one",
+        (FakeSurface("surface:save", "fp:surface:save"),),
+    )
+    report = review_model_implementation_bindings(
+        inventory,
+        required_model_element_ids=("model:save",),
+        bindings=(binding(),),
+        semantic_specs=(
+            spec(authority_kind=SEMANTIC_AUTHORITY_OBSERVED_CANDIDATE),
+        ),
+        oracles=(oracle(),),
+        current_test_evidence_fingerprints={"test:save": "fp:test:save"},
+    )
+    blueprint = manifest(report)
+    qualification = qualify_software_blueprint(
+        blueprint,
+        report,
+        current_test_inventory_fingerprint="fp:test-inventory:current",
+        current_model_test_alignment_report_fingerprint="fp:alignment:current",
+    )
+
+    assert "source_observation_not_independent" in {
+        finding.code for finding in report.findings
+    }
+    assert qualification.layer_status("inventory") == "complete"
+    assert qualification.layer_status("traceability") == "complete"
+    assert qualification.layer_status("independent_semantics") == "incomplete"
+    assert qualification.deepest_proven_layer == "traceability"
+
+
+def test_missing_exact_test_binding_blocks_model_code_test_layer():
+    inventory = FakeInventory(
+        "inventory:one",
+        "fp:inventory:one",
+        (FakeSurface("surface:save", "fp:surface:save"),),
+    )
+    no_test = ModelImplementationBinding(
+        **{
+            **binding().to_dict(),
+            "test_evidence_ids": (),
+            "test_evidence_fingerprints": (),
+        }
+    )
+    report = review_model_implementation_bindings(
+        inventory,
+        required_model_element_ids=("model:save",),
+        bindings=(no_test,),
+        semantic_specs=(spec(),),
+        oracles=(oracle(),),
+        current_test_evidence_fingerprints={},
+    )
+
+    assert "model_test_binding_missing" in {finding.code for finding in report.findings}
 
 
 def test_duplicate_primary_owners_and_unbound_discovered_surface_block():
@@ -272,12 +347,16 @@ def test_resources_require_fingerprints_or_explicit_external_disposition_and_no_
             kind="runtime",
             owner_id="owner",
             artifact_id="artifact",
+            purpose="execute the target",
+            lifecycle_role="runtime_dependency",
         )
     external = BlueprintResourceReference(
         resource_id="service",
         kind="external_service",
         owner_id="owner",
         artifact_id="contract",
+        purpose="supply the declared external service contract",
+        lifecycle_role="external_dependency",
         disposition="external",
         rationale="provided by deployment environment",
     )
@@ -288,6 +367,8 @@ def test_resources_require_fingerprints_or_explicit_external_disposition_and_no_
             kind="configuration",
             owner_id="owner",
             artifact_id="config",
+            purpose="configure the target",
+            lifecycle_role="reconstruction_input",
             artifact_fingerprint="fp:config",
             semantics=(("password", "plaintext"),),
         )
@@ -302,7 +383,9 @@ def test_static_complete_and_empirical_not_run_remain_separate_claims():
     assert qualification.static_status == "complete"
     assert qualification.empirical_status == "not_run"
     assert qualification.ok
-    assert qualification.claim_text == "blueprint complete; reconstruction not verified"
+    assert qualification.claim_text == "blueprint complete; reconstruction not run"
+    assert qualification.deepest_proven_layer == "static_blueprint"
+    assert qualification.layer_status("model_code_test") == "complete"
 
 
 def test_required_reconstruction_and_mismatched_receipt_do_not_change_static_result():
@@ -349,6 +432,10 @@ def test_missing_resource_and_oracle_are_static_blockers():
         binding_report_fingerprint=report.fingerprint,
         semantic_mesh_id="mesh:current",
         semantic_mesh_fingerprint="fp:mesh:current",
+        test_inventory_id="test-inventory:current",
+        test_inventory_fingerprint="fp:test-inventory:current",
+        model_test_alignment_report_id="alignment:current",
+        model_test_alignment_report_fingerprint="fp:alignment:current",
         portable_owner_fingerprints=(),
         resources=(),
         oracles=(),

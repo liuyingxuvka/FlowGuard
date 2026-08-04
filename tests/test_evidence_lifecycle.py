@@ -19,9 +19,11 @@ from flowguard.evidence_lifecycle import (
     plan_evidence_gc,
     publish_run,
     purge_evidence_quarantine,
+    read_current_head,
     read_evidence_execution_lease,
     restore_evidence_quarantine,
     settle_cleanup_unconfirmed_lease,
+    settle_interrupted_execution_leases,
     store_text_object,
     verify_text_object,
     write_json_atomic,
@@ -91,6 +93,115 @@ class EvidenceObjectTests(unittest.TestCase):
 
 
 class EvidenceExecutionLeaseTests(unittest.TestCase):
+    def _residual(
+        self,
+        lock_root: Path,
+        *,
+        owner_id: str,
+        resource_key: str,
+        plan_id: str = "plan:frozen",
+    ) -> dict[str, object]:
+        with evidence_execution_lease(
+            lock_root,
+            owner_id=owner_id,
+            resource_key=resource_key,
+            execution_key="request:frozen",
+            lease_token=f"token:{owner_id}",
+            plan_id=plan_id,
+        ) as lease:
+            lease["_preserve_residual"] = True
+        current = read_evidence_execution_lease(
+            lock_root,
+            owner_id=owner_id,
+            resource_key=resource_key,
+            execution_key="request:frozen",
+        )
+        self.assertIsNotNone(current)
+        return current
+
+    def _settlement_request(self, rows: list[dict[str, object]]) -> dict[str, object]:
+        return {
+            "schema_version": "flowguard.evidence_interruption_settlement_request.v1",
+            "plan_id": "plan:frozen",
+            "process_id": os.getpid(),
+            "operator_reason": "fixture launcher was externally interrupted",
+            "zero_descendant_observation": {
+                "descendant_process_ids": [],
+                "observed_at_epoch": 1.0,
+                "observed_by": "test:operator",
+                "method": "fixture-process-tree-audit",
+            },
+            "leases": [
+                {
+                    "owner_id": row["owner_id"],
+                    "resource_key": row["resource_key"],
+                    "execution_key": row["execution_key"],
+                    "lease_token": row["lease_token"],
+                }
+                for row in rows
+            ],
+        }
+
+    def test_external_interruption_settles_exact_dead_process_leases(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            lock_root = Path(temporary) / "leases"
+            rows = [
+                self._residual(lock_root, owner_id="owner:a", resource_key="resource:a"),
+                self._residual(lock_root, owner_id="owner:b", resource_key="resource:b"),
+            ]
+            with patch("flowguard.evidence_lifecycle._process_is_alive", return_value=False):
+                incident = settle_interrupted_execution_leases(
+                    lock_root, self._settlement_request(rows)
+                )
+
+            self.assertEqual("interrupted", incident["status"])
+            self.assertFalse(incident["reusable"])
+            self.assertFalse(incident["partial_results_reusable"])
+            self.assertEqual(2, incident["settled_lease_count"])
+            self.assertFalse(tuple(lock_root.glob("execution-*.lock")))
+            self.assertTrue(Path(incident["incident_path"]).is_file())
+            self.assertEqual(
+                2,
+                len(tuple(Path(incident["incident_path"]).parent.glob("leases/*.lock"))),
+            )
+
+    def test_external_interruption_is_all_or_nothing_for_foreign_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            lock_root = Path(temporary) / "leases"
+            rows = [
+                self._residual(lock_root, owner_id="owner:a", resource_key="resource:a"),
+                self._residual(
+                    lock_root,
+                    owner_id="owner:b",
+                    resource_key="resource:b",
+                    plan_id="plan:foreign",
+                ),
+            ]
+            with (
+                patch("flowguard.evidence_lifecycle._process_is_alive", return_value=False),
+                self.assertRaisesRegex(EvidenceLifecycleError, "identity mismatch"),
+            ):
+                settle_interrupted_execution_leases(
+                    lock_root, self._settlement_request(rows)
+                )
+            self.assertEqual(2, len(tuple(lock_root.glob("execution-*.lock"))))
+            self.assertFalse((lock_root.parent / "interrupted-incidents").exists())
+
+    def test_external_interruption_rejects_live_process_and_descendants(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            lock_root = Path(temporary) / "leases"
+            row = self._residual(lock_root, owner_id="owner:a", resource_key="resource:a")
+            request = self._settlement_request([row])
+            with self.assertRaisesRegex(EvidenceLifecycleError, "still live"):
+                settle_interrupted_execution_leases(lock_root, request)
+            request["zero_descendant_observation"]["descendant_process_ids"] = [123]
+            with (
+                patch("flowguard.evidence_lifecycle._process_is_alive", return_value=False),
+                self.assertRaisesRegex(EvidenceLifecycleError, "descendants remain"),
+            ):
+                settle_interrupted_execution_leases(lock_root, request)
+            self.assertEqual(1, len(tuple(lock_root.glob("execution-*.lock"))))
+
     def test_same_owner_resource_blocks_different_execution_identity(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             lock_root = Path(temporary) / "leases"
@@ -285,6 +396,26 @@ class EvidenceLifecycleTests(unittest.TestCase):
             self.assertEqual("collectible", by_path["scope/first"]["classification"])
             self.assertEqual("current", by_path["scope/second"]["classification"])
             self.assertEqual("fail", audit["heads"][0]["status"])
+
+    def test_child_current_pointer_cannot_verify_as_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run = root / "scope" / "child"
+            write_json_atomic(run / "result.json", {"status": "pass"})
+            publish_run(
+                run,
+                kind="fixture-child",
+                status="pass",
+                result_path=run / "result.json",
+                authority_kind="child",
+                parent_scope="fixture-parent",
+            )
+
+            self.assertEqual(
+                "child", read_current_head(run.parent)["authority_kind"]
+            )
+            with self.assertRaisesRegex(EvidenceLifecycleError, "authority-kind mismatch"):
+                read_current_head(run.parent, expected_authority_kind="parent")
 
     def test_legacy_parent_is_visible_but_not_inferred_current(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

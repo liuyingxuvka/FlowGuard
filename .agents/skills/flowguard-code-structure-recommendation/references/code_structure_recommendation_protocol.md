@@ -90,8 +90,8 @@ source-audit owner. Those obligations let independent discovery ask whether
 every behavior-bearing implementation surface realizes a current model
 obligation without turning this recommendation into a source scanner.
 
-This route does not bind source paths as reconstruction semantics, prove
-implementation completeness, or run reconstruction. Any model-universe
+This route does not treat proposed source paths as implemented semantics or
+prove implementation completeness. Any model-universe
 fingerprint change makes the blueprint recommendation stale.
 
 ## Relationship To StructureMesh
@@ -140,3 +140,29 @@ still recommendation completeness, not static blueprint qualification.
 
 Implementation-ready requires current admission for the same task, model, and
 every proposed module/path. Otherwise it remains recommendation-only.
+
+## Blueprint Layer Contribution
+
+For explicit whole-software scope, this route produces recommendation inputs
+for `traceability`: exact model element -> proposed module/path/symbol/owner/
+facade/adapter/validation boundary, plus reverse implementation-coverage
+obligations. Those rows are targets until independent inventory and source
+binding owners verify them. They do not prove implemented traceability,
+`independent_semantics`, `model_code_test`, `resource_oracle`, or
+`static_blueprint`.
+
+Ordinary recommendation work covers affected model elements only. Missing,
+duplicate, ambiguous, or stale project ownership blocks; never fall back to a
+FlowGuard self-owner, authoritative root, or guessed product role. Return any
+supplied canonical `deepest_proven_layer` unchanged plus the first unresolved
+native owner/element/evidence gap.
+
+Keep user execution choice, verified maturation, and DevelopmentProcessFlow
+admission separate. A recommendation never generates code.
+
+For a canonical blueprint, derive target module ownership from the exact
+primary `BehaviorBlockContract` set and attach helpers/adapters through
+`SupportingSurfaceRelation`. Preserve all ten behavior dimensions across the
+recommended boundary. A helper path is not a second behavior owner, and a
+target application's people or permissions remain inside that application's
+model rather than becoming FlowGuard-global structure.

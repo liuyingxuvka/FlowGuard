@@ -74,9 +74,7 @@ Capture grouped rows for:
 
 For an explicitly triggered software blueprint, additionally capture the
 observed snapshot, implementation inventory, binding report, resource/oracle
-manifest, projection, and static qualification identities. Track any empirical
-reconstruction receipt as a separate optional evidence row; it is never an
-implicit child of static qualification.
+manifest, projection, and static qualification identities.
 
 Keep read-only WorkContext adapter/native/artifact/fingerprint ids distinct from
 FlowGuard's own obligation, validation, execution, and receipt ids.
@@ -96,7 +94,7 @@ when the repair or new material evidence changes the remaining boundary.
 
 Ordinary changes consume the compact current blueprint identity and invalidate
 only affected inventory/binding/resource/projection shards plus their declared
-graph neighborhood. They do not rescan, materialize, export, or reconstruct the
+graph neighborhood. They do not rescan, materialize, or export the
 whole software. Full inventory and static qualification run only for an
 explicit blueprint/export/qualification scope or a named release obligation.
 
@@ -132,25 +130,6 @@ When distribution or release identity is in scope, load
 `distribution_release_protocol.md`. DevelopmentProcessFlow consumes the typed
 owner evidence and orders gates; it never owns suite inventory or installation
 semantics.
-
-## Static Blueprint Versus Empirical Reconstruction
-
-Keep two independent state machines:
-
-- static blueprint: `complete`, `incomplete`, `stale`, or `blocked`;
-- empirical reconstruction: `not_run`, `pass`, `fail`, or `blocked`.
-
-Static complete with empirical not-run is a successful static result whose
-claim is exactly “blueprint complete; reconstruction not verified.” Static
-status cannot inherit a reconstruction result, and reconstruction failure does
-not rewrite already established static facts.
-
-Never schedule reconstruction for ordinary work, inventory audit, blueprint
-check/export, installation, synchronization, or release. Only an explicit
-user reconstruction request or an exact separately owned qualification/release
-requirement may schedule one, after static closure is complete. The receipt
-must bind the blueprint fingerprint, isolated environment, source-access
-policy, covered oracle set, and evidence fingerprint.
 
 ## Read-only WorkContext
 
@@ -195,9 +174,8 @@ its id.
   optimum.
 - Material new evidence stales the decision. A repair stays open until every
   affected obligation has current revalidation.
-- A static blueprint result described as reconstructed, an automatic
-  reconstruction step, or a reconstruction receipt bound to another blueprint
-  is a hard claim-boundary failure.
+- A static blueprint result promoted beyond its exact provider and binding
+  evidence is a hard claim-boundary failure.
 - Broad done/release/archive/publish claims require current proof artifacts,
   current Risk Evidence Ledger closure, and all required freshness domains.
 
@@ -238,9 +216,7 @@ reattached, skipped/not-run work remains visible, peer changes are preserved,
 required synchronization domains are current, and the requested claim scope
 has terminal proof. Otherwise return blocked or explicitly scoped confidence.
 
-For blueprint scope, report static and empirical status separately with their
-own identities and gaps. A not-run reconstruction remains visible and does not
-block a static-only claim unless the exact request separately requires it.
+For blueprint scope, report static readiness, identity, depth, and gaps.
 
 ## Implementation Admission
 
@@ -256,3 +232,37 @@ Authorization never changes the maturation decision or hides gaps. It cannot
 waive unavailable real tooling, destructive or irreversible ambiguity, active
 owner conflicts, or other declared non-waivable blockers. Any later task,
 candidate, coverage, evidence, request-scope, or owner change stales admission.
+
+## Blueprint Layer Lifecycle
+
+For explicit whole-target scope, first qualify the frozen provider registry and
+target snapshot, then track exact identities and freshness for the ordered
+layers `implementation_inventory`, `traceability`, `independent_semantics`,
+`model_code_test`, `resource_oracle`, and `static_blueprint`. Native specialists retain layer semantics;
+DevelopmentProcessFlow sequences producers, consumes receipts, invalidates
+affected edges, and reports status without rescoring them.
+Software specialization embeds the complete `ProjectTestInventory`; every
+consumer load requires its independent current-test-source audit before any
+test-inventory or `model_code_test` freshness claim.
+
+Return `deepest_proven_layer` as the longest exact-current complete prefix and
+the first unresolved native owner/member/evidence gap. Missing, duplicate,
+ambiguous, stale, or unknown-impact ownership blocks; never substitute the
+FlowGuard self-model, authoritative root, unrelated route, generic catchall, or
+run-all. A later layer cannot hide an earlier incomplete one.
+
+Whole-target materialization/final qualification needs an explicit
+blueprint/export/qualification task fact or named release/self-qualification
+obligation. Ordinary implementation consumes the current blueprint identity
+and revalidates affected layers plus declared graph neighbors only.
+
+Keep `user_execution_choice`, `verified_model_maturation`, and
+`implementation_admission` as separate state machines and identities.
+
+Track exact fingerprints for the behavior report, resource inventory, intent
+inventory, normalized projection, and readiness report.
+After a normal change, invalidate only affected blocks/shared objects and load
+their verified neighborhood. Before release cleanup, consume the read-only
+self-architecture-reduction review bound to the same self blueprint; route
+only proof-ready candidates into StructureMesh and leave `risky_keep` visible.
+Cleanup never authorizes deletion by size or similarity alone.

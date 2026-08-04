@@ -41,4 +41,4 @@ Review a model-derived validation mesh; block stale, skipped, incomplete, or uno
 - Persist each successful child immediately. Parent/sibling failure cannot erase it; later requests execute only failed/stale owners and recompose from exact child ids/fingerprints.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, a validation mesh diagram, and child freshness.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, a validation mesh diagram, child freshness, and blueprint depth/first gap.

@@ -20,33 +20,29 @@ import model
 GOOD_LABELS = (
     "inventory_complete",
     "binding_complete",
-    "static_complete_empirical_not_run",
+    "static_blueprint_complete",
+    "behavior_readiness_complete",
+    "target_system_blueprint_complete",
     "projection_verified",
     "done_accepted",
 )
 
 
 def _bad_case_label(action: model.BlueprintAction) -> str:
-    if action.automatic_rebuild_requested:
-        return "automatic_rebuild_attempt_blocked"
     return f"{action.scenario_id}_blocked"
 
 
 def _bad_case_id(action: model.BlueprintAction) -> str:
-    if action.automatic_rebuild_requested:
-        return "automatic_rebuild_attempt"
     return action.scenario_id
 
 
 def _expected_finding_codes(action: model.BlueprintAction) -> tuple[str, ...]:
-    if action.automatic_rebuild_requested:
-        return ("automatic_reconstruction_forbidden",)
     return model.SCENARIOS[action.scenario_id].expected_finding_codes
 
 
 def run_good_path() -> bool:
     return run_exact_workflow_case(
-        "static blueprint complete with empirical reconstruction not run",
+        "static blueprint complete",
         workflow=model.build_workflow(),
         initial_state=model.initial_state(),
         external_input_sequence=(model.GOOD_ACTION,) * model.MAX_SEQUENCE_LENGTH,
@@ -54,10 +50,9 @@ def run_good_path() -> bool:
         final_state_predicate=lambda state: (
             state.done_claim == "accepted"
             and state.static_status == "complete"
-            and state.empirical_status == "not_run"
-            and not state.reconstruction_executed
-            and state.claim_text
-            == "blueprint complete; reconstruction not verified"
+            and state.behavior_status == "complete"
+            and state.readiness_status == "ready"
+            and state.claim_text == "static blueprint complete"
         ),
     )
 
@@ -87,8 +82,6 @@ def run_bad_case_reason_review() -> bool:
             reached_terminal
             and invariant_ok
             and state.done_claim == "rejected"
-            and state.empirical_status == "not_run"
-            and not state.reconstruction_executed
             and expected_codes.issubset(set(state.finding_codes))
         )
         if not caught:
@@ -141,8 +134,7 @@ def main() -> int:
         print(
             "implementation_blueprint checks passed; "
             f"handled_bad_cases={len(model.BAD_ACTIONS)}; "
-            "static_status=complete; empirical_status=not_run; "
-            "automatic_rebuild=blocked"
+            "static_status=complete"
         )
         return 0
     return 1

@@ -33,11 +33,11 @@ Accept children; verify partitions/receipts; block overlap, stale or incomplete 
 - Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework.
 - One logical model has one current snapshot instance; fingerprints bind model, runner, purpose, and inputs. Compile exact ownership before execution; never rerun-all.
 - Multi-model replacement is one revision set. Partial activation, stale heads, omitted siblings, illegal overlap, incomplete relations, or stale child receipts block parent confidence.
-- Ordinary work materializes affected topology only. Blueprint-wide topology requires explicit scope and never triggers repository discovery or reconstruction.
-- ModelMesh proves relationships, not source semantics, inventory, static qualification, or reconstruction. Counts alone prove none of them.
+- Ordinary work materializes affected topology only. Blueprint-wide topology requires explicit scope and never triggers repository discovery.
+- ModelMesh proves relationships, not source semantics, inventory, or static qualification. Counts alone prove none of them.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, Child Reattachment Gate, siblings, receipts, and a mesh diagram; edges mean delegates, reattaches, consumes output, realizes, or blocks. Blueprint output names consumed fingerprints and missing purpose/consumer/realization relations.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, Child Reattachment Gate, siblings, receipts, and a mesh diagram; edges mean delegates, reattaches, consumes output, realizes, or blocks. Blueprint output adds depth/first gap, fingerprints, and missing relations.
 
 
 <!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

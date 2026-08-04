@@ -797,3 +797,87 @@ A blueprint-required implementation binding SHALL cite current source-independen
 #### Scenario: Hidden writer is discovered
 - **WHEN** source discovery finds a state or effect writer not present in the bound semantic write inventory
 - **THEN** alignment blocks the blueprint and identifies the writer
+
+### Requirement: Deep blueprint rows bind model semantics code and tests exactly
+For static blueprint qualification, Model-Test Alignment SHALL bind every in-scope model obligation through independent semantic evidence and one owner CodeContract to exact implementation surfaces and exact evidence producers. A producer SHALL be an independently re-discovered project test node with assertion-quality evidence or a bounded native model checker whose current project file is independently fingerprinted. Current execution receipts SHALL remain a separate evidence status and SHALL be required only for claims that say the current evidence executed successfully. Every identity and fingerprint consumed by either status SHALL remain explicit.
+
+#### Scenario: One obligation has a complete current chain
+- **WHEN** an obligation is linked to independent semantics, one current CodeContract, all implementing surfaces, exact current test nodes, and meaningful assertions
+- **THEN** the row MAY report the static model-semantic-code-test binding complete
+- **AND** the row exposes the consumed identities and fingerprints
+- **AND** execution remains `not_run` until a separate current receipt exists
+
+#### Scenario: A helper is found outside the declared binding
+- **WHEN** independent implementation discovery finds a behavior-bearing helper consumed by an obligation but the alignment row omits it
+- **THEN** the row remains incomplete and identifies the orphan implementation surface
+- **AND** a passing test for another surface cannot substitute for the missing binding
+
+#### Scenario: Test source exists without an executable node
+- **WHEN** a test file is inventoried but its executable test node or collection identity is missing
+- **THEN** the test remains an unresolved inventory item
+- **AND** it does not satisfy the obligation row
+
+### Requirement: Candidate test design and current evidence remain separate
+Alignment SHALL distinguish candidate oracle and planned-test design from executed evidence for the current observed implementation. A future obligation MAY carry a planned test or falsifier, but its test status SHALL remain `planned` or `not_run` until the exact candidate implementation is executed and evidenced.
+
+#### Scenario: A future obligation has a planned falsifier
+- **WHEN** a candidate target includes a test design and oracle but no candidate execution receipt
+- **THEN** the alignment row reports pre-code test design present and executed evidence `not_run`
+- **AND** it does not present the future obligation as current-green
+
+#### Scenario: A broad test command passes
+- **WHEN** a parent pytest command passes but an in-scope obligation lacks an exact child test node and binding row
+- **THEN** the parent result remains aggregate execution evidence only
+- **AND** the missing row remains visible and blocks static model-code-test closure
+
+#### Scenario: One accepted future obligation has no test owner
+- **WHEN** an accepted candidate obligation has neither a falsifier and planned test owner nor an explicit scoped disposition
+- **THEN** Model-Test Alignment reports an unresolved evidence owner
+- **AND** candidate readiness remains blocked
+
+### Requirement: Blueprint coverage binds exact test members and dimensions
+For each behavior-bearing surface, blueprint alignment SHALL enumerate exact coverage rows containing model obligation, semantic rule, owner code contract, implementation surface, test node, assertion or native-check member, parameter or subtest case identity, covered dimensions, evidence role, oracle, execution owner, and terminal execution disposition.
+
+#### Scenario: Owner test collection is copied to every surface
+- **WHEN** a model owner has several behavior surfaces and a test collection does not enumerate which assertions cover which surfaces
+- **THEN** alignment SHALL report missing exact coverage rows
+- **AND** the collection SHALL NOT automatically cover every surface
+
+#### Scenario: Native checker exists but has no current execution result
+- **WHEN** a native checker member and runner fingerprint exist but no current terminal receipt is bound
+- **THEN** static checker design SHALL remain visible
+- **AND** execution status SHALL be `not_run` rather than `pass`
+
+### Requirement: Test definition and execution evidence remain separate
+Model-Test Alignment SHALL distinguish the admitted test source member, the checker or assertion definition, and the current terminal execution receipt. None of these identities SHALL substitute for another.
+
+#### Scenario: Parent suite passed but leaf receipt is absent
+- **WHEN** a parent suite reports pass but a required behavior coverage row lacks its exact leaf result or declared bounded delegation
+- **THEN** the row SHALL remain incomplete for release confidence
+
+### Requirement: Blueprint coverage has referential integrity
+Every blueprint coverage edge SHALL resolve to a current behavior block, implementation surface, owner-declared concrete case, accepted case-and-dimension checker design, its current test-node or native-check owner, oracle identity, semantic rule, and exactly one covered dimension. The alignment review SHALL reject generated, missing, cross-owner, reused, stale, or mismatched references.
+
+#### Scenario: Assertion belongs to another test node
+- **WHEN** a coverage edge cites an oracle member whose owning test node differs from the edge's test node
+- **THEN** alignment SHALL report the exact cross-test mismatch
+- **AND** the edge SHALL NOT satisfy blueprint coverage
+
+#### Scenario: Oracle does not cover a claimed dimension
+- **WHEN** a coverage edge claims a behavior dimension absent from the cited oracle contract
+- **THEN** alignment SHALL keep that dimension uncovered
+
+### Requirement: Delegated oracle helpers are explicit
+A delegated assertion helper SHALL count as an oracle member only when it is explicitly declared, its source identity is current, its call path terminates at current assertion or native-check members, and cycles or unresolved calls are absent.
+
+#### Scenario: Test calls an unregistered assert-like helper
+- **WHEN** a test invokes a helper whose name suggests an assertion but no current declaration and terminal oracle path exist
+- **THEN** the helper SHALL remain supporting evidence only
+
+### Requirement: Coverage design and execution are separate objects
+The model-test alignment result SHALL preserve a formal static-design edge independently from its execution evidence. An owner-declared and accepted checker design assigned to a current test/native owner MAY be `not_run`; a generated, unaccepted, or ownerless checker SHALL remain a design gap rather than a formal edge.
+
+#### Scenario: Planned test has no implementation member
+- **WHEN** a case and expected oracle are proposed but no accepted checker design and current test/native owner exist
+- **THEN** alignment SHALL report a planned checker gap
+- **AND** it SHALL NOT serialize a passing or complete formal coverage edge

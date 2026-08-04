@@ -81,6 +81,7 @@ FULL_CHILD_IDS = (
     "skill_native_checks",
     "skill_self_governance",
     "model_regressions_full",
+    "self_maintenance_review",
     "pytest",
     "openspec_strict",
     "distribution_check",
@@ -423,6 +424,9 @@ def run_static_suite(
 def _write_static_result(
     payload: Mapping[str, Any],
     output_dir: str | None,
+    *,
+    authority_kind: str = "standalone",
+    parent_scope: str = "",
 ) -> tuple[str, str, str]:
     if output_dir:
         run_dir = Path(output_dir).expanduser().resolve()
@@ -441,6 +445,8 @@ def _write_static_result(
         kind="skill-suite-static",
         status=str(payload.get("status", "blocked")),
         result_path=result_path,
+        authority_kind=authority_kind,
+        parent_scope=parent_scope,
     )
     result_sha256 = "sha256:" + hashlib.sha256(result_path.read_bytes()).hexdigest()
     return run_dir.name, str(result_path), result_sha256
@@ -524,6 +530,10 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
         args.skillguard,
         "--output-dir",
         str(Path(args.output_dir).expanduser().resolve() / "static-suite"),
+        "--authority-kind",
+        "child",
+        "--parent-scope",
+        "full-validation",
         "--json",
     ]
     model_command = [
@@ -641,6 +651,47 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
             ("validation:model_regressions_full",),
             required_path=model_script,
             missing_reason="manifest model-regression runner is required for full closure",
+        ),
+        ChildSpec(
+            "self_maintenance_review",
+            (
+                sys.executable,
+                "-m",
+                "flowguard",
+                "flowguard-self-blueprint-check",
+                "--root",
+                str(root),
+                "--include-architecture-reduction",
+                "--json",
+            ),
+            (
+                "AGENTS.md",
+                "CHANGELOG.md",
+                "LICENSE",
+                "README.md",
+                "ROADMAP.md",
+                ".agents/**/*",
+                ".flowguard/*/model.py",
+                ".flowguard/*/run_checks.py",
+                ".flowguard/authoritative_model_system/**/*",
+                ".flowguard/model-regression-manifest.json",
+                ".flowguard/project.toml",
+                ".github/**/*",
+                ".skillguard/**/*",
+                "assets/**/*",
+                "docs/**/*",
+                "examples/**/*",
+                "flowguard/**/*",
+                "openspec/**/*",
+                "pyproject.toml",
+                "scripts/**/*",
+                "tests/**/*",
+            ),
+            (
+                "validation:self_blueprint",
+                "validation:architecture_reduction_review",
+            ),
+            timeout_seconds=1800.0,
         ),
         ChildSpec(
             "pytest",
@@ -1485,6 +1536,7 @@ def run_full_validation(args: argparse.Namespace) -> ValidationResult:
         kind="full-validation",
         status=result.status,
         result_path=parent_path,
+        authority_kind="parent",
     )
     return result
 
@@ -1500,6 +1552,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--member", action="append", default=[], help="Static scope only; repeat to select members")
     parser.add_argument("--output-dir", help="Full-scope parent and child artifact directory")
+    parser.add_argument(
+        "--authority-kind",
+        choices=("standalone", "child"),
+        default="standalone",
+        help="Static-scope evidence authority; full validation supplies child explicitly.",
+    )
+    parser.add_argument(
+        "--parent-scope",
+        default="",
+        help="Required parent scope identity when static evidence is a full-validation child.",
+    )
     parser.add_argument(
         "--receipt-dir",
         help="Persistent native owner receipt/proof store; defaults under .flowguard/evidence",
@@ -1571,6 +1634,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_id, result_path, result_sha256 = _write_static_result(
             payload,
             args.output_dir,
+            authority_kind=args.authority_kind,
+            parent_scope=args.parent_scope,
         )
         _print_static(
             payload,
@@ -1587,6 +1652,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         invalid_reason = "--model-timeout must be positive"
     elif args.member:
         invalid_reason = "--member is static-only; full scope always requires all 15 members"
+    elif args.authority_kind != "standalone" or args.parent_scope:
+        invalid_reason = "--authority-kind and --parent-scope are static-only"
     if invalid_reason:
         result = _command_error(VALIDATION_STATUS_INVALID_INPUT, invalid_reason, scope="full")
         print(

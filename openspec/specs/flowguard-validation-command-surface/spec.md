@@ -133,3 +133,53 @@ The command surface SHALL provide a read-only implementation-inventory audit, a 
 #### Scenario: Reconstruction receipt is omitted
 - **WHEN** a blueprint check does not require empirical reconstruction and no reconstruction receipt is supplied
 - **THEN** static closure is evaluated and empirical status remains not-run without launching work
+
+### Requirement: Project blueprint audit and check commands are read-only
+The command surface SHALL provide provider-neutral target-system blueprint audit and check operations for an explicit target descriptor, frozen provider registry, provider snapshot, and any target-specialized definition. Audit SHALL report provider qualification, canonical layer statuses, bindings, and unresolved items; check SHALL return composable status and exit semantics for the requested static claim. Neither operation SHALL write a projection, modify the target, install software, or execute a missing provider.
+
+#### Scenario: A declared workflow blueprint audit is requested
+- **WHEN** a caller supplies a bounded workflow target and current observation and authority provider results
+- **THEN** the command returns canonical machine-readable provider, lineage, evidence, and depth findings without requiring a programming language
+- **AND** the target artifacts and authority pointers remain unchanged
+
+#### Scenario: A target boundary lacks a deep provider
+- **WHEN** audit reaches a required source, workflow, trace, resource, or authority boundary for which no registered current provider supplies the required capability
+- **THEN** the command returns a non-pass result naming the exact boundary and missing provider capability
+- **AND** it does not fall back to FlowGuard's Python self preset or another shallow adapter
+
+#### Scenario: FlowGuard self-blueprint and reduction are requested together
+- **WHEN** the self-blueprint check receives the explicit composed architecture-reduction option
+- **THEN** it builds one current self-blueprint and returns both compact bounded results from that exact bundle
+- **AND** it does not rebuild the blueprint, write a cache, or modify source
+### Requirement: Export and reconstruction remain separately explicit
+Read-only audit and check SHALL remain separate from deterministic export, and all of those surfaces SHALL remain separate from empirical reconstruction execution. A reconstruction requirement flag MAY require validation of a supplied receipt, but SHALL NOT authorize or start reconstruction.
+
+#### Scenario: Audit is used during ordinary maintenance
+- **WHEN** ordinary affected-only maintenance invokes project blueprint audit or check
+- **THEN** no blueprint projection is written unless the existing explicit export surface is separately invoked
+- **AND** reconstruction remains `not_run`
+
+#### Scenario: Reconstruction evidence belongs to another blueprint
+- **WHEN** a check receives a reconstruction receipt whose blueprint fingerprint differs from the current qualification
+- **THEN** the empirical layer is blocked with the identity mismatch
+- **AND** the static-layer result remains independently reported
+
+#### Scenario: JSON output is requested
+- **WHEN** a caller requests canonical JSON from audit or check
+- **THEN** the result preserves stable layer, finding, owner, fingerprint, skipped, and `not_run` fields
+- **AND** human progress text does not replace the terminal result
+
+### Requirement: Candidate and readiness commands are read-only
+FlowGuard SHALL expose composable read-only commands for candidate blueprint discovery and reconstruction-readiness review. These commands SHALL perform no target-source edits, export, reconstruction, missing-owner execution, installation, or authority activation.
+
+#### Scenario: Candidate command finds unresolved semantics
+- **WHEN** candidate discovery cannot independently establish one or more behavior contracts
+- **THEN** the command SHALL return a nonzero or explicit incomplete terminal with all unresolved ids
+- **AND** it SHALL write no project artifact unless explicit export is separately requested
+
+### Requirement: Validation status identifies parent versus child authority
+Validation status output SHALL identify whether a current pointer belongs to a child or terminal parent and SHALL reject a child result as evidence for an incomplete parent gate.
+
+#### Scenario: Child current file is passed to parent verifier
+- **WHEN** a verifier receives a current pointer whose authority kind is `child`
+- **THEN** parent verification SHALL fail with a typed authority-kind mismatch

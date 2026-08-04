@@ -19,6 +19,7 @@ from .model_authority import (
     ModelSystemSnapshot,
 )
 from .model_authority_store import load_observed_model_system
+from .model_intent import ModelIntentContribution, ModelIntentDisposition
 from .model_regressions import (
     ModelRegressionManifest,
     _model_owner_contract,
@@ -429,6 +430,11 @@ def build_current_model_revision(
     receipt_root: str | Path | None = None,
     output_root: str | Path | None = None,
     removal_dispositions: Iterable[RevisionRemovalDisposition] = (),
+    intent_contributions: Iterable[ModelIntentContribution] = (),
+    intent_dispositions: Iterable[ModelIntentDisposition] = (),
+    no_declared_intent_rationale_id: str = "",
+    no_declared_intent_evidence_fingerprints: Iterable[tuple[str, str]] = (),
+    no_declared_intent_rationale: str = "",
     decision_reason: str = (
         "The exact-current terminal-pass full model-regression parent receipt "
         "covers every affected native owner."
@@ -449,6 +455,8 @@ def build_current_model_revision(
         else root_path / ".flowguard" / "model-mesh"
     )
     dispositions = tuple(removal_dispositions)
+    contributions = tuple(intent_contributions)
+    contribution_dispositions = tuple(intent_dispositions)
     if any(not isinstance(item, RevisionRemovalDisposition) for item in dispositions):
         raise ModelAuthorityError(
             "removal dispositions must be current typed RevisionRemovalDisposition records"
@@ -526,6 +534,13 @@ def build_current_model_revision(
             removed_ids=diff.removed_ids,
             fingerprint_changed_ids=diff.fingerprint_changed_ids,
             removal_dispositions=dispositions,
+            intent_contributions=contributions,
+            intent_dispositions=contribution_dispositions,
+            no_declared_intent_rationale_id=no_declared_intent_rationale_id,
+            no_declared_intent_evidence_fingerprints=tuple(
+                no_declared_intent_evidence_fingerprints
+            ),
+            no_declared_intent_rationale=no_declared_intent_rationale,
             required_evidence_refs=required,
         )
         accepted = proposed.accept(

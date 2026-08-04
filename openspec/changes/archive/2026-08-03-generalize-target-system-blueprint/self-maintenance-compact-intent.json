@@ -1,0 +1,65 @@
+{
+  "contributions": [
+    {
+      "schema": "flowguard.model_intent_contribution.v1",
+      "contribution_id": "intent:generalize-target-system-blueprint-compact-direct-projection-v0.68.6",
+      "source_kind": "plan",
+      "source_ref": "openspec/changes/generalize-target-system-blueprint/self-maintenance-performance-model-miss.md",
+      "source_fingerprint": "sha256:3acb31e4a64cac8f232fe62cd423078ca5da2ac143f741d251277afd33019f59",
+      "subject_lane": "normative_target",
+      "subject_role": "status",
+      "lifecycle_state": "candidate",
+      "decision_state": "accepted",
+      "logical_model_id": "model:architecture_reduction",
+      "unresolved_owner_id": "",
+      "supersedes_contribution_ids": [],
+      "conflicts_with_contribution_ids": [],
+      "target_obligation_ids": [],
+      "target_state_ids": [],
+      "target_transition_ids": [],
+      "target_invariant_ids": [],
+      "target_relation_ids": [
+        "relation:model-realizes-purpose:architecture_reduction",
+        "relation:model-realizes-purpose:authoritative_model_system",
+        "relation:model-realizes-purpose:implementation_blueprint"
+      ],
+      "desired_terminal_state_ids": [],
+      "target_output_ids": [],
+      "declared_consumer_ids": [
+        "model:architecture_reduction",
+        "model:authoritative_model_system",
+        "model:implementation_blueprint"
+      ],
+      "effective_revision": "release:v0.68.6",
+      "rationale": "The real composed audit showed that compact mode still expanded and discarded the complete multi-gigabyte blueprint payload; the correction makes compact status a direct bounded projection while preserving the explicit full-detail path.",
+      "work_context_id": "",
+      "work_context_fingerprint": "",
+      "native_owner_id": "",
+      "fingerprint": "sha256:7e886d20261d2bb409f97d314c1ab9d1e82619484b54a8f6926f1e45e05fefb8"
+    }
+  ],
+  "dispositions": [
+    {
+      "schema": "flowguard.model_intent_disposition.v1",
+      "contribution_id": "intent:generalize-target-system-blueprint-compact-direct-projection-v0.68.6",
+      "contribution_fingerprint": "sha256:7e886d20261d2bb409f97d314c1ab9d1e82619484b54a8f6926f1e45e05fefb8",
+      "disposition": "accepted",
+      "changed_obligation_ids": [],
+      "changed_state_ids": [],
+      "changed_transition_ids": [],
+      "changed_invariant_ids": [],
+      "changed_relation_ids": [
+        "relation:model-realizes-purpose:architecture_reduction",
+        "relation:model-realizes-purpose:authoritative_model_system",
+        "relation:model-realizes-purpose:implementation_blueprint"
+      ],
+      "scoped_gap_ids": [],
+      "conflict_ids": [],
+      "unresolved_effect_ids": [],
+      "unreachable_terminal_state_ids": [],
+      "unconsumed_output_ids": [],
+      "reason": "The compact path now avoids both complete blueprint and complete reduction serialization, with executable tests that fail on either expansion.",
+      "fingerprint": "sha256:6630dc290536aebdfcf8aa5331028f08b17361d6f836ba96e7a63ecb5e33727e"
+    }
+  ]
+}

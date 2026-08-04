@@ -452,3 +452,68 @@ The AI entry path SHALL derive a whole-software blueprint obligation only from e
 #### Scenario: User asks for a complete portable software blueprint
 - **WHEN** the request explicitly claims or exports a whole-software blueprint
 - **THEN** the entry path triggers the existing inventory, alignment, mesh, portable, and process owners and preserves their independent results
+
+### Requirement: AI entry reports proven understanding depth and exact gaps
+The FlowGuard AI entry SHALL report the deepest proven blueprint layer and the status of every triggered layer using current structured results. It SHALL identify the exact missing or stale model, semantic source, implementation surface, CodeContract, test node, assertion, resource, oracle, intent contribution, owner, and evidence reference rather than self-rating its understanding.
+
+#### Scenario: Only inventory and traceability are proven
+- **WHEN** source inventory and model-to-code traceability pass but independent semantics or row-level test evidence is missing
+- **THEN** AI reports the deepest proven layer as traceability
+- **AND** it does not describe the software blueprint as complete or reconstructable
+
+#### Scenario: Static blueprint is complete
+- **WHEN** every required static layer has current evidence and empirical reconstruction has not run
+- **THEN** AI reports static blueprint complete and reconstruction `not_run`
+- **AND** it explains that no rebuild was performed
+
+#### Scenario: A user asks what remains unknown
+- **WHEN** the user requests a sufficiency or gap explanation
+- **THEN** AI translates current structured findings into exact owner/evidence gaps and bounded next actions
+- **AND** skipped, stale, blocked, and not-run states remain distinct
+
+### Requirement: Lightweight use, sufficiency, implementation admission, and user choice remain independent
+The AI entry SHALL default ordinary work to current authority identity plus the smallest affected blueprint neighborhood. Whole-software qualification SHALL activate only for an explicit whole-blueprint, export, self-qualification, or release obligation. Model sufficiency, DevelopmentProcessFlow implementation admission, and the user's authorization to write code SHALL remain independent decisions.
+
+#### Scenario: A small scoped change is requested
+- **WHEN** current affected ownership is known and no whole-blueprint claim is requested
+- **THEN** AI loads and validates only the affected neighborhood and required ancestors
+- **AND** it does not scan, export, or reconstruct the whole project
+
+#### Scenario: User authorizes code before understanding is sufficient
+- **WHEN** the user permits implementation but required model or blueprint gaps remain unresolved
+- **THEN** AI preserves the user's choice while reporting implementation admission blocked or scoped by its native owner
+- **AND** permission does not upgrade the understanding result
+
+#### Scenario: User asks to bypass modeling
+- **WHEN** the user explicitly chooses direct production work within an otherwise authorized scope
+- **THEN** AI records the choice and preserves all skipped or unresolved model claims
+- **AND** it does not falsely report skipped understanding checks as passed
+
+### Requirement: AI entry reports compact reconstruction readiness
+The AI entry surface SHALL report owner-level status, behavior-block status, reconstruction readiness, empirical reconstruction status, deepest proven layer, and the first unresolved gap from compact content-addressed identities without loading the full software blueprint.
+
+#### Scenario: User chooses direct implementation
+- **WHEN** the user authorizes direct implementation while readiness is incomplete
+- **THEN** the AI entry SHALL preserve the incomplete readiness report and the separate user choice
+- **AND** it SHALL NOT claim that permission deepened understanding
+
+### Requirement: AI entry consumes one compact blueprint summary
+The ordinary FlowGuard entry SHALL expose one compact, read-only blueprint summary containing target identity, affected or whole scope, layer statuses, deepest proven layer, first gap, and gap count. It SHALL NOT require the AI to load the complete blueprint merely to decide whether it understands enough.
+
+#### Scenario: Lightweight maintenance task is requested
+- **WHEN** the task affects a bounded neighborhood and its compact summary proves that neighborhood current
+- **THEN** the entry MAY route scoped work without claiming whole-target DNA readiness
+- **AND** unrelated whole-target gaps remain visible
+
+#### Scenario: Whole-target claim is requested
+- **WHEN** the AI proposes a whole-target blueprint-completeness claim
+- **THEN** the entry SHALL require a current whole-target static blueprint summary
+- **AND** prose confidence or direct user permission SHALL NOT fill a blueprint gap
+
+### Requirement: Provider gaps are explained in target language
+AI-facing results SHALL describe a missing source, workflow, trace, intent, resource, or authority provider as an exact evidence gap rather than describing every target as a Python software project.
+
+#### Scenario: Non-code workflow lacks an oracle provider
+- **WHEN** a workflow target has current steps and state but lacks an independent oracle provider
+- **THEN** the AI entry SHALL name the missing oracle capability and affected behavior
+- **AND** it SHALL NOT ask for a Python adapter

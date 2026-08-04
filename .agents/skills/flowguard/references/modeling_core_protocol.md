@@ -92,8 +92,8 @@ not prove that production code has no undeclared dependencies.
 ## Whole-software blueprint boundary
 
 Use the implementation-blueprint API cohort only when task facts explicitly
-request a complete software blueprint, deterministic export, reconstruction
-qualification, or an owner-declared release obligation. First derive the exact
+request a complete software blueprint, deterministic export, or an
+owner-declared release obligation. First derive the exact
 tracked plus admitted non-ignored file boundary independently of declared
 models and contracts. Discover language surfaces with the registered adapter,
 give every file and symbol one terminal disposition, and preserve parse,
@@ -109,7 +109,60 @@ references by current fingerprint. Export canonical content-addressed shards
 only on explicit request and exclude production source text by default.
 
 The blueprint is a derived view of the sole observed model-system authority,
-not another head. Report static status separately from empirical reconstruction
-status. `complete + not_run` is valid static closure and does not mean a rebuild
-occurred. Ordinary work loads at most the compact identity and affected
-neighborhood; it never scans, exports, or reconstructs the whole repository.
+not another head. Ordinary work loads at most the compact identity and affected
+neighborhood; it never scans or exports the whole repository.
+
+## Blueprint Modeling Responsibilities
+
+For explicit whole-software blueprint scope, model the ordered layers
+`inventory`, `traceability`, `independent_semantics`, `model_code_test`,
+`resource_oracle`, and `static_blueprint` without
+collapsing them into one completeness flag. `inventory` and `traceability`
+identify what exists and where it is owned. They cannot supply behavior that
+was merely inferred from source. The project blueprint embeds the complete
+`ProjectTestInventory`, and every read independently audits its manifest,
+nodes, cases, and fingerprints against current test source. `independent_semantics` must stand alone as a
+reimplementable contract. `model_code_test` must bind every in-scope
+obligation through one owner code contract to exact test assertions and
+current evidence. `resource_oracle` captures everything required to build,
+start, configure, migrate, integrate, and judge the behavior.
+
+Use only explicit project-owned identities. Unknown or conflicting ownership
+is a blocker, not permission to assign a FlowGuard self-owner or generic
+fallback. Ordinary modeling builds the smallest affected model and reports
+which blueprint layers were consumed; it does not materialize the whole
+software.
+
+Use the canonical blueprint objects rather than inventing a parallel DNA
+format. Each behavior-bearing surface has one `BehaviorBlockContract`, one
+primary owner, and explicit input, state, output, effect, error, decision,
+order, retry, timeout, and completion dimensions. Helper, adapter, serializer,
+and storage surfaces attach through `SupportingSurfaceRelation`; they do not
+become duplicate product behaviors merely because they contain code.
+
+Each `BehaviorCoverageEdge` binds that block to exact implementation surfaces,
+source-independent semantic rules, portable binding, concrete case, oracle,
+and a current real assertion or native-check member. Keep
+`CoverageExecutionEvidence` separate; a static checker design may be complete
+while execution remains `not_run`.
+Do not fan an owner-wide receipt out across all of its blocks. Every discovered
+test node receives a terminal `required`, `supporting`, `scoped_out`,
+`generated`, `external`, or `unresolved` disposition.
+
+Join one exact `ProjectResourceInventory` covering build, runtime, dependency,
+configuration, schema, data, asset, migration, external service, and test
+oracle resources. Each non-blocked category row embeds the canonical
+`BlueprintResourceReference` and therefore retains its exact owner, artifact,
+content fingerprint, source-independent semantics, purpose, and lifecycle
+role; the row adds only independently fingerprinted category disposition
+evidence. A blocked row has no resource reference and cannot manufacture a
+missing blueprint input. Join one exact `ProjectIntentInventory` from admitted
+planning/history sources. An empty intent set is valid only with an
+evidence-bound `NoDeclaredIntentRationale`; absence or discovery failure is not
+no-intent.
+
+Normalize shared owners, contracts, semantics, oracles, tests, resources, and
+intent once. The logical projection fingerprint is independent of shard
+layout. Ordinary work loads only an exact `AffectedBlueprintNeighborhood` and
+verifies every referenced shared object before use. Full projection/export is
+explicit-only.

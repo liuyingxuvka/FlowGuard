@@ -34,9 +34,10 @@ Accept a named model and existing surface; derive child ownership; block facade/
 - Missing target structure, facade, owner, compatibility, or current parity blocks its scope. StructureMesh does not discover source; stale inventory, omitted surfaces, or fingerprint mismatch blocks blueprint closure.
 - Route ArchitectureReduction only when a concrete candidate already names its observable contract, proof, target action, and required next route.
 - Dependency/config drift and release-only gaps stay visible; new/deepened models require template harvest closure.
+- Blueprint structural layer/depth/first gap, explicit whole scope, affected-only default, no owner fallback, and separate decision axes follow the protocol.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, parity, and a structure mesh diagram. Blueprint output adds inventory fingerprint, exact required/partitioned/dispositioned/missing ids, and closure.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, parity, and a structure mesh diagram. Blueprint output adds depth/first gap, inventory fingerprint, exact ids, and closure.
 
 
 <!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

@@ -97,3 +97,39 @@ Complete only when every required inventory item has one current executed,
 reused, or typed delegated disposition and the parent gate recomposes from
 those exact child ids/fingerprints. A locally green subset is never the full
 inventory.
+
+## Project Test Inventory Blueprint Boundary
+
+For explicit whole-target software scope, TestMesh owns the exact project test
+inventory and evidence hierarchy consumed by `model_code_test`. Inventory rows
+name admitted test source, discovered test node, parameter/case identity,
+assertion or oracle target, covered obligation/surface ids, native execution
+owner, terminal disposition, and current receipt fingerprint. Aggregate parent
+receipts remain parents; they never replace required leaf identities.
+The project blueprint embeds this complete `ProjectTestInventory`; every load
+independently re-audits current test files, nodes, parameter/case structure,
+manifest identity, and fingerprints before reuse.
+
+Formal static closure uses placeholder-free `BehaviorCaseContract` rows and
+real `BehaviorCoverageEdge` members. Delegated assertion helpers count only
+through an explicit current acyclic graph terminating at assertion/native
+members. Execution receipts remain separate `CoverageExecutionEvidence` and
+`not_run` cannot be described as pass.
+
+TestMesh does not establish `independent_semantics`, decide row-level
+`model_code_test` qualification or qualify `static_blueprint`. Whole-target
+collection is explicit-only.
+Ordinary work materializes affected nodes plus required dependent parents.
+Unknown impact or missing/duplicate/ambiguous ownership blocks; there is no
+run-all, FlowGuard-self, or generic catchall fallback.
+
+Return any supplied canonical `deepest_proven_layer` unchanged plus the first
+unresolved native owner/member/evidence gap created by test inventory or
+freshness. Keep user choice, maturation, and admission independent.
+
+Project-blueprint projection also requires one terminal
+`ProjectTestNodeDisposition` per discovered node: `required`, `supporting`,
+`scoped_out`, `generated`, `external`, or `unresolved`. Parameter/case markers
+and assertion targets stay attached to their exact node. Aggregate parent
+receipts may prove a parent run, but never manufacture an omitted leaf or a
+missing behavior-block binding.

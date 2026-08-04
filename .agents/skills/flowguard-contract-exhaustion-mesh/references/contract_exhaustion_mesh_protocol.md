@@ -138,3 +138,13 @@ fallbacks, and hand-written case lists are not canonical coverage. Keep them
 only when they are the current declaration owner, current evidence consumer,
 explicit public facade, negative legacy test, or archive-only record. Otherwise
 delete or rewrite them to feed ContractExhaustionMesh.
+
+## Behavior-Block Blueprint Cases
+
+When the declaring owner supplies a canonical `BehaviorBlockContract`, treat
+its input, state, output, effect, error, decision, order, retry, timeout, and
+completion dimensions as the only candidate finite axes. Generate stable good
+and bad case ids only for owner-declared finite values, bind them to the exact
+block and oracle, and return unresolved axes instead of inventing values. This
+strengthens per-block test design; it does not prove all bugs or qualify the
+whole blueprint by itself.

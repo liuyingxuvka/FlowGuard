@@ -1,0 +1,65 @@
+{
+  "contributions": [
+    {
+      "schema": "flowguard.model_intent_contribution.v1",
+      "contribution_id": "intent:generalize-target-system-blueprint-self-audit-model-miss-v0.68.6",
+      "source_kind": "plan",
+      "source_ref": "openspec/changes/generalize-target-system-blueprint/self-audit-model-miss.md",
+      "source_fingerprint": "sha256:eef96e447ac60647520c18ef1ba420b139af0e0a75f12aa8d782f1d8f9d6c92a",
+      "subject_lane": "normative_target",
+      "subject_role": "status",
+      "lifecycle_state": "candidate",
+      "decision_state": "accepted",
+      "logical_model_id": "model:implementation_blueprint",
+      "unresolved_owner_id": "",
+      "supersedes_contribution_ids": [],
+      "conflicts_with_contribution_ids": [],
+      "target_obligation_ids": [],
+      "target_state_ids": [],
+      "target_transition_ids": [],
+      "target_invariant_ids": [],
+      "target_relation_ids": [
+        "relation:model-realizes-purpose:architecture_reduction",
+        "relation:model-realizes-purpose:implementation_blueprint",
+        "relation:model-realizes-purpose:model_test_code_alignment"
+      ],
+      "desired_terminal_state_ids": [],
+      "target_output_ids": [],
+      "declared_consumer_ids": [
+        "model:architecture_reduction",
+        "model:implementation_blueprint",
+        "model:model_test_code_alignment"
+      ],
+      "effective_revision": "release:v0.68.6",
+      "rationale": "The FlowGuard self-audit exposed one dynamic inventory surface and misclassified terminal or imported assertion helpers; this correction closes only the three affected model-purpose relations without weakening readiness or widening the task boundary.",
+      "work_context_id": "",
+      "work_context_fingerprint": "",
+      "native_owner_id": "",
+      "fingerprint": "sha256:f0bd9499e0df0202e6e896f14c4aca8913e4e6bcade79473772a95344ecbfbc3"
+    }
+  ],
+  "dispositions": [
+    {
+      "schema": "flowguard.model_intent_disposition.v1",
+      "contribution_id": "intent:generalize-target-system-blueprint-self-audit-model-miss-v0.68.6",
+      "contribution_fingerprint": "sha256:f0bd9499e0df0202e6e896f14c4aca8913e4e6bcade79473772a95344ecbfbc3",
+      "disposition": "accepted",
+      "changed_obligation_ids": [],
+      "changed_state_ids": [],
+      "changed_transition_ids": [],
+      "changed_invariant_ids": [],
+      "changed_relation_ids": [
+        "relation:model-realizes-purpose:architecture_reduction",
+        "relation:model-realizes-purpose:implementation_blueprint",
+        "relation:model-realizes-purpose:model_test_code_alignment"
+      ],
+      "scoped_gap_ids": [],
+      "conflict_ids": [],
+      "unresolved_effect_ids": [],
+      "unreachable_terminal_state_ids": [],
+      "unconsumed_output_ids": [],
+      "reason": "The candidate removes the avoidable dynamic operation and binds mock and imported delegated assertions to current terminal evidence across the exact three changed model relations.",
+      "fingerprint": "sha256:d910c24f046a29abaae9c6f1700add29ec13d50478efe2689a4c4385196609aa"
+    }
+  ]
+}

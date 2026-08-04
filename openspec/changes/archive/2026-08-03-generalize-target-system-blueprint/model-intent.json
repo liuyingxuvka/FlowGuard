@@ -1,0 +1,74 @@
+{
+  "contributions": [
+    {
+      "schema": "flowguard.model_intent_contribution.v1",
+      "contribution_id": "intent:generalize-target-system-blueprint-v0.68.6",
+      "source_kind": "design",
+      "source_ref": "openspec/changes/archive/2026-08-03-generalize-target-system-blueprint/design.md",
+      "source_fingerprint": "sha256:e25394efbb49d9475deb61f6ca6b0324b321619de717896d99b29cc786831385",
+      "subject_lane": "normative_target",
+      "subject_role": "design",
+      "lifecycle_state": "candidate",
+      "decision_state": "accepted",
+      "logical_model_id": "model:authoritative_model_system",
+      "unresolved_owner_id": "",
+      "supersedes_contribution_ids": [],
+      "conflicts_with_contribution_ids": [],
+      "target_obligation_ids": [],
+      "target_state_ids": [],
+      "target_transition_ids": [],
+      "target_invariant_ids": [],
+      "target_relation_ids": [
+        "relation:model-realizes-purpose:architecture_reduction",
+        "relation:model-realizes-purpose:authoritative_model_system",
+        "relation:model-realizes-purpose:harden_ui_content_visibility_validation",
+        "relation:model-realizes-purpose:implementation_blueprint",
+        "relation:model-realizes-purpose:model_miss_review",
+        "relation:model-realizes-purpose:model_test_code_alignment"
+      ],
+      "desired_terminal_state_ids": [],
+      "target_output_ids": [],
+      "declared_consumer_ids": [
+        "model:architecture_reduction",
+        "model:authoritative_model_system",
+        "model:harden_ui_content_visibility_validation",
+        "model:implementation_blueprint",
+        "model:model_miss_review",
+        "model:model_test_code_alignment"
+      ],
+      "effective_revision": "release:v0.68.6",
+      "rationale": "The accepted OpenSpec design generalizes FlowGuard blueprint readiness to provider-neutral target systems while preserving exact behavior, resource, test, intent, reduction, and task-admission boundaries.",
+      "work_context_id": "",
+      "work_context_fingerprint": "",
+      "native_owner_id": "",
+      "fingerprint": "sha256:db0d33309b655d3c0e8f696d8b5a06eb5266b90ed3d138e104938ebf0c474dce"
+    }
+  ],
+  "dispositions": [
+    {
+      "schema": "flowguard.model_intent_disposition.v1",
+      "contribution_id": "intent:generalize-target-system-blueprint-v0.68.6",
+      "contribution_fingerprint": "sha256:db0d33309b655d3c0e8f696d8b5a06eb5266b90ed3d138e104938ebf0c474dce",
+      "disposition": "accepted",
+      "changed_obligation_ids": [],
+      "changed_state_ids": [],
+      "changed_transition_ids": [],
+      "changed_invariant_ids": [],
+      "changed_relation_ids": [
+        "relation:model-realizes-purpose:architecture_reduction",
+        "relation:model-realizes-purpose:authoritative_model_system",
+        "relation:model-realizes-purpose:harden_ui_content_visibility_validation",
+        "relation:model-realizes-purpose:implementation_blueprint",
+        "relation:model-realizes-purpose:model_miss_review",
+        "relation:model-realizes-purpose:model_test_code_alignment"
+      ],
+      "scoped_gap_ids": [],
+      "conflict_ids": [],
+      "unresolved_effect_ids": [],
+      "unreachable_terminal_state_ids": [],
+      "unconsumed_output_ids": [],
+      "reason": "The current whole-model candidate implements the accepted provider-neutral target-system blueprint and binds every changed model-purpose relation represented by this release.",
+      "fingerprint": "sha256:0ca53cde2dd75ffa7caaca7a4b0a37bf0a578f7fc6f5da195f0f6edf0d8d0675"
+    }
+  ]
+}

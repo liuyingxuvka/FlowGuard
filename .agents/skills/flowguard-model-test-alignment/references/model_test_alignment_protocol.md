@@ -111,11 +111,11 @@ A path and symbol prove traceability only. A blueprint-required binding must
 also cite current source-independent semantic specifications and applicable
 oracles for input/output shapes, state/effect changes, errors, and relevant
 ordering, retry, timeout, and decision rules. Missing semantic or oracle
-references keep reconstruction closure incomplete even if ordinary
+references keep blueprint closure incomplete even if ordinary
 model-code-test alignment is green.
 
 This route reports static alignment evidence only. It does not export a
-blueprint or launch empirical reconstruction.
+blueprint.
 
 ## Closure And Mesh Handoff
 
@@ -148,11 +148,47 @@ in-scope obligation. Do not claim code correctness, full test execution, or
 broad product confidence from alignment alone.
 
 Blueprint-scoped completion additionally requires exact bidirectional set
-closure and source-independent semantic/oracle references. It still proves
-neither whole blueprint qualification nor empirical reconstruction.
+closure and source-independent semantic/oracle references. It still does not
+prove whole blueprint qualification.
 
 ## Revision Evidence Binding
 
 After any model, contract, primary-path, test, verifier, or inventory change,
 invalidate only the rows that consume the changed identity, refresh their
 evidence, and preserve unaffected current rows by exact fingerprint.
+
+## `model_code_test` Blueprint Layer
+
+This route owns row-level `model_code_test` alignment. In explicit
+whole-software scope, each required row binds one model obligation, one
+source-independent semantic rule, one external owner `CodeContract`, one
+   behavior-bearing implementation surface, one owner-declared case, one
+   accepted case-and-dimension checker design assigned to an exact
+   project-test-inventory node or native-check owner, and, for executed claims,
+   one current terminal evidence receipt. The project blueprint must embed that
+complete `ProjectTestInventory`, and alignment consumes it only after an
+independent read-time audit against current test source. Both model-to-code and behavior-bearing
+code-to-model directions must close.
+
+A green parent suite, test file, helper-only test, aggregate count, generated
+case, or unaccepted checker cannot satisfy the static design. A `not_run` row
+cannot satisfy an executed-evidence claim. TestMesh supplies exact
+test/evidence inventory and hierarchy but never invents the semantic rule.
+Undefined semantics return to their native model owner. Missing, duplicate,
+ambiguous, or stale owners block without fallback.
+
+Whole-software alignment is explicit-only; ordinary alignment recalculates
+affected rows. Return canonical `deepest_proven_layer` from the complete prefix
+and the first unresolved owner/member/evidence gap, but never upgrade another
+layer. User choice, maturation, and implementation admission remain separate.
+
+Canonical blueprint alignment separates `BehaviorCaseContract`,
+`BehaviorCoverageEdge`, and `CoverageExecutionEvidence`. Every static edge
+names an exact behavior block, primary surface, semantic rule, portable
+binding, concrete literal or symbolic-contract owner-declared case, oracle,
+accepted dimension checker design, and its current pytest/native-check owner.
+A delegated assertion helper counts only
+through an explicit current acyclic call graph that terminates at real oracle
+members. Placeholder cases, generated test ids, owner-wide receipts, and
+full-suite receipts cannot be copied to satisfy unrelated blocks; execution
+remains a separate `not_run|pass|fail|blocked` fact.

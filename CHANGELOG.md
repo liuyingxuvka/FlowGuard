@@ -1,5 +1,76 @@
 # Changelog
 
+## v0.68.6 - 2026-08-03
+
+- Added one provider-neutral target-system blueprint kernel for software,
+  workflows, services, agents, pipelines, and mixed systems. Whole-target
+  claims now require a frozen provider registry and target snapshot, and every
+  claimed capability binds its exact observed inputs and payloads.
+- Bound each independently declared behavior owner to its exact code/workflow
+  surfaces, input/state/output/effect/error/decision/order/retry/timeout/
+  completion contracts, source-independent semantics, resources, and accepted
+  intent without promoting every discovered helper into a fake model.
+- Added an independently re-audited project-test inventory with exact files,
+  nodes, parameterization, assertions, source fingerprints, and bounded native
+  checker artifacts; broad parent evidence can no longer fabricate child test
+  coverage or certify stale source.
+- Added content-addressed intent contributions from declared project inputs,
+  including bounded Spark, OpenSpark, and changelog/history profiles, and bound
+  accepted intent to the existing WorkContext and ModelRevisionSet lineage with
+  explicit conflict, supersession, rejection, deferral, and unresolved-gap
+  handling.
+- Added exact parent/child interface mappings: every topology relation records
+  which producer output becomes which consumer input, and disconnected,
+  missing, or surface-mismatched model owners block static readiness.
+- Added a real ModelTestAlignmentReport with its own fingerprint, model
+  obligations, owner code contracts, checker designs, execution state, and
+  visible gaps. A binding-report fingerprint can no longer impersonate it.
+- Split checker design by behavior case and dimension so one assertion or
+  native check cannot silently claim contradictory good/boundary/bad cases or
+  all behavior dimensions. Parameter-case identity stays explicit and planned
+  checks remain distinct from receipt-backed execution.
+- Required project owners to declare their concrete cases and accepted checker
+  designs. The generic builder no longer manufactures canonical cases or
+  checker identities from observed source, while `not_run` remains an honest
+  execution status for a complete static test design.
+- Replaced FlowGuard's self-only blueprint compiler with a thin preset over the
+  generic builder, removed unknown-owner fallback, classified helpers as exact
+  supporting relationships, and deduplicated repeated per-surface semantics and
+  oracles into stable model-owner obligations.
+- Added independently reported qualification layers and an honest deepest
+  proven layer plus the first incomplete layer. The static blueprint completion, user
+  execution choice, implementation admission, and receipt-backed execution
+  remain separate.
+- Added a normalized shared-object projection and exact affected-neighborhood
+  loader so ordinary work reuses owners, contracts, semantics, oracles, tests,
+  resources, and intent without loading the whole blueprint or changing its
+  logical identity when shard layout changes.
+- Made affected loading validate only referenced objects and added per-model
+  topology and model-test indexes, so unrelated shared objects are no longer a
+  hidden whole-blueprint input to lightweight work.
+- Added exact interrupted-owner settlement and separate standalone/child/parent
+  evidence authority so a dead validation process can be closed without
+  touching unrelated leases or treating progress as a terminal result.
+- Updated the affected FlowGuard skill prompts and protocols so explicit
+  whole-software work can reach blueprint depth while ordinary maintenance stays
+  affected-only and lightweight.
+- Used the current self-blueprint to perform a finite read-only,
+  behavior-preserving architecture contraction audit. The current denominator
+  is complete; all 11 size or repeated-shape signals remain `risky_keep`, with
+  zero unproved automatic deletions or merges.
+- Contracted the release-facing self-blueprint and architecture-reduction
+  validators into one ten-owner `self_maintenance_review` producer, reused one
+  exact in-memory blueprint, and replaced per-candidate full-surface caller
+  scans with one deterministic reverse call index. Both validation obligations
+  remain explicit; no cache or fallback was added.
+- Made compact self-maintenance output a direct bounded projection instead of
+  expanding a multi-gigabyte full graph and immediately discarding it.
+- Reused the exact canonical fingerprint of immutable large behavior evidence
+  across self-blueprint qualification and architecture reduction.
+- Streamed canonical fingerprint and byte-count calculation for large normalized
+  blueprint payloads, removing simultaneous multi-copy JSON amplification before
+  physical projection construction.
+
 ## v0.68.5 - 2026-08-02
 
 - Made task facts independently observable by source plane and kept unknown,

@@ -80,7 +80,7 @@ blueprint structural closure.
 
 Ordinary StructureMesh work remains bounded to the affected parent/child
 partition. It does not load the whole inventory unless blueprint scope is
-explicit, and it never parses source or launches reconstruction.
+explicit, and it never parses source.
 
 ## Evidence Checklist
 
@@ -211,3 +211,27 @@ but the layered proof stays blocked until the new child modules expose complete
 leaf inputs, outputs, state writes, side effects, and error paths. Facade
 compatibility proves public shape; it does not prove the leaf
 `Input x State -> Set(Output x State)` matrix by itself.
+
+## Blueprint Layer Contribution
+
+StructureMesh consumes `inventory` and `traceability` to prove single-owner
+structural accounting, facade/dependency/configuration continuity, and parity
+for the affected partition. It does not establish `independent_semantics`,
+qualify `model_code_test` or `static_blueprint`.
+
+Whole-software partition accounting requires an explicit blueprint/export/
+qualification or named release/self-qualification task fact. Ordinary
+refactors inspect affected partitions, facades, dependencies, and parity only.
+Missing, duplicate, ambiguous, or stale project ownership blocks without a
+FlowGuard-self, authoritative-root, or generic fallback.
+
+Return any supplied canonical `deepest_proven_layer` unchanged plus the first
+unresolved native owner/surface/evidence gap. Keep user choice, maturation, and
+DevelopmentProcessFlow admission separate.
+
+When canonical behavior blocks are available, partition each primary
+`BehaviorBlockContract` to exactly one structural owner and attach helpers,
+adapters, persistence, and serialization through `SupportingSurfaceRelation`.
+Moving or splitting support code must preserve the primary owner and all ten
+behavior dimensions. A duplicate primary owner or an orphan supporting surface
+blocks parity instead of being hidden by facade success.

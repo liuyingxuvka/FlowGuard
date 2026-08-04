@@ -114,6 +114,20 @@ class ModelRevisionBuilderTests(unittest.TestCase):
             output_dir=self.root / "outputs" / name,
         )
 
+    def _no_intent_kwargs(self) -> dict[str, object]:
+        return {
+            "no_declared_intent_rationale_id": "no-intent:builder-fixture",
+            "no_declared_intent_evidence_fingerprints": (
+                ("fixture_manifest", file_fingerprint(
+                    self.root / ".flowguard" / "model-regression-manifest.json"
+                )),
+            ),
+            "no_declared_intent_rationale": (
+                "This isolated builder fixture has no external product intent "
+                "beyond exercising its declared test boundary."
+            ),
+        }
+
     def test_builds_accepted_content_addressed_pair_without_activation(self):
         self._write_current_model("VALUE = 2\n")
         report = self._current_parent()
@@ -125,6 +139,7 @@ class ModelRevisionBuilderTests(unittest.TestCase):
             revision_set_id="revision:test-builder",
             task_id="task:test-builder",
             snapshot_id="observed-test-builder",
+            **self._no_intent_kwargs(),
         )
 
         head_after, _still_base = load_observed_model_system(self.root)
@@ -242,6 +257,17 @@ class ModelRevisionBuilderTests(unittest.TestCase):
                     "task:cli-builder",
                     "--snapshot-id",
                     "observed-cli-builder",
+                    "--no-declared-intent-rationale-id",
+                    "no-intent:builder-cli-fixture",
+                    "--no-declared-intent-evidence-fingerprints",
+                    json.dumps({"fixture_manifest": file_fingerprint(
+                        self.root / ".flowguard" / "model-regression-manifest.json"
+                    )}),
+                    "--no-declared-intent-rationale",
+                    (
+                        "This isolated CLI fixture has no external product intent "
+                        "beyond exercising its declared test boundary."
+                    ),
                     "--json",
                 ]
             )

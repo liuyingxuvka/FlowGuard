@@ -96,6 +96,10 @@ class FullValidationCompositionTests(unittest.TestCase):
     @staticmethod
     def child_id(command):
         joined = " ".join(command)
+        if "flowguard-self-blueprint-check" in command:
+            if "--include-architecture-reduction" in command:
+                return "self_maintenance_review"
+            return "self_blueprint"
         if "project-audit" in command:
             return "project_audit"
         if "check_flowguard_skill_suite.py" in joined:
@@ -373,7 +377,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             result = suite_command.run_full_validation(self.args())
 
         self.assertTrue(result.broad_success)
-        self.assertEqual(9, len(result.children))
+        self.assertEqual(10, len(result.children))
         model_child = next(child for child in result.children if child.child_id == "model_regressions_full")
         self.assertIn("--jobs", model_child.payload["command"])
         self.assertIn("3", model_child.payload["command"])
@@ -389,11 +393,29 @@ class FullValidationCompositionTests(unittest.TestCase):
             self.assertEqual("gzip", result_artifact["stderr"]["compression"])
         parent = json.loads(Path(result.artifact_paths[0]).read_text(encoding="utf-8"))
         self.assertEqual("pass", parent["status"])
-        self.assertEqual(9, len(parent["children"]))
+        self.assertEqual(10, len(parent["children"]))
         self.assertNotIn("result", parent["children"][0]["payload"])
         self.assertTrue((self.output / "evidence-run.json").is_file())
         self.assertTrue((self.output.parent / "CURRENT.json").is_file())
+        parent_head = json.loads((self.output.parent / "CURRENT.json").read_text(encoding="utf-8"))
+        self.assertEqual("parent", parent_head["authority_kind"])
         self.assertTrue(gzip.decompress(Path(model_child.artifact_paths[0]).read_bytes()))
+
+    def test_static_child_publishes_only_child_authority(self):
+        child_run = Path(self.temporary.name) / "parent-run" / "static-suite"
+        suite_command._write_static_result(
+            {"status": "pass"},
+            str(child_run),
+            authority_kind="child",
+            parent_scope="full-validation",
+        )
+
+        child_head = json.loads(
+            (child_run.parent / "CURRENT.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("child", child_head["authority_kind"])
+        self.assertEqual("full-validation", child_head["parent_scope"])
+        self.assertFalse((child_run.parent.parent / "CURRENT.json").exists())
 
     def test_plan_only_executes_no_producer_and_writes_no_evidence(self):
         args = self.args()
@@ -442,7 +464,7 @@ class FullValidationCompositionTests(unittest.TestCase):
 
         self.assertIn("flowguard/self_maintenance.py", specs["skill_suite_static"].input_patterns)
 
-    def test_identical_second_full_request_reuses_all_nine_owners(self):
+    def test_identical_second_full_request_reuses_all_ten_owners(self):
         with patch.object(
             suite_command,
             "_execute_command",
@@ -456,12 +478,12 @@ class FullValidationCompositionTests(unittest.TestCase):
 
         self.assertTrue(first.broad_success)
         self.assertTrue(second.broad_success)
-        self.assertEqual(9, first_execute.call_count)
+        self.assertEqual(10, first_execute.call_count)
         second_execute.assert_not_called()
-        self.assertEqual(9, second.counts["reused"])
+        self.assertEqual(10, second.counts["reused"])
         self.assertEqual(0, second.counts["executed"])
         self.assertEqual(0, second.progress_summary["producer_invocations"])
-        self.assertEqual(9, second.progress_summary["avoided_producer_invocations"])
+        self.assertEqual(10, second.progress_summary["avoided_producer_invocations"])
         self.assertEqual(1.0, second.progress_summary["estimated_work_avoided_fraction"])
         self.assertGreaterEqual(second.progress_summary["elapsed_seconds"], 0.0)
 
@@ -488,16 +510,22 @@ class FullValidationCompositionTests(unittest.TestCase):
 
         self.assertTrue(first.broad_success)
         self.assertTrue(second.broad_success)
-        self.assertEqual(1, execute.call_count)
+        self.assertEqual(2, execute.call_count)
         self.assertEqual(
-            "openspec_strict",
-            self.child_id(execute.call_args.args[0]),
+            {
+                "openspec_strict",
+                "self_maintenance_review",
+            },
+            {
+                self.child_id(call.args[0])
+                for call in execute.call_args_list
+            },
         )
         self.assertEqual(8, second.counts["reused"])
-        self.assertEqual(1, second.counts["executed"])
-        self.assertEqual(1, second.progress_summary["producer_invocations"])
+        self.assertEqual(2, second.counts["executed"])
+        self.assertEqual(2, second.progress_summary["producer_invocations"])
         self.assertEqual(8, second.progress_summary["avoided_producer_invocations"])
-        self.assertEqual(0.889, second.progress_summary["estimated_work_avoided_fraction"])
+        self.assertEqual(0.8, second.progress_summary["estimated_work_avoided_fraction"])
 
     def test_failed_parent_preserves_successful_children_for_next_run(self):
         with patch.object(
@@ -522,7 +550,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             "distribution_parity",
             self.child_id(execute.call_args.args[0]),
         )
-        self.assertEqual(8, second.counts["reused"])
+        self.assertEqual(9, second.counts["reused"])
 
     def test_tampered_owner_receipt_blocks_before_any_producer_starts(self):
         with patch.object(

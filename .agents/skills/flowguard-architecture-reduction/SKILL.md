@@ -36,7 +36,7 @@ Accept existing-model ownership plus code mapping; classify contraction candidat
 - Public entrypoints require StructureMesh parity, duplicate generators route to ContractExhaustionMesh, and new/deepened models require template harvest closure.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus contraction candidates and proof status.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, contraction candidates, proof status, and triggered blueprint depth/first gap.
 
 
 <!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

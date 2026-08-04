@@ -9,6 +9,7 @@ import unittest
 
 import flowguard
 from flowguard.__main__ import main
+from flowguard.evidence_receipts import fingerprint_value
 from flowguard.task_coverage_demand import (
     COVERAGE_DISPOSITION_SATISFIED,
     OwnerCoverageResolution,
@@ -53,6 +54,42 @@ def _complete_source_snapshots() -> tuple[TaskFactSourceSnapshot, ...]:
 
 
 class UnderstandingReadinessTests(unittest.TestCase):
+    def blueprint_summary(self, *, scope: str = "affected", status: str = "pass"):
+        payload = {
+            "schema_version": "flowguard.blueprint_understanding_summary.v1",
+            "scope": scope,
+            "target_system_id": "target:fixture",
+            "subject_revision": "revision:current",
+            "descriptor_fingerprint": "sha256:" + "1" * 64,
+            "blueprint_fingerprint": "sha256:" + "2" * 64,
+            "layer_statuses": {
+                "evidence_qualification": "pass",
+                "implementation_inventory": "pass",
+                "traceability": "pass",
+                "independent_semantics": "pass",
+                "model_code_test": status,
+                "resource_oracle": status,
+                "static_blueprint": status,
+            },
+            "deepest_proven_layer": (
+                "static_blueprint" if status == "pass" else "independent_semantics"
+            ),
+            "first_gap": (
+                None
+                if status == "pass"
+                else {
+                    "layer": "model_code_test",
+                    "object_kind": "coverage_edge",
+                    "object_id": "coverage:missing",
+                }
+            ),
+            "gap_count": 0 if status == "pass" else 1,
+            "affected_surface_ids": ["surface:fixture"],
+            "provider_fingerprints": {},
+            "claim_boundary": "read-only compact fixture",
+        }
+        return {**payload, "fingerprint": fingerprint_value(payload)}
+
     def complete_artifacts(self):
         facts = TaskFacts(
             "task:complete",
@@ -162,6 +199,46 @@ class UnderstandingReadinessTests(unittest.TestCase):
         self.assertEqual(USER_CHOICE_DIRECT, status.user_choice)
         self.assertEqual(UNDERSTANDING_NOT_RUN, status.understanding_sufficiency)
         self.assertEqual(ADMISSION_BLOCKED, status.implementation_admission)
+
+    def test_affected_blueprint_summary_supplements_task_sufficiency(self) -> None:
+        artifacts = self.complete_artifacts()
+        status = compose_understanding_status(
+            UnderstandingReadinessInput(
+                **artifacts,
+                blueprint_summary=self.blueprint_summary(),
+                blueprint_scope_required="affected",
+            )
+        )
+        self.assertTrue(status.ok)
+        self.assertEqual("pass", status.blueprint_status)
+        self.assertEqual("static_blueprint", status.blueprint_deepest_proven_layer)
+        self.assertEqual(0, status.blueprint_gap_count)
+
+    def test_whole_claim_rejects_affected_or_incomplete_blueprint(self) -> None:
+        artifacts = self.complete_artifacts()
+        affected = compose_understanding_status(
+            UnderstandingReadinessInput(
+                **artifacts,
+                blueprint_summary=self.blueprint_summary(scope="affected"),
+                blueprint_scope_required="whole",
+            )
+        )
+        self.assertIn("whole_blueprint_summary_required", affected.blocker_codes)
+
+        incomplete = compose_understanding_status(
+            UnderstandingReadinessInput(
+                **artifacts,
+                blueprint_summary=self.blueprint_summary(
+                    scope="whole", status="incomplete"
+                ),
+                blueprint_scope_required="whole",
+            )
+        )
+        self.assertIn(
+            "blueprint_static_incomplete:model_code_test:coverage_edge:coverage:missing",
+            incomplete.gap_codes,
+        )
+        self.assertEqual(ADMISSION_BLOCKED, incomplete.implementation_admission)
 
     def test_no_code_is_independent_of_understanding(self) -> None:
         status = compose_understanding_status(

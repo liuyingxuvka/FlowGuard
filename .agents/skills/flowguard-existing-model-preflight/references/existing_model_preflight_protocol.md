@@ -125,8 +125,7 @@ caller-supplied file list. Preserve:
   topology, resource/oracle closure, and process freshness.
 
 Preflight does not copy internal inventory rows into BCL, interpret source
-semantics, qualify the blueprint, export shards, or execute reconstruction.
-Static blueprint closure and empirical reconstruction remain separate facts.
+semantics, qualify the blueprint, or export shards.
 
 ## Required Hazards
 
@@ -154,8 +153,7 @@ Known-bad variants should fail or be reported:
 - a whole-software blueprint inferred from model/contract declarations without
   an independent current implementation inventory;
 - ordinary affected work widened into a whole-repository inventory scan;
-- static blueprint completeness described as reconstructed, or reconstruction
-  launched by preflight;
+- static blueprint completeness promoted beyond its exact evidence boundary;
 - ArchitectureReduction proposed from size, style, or cost alone without a
   current model/code map and observable behavior-preservation evidence.
 
@@ -266,3 +264,31 @@ not a sufficiency or implementation-ready verdict. Emit those exact owner,
 surface, commitment, intent, path, and unresolved-angle facts as one current
 typed Model Maturation contribution; Model Maturation decides depth and
 DevelopmentProcessFlow decides implementation admission.
+
+## Blueprint Layer Contribution
+
+Existing Model Preflight contributes only to `inventory` and `traceability`.
+For explicit whole-software scope it consumes the project definition, the
+independent implementation inventory, the complete `ProjectTestInventory`
+embedded in the project blueprint, its current independent source-audit
+fingerprint, current observed
+model/intent lineage, exact owner/path/symbol bindings, and terminal
+dispositions. It reports the matching and missing ids; it does not derive the
+denominator from models, contracts, BCL rows, or a caller file list.
+
+Preflight cannot mark `independent_semantics`, `model_code_test`,
+`resource_oracle`, or `static_blueprint` complete.
+Return any supplied canonical `deepest_proven_layer` unchanged plus the first
+unresolved native owner/evidence gap introduced by lookup. Missing, duplicate,
+ambiguous, or stale project ownership blocks; the FlowGuard self-model and
+authoritative-model-system root are never fallback owners for target software.
+
+Whole-software lookup needs an explicit blueprint/export/qualification or
+named release/self-qualification task fact. Ordinary full and light preflight
+stay affected-only. Keep user choice, maturation, and admission separate.
+
+When supplied a `NormalizedBlueprintProjection`, verify its logical fingerprint
+and load only the exact `AffectedBlueprintNeighborhood`. Return referenced
+primary behavior owners and supporting-surface relations as observations.
+Missing shared objects or a fingerprint mismatch blocks; Preflight never fills
+in a missing `BehaviorBlockContract`, resource, intent, oracle, or test row.

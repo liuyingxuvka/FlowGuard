@@ -66,20 +66,26 @@ Get-ChildItem -Recurse -Force | Where-Object {
 
 ## Required Validation
 
-Before the final validation owner starts, run the read-only self-blueprint
-check:
+Before the final validation owner starts, run the composed read-only
+self-maintenance check. It builds one exact self-blueprint and passes the same
+in-memory bundle to architecture-reduction review:
 
 ```powershell
-python -m flowguard flowguard-self-blueprint-check --root . --json
+python -m flowguard flowguard-self-blueprint-check `
+  --root . `
+  --include-architecture-reduction `
+  --compact `
+  --json
 ```
 
-Require `static_status=complete`. Keep `empirical_status=not_run` as a valid,
-separate result; this release gate never launches reconstruction.
+Require `static_status=complete`, a current topology report, a real
+ModelTestAlignmentReport identity, and no unresolved static-blueprint gap.
 
-Then use that exact current blueprint and implementation-inventory fingerprint
-to inventory repeated routes, branches, adapters, wrappers, helpers, and
-validation paths. Declare the observable API/CLI/state/side-effect contract,
-run ArchitectureReduction and CodeStructureRecommendation, and use
+The nested reduction result uses that exact current blueprint and
+implementation-inventory fingerprint to inventory repeated routes, branches,
+adapters, wrappers, helpers, and validation paths. Declare the observable
+API/CLI/state/side-effect contract, run ArchitectureReduction and
+CodeStructureRecommendation, and use
 StructureMesh for structural moves or public entrypoints. Apply only
 `safe_by_equivalence` or current `safe_by_public_facade` candidates. Every
 other candidate must be retained with an explicit reason. Re-run the affected
@@ -111,7 +117,7 @@ python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_valida
 
 ## Source-only Release
 
-FlowGuard v0.68.5 uses the immutable source tag as its sole release authority.
+FlowGuard v0.68.6 uses the immutable source tag as its sole release authority.
 Do not build or upload a wheel or source distribution. The GitHub Release must
 be published with zero assets.
 
@@ -141,8 +147,7 @@ Block publication if:
 - a version-matching wheel, source distribution, or GitHub Release asset exists;
 - implemented/runnable UI claims lack current UI implementation validation
   evidence.
-- release notes promote the bounded semantic self-model to clean-room
-  reconstruction or claims outside its declared model-system boundary.
+- release notes make claims outside the declared model-system boundary.
 - the current self-blueprint is not statically complete, the architecture
   candidate inventory is incomplete or stale, a contraction lacks current
   equivalence/facade proof, or affected parity validation has not been rerun.

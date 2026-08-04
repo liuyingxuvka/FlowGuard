@@ -129,3 +129,48 @@ The evidence lifecycle SHALL read and atomically publish content-addressed evide
 - **WHEN** selected model runners pass but the parent evidence object resolves beyond the legacy Windows path limit
 - **THEN** the parent result and its object are stored and independently readable without shortening or changing the governed worktree identity
 
+### Requirement: FlowGuard self-qualification uses the public project-neutral path
+FlowGuard self-maintenance SHALL build and qualify its self-blueprint through the same target-system compiler, provider registry and snapshot, project-neutral builder, Python observation providers, test inventory, alignment, and qualification contracts available to other targets. The FlowGuard self definition SHALL be a thin bounded software preset and SHALL NOT duplicate generic assembly, semantic, provider, or evidence authority.
+
+#### Scenario: Generic compiler behavior changes
+- **WHEN** the target-system compiler, project-neutral builder, or a consumed schema changes
+- **THEN** FlowGuard self-qualification exercises that exact current implementation and schema
+- **AND** a FlowGuard-only alternate builder cannot keep the self check green
+
+#### Scenario: FlowGuard-specific preset supplies repository boundaries
+- **WHEN** self-maintenance loads FlowGuard's checked-in blueprint definition
+- **THEN** the preset supplies only target-specific boundaries, provider selections, owner mappings, and declared resources
+- **AND** generic qualification remains owned by the public provider-neutral path
+
+#### Scenario: A non-code fixture follows the same core path
+- **WHEN** regression supplies a bounded workflow or mixed target with equivalent current provider capabilities
+- **THEN** both targets are compiled through the same target-system API and checker contracts
+- **AND** target identity and provider kinds change only the declared target data
+### Requirement: Self-maintenance exposes honest depth and safe contraction inputs
+The self-maintenance parent SHALL consume current child evidence for independent inventory, intent lineage, semantics, model-code-test bindings, resources and oracles, static qualification, affected-only behavior, and optional empirical reconstruction status. It SHALL publish exact gaps and provide ArchitectureReduction only current evidence-bound candidates.
+
+#### Scenario: One FlowGuard test row is orphaned
+- **WHEN** the self test inventory contains a required executable node or obligation without a complete current binding
+- **THEN** the parent reports the exact orphan and its owner
+- **AND** broad self regression success does not close static blueprint qualification
+
+#### Scenario: Static self-blueprint passes without reconstruction
+- **WHEN** every required static child passes and no reconstruction was requested
+- **THEN** self-maintenance reports static self-blueprint complete and reconstruction `not_run`
+- **AND** it does not claim empirical rebuilding
+
+#### Scenario: Self-audit finds an uncertain duplicate path
+- **WHEN** the blueprint exposes a possible duplicate helper, adapter, branch, validation route, or facade without current equivalence evidence
+- **THEN** the parent emits a typed ArchitectureReduction candidate with unresolved proof status
+- **AND** it does not edit or remove the path automatically
+
+### Requirement: Self-maintenance release consumes behavior and reduction children
+FlowGuard self-maintenance release closure SHALL consume independent terminal children for behavior-block blueprint qualification and fingerprinted ArchitectureReduction self-review. Neither child SHALL be inferred from generic model regression or narrative OpenSpec completion.
+
+#### Scenario: Static owner map passes without behavior closure
+- **WHEN** FlowGuard's owner-level blueprint passes but behavior-block qualification is incomplete
+- **THEN** full self-understanding and release closure SHALL remain blocked
+
+#### Scenario: Reduction review is missing
+- **WHEN** all other self-maintenance children pass but the current self-reduction report is absent or stale
+- **THEN** release closure SHALL identify the missing reduction child

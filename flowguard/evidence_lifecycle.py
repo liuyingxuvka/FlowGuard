@@ -29,6 +29,10 @@ AUDIT_SCHEMA = "flowguard.evidence_audit.v1"
 GC_PLAN_SCHEMA = "flowguard.evidence_gc_plan.v1"
 GC_RECEIPT_SCHEMA = "flowguard.evidence_gc_receipt.v1"
 EXECUTION_LEASE_SCHEMA = "flowguard.evidence_execution_lease.v2"
+INTERRUPTION_SETTLEMENT_REQUEST_SCHEMA = (
+    "flowguard.evidence_interruption_settlement_request.v1"
+)
+INTERRUPTED_INCIDENT_SCHEMA = "flowguard.evidence_interrupted_incident.v1"
 TAIL_CHAR_LIMIT = 4000
 
 
@@ -463,6 +467,233 @@ def settle_cleanup_unconfirmed_lease(
         ) from exc
 
 
+def _process_is_alive(process_id: int) -> bool:
+    """Return whether one process id is still live without changing it."""
+
+    if process_id == os.getpid():
+        return True
+    try:
+        os.kill(process_id, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+@contextmanager
+def _interruption_settlement_lock(lock_root: Path) -> Iterator[None]:
+    """Serialize exact interruption settlement independently of owner leases."""
+
+    path = lock_root.parent / "interruption-settlement.lock"
+    token = uuid.uuid4().hex
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_BINARY"):
+        flags |= os.O_BINARY
+    try:
+        descriptor = os.open(path, flags, 0o600)
+    except FileExistsError as exc:
+        raise EvidenceLifecycleError(
+            "another interruption settlement is active or requires explicit recovery"
+        ) from exc
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(_canonical_bytes({"token": token, "process_id": os.getpid()}))
+            stream.flush()
+            os.fsync(stream.fileno())
+        yield
+    finally:
+        try:
+            current = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            current = {}
+        if current.get("token") == token:
+            path.unlink(missing_ok=True)
+
+
+def settle_interrupted_execution_leases(
+    lock_root: str | Path,
+    request: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Turn exact dead-process residual leases into immutable interrupted evidence.
+
+    The operation never produces passing validation evidence.  All requested
+    leases are revalidated under one settlement lock and then moved together
+    beside a content-addressed incident.  Unknown, changed, foreign-plan, live,
+    or partial lease sets block without moving any lease.
+    """
+
+    if request.get("schema_version") != INTERRUPTION_SETTLEMENT_REQUEST_SCHEMA:
+        raise EvidenceLifecycleError("unsupported interruption settlement request schema")
+    plan_id = request.get("plan_id")
+    process_id = request.get("process_id")
+    operator_reason = request.get("operator_reason")
+    observation = request.get("zero_descendant_observation")
+    lease_rows = request.get("leases")
+    if not isinstance(plan_id, str) or not plan_id or plan_id != plan_id.strip():
+        raise EvidenceLifecycleError("interruption settlement plan_id must be normalized text")
+    if isinstance(process_id, bool) or not isinstance(process_id, int) or process_id <= 0:
+        raise EvidenceLifecycleError("interruption settlement process_id must be positive")
+    if (
+        not isinstance(operator_reason, str)
+        or not operator_reason.strip()
+        or operator_reason != operator_reason.strip()
+    ):
+        raise EvidenceLifecycleError("interruption settlement operator_reason must be normalized text")
+    if not isinstance(observation, Mapping):
+        raise EvidenceLifecycleError("zero-descendant observation is required")
+    descendant_ids = observation.get("descendant_process_ids")
+    observed_at = observation.get("observed_at_epoch")
+    observed_by = observation.get("observed_by")
+    observation_method = observation.get("method")
+    if not isinstance(descendant_ids, Sequence) or isinstance(descendant_ids, (str, bytes)):
+        raise EvidenceLifecycleError("descendant_process_ids must be an explicit sequence")
+    if tuple(descendant_ids):
+        raise EvidenceLifecycleError("interrupted execution cannot settle while descendants remain")
+    if (
+        isinstance(observed_at, bool)
+        or not isinstance(observed_at, (int, float))
+        or float(observed_at) <= 0
+    ):
+        raise EvidenceLifecycleError("zero-descendant observation time is invalid")
+    for label, value in (("observed_by", observed_by), ("method", observation_method)):
+        if not isinstance(value, str) or not value or value != value.strip():
+            raise EvidenceLifecycleError(f"zero-descendant {label} must be normalized text")
+    if not isinstance(lease_rows, Sequence) or isinstance(lease_rows, (str, bytes)) or not lease_rows:
+        raise EvidenceLifecycleError("interruption settlement requires at least one exact lease")
+    if _process_is_alive(process_id):
+        raise EvidenceLifecycleError("interrupted execution process is still live")
+
+    normalized_rows: list[dict[str, str]] = []
+    identities: set[tuple[str, str]] = set()
+    for index, raw in enumerate(lease_rows):
+        if not isinstance(raw, Mapping):
+            raise EvidenceLifecycleError(f"interruption lease row {index} must be an object")
+        owner, execution, resource = _execution_lease_identity(
+            raw.get("owner_id"), raw.get("execution_key"), raw.get("resource_key")
+        )
+        lease_token = raw.get("lease_token")
+        if not isinstance(lease_token, str) or not lease_token or lease_token != lease_token.strip():
+            raise EvidenceLifecycleError(f"interruption lease row {index} has invalid token")
+        identity = (owner, resource)
+        if identity in identities:
+            raise EvidenceLifecycleError("interruption settlement contains duplicate owner/resource leases")
+        identities.add(identity)
+        normalized_rows.append(
+            {
+                "owner_id": owner,
+                "resource_key": resource,
+                "execution_key": execution,
+                "lease_token": lease_token,
+            }
+        )
+    normalized_rows.sort(key=lambda row: (row["owner_id"], row["resource_key"]))
+
+    root = Path(lock_root).resolve()
+    incident_root = root.parent / "interrupted-incidents"
+    with _interruption_settlement_lock(root):
+        if _process_is_alive(process_id):
+            raise EvidenceLifecycleError("interrupted execution process became live during settlement")
+        snapshots: list[dict[str, Any]] = []
+        source_paths: list[Path] = []
+        for row in normalized_rows:
+            current = read_evidence_execution_lease(
+                root,
+                owner_id=row["owner_id"],
+                resource_key=row["resource_key"],
+                execution_key=row["execution_key"],
+            )
+            if current is None:
+                raise EvidenceLifecycleError(
+                    f"interruption residual lease is missing: {row['owner_id']}"
+                )
+            expected = {
+                "owner_id": row["owner_id"],
+                "resource_key": row["resource_key"],
+                "execution_key": row["execution_key"],
+                "lease_token": row["lease_token"],
+                "plan_id": plan_id,
+                "process_id": process_id,
+            }
+            mismatches = [key for key, value in expected.items() if current.get(key) != value]
+            if mismatches:
+                raise EvidenceLifecycleError(
+                    "interruption residual lease identity mismatch for "
+                    f"{row['owner_id']}: {', '.join(mismatches)}"
+                )
+            source_paths.append(
+                _execution_lease_path(
+                    root,
+                    row["owner_id"],
+                    row["execution_key"],
+                    row["resource_key"],
+                )
+            )
+            snapshots.append(current)
+
+        incident_body = {
+            "schema_version": INTERRUPTED_INCIDENT_SCHEMA,
+            "status": "interrupted",
+            "terminal": True,
+            "reusable": False,
+            "partial_results_reusable": False,
+            "plan_id": plan_id,
+            "former_process_identity": {"process_id": process_id},
+            "zero_descendant_observation": {
+                "descendant_process_ids": [],
+                "observed_at_epoch": float(observed_at),
+                "observed_by": observed_by,
+                "method": observation_method,
+            },
+            "operator_reason": operator_reason,
+            "settled_at_epoch": time.time(),
+            "leases": snapshots,
+            "claim_boundary": (
+                "This incident proves only exact settlement of a dead interrupted process tree. "
+                "It is not validation, success, freshness, reuse, or release evidence."
+            ),
+        }
+        incident_id = _sha256_bytes(_canonical_bytes(incident_body))
+        incident = {**incident_body, "incident_id": incident_id}
+        incident_dir = incident_root / incident_id.removeprefix("sha256:")
+        if incident_dir.exists():
+            raise EvidenceLifecycleError("interrupted incident identity already exists")
+        temporary_dir = incident_root / f".{incident_dir.name}.{uuid.uuid4().hex}.tmp"
+        temporary_dir.mkdir(parents=True, exist_ok=False)
+        moved: list[tuple[Path, Path]] = []
+        try:
+            for source in source_paths:
+                destination = temporary_dir / "leases" / source.name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(
+                    _extended_windows_path(source),
+                    _extended_windows_path(destination),
+                )
+                moved.append((source, destination))
+            write_json_atomic(temporary_dir / "incident.json", incident)
+            os.replace(
+                _extended_windows_path(temporary_dir),
+                _extended_windows_path(incident_dir),
+            )
+        except Exception:
+            for source, destination in reversed(moved):
+                if destination.exists() and not source.exists():
+                    os.replace(
+                        _extended_windows_path(destination),
+                        _extended_windows_path(source),
+                    )
+            shutil.rmtree(temporary_dir, ignore_errors=True)
+            raise
+
+    return {
+        **incident,
+        "incident_path": str(incident_dir / "incident.json"),
+        "settled_lease_count": len(normalized_rows),
+    }
+
+
 def publish_run(
     run_dir: str | Path,
     *,
@@ -472,9 +703,15 @@ def publish_run(
     started_at_epoch: float = 0.0,
     finished_at_epoch: float | None = None,
     update_head: bool = True,
+    authority_kind: str = "standalone",
+    parent_scope: str = "",
 ) -> dict[str, Any]:
     """Publish an immutable run manifest, then atomically advance its scope head."""
 
+    if authority_kind not in {"standalone", "child", "parent"}:
+        raise EvidenceLifecycleError("evidence authority_kind must be standalone, child, or parent")
+    if authority_kind == "child" and (not parent_scope or parent_scope != parent_scope.strip()):
+        raise EvidenceLifecycleError("child evidence requires one normalized parent_scope")
     run_path = Path(run_dir).resolve()
     result = Path(result_path).resolve()
     if run_path not in result.parents:
@@ -487,6 +724,8 @@ def publish_run(
         "kind": str(kind),
         "status": str(status),
         "terminal": True,
+        "authority_kind": authority_kind,
+        "parent_scope": parent_scope,
         "started_at_epoch": float(started_at_epoch),
         "finished_at_epoch": float(finished_at_epoch if finished_at_epoch is not None else time.time()),
         "result_path": result.relative_to(run_path).as_posix(),
@@ -513,6 +752,8 @@ def publish_run(
             "manifest_sha256": manifest_sha,
             "result_sha256": result_sha,
             "status": str(status),
+            "authority_kind": authority_kind,
+            "parent_scope": parent_scope,
             "updated_at_epoch": time.time(),
         }
         write_json_atomic(scope_root / "CURRENT.json", head)
@@ -532,6 +773,37 @@ def _load_json(path: Path) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise EvidenceLifecycleError(f"expected JSON object: {path}")
     return value
+
+
+def read_current_head(
+    scope_root: str | Path,
+    *,
+    expected_authority_kind: str | None = None,
+) -> dict[str, Any]:
+    """Read one current pointer and optionally enforce its authority boundary."""
+
+    path = Path(scope_root).resolve() / "CURRENT.json"
+    payload = dict(_load_json(path))
+    if payload.get("schema_version") != HEAD_SCHEMA:
+        raise EvidenceLifecycleError("unsupported current-head schema")
+    authority_kind = payload.get("authority_kind")
+    if authority_kind not in {"standalone", "child", "parent"}:
+        raise EvidenceLifecycleError("current head has no valid authority_kind")
+    if expected_authority_kind is not None and authority_kind != expected_authority_kind:
+        raise EvidenceLifecycleError(
+            "current-head authority-kind mismatch: "
+            f"expected {expected_authority_kind}, observed {authority_kind}"
+        )
+    target = (path.parent / str(payload.get("run_path", ""))).resolve()
+    if not _path_within(path.parent, target):
+        raise EvidenceLifecycleError("current-head target escapes its scope")
+    manifest_path = target / "evidence-run.json"
+    if _sha256_file(manifest_path) != payload.get("manifest_sha256"):
+        raise EvidenceLifecycleError("current-head manifest fingerprint mismatch")
+    manifest = _load_json(manifest_path)
+    if manifest.get("authority_kind") != authority_kind:
+        raise EvidenceLifecycleError("current-head and run authority kinds differ")
+    return payload
 
 
 def _directory_size(path: Path) -> int:
@@ -1005,6 +1277,8 @@ def purge_evidence_quarantine(root: str | Path, quarantine_id: str) -> dict[str,
 __all__ = [
     "AUDIT_SCHEMA",
     "EXECUTION_LEASE_SCHEMA",
+    "INTERRUPTION_SETTLEMENT_REQUEST_SCHEMA",
+    "INTERRUPTED_INCIDENT_SCHEMA",
     "EvidenceLifecycleError",
     "GC_PLAN_SCHEMA",
     "HEAD_SCHEMA",
@@ -1021,9 +1295,11 @@ __all__ = [
     "publish_run",
     "purge_evidence_quarantine",
     "read_evidence_execution_lease",
+    "read_current_head",
     "resolve_object_path",
     "restore_evidence_quarantine",
     "settle_cleanup_unconfirmed_lease",
+    "settle_interrupted_execution_leases",
     "store_text_object",
     "verify_text_object",
     "write_json_atomic",

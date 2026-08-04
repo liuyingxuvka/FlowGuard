@@ -35,8 +35,7 @@ standalone satellite skills.
 - task-fact selection of whole-software blueprint work. The kernel coordinates
   independent implementation inventory, ExistingModelPreflight, Code Structure,
   StructureMesh, Model-Test Alignment, ModelMesh, portable references, and
-  DevelopmentProcessFlow without adding a `DNA` route, a second authority head,
-  or a selectable reconstruction depth.
+  DevelopmentProcessFlow without adding a `DNA` route or a second authority head.
 
 ## Public Owner Satellite Skills
 
@@ -70,7 +69,7 @@ no independent Codex skill, alias, forwarding entrypoint, or fallback path.
 | Sub-protocol | Owns |
 | --- | --- |
 | `core_modeling` | Risk Intent, state write inventory, function blocks, invariants, formal CheckPlan, known-bad proof, and the internal finite runner |
-| `implementation_blueprint` | kernel-owned API cohort for independent implementation inventory, bidirectional model bindings, resource/oracle closure, deterministic projection, and separate static/empirical qualification; it is not a public route or skill |
+| `implementation_blueprint` | kernel-owned API cohort for independent implementation inventory, bidirectional model bindings, resource/oracle closure, deterministic projection, and static qualification; it is not a public route or skill |
 | `development_process_simulator` | internal request helper consumed by `development_process_flow` for rough-plan, multi-skill, execution-freshness, install/sync, release/archive/publish, and final claim modes |
 | `plan_detailing_compiler` | internal `plan_detailing` route rows, receipts, validation, rework, human questions, and projection to downstream routes |
 | `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
@@ -101,7 +100,7 @@ These are check-engine helpers:
 - `review_model_test_alignment()` and `review_code_boundary_conformance()`;
 - implementation inventory and blueprint helpers for explicit whole-software
   qualification; their read-only checks do not scan automatically, execute
-  missing owners, change model authority, or run reconstruction;
+  missing owners, or change model authority;
 - `TransitionCoverageMatrix`, `transition_coverage_to_model_obligations()`,
   `transition_coverage_to_code_contracts()`, and
   `transition_coverage_to_required_leaf_cell_ids()`;
@@ -199,9 +198,7 @@ sub-skills.
   the source skill directories.
 - Keep a whole-software blueprint as a derived qualification of the sole current
   observed model-system snapshot. Ordinary work may consume only its compact
-  identity and affected neighborhood. Static completion and empirical
-  reconstruction remain independent, and no ordinary or release path launches
-  reconstruction unless an exact explicit requirement demands it.
+  identity and affected neighborhood.
 
 ## Task Sufficiency And Implementation Admission
 
@@ -219,3 +216,55 @@ does not change the maturation decision. Read-only work is
 `no_code_requested`. Missing/stale identity, scope expansion, unavailable real
 toolchain, destructive-boundary uncertainty, or active ownership conflict
 blocks admission.
+
+## Project-neutral Software Blueprint Contract
+
+The kernel exposes no `DNA` mode or extra skill. An explicit whole-software
+blueprint is one derived qualification over the sole current observed
+model-system snapshot. Its exact ordered layer ids and meanings are:
+
+1. `inventory`: independently discovered implementation and test denominators,
+   including terminal dispositions for every admitted file, surface, and test
+   node. The `ProjectBlueprint` embeds the complete `ProjectTestInventory`;
+   every load independently rechecks it against current test source before it
+   can be current. Inventory is not behavior meaning.
+2. `traceability`: exact current model, commitment, CodeContract, path, symbol,
+   owner, test, and fingerprint links in both directions. A link is not a
+   semantic specification.
+3. `independent_semantics`: source-independent input/output, state/effect,
+   error, order, retry, timeout, decision, and completion meanings with explicit
+   boundary conditions.
+4. `model_code_test`: row-level model obligation -> semantic rule -> external
+   CodeContract -> implementation surface -> owner-declared good/boundary/bad
+   case -> one accepted checker design per behavior dimension -> current test
+   node or bounded native-check owner. Generated cases/checkers do not close
+   this design. Receipt-backed execution remains separate and may be `not_run`
+   without erasing a complete static design.
+5. `resource_oracle`: build/runtime/dependency/config/schema/data/asset/
+   migration/external-service resources plus current behavioral oracles.
+6. `static_blueprint`: exact-current closure of layers 1-5 and their canonical
+   projection.
+
+Every blueprint projection returns all six ordered layer rows with status,
+native owner, member ids, evidence ids/fingerprints, and findings. Return
+`deepest_proven_layer` as the longest complete exact-current prefix and the
+first unresolved layer/owner/member/evidence gap. This is mechanical
+self-knowledge, not a self-rating or prose judgment. A later layer never masks
+an earlier gap.
+
+Whole-software materialization is admitted only from an explicit task fact:
+blueprint creation/export/qualification, or a named release/self-qualification
+obligation. Model count, `deep`, ordinary maintenance, audit, cleanup, install,
+   or release alone does not widen scope. Ordinary work consumes the current
+   blueprint identity and validates only the shared objects and topology
+   relations referenced by its affected neighborhood.
+
+Each project surface keeps its declared native owner. Missing, duplicated,
+ambiguous, stale, or unmapped ownership blocks that layer; never fall back to
+the FlowGuard self-model, the authoritative model-system root, a global role
+catalog, another route, or run-all. Keep user execution choice, verified model
+maturation, and DevelopmentProcessFlow admission as three independent axes.
+
+Independent reproduction or language migration is a separate specialist task
+loaded only when the user explicitly requests that outcome; it is not an
+ordinary blueprint layer, status field, or release gate.

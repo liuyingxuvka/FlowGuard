@@ -1,0 +1,71 @@
+{
+  "contributions": [
+    {
+      "schema": "flowguard.model_intent_contribution.v1",
+      "contribution_id": "intent:generalize-target-system-blueprint-self-maintenance-performance-v0.68.6",
+      "source_kind": "plan",
+      "source_ref": "openspec/changes/generalize-target-system-blueprint/self-maintenance-performance-model-miss.md",
+      "source_fingerprint": "sha256:652d7f352158bdfc72445d624b12c66b786ca12895b4e15000ae902cacd2d6c0",
+      "subject_lane": "normative_target",
+      "subject_role": "status",
+      "lifecycle_state": "candidate",
+      "decision_state": "accepted",
+      "logical_model_id": "model:architecture_reduction",
+      "unresolved_owner_id": "",
+      "supersedes_contribution_ids": [],
+      "conflicts_with_contribution_ids": [],
+      "target_obligation_ids": [],
+      "target_state_ids": [],
+      "target_transition_ids": [],
+      "target_invariant_ids": [],
+      "target_relation_ids": [
+        "relation:model-realizes-purpose:architecture_reduction",
+        "relation:model-realizes-purpose:authoritative_model_system",
+        "relation:model-realizes-purpose:harden_ui_content_visibility_validation",
+        "relation:model-realizes-purpose:implementation_blueprint",
+        "relation:model-realizes-purpose:test_evidence_mesh"
+      ],
+      "desired_terminal_state_ids": [],
+      "target_output_ids": [],
+      "declared_consumer_ids": [
+        "model:architecture_reduction",
+        "model:authoritative_model_system",
+        "model:harden_ui_content_visibility_validation",
+        "model:implementation_blueprint",
+        "model:test_evidence_mesh"
+      ],
+      "effective_revision": "release:v0.68.6",
+      "rationale": "The self-maintenance audit exposed repeated whole-blueprint work, quadratic caller scans, and an overlong nested evidence path; the correction preserves the same observable audit semantics while making the composed path single-pass and Windows-safe.",
+      "work_context_id": "",
+      "work_context_fingerprint": "",
+      "native_owner_id": "",
+      "fingerprint": "sha256:88d3442ca6bc3d3205bb629f07f5cc602b12f858dc37c4a7a477f260bf0dea8c"
+    }
+  ],
+  "dispositions": [
+    {
+      "schema": "flowguard.model_intent_disposition.v1",
+      "contribution_id": "intent:generalize-target-system-blueprint-self-maintenance-performance-v0.68.6",
+      "contribution_fingerprint": "sha256:88d3442ca6bc3d3205bb629f07f5cc602b12f858dc37c4a7a477f260bf0dea8c",
+      "disposition": "accepted",
+      "changed_obligation_ids": [],
+      "changed_state_ids": [],
+      "changed_transition_ids": [],
+      "changed_invariant_ids": [],
+      "changed_relation_ids": [
+        "relation:model-realizes-purpose:architecture_reduction",
+        "relation:model-realizes-purpose:authoritative_model_system",
+        "relation:model-realizes-purpose:harden_ui_content_visibility_validation",
+        "relation:model-realizes-purpose:implementation_blueprint",
+        "relation:model-realizes-purpose:test_evidence_mesh"
+      ],
+      "scoped_gap_ids": [],
+      "conflict_ids": [],
+      "unresolved_effect_ids": [],
+      "unreachable_terminal_state_ids": [],
+      "unconsumed_output_ids": [],
+      "reason": "The candidate indexes caller relations once, reuses one exact in-memory self-blueprint, merges duplicate release ownership without dropping obligations, and shortens only internal shard-safety paths.",
+      "fingerprint": "sha256:1dc7b700c281687734984b1c99b65fcb23467c03279ad0906fff9f6c9ceec2ed"
+    }
+  ]
+}
