@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from importlib import metadata as importlib_metadata
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from ._normalization import string_tuple as _as_tuple
+from ._package_identity import flowguard_package_version as _package_version
 
 from .evidence_receipts import (
     ChildReceiptRequirement,
@@ -68,13 +68,6 @@ def skill_contract_obligation_id(skill_id: str) -> str:
     """Return the stable umbrella obligation consumed for one deep contract."""
 
     return f"flowguard.skill_contract.{str(skill_id)}.deep"
-
-
-def _package_version() -> str:
-    try:
-        return importlib_metadata.version("flowguard")
-    except importlib_metadata.PackageNotFoundError:
-        return "0+local"
 
 
 @dataclass(frozen=True)

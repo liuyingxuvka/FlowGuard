@@ -122,18 +122,23 @@ Every managed FlowGuard V2 contract source SHALL declare whether former V1 runti
 - **THEN** the official atomic retirement workflow MAY remove only the exact former V1 runtime surfaces and prove `v2-only`
 
 ### Requirement: Provider-neutral prompt maintenance stays in the existing FlowGuard unit
-The provider-neutral prompt update SHALL remain inside the existing SkillGuard maintenance unit for the FlowGuard suite and SHALL cover exactly the declared FlowGuard-owned members: `flowguard`, `flowguard-behavior-commitment-ledger`, `flowguard-existing-model-preflight`, `flowguard-development-process-flow`, and `flowguard-test-mesh`. The unit SHALL update its contract source, compiled contract, exact check manifest, and target-owned semantic checks without creating a new provider unit or satellite. Official OpenSpec, Spec Kit, Superpowers, and other third-party provider skills SHALL remain outside this maintenance authority.
+Provider-neutral prompt maintenance SHALL remain inside the existing SkillGuard maintenance unit for the FlowGuard suite and SHALL cover the exact FlowGuard-owned source members selected by the frozen affected-component graph. The contract SHALL NOT hardcode a fleet count that can drift from the changed component set. Every selected member SHALL update its contract source, compiled contract, exact check manifest, target-owned semantic checks, consumer projection, and installed projection without creating a new provider unit or satellite. Official OpenSpec, Spec Kit, Superpowers, and other third-party provider skills SHALL remain outside this maintenance authority.
 
-#### Scenario: One of the five prompt sources changes
-- **WHEN** a provider-neutral wording or route rule changes in one declared FlowGuard prompt source
+#### Scenario: This blueprint-integrity change freezes its affected prompt set
+- **WHEN** this change freezes prompt/protocol edits for `flowguard`, `flowguard-existing-model-preflight`, `flowguard-model-test-alignment`, `flowguard-architecture-reduction`, `flowguard-structure-mesh`, and `flowguard-development-process-flow`
+- **THEN** those exact six members enter the affected owner and projection plan
+- **AND** unrelated FlowGuard or third-party skills are not enrolled by a fixed fleet list
+
+#### Scenario: One affected prompt source changes
+- **WHEN** a provider-neutral wording or route rule changes in one FlowGuard prompt source
 - **THEN** SkillGuard SHALL invalidate only the exact declared owners and projections that consume the changed component, execute their native checks, and include them in the unit's one frozen final validation plan
 
 #### Scenario: A third-party provider skill is installed nearby
 - **WHEN** SkillGuard inventories the FlowGuard maintenance unit and discovers an official or third-party provider skill in the environment
 - **THEN** it SHALL NOT enroll, copy, validate, package, or install that external skill as a FlowGuard unit member
 
-#### Scenario: The five prompts disagree on provider semantics
-- **WHEN** any of the declared prompt surfaces retains OpenSpec-only, provider-executing, receipt-owning, or provider-status-as-evidence guidance
+#### Scenario: The affected prompts disagree on provider semantics
+- **WHEN** any selected prompt surface retains OpenSpec-only, provider-executing, receipt-owning, or provider-status-as-evidence guidance
 - **THEN** the unit's native semantic validation SHALL remain blocked and SHALL NOT publish a clean consumer projection
 
 ### Requirement: Clean consumer installation is transactional and authority-bounded
@@ -329,10 +334,10 @@ Distribution SHALL preserve separate current evidence for the authoritative sour
 #### Scenario: Patch release closes every identity
 - **WHEN** the authorized patch release has current target-owned checks, SkillGuard unit closure, clean install parity, exact package version, committed source, pushed commit, matching tag, and matching GitHub Release
 - **THEN** distribution MAY report release closure for those exact identities
-- **AND** empirical reconstruction remains independently `not_run` unless separately requested and evidenced
+- **AND** every current result retains its own exact identity and claim boundary
 
 ### Requirement: Blueprint release freezes behavior and reduction evidence
-Before installation or source publication for a blueprint-qualified FlowGuard release, the distribution owner SHALL consume the frozen behavior-block qualification and self-reduction evidence identities in addition to the existing source, skill, model, test, OpenSpec, and parity owners. Empirical reconstruction SHALL remain excluded unless separately requested.
+Before installation or source publication for a blueprint-qualified FlowGuard release, the distribution owner SHALL consume the frozen behavior-block qualification and self-reduction evidence identities in addition to the existing source, skill, model, test, OpenSpec, and parity owners.
 
 #### Scenario: Installed projection is current but behavior qualification is stale
 - **WHEN** clean consumer installation parity passes but the behavior-block qualification fingerprint does not match the release tree
@@ -354,3 +359,85 @@ The authorized patch release SHALL separately prove authoritative source, target
 - **WHEN** the static blueprint result is current but an affected installed prompt retains the Python-only route
 - **THEN** distribution and release closure SHALL remain blocked
 - **AND** the static blueprint result SHALL remain reported separately
+
+### Requirement: Affected FlowGuard skills close through one author unit
+Changes to maintained FlowGuard skill prompts, references, routes, or native checks SHALL be compiled and validated inside `unit:flowguard-suite` with one exact owner plan and target-owned check results before consumer projection.
+
+#### Scenario: One source skill changes
+- **WHEN** an affected source skill changes a mapped component
+- **THEN** SkillGuard SHALL invalidate only declared consuming owners and projections
+- **AND** unmapped impact SHALL block rather than run every owner by fallback
+
+### Requirement: Consumer and installed skills remain clean and independently current
+The FlowGuard consumer projection and installed skills SHALL contain only target-owned skill material and SHALL exclude `.skillguard`, author contracts, receipts, router state, private paths, and maintenance-only evidence. Source validation, projection parity, and installation currentness SHALL remain separate results.
+
+#### Scenario: Source checks pass but installed skill is stale
+- **WHEN** the author source passes while an installed consumer file differs from the frozen projection
+- **THEN** installation SHALL remain not current
+- **AND** source success SHALL NOT substitute for installation parity
+
+### Requirement: Release self-maintenance owner publishes a bounded terminal result
+The release validation owner SHALL execute the complete composed self-blueprint and architecture-reduction review and SHALL publish the strict compact projection as its terminal command result. Compact publication SHALL reduce output size only; it SHALL NOT reduce the model, denominator, candidates, proofs, retain decisions, freshness checks, or cleanup readiness calculation.
+
+#### Scenario: Full release validation reaches self-maintenance review
+- **WHEN** the frozen release plan executes the self-maintenance validation owner
+- **THEN** the owner command SHALL request composed architecture reduction, compact publication, and machine-readable output
+- **AND** its receipt SHALL bind the full review fingerprint, projection fingerprint, exit status, execution owner, and frozen inputs
+
+#### Scenario: Complete review exceeds its frozen supervision boundary
+- **WHEN** the complete composed review does not reach a terminal producer result within the release owner's declared timeout
+- **THEN** the supervised episode SHALL be non-reusable and publication SHALL remain blocked
+- **AND** the implementation SHALL contract duplicate computation rather than omit a model, denominator, candidate, proof, retain decision, freshness check, or cleanup gate
+
+### Requirement: Shadow synchronization preserves the author-source projection
+FlowGuard SHALL provide one explicit full-suite synchronization operation for an author-source shadow skill tree. The operation SHALL project the complete current author inventory, including author-only contract artifacts, and SHALL NOT generate consumer release files or use the consumer installation route as an alternate implementation.
+
+#### Scenario: Installer-owned consumer tree becomes an author shadow
+- **WHEN** the target contains the exact unchanged FlowGuard consumer projection recorded by its installer ownership authority
+- **AND** the caller explicitly requests author-source synchronization
+- **THEN** the operation replaces the complete managed FlowGuard suite with the current author projection
+- **AND** it removes only exact installer-owned consumer-only artifacts
+- **AND** it records the resulting author-source ownership and current tree identity
+
+#### Scenario: Already-current author shadow is synchronized again
+- **WHEN** the target ownership authority and complete managed tree already equal the current author projection
+- **THEN** the operation succeeds without changing any file
+- **AND** reports an idempotent current result
+
+#### Scenario: Consumer installation is requested
+- **WHEN** the caller requests the ordinary install operation
+- **THEN** FlowGuard continues to produce only the clean consumer distribution
+- **AND** no author-only contract or maintenance artifact enters the installed consumer tree
+
+### Requirement: Author synchronization is ownership-bounded and repository-local
+Author-source synchronization SHALL examine only the declared FlowGuard skill-suite members and its own ownership authority. It SHALL preserve co-located skills and every file outside that boundary, SHALL reject unsafe paths or modified/unowned collisions, and SHALL NOT copy, reset, clean, or otherwise synchronize the surrounding repository.
+
+#### Scenario: Other project work is co-located with the shadow skills
+- **WHEN** the target repository contains unrelated skills, source files, reports, OpenSpec changes, or peer-agent edits outside the managed FlowGuard member boundary
+- **THEN** author synchronization leaves all of them unchanged
+- **AND** its claim is limited to the synchronized FlowGuard author tree
+
+#### Scenario: Managed target file was modified after installation
+- **WHEN** a target path that would be replaced or removed no longer matches its recorded ownership hash
+- **THEN** synchronization preserves the target and fails with an exact conflict
+- **AND** no partial author projection is activated
+
+#### Scenario: Dry-run inspects a role transition
+- **WHEN** the caller requests a dry-run from an exact consumer projection to author source
+- **THEN** the result lists the exact copies, removals, ownership transition, and preserved co-located paths
+- **AND** the target remains byte-for-byte unchanged
+
+### Requirement: Author projection synchronization has one current owner
+FlowGuard author projection synchronization SHALL use the current atomic installer-owned author-sync operation as its sole maintained owner. Tests and documentation for a retired whole-workspace shadow synchronization script SHALL be removed rather than preserved through an import shim, compatibility command, or duplicate synchronization path.
+
+#### Scenario: Retired shadow script tests remain
+- **WHEN** tests still import or patch the retired whole-workspace shadow synchronization module
+- **THEN** those tests SHALL be retired or replaced by tests of the current atomic author-sync owner before final validation
+
+#### Scenario: Author shadow starts empty
+- **WHEN** a new isolated author-shadow target has no accepted FlowGuard author projection
+- **THEN** the current installation projection SHALL establish the bounded target and the atomic author-sync operation SHALL then prove exact author parity
+
+#### Scenario: Consumer projection remains clean
+- **WHEN** author-source validation and synchronization complete
+- **THEN** the installed consumer projection SHALL exclude SkillGuard contracts, receipts, author registries, maintenance evidence, and whole-workspace synchronization machinery

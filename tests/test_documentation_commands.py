@@ -135,7 +135,10 @@ class DocumentationCommandTests(unittest.TestCase):
                     self.assertIn(tier, {"fast", "focused", "full"})
                 if script == "scripts/install_flowguard_skills.py":
                     action = tokens[2]
-                    self.assertIn(action, {"install", "check", "parity", "uninstall"})
+                    self.assertIn(
+                        action,
+                        {"install", "author-sync", "check", "parity", "uninstall"},
+                    )
                     if action in {"check", "parity"}:
                         self.assertNotIn("--dry-run", tokens)
 

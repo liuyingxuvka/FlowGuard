@@ -34,7 +34,7 @@ from flowguard import (
 
 
 MODEL_ID = "development_process_strategy"
-PLAN_ID = "development-process-optimization:finite-bad-cases:v2"
+PLAN_ID = "development-process-optimization:finite-bad-cases:v3"
 PRIMARY_PATH_ID = "path:development-process-flow:strategy-selection"
 ORACLE_BLOCK_ID = "oracle:development-process-optimization:block"
 ORACLE_STALE_ID = "oracle:development-process-optimization:mark-stale"
@@ -58,7 +58,7 @@ _BAD_CASES = (
         "cheaper-non-equivalent-candidate",
         "candidate_not_equivalent",
         ORACLE_BLOCK_ID,
-        "Reject a cheaper route until all six hard equivalence dimensions match.",
+        "Reject a lower-cost route until every declared hard-semantic dimension matches.",
     ),
     (
         "correlated-findings-without-relation-evidence",
@@ -106,7 +106,37 @@ _BAD_CASES = (
         "qualitative-evidence-overclaimed-as-minimum",
         "comparison_boundary_overclaim",
         ORACLE_BLOCK_ID,
-        "Estimated or qualitative comparison may support a preference, never a measured minimum or global optimum.",
+        "Qualitative comparison may support a bounded preference, never a measured minimum.",
+    ),
+    (
+        "global-optimum-overclaim",
+        "global_optimum_overclaim",
+        ORACLE_BLOCK_ID,
+        "A finite process comparison never licenses an unrestricted global-optimum claim.",
+    ),
+    (
+        "declared-dependency-order-violation",
+        "dependency_order_violation",
+        ORACLE_BLOCK_ID,
+        "Reject a declared work order that contradicts current read, write, invalidation, or owner dependencies.",
+    ),
+    (
+        "incomplete-process-cost-vector",
+        "process_cost_vector_incomplete",
+        ORACLE_BLOCK_ID,
+        "Keep process candidates incomparable when any declared cost dimension lacks current evidence.",
+    ),
+    (
+        "dominated-caller-preselection",
+        "caller_selected_dominated_candidate",
+        ORACLE_BLOCK_ID,
+        "Reject a caller-selected candidate when another hard-equivalent candidate Pareto-dominates it.",
+    ),
+    (
+        "unresolved-non-dominated-boundary",
+        "non_dominated_boundary_unresolved",
+        ORACLE_BLOCK_ID,
+        "Keep equal or trade-off candidates visible instead of inventing a scalar tie-breaker.",
     ),
 )
 
@@ -173,9 +203,9 @@ def development_process_strategy_contract_plan() -> ContractExhaustionPlan:
         generation_policy="finite_declared_inventory",
         required_route_ids=_REQUIRED_ROUTES,
         require_actionable_oracle_feedback=True,
-        inventory_revision="development-process-optimization-bad-cases:v2",
+        inventory_revision="development-process-optimization-bad-cases:v3",
         coverage_universe=ContractCoverageUniverse(
-            "universe:development-process-optimization:v2",
+            "universe:development-process-optimization:v3",
             claim_scope="finite_known-bad-boundary",
             source_refs=(
                 ".flowguard/development_process_strategy/model.py",
@@ -186,7 +216,7 @@ def development_process_strategy_contract_plan() -> ContractExhaustionPlan:
             required_case_ids=case_ids,
             require_full_product=False,
             metadata={
-                "boundary": "the ten declared process-optimization failure families; not every future workflow shape",
+                "boundary": "the declared finite process-optimization failure families; not every future workflow shape",
             },
         ),
         require_coverage_universe=True,

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -27,10 +28,9 @@ from flowguard.validation_ownership import (
     build_owner_current,
     build_validation_owner_plan,
     build_validation_parent_current,
-    save_owner_receipt,
     save_parent_receipt,
 )
-from flowguard.validation_results import ValidationChildResult
+from flowguard.validation_owner_execution import execute_validation_owner_command
 from scripts import verify_flowguard_release as release_cli
 
 
@@ -105,6 +105,7 @@ class ReleaseVerificationTests(unittest.TestCase):
         ).write_text("{}\n", encoding="utf-8")
         (self.root / "README.md").write_bytes(b"FlowGuard 1.2.3\n")
         (self.root / "CHANGELOG.md").write_bytes(b"## [1.2.3]\n")
+        (self.root / "fixture-check.py").write_bytes(b"raise SystemExit(0)\n")
         subprocess.run(("git", "init", "-q"), cwd=self.root, check=True)
         subprocess.run(
             ("git", "config", "user.email", "fixture@example.invalid"),
@@ -128,7 +129,7 @@ class ReleaseVerificationTests(unittest.TestCase):
         )
         self.contract = ValidationOwnerContract(
             owner_id="fixture-owner",
-            command=("python", str(self.root / "fixture-check.py")),
+            command=(sys.executable, str(self.root / "fixture-check.py")),
             input_patterns=(
                 "flowguard/**/*",
                 ".flowguard/project.toml",
@@ -152,28 +153,28 @@ class ReleaseVerificationTests(unittest.TestCase):
             self.root,
             owner_plan,
         )
-        child = ValidationChildResult(
-            "fixture-owner",
-            "pass",
-            "fixture validation passed",
-            claim_boundary="Fixture owner covers one release obligation.",
-        )
-        owner_receipt = save_owner_receipt(
+        owner_execution = execute_validation_owner_command(
             current,
-            child,
             self.root,
             self.receipt_root,
-            started_at="2026-01-01T00:00:00+00:00",
-            finished_at="2026-01-01T00:00:01+00:00",
+            all_contracts=(self.contract,),
+            child_id="fixture-owner",
+            evidence_context={"fixture": "release-verification"},
+            summary="fixture validation passed",
+            claim_boundary="Fixture owner covers one release obligation.",
         )
+        self.assertTrue(owner_execution.ok, owner_execution.blocker)
+        owner_receipt = owner_execution.receipt
+        self.assertIsNotNone(owner_receipt)
+        assert owner_receipt is not None
         self.parent_receipt = save_parent_receipt(
             self.root,
             self.receipt_root,
             parent_current=parent_current,
             child_receipts=(owner_receipt,),
             status="pass",
-            started_at="2026-01-01T00:00:00+00:00",
-            finished_at="2026-01-01T00:00:02+00:00",
+            started_at=owner_receipt.started_at,
+            finished_at=owner_receipt.finished_at,
         )
 
     def _local(self, **overrides):

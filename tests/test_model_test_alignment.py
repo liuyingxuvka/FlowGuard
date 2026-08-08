@@ -2,6 +2,7 @@ import unittest
 from dataclasses import replace
 
 import flowguard
+import flowguard.model_test_alignment as alignment_module
 from flowguard.evidence_receipts import (
     EvidenceReceipt,
     ReceiptVerificationContext,
@@ -10,6 +11,7 @@ from flowguard.evidence_receipts import (
     snapshot_bytes,
     verify_evidence_receipt,
 )
+from flowguard.model_path_quality import PathQualityResult, PathQualitySubject
 from flowguard import (
     ARTIFACT_PAYLOAD_METHOD_MANUAL,
     ARTIFACT_PAYLOAD_STATUS_ACCEPTED,
@@ -47,6 +49,79 @@ def api_name(name):
     return getattr(flowguard, name)
 
 
+def test_alignment_fingerprint_and_binding_gap_index_are_single_pass(monkeypatch):
+    report = review_model_test_alignment(
+        ModelTestAlignmentPlan(
+            "checkout",
+            obligations=(obligation("accept_valid_order"),),
+            code_contracts=(code_contract("contract:checkout", "accept_valid_order"),),
+            test_evidence=(
+                evidence(
+                    "test:checkout",
+                    "accept_valid_order",
+                    covered_code_contracts=("contract:checkout",),
+                ),
+            ),
+        )
+    )
+    fingerprint_calls = 0
+    original_fingerprint = alignment_module.fingerprint_value
+
+    def counted_fingerprint(value):
+        nonlocal fingerprint_calls
+        fingerprint_calls += 1
+        return original_fingerprint(value)
+
+    monkeypatch.setattr(
+        alignment_module,
+        "fingerprint_value",
+        counted_fingerprint,
+    )
+    expected = report.fingerprint
+    assert report.fingerprint == expected
+    assert report.fingerprint == expected
+    assert fingerprint_calls == 1
+
+    findings = (
+        alignment_module.ModelTestAlignmentFinding(
+            "obligation_gap",
+            "obligation gap",
+            obligation_id="accept_valid_order",
+        ),
+        alignment_module.ModelTestAlignmentFinding(
+            "contract_gap",
+            "contract gap",
+            code_contract_id="contract:checkout",
+        ),
+        alignment_module.ModelTestAlignmentFinding(
+            "evidence_gap",
+            "evidence gap",
+            evidence_id="test:checkout",
+        ),
+    )
+
+    class CountedFindings:
+        def __init__(self, values):
+            self.values = values
+            self.read_count = 0
+
+        def __iter__(self):
+            for value in self.values:
+                self.read_count += 1
+                yield value
+
+    counted_findings = CountedFindings(findings)
+    gap_index = alignment_module._binding_gap_code_index(counted_findings)
+    for _ in range(100):
+        assert alignment_module._binding_gap_codes(
+            gap_index,
+            obligation_id="accept_valid_order",
+            contract_ids=("contract:checkout",),
+            evidence_ids=("test:checkout",),
+        ) == ("contract_gap", "evidence_gap", "obligation_gap")
+    assert counted_findings.read_count == len(findings)
+
+
 def obligation(obligation_id, **kwargs):
     defaults = {"required_test_kinds": (TEST_KIND_HAPPY_PATH,)}
     defaults.update(kwargs)
@@ -73,6 +148,58 @@ def evidence(evidence_id, *covered, **kwargs):
     }
     defaults.update(kwargs)
     return TestEvidence(evidence_id, **defaults)
+
+
+def path_quality(model_id="checkout", currentness_id="snapshot:current"):
+    fp = lambda value: fingerprint_value({"value": value})
+    owner = PathQualitySubject(
+        model_id=model_id,
+        boundary_id=f"boundary:{model_id}",
+        model_fingerprint=fp(f"model:{model_id}"),
+        normalized_facts_fingerprint=fp(f"facts:{model_id}"),
+        retained_element_inventory_fingerprint=fp(f"retained:{model_id}"),
+        purpose_fingerprint=fp(f"purpose:{model_id}"),
+        intent_fingerprint=fp(f"intent:{model_id}"),
+        obligation_fingerprint=fp(f"obligations:{model_id}"),
+        provider_fingerprint=fp(f"provider:{model_id}"),
+        dependency_fingerprint=fp(f"dependencies:{model_id}"),
+        code_fingerprint=fp(f"code:{model_id}"),
+        test_fingerprint=fp(f"tests:{model_id}"),
+        oracle_fingerprint=fp(f"oracles:{model_id}"),
+        evidence_fingerprint=fp(f"evidence:{model_id}"),
+        currentness_id=currentness_id,
+    )
+    result = PathQualityResult(
+        result_id=f"path-quality:{model_id}",
+        subject_fingerprint=owner.fingerprint,
+        mode="lightweight",
+        trigger_ids=(),
+        finding_ids=(),
+        candidate_ids=(),
+        rewrite_rule_ids=(),
+        conclusion="single_clear_path",
+        unresolved_ids=(),
+        selected_candidate_id="",
+        selected_candidate_lane="",
+        comparison_boundary_id="",
+        candidate_set_fingerprint="",
+        rewrite_set_fingerprint="",
+        necessity_witness_set_fingerprint=fp(f"witnesses:{model_id}"),
+        detail_evidence_fingerprint=fp(f"detail:{model_id}"),
+        producer_id="model_maturation",
+        currentness_id=currentness_id,
+    )
+    return owner, result
+
+
+def path_quality_binding(owner, result):
+    return {
+        "model_id": owner.model_id,
+        "model_fingerprint": owner.model_fingerprint,
+        "path_quality_subject_fingerprint": owner.fingerprint,
+        "path_quality_result_fingerprint": result.fingerprint,
+        "path_quality_currentness_id": owner.currentness_id,
+    }
 
 
 def verified_receipt(
@@ -323,6 +450,123 @@ class ImplementationBindingReportStub:
 
 
 class ModelTestAlignmentTests(unittest.TestCase):
+    def test_alignment_binds_test_to_exact_current_model_and_path_quality_result(self):
+        owner, result = path_quality()
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                "checkout",
+                obligations=(obligation("accept_valid_order"),),
+                code_contracts=(owner_contract("accept_valid_order"),),
+                test_evidence=(
+                    bound_evidence(
+                        "test_accept_valid_order",
+                        "accept_valid_order",
+                        **path_quality_binding(owner, result),
+                    ),
+                ),
+                model_fingerprint=owner.model_fingerprint,
+                required_path_quality_model_ids=(owner.model_id,),
+                path_quality_subjects=(owner,),
+                path_quality_results=(result,),
+                path_quality_currentness_id=owner.currentness_id,
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual((owner.model_id,), report.path_quality_verified_model_ids)
+        row = report.binding_rows[0]
+        self.assertEqual(owner.model_fingerprint, row.model_fingerprint)
+        self.assertEqual(owner.fingerprint, row.path_quality_subject_fingerprint)
+        self.assertEqual(result.fingerprint, row.path_quality_result_fingerprint)
+        self.assertEqual(owner.currentness_id, row.path_quality_currentness_id)
+
+    def test_alignment_blocks_test_evidence_without_exact_path_quality_binding(self):
+        owner, result = path_quality()
+        report = review_model_test_alignment(
+            ModelTestAlignmentPlan(
+                "checkout",
+                obligations=(obligation("accept_valid_order"),),
+                code_contracts=(owner_contract("accept_valid_order"),),
+                test_evidence=(
+                    bound_evidence("test_accept_valid_order", "accept_valid_order"),
+                ),
+                model_fingerprint=owner.model_fingerprint,
+                required_path_quality_model_ids=(owner.model_id,),
+                path_quality_subjects=(owner,),
+                path_quality_results=(result,),
+                path_quality_currentness_id=owner.currentness_id,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        codes = set(finding_codes(report))
+        self.assertIn("test_evidence_model_binding_missing", codes)
+        self.assertIn("test_evidence_path_quality_subject_mismatch", codes)
+        self.assertIn("test_evidence_path_quality_result_mismatch", codes)
+        self.assertIn("test_evidence_path_quality_currentness_mismatch", codes)
+        self.assertEqual("blocked", report.binding_rows[0].status)
+
+    def test_alignment_blocks_unresolved_normative_and_foreign_path_quality(self):
+        owner, clean_result = path_quality()
+        fp = lambda value: fingerprint_value({"value": value})
+        normative = replace(
+            clean_result,
+            mode="deep",
+            trigger_ids=("explicit_request",),
+            candidate_ids=("observed", "target"),
+            conclusion="preferred_within_candidates",
+            selected_candidate_id="target",
+            selected_candidate_lane="normative_target",
+            comparison_boundary_id="boundary:named",
+            candidate_set_fingerprint=fp("candidate-set"),
+        )
+        cases = (
+            (
+                replace(
+                    clean_result,
+                    conclusion="unresolved",
+                    unresolved_ids=("gap:path-quality",),
+                ),
+                owner.model_fingerprint,
+                "path_quality_result_unresolved",
+            ),
+            (
+                normative,
+                owner.model_fingerprint,
+                "path_quality_normative_target_not_observed",
+            ),
+            (
+                clean_result,
+                fp("foreign-current-model"),
+                "path_quality_subject_model_fingerprint_mismatch",
+            ),
+        )
+        for result, model_fingerprint, expected_code in cases:
+            with self.subTest(expected_code=expected_code):
+                report = review_model_test_alignment(
+                    ModelTestAlignmentPlan(
+                        "checkout",
+                        obligations=(obligation("accept_valid_order"),),
+                        code_contracts=(owner_contract("accept_valid_order"),),
+                        test_evidence=(
+                            bound_evidence(
+                                "test_accept_valid_order",
+                                "accept_valid_order",
+                                **path_quality_binding(owner, result),
+                            ),
+                        ),
+                        model_fingerprint=model_fingerprint,
+                        required_path_quality_model_ids=(owner.model_id,),
+                        path_quality_subjects=(owner,),
+                        path_quality_results=(result,),
+                        path_quality_currentness_id=owner.currentness_id,
+                    )
+                )
+
+                self.assertFalse(report.ok)
+                self.assertIn(expected_code, set(finding_codes(report)))
+                self.assertEqual((owner.model_id,), report.path_quality_blocked_model_ids)
+
     def test_blueprint_alignment_consumes_bidirectional_implementation_report(self):
         binding_report = ImplementationBindingReportStub()
         plan = ModelTestAlignmentPlan(
@@ -2282,31 +2526,39 @@ def test_submit_order():
         self.assertFalse(bad.ok)
         self.assertIn("facade_independent_business_authority", finding_codes(bad))
 
-    def test_similarity_handoff_ids_must_materialize_as_alignment_rows(self):
-        relation_id = "similarity:checkout"
-        test_obligation_id = "similarity-test:checkout"
-        code_obligation_id = "similarity-code:checkout"
+    def test_canonical_relation_handoff_ids_must_materialize_as_alignment_rows(self):
+        relation_id = "canonical-relation:checkout"
+        test_obligation_id = "relation-test:checkout"
+        code_obligation_id = "relation-code:checkout"
         handoff = {
-            "relation_ids": (relation_id,),
+            "relations": ({
+                "relation_id": relation_id,
+                "relation_type": "duplicate_boundary",
+                "source_endpoint_kind": "model",
+                "source_endpoint_id": "checkout",
+                "target_endpoint_kind": "behavior_block",
+                "target_endpoint_id": "accept_valid_order",
+                "source_ids": ("semantic-mesh:checkout",),
+            },),
             "test_obligation_ids": (test_obligation_id,),
             "code_obligation_ids": (code_obligation_id,),
-            "impacted_model_ids": ("checkout",),
+            "affected_model_ids": ("checkout",),
         }
         materialized_obligation = obligation(
             "accept_valid_order",
-            similarity_relation_ids=(relation_id,),
-            similarity_test_obligation_ids=(test_obligation_id,),
-            similarity_impacted_model_ids=("checkout",),
+            relation_ids=(relation_id,),
+            relation_test_obligation_ids=(test_obligation_id,),
+            relation_impacted_model_ids=("checkout",),
         )
         materialized_contract = owner_contract(
             "accept_valid_order",
-            similarity_relation_ids=(relation_id,),
-            similarity_code_obligation_ids=(code_obligation_id,),
+            relation_ids=(relation_id,),
+            relation_code_obligation_ids=(code_obligation_id,),
         )
         common = {
             "model_id": "checkout",
             "test_evidence": (bound_evidence("test_accept_valid_order", "accept_valid_order"),),
-            "similarity_handoff": handoff,
+            "canonical_relation_handoff": handoff,
         }
 
         good = review_model_test_alignment(
@@ -2326,9 +2578,9 @@ def test_submit_order():
 
         self.assertTrue(good.ok, good.format_text())
         self.assertFalse(opaque.ok)
-        self.assertIn("unmaterialized_similarity_relation_id", finding_codes(opaque))
-        self.assertIn("unmaterialized_similarity_test_obligation_id", finding_codes(opaque))
-        self.assertIn("unmaterialized_similarity_code_obligation_id", finding_codes(opaque))
+        self.assertIn("unmaterialized_canonical_relation_id", finding_codes(opaque))
+        self.assertIn("unmaterialized_relation_test_obligation_id", finding_codes(opaque))
+        self.assertIn("unmaterialized_relation_code_obligation_id", finding_codes(opaque))
 
     def test_behavior_plane_binding_projects_into_closure_rows(self):
         plane = "agent_operation"

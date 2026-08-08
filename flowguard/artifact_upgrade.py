@@ -8,6 +8,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .behavior_commitment import (
     BCL_ACTOR_KINDS,
     BCL_BEHAVIOR_PLANES,
@@ -224,12 +225,6 @@ _FLOWGUARD_JSON_ARTIFACT_REGISTRY: Mapping[
         for artifact_type in ("report", "trace")
     }
 )
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 @dataclass(frozen=True)
@@ -677,8 +672,8 @@ def _materialize_current_commitment(row: Mapping[str, Any]) -> dict[str, Any]:
         "side_effects": [],
         "variant_of_business_intent_id": "",
         "external_differences": [],
-        "similarity_relation_ids": [],
-        "similarity_obligation_ids": [],
+        "canonical_relation_ids": [],
+        "relation_obligation_ids": [],
         "surface_delegation_only": False,
         "source_surface_ids": list(row["source_surface_ids"]),
         "source_refs": list(row["source_refs"]),
@@ -729,8 +724,8 @@ def _materialize_current_source_surface(
         "business_intent_ids": [],
         "primary_path_id": "",
         "delegates_to_primary_path": False,
-        "similarity_relation_ids": [],
-        "similarity_obligation_ids": [],
+        "canonical_relation_ids": [],
+        "relation_obligation_ids": [],
         "freshness_state": legacy["freshness_state"],
         "in_scope": legacy["in_scope"],
         "scoped_out_reason": legacy["scoped_out_reason"],
@@ -1259,8 +1254,6 @@ def _review_text_path(path: Path, *, rel_path: str, apply: bool) -> ArtifactUpgr
     }
     if not replacements:
         return None
-    if rel_path.startswith(".flowguard/legacy_compatibility_cleanup/"):
-        return _skipped_text_item(rel_path, "legacy_cleanup_self_model")
     if rel_path.startswith("tests/") and ("removed_aliases" in text or "assertNotIn" in text):
         return _skipped_text_item(rel_path, "negative_legacy_test")
     upgraded = text

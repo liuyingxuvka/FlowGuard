@@ -57,6 +57,12 @@ class OptimizationInput:
     execution_owner_isolation_current: bool = True
     comparison_evidence_current: bool = True
     comparison_basis: str = "qualitative"
+    dependency_order_valid: bool = True
+    step_artifact_bindings_current: bool = True
+    process_cost_vector_complete: bool = True
+    eligible_candidate_count: int = 1
+    unique_pareto_dominator: bool = True
+    caller_selected_pareto_dominator: bool = True
     finite_boundary_named: bool = False
     claim_minimum: bool = False
     claim_global_optimum: bool = False
@@ -90,6 +96,10 @@ class OptimizationState:
     stale_decision_reused: bool = False
     unsupported_minimum_claimed: bool = False
     global_optimum_claimed: bool = False
+    dependency_order_violated: bool = False
+    incomplete_process_cost_vector: bool = False
+    dominated_caller_selection: bool = False
+    unresolved_non_dominated_boundary: bool = False
     blocked: bool = False
 
 
@@ -293,6 +303,12 @@ class SelectCandidate:
         "execution_mode",
         "comparison_evidence_current",
         "comparison_basis",
+        "dependency_order_valid",
+        "step_artifact_bindings_current",
+        "process_cost_vector_complete",
+        "eligible_candidate_count",
+        "unique_pareto_dominator",
+        "caller_selected_pareto_dominator",
         "finite_boundary_named",
     )
     writes = (
@@ -302,6 +318,10 @@ class SelectCandidate:
         "unsafe_parallel_selected",
         "unsupported_minimum_claimed",
         "global_optimum_claimed",
+        "dependency_order_violated",
+        "incomplete_process_cost_vector",
+        "dominated_caller_selection",
+        "unresolved_non_dominated_boundary",
         "stale_decision_reused",
         "blocked",
     )
@@ -328,6 +348,21 @@ class SelectCandidate:
         unsupported_minimum = input_obj.claim_minimum and not (
             input_obj.comparison_basis == "measured"
             and input_obj.finite_boundary_named
+            and input_obj.process_cost_vector_complete
+            and input_obj.unique_pareto_dominator
+        )
+        dependency_order_violated = not input_obj.dependency_order_valid
+        incomplete_process_cost_vector = (
+            not input_obj.step_artifact_bindings_current
+            or not input_obj.process_cost_vector_complete
+        )
+        unresolved_non_dominated_boundary = (
+            input_obj.eligible_candidate_count > 1
+            and not input_obj.unique_pareto_dominator
+        )
+        dominated_caller_selection = (
+            input_obj.unique_pareto_dominator
+            and not input_obj.caller_selected_pareto_dominator
         )
         stale = state.material_revision > input_obj.decision_revision
         invalid = (
@@ -336,6 +371,10 @@ class SelectCandidate:
             or not input_obj.comparison_evidence_current
             or unsafe_parallel
             or unsupported_minimum
+            or dependency_order_violated
+            or incomplete_process_cost_vector
+            or unresolved_non_dominated_boundary
+            or dominated_caller_selection
             or input_obj.claim_global_optimum
             or stale
         )
@@ -348,6 +387,10 @@ class SelectCandidate:
                         non_equivalent_selected=not state.equivalence_checked,
                         unsafe_parallel_selected=unsafe_parallel,
                         unsupported_minimum_claimed=unsupported_minimum,
+                        dependency_order_violated=dependency_order_violated,
+                        incomplete_process_cost_vector=incomplete_process_cost_vector,
+                        dominated_caller_selection=dominated_caller_selection,
+                        unresolved_non_dominated_boundary=unresolved_non_dominated_boundary,
                         global_optimum_claimed=input_obj.claim_global_optimum,
                         stale_decision_reused=stale,
                         blocked=True,
@@ -424,6 +467,10 @@ class BrokenSelector(SelectCandidate):
                     stale_decision_reused=True,
                     unsupported_minimum_claimed=True,
                     global_optimum_claimed=True,
+                    dependency_order_violated=True,
+                    incomplete_process_cost_vector=True,
+                    dominated_caller_selection=True,
+                    unresolved_non_dominated_boundary=True,
                 ),
                 "broken_selection",
             ),
@@ -450,6 +497,14 @@ def optimization_safety_invariant(
         failures.append("unsupported_minimum_claimed")
     if state.global_optimum_claimed:
         failures.append("global_optimum_claimed")
+    if state.dependency_order_violated:
+        failures.append("dependency_order_violated")
+    if state.incomplete_process_cost_vector:
+        failures.append("incomplete_process_cost_vector")
+    if state.dominated_caller_selection:
+        failures.append("dominated_caller_selection")
+    if state.unresolved_non_dominated_boundary:
+        failures.append("unresolved_non_dominated_boundary")
     if failures:
         return InvariantResult.fail(",".join(failures))
     return InvariantResult.pass_()
@@ -476,7 +531,8 @@ def apply_event(
 
 
 def _active_state(
-    *, boundary: str = "targeted", execution_mode: str = "sequential"
+    *, boundary: str = "targeted", execution_mode: str = "sequential",
+    comparison_basis: str = "qualitative",
 ) -> OptimizationState:
     state = OptimizationState()
     state = apply_event(
@@ -497,7 +553,10 @@ def _active_state(
         state,
     ).new_state
     state = apply_event(
-        OptimizationInput("select", execution_mode=execution_mode), state
+        OptimizationInput(
+            "select", execution_mode=execution_mode,
+            comparison_basis=comparison_basis,
+        ), state
     ).new_state
     return state
 
@@ -515,6 +574,9 @@ def run_model_checks() -> dict[str, object]:
             boundary="declared_complete", execution_mode="safe_parallel"
         ),
         "budgeted_sequential": _active_state(boundary="budgeted"),
+        "freeze_first_measured": _active_state(
+            comparison_basis="measured"
+        ),
     }
     for case_id, state in valid_paths.items():
         if not state.selected or state.blocked:
@@ -574,6 +636,33 @@ def run_model_checks() -> dict[str, object]:
         ),
         "stale_decision": apply_event(
             OptimizationInput("select", decision_revision=1), material
+        ),
+        "declared_order_violation": apply_event(
+            OptimizationInput("select", dependency_order_valid=False), equivalent
+        ),
+        "measured_step_cost_missing": apply_event(
+            OptimizationInput(
+                "select",
+                comparison_basis="measured",
+                process_cost_vector_complete=False,
+            ),
+            equivalent,
+        ),
+        "dominated_caller_preselection": apply_event(
+            OptimizationInput(
+                "select",
+                comparison_basis="measured",
+                caller_selected_pareto_dominator=False,
+            ),
+            equivalent,
+        ),
+        "unresolved_non_dominated_boundary": apply_event(
+            OptimizationInput(
+                "select",
+                eligible_candidate_count=2,
+                unique_pareto_dominator=False,
+            ),
+            equivalent,
         ),
     }
     for case_id, result in known_bad.items():

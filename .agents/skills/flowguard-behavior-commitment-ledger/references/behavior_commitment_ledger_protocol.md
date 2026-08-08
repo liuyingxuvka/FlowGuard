@@ -32,18 +32,47 @@ Missing, unexpected, duplicated, stale, or self-declared-only inventory rows
 block broad coverage. Supporting, observed, and historical sources inform the
 ledger but cannot displace a declared normative target.
 
+Stored `freshness_state=current` is never source-currentness evidence by
+itself. Resolve source references against one explicit project root with
+`audit_behavior_commitment_source_inventory()`: strip a logical `#anchor` only
+for physical file resolution, split semicolon composites, expand only globs
+whose first wildcard follows at least one fixed directory segment, reject
+absolute, escaping, escaping-symlink, root-level-glob, and duplicate-member
+references, sort the resulting unique repository-relative POSIX member paths,
+and hash every file with FlowGuard's canonical newline-aware source identity. A
+one-file surface uses that file hash directly. A composite or glob surface uses
+the versioned canonical member aggregate. The top physical inventory
+fingerprint is derived from surface ids, authored source refs, sorted members,
+and content identities only; ownership, authority role, artifact classification,
+and declared semantic fingerprints remain separate authored semantics.
+
+Use `refresh_behavior_commitment_source_inventory()` only as the explicit pure
+refresh step after the authored source boundary is accepted. It returns a new
+ledger and writes nothing; it preserves commitments, declared semantic
+fingerprints, mappings, roles, and rationale while refreshing physical member
+identity, content fingerprints, row/top inventory revision, discovery evidence,
+and stored currentness. Writing the returned canonical ledger remains a
+separate deliberate action.
+
 The ledger has one structure and three production owner planes:
 `product_runtime` for application promises, `agent_operation` for AI/tool-use
 promises, and `development_process` for build/test/release lifecycle promises.
 `commitment_kind` remains the surface form; `actor_kind` records the structured
 actor. Migration-only `unclassified` never passes runtime review.
 
-Use the canonical `ledger.json` as authority and a thin `model.py` loader.
+Use the canonical `ledger.json` as authority and a thin `model.py` loader. The
+project-native owner must derive one live audit from the repository root and
+combine it with the static ledger review so missing, unsafe, unbounded-glob,
+empty-glob, anchor, duplicate-member, content, membership, and top-inventory
+drift fail before a green result. An external caller that needs one integrated
+report may pass `project_root` to `review_behavior_commitment_ledger()`; a
+native runner that already holds a live audit must not scan the same inventory
+again.
 Before non-trivial work, query task terms and any exact commitment, path, tool,
 workflow, or error-signature clues. Select same-plane hits as primary. Traverse
 only registered typed relations for related-plane context, keep that context
 separate from instructions, and preserve the ledger fingerprint. Ambiguous or
-stale lookup is visible fallback evidence, not permission to guess.
+stale lookup is visibly blocked or unverified, not permission to guess.
 
 Each commitment records actor, trigger, expected result, failure boundary,
 source refs, one primary owner model, subordinate supporting or child models,
@@ -75,7 +104,7 @@ current evidence.
 
 For `path_sensitive=true`, attach Primary Path Authority evidence with
 `behavior_path_binding_from_primary_path_report()`. The ledger does not run a
-second fallback checker. If PPA is blocked, the commitment is blocked.
+second path checker. If PPA is blocked, the commitment is blocked.
 
 The canonical binding emits singular `primary_path_id` for the same intent and
 commitment. Accept legacy `primary_path_ids` input only when it contains one

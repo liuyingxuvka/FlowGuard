@@ -40,9 +40,9 @@ class RouteTopologyGovernanceTests(unittest.TestCase):
         report = validate_route_topology(self.profiles, self.snapshot)
 
         self.assertTrue(report.ok, report.format_text())
-        self.assertEqual(31, len(report.route_ids))
-        self.assertEqual(83, report.edge_count)
-        self.assertEqual(2, len(report.cycle_components))
+        self.assertEqual(28, len(report.route_ids))
+        self.assertEqual(72, report.edge_count)
+        self.assertEqual(1, len(report.cycle_components))
         kinds = {
             handoff.target_kind
             for profile in self.profiles
@@ -147,7 +147,7 @@ class RouteTopologyGovernanceTests(unittest.TestCase):
         report = validate_route_topology(
             self.profiles,
             self.snapshot,
-            cycle_policies=(broken, DEFAULT_ROUTE_CYCLE_LIVENESS[1]),
+            cycle_policies=(broken,),
         )
 
         self.assertIn("cycle_liveness_metadata_missing", finding_codes(report))

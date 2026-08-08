@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
 
 
@@ -52,12 +53,6 @@ MODEL_FRESHNESS_DECISION_REUSE_INVALID = "reuse_ticket_invalid"
 MODEL_FRESHNESS_DECISION_UNKNOWN = "unknown_model_impact"
 MODEL_FRESHNESS_DECISION_DEPRECATED_INVALID = "deprecated_model_needs_replacement"
 MODEL_FRESHNESS_DECISION_BLOCKED = "model_freshness_blocked"
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 def _intersection(left: Sequence[str], right: Sequence[str]) -> tuple[str, ...]:

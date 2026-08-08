@@ -10,9 +10,9 @@ The intended AI path is:
 
 ```text
 user intent
--> ExistingModelPreflight consumes model-angle or similarity evidence when needed
+-> ExistingModelPreflight resolves exact current ownership and bounded canonical relations
 -> FlowGuard self-maintenance route profile
--> DevelopmentProcessFlow consumes post-change scan signals
+-> DevelopmentProcessFlow orders typed post-change findings for their current owners
 -> owning specialist route evidence
 -> Risk Evidence Ledger
 -> Closure Contract

@@ -78,46 +78,103 @@ python -m flowguard flowguard-self-blueprint-check `
   --json
 ```
 
-Require `static_status=complete`, a current topology report, a real
-ModelTestAlignmentReport identity, and no unresolved static-blueprint gap.
+Before that audit, run the self-blueprint definition compiler in its default
+read-only check mode. If it reports only mechanical source-identity drift,
+refresh explicitly, inspect the exact changed owners, then re-run check mode:
+
+```powershell
+python scripts/compile_flowguard_self_blueprint_definition.py
+python scripts/compile_flowguard_self_blueprint_definition.py --write
+python scripts/compile_flowguard_self_blueprint_definition.py
+```
+
+Require the internal child `static_manifest_status=complete`, a current
+topology report, a real ModelTestAlignmentReport identity, and no unresolved
+canonical target/project readiness gap. Never treat the child manifest status
+as the whole result.
 
 The nested reduction result uses that exact current blueprint and
 implementation-inventory fingerprint to inventory repeated routes, branches,
 adapters, wrappers, helpers, and validation paths. Declare the observable
 API/CLI/state/side-effect contract, run ArchitectureReduction and
 CodeStructureRecommendation, and use
-StructureMesh for structural moves or public entrypoints. Apply only
-`safe_by_equivalence` or current `safe_by_public_facade` candidates. Every
-other candidate must be retained with an explicit reason. Re-run the affected
-parity tests after any contraction and rebuild the self-blueprint before the
-unique final full validation.
+StructureMesh for structural moves or public entrypoints. Apply ordinary
+contraction only with `safe_by_equivalence` or current
+`safe_by_public_facade`; apply intentional behavior removal only with
+`retire_behavior` plus a complete current retirement-responsibility proof.
+Every other candidate must remain explicitly unresolved or retained. Re-run
+the affected parity and responsibility-transfer tests after any contraction or
+retirement and rebuild the self blueprint before the unique final full
+validation.
 
-Run:
+Freeze and compile the complete 15-member author unit once. The FlowGuard
+native runner is the semantic execution owner; do not launch a second generic
+SkillGuard supervisor over the same native commands:
 
 ```powershell
-python -m unittest discover -s tests
-openspec validate --all --strict
+$SkillGuardCli = Join-Path $env:CODEX_HOME 'skills\skillguard\scripts\skillguard.py'
+$SkillGuardCompiler = Join-Path $env:CODEX_HOME 'skills\skillguard\scripts\skillguard_compile.py'
+$SuiteMap = Get-Content -Raw '.skillguard\flowguard-suite\suite-map.json' | ConvertFrom-Json
+$FlowguardMembers = @($SuiteMap.included_skills.name)
+
+foreach ($Member in $FlowguardMembers) {
+  python $SkillGuardCompiler ".agents\skills\$Member" --repository-root .
+  if ($LASTEXITCODE -ne 0) { throw "SkillGuard compile failed: $Member" }
+}
+
+python $SkillGuardCli maintainer-audit --root .
+python scripts/compile_flowguard_consumer_suite_authority.py --root . --write --json
 python scripts/compile_flowguard_consumer_suite_authority.py --root . --check --json
-python examples/job_matching/run_checks.py
-python examples/job_matching/run_conformance.py
-python examples/job_matching/run_scenario_review.py
-python examples/looping_workflow/run_loop_review.py
-python -m flowguard schema-version
-python -m flowguard adoption-template
-python -m flowguard project-template
-python -m flowguard risk-intent-template
-python -m flowguard model-miss-template
-python -m flowguard risk-evidence-ledger-template
-python -m flowguard ui-flow-structure-template
-python examples/risk_evidence_ledger/run_checks.py
-python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard-ui-flow-structure
-python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard
-python $env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py .agents\skills\flowguard-architecture-reduction
+python scripts/check_flowguard_skill_suite.py --scope static --root . --skillguard $SkillGuardCli --json
+python scripts/run_flowguard_skill_native_checks.py --root . --output-dir .flowguard/evidence/skill-native-receipts --resume --json
+python scripts/check_flowguard_self_governance.py --root . --output-directory .flowguard/evidence/skill-native-receipts --json
 ```
+
+Synchronize the explicit author shadow, install the separate clean consumer
+projection and editable package, then prove the four domains independently.
+`FLOWGUARD_AUTHOR_SHADOW_SKILLS` must name the intended maintainer workspace's
+`.agents/skills` directory; do not use a whole-repository copy helper:
+
+```powershell
+python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --dry-run --json
+python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --json
+python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --dry-run --json
+python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --json
+python scripts/install_flowguard_skills.py check --source . --codex-home $env:CODEX_HOME --json
+python -m pip install -e .
+python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --installed $env:CODEX_HOME\skills --json
+```
+
+After all source, model authority, OpenSpec archive paths, external projections,
+toolchain identities, and the reviewed Git index are frozen, run exactly one
+foreground full release parent. It owns pytest, examples, model regressions,
+OpenSpec strict validation, the 15-member skill checks, self-maintenance, and
+distribution parity; do not repeat those child commands manually:
+
+```powershell
+python scripts/check_flowguard_skill_suite.py `
+  --scope full `
+  --root . `
+  --skillguard $SkillGuardCli `
+  --formal-root .agents/skills `
+  --shadow-root $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS `
+  --installed-root $env:CODEX_HOME\skills `
+  --model-jobs 4 `
+  --model-timeout 900 `
+  --output-dir .flowguard/evidence/full-validation/v0.68.7-final `
+  --receipt-dir .flowguard/evidence/validation-owners `
+  --json
+```
+
+The final parent must remain in the foreground. If it times out or is
+interrupted, confirm the complete descendant process tree is gone before
+starting another owner. Bind the resulting parent receipt to the frozen local
+candidate with `scripts/verify_flowguard_release.py`; after that succeeds, do
+not edit, install, synchronize, or stage again before commit and tag.
 
 ## Source-only Release
 
-FlowGuard v0.68.6 uses the immutable source tag as its sole release authority.
+FlowGuard v0.68.7 uses the immutable source tag as its sole release authority.
 Do not build or upload a wheel or source distribution. The GitHub Release must
 be published with zero assets.
 

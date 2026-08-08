@@ -25,7 +25,7 @@ Accept a current topology digest, usage intent, and evidence boundary; promote o
 
 ## Required Workflow
 1. Record usage, scope, topology, business paths, evidence, and gaps. Portable temporal claims bind the digest to the exact `flowguard.portable_model.v1` fingerprint and executable obligations.
-2. For each candidate, name the topology anchor, real-use failure, affected element, confidence effect, and disposition.
+2. Per candidate, name its topology anchor, real-use failure, affected element, confidence effect, and disposition.
 3. Cross-model event/retry/resource/cache/atomicity/external-confirmation hazards may seed bounded interaction candidates, but must reference a BCL/preflight-resolved property owner or emit `owner_missing`; seeds are not executed findings.
 4. Resolve, scope with rationale, or issue typed owner-route handoffs and maintenance obligations.
 
@@ -33,11 +33,13 @@ Accept a current topology digest, usage intent, and evidence boundary; promote o
 - Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Unanchored concerns cannot block confidence; anchored hazards need current evidence, owner route, or explicit scoped disposition.
-- Important path conflicts, loop liveness, compatibility/history, and template harvest closure must remain visible before broad confidence.
+- Keep path conflicts, loop liveness, and compatibility/history visible.
+- Only explicit reuse/publication or proven cross-project use
+  triggers strict `risk_template_library` closure.
 - Portable liveness/fairness requires canonical checker evidence for the same graph; prose/metadata and stale or truncated reports cannot pass.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus anchored candidates and confidence effects.
+- Return anchored candidates, confidence effects, `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`.
 
 
 <!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

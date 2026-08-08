@@ -119,23 +119,25 @@ The command surface SHALL expose a model-understanding status command that consu
 - **WHEN** all supplied artifacts have matching current identities and terminal evidence
 - **THEN** the command deterministically reports the licensed status with a successful read-only exit
 
-### Requirement: Blueprint command surfaces separate read-only checks from explicit export
-The command surface SHALL provide a read-only implementation-inventory audit, a read-only model-blueprint check, and an explicitly invoked deterministic export. Read-only commands SHALL NOT write artifacts, publish evidence, change model authority, execute missing owners, or launch reconstruction. Export SHALL write only to the explicit bounded output path and SHALL verify its manifest and shards before success.
+### Requirement: Blueprint command surfaces use one qualification owner before explicit export
+The command surface SHALL provide a read-only implementation-inventory audit and canonical target/project blueprint audits. An explicitly invoked provider-neutral target export SHALL consume the same descriptor, frozen evidence, native report set, and qualifier as target audit; the Python-project convenience export SHALL consume its canonically assembled project bundle. Both SHALL reuse the same projection envelope, writer, and verifier rather than accepting a second raw manifest/current-label authority. Read-only commands SHALL NOT write artifacts, publish evidence, change model authority, or execute missing owners. Export SHALL write only to the explicit bounded output path, preserve the exact readiness state and gaps, and verify its manifest and shards before materialization success.
 
-#### Scenario: Read-only blueprint check finds missing evidence
-- **WHEN** a blueprint check lacks a required current binding or resource
+#### Scenario: Read-only project blueprint audit finds missing evidence
+- **WHEN** a project blueprint audit lacks a required current binding or resource
 - **THEN** it reports the exact incomplete or stale gap and performs no write or owner execution
 
-#### Scenario: Explicit projection export succeeds
-- **WHEN** the user supplies a current complete manifest and an allowed output path
+#### Scenario: Explicit project projection export succeeds
+- **WHEN** every canonical bundle layer is representable and the user supplies an allowed output path
 - **THEN** the command writes deterministic content-addressed projection material and verifies every emitted reference
+- **AND** it reports `materialization_ok` and `materialization_status` separately from `model_readiness_status`
 
-#### Scenario: Reconstruction receipt is omitted
-- **WHEN** a blueprint check does not require empirical reconstruction and no reconstruction receipt is supplied
-- **THEN** static closure is evaluated and empirical status remains not-run without launching work
+#### Scenario: Explicit provider-neutral target export succeeds
+- **WHEN** a TypeScript software target or non-code workflow has strict audited artifacts and the user supplies an allowed output path
+- **THEN** `target-system-blueprint-export --descriptor --frozen-evidence --native-report-set --output` SHALL preserve the complete typed audit inputs and result through the shared content-addressed projection kernel
+- **AND** blocked or not-run model evidence SHALL remain visible even when materialization succeeds
 
-### Requirement: Project blueprint audit and check commands are read-only
-The command surface SHALL provide provider-neutral target-system blueprint audit and check operations for an explicit target descriptor, frozen provider registry, provider snapshot, and any target-specialized definition. Audit SHALL report provider qualification, canonical layer statuses, bindings, and unresolved items; check SHALL return composable status and exit semantics for the requested static claim. Neither operation SHALL write a projection, modify the target, install software, or execute a missing provider.
+### Requirement: The target blueprint audit is the single read-only status command
+The command surface SHALL provide one provider-neutral target-system blueprint audit operation for an explicit target descriptor, frozen provider evidence, and current native report set. The same operation SHALL return both the canonical machine-readable qualification report and composable `0|1|2` exit semantics. It SHALL NOT have a duplicate check alias, write a projection, modify the target, install software, or execute a missing provider.
 
 #### Scenario: A declared workflow blueprint audit is requested
 - **WHEN** a caller supplies a bounded workflow target and current observation and authority provider results
@@ -151,26 +153,20 @@ The command surface SHALL provide provider-neutral target-system blueprint audit
 - **WHEN** the self-blueprint check receives the explicit composed architecture-reduction option
 - **THEN** it builds one current self-blueprint and returns both compact bounded results from that exact bundle
 - **AND** it does not rebuild the blueprint, write a cache, or modify source
-### Requirement: Export and reconstruction remain separately explicit
-Read-only audit and check SHALL remain separate from deterministic export, and all of those surfaces SHALL remain separate from empirical reconstruction execution. A reconstruction requirement flag MAY require validation of a supplied receipt, but SHALL NOT authorize or start reconstruction.
+### Requirement: Audit and deterministic export are separate explicit actions
+Read-only target/project audit SHALL remain separate from deterministic target/project export. Audit SHALL report the current model depth and exact gaps without writing target or projection artifacts. Export SHALL occur only through `target-system-blueprint-export` or the Python convenience `project-blueprint-export` after the same typed qualification chain has produced the result to preserve.
 
 #### Scenario: Audit is used during ordinary maintenance
-- **WHEN** ordinary affected-only maintenance invokes project blueprint audit or check
-- **THEN** no blueprint projection is written unless the existing explicit export surface is separately invoked
-- **AND** reconstruction remains `not_run`
+- **WHEN** ordinary affected-only maintenance invokes a target or project blueprint audit
+- **THEN** it reports the licensed current understanding and writes no projection
 
-#### Scenario: Reconstruction evidence belongs to another blueprint
-- **WHEN** a check receives a reconstruction receipt whose blueprint fingerprint differs from the current qualification
-- **THEN** the empirical layer is blocked with the identity mismatch
-- **AND** the static-layer result remains independently reported
+#### Scenario: Export is explicitly requested
+- **WHEN** a caller explicitly requests export for strict target artifacts or a canonically assembled project bundle
+- **THEN** only the bounded output projection is written and verified
+- **AND** any model gap or not-run status remains explicit in that projection and command result
 
-#### Scenario: JSON output is requested
-- **WHEN** a caller requests canonical JSON from audit or check
-- **THEN** the result preserves stable layer, finding, owner, fingerprint, skipped, and `not_run` fields
-- **AND** human progress text does not replace the terminal result
-
-### Requirement: Candidate and readiness commands are read-only
-FlowGuard SHALL expose composable read-only commands for candidate blueprint discovery and reconstruction-readiness review. These commands SHALL perform no target-source edits, export, reconstruction, missing-owner execution, installation, or authority activation.
+### Requirement: Candidate blueprint discovery is read-only
+FlowGuard SHALL expose a composable read-only command for candidate blueprint discovery. It SHALL perform no target-source edits, export, missing-owner execution, installation, or authority activation; canonical audit owns readiness and gap reporting.
 
 #### Scenario: Candidate command finds unresolved semantics
 - **WHEN** candidate discovery cannot independently establish one or more behavior contracts
@@ -183,3 +179,36 @@ Validation status output SHALL identify whether a current pointer belongs to a c
 #### Scenario: Child current file is passed to parent verifier
 - **WHEN** a verifier receives a current pointer whose authority kind is `child`
 - **THEN** parent verification SHALL fail with a typed authority-kind mismatch
+
+### Requirement: Native member resume is explicit execution with exact-current reuse
+The native-skill validation command SHALL expose an explicit resume operation that independently verifies every candidate member receipt and reuses it only when the receipt is terminal pass, full scope, and exact-current for the declared member inputs. Every missing, stale, failed, timed-out, blocked, partial, or unverifiable member SHALL execute its one declared owner or remain visibly non-pass.
+
+#### Scenario: Identical native member is reused
+- **WHEN** a member has an independently verified terminal-pass full receipt whose command, obligations, contract, manifest, suite inventory, declared inputs, producer, toolchain, environment, proof, and result identities all match the current invocation
+- **THEN** resume SHALL report that member as `reuse_current` and SHALL NOT execute its native commands again
+
+#### Scenario: One declared input changes
+- **WHEN** any declared native command input or producer source differs from the receipt-bound snapshot
+- **THEN** resume SHALL execute that member's declared owner and SHALL NOT reuse the stale receipt
+
+#### Scenario: Resume has no fallback
+- **WHEN** a candidate receipt is damaged, ambiguous, non-terminal, non-pass, partial, or cannot be verified against current inputs
+- **THEN** the command SHALL NOT select an older schema, alternate store, compatibility reader, alias, or inferred success
+
+### Requirement: Native receipts bind the complete declared input set
+Each native member receipt SHALL bind every declared native command and exact path selector, the receipt producer sources, the compiled contract, check manifest, suite inventory, covered obligations, toolchain, environment, proof artifact, and result identity used by that member.
+
+#### Scenario: Later declared command is part of currentness
+- **WHEN** a member declares more than one native command
+- **THEN** files selected by every command SHALL participate in the receipt's exact-current verification rather than only files selected by the first command
+
+#### Scenario: Declared input set changes
+- **WHEN** the recomputed current input artifact set is not exactly the receipt-bound artifact set
+- **THEN** the receipt SHALL be ineligible for reuse even if all common files retain matching hashes
+
+### Requirement: Native execution accounting remains visible
+The native command's terminal report SHALL separately expose requested, passed, executed, and reused member counts and SHALL preserve the disposition and receipt identity for every selected member.
+
+#### Scenario: Mixed execute and reuse
+- **WHEN** some selected members have exact-current receipts and others are missing or stale
+- **THEN** the terminal report SHALL distinguish the reused members from the executed members and SHALL retain every non-pass member result

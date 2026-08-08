@@ -42,8 +42,9 @@ business path. Unanchored AI concerns stay as observations.
 - Local-only or process evidence overclaim routes to DevelopmentProcessFlow.
 - Old/new compatibility decisions route to Architecture Reduction and Risk
   Evidence Ledger.
-- Duplicate business paths route to Architecture Reduction, Model Similarity,
-  and Risk Evidence Ledger.
+- Duplicate business paths route to Architecture Reduction with the exact
+  CanonicalRelation evidence, then to Risk Evidence Ledger only when broad
+  confidence depends on the result.
 - Conflicting or unproven business paths route to Model Maturation,
   Model-Test Alignment, and Risk Evidence Ledger.
 - Broad final confidence routes to Risk Evidence Ledger.

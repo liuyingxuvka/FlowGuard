@@ -24,10 +24,10 @@ standalone satellite skills.
 - the FlowGuard closure contract: complete FlowGuard use is not a mode, and a
   full done/release/publish/production-confidence claim requires current
   intake, model ownership, ContractExhaustionMesh case evidence when relevant,
-  obligation-family parity when related obligations share a claim, analogous
-  defect scan when a bug repair exposes a reusable failure shape, alignment,
-  mesh/boundary proof when relevant, model maturation, freshness, ledger, and
-  claim-chain support.
+  obligation-family parity when related obligations share a claim, finite
+  same-class cases over current canonical relations when a bug exposes a wider
+  failure shape, alignment, mesh/boundary proof when relevant, model
+  maturation, freshness, ledger, and claim-chain support.
 - the default model-code-test binding rule: broad model/test confidence needs
   model obligation ids, owner code contract ids, and current external-contract
   test evidence to name the same behavior. Model+test-only rows are scoped or
@@ -35,7 +35,14 @@ standalone satellite skills.
 - task-fact selection of whole-software blueprint work. The kernel coordinates
   independent implementation inventory, ExistingModelPreflight, Code Structure,
   StructureMesh, Model-Test Alignment, ModelMesh, portable references, and
-  DevelopmentProcessFlow without adding a `DNA` route or a second authority head.
+  DevelopmentProcessFlow as one canonical blueprint authority.
+- conditional admission of the single internal `risk_template_library` route.
+  It is admitted only for an explicit template reuse/publication request or
+  current executable evidence of a bounded stable pattern intended for use
+  outside the target project. When admitted, search, exact reuse/no-match
+  review, and template harvest closure remain strict. Ordinary modeling,
+  repair, maintenance, cleanup, and release do not enter this route merely to
+  produce a completion receipt.
 
 ## Public Owner Satellite Skills
 
@@ -72,7 +79,7 @@ no independent Codex skill, alias, forwarding entrypoint, or fallback path.
 | `implementation_blueprint` | kernel-owned API cohort for independent implementation inventory, bidirectional model bindings, resource/oracle closure, deterministic projection, and static qualification; it is not a public route or skill |
 | `development_process_simulator` | internal request helper consumed by `development_process_flow` for rough-plan, multi-skill, execution-freshness, install/sync, release/archive/publish, and final claim modes |
 | `plan_detailing_compiler` | internal `plan_detailing` route rows, receipts, validation, rework, human questions, and projection to downstream routes |
-| `architecture_reduction` | behavior-preserving code contraction candidates, observable architecture contracts, and target StructureMesh handoff |
+| `architecture_reduction` | current-DNA necessity, ordinary equivalence/facade contraction, evidence-bound behavior retirement, observable contracts, and target StructureMesh/DevelopmentProcessFlow handoff |
 | `ui_flow_structure` | UI interaction model, app-level journey coverage, implemented/runnable UI click-through evidence alignment, reachable visible-control branches, state/control/event/display transitions, parent/child UI topology, menu levels, overlays, stable placements, UI text hierarchy blueprint, and intentional redundancy |
 | `model_topology_hazard_review` | topology digest, usage intent, anchored future-use hazards, required owner routes, and scoped or blocked confidence before broad claims |
 | `model_test_alignment` | direct comparison of model obligations, transition coverage obligations, owner code contracts, code-boundary observations, artifact payload cases, obligation-family parity, and ordinary test evidence |
@@ -84,7 +91,7 @@ no independent Codex skill, alias, forwarding entrypoint, or fallback path.
 | `structure_mesh_maintenance` | parent/child script/module structure split evidence |
 | `agent_workflow_rehearsal` | internal `agent_workflow` route inventory, selected/skipped skills, side effects, continue/rework gates, and final claim scope |
 | `development_process_flow` | public process owner plus internal simulator and `execution_freshness` mode for staged development, artifact overwrite, post-change scan signals, evidence freshness, and minimum revalidation |
-| `model_miss_review` | non-trivial bug repair, model miss classification, root-cause backpropagation, current bug instance handling, same-class bug responsibility, and analogous defect scan closure |
+| `model_miss_review` | non-trivial bug repair, model miss classification, root-cause backpropagation, current bug instance handling, and bounded same-class seeds for ContractExhaustionMesh and ModelMaturation |
 | `conformance_adoption` | replay, install sync, shadow workspace sync, release sync, adoption evidence |
 | `long_check_observability` | background log artifacts, liveness-only progress, and completion proof |
 | `framework_upgrade` | FlowGuard self-upgrades and broad capability claims |
@@ -94,8 +101,10 @@ no independent Codex skill, alias, forwarding entrypoint, or fallback path.
 These are check-engine helpers:
 
 - `RiskIntent`, `RiskProfile`, `FlowGuardCheckPlan`,
-  `MinimumModelContract`, `KnownBadProof`, `TemplateReuseReview`,
-  `TemplateHarvestReview`, and `review_known_bad_proofs`;
+  `MinimumModelContract`, `KnownBadProof`, and `review_known_bad_proofs`;
+- route-scoped `TemplateReuseReview`, `TemplateHarvestReview`, search, merge,
+  harvest, and harvest-review helpers for an admitted
+  `risk_template_library` operation;
 - property factories and packs;
 - `review_model_test_alignment()` and `review_code_boundary_conformance()`;
 - implementation inventory and blueprint helpers for explicit whole-software
@@ -109,7 +118,8 @@ These are check-engine helpers:
 - `ContractDimension`, `ContractMutationCase`, `ContractExhaustionPlan`,
   `review_contract_exhaustion()`, and contract-exhaustion feeder/consumer
   projection helpers;
-- `review_obligation_family_parity()` and `review_analogous_defect_scan()`;
+- `review_obligation_family_parity()`, `FamilyBadCaseSeed`, and
+  `derive_same_class_bad_cases()` as bounded feeders to ContractExhaustionMesh;
 - `review_model_maturation_loop()` for post-evidence model upgrade decisions;
 - `review_risk_evidence_ledger()` and risk evidence ledger rows;
 - `review_hierarchical_mesh()`, `review_mesh_closure_model()`,
@@ -217,11 +227,22 @@ does not change the maturation decision. Read-only work is
 toolchain, destructive-boundary uncertainty, or active ownership conflict
 blocks admission.
 
-## Project-neutral Software Blueprint Contract
+## Target-neutral Blueprint Contract
 
-The kernel exposes no `DNA` mode or extra skill. An explicit whole-software
-blueprint is one derived qualification over the sole current observed
-model-system snapshot. Its exact ordered layer ids and meanings are:
+The kernel exposes one canonical blueprint owner. An explicit whole-target
+blueprint is one derived qualification over the sole current observed target
+snapshot. It consumes a frozen profile-matching layer plan plus exact provider
+results, registry, target snapshot, and native observation/authority report set
+established before aggregation. The public qualifier accepts only the strict
+descriptor, frozen evidence, native report set, and explicit affected/whole
+scope; it derives layer results and rejects caller-authored status, gap,
+admission, or substitute report rows. Each native set is bound to the exact
+descriptor, boundary, revision, provider inputs/payloads, and frozen evidence;
+its portable models must pass their own invariant/progress/temporal checks and
+exact refinement before supporting readiness. This proves structural integrity
+of the submitted provider evidence, not that an unreceipted external provider
+truthfully observed the world. The
+canonical software plan's ordered layer meanings are:
 
 1. `inventory`: independently discovered implementation and test denominators,
    including terminal dispositions for every admitted file, surface, and test
@@ -245,26 +266,26 @@ model-system snapshot. Its exact ordered layer ids and meanings are:
 6. `static_blueprint`: exact-current closure of layers 1-5 and their canonical
    projection.
 
-Every blueprint projection returns all six ordered layer rows with status,
+The canonical non-code-workflow plan contains workflow boundary, target-owned
+actors, inputs, states, transitions, outputs, resources, intent, and
+verification; it does not create substitute implementation or Python-test
+rows. Every blueprint projection returns every exact plan row with status,
 native owner, member ids, evidence ids/fingerprints, and findings. Return
 `deepest_proven_layer` as the longest complete exact-current prefix and the
 first unresolved layer/owner/member/evidence gap. This is mechanical
 self-knowledge, not a self-rating or prose judgment. A later layer never masks
 an earlier gap.
 
-Whole-software materialization is admitted only from an explicit task fact:
+Whole-target materialization is admitted only from an explicit task fact:
 blueprint creation/export/qualification, or a named release/self-qualification
 obligation. Model count, `deep`, ordinary maintenance, audit, cleanup, install,
    or release alone does not widen scope. Ordinary work consumes the current
-   blueprint identity and validates only the shared objects and topology
-   relations referenced by its affected neighborhood.
+   blueprint identity and uses the content-addressed affected reader for only
+   the shards, shared objects, ancestors, and topology relations referenced by
+   its exact affected ids.
 
 Each project surface keeps its declared native owner. Missing, duplicated,
 ambiguous, stale, or unmapped ownership blocks that layer; never fall back to
 the FlowGuard self-model, the authoritative model-system root, a global role
 catalog, another route, or run-all. Keep user execution choice, verified model
 maturation, and DevelopmentProcessFlow admission as three independent axes.
-
-Independent reproduction or language migration is a separate specialist task
-loaded only when the user explicitly requests that outcome; it is not an
-ordinary blueprint layer, status field, or release gate.

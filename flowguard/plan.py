@@ -8,8 +8,9 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
+from .model_path_quality import PathQualityResult, PathQualitySubject
 from .risk import RiskProfile
-from .risk_templates import KnownBadProof, MinimumModelContract, TemplateHarvestReview, TemplateReuseReview
+from .risk_templates import KnownBadProof, MinimumModelContract
 
 
 @dataclass(frozen=True)
@@ -83,8 +84,8 @@ class FlowGuardCheckPlan:
     state_closure_plan: Any = None
     topology_hazard_plan: Any = None
     usage_intent: Any = None
-    template_reuse_review: TemplateReuseReview | None = None
-    template_harvest_review: TemplateHarvestReview | None = None
+    path_quality_subject: PathQualitySubject | None = None
+    path_quality_result: PathQualityResult | None = None
     minimum_model_contract: MinimumModelContract | None = None
     known_bad_proofs: tuple[KnownBadProof, ...] = ()
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
@@ -111,8 +112,8 @@ class FlowGuardCheckPlan:
         state_closure_plan: Any = None,
         topology_hazard_plan: Any = None,
         usage_intent: Any = None,
-        template_reuse_review: TemplateReuseReview | Mapping[str, Any] | None = None,
-        template_harvest_review: TemplateHarvestReview | Mapping[str, Any] | None = None,
+        path_quality_subject: PathQualitySubject | Mapping[str, Any] | None = None,
+        path_quality_result: PathQualityResult | Mapping[str, Any] | None = None,
         minimum_model_contract: MinimumModelContract | Mapping[str, Any] | None = None,
         known_bad_proofs: Sequence[KnownBadProof | Mapping[str, Any]] = (),
         metadata: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
@@ -140,8 +141,16 @@ class FlowGuardCheckPlan:
         object.__setattr__(self, "state_closure_plan", state_closure_plan)
         object.__setattr__(self, "topology_hazard_plan", topology_hazard_plan)
         object.__setattr__(self, "usage_intent", usage_intent)
-        object.__setattr__(self, "template_reuse_review", _coerce_template_reuse_review(template_reuse_review))
-        object.__setattr__(self, "template_harvest_review", _coerce_template_harvest_review(template_harvest_review))
+        object.__setattr__(
+            self,
+            "path_quality_subject",
+            _coerce_path_quality_subject(path_quality_subject),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_result",
+            _coerce_path_quality_result(path_quality_result),
+        )
         object.__setattr__(self, "minimum_model_contract", _coerce_minimum_model_contract(minimum_model_contract))
         object.__setattr__(self, "known_bad_proofs", _coerce_known_bad_proofs(known_bad_proofs))
         object.__setattr__(self, "metadata", freeze_metadata(metadata))
@@ -164,8 +173,6 @@ class FlowGuardCheckPlan:
             f"assumption_card: {'provided' if self.assumption_card is not None else 'not_provided'}",
             f"state_closure_plan: {'provided' if self.state_closure_plan is not None else 'auto'}",
             f"topology_hazard_plan: {'provided' if self.topology_hazard_plan is not None else 'auto'}",
-            f"template_reuse_review: {'provided' if self.template_reuse_review is not None else 'not_provided'}",
-            f"template_harvest_review: {'provided' if self.template_harvest_review is not None else 'not_provided'}",
             f"minimum_model_contract: {'provided' if self.minimum_model_contract is not None else 'not_provided'}",
             f"known_bad_proofs: {len(self.known_bad_proofs)}",
         ]
@@ -176,10 +183,16 @@ class FlowGuardCheckPlan:
                 "scenario_matrix: "
                 f"{'enabled' if self.scenario_matrix_config.enabled else 'disabled'}"
             )
+        if self.path_quality_subject is not None or self.path_quality_result is not None:
+            lines.append(
+                "model_path_quality: "
+                f"subject={'provided' if self.path_quality_subject is not None else 'missing'} "
+                f"result={'provided' if self.path_quality_result is not None else 'missing'}"
+            )
         return "\n".join(lines)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "workflow": getattr(self.workflow, "name", type(self.workflow).__name__),
             "initial_states": to_jsonable(self.initial_states),
             "external_inputs": to_jsonable(self.external_inputs),
@@ -211,16 +224,6 @@ class FlowGuardCheckPlan:
             "state_closure_plan": to_jsonable(self.state_closure_plan),
             "topology_hazard_plan": to_jsonable(self.topology_hazard_plan),
             "usage_intent": to_jsonable(self.usage_intent),
-            "template_reuse_review": (
-                self.template_reuse_review.to_dict()
-                if self.template_reuse_review is not None
-                else None
-            ),
-            "template_harvest_review": (
-                self.template_harvest_review.to_dict()
-                if self.template_harvest_review is not None
-                else None
-            ),
             "minimum_model_contract": (
                 self.minimum_model_contract.to_dict()
                 if self.minimum_model_contract is not None
@@ -229,6 +232,11 @@ class FlowGuardCheckPlan:
             "known_bad_proofs": [proof.to_dict() for proof in self.known_bad_proofs],
             "metadata": to_jsonable(self.metadata),
         }
+        if self.path_quality_subject is not None:
+            payload["path_quality_subject"] = self.path_quality_subject.to_dict()
+        if self.path_quality_result is not None:
+            payload["path_quality_result"] = self.path_quality_result.to_compact_dict()
+        return payload
 
     def to_json_text(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), indent=indent, sort_keys=True)
@@ -252,24 +260,24 @@ def _coerce_scenario_matrix_config(
     raise TypeError("scenario_matrix_config must be a ScenarioMatrixConfig, mapping, or None")
 
 
-def _coerce_template_reuse_review(
-    value: TemplateReuseReview | Mapping[str, Any] | None,
-) -> TemplateReuseReview | None:
-    if value is None or isinstance(value, TemplateReuseReview):
+def _coerce_path_quality_subject(
+    value: PathQualitySubject | Mapping[str, Any] | None,
+) -> PathQualitySubject | None:
+    if value is None or isinstance(value, PathQualitySubject):
         return value
     if isinstance(value, Mapping):
-        return TemplateReuseReview.from_dict(value)
-    raise TypeError("template_reuse_review must be a TemplateReuseReview, mapping, or None")
+        return PathQualitySubject.from_dict(value)
+    raise TypeError("path_quality_subject must be a PathQualitySubject, mapping, or None")
 
 
-def _coerce_template_harvest_review(
-    value: TemplateHarvestReview | Mapping[str, Any] | None,
-) -> TemplateHarvestReview | None:
-    if value is None or isinstance(value, TemplateHarvestReview):
+def _coerce_path_quality_result(
+    value: PathQualityResult | Mapping[str, Any] | None,
+) -> PathQualityResult | None:
+    if value is None or isinstance(value, PathQualityResult):
         return value
     if isinstance(value, Mapping):
-        return TemplateHarvestReview.from_dict(value)
-    raise TypeError("template_harvest_review must be a TemplateHarvestReview, mapping, or None")
+        return PathQualityResult.from_dict(value)
+    raise TypeError("path_quality_result must be a PathQualityResult, mapping, or None")
 
 
 def _coerce_minimum_model_contract(

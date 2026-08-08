@@ -13,6 +13,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .behavior_plane import (
     BCL_BEHAVIOR_PLANES,
     BCL_PLANE_AGENT_OPERATION,
@@ -95,12 +96,6 @@ UI_AGENT_EVIDENCE_ROLES = (
     UI_EVIDENCE_ROLE_IMPLEMENTATION_VALIDATION,
     UI_EVIDENCE_ROLE_HUMAN_OPERABILITY,
 )
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 def _normalize_validation_guidance_status(value: str) -> str:

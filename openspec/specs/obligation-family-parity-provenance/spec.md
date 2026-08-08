@@ -48,38 +48,17 @@ FlowGuard SHALL distinguish how evidence was produced before accepting it for a 
 - **THEN** FlowGuard may count the row as coverage for that member and mechanism.
 
 ### Requirement: Same-class bad cases can be derived from a seed miss
-
-FlowGuard SHALL provide a helper that turns an observed family-member miss into sibling same-class bad cases for the remaining required members.
+FlowGuard SHALL allow an observed family-member miss to produce a bounded seed naming the current family, source member, shared mechanism, failure mode, and required canonical relation endpoints. ContractExhaustionMesh SHALL derive and own the stable finite sibling case ids and executable oracles.
 
 #### Scenario: Seed miss generates sibling cases
-- **WHEN** a seed miss names a family, source member, mechanism, and failure mode
-- **THEN** FlowGuard derives same-class bad cases for the other required family members
-- **AND** each case records the source case id, sibling member, mechanism, and failure mode.
+- **WHEN** a seed miss names a family, source member, mechanism, failure mode, and current canonical sibling endpoints
+- **THEN** ContractExhaustionMesh derives finite same-class cases for the other required members
+- **AND** each case records the source case id, sibling member, mechanism, failure mode, and canonical relation id
 
 #### Scenario: Exempt members are not generated
-- **WHEN** a seed miss is expanded
-- **AND** a sibling member is not required or is explicitly excluded
-- **THEN** FlowGuard does not generate a required same-class bad case for that member.
-
-### Requirement: Analogous defect scans disposition same-shape risk radius
-
-FlowGuard SHALL provide a helper that turns an observed miss into an analogous defect scan over same-family siblings and caller-supplied related surfaces.
-
-#### Scenario: Unreviewed mandatory sibling blocks closure
-- **WHEN** an observed miss seed has a required sibling member sharing the failed mechanism
-- **AND** no disposition has been recorded for that sibling candidate
-- **THEN** the analogous defect scan reports a blocker
-- **AND** broad model-miss closure remains unavailable.
-
-#### Scenario: Covered sibling can close with evidence
-- **WHEN** a mandatory sibling candidate is marked covered by current evidence
-- **AND** the candidate names at least one evidence id
-- **THEN** the analogous defect scan can treat that candidate as dispositioned.
-
-#### Scenario: Wider-radius surfaces can be scoped
-- **WHEN** a related but non-identical surface is marked `should_scan` or `record_only`
-- **AND** it is assigned to a separate change or excluded with a concrete reason
-- **THEN** FlowGuard keeps the scope visible without requiring the current repair to edit that surface.
+- **WHEN** a sibling member is not required, is explicitly excluded, or lacks a current canonical relation to the failed mechanism
+- **THEN** FlowGuard does not generate a required same-class case for that member
+- **AND** it preserves any unresolved relation or scope gap without widening into a free-form scan
 
 ### Requirement: Family confidence is scoped to matrix coverage
 
@@ -95,20 +74,15 @@ FlowGuard SHALL make the family confidence boundary explicit so downstream route
 - **THEN** it includes one coverage cell per required member and mechanism, with status and evidence ids.
 
 ### Requirement: Family seeds feed canonical bad-case expansion
-FlowGuard obligation-family parity MUST provide same-class family seeds to
-ContractExhaustionMesh when an observed miss or family mechanism requires
-canonical sibling bad-case expansion.
+FlowGuard obligation-family parity MUST provide bounded observed-miss seeds to ContractExhaustionMesh when current family declarations and canonical relations require finite sibling bad-case expansion. The family route MUST NOT own a second case generator or accept caller-supplied related surfaces as authoritative expansion scope.
 
 #### Scenario: Seed expands through contract exhaustion
-- **WHEN** a family bad-case seed names a required mechanism and sibling
-  members
-- **THEN** canonical ContractMutationCase rows are generated or required for
-  the sibling cases
+- **WHEN** a family bad-case seed names a required mechanism and current canonical sibling endpoints
+- **THEN** ContractExhaustionMesh generates or requires canonical ContractMutationCase rows for those finite sibling cases
 
 #### Scenario: Unmodeled sibling relation remains a gap
-- **WHEN** a same-class claim lacks a declared sibling relation or mechanism
-- **THEN** FlowGuard reports a model gap instead of treating the family as
-  exhausted
+- **WHEN** a same-class claim lacks a declared family member, mechanism, or current canonical relation
+- **THEN** FlowGuard reports a model or relation gap instead of treating the family as exhausted or searching arbitrary related surfaces
 
 ### Requirement: Obligation families prove expected member completeness
 FlowGuard SHALL let an obligation family declare an expected member inventory independently from the materialized family-member rows, and SHALL reconcile the expected and materialized sets before granting family confidence.
@@ -151,21 +125,20 @@ FlowGuard SHALL require every accepted `ObligationFamilyEvidence.covered_obligat
 - **THEN** the family parity report SHALL expose the uncovered obligation ids
 - **AND** full family confidence SHALL remain unavailable
 
-### Requirement: Similarity-derived family provenance is materialized
-FlowGuard SHALL require same-workflow, same-family, duplicate-boundary, or related model-similarity provenance used by an obligation family to materialize as concrete family members and obligation ids rather than remain only as opaque relation ids.
+### Requirement: Canonical-relation-derived family provenance is materialized
+When an obligation-family claim uses a bounded same-intent, affected-sibling, shared-owner, shared-mechanism, adapter-only, duplicate-boundary, or false-friend relation, the family SHALL preserve the canonical relation id and source authority and materialize every in-scope endpoint as a concrete expected member and obligation id. Relation provenance alone SHALL NOT prove family completeness.
 
-#### Scenario: Similarity relation materializes expected members
-- **WHEN** a current similarity handoff identifies impacted models or same-intent sibling surfaces for a family-level claim
-- **THEN** the family SHALL include the relevant similarity relation ids as provenance
-- **AND** the impacted members and their required obligation ids SHALL appear in the expected and materialized member inventories
+#### Scenario: Canonical relation materializes expected members
+- **WHEN** a current canonical relation identifies in-scope endpoints for a family-level claim
+- **THEN** the family includes the relation id as provenance
+- **AND** every required endpoint and its concrete obligation id appears in the expected and materialized member inventories
 
-#### Scenario: Relation id has no materialized member
-- **WHEN** an obligation family cites a similarity relation id but no expected member or member obligation represents one of the relation's in-scope sides
-- **THEN** the family parity review SHALL report unmaterialized similarity provenance
-- **AND** the relation id alone SHALL NOT support family completeness
+#### Scenario: Relation endpoint has no materialized member
+- **WHEN** a family cites a canonical relation but one in-scope endpoint has no expected member, member obligation, or explicit scoped disposition
+- **THEN** family parity reports unmaterialized relation provenance
+- **AND** the relation id alone MUST NOT support completeness
 
-#### Scenario: Similarity provenance is stale
-- **WHEN** the similarity relation or impacted-model inventory changes after family members or evidence were produced
-- **THEN** the family provenance SHALL be treated as stale
-- **AND** current family confidence SHALL require regenerated member and obligation bindings
+#### Scenario: Relation provenance is stale
+- **WHEN** the relation source, endpoints, affected-member set, behavior plane, or currentness changes after family members or evidence were produced
+- **THEN** family provenance and dependent evidence become stale until rebound to the current relation identity
 

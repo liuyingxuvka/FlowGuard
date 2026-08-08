@@ -143,21 +143,25 @@ package version, project audit, or source/shadow workspace sync.
   scoped out
 
 ### Requirement: AI hot paths prefer structured handoff outputs
-FlowGuard AI-facing hot paths SHALL instruct agents to read structured
-SummaryReport ledger, maintenance obligations, maintenance scan actions, and
-revalidation recommendations before manually inferring the next route from
-prompt prose.
+FlowGuard AI-facing hot paths SHALL instruct agents to read the structured
+SummaryReport ledger, maintenance obligations, typed post-change owner
+findings, and revalidation recommendations before manually inferring the next
+route from prompt prose.
 
 #### Scenario: Summary report has route-owned gaps
 - **WHEN** an agent finishes a model-first check and the summary report has
   route-owned gaps
-- **THEN** the hot-path guidance SHALL direct the agent to the structured
-  action hints and maintenance scan handoff before broad confidence claims
+- **THEN** the hot-path guidance SHALL direct each typed finding immediately to
+  its named current owner before broad confidence claims
+- **AND** it SHALL NOT insert a maintenance-scan owner or plan between the
+  finding and that owner
 
 #### Scenario: No structured handoff is available
-- **WHEN** a legacy report lacks structured handoff fields
-- **THEN** the agent may fall back to the compact route table without treating
-  the missing structure as validation evidence
+- **WHEN** a report lacks current structured owner and finding identities
+- **THEN** the agent may use the compact route table only to identify a
+  candidate owner
+- **AND** the missing structured handoff remains a visible gap and MUST NOT be
+  converted into a fallback success or validation result
 
 ### Requirement: Compact route profiles
 FlowGuard AI entry surfaces SHALL expose compact route profiles that identify route id, trigger, minimal inputs, outputs, evidence owner, and next actions before exposing broad helper lists.
@@ -176,18 +180,6 @@ FlowGuard AI guidance SHALL warn against treating `__all__`, `MODELING_HELPER_AP
 #### Scenario: Large helper API exists
 - **WHEN** the helper API contains many exported names
 - **THEN** docs and tests SHALL continue to prefer route profile discovery for AI usage
-
-### Requirement: AI guidance asks open-ended model-angle questions
-FlowGuard AI entry guidance SHALL ask agents to consider additional model
-angles without presenting known FlowGuard routes as a closed checklist.
-
-#### Scenario: Agent starts non-trivial model-first work
-- **WHEN** an agent starts a non-trivial feature, workflow, bug repair, prompt, process, or model change
-- **THEN** compact guidance MUST ask what the current model sees, what it may miss, what failure would be missed, and whether to reuse, extend, create, split, defer, scope out, or ask a human
-
-#### Scenario: Known routes are examples
-- **WHEN** AI guidance mentions fields, information flow, authority, evidence freshness, or parent-child handoffs
-- **THEN** the guidance MUST state that those examples are route hints rather than the full set of valid model angles
 
 ### Requirement: AI entry guidance points to field replacement handoffs
 FlowGuard AI entry guidance SHALL point agents to structured field lifecycle
@@ -263,16 +255,6 @@ agents.
 - **THEN** `AGENT_DEFAULT_API` and `ROUTE_STARTER_API` appear before full helper
   inventory discussion
 - **AND** the full helper inventories are labeled as full or fallback indexes
-
-### Requirement: Existing similarity route remains the owner
-FlowGuard SHALL extend the existing Model Similarity Consolidation route instead
-of adding a second similarity-maintenance capability.
-
-#### Scenario: A/B/C maintenance similarity is reviewed
-- **WHEN** a workflow has similar variants, shared kernels, adapters,
-  duplicate boundaries, tests, or false-friend risks
-- **THEN** the review MUST use Model Similarity Consolidation as the owning
-  route and pass handoff evidence to downstream FlowGuard routes
 
 ### Requirement: Hot-path prompt budgets are enforced
 FlowGuard AI guidance SHALL enforce explicit size budgets for first-read prompt
@@ -443,11 +425,11 @@ The AI entry path SHALL permit lightweight or direct work when the caller does n
 - **THEN** the path can remain lightweight and its result is explicitly scoped
 
 ### Requirement: Whole-software blueprint work is task-triggered rather than a selectable depth mode
-The AI entry path SHALL derive a whole-software blueprint obligation only from explicit blueprint, export, reconstruction-qualification, or owner-declared release facts. It SHALL NOT add a user-selectable `DNA` or reconstruction depth, and ordinary work SHALL continue loading only the smallest affected current owner closure.
+The AI entry path SHALL derive a whole-software blueprint obligation only from explicit blueprint, export, qualification, or owner-declared release facts. It SHALL NOT add a user-selectable duplicate depth mode, and ordinary work SHALL continue loading only the smallest affected current owner closure.
 
 #### Scenario: User asks for an ordinary bounded code change
-- **WHEN** no whole-software blueprint or reconstruction claim is requested or required
-- **THEN** the entry path does not scan, export, or reconstruct the complete software
+- **WHEN** no whole-software blueprint claim is requested or required
+- **THEN** the entry path does not scan, export, or materialize the complete software blueprint
 
 #### Scenario: User asks for a complete portable software blueprint
 - **WHEN** the request explicitly claims or exports a whole-software blueprint
@@ -459,12 +441,11 @@ The FlowGuard AI entry SHALL report the deepest proven blueprint layer and the s
 #### Scenario: Only inventory and traceability are proven
 - **WHEN** source inventory and model-to-code traceability pass but independent semantics or row-level test evidence is missing
 - **THEN** AI reports the deepest proven layer as traceability
-- **AND** it does not describe the software blueprint as complete or reconstructable
+- **AND** it does not describe the whole software blueprint as complete
 
 #### Scenario: Static blueprint is complete
-- **WHEN** every required static layer has current evidence and empirical reconstruction has not run
-- **THEN** AI reports static blueprint complete and reconstruction `not_run`
-- **AND** it explains that no rebuild was performed
+- **WHEN** every required static layer has current evidence
+- **THEN** AI reports static blueprint complete and identifies `static_blueprint` as the deepest proven layer
 
 #### Scenario: A user asks what remains unknown
 - **WHEN** the user requests a sufficiency or gap explanation
@@ -477,7 +458,7 @@ The AI entry SHALL default ordinary work to current authority identity plus the 
 #### Scenario: A small scoped change is requested
 - **WHEN** current affected ownership is known and no whole-blueprint claim is requested
 - **THEN** AI loads and validates only the affected neighborhood and required ancestors
-- **AND** it does not scan, export, or reconstruct the whole project
+- **AND** it does not scan, export, or materialize the whole project blueprint
 
 #### Scenario: User authorizes code before understanding is sufficient
 - **WHEN** the user permits implementation but required model or blueprint gaps remain unresolved
@@ -489,8 +470,8 @@ The AI entry SHALL default ordinary work to current authority identity plus the 
 - **THEN** AI records the choice and preserves all skipped or unresolved model claims
 - **AND** it does not falsely report skipped understanding checks as passed
 
-### Requirement: AI entry reports compact reconstruction readiness
-The AI entry surface SHALL report owner-level status, behavior-block status, reconstruction readiness, empirical reconstruction status, deepest proven layer, and the first unresolved gap from compact content-addressed identities without loading the full software blueprint.
+### Requirement: AI entry reports compact blueprint readiness
+The AI entry surface SHALL report owner-level status, behavior-block status, static-blueprint readiness, deepest proven layer, and the first unresolved gap from compact content-addressed identities without loading the full software blueprint.
 
 #### Scenario: User chooses direct implementation
 - **WHEN** the user authorizes direct implementation while readiness is incomplete
@@ -517,3 +498,64 @@ AI-facing results SHALL describe a missing source, workflow, trace, intent, reso
 - **WHEN** a workflow target has current steps and state but lacks an independent oracle provider
 - **THEN** the AI entry SHALL name the missing oracle capability and affected behavior
 - **AND** it SHALL NOT ask for a Python adapter
+
+### Requirement: AI understanding status is compact and affected-first
+The ordinary AI entry SHALL return target identity, affected members, ordered layer statuses, deepest proven layer, first unresolved gap, gap count, and implementation-admission boundary directly from the current normalized affected neighborhood.
+
+#### Scenario: Ordinary task asks whether understanding is sufficient
+- **WHEN** a task identifies affected behavior or workflow owners without requesting whole-target qualification
+- **THEN** the AI entry SHALL inspect only the exact affected neighborhood and required ancestors
+- **AND** it SHALL NOT construct or serialize the complete target blueprint
+
+### Requirement: Whole qualification is explicit and separately visible
+The AI entry SHALL materialize a complete target blueprint only when task facts explicitly request blueprint creation, export, qualification, or a named self/release qualification obligation.
+
+#### Scenario: User authorizes an ordinary code change
+- **WHEN** whole-target qualification is not an explicit task fact
+- **THEN** the entry SHALL keep whole materialization `not_run`
+- **AND** implementation admission SHALL be decided only for the declared affected scope
+
+### Requirement: AI guidance records typed current-owner coverage questions
+FlowGuard AI entry guidance SHALL ask what the selected current owners prove,
+which exact state, branch, child, boundary, input, output, effect, finite case,
+binding, or evidence item remains uncovered, and which current owner must close
+that item. It SHALL record concrete coverage items rather than requiring a
+free-form model-angle route or open-ended angle inventory.
+
+#### Scenario: Agent starts non-trivial model-first work
+- **WHEN** an agent starts a non-trivial feature, workflow, bug repair, prompt,
+  process, or model change
+- **THEN** compact guidance MUST expose the selected current owner closure and
+  any exact typed coverage gaps
+- **AND** every required gap MUST route to the affected owner and
+  ModelMaturation without creating an independent deliberation row
+
+#### Scenario: A possible blindspot is not yet typed
+- **WHEN** the agent suspects the current model misses behavior but cannot map
+  the concern to a current owner or coverage dimension
+- **THEN** guidance MUST keep an explicit unknown-coverage item open for
+  ExistingModelPreflight and ModelMaturation
+- **AND** the unknown MUST NOT count as validation evidence or full
+  understanding
+
+### Requirement: Current owners consume bounded canonical relations
+FlowGuard SHALL use exact canonical relations emitted by current blueprint,
+behavior-commitment, or topology authority as bounded provenance for sibling,
+shared-kernel, adapter, duplicate-boundary, evidence-scope, and false-friend
+review. The relation SHALL feed the current decision owner and SHALL NOT become
+a standalone similarity route, maintenance group, or completion gate.
+
+#### Scenario: Related workflow surfaces are reviewed
+- **WHEN** exact current authority relates workflow variants, shared kernels,
+  adapters, duplicate boundaries, tests, or false-friend endpoints
+- **THEN** the relation MUST preserve its source authority, endpoints,
+  behavior plane, affected members, and currentness
+- **AND** the relevant ExistingModelPreflight, ArchitectureReduction,
+  CodeStructureRecommendation, ContractExhaustionMesh, or ModelTestAlignment
+  owner MUST make and validate the downstream decision
+
+#### Scenario: Shared wording is the only relation evidence
+- **WHEN** surfaces merely share labels, filenames, tokens, or structural shape
+  without an exact current canonical relation
+- **THEN** AI entry guidance MUST keep the ownership or relation gap visible
+- **AND** it MUST NOT invoke a free-form similarity search as a replacement

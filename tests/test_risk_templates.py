@@ -20,6 +20,7 @@ from flowguard.risk_templates import (
     review_known_bad_proofs,
     review_minimum_model_contract,
     review_template_harvest_closure,
+    review_template_reuse,
     search_risk_templates,
     write_local_risk_template,
 )
@@ -117,7 +118,6 @@ class RiskTemplateTests(unittest.TestCase):
     def test_minimum_model_review_reports_missing_teeth(self):
         report = review_minimum_model_contract(
             MinimumModelContract(protected_error_classes=("premature_completion",)),
-            template_reuse_review=TemplateReuseReview(no_match_reason="no similar template yet", searched_layers=("public", "local")),
         )
 
         self.assertFalse(report.ok)
@@ -125,7 +125,7 @@ class RiskTemplateTests(unittest.TestCase):
         self.assertIn("missing_completion_evidence", report.findings)
         self.assertIn("missing_known_bad_case", report.findings)
 
-    def test_minimum_model_review_passes_with_template_reuse(self):
+    def test_minimum_model_review_passes_without_template_scan(self):
         report = review_minimum_model_contract(
             MinimumModelContract(
                 protected_error_classes=("premature_completion",),
@@ -134,10 +134,32 @@ class RiskTemplateTests(unittest.TestCase):
                 completion_evidence=("receipt",),
                 known_bad_cases=("ack_without_receipt",),
             ),
-            template_reuse_review=TemplateReuseReview(
+        )
+
+        self.assertEqual("pass", report.status)
+        self.assertFalse(report.findings)
+
+    def test_minimum_model_review_does_not_search_templates(self):
+        contract = MinimumModelContract(
+            protected_error_classes=("premature_completion",),
+            modeled_state=("completed",),
+            modeled_side_effects=("write",),
+            completion_evidence=("receipt",),
+            known_bad_cases=("ack_without_receipt",),
+        )
+
+        with patch("flowguard.risk_templates.search_risk_templates") as search:
+            report = review_minimum_model_contract(contract)
+
+        self.assertEqual("pass", report.status)
+        search.assert_not_called()
+
+    def test_explicit_template_reuse_review_remains_strict(self):
+        report = review_template_reuse(
+            TemplateReuseReview(
                 used_template_ids=("completion_requires_evidence",),
                 searched_layers=("public", "local"),
-            ),
+            )
         )
 
         self.assertEqual("pass", report.status)
@@ -275,6 +297,58 @@ class RiskTemplateTests(unittest.TestCase):
         self.assertIn("no_artifact", merged.known_bad_cases)
         self.assertIn("left", merged.source_template_ids)
         self.assertIn("right", merged.source_template_ids)
+
+    def test_merge_rejects_missing_source_templates(self):
+        with self.assertRaisesRegex(ValueError, "at least one template is required"):
+            merge_risk_templates(())
+
+    def test_merge_rejects_conflicting_source_templates_without_rationale(self):
+        left = RiskTemplate(
+            "left",
+            "Left",
+            protected_error_classes=("premature_completion",),
+            merge_keys=("completion",),
+        )
+        right = RiskTemplate(
+            "right",
+            "Right",
+            protected_error_classes=("duplicate_side_effect",),
+            merge_keys=("retry",),
+        )
+
+        with self.assertRaisesRegex(ValueError, "shared protected error classes"):
+            merge_risk_templates((left, right))
+
+    def test_harvest_duplicate_write_is_blocked(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = harvest_risk_template_candidate(
+                template_id="completion-proof",
+                title="Completion proof",
+                protected_error_classes=("premature_completion",),
+                required_state=("completed",),
+                required_evidence=("receipt",),
+                known_bad_cases=("ack_without_receipt",),
+                known_bad_proofs=(known_bad_proof(),),
+                local_root=directory,
+            )
+            duplicate = harvest_risk_template_candidate(
+                template_id="completion-proof",
+                title="Completion proof",
+                protected_error_classes=("premature_completion",),
+                required_state=("completed",),
+                required_evidence=("receipt",),
+                known_bad_cases=("ack_without_receipt",),
+                known_bad_proofs=(known_bad_proof(),),
+                local_root=directory,
+            )
+
+        self.assertTrue(first.ok, first.format_text())
+        self.assertFalse(duplicate.ok)
+        self.assertEqual("blocked", duplicate.status)
+        self.assertTrue(
+            any("FileExistsError" in finding for finding in duplicate.findings),
+            duplicate.format_text(),
+        )
 
 
 if __name__ == "__main__":

@@ -163,6 +163,32 @@ receipt.
 - **AND** the decision consumes the exact child-receipt fingerprints on which
   it depends
 
+### Requirement: Revision building independently re-verifies native-owner evidence
+Before a native-owner receipt can make a revision evidence-complete, the revision builder SHALL reload that exact receipt from the canonical receipt store, derive the current owner contract, input, command, toolchain, environment, proof, result, and child-receipt context, and run the native receipt verifier itself. The aggregate receipt and every consumed child SHALL remain present with the same content identity through revision publication. A caller-supplied verification result MAY be carried as an immutable comparison artifact but SHALL match the independently derived result exactly and SHALL NOT be accepted as its own authority.
+
+#### Scenario: Caller repairs a tampered receipt by self-reporting pass
+- **WHEN** a caller changes a receipt contract, input, command, toolchain, environment, proof, result, or child identity, recomputes wrapper fingerprints, and supplies `current=true`, `eligible=true`, and `pass`
+- **THEN** revision building SHALL reject the evidence against the canonical store and current verification context
+
+#### Scenario: Canonical receipt is exact current
+- **WHEN** the receipt loaded from the canonical store passes the independently derived current context and the supplied comparison result is exactly equal
+- **THEN** the corresponding native owner MAY contribute evidence for only its exact affected obligations
+
+#### Scenario: Canonical evidence disappears during revision building
+- **WHEN** an aggregate receipt or one of its mapped child receipts is removed or replaced after initial verification but before the revision artifacts are published
+- **THEN** revision building SHALL re-read the canonical store and block publication
+
+### Requirement: Full model parents consume canonical execution composition
+A model-regression parent used for revision building SHALL reference one canonical content-addressed execution receipt whose native contract binds the original tier, claim scope, complete selected-model denominator, current manifest, terminal result, and exact child receipts. The mutable parent wrapper and its recomputable fingerprint SHALL NOT be execution authority.
+
+#### Scenario: A scoped parent wrapper is relabeled as full
+- **WHEN** a scoped run happened to select the same model ids as the current full denominator and a caller rewrites its wrapper tier and claim scope to `full`
+- **THEN** revision building SHALL reject it because the canonical execution receipt remains bound to the scoped contract
+
+#### Scenario: The exact full parent is current
+- **WHEN** the wrapper references the current canonical full-selection execution receipt and every consumed model child remains exact-current
+- **THEN** the parent MAY support revision building within that exact manifest boundary
+
 ### Requirement: Observed activation uses compare-and-swap
 Activation of a new observed snapshot SHALL compare the current observed-head
 fingerprint with the revision set's expected head, persist immutable candidate
@@ -337,3 +363,245 @@ An accepted non-trivial ModelRevisionSet SHALL include the current intent invent
 #### Scenario: Empty intent inventory passes by vacuity
 - **WHEN** a non-trivial revision has no contributions or dispositions and no current no-intent rationale
 - **THEN** acceptance SHALL be blocked without changing observed authority
+
+### Requirement: Every affected model has one explicit native owner
+A ModelRevisionSet SHALL map every changed or affected model and relation to exactly one declared native owner. Missing or unknown ownership SHALL block candidate acceptance and SHALL NOT be assigned to a generic ModelMesh or self-maintenance owner.
+
+#### Scenario: Changed model id has no owner mapping
+- **WHEN** a candidate diff contains a model whose native owner is absent from the frozen owner plan
+- **THEN** the revision set SHALL be blocked before activation
+
+### Requirement: Intent dispositions cover every changed model identity
+When exact changed-target enforcement is active and a revision contains one or more intent contributions, the union of `changed_model_ids` from accepted dispositions SHALL cover every raw semantic identity that the intent-disposition schema can express. This denominator consists only of `obligation:`, `state:`, `transition:`, `invariant:`, and `relation:` ids found in revision-member changed elements or raw changed-relation ids. Model-instance, root, system, fingerprint, coverage, test, evidence-freshness, and other revision-accounting wrappers remain governed revision evidence but SHALL NOT be treated as unmapped intent. Accepted semantic targets outside the exact semantic diff SHALL remain invalid. A contribution-free revision with an explicit evidence-bound no-declared-intent rationale SHALL remain outside this contribution-coverage comparison.
+
+#### Scenario: One diff member has no accepted intent mapping
+- **WHEN** the exact revision diff changes two raw semantic identities but accepted intent dispositions map only one
+- **THEN** intent review SHALL report `intent_changed_target_unmapped` with the exact missing identity
+- **AND** the revision SHALL NOT be accepted
+
+#### Scenario: Production diff also contains internal wrappers
+- **WHEN** a revision contains model-instance, root, system, fingerprint, coverage, test, or freshness wrapper changes plus raw relations
+- **AND** accepted dispositions cover every raw semantic relation and other expressible semantic id
+- **THEN** the internal wrappers SHALL NOT create unmapped-intent findings
+- **AND** the revision MAY pass this coverage gate subject to every other revision requirement
+
+#### Scenario: Several accepted contributions jointly cover the diff
+- **WHEN** accepted dispositions independently map disjoint changed model identities whose union covers the exact revision diff
+- **THEN** changed-target coverage MAY pass subject to every other intent and revision gate
+
+#### Scenario: Evidence-bound no-intent revision has no contributions
+- **WHEN** a contribution-free revision carries the complete current no-declared-intent rationale and evidence required by the revision contract
+- **THEN** this contribution-coverage comparison SHALL NOT create an unmapped-target finding
+
+### Requirement: Revision acceptance consumes exact per-owner evidence
+Each affected owner SHALL contribute its own exact current receipt covering its declared model members and obligations. An aggregate parent receipt MAY compose those children but SHALL NOT be copied or relabeled as their producer evidence.
+
+#### Scenario: Aggregate receipt is duplicated across owner rows
+- **WHEN** one parent receipt is inserted as the native receipt for several owners without exact covered-member producer rows
+- **THEN** revision validation SHALL reject every unsupported owner row
+
+### Requirement: Multi-model blueprint revisions activate atomically
+A blueprint-affecting revision SHALL freeze the observed base, complete candidate diff, affected closure, provider and inventory identities, per-owner receipts, and candidate snapshot before one atomic accept-and-activate decision.
+
+#### Scenario: One affected model lacks current evidence
+- **WHEN** all but one affected model have current passing owner receipts
+- **THEN** no member of the candidate revision SHALL become observed authority
+
+### Requirement: Affected native-owner routes consume explicit semantic model evidence
+For every native owner route present in the exact affected revision closure, the
+revision evidence plan SHALL declare exactly one explicit binding to one or more
+existing semantic model children. Missing, duplicate, foreign, or unmaterialized
+bindings SHALL block before native-owner evidence is written. The system SHALL
+NOT assign an unknown route to a generic, similarly named, or run-all fallback
+model.
+
+#### Scenario: Affected inventory route has no semantic model binding
+- **WHEN** the exact affected closure contains an authority-inventory route that is absent from the frozen owner-to-model binding plan
+- **THEN** revision-owner evidence generation SHALL stop without publishing a bundle
+- **AND** the finding SHALL name the unmapped route
+
+#### Scenario: Every affected route has one current binding
+- **WHEN** every route in the exact affected closure has one unique explicit binding whose model children exist in the candidate, full manifest, and exact-current full parent
+- **THEN** each native owner MAY compose only those exact child receipts needed by its semantic binding and referenced changed-model closure
+
+#### Scenario: A new affected identity category has no native route
+- **WHEN** the derived revision closure contains an affected identity outside the explicitly classified model-relation, root, coverage, unresolved-gap, system-property, or typed endpoint categories
+- **THEN** closure derivation SHALL fail with the exact unclassified affected identity
+- **AND** the identity SHALL NOT be assigned to ModelMesh or another generic owner
+
+### Requirement: Revision construction consumes exact-current intent sources
+Before writing a candidate snapshot, revision set, or acceptance artifact, the revision builder SHALL independently re-verify every intent contribution against its declared current source authority. A direct project-file contribution SHALL resolve inside the current project root and match its recomputed canonical source-file identity. A WorkContext contribution SHALL resolve through the current declared read-only context and match its exact context id, context fingerprint, native owner, source reference, and artifact fingerprint. Internal contribution and disposition fingerprints SHALL NOT substitute for current source verification.
+
+#### Scenario: Intent inventory is internally valid but its source changed
+- **WHEN** every contribution and disposition fingerprint is internally consistent
+- **AND** a declared intent source file has a different current source identity
+- **THEN** revision construction fails as stale before writing candidate authority artifacts
+- **AND** the existing observed authority remains unchanged
+
+#### Scenario: Intent source remains exact current
+- **WHEN** every contribution source reference resolves to a regular project file
+- **AND** every recomputed canonical source identity equals its declared source fingerprint
+- **THEN** the intent inventory may enter revision review and affected-owner construction
+- **AND** each accepted contribution remains bound to that exact current source identity
+
+#### Scenario: Source reference escapes or cannot be resolved
+- **WHEN** a contribution source reference is absolute, traverses outside the project root, reaches a link or reparse target outside the root, is missing, or is not a regular file
+- **THEN** revision construction fails visibly
+- **AND** it does not guess a replacement path or accept an alternate source
+
+#### Scenario: External planning material is supplied through WorkContext
+- **WHEN** a contribution carries a complete WorkContext id, context fingerprint, and native owner
+- **AND** the project's current declared read-only context contains the exact source reference and artifact fingerprint
+- **THEN** the contribution may enter revision review without being treated as a direct project-file fingerprint
+- **AND** provider status or execution metadata remains outside model evidence
+
+#### Scenario: WorkContext lineage is stale or undeclared
+- **WHEN** the current project declarations cannot reproduce the contribution's exact context, owner, source reference, and artifact fingerprint
+- **THEN** revision construction fails visibly
+- **AND** it does not fall back to trusting the contribution's internal fingerprint
+
+#### Scenario: Intent source changes during construction
+- **WHEN** a verified source identity changes before candidate artifacts are published
+- **THEN** publication is blocked and any incomplete outputs remain non-authoritative
+- **AND** a new frozen construction attempt is required
+
+### Requirement: Revision construction closes intent-source model ownership
+Before candidate snapshot construction, FlowGuard SHALL fold the candidate cumulative intent and compare every active `project_file` source reference with the exact `intent_source_inputs` declared by that contribution's logical model owner. The comparison SHALL be complete and bidirectional per owner. Only after the exact sets match may those files enter the owner model's resolved input inventory and affected-owner derivation. WorkContext contributions SHALL remain on their typed external identity path and SHALL NOT be required to resolve as repository files.
+
+#### Scenario: Candidate adds a new local design source
+- **WHEN** a candidate contribution introduces a project-file source for one logical model
+- **AND** the model manifest has not declared that exact source path for that owner
+- **THEN** revision construction blocks before candidate snapshot or revision publication
+- **AND** it does not append the path after acceptance or assign the source to a root owner
+
+#### Scenario: Candidate retires the last use of a local source
+- **WHEN** the folded candidate view no longer has any project-file contribution for one owner/path pair
+- **AND** the model still declares that path as an intent source
+- **THEN** revision construction blocks on the extra historical binding
+- **AND** retirement requires one direct removal from the owner-local manifest input set
+
+#### Scenario: WorkContext contribution is current
+- **WHEN** a contribution resolves through an exact current WorkContext identity
+- **THEN** revision construction validates that external identity through the cumulative intent path
+- **AND** the project-file binding comparison neither rejects it nor invents a local path for it
+
+### Requirement: Accepted revisions own one cumulative current-intent view
+Every current accepted `ModelRevisionSet` SHALL contain one content-addressed cumulative current-intent view for its candidate snapshot. The view SHALL be derived from the prior accepted revision's complete current view plus the new revision delta. It SHALL keep delta contributions distinct from cumulative authority, bind every active contribution to its verified current source identity, and dispose every prior active contribution through an explicit `retain`, `supersede`, or `retire` transition. The canonical head SHALL reach this view only through its one accepted revision; no second current-intent pointer, latest-delta interpretation, alias, or fallback reader is permitted.
+
+#### Scenario: A small latest delta follows a large accumulated system
+- **WHEN** the new revision changes intent for only two current model owners
+- **AND** the prior accepted view contains active intent for the rest of the current system
+- **THEN** the candidate revision folds both sources into one cumulative current view
+- **AND** the latest two contributions SHALL NOT replace the unchanged cumulative intent
+
+#### Scenario: Prior active contribution has no transition
+- **WHEN** one contribution active in the prior current view is neither retained, superseded, nor retired in the candidate view
+- **THEN** revision construction is blocked before publication
+- **AND** the builder SHALL NOT silently drop it or infer last-write-wins behavior
+
+#### Scenario: A contribution identifier is reused with different content
+- **WHEN** a candidate presents an existing contribution id with a different contribution fingerprint
+- **THEN** revision construction is blocked
+- **AND** renewal requires a new contribution id and an explicit supersession transition
+
+#### Scenario: Active intent source changes during construction
+- **WHEN** any active cumulative contribution source changes after the candidate view is compiled but before publication
+- **THEN** the builder rejects the candidate and writes no current authority
+- **AND** rechecking only the newly supplied delta SHALL NOT be sufficient
+
+### Requirement: Current intent migration is explicit and one-way
+The first current-schema revision MAY bootstrap a cumulative view only through one explicit, evidence-bound direct migration that audits the exact accepted current ancestry. The migration SHALL classify every admitted ancestral contribution, exclude revisions outside the current ancestry, bind the complete current model-owner denominator, and publish one current-schema accepted revision. After activation, normal authority loading SHALL reject a legacy revision as current intent rather than invoking the migration, reconstructing lineage, or falling back to a latest delta.
+
+#### Scenario: Existing current head has no cumulative view
+- **WHEN** the current accepted head uses the immediately retired revision schema
+- **AND** the explicit bootstrap audit closes the complete accepted ancestry and current owner denominator
+- **THEN** one migration revision may publish the first complete current view
+- **AND** the bootstrap receipt identity is carried by that view
+
+#### Scenario: Legacy revision is offered after migration
+- **WHEN** normal current-authority loading reaches an accepted revision without a complete current-intent view
+- **THEN** current loading fails visibly
+- **AND** it SHALL NOT search history, read a legacy delta as cumulative intent, or run migration implicitly
+
+### Requirement: Current authority includes one exact transition receipt
+FlowGuard SHALL treat a model authority head as current only when the head, observed snapshot, accepted revision, exactly one typed activation-or-rollback transition receipt, exact predecessor binding, current effective-intent view, and required source identities form one strict cross-validated state. Audit, revision planning and building, activation, and rollback SHALL consume the same current-state validator. Snapshot-plus-revision validation without the current transition receipt SHALL NOT establish current authority.
+
+#### Scenario: Current transition receipt is missing or foreign
+- **WHEN** the head's transition fingerprint is missing, duplicated across transition kinds, has stale content identity, names another revision or snapshot, carries another generation, or does not bind the exact previous head
+- **THEN** every current-authority consumer blocks with the same invalid-current-state boundary
+- **AND** no later green snapshot or revision check hides the transition failure
+
+#### Scenario: Rollback produced the current head
+- **WHEN** the current head was produced by a valid operational rollback
+- **THEN** the current-state validator resolves the rollback transition, its contract, reverse revision, restoration evidence, predecessor head, and candidate snapshot exactly once
+- **AND** it does not reinterpret the rollback as an activation or search an alternate success path
+
+### Requirement: Authority audit proves current intent sources remain current
+After strict immutable authority loading, `model-system-audit` SHALL independently reverify every active contribution source and compare the exact source identities with the current effective-intent view. A changed, missing, unsafe, non-regular, or stale WorkContext source SHALL make the current DNA audit non-pass without relabeling the immutable accepted revision as historically corrupt.
+
+#### Scenario: An accepted design source changes after activation
+- **WHEN** a direct source file or declared WorkContext artifact no longer matches the current view's verified source identity
+- **THEN** audit reports a typed current-intent source stale, missing, or invalid finding
+- **AND** the revision remains an immutable record of its former acceptance but cannot support a current claim
+
+### Requirement: Authority pointer replacement preserves peer manifest writes
+Activation and rollback SHALL re-read the project manifest immediately before replacing the authority section. If the frozen authority identity changed, the operation SHALL fail as stale. If only unrelated sections changed, the operation SHALL replace the authority section in the newest manifest text and preserve every unrelated byte-level peer update.
+
+#### Scenario: Peer adds an unrelated manifest section during validation
+- **WHEN** activation or rollback freezes the current head and a peer adds or changes a non-authority section before pointer replacement
+- **THEN** the transition may complete using the still-matching authority base
+- **AND** the peer section remains present after the pointer update
+
+#### Scenario: Peer changes authority during validation
+- **WHEN** the authority section or exact head identity changes before pointer replacement
+- **THEN** the transition fails its final compare-and-swap and leaves the new pointer unpublished
+- **AND** any already written immutable candidate artifacts remain non-current orphans
+
+### Requirement: Explicit legacy migration follows the exact accepted transition chain
+The one-way migration SHALL traverse typed historical activation and rollback transitions by exact expected-predecessor-head identity. It SHALL strictly parse the complete admitted historical schema and version-specific invariants. Non-matching orphan transitions SHALL be ignored; zero or multiple exact predecessor matches, malformed artifacts, missing chain members, or broken head links SHALL block migration.
+
+#### Scenario: Orphan shares snapshot and generation with the real predecessor
+- **WHEN** an unrelated content-addressed transition has the same candidate snapshot and generation as a true predecessor but reconstructs a different head fingerprint
+- **THEN** migration follows the sole exact expected-head match
+- **AND** the orphan neither becomes ancestry nor creates false ambiguity
+
+#### Scenario: A v4 label hides a damaged legacy authority
+- **WHEN** the current artifact declares the legacy v4 schema but its transition, revision, wire types, content identity, or ancestry invariants are invalid
+- **THEN** audit reports invalid legacy authority or ancestry
+- **AND** it SHALL NOT report the head as a healthy bootstrap-required base based only on the schema label
+
+### Requirement: Bootstrap intent relations are closed and authority wire is strict
+Bootstrap SHALL reject supersede or conflict references outside the exact audited legacy/current intent graph unless a dedicated typed external owner and source is explicitly present. Each supersession SHALL agree in both the historical disposition and current replacement declarations. Content-addressed authority loaders SHALL reject unknown keys, duplicate keys, non-finite values, and wrong raw JSON primitive types before normalization. Derived completion/readiness booleans SHALL be recomputed rather than serialized as independent authority truth.
+
+#### Scenario: Bootstrap contribution names a ghost predecessor or conflict
+- **WHEN** a current design contribution supersedes or conflicts with an id absent from the exact legacy ancestry, active current set, and typed external-owner inventory
+- **THEN** bootstrap fails before candidate publication
+- **AND** the view cannot become complete through an unowned relation
+
+#### Scenario: Authority JSON uses a coercible wrong type
+- **WHEN** a boolean is encoded as `"false"`, `0`, `1`, or null, or a text/id/SHA field is encoded as a non-string
+- **THEN** strict loading rejects the raw wire before fingerprint comparison or object normalization
+- **AND** the wrong value cannot canonicalize into the same authority identity as a valid payload
+
+### Requirement: Path-quality identities publish atomically with model revisions
+ModelRevisionSet SHALL include the compact path-quality summary, subject identity, and detailed-evidence fingerprint for every added or replaced model in the same candidate and compare-and-swap activation as model content, cumulative intent, topology, bindings, and owner evidence. The independently derived add-or-replace set SHALL be the minimum required path-quality denominator, not an exact ceiling on supplied rows. A candidate MAY additionally carry path-quality rows for unchanged members through its complete current-model denominator, but every extra row SHALL belong to that same candidate's current model set, share the candidate snapshot, and be exact-current, validated, and resolved. A foreign, retired, stale, cross-snapshot, unvalidated, or unresolved extra row SHALL block acceptance. FlowGuard SHALL NOT maintain a second current path-quality pointer or activate an incomplete mixture of old and new rows.
+
+#### Scenario: One affected model lacks path-quality evidence
+- **WHEN** a candidate revision set changes several models and one affected model lacks a current required result
+- **THEN** the whole candidate remains unaccepted without moving current authority
+
+#### Scenario: Activation wins compare-and-swap
+- **WHEN** all affected model and path-quality identities are current and the expected head still matches
+- **THEN** they activate atomically under one transition receipt
+
+#### Scenario: Small increment carries complete current DNA
+- **WHEN** an independently derived revision adds or replaces 5 models in a candidate whose complete current-model denominator contains 51 models
+- **AND** the candidate carries exact-current path-quality rows for all 51 current models from the same candidate snapshot
+- **THEN** the 5 changed models satisfy the minimum required denominator
+- **AND** the 46 unchanged current rows remain valid candidate DNA rather than causing an exact-equality rejection
+
+#### Scenario: Extra row is foreign or stale
+- **WHEN** all added or replaced models have current path-quality rows
+- **AND** one additional row names a model outside the candidate current-model denominator, belongs to another snapshot, or is stale, unvalidated, or unresolved
+- **THEN** the candidate remains unaccepted
+- **AND** changed-member coverage SHALL NOT license the invalid extra row

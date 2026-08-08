@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from tests.test_model_maturation import _path_quality
 
 from flowguard.model_authority import (
     COVERAGE_DIMENSIONS,
@@ -38,6 +39,15 @@ from flowguard.model_revision_set import (
     derive_affected_closure_fingerprint,
     derive_revision_affected_closure,
     derive_revision_snapshot_diff,
+    _native_owner_route_for_affected_id,
+)
+from flowguard.model_intent import (
+    ModelIntentContribution,
+    ModelIntentSourceIdentity,
+)
+from flowguard.model_intent_authority import (
+    CurrentEffectiveIntentView,
+    EffectiveIntentOwnerBinding,
 )
 
 
@@ -99,6 +109,31 @@ def owner_ref() -> AuthorityEndpointRef:
     )
 
 
+def intent_purpose_ref(model: ModelInstanceRef) -> AuthorityEndpointRef:
+    return AuthorityEndpointRef(
+        endpoint_kind="parent_closure",
+        endpoint_id=f"purpose:{model.logical_model_id}",
+        fingerprint=model.purpose_closure_fingerprint,
+        owner_route="model_test_alignment",
+    )
+
+
+def intent_realization_relation(model: ModelInstanceRef) -> ModelRelation:
+    purpose = intent_purpose_ref(model)
+    return ModelRelation(
+        relation_id=f"relation:model-realizes-purpose:{model.logical_model_id}",
+        kind="realizes",
+        source=AuthorityEndpointRef(
+            endpoint_kind="model_instance",
+            endpoint_id=f"model:{model.logical_model_id}",
+            fingerprint=model.fingerprint,
+            owner_route="model_regression_manifest",
+        ),
+        target=purpose,
+        evidence_fingerprints=(model.purpose_closure_fingerprint,),
+    )
+
+
 def evidence_ref(
     subject: str,
     *,
@@ -140,6 +175,8 @@ def snapshot(
         "source-inventory:"
         + model.input_inventory_fingerprint.split(":", 1)[1]
     )
+    purpose = intent_purpose_ref(model)
+    realization = intent_realization_relation(model)
     return ModelSystemSnapshot(
         snapshot_id=snapshot_id,
         system_id="flowguard",
@@ -148,14 +185,166 @@ def snapshot(
         subject_revision=revision,
         root_instance_fingerprints=(model.fingerprint,),
         model_instances=(model,),
-        relations=(),
+        relations=(realization,),
         coverage=coverage(),
-        owner_artifact_refs=(owner_ref(),),
+        owner_artifact_refs=(owner_ref(), purpose),
         unresolved_gap_ids=tuple(gaps),
         claim_boundary=(
             "This snapshot identifies the declared FlowGuard test system only "
             "and does not claim unenumerated production behavior."
         ),
+    )
+
+
+def current_intent_view(
+    candidate: ModelSystemSnapshot,
+) -> CurrentEffectiveIntentView:
+    contributions = tuple(
+        ModelIntentContribution(
+            contribution_id=f"intent:authority-fixture:{item.logical_model_id}",
+            source_kind="design",
+            source_ref=f"design/{item.logical_model_id}.md",
+            source_fingerprint=SHA_F,
+            subject_lane=SUBJECT_NORMATIVE_TARGET,
+            subject_role="design",
+            lifecycle_state=LIFECYCLE_CANDIDATE,
+            decision_state="accepted",
+            logical_model_id=f"model:{item.logical_model_id}",
+            unresolved_owner_id="",
+            supersedes_contribution_ids=(),
+            conflicts_with_contribution_ids=(),
+            target_obligation_ids=(),
+            target_state_ids=(),
+            target_transition_ids=(),
+            target_invariant_ids=(),
+            target_relation_ids=(
+                f"relation:model-realizes-purpose:{item.logical_model_id}",
+            ),
+            desired_terminal_state_ids=(),
+            target_output_ids=(),
+            declared_consumer_ids=(),
+            effective_revision="authority-fixture:current",
+            rationale=(
+                "This pure authority fixture binds one current design to its "
+                "exact candidate model without claiming an external source file."
+            ),
+        )
+        for item in candidate.model_instances
+    )
+    sources = tuple(
+        ModelIntentSourceIdentity(
+            contribution_id=item.contribution_id,
+            authority_kind="project_file",
+            source_ref=item.source_ref,
+            source_fingerprint=item.source_fingerprint,
+            resolved_project_ref=item.source_ref,
+        )
+        for item in contributions
+    )
+    relation_by_id = {
+        relation.relation_id: relation for relation in candidate.relations
+    }
+    bindings = tuple(
+        EffectiveIntentOwnerBinding(
+            model_owner_id=f"model-obligation:{item.logical_model_id}",
+            logical_model_id=item.logical_model_id,
+            realization_relation_id=(
+                f"relation:model-realizes-purpose:{item.logical_model_id}"
+            ),
+            realization_relation_fingerprint=canonical_fingerprint(
+                relation_by_id[
+                    f"relation:model-realizes-purpose:{item.logical_model_id}"
+                ].to_dict()
+            ),
+            contribution_ids=(
+                f"intent:authority-fixture:{item.logical_model_id}",
+            ),
+        )
+        for item in candidate.model_instances
+    )
+    return CurrentEffectiveIntentView(
+        system_id=candidate.system_id,
+        subject_lane=candidate.subject_lane,
+        candidate_snapshot_fingerprint=candidate.fingerprint,
+        base_effective_intent_view_fingerprint=SHA_E,
+        active_contributions=contributions,
+        verified_source_identities=sources,
+        model_owner_ids=tuple(item.model_owner_id for item in bindings),
+        owner_bindings=bindings,
+        transitions=(),
+    )
+
+
+def detached_current_intent_view(
+    candidate_snapshot_fingerprint: str,
+    *logical_model_ids: str,
+) -> CurrentEffectiveIntentView:
+    contributions = tuple(
+        ModelIntentContribution(
+            contribution_id=f"intent:detached-fixture:{logical_model_id}",
+            source_kind="design",
+            source_ref=f"design/{logical_model_id}.md",
+            source_fingerprint=SHA_F,
+            subject_lane=SUBJECT_NORMATIVE_TARGET,
+            subject_role="design",
+            lifecycle_state=LIFECYCLE_CANDIDATE,
+            decision_state="accepted",
+            logical_model_id=f"model:{logical_model_id}",
+            unresolved_owner_id="",
+            supersedes_contribution_ids=(),
+            conflicts_with_contribution_ids=(),
+            target_obligation_ids=(),
+            target_state_ids=(),
+            target_transition_ids=(),
+            target_invariant_ids=(),
+            target_relation_ids=(
+                f"relation:model-realizes-purpose:{logical_model_id}",
+            ),
+            desired_terminal_state_ids=(),
+            target_output_ids=(),
+            declared_consumer_ids=(),
+            effective_revision="detached-fixture:current",
+            rationale=(
+                "This detached transaction fixture supplies the typed current "
+                "intent identity required by the revision wire contract."
+            ),
+        )
+        for logical_model_id in logical_model_ids
+    )
+    sources = tuple(
+        ModelIntentSourceIdentity(
+            contribution_id=item.contribution_id,
+            authority_kind="project_file",
+            source_ref=item.source_ref,
+            source_fingerprint=item.source_fingerprint,
+            resolved_project_ref=item.source_ref,
+        )
+        for item in contributions
+    )
+    bindings = tuple(
+        EffectiveIntentOwnerBinding(
+            model_owner_id=f"model-obligation:{logical_model_id}",
+            logical_model_id=logical_model_id,
+            realization_relation_id=(
+                f"relation:model-realizes-purpose:{logical_model_id}"
+            ),
+            realization_relation_fingerprint=SHA_D,
+            contribution_ids=(
+                f"intent:detached-fixture:{logical_model_id}",
+            ),
+        )
+        for logical_model_id in logical_model_ids
+    )
+    return CurrentEffectiveIntentView(
+        system_id="flowguard",
+        subject_lane=SUBJECT_OBSERVED_IMPLEMENTATION,
+        candidate_snapshot_fingerprint=candidate_snapshot_fingerprint,
+        base_effective_intent_view_fingerprint=SHA_E,
+        active_contributions=contributions,
+        verified_source_identities=sources,
+        model_owner_ids=tuple(item.model_owner_id for item in bindings),
+        owner_bindings=bindings,
+        transitions=(),
     )
 
 
@@ -408,6 +597,15 @@ class ModelAuthorityTests(unittest.TestCase):
     ) -> ModelRevisionSet:
         diff = derive_revision_snapshot_diff(base, candidate)
         closure = derive_revision_affected_closure(base, candidate, diff)
+        path_quality_rows = tuple(
+            _path_quality(
+                member.member_id,
+                member.candidate_instance_fingerprint,
+                candidate.fingerprint,
+            )
+            for member in diff.members
+            if member.operation in {"add", "replace"}
+        )
         ids_by_owner: dict[str, list[str]] = {}
         for affected_id, owner_route in closure.owner_bindings:
             ids_by_owner.setdefault(owner_route, []).append(affected_id)
@@ -473,7 +671,17 @@ class ModelAuthorityTests(unittest.TestCase):
                 "This isolated authority transaction fixture has no external "
                 "product intent beyond exercising its declared test boundary."
             ),
+            current_effective_intent_view=current_intent_view(candidate),
             required_evidence_refs=required,
+            required_path_quality_model_ids=tuple(
+                subject.model_id for subject, _result in path_quality_rows
+            ),
+            path_quality_subjects=tuple(
+                subject for subject, _result in path_quality_rows
+            ),
+            path_quality_results=tuple(
+                result for _subject, result in path_quality_rows
+            ),
         )
         return proposed.accept(
             tuple(replace(item, status="pass") for item in required),
@@ -505,9 +713,16 @@ class ModelAuthorityTests(unittest.TestCase):
                 beta.fingerprint,
             ),
             model_instances=(alpha, beta),
-            relations=(),
+            relations=(
+                intent_realization_relation(alpha),
+                intent_realization_relation(beta),
+            ),
             coverage=coverage(),
-            owner_artifact_refs=(owner_ref(),),
+            owner_artifact_refs=(
+                owner_ref(),
+                intent_purpose_ref(alpha),
+                intent_purpose_ref(beta),
+            ),
             unresolved_gap_ids=(),
             claim_boundary=(
                 "This base fixture represents two governed model identities "
@@ -522,9 +737,9 @@ class ModelAuthorityTests(unittest.TestCase):
             subject_revision="source-inventory:" + "b" * 64,
             root_instance_fingerprints=(alpha.fingerprint,),
             model_instances=(alpha,),
-            relations=(),
+            relations=(intent_realization_relation(alpha),),
             coverage=coverage(),
-            owner_artifact_refs=(owner_ref(),),
+            owner_artifact_refs=(owner_ref(), intent_purpose_ref(alpha)),
             unresolved_gap_ids=(),
             claim_boundary=(
                 "This candidate fixture deliberately retires beta while "
@@ -595,6 +810,11 @@ class ModelAuthorityTests(unittest.TestCase):
             current=True,
             eligible=True,
         )
+        path_subject, path_result = _path_quality(
+            "rollback",
+            contract.to_snapshot_fingerprint,
+            contract.to_snapshot_fingerprint,
+        )
         proposed = ModelRevisionSet(
             revision_set_id="revision:reverse",
             task_id="task:reverse",
@@ -623,6 +843,13 @@ class ModelAuthorityTests(unittest.TestCase):
                 "This isolated rollback fixture has no external product intent "
                 "beyond verifying the declared reverse transaction."
             ),
+            current_effective_intent_view=detached_current_intent_view(
+                contract.to_snapshot_fingerprint,
+                "rollback",
+            ),
+            required_path_quality_model_ids=("rollback",),
+            path_quality_subjects=(path_subject,),
+            path_quality_results=(path_result,),
         )
         return proposed.accept(
             (replace(required, status="pass"),),
@@ -668,7 +895,7 @@ class ModelAuthorityTests(unittest.TestCase):
                 reason="contains unrelated evidence",
             )
 
-    def test_revision_set_v4_round_trip_rejects_legacy_revision_shape(self):
+    def test_revision_set_v5_round_trip_rejects_legacy_revision_shape(self):
         base = snapshot(
             SUBJECT_OBSERVED_IMPLEMENTATION,
             LIFECYCLE_ACTIVE,
@@ -682,13 +909,13 @@ class ModelAuthorityTests(unittest.TestCase):
             snapshot_id="observed-b",
         )
         accepted = self._accepted_revision(self._head(base), base, candidate)
-        self.assertEqual("flowguard.model_revision_set.v4", accepted.schema)
+        self.assertEqual("flowguard.model_revision_set.v5", accepted.schema)
         self.assertEqual(
             accepted,
             ModelRevisionSet.from_dict(accepted.to_dict()),
         )
         legacy = accepted.to_dict()
-        legacy["schema"] = "flowguard.model_revision_set.v3"
+        legacy["schema"] = "flowguard.model_revision_set.v4"
         for evidence_list in (
             legacy["required_evidence_refs"],
             legacy["completed_evidence_refs"],
@@ -754,6 +981,15 @@ class ModelAuthorityTests(unittest.TestCase):
                 snapshot_id="observed-a",
             ),
             model_instances=(alpha_a, beta_a),
+            relations=(
+                intent_realization_relation(alpha_a),
+                intent_realization_relation(beta_a),
+            ),
+            owner_artifact_refs=(
+                owner_ref(),
+                intent_purpose_ref(alpha_a),
+                intent_purpose_ref(beta_a),
+            ),
         )
         candidate = replace(
             snapshot(
@@ -763,14 +999,37 @@ class ModelAuthorityTests(unittest.TestCase):
                 snapshot_id="observed-b",
             ),
             model_instances=(alpha_b, beta_b),
+            relations=(
+                intent_realization_relation(alpha_b),
+                intent_realization_relation(beta_b),
+            ),
+            owner_artifact_refs=(
+                owner_ref(),
+                intent_purpose_ref(alpha_b),
+                intent_purpose_ref(beta_b),
+            ),
         )
         valid = self._accepted_revision(self._head(base), base, candidate)
         alpha_change = next(
             item for item in valid.members if item.member_id == "alpha"
         )
+        alpha_subject = next(
+            item
+            for item in valid.path_quality_subjects
+            if item.model_id == "alpha"
+        )
+        alpha_result = next(
+            item
+            for item in valid.path_quality_results
+            if item.subject_fingerprint == alpha_subject.fingerprint
+        )
         revision = replace(
             valid,
             members=(alpha_change,),
+            required_path_quality_model_ids=("alpha",),
+            path_quality_subjects=(alpha_subject,),
+            path_quality_results=(alpha_result,),
+            path_quality_result_set_fingerprint="",
             status="proposed",
             completed_evidence_refs=(),
             decision_reason="",
@@ -795,6 +1054,7 @@ class ModelAuthorityTests(unittest.TestCase):
                     fingerprint=SHA_A,
                     owner_route="behavior_commitment_ledger",
                 ),
+                intent_purpose_ref(alpha_a),
             ),
         )
         candidate = replace(
@@ -811,6 +1071,7 @@ class ModelAuthorityTests(unittest.TestCase):
                     fingerprint=SHA_B,
                     owner_route="behavior_commitment_ledger",
                 ),
+                intent_purpose_ref(alpha_b),
             ),
         )
         valid = self._accepted_revision(self._head(base), base, candidate)
@@ -845,7 +1106,10 @@ class ModelAuthorityTests(unittest.TestCase):
                 snapshot_id="observed-b",
             ),
             coverage=coverage(complete=False),
-            owner_artifact_refs=(replace(owner_ref(), fingerprint=SHA_B),),
+            owner_artifact_refs=(
+                replace(owner_ref(), fingerprint=SHA_B),
+                intent_purpose_ref(alpha_b),
+            ),
             unresolved_gap_ids=("gap:new",),
         )
 
@@ -864,6 +1128,56 @@ class ModelAuthorityTests(unittest.TestCase):
             diff.changed_system_property_ids,
         )
 
+    def test_model_mesh_owns_only_explicit_revision_accounting_categories(self):
+        for affected_id in (
+            "root:model:alpha",
+            "model_relation:relation:test",
+            "coverage:model_instances:alpha",
+            "unresolved_gap:gap:test",
+            "system_property:subject_revision",
+        ):
+            with self.subTest(affected_id=affected_id):
+                self.assertEqual(
+                    "model_mesh_maintenance",
+                    _native_owner_route_for_affected_id(affected_id, {}),
+                )
+
+        self.assertEqual(
+            "behavior_commitment_ledger",
+            _native_owner_route_for_affected_id(
+                "behavior_commitment:commitment:test",
+                {
+                    "behavior_commitment:commitment:test": (
+                        "behavior_commitment_ledger"
+                    )
+                },
+            ),
+        )
+
+    def test_unknown_affected_id_category_cannot_fall_back_to_model_mesh(self):
+        base = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "a"),
+            snapshot_id="observed-a",
+        )
+        candidate = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "b"),
+            snapshot_id="observed-b",
+        )
+        diff = replace(
+            derive_revision_snapshot_diff(base, candidate),
+            changed_system_property_ids=("future_affected_category:item",),
+        )
+
+        with self.assertRaisesRegex(
+            ModelAuthorityError,
+            "affected id has no native owner route: future_affected_category:item",
+        ):
+            derive_revision_affected_closure(base, candidate, diff)
+
     def test_owner_only_revision_requires_no_fake_model_member(self):
         model_value = instance("alpha", "a")
         base = snapshot(
@@ -879,7 +1193,10 @@ class ModelAuthorityTests(unittest.TestCase):
                 model_value,
                 snapshot_id="observed-b",
             ),
-            owner_artifact_refs=(replace(owner_ref(), fingerprint=SHA_B),),
+            owner_artifact_refs=(
+                replace(owner_ref(), fingerprint=SHA_B),
+                intent_purpose_ref(model_value),
+            ),
         )
         diff = derive_revision_snapshot_diff(base, candidate)
         closure = derive_revision_affected_closure(base, candidate, diff)
@@ -925,6 +1242,7 @@ class ModelAuthorityTests(unittest.TestCase):
             added_ids=diff.added_ids,
             removed_ids=diff.removed_ids,
             fingerprint_changed_ids=diff.fingerprint_changed_ids,
+            current_effective_intent_view=current_intent_view(candidate),
             required_evidence_refs=(required,),
         )
 
@@ -1036,18 +1354,13 @@ class ModelAuthorityTests(unittest.TestCase):
             template,
             covered_affected_ids=template.covered_affected_ids[:1],
         )
-        proposed = replace(
-            accepted,
-            required_evidence_refs=(incomplete,),
-            completed_evidence_refs=(),
-            status="proposed",
-            decision_reason="",
-        )
-
-        with self.assertRaisesRegex(ModelAuthorityError, "exact evidence"):
-            proposed.accept(
-                (replace(incomplete, status="pass"),),
-                reason="caller list equality is insufficient",
+        with self.assertRaisesRegex(ModelAuthorityError, "merged reference"):
+            replace(
+                accepted,
+                required_evidence_refs=(incomplete,),
+                completed_evidence_refs=(),
+                status="proposed",
+                decision_reason="",
             )
 
     def test_evidence_covered_ids_require_their_native_owner_route(self):
@@ -1078,6 +1391,37 @@ class ModelAuthorityTests(unittest.TestCase):
             replace(
                 accepted,
                 required_evidence_refs=(wrong, *required[1:]),
+                completed_evidence_refs=(),
+                status="proposed",
+                decision_reason="",
+            )
+
+    def test_one_leaf_receipt_cannot_be_reused_across_native_owner_routes(self):
+        base = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "a"),
+            snapshot_id="observed-a",
+        )
+        candidate = snapshot(
+            SUBJECT_OBSERVED_IMPLEMENTATION,
+            LIFECYCLE_ACTIVE,
+            instance("alpha", "b"),
+            snapshot_id="observed-b",
+        )
+        accepted = self._accepted_revision(self._head(base), base, candidate)
+        required = accepted.required_evidence_refs
+        self.assertGreaterEqual(len(required), 2)
+        reused = replace(
+            required[1],
+            receipt_id=required[0].receipt_id,
+            receipt_fingerprint=required[0].receipt_fingerprint,
+        )
+
+        with self.assertRaisesRegex(ModelAuthorityError, "leaf receipt"):
+            replace(
+                accepted,
+                required_evidence_refs=(required[0], reused, *required[2:]),
                 completed_evidence_refs=(),
                 status="proposed",
                 decision_reason="",
@@ -1236,6 +1580,11 @@ class ModelAuthorityTests(unittest.TestCase):
             affected_edge_ids=(),
             affected_owner_bindings=owner_bindings,
             snapshot_diff_fingerprint=SHA_F,
+            current_effective_intent_view=detached_current_intent_view(
+                SHA_B,
+                "alpha",
+                "beta",
+            ),
             required_evidence_refs=(
                 RevisionEvidenceRef(
                     receipt_id="receipt:multi",

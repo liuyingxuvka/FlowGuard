@@ -5,9 +5,15 @@ import json
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
-from flowguard.process_supervision import run_supervised, write_terminal_artifact
+from flowguard.process_supervision import (
+    SupervisedCommandResult,
+    _descendant_process_ids,
+    run_supervised,
+    write_terminal_artifact,
+)
 
 
 class ProcessSupervisionTests(unittest.TestCase):
@@ -32,6 +38,51 @@ class ProcessSupervisionTests(unittest.TestCase):
         self.assertTrue(result.ok, result.to_dict())
         self.assertTrue(result.cleanup_confirmed)
         self.assertEqual((), result.descendant_process_ids)
+        self.assertFalse(result.root_process_running)
+        self.assertTrue(result.containment_query_succeeded)
+
+    def test_transient_exited_root_pid_is_not_a_descendant(self) -> None:
+        self.assertEqual((), _descendant_process_ids((321,), 321))
+        self.assertEqual((654,), _descendant_process_ids((321, 654), 321))
+        self.assertIsNone(_descendant_process_ids(None, 321))
+
+    def test_green_looking_value_with_descendants_is_not_success(self) -> None:
+        result = SupervisedCommandResult(
+            command=(sys.executable, "-c", "pass"),
+            cwd=str(Path.cwd().resolve()),
+            episode_token="episode:caller",
+            started_at_epoch=1.0,
+            finished_at_epoch=2.0,
+            exit_code=0,
+            stdout="",
+            stderr="",
+            terminal_reason="process_exit",
+            timed_out=False,
+            cancelled=False,
+            interrupted=False,
+            termination_stage="none",
+            cleanup_confirmed=True,
+            descendant_process_ids=(999,),
+        )
+
+        self.assertFalse(result.ok)
+
+    def test_unknown_containment_query_blocks_deterministically(self) -> None:
+        with mock.patch(
+            "flowguard.process_supervision._contained_process_ids",
+            return_value=None,
+        ):
+            result = run_supervised(
+                (sys.executable, "-c", "pass"),
+                cwd=Path.cwd(),
+                timeout_seconds=5,
+                grace_seconds=0.01,
+            )
+
+        self.assertFalse(result.ok)
+        self.assertFalse(result.cleanup_confirmed)
+        self.assertFalse(result.containment_query_succeeded)
+        self.assertEqual("cleanup_unconfirmed", result.terminal_reason)
 
     def test_normal_exit_preserves_exact_stream_and_status_parity(self) -> None:
         source = (

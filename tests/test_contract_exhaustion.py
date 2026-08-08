@@ -8,7 +8,7 @@ from flowguard import (
     CONTRACT_EXHAUSTION_CONFIDENCE_FULL,
     CONTRACT_EXHAUSTION_CONFIDENCE_SCOPED,
     CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
-    CONTRACT_MUTATION_ANALOGOUS_DEFECT,
+    CONTRACT_MUTATION_SAME_CLASS_CASE,
     CONTRACT_MUTATION_CARTESIAN_COMBINATION,
     CONTRACT_MUTATION_REPEAT_WITHOUT_DELTA,
     CONTRACT_MUTATION_UNKNOWN_ENUM,
@@ -125,21 +125,29 @@ class ContractExhaustionTests(unittest.TestCase):
         self.assertEqual(2, len(obligations))
         self.assertTrue(all(obligation.required_test_kinds == (TEST_KIND_REPLAY,) for obligation in obligations))
 
-    def test_similarity_handoff_materializes_typed_mta_obligations_and_testmesh_shard(self):
-        relation_id = "similarity:router-duplicate"
-        test_obligation_id = "similarity-test:router-duplicate"
-        code_obligation_id = "similarity-code:router-duplicate"
+    def test_canonical_relation_handoff_materializes_typed_mta_obligations_and_testmesh_shard(self):
+        relation_id = "canonical-relation:router-duplicate"
+        test_obligation_id = "relation-test:router-duplicate"
+        code_obligation_id = "relation-code:router-duplicate"
         report = review_contract_exhaustion(
             ContractExhaustionPlan(
-                "similarity-materialization",
+                "relation-materialization",
                 model_id="router",
-                inventory_revision="similarity:v1",
-                similarity_handoff={
-                    "relation_ids": (relation_id,),
+                inventory_revision="canonical-relation:v1",
+                canonical_relation_handoff={
+                    "relations": ({
+                        "relation_id": relation_id,
+                        "relation_type": "duplicate_boundary",
+                        "source_endpoint_kind": "model",
+                        "source_endpoint_id": "router",
+                        "target_endpoint_kind": "code_boundary",
+                        "target_endpoint_id": "router-handler",
+                        "source_ids": ("semantic-mesh:router:v1",),
+                    },),
                     "test_obligation_ids": (test_obligation_id,),
                     "code_obligation_ids": (code_obligation_id,),
                 },
-                similarity_materializations={
+                relation_materializations={
                     relation_id: ("candidate:merge-handlers",),
                     test_obligation_id: ("member:ui",),
                     code_obligation_id: ("candidate:merge-handlers",),
@@ -150,29 +158,39 @@ class ContractExhaustionTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual(
             (relation_id, test_obligation_id, code_obligation_id),
-            report.materialized_similarity_ids,
+            report.materialized_relation_ids,
         )
-        self.assertEqual(3, len(report.downstream_similarity_obligation_ids))
+        self.assertEqual(3, len(report.downstream_relation_obligation_ids))
         self.assertTrue(contract_exhaustion_to_test_mesh_shard_ids(report))
         obligations = contract_exhaustion_to_model_obligations(report)
         relation_obligation = next(
-            obligation for obligation in obligations if relation_id in obligation.similarity_relation_ids
+            obligation for obligation in obligations if relation_id in obligation.relation_ids
         )
-        self.assertIn(relation_id, relation_obligation.similarity_relation_ids)
+        self.assertIn(relation_id, relation_obligation.relation_ids)
 
-    def test_opaque_similarity_handoff_id_blocks_exhaustion_confidence(self):
+    def test_opaque_canonical_relation_handoff_id_blocks_exhaustion_confidence(self):
         report = review_contract_exhaustion(
             ContractExhaustionPlan(
-                "opaque-similarity",
+                "opaque-relation",
                 model_id="router",
-                inventory_revision="similarity:v2",
-                similarity_handoff={"relation_ids": ("similarity:opaque",)},
+                inventory_revision="canonical-relation:v2",
+                canonical_relation_handoff={
+                    "relations": ({
+                        "relation_id": "canonical-relation:opaque",
+                        "relation_type": "duplicate_boundary",
+                        "source_endpoint_kind": "model",
+                        "source_endpoint_id": "router",
+                        "target_endpoint_kind": "code_boundary",
+                        "target_endpoint_id": "opaque-handler",
+                        "source_ids": ("semantic-mesh:router:v2",),
+                    },),
+                },
             )
         )
 
         self.assertFalse(report.ok)
-        self.assertEqual(("similarity:opaque",), report.unmaterialized_similarity_ids)
-        self.assertIn("unmaterialized_similarity_id", {finding.code for finding in report.findings})
+        self.assertEqual(("canonical-relation:opaque",), report.unmaterialized_relation_ids)
+        self.assertIn("unmaterialized_relation_id", {finding.code for finding in report.findings})
         self.assertEqual(1, len(contract_exhaustion_to_model_obligations(report)))
         self.assertTrue(contract_exhaustion_to_test_mesh_shard_ids(report))
 
@@ -500,7 +518,7 @@ class ContractExhaustionTests(unittest.TestCase):
     def test_observed_problem_backfeed_requires_case_family_and_receipt_mapping(self):
         same_class = ContractMutationCase(
             "same_class:miss-a:packet-b:evidence-bind",
-            mutation_type=CONTRACT_MUTATION_ANALOGOUS_DEFECT,
+            mutation_type=CONTRACT_MUTATION_SAME_CLASS_CASE,
             family_id="packets",
             expected_status=CONTRACT_ORACLE_PASS_ALLOWED,
         )

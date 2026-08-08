@@ -545,8 +545,8 @@ freshness-sensitive lifecycle artifacts.
 
 ### Requirement: DevelopmentProcessFlow absorbs simulator and scan helpers
 DevelopmentProcessFlow SHALL be the public owner for process simulation,
-delegated process modes, post-change scan inputs, evidence freshness, install
-sync, shadow sync, release, archive, publish, and final process claims.
+delegated process modes, typed post-change owner findings, evidence freshness,
+install sync, shadow sync, release, archive, publish, and final process claims.
 
 #### Scenario: Process simulator helper is consumed
 - **WHEN** `review_development_process_simulator()` is used
@@ -555,12 +555,21 @@ sync, shadow sync, release, archive, publish, and final process claims.
 - **AND** callers MUST NOT publish `development_process_simulator` as a separate
   direct route starter
 
+#### Scenario: Typed post-change findings are process inputs
+- **WHEN** changed artifacts, peer writes, stale evidence, skipped routes, open
+  obligations, or split/reduction signals are identified after work
+- **THEN** each finding MUST preserve the affected artifact, status, current
+  owner, and required next action
+- **AND** DevelopmentProcessFlow MUST route the finding directly to that owner
+  without creating an intermediate maintenance-scan plan or owner
+- **AND** the finding MUST NOT become final confidence evidence by itself
+
 #### Scenario: Maintenance scan is a process input
-- **WHEN** changed artifacts, stale evidence, skipped routes, open obligations,
-  or split/reduction signals are reviewed after work
-- **THEN** DevelopmentProcessFlow MUST consume the scan as a post-change owner
-  routing input
-- **AND** the scan MUST NOT become the final confidence owner
+- **WHEN** a caller supplies a retired maintenance-scan plan or receipt as a
+  process input
+- **THEN** DevelopmentProcessFlow MUST reject the retired intermediary and
+  consume the underlying typed findings through their exact current owners
+- **AND** no maintenance-scan alias, adapter, or fallback route is created
 
 ### Requirement: Delegated process mode skills are owner-selected
 DevelopmentProcessFlow SHALL select plan-detailing and agent-workflow mode
@@ -988,16 +997,16 @@ Development process SHALL preserve direct-user-choice, model-first, and no-code 
 - **WHEN** the current authorization is discussion-only
 - **THEN** implementation admission reports no-code-requested regardless of model sufficiency
 
-### Requirement: Blueprint qualification and empirical reconstruction have separate lifecycle owners
-DevelopmentProcessFlow SHALL track implementation inventory, binding, resource, projection, and static-closure freshness separately from empirical reconstruction evidence. It SHALL NOT automatically run an isolated reconstruction for ordinary changes, static checks, export, installation, or release unless the exact release requirement explicitly demands empirical reconstruction.
+### Requirement: Blueprint lifecycle uses the exact affected owner closure
+DevelopmentProcessFlow SHALL track implementation inventory, binding, resource, intent, test, topology, projection, and static-closure freshness as distinct identities. Ordinary changes SHALL revalidate only their exact affected owner closure; an explicit whole-blueprint or release obligation SHALL assemble the complete canonical owner set.
 
 #### Scenario: Ordinary implementation changes one blueprint shard
 - **WHEN** a changed file invalidates one inventory or binding shard
-- **THEN** the process revalidates the affected owner closure without launching a whole repository reconstruction
+- **THEN** the process revalidates the affected owner closure without materializing unrelated whole-project layers
 
-#### Scenario: User explicitly requests reconstruction qualification
-- **WHEN** the task explicitly requires empirical reconstruction and current static closure is complete
-- **THEN** the process may schedule one separately owned isolated reconstruction and keeps not-run, pass, fail, or blocked visible
+#### Scenario: A whole-blueprint claim is explicit
+- **WHEN** the task explicitly requires whole-target blueprint qualification
+- **THEN** the process assembles the canonical complete owner plan and preserves every child status and gap
 
 ### Requirement: Final blueprint release freezes all consumed identities before the unique full gate
 Before a release claims current software-blueprint closure, the process SHALL freeze source, observed model authority, implementation inventory, binding report, resource manifest, portable projection, skill projection, toolchain, and validation-plan identities. The unique final full gate SHALL run only after that freeze.
@@ -1007,17 +1016,22 @@ Before a release claims current software-blueprint closure, the process SHALL fr
 - **THEN** affected evidence becomes stale and release publication remains blocked without rolling back the peer change
 
 ### Requirement: Blueprint-guided self-maintenance has an explicit ordered lifecycle
-DevelopmentProcessFlow SHALL order blueprint-guided FlowGuard maintenance as: freeze current source and observed authority identities; qualify the project-neutral self-blueprint; audit current architecture-reduction candidates; accept only evidence-ready contractions; execute the affected model/code/test checks; synchronize package and consumer projections; freeze and execute one final full validation; then verify Git, tag, and release identities when publication is authorized.
+DevelopmentProcessFlow SHALL order blueprint-guided FlowGuard maintenance as: freeze current source and observed-authority identities; qualify the provider-neutral self blueprint; classify every architecture-reduction candidate by current software-DNA necessity; accept only equivalence/facade-ready ordinary contractions or complete evidence-authorized `retire_behavior` actions; execute the affected model/code/test/topology/consumer checks; synchronize package and consumer projections; freeze and execute one final full validation; then verify Git, tag, and release identities when publication is authorized.
 
 #### Scenario: Self-blueprint qualification is incomplete
-- **WHEN** the current self-blueprint has an unresolved required inventory, semantic, code, test, resource, oracle, or lineage row
+- **WHEN** the current self blueprint has an unresolved required inventory, semantic, code, test, resource, oracle, or lineage row
 - **THEN** reduction and release remain blocked for the affected broad claim
 - **AND** ordinary unrelated affected-only work is not automatically widened
 
 #### Scenario: A reduction candidate lacks equivalence evidence
 - **WHEN** self-audit finds a duplicate-looking path but ArchitectureReduction has not proven equivalence or facade-only delegation
-- **THEN** the process records the candidate as unresolved and does not schedule deletion
+- **THEN** the process records the ordinary contraction candidate as unresolved and does not schedule deletion
 - **AND** other evidence-ready candidates MAY proceed through their own affected closures
+
+#### Scenario: An intentional retirement lacks a complete responsibility proof
+- **WHEN** self-audit finds a historical behavior that appears unnecessary but any commitment, consumer, negative case, interface, model, code, test, topology, prompt, skill, or release claim lacks a disposition
+- **THEN** the process records the retirement candidate as unresolved and does not schedule deletion
+- **AND** it does not silently downgrade the candidate into dead-code cleanup
 
 #### Scenario: Final validation passes before peer source changes
 - **WHEN** the frozen full gate passes and a peer subsequently changes a consumed source or owner artifact
@@ -1025,7 +1039,7 @@ DevelopmentProcessFlow SHALL order blueprint-guided FlowGuard maintenance as: fr
 - **AND** peer work is preserved rather than rolled back
 
 ### Requirement: Blueprint layers and distribution identities have independent freshness
-DevelopmentProcessFlow SHALL track blueprint definition, implementation inventory, intent lineage, semantic evidence, model-code-test bindings, test inventory, resource/oracle closure, optional reconstruction receipt, source tree, installed package, installed skill projection, repository commit, tag, and release as distinct versioned artifacts. A passing or current identity in one domain SHALL NOT fill another domain.
+DevelopmentProcessFlow SHALL track blueprint definition, implementation inventory, intent lineage, semantic evidence, model-code-test bindings, test inventory, resource/oracle closure, source tree, installed package, installed skill projection, repository commit, tag, and release as distinct versioned artifacts. A passing or current identity in one domain SHALL NOT fill another domain.
 
 #### Scenario: Installed package is current but consumer skills are stale
 - **WHEN** editable package parity passes and one affected installed skill differs from its frozen source projection
@@ -1036,19 +1050,6 @@ DevelopmentProcessFlow SHALL track blueprint definition, implementation inventor
 - **WHEN** a consumed model, semantic source, implementation surface, test node, resource, oracle, intent contribution, or project definition changes
 - **THEN** only the exact affected blueprint neighborhood and its consumers become stale
 - **AND** unrelated current evidence MAY be reused when its identity remains exact
-
-### Requirement: Reconstruction remains optional and never starts from lifecycle continuation
-Inventory, audit, qualification, ordinary regression, architecture reduction, installation, final validation, archive, and release steps SHALL leave empirical reconstruction `not_run` unless the user explicitly requests reconstruction as a separate action.
-
-#### Scenario: Release requires static blueprint evidence only
-- **WHEN** the declared release gate requires a complete static blueprint but no empirical reconstruction claim
-- **THEN** a current static qualification with reconstruction `not_run` MAY satisfy that blueprint child
-- **AND** the process does not add a reconstruction producer
-
-#### Scenario: User explicitly requests reconstruction
-- **WHEN** the user separately authorizes an empirical reconstruction exercise with an exact blueprint fingerprint and boundary
-- **THEN** DevelopmentProcessFlow records a separate owner, environment, evidence, and result lifecycle
-- **AND** the reconstruction result cannot replace static closure or ordinary validation evidence
 
 ### Requirement: External interruption has an exact settlement lifecycle
 After an externally interrupted validation process tree is confirmed absent, DevelopmentProcessFlow SHALL allow an authorized exact settlement that converts only the named residual leases into immutable interrupted evidence. Partial child results SHALL remain non-reusable unless independently current under their own unchanged producer identities.
@@ -1089,3 +1090,87 @@ DevelopmentProcessFlow SHALL keep deeply nested internal validation work directo
 - **WHEN** the complete nested path would exceed the supported Windows path budget
 - **THEN** the proof uses a short deterministic owner hash for its internal directory
 - **AND** the terminal receipt still records the full model id and exact evidence identities
+
+### Requirement: Development validates affected owners before one frozen final gate
+During implementation, DevelopmentProcessFlow SHALL execute or reuse only exact affected validation owners and SHALL keep unknown impact blocked. After all governed source, OpenSpec, model authority, SkillGuard projection, installation, version, and documentation inputs are frozen, exactly one owner SHALL run the final full gate.
+
+#### Scenario: Focused diagnostics can run independently
+- **WHEN** several focused diagnostics have isolated inputs, mutable state, side effects, and execution owners
+- **THEN** they MAY run in safe parallel before source freeze
+- **AND** later edits SHALL invalidate only evidence that consumes changed identities
+
+#### Scenario: Final gate is interrupted
+- **WHEN** the final owner times out, is cancelled, or is interrupted
+- **THEN** its evidence SHALL be non-reusable until the entire descendant process tree is confirmed absent
+- **AND** no unattended resume or second owner SHALL start from the mutable snapshot
+
+### Requirement: Peer changes are preserved and selectively integrated
+DevelopmentProcessFlow SHALL re-read concurrent or unknown-writer changes, preserve them, and stale only affected evidence. It SHALL NOT reset, overwrite, or discard peer work to restore an older green state.
+
+#### Scenario: Peer edits an overlapping governed file
+- **WHEN** another agent changes a file in the current integration boundary
+- **THEN** the integration owner SHALL re-read and deliberately merge or block that file
+- **AND** unrelated work SHALL continue without repository rollback
+
+### Requirement: Release identities close in fixed order
+OpenSpec verification, main-spec sync and archive, observed-model acceptance, SkillGuard source/consumer closure, local package and skill installation parity, version and changelog finalization, and cleanup review SHALL finish before the frozen final gate. Commit, immutable patch tag, push, and GitHub Release SHALL follow only a terminal passing gate.
+
+#### Scenario: OpenSpec archive changes governed source
+- **WHEN** an earlier full result predates the final archived OpenSpec tree
+- **THEN** that result SHALL be stale for release
+- **AND** the final gate SHALL consume the archived frozen tree
+
+### Requirement: Continuing release and archive responsibilities have one current process owner
+DevelopmentProcessFlow SHALL own the reusable FlowGuard lifecycle obligations for source and requirement freshness, affected validation, peer-write preservation, installation and shadow synchronization, Git/tag/GitHub Release identity, archive invalidation, and final process claims. Version-specific release or cleanup models SHALL NOT remain parallel current owners after their unique protections and implementation surfaces have been dispositioned.
+
+#### Scenario: Historical release model duplicates the current process owner
+- **WHEN** a self model describes one completed version's prompt, README, archive, install, tag, or release operation
+- **AND** DevelopmentProcessFlow and its exact specialist owners already cover the reusable obligations
+- **THEN** the dated model is retired from current authority rather than generalized into a second release path
+- **AND** its release-verification or OpenSpec-check implementation surfaces attach to the exact continuing owner as supporting surfaces
+
+#### Scenario: OpenSpec archive lifecycle is consumed
+- **WHEN** FlowGuard plans or validates work around an OpenSpec archive
+- **THEN** OpenSpec retains native artifact, validation, sync, and archive authority
+- **AND** DevelopmentProcessFlow models only the surrounding order, freshness, evidence, install, peer-preservation, and release invalidation without creating a second OpenSpec execution owner
+
+### Requirement: Development order makes path review conditional and current
+DevelopmentProcessFlow SHALL run the affected model's lightweight path-quality review after requirement, intent, and owner closure are known and before behavior-sensitive implementation begins. Triggered deep review SHALL close before the corresponding broad implementation claim, while current `single_clear_path` results SHALL proceed without deep ceremony. Implementation or evidence changes SHALL stale and minimally refresh affected results before activation.
+
+#### Scenario: Ordinary affected model has one clear path
+- **WHEN** the lightweight result is current and no deep trigger applies
+- **THEN** implementation proceeds with the compact result and no candidate expansion
+
+#### Scenario: Implementation changes consumed identities
+- **WHEN** code, helper, test, oracle, provider, dependency, or evidence changes after review
+- **THEN** the affected result is refreshed before current activation
+- **AND** unrelated models are not rerun unless topology requires them
+
+### Requirement: Native validation ownership is bounded and non-duplicative
+DevelopmentProcessFlow SHALL partition a broad native validation responsibility into named owners whose declared tests and source inputs correspond to distinct obligations. A native owner SHALL NOT retain tests already owned by another current member merely to make one route appear comprehensive.
+
+#### Scenario: Broad owner overlaps sibling owners
+- **WHEN** one native member selects tests that are already mapped to current sibling owners and the duplicate selection adds no independent obligation
+- **THEN** the process SHALL contract the broad member to its distinct obligations and keep the sibling tests with their primary owners
+
+#### Scenario: Split preserves all obligations
+- **WHEN** a broad native owner is split into focused responsibilities
+- **THEN** the compiled contract SHALL still map every required obligation to at least one exact native binding before validation can proceed
+
+### Requirement: Full validation consumes resumable native members
+The frozen full-validation owner SHALL invoke native-skill validation through the explicit exact-current resume execution path so successful unchanged member work is composed rather than repeated after a sibling or parent failure.
+
+#### Scenario: Earlier parent failed after native member success
+- **WHEN** a prior full-validation parent failed outside an exact-current native member and the member's complete receipt identities remain current
+- **THEN** the next frozen parent SHALL reuse that member and execute only missing or stale native members
+
+#### Scenario: Producer source changes before final gate
+- **WHEN** the native receipt producer or a declared member input changes after a member receipt was published
+- **THEN** the final gate SHALL execute the affected member once before accepting its evidence
+
+### Requirement: Focused repair precedes one frozen full gate
+DevelopmentProcessFlow SHALL use focused affected checks while the source is changing and SHALL reserve broad full validation for one stable frozen integration snapshot. A failed broad run SHALL be classified before repair; unchanged successful child evidence SHALL be reused only through exact-current verification.
+
+#### Scenario: Validation-path defect is discovered
+- **WHEN** a broad run exposes duplicate ownership, an avoidable timeout, or incomplete receipt binding
+- **THEN** the process SHALL repair and focus-check that validation path before starting the next frozen full gate

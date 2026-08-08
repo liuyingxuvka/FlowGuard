@@ -79,7 +79,6 @@ class FormalRunnerTests(unittest.TestCase):
                 FlowGuardSection("model_check", "pass"),
                 FlowGuardSection("minimum_model_review", "pass"),
                 FlowGuardSection("known_bad_proof", "pass"),
-                FlowGuardSection("template_harvest_review", "pass_with_gaps"),
             ),
         )
         self.assertFalse(_summary_observed_ok(summary))

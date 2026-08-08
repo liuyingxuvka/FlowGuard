@@ -70,8 +70,21 @@ from .model_authority_store import (
     activate_model_revision_set,
     audit_model_authority,
     bootstrap_model_authority,
+    load_current_accepted_revision_set,
     load_observed_model_system,
     rollback_observed_model_system,
+)
+from .model_intent_authority import (
+    CurrentEffectiveIntentView,
+    EffectiveIntentBootstrapReceipt,
+    EffectiveIntentOwnerBinding,
+    EffectiveIntentTransition,
+    LegacyIntentBootstrapDisposition,
+    bootstrap_current_effective_intent_view,
+    build_current_effective_intent_view,
+    build_current_intent_bootstrap_receipt,
+    validate_current_effective_intent_refinement,
+    validate_current_effective_intent_view,
 )
 from .model_system_inventory import (
     AffectedAuthorityComponent,
@@ -84,12 +97,30 @@ from .model_revision_builder import (
     build_current_model_revision,
     load_revision_removal_dispositions,
 )
+from .model_revision_plan import ModelRevisionPlan, preview_current_model_revision
+from .model_revision_owner_evidence import (
+    MODEL_REVISION_OWNER_EVIDENCE_REPORT_SCHEMA,
+    NATIVE_OWNER_MODEL_BINDINGS,
+    ModelRevisionOwnerEvidenceBundle,
+    ModelRevisionOwnerEvidenceReport,
+    NativeOwnerModelBinding,
+    NativeOwnerModelEvidencePlan,
+    produce_model_revision_owner_evidence,
+)
 from .architecture_reduction import (
+    ARCHITECTURE_RETIREMENT_DISPOSITIONS,
+    ARCHITECTURE_RETIREMENT_OWNER_STATUSES,
+    ARCHITECTURE_RETIREMENT_REQUIRED_ROUTES,
+    ARCHITECTURE_RETIREMENT_RESPONSIBILITY_KINDS,
     ARCHITECTURE_REDUCTION_CANDIDATE_DISPOSITIONS,
     ARCHITECTURE_REDUCTION_CANDIDATE_TYPES,
     ARCHITECTURE_REDUCTION_COMPANION_ROUTES,
     ARCHITECTURE_REDUCTION_PROOF_STATUSES,
     ARCHITECTURE_REDUCTION_ROUTE,
+    ARCHITECTURE_REDUCTION_STEP_ACTIONS,
+    ARCHITECTURE_REDUCTION_STEP_ASSESSMENT_SCHEMA,
+    ARCHITECTURE_REDUCTION_STEP_COST_SCHEMA,
+    ARCHITECTURE_REDUCTION_STEP_KINDS,
     ARCHITECTURE_REDUCTION_TARGET_ACTIONS,
     CANDIDATE_COLLAPSE_ADAPTER,
     CANDIDATE_DISPOSITION_ACTIVE,
@@ -118,6 +149,7 @@ from .architecture_reduction import (
     COMPATIBILITY_SURFACE_PRUNE_CANDIDATE,
     COMPATIBILITY_SURFACE_RECOMMENDED_ACTIONS,
     PROOF_BLOCKED_BY_MISSING_EVIDENCE,
+    PROOF_AUTHORIZED_RETIREMENT,
     PROOF_NEEDS_CONFORMANCE_REPLAY,
     PROOF_PROPERTY_ONLY_SAFE,
     PROOF_RISKY_KEEP,
@@ -133,18 +165,42 @@ from .architecture_reduction import (
     ROUTE_MODEL_TEST_ALIGNMENT,
     ROUTE_STRUCTURE_MESH,
     ROUTE_UI_FLOW_STRUCTURE,
+    STEP_ACTION_DELEGATE,
+    STEP_ACTION_EXPLICIT_ON_DEMAND,
+    STEP_ACTION_MERGE,
+    STEP_ACTION_REMOVE,
+    STEP_ACTION_RETAIN,
+    STEP_ACTION_UNRESOLVED,
+    STEP_KIND_ADAPTER,
+    STEP_KIND_BRANCH,
+    STEP_KIND_BUILDER,
+    STEP_KIND_EVIDENCE_PROJECTION,
+    STEP_KIND_HELPER,
+    STEP_KIND_MODULE_BOUNDARY,
+    STEP_KIND_OTHER,
+    STEP_KIND_PAYLOAD_MATERIALIZATION,
+    STEP_KIND_REFLECTION,
+    STEP_KIND_ROUTE_DISPATCH,
+    STEP_KIND_SCAN,
+    STEP_KIND_SERIALIZATION,
+    STEP_KIND_VALIDATION,
     TARGET_ACTION_COLLAPSE,
     TARGET_ACTION_KEEP_FACADE,
     TARGET_ACTION_MANUAL_REVIEW,
     TARGET_ACTION_MERGE,
     TARGET_ACTION_REMOVE,
+    TARGET_ACTION_RETIRE_BEHAVIOR,
+    ArchitectureRetirementProof,
     ArchitectureReductionCandidate,
     ArchitectureReductionFinding,
     ArchitectureReductionPlan,
     ArchitectureReductionReport,
+    ArchitectureReductionStepAssessment,
+    ArchitectureReductionStepCost,
     ArchitectureReductionTrigger,
     CompatibilitySurfaceClassification,
     ObservableArchitectureContract,
+    RetirementResponsibilityDisposition,
     TargetArchitectureAction,
     review_architecture_reduction,
 )
@@ -705,48 +761,6 @@ from .transition_coverage import (
     transition_obligation_id,
     ui_interaction_model_to_transition_coverage,
 )
-from .model_similarity import (
-    MODEL_SIMILARITY_RELATION_TYPES,
-    MODEL_SIMILARITY_ROUTE,
-    RECOMMEND_CREATE_FAMILY_VARIANT,
-    RECOMMEND_EXTRACT_SHARED_KERNEL,
-    RECOMMEND_KEEP_SEPARATE,
-    RECOMMEND_MANUAL_REVIEW,
-    RECOMMEND_NO_ACTION,
-    RECOMMEND_REUSE_OR_EXTEND,
-    RECOMMEND_ROUTE_ARCHITECTURE_REDUCTION,
-    RECOMMEND_ROUTE_MODEL_MESH,
-    RECOMMEND_ROUTE_MODEL_TEST_ALIGNMENT,
-    RELATION_ADAPTER_ONLY,
-    RELATION_DUPLICATE_BOUNDARY,
-    RELATION_EVIDENCE_DUPLICATE,
-    RELATION_FALSE_FRIEND,
-    RELATION_MANUAL_REVIEW,
-    RELATION_OVERLAPPING_OWNERSHIP,
-    RELATION_PARENT_CHILD,
-    RELATION_SAME_FAMILY_VARIANT,
-    RELATION_SAME_WORKFLOW,
-    RELATION_SHARED_KERNEL,
-    RELATION_SIBLING_OVERLAP,
-    RELATION_SYMMETRIC_FLOW,
-    RELATION_UNRELATED,
-    ModelSignature,
-    ModelSimilarityChangeImpact,
-    ModelSimilarityCodeObligation,
-    ModelSimilarityEvidence,
-    ModelSimilarityFinding,
-    ModelSimilarityMaintenanceGroup,
-    ModelSimilarityPlan,
-    ModelSimilarityRelation,
-    ModelSimilarityReport,
-    ModelSimilarityTestObligation,
-    SimilarityHandoff,
-    model_signature_maintenance,
-    model_signature_minimal,
-    model_similarity_plan_for_changed_member,
-    normalize_similarity_handoff,
-    review_model_similarity_consolidation,
-)
 from .runtime_path import (
     EXTERNAL_RUNTIME_PATH_SCOPES,
     NON_PASSING_RUNTIME_PATH_STATUSES,
@@ -778,23 +792,6 @@ from .runtime_path import (
     review_runtime_path_alignment,
 )
 from .obligation_family import (
-    ANALOGOUS_DISPOSITION_COVERED_CURRENT,
-    ANALOGOUS_DISPOSITION_EXCLUDED_WITH_REASON,
-    ANALOGOUS_DISPOSITION_NEEDS_MODEL_UPGRADE,
-    ANALOGOUS_DISPOSITION_NEEDS_REPAIR_NOW,
-    ANALOGOUS_DISPOSITION_SEPARATE_CHANGE,
-    ANALOGOUS_DISPOSITION_UNREVIEWED,
-    ANALOGOUS_SCAN_DECISION_BLOCKED,
-    ANALOGOUS_SCAN_DECISION_COMPLETE,
-    ANALOGOUS_SCAN_DECISION_SCOPED,
-    ANALOGOUS_SCAN_DISPOSITIONS,
-    ANALOGOUS_SCAN_RADII,
-    ANALOGOUS_SCAN_RADIUS_MUST_SCAN,
-    ANALOGOUS_SCAN_RADIUS_RECORD_ONLY,
-    ANALOGOUS_SCAN_RADIUS_SHOULD_SCAN,
-    AnalogousDefectCandidate,
-    AnalogousDefectScanFinding,
-    AnalogousDefectScanReport,
     COVERAGE_CELL_COVERED,
     COVERAGE_CELL_EXEMPT,
     COVERAGE_CELL_INVALID_PROVENANCE,
@@ -837,7 +834,6 @@ from .obligation_family import (
     ObligationFamilyParityReport,
     PASSING_FAMILY_EVIDENCE_STATUSES,
     derive_same_class_bad_cases,
-    review_analogous_defect_scan,
     review_obligation_family_parity,
 )
 from .runtime_gateway import (
@@ -873,8 +869,6 @@ from . import existing_model_preflight as _existing_model_preflight
 from . import field_lifecycle as _field_lifecycle
 from . import hierarchy as _hierarchy
 from . import maintenance_obligation as _maintenance_obligation
-from . import maintenance_scan as _maintenance_scan
-from . import model_angle_deliberation as _model_angle_deliberation
 from . import plan_intake as _plan_intake
 from . import primary_path_authority as _primary_path_authority
 from . import behavior_commitment as _behavior_commitment
@@ -895,14 +889,19 @@ from . import model_maturation_receipt as _model_maturation_receipt
 from . import implementation_inventory as _implementation_inventory
 from . import implementation_inventory_python as _implementation_inventory_python
 from . import implementation_blueprint as _implementation_blueprint
+from . import canonical_blueprint_projection as _canonical_blueprint_projection
 from . import blueprint_topology as _blueprint_topology
+from . import affected_blueprint_reader as _affected_blueprint_reader
+from . import blueprint_compact_projection as _blueprint_compact_projection
 from . import software_blueprint_readiness as _software_blueprint_readiness
 from . import target_system_blueprint as _target_system_blueprint
+from . import target_native_qualification as _target_native_qualification
 from . import project_blueprint as _project_blueprint
 from . import test_inventory as _test_inventory
 from . import test_inventory_python as _test_inventory_python
 from . import self_blueprint as _self_blueprint
 from . import self_architecture_reduction as _self_architecture_reduction
+from . import self_reduction_inventory as _self_reduction_inventory
 from . import task_coverage_demand as _task_coverage_demand
 from . import understanding_readiness as _understanding_readiness
 from . import model_miss_diagnostics as _model_miss_diagnostics
@@ -927,8 +926,6 @@ from .closure_contract import *  # noqa: F403
 from .contract_exhaustion import *  # noqa: F403
 from .field_lifecycle import *  # noqa: F403
 from .maintenance_obligation import *  # noqa: F403
-from .maintenance_scan import *  # noqa: F403
-from .model_angle_deliberation import *  # noqa: F403
 from .plan_intake import *  # noqa: F403
 from .model_miss_diagnostics import *  # noqa: F403
 from .state_closure import *  # noqa: F403
@@ -939,14 +936,19 @@ from .model_maturation_receipt import *  # noqa: F403
 from .implementation_inventory import *  # noqa: F403
 from .implementation_inventory_python import *  # noqa: F403
 from .implementation_blueprint import *  # noqa: F403
+from .canonical_blueprint_projection import *  # noqa: F403
 from .blueprint_topology import *  # noqa: F403
+from .affected_blueprint_reader import *  # noqa: F403
+from .blueprint_compact_projection import *  # noqa: F403
 from .software_blueprint_readiness import *  # noqa: F403
 from .target_system_blueprint import *  # noqa: F403
+from .target_native_qualification import *  # noqa: F403
 from .project_blueprint import *  # noqa: F403
 from .test_inventory import *  # noqa: F403
 from .test_inventory_python import *  # noqa: F403
 from .self_blueprint import *  # noqa: F403
 from .self_architecture_reduction import *  # noqa: F403
+from .self_reduction_inventory import *  # noqa: F403
 from .task_coverage_demand import *  # noqa: F403
 from .understanding_readiness import *  # noqa: F403
 from .route_topology import *  # noqa: F403
@@ -1220,16 +1222,12 @@ from .risk_evidence_ledger import (
     RISK_CONFIDENCE_SCOPED,
     RISK_LEDGER_DECISION_FULL,
     RISK_LEDGER_DECISION_SCOPED,
-    RISK_GATE_ANALOGOUS_SCAN,
     RISK_GATE_ARTIFACT_PAYLOAD,
     RISK_GATE_BEHAVIOR_COMMITMENT_CARTESIAN_COVERAGE,
     RISK_GATE_BEHAVIOR_COMMITMENT_COVERAGE,
     RISK_GATE_CONTRACT_COVERAGE_SHARD,
-    RISK_GATE_DEFECT_FAMILY,
-    RISK_GATE_FAMILY,
     RISK_GATE_MAINTENANCE_OBLIGATION,
     RISK_GATE_MODEL_CARTESIAN_COVERAGE,
-    RISK_GATE_MODEL_ANGLE_REVIEW,
     RISK_GATE_MODEL_MATURATION,
     RISK_GATE_MODEL_SPLIT,
     RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE,
@@ -1271,19 +1269,11 @@ from .risk_evidence_ledger import (
     review_risk_evidence_ledger,
 )
 from .recurring_model_miss import (
-    DEFECT_CASE_ROLE_HISTORICAL_HOLDOUT,
-    DEFECT_CASE_ROLE_OBSERVED_FAILURE,
-    DEFECT_CASE_ROLE_SAME_CLASS_GENERALIZED,
-    DEFECT_FAMILY_DECISION_BLOCKED,
-    DEFECT_FAMILY_DECISION_FULL,
-    DEFECT_FAMILY_DECISION_SCOPED,
     MODEL_MISS_BACKFEED_AMBIGUOUS,
     MODEL_MISS_BACKFEED_BLOCKED,
     MODEL_MISS_BACKFEED_COVERAGE_GAP,
     MODEL_MISS_BACKFEED_DISPOSITIONS,
     MODEL_MISS_BACKFEED_REUSE_EXISTING,
-    NON_PASSING_DEFECT_FAMILY_STATUSES,
-    PASSING_DEFECT_FAMILY_STATUSES,
     UI_MODEL_MISS_ACTION_GRAMMAR_CONFLICT,
     UI_MODEL_MISS_AFFORDANCE_MISMATCH,
     UI_MODEL_MISS_BOUNDARY_MISSING,
@@ -1297,13 +1287,6 @@ from .recurring_model_miss import (
     UI_MODEL_MISS_REGION_SEMANTICS_CONFLICT,
     UI_MODEL_MISS_STATE_TOO_COARSE,
     UI_MODEL_MISS_TYPES,
-    DefectFamilyCase,
-    DefectFamilyEvidence,
-    DefectFamilyFinding,
-    DefectFamilyGate,
-    DefectFamilyGateFinding,
-    DefectFamilyGatePlan,
-    DefectFamilyGateReport,
     ModelMissBehaviorBackfeed,
     ModelMissBehaviorContext,
     UIModelMissFinding,
@@ -1312,7 +1295,6 @@ from .recurring_model_miss import (
     UIModelMissReviewReport,
     apply_model_miss_behavior_backfeed,
     backfeed_model_miss_to_behavior_ledger,
-    review_defect_family_gates,
     review_ui_model_misses,
 )
 from .proof_artifact import (
@@ -1390,12 +1372,9 @@ from .templates import (
     existing_model_preflight_template_files,
     field_lifecycle_template_files,
     layered_boundary_proof_template_files,
-    maintenance_scan_template_files,
     maintenance_workflow_template_files,
-    model_angle_deliberation_template_files,
     model_miss_review_full_template_files,
     model_miss_review_template_files,
-    model_similarity_consolidation_template_files,
     model_test_alignment_full_template_files,
     model_test_alignment_template_files,
     plan_detailing_template_files,
@@ -1450,21 +1429,41 @@ MODEL_SYSTEM_AUTHORITY_API = (
     "AffectedAuthorityComponent",
     "AffectedAuthorityInventory",
     "CoverageUniverse",
+    "CurrentEffectiveIntentView",
+    "EffectiveIntentBootstrapReceipt",
+    "EffectiveIntentOwnerBinding",
+    "EffectiveIntentTransition",
+    "LegacyIntentBootstrapDisposition",
     "ModelAuthorityHead",
     "ModelInstanceRef",
     "ModelRevisionSet",
     "ModelRevisionBuildReport",
+    "ModelRevisionPlan",
+    "ModelRevisionOwnerEvidenceBundle",
+    "ModelRevisionOwnerEvidenceReport",
     "ModelSystemSnapshot",
+    "NativeOwnerModelBinding",
+    "NativeOwnerModelEvidencePlan",
+    "MODEL_REVISION_OWNER_EVIDENCE_REPORT_SCHEMA",
+    "NATIVE_OWNER_MODEL_BINDINGS",
     "activate_model_revision_set",
     "audit_model_authority",
     "bootstrap_model_authority",
+    "bootstrap_current_effective_intent_view",
     "build_manifest_model_system_snapshot",
+    "build_current_effective_intent_view",
+    "build_current_intent_bootstrap_receipt",
     "build_current_model_revision",
     "build_model_instance_ref",
+    "load_current_accepted_revision_set",
     "load_observed_model_system",
     "load_affected_authority_inventory",
     "load_revision_removal_dispositions",
+    "preview_current_model_revision",
+    "produce_model_revision_owner_evidence",
     "rollback_observed_model_system",
+    "validate_current_effective_intent_refinement",
+    "validate_current_effective_intent_view",
 )
 FLOWGUARD_GOVERNANCE_API = tuple(
     dict.fromkeys(FLOWGUARD_GOVERNANCE_API + MODEL_SYSTEM_AUTHORITY_API)
@@ -1522,8 +1521,6 @@ EXISTING_MODEL_PREFLIGHT_ROUTE_API = tuple(
 FIELD_LIFECYCLE_MESH_API = tuple(_field_lifecycle.__all__)
 MODEL_MESH_ROUTE_API = tuple(name for name in _hierarchy.__all__ if name in globals())
 MAINTENANCE_OBLIGATION_MEMORY_API = tuple(_maintenance_obligation.__all__)
-MAINTENANCE_SCAN_ROUTE_API = tuple(_maintenance_scan.__all__)
-MODEL_ANGLE_DELIBERATION_API = tuple(_model_angle_deliberation.__all__)
 MODEL_MISS_REVIEW_ROUTE_API = tuple(
     dict.fromkeys(
         tuple(name for name in _recurring_model_miss.__all__ if name in globals())
@@ -1557,14 +1554,19 @@ IMPLEMENTATION_BLUEPRINT_API = tuple(
         tuple(_implementation_inventory.__all__)
         + tuple(_implementation_inventory_python.__all__)
         + tuple(_implementation_blueprint.__all__)
+        + tuple(_canonical_blueprint_projection.__all__)
         + tuple(_blueprint_topology.__all__)
+        + tuple(_affected_blueprint_reader.__all__)
+        + tuple(_blueprint_compact_projection.__all__)
         + tuple(_software_blueprint_readiness.__all__)
         + tuple(_target_system_blueprint.__all__)
+        + tuple(_target_native_qualification.__all__)
         + tuple(_project_blueprint.__all__)
         + tuple(_test_inventory.__all__)
         + tuple(_test_inventory_python.__all__)
         + tuple(_self_blueprint.__all__)
         + tuple(_self_architecture_reduction.__all__)
+        + tuple(_self_reduction_inventory.__all__)
     )
 )
 MODEL_MATURATION_RECEIPT_API = tuple(_model_maturation_receipt.__all__)
@@ -1669,7 +1671,6 @@ MODELING_HELPER_API = (
     "ScenarioMatrixBuilder",
     *FLOWGUARD_SELF_MAINTENANCE_ROUTE_API,
     *ROUTE_TOPOLOGY_API,
-    *MODEL_ANGLE_DELIBERATION_API,
     *CONTRACT_EXHAUSTION_MESH_API,
     *BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API,
     *PRIMARY_PATH_AUTHORITY_ROUTE_API,
@@ -1729,6 +1730,8 @@ MODELING_HELPER_API = (
     "budgeted_graph_run_dir",
     "run_budgeted_graph_checks",
     "ObservableArchitectureContract",
+    "ArchitectureRetirementProof",
+    "RetirementResponsibilityDisposition",
     "CompatibilitySurfaceClassification",
     "ArchitectureReductionCandidate",
     "ArchitectureReductionTrigger",
@@ -1736,13 +1739,23 @@ MODELING_HELPER_API = (
     "ArchitectureReductionPlan",
     "ArchitectureReductionFinding",
     "ArchitectureReductionReport",
+    "ArchitectureReductionStepAssessment",
+    "ArchitectureReductionStepCost",
     "review_architecture_reduction",
     "ARCHITECTURE_REDUCTION_ROUTE",
     "ARCHITECTURE_REDUCTION_CANDIDATE_DISPOSITIONS",
     "ARCHITECTURE_REDUCTION_CANDIDATE_TYPES",
     "ARCHITECTURE_REDUCTION_PROOF_STATUSES",
+    "ARCHITECTURE_REDUCTION_STEP_ACTIONS",
+    "ARCHITECTURE_REDUCTION_STEP_ASSESSMENT_SCHEMA",
+    "ARCHITECTURE_REDUCTION_STEP_COST_SCHEMA",
+    "ARCHITECTURE_REDUCTION_STEP_KINDS",
     "ARCHITECTURE_REDUCTION_TARGET_ACTIONS",
     "ARCHITECTURE_REDUCTION_COMPANION_ROUTES",
+    "ARCHITECTURE_RETIREMENT_DISPOSITIONS",
+    "ARCHITECTURE_RETIREMENT_OWNER_STATUSES",
+    "ARCHITECTURE_RETIREMENT_REQUIRED_ROUTES",
+    "ARCHITECTURE_RETIREMENT_RESPONSIBILITY_KINDS",
     "COMPATIBILITY_SURFACE_CLASSIFICATIONS",
     "COMPATIBILITY_SURFACE_RECOMMENDED_ACTIONS",
     "COMPATIBILITY_SURFACE_CURRENT_CONTRACT",
@@ -1757,6 +1770,8 @@ MODELING_HELPER_API = (
     "COMPATIBILITY_ACTION_ARCHIVE",
     "COMPATIBILITY_ACTION_PRUNE",
     "COMPATIBILITY_ACTION_COLLECT_EVIDENCE",
+    "PROOF_AUTHORIZED_RETIREMENT",
+    "TARGET_ACTION_RETIRE_BEHAVIOR",
     "CANDIDATE_DISPOSITION_ACTIVE",
     "CANDIDATE_DISPOSITION_COMPLETED",
     "CANDIDATE_DISPOSITION_HISTORICAL",
@@ -1779,6 +1794,25 @@ MODELING_HELPER_API = (
     "TARGET_ACTION_MERGE",
     "TARGET_ACTION_COLLAPSE",
     "TARGET_ACTION_REMOVE",
+    "STEP_ACTION_RETAIN",
+    "STEP_ACTION_MERGE",
+    "STEP_ACTION_DELEGATE",
+    "STEP_ACTION_REMOVE",
+    "STEP_ACTION_EXPLICIT_ON_DEMAND",
+    "STEP_ACTION_UNRESOLVED",
+    "STEP_KIND_ADAPTER",
+    "STEP_KIND_BRANCH",
+    "STEP_KIND_BUILDER",
+    "STEP_KIND_EVIDENCE_PROJECTION",
+    "STEP_KIND_HELPER",
+    "STEP_KIND_MODULE_BOUNDARY",
+    "STEP_KIND_OTHER",
+    "STEP_KIND_PAYLOAD_MATERIALIZATION",
+    "STEP_KIND_REFLECTION",
+    "STEP_KIND_ROUTE_DISPATCH",
+    "STEP_KIND_SCAN",
+    "STEP_KIND_SERIALIZATION",
+    "STEP_KIND_VALIDATION",
     "TARGET_ACTION_KEEP_FACADE",
     "TARGET_ACTION_MANUAL_REVIEW",
     "ROUTE_DEVELOPMENT_PROCESS_FLOW",
@@ -2132,46 +2166,6 @@ MODELING_HELPER_API = (
     "transition_coverage_to_required_leaf_cell_ids",
     "transition_obligation_id",
     "ui_interaction_model_to_transition_coverage",
-    "ModelSignature",
-    "ModelSimilarityChangeImpact",
-    "ModelSimilarityCodeObligation",
-    "ModelSimilarityEvidence",
-    "ModelSimilarityFinding",
-    "ModelSimilarityMaintenanceGroup",
-    "ModelSimilarityPlan",
-    "ModelSimilarityRelation",
-    "ModelSimilarityReport",
-    "ModelSimilarityTestObligation",
-    "SimilarityHandoff",
-    "model_signature_maintenance",
-    "model_signature_minimal",
-    "model_similarity_plan_for_changed_member",
-    "normalize_similarity_handoff",
-    "review_model_similarity_consolidation",
-    "MODEL_SIMILARITY_ROUTE",
-    "MODEL_SIMILARITY_RELATION_TYPES",
-    "RELATION_SAME_WORKFLOW",
-    "RELATION_SAME_FAMILY_VARIANT",
-    "RELATION_SYMMETRIC_FLOW",
-    "RELATION_SHARED_KERNEL",
-    "RELATION_DUPLICATE_BOUNDARY",
-    "RELATION_OVERLAPPING_OWNERSHIP",
-    "RELATION_PARENT_CHILD",
-    "RELATION_SIBLING_OVERLAP",
-    "RELATION_ADAPTER_ONLY",
-    "RELATION_EVIDENCE_DUPLICATE",
-    "RELATION_FALSE_FRIEND",
-    "RELATION_UNRELATED",
-    "RELATION_MANUAL_REVIEW",
-    "RECOMMEND_REUSE_OR_EXTEND",
-    "RECOMMEND_CREATE_FAMILY_VARIANT",
-    "RECOMMEND_EXTRACT_SHARED_KERNEL",
-    "RECOMMEND_ROUTE_ARCHITECTURE_REDUCTION",
-    "RECOMMEND_ROUTE_MODEL_MESH",
-    "RECOMMEND_ROUTE_MODEL_TEST_ALIGNMENT",
-    "RECOMMEND_KEEP_SEPARATE",
-    "RECOMMEND_MANUAL_REVIEW",
-    "RECOMMEND_NO_ACTION",
     "RuntimeNodeContract",
     "RuntimeNodeObservation",
     "RuntimePathRun",
@@ -2208,32 +2202,14 @@ MODELING_HELPER_API = (
     "ObligationFamilyParityReport",
     "FamilyBadCaseSeed",
     "DerivedFamilyBadCase",
-    "AnalogousDefectCandidate",
-    "AnalogousDefectScanFinding",
-    "AnalogousDefectScanReport",
     "review_obligation_family_parity",
     "derive_same_class_bad_cases",
-    "review_analogous_defect_scan",
     "FAMILY_PARITY_DECISION_FULL",
     "FAMILY_PARITY_DECISION_SCOPED",
     "FAMILY_PARITY_DECISION_BLOCKED",
-    "ANALOGOUS_SCAN_DECISION_COMPLETE",
-    "ANALOGOUS_SCAN_DECISION_SCOPED",
-    "ANALOGOUS_SCAN_DECISION_BLOCKED",
     "FAMILY_CONFIDENCE_FULL",
     "FAMILY_CONFIDENCE_SCOPED",
     "FAMILY_CONFIDENCE_BLOCKED",
-    "ANALOGOUS_SCAN_RADIUS_MUST_SCAN",
-    "ANALOGOUS_SCAN_RADIUS_SHOULD_SCAN",
-    "ANALOGOUS_SCAN_RADIUS_RECORD_ONLY",
-    "ANALOGOUS_SCAN_RADII",
-    "ANALOGOUS_DISPOSITION_UNREVIEWED",
-    "ANALOGOUS_DISPOSITION_COVERED_CURRENT",
-    "ANALOGOUS_DISPOSITION_NEEDS_REPAIR_NOW",
-    "ANALOGOUS_DISPOSITION_NEEDS_MODEL_UPGRADE",
-    "ANALOGOUS_DISPOSITION_SEPARATE_CHANGE",
-    "ANALOGOUS_DISPOSITION_EXCLUDED_WITH_REASON",
-    "ANALOGOUS_SCAN_DISPOSITIONS",
     "FAMILY_EVIDENCE_PROVENANCE_DURABLE_RECONCILIATION",
     "FAMILY_EVIDENCE_PROVENANCE_CONTROLLER_RECEIPT_FOLDED",
     "FAMILY_EVIDENCE_PROVENANCE_RUNTIME_OBSERVED",
@@ -2435,13 +2411,6 @@ REPORTING_HELPER_API = (
     "RiskEvidenceLedgerReport",
     "model_maturation_to_risk_evidence_gate",
     "review_risk_evidence_ledger",
-    "DefectFamilyCase",
-    "DefectFamilyEvidence",
-    "DefectFamilyFinding",
-    "DefectFamilyGate",
-    "DefectFamilyGatePlan",
-    "DefectFamilyGateFinding",
-    "DefectFamilyGateReport",
     "MODEL_MISS_BACKFEED_AMBIGUOUS",
     "MODEL_MISS_BACKFEED_BLOCKED",
     "MODEL_MISS_BACKFEED_COVERAGE_GAP",
@@ -2468,7 +2437,6 @@ REPORTING_HELPER_API = (
     "UIModelMissReviewReport",
     "apply_model_miss_behavior_backfeed",
     "backfeed_model_miss_to_behavior_ledger",
-    "review_defect_family_gates",
     "review_ui_model_misses",
     "ProofArtifactRef",
     "coerce_proof_artifact_ref",
@@ -2501,7 +2469,6 @@ REPORTING_HELPER_API = (
     "AutoSplitReport",
     "review_auto_mesh_splits",
     *MAINTENANCE_OBLIGATION_MEMORY_API,
-    *MAINTENANCE_SCAN_ROUTE_API,
     *PLAN_INTAKE_CLAIM_API,
     "PlanDetail",
     "PlanDetailEvidence",
@@ -2552,17 +2519,8 @@ REPORTING_HELPER_API = (
     "AUTO_SPLIT_DECISION_MODEL_REQUIRED",
     "AUTO_SPLIT_DECISION_TEST_REQUIRED",
     "AUTO_SPLIT_DECISION_TARGET_REQUIRED",
-    "DEFECT_CASE_ROLE_OBSERVED_FAILURE",
-    "DEFECT_CASE_ROLE_SAME_CLASS_GENERALIZED",
-    "DEFECT_CASE_ROLE_HISTORICAL_HOLDOUT",
-    "DEFECT_FAMILY_DECISION_BLOCKED",
-    "DEFECT_FAMILY_DECISION_FULL",
-    "DEFECT_FAMILY_DECISION_SCOPED",
-    "PASSING_DEFECT_FAMILY_STATUSES",
-    "NON_PASSING_DEFECT_FAMILY_STATUSES",
     "RISK_LEDGER_DECISION_FULL",
     "RISK_LEDGER_DECISION_SCOPED",
-    "RISK_GATE_DEFECT_FAMILY",
     "RISK_GATE_ARTIFACT_PAYLOAD",
     "RISK_GATE_BEHAVIOR_COMMITMENT_CARTESIAN_COVERAGE",
     "RISK_GATE_BEHAVIOR_COMMITMENT_COVERAGE",
@@ -2580,10 +2538,7 @@ REPORTING_HELPER_API = (
     "RISK_GATE_UI_DONE_CLAIM",
     "RISK_GATE_UI_HUMAN_OPERABILITY",
     "RISK_GATE_UI_SOURCE_BASELINE_INTERACTION",
-    "RISK_GATE_FAMILY",
-    "RISK_GATE_ANALOGOUS_SCAN",
     "RISK_GATE_TOPOLOGY_HAZARD",
-    "RISK_GATE_MODEL_ANGLE_REVIEW",
     "RISK_GATE_PARENT_MODEL_EVIDENCE",
     "RISK_GATE_MAINTENANCE_OBLIGATION",
     "RISK_CONFIDENCE_FULL",
@@ -2718,12 +2673,9 @@ EVIDENCE_API = (
     "existing_model_preflight_template_files",
     "field_lifecycle_template_files",
     "layered_boundary_proof_template_files",
-    "maintenance_scan_template_files",
     "maintenance_workflow_template_files",
-    "model_angle_deliberation_template_files",
     "model_miss_review_full_template_files",
     "model_miss_review_template_files",
-    "model_similarity_consolidation_template_files",
     "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
     "plan_detailing_template_files",
@@ -2762,12 +2714,9 @@ TEMPLATE_STRUCTURE_API = (
     "code_structure_recommendation_template_files",
     "existing_model_preflight_template_files",
     "field_lifecycle_template_files",
-    "model_similarity_consolidation_template_files",
     "risk_evidence_ledger_template_files",
     "layered_boundary_proof_template_files",
     "closure_contract_template_files",
-    "maintenance_scan_template_files",
-    "model_angle_deliberation_template_files",
     "ui_flow_structure_template_files",
     "ui_flow_structure_full_template_files",
     "development_process_flow_template_files",
@@ -2783,28 +2732,25 @@ EVIDENCE_FIELD_STRUCTURE_API = (
     "evidence_gates_from_process_like",
 )
 
-MODEL_SIMILARITY_ROUTE_API = (
-    "ModelSignature",
-    "ModelSimilarityChangeImpact",
-    "ModelSimilarityCodeObligation",
-    "ModelSimilarityMaintenanceGroup",
-    "ModelSimilarityPlan",
-    "ModelSimilarityRelation",
-    "ModelSimilarityReport",
-    "ModelSimilarityTestObligation",
-    "SimilarityHandoff",
-    "model_signature_maintenance",
-    "model_signature_minimal",
-    "model_similarity_plan_for_changed_member",
-    "normalize_similarity_handoff",
-    "review_model_similarity_consolidation",
-)
-
 ARCHITECTURE_REDUCTION_ROUTE_API = (
     "ObservableArchitectureContract",
     "CompatibilitySurfaceClassification",
+    "ArchitectureRetirementProof",
+    "RetirementResponsibilityDisposition",
     "ArchitectureReductionCandidate",
     "ArchitectureReductionPlan",
+    "ArchitectureReductionStepAssessment",
+    "ArchitectureReductionStepCost",
+    "ARCHITECTURE_REDUCTION_STEP_ACTIONS",
+    "ARCHITECTURE_REDUCTION_STEP_KINDS",
+    "STEP_ACTION_RETAIN",
+    "STEP_ACTION_MERGE",
+    "STEP_ACTION_DELEGATE",
+    "STEP_ACTION_REMOVE",
+    "STEP_ACTION_EXPLICIT_ON_DEMAND",
+    "STEP_ACTION_UNRESOLVED",
+    "TARGET_ACTION_RETIRE_BEHAVIOR",
+    "PROOF_AUTHORIZED_RETIREMENT",
     "review_architecture_reduction",
 )
 
@@ -2886,7 +2832,6 @@ _FLOWGUARD_ROUTE_API_GROUPS = {
     "behavior_commitment_ledger": BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API,
     "primary_path_authority": PRIMARY_PATH_AUTHORITY_ROUTE_API,
     "agent_workflow_rehearsal": AGENT_WORKFLOW_REHEARSAL_ROUTE_API,
-    "model_similarity_consolidation": MODEL_SIMILARITY_ROUTE_API,
     "architecture_reduction": ARCHITECTURE_REDUCTION_ROUTE_API,
     "code_structure_recommendation": CODE_STRUCTURE_RECOMMENDATION_ROUTE_API,
     "model_test_alignment": MODEL_TEST_ALIGNMENT_ROUTE_API,
@@ -2894,8 +2839,6 @@ _FLOWGUARD_ROUTE_API_GROUPS = {
     "contract_exhaustion_mesh": CONTRACT_EXHAUSTION_MESH_API,
     "plan_detailing_compiler": PLAN_DETAILING_ROUTE_API,
     "maintenance_obligation_memory": MAINTENANCE_OBLIGATION_MEMORY_API,
-    "maintenance_scan_router": MAINTENANCE_SCAN_ROUTE_API,
-    "model_angle_deliberation": MODEL_ANGLE_DELIBERATION_API,
     "risk_template_library": RISK_TEMPLATE_LIBRARY_API,
     "ui_flow_structure": UI_FLOW_STRUCTURE_ROUTE_API,
     "model_mesh_maintenance": MODEL_MESH_ROUTE_API,
@@ -3008,19 +2951,18 @@ _ROUTE_STARTER_API_GROUPS = {
         "AgentWorkflowStep",
         "review_agent_workflow_rehearsal",
     ),
-    "model_similarity_consolidation": (
-        "ModelSignature",
-        "ModelSimilarityPlan",
-        "SimilarityHandoff",
-        "model_signature_minimal",
-        "model_similarity_plan_for_changed_member",
-        "review_model_similarity_consolidation",
-        "model_similarity_consolidation_template_files",
-    ),
     "architecture_reduction": (
         "ObservableArchitectureContract",
+        "ArchitectureRetirementProof",
+        "RetirementResponsibilityDisposition",
         "ArchitectureReductionCandidate",
         "ArchitectureReductionPlan",
+        "ArchitectureReductionStepAssessment",
+        "ArchitectureReductionStepCost",
+        "ARCHITECTURE_REDUCTION_STEP_ACTIONS",
+        "ARCHITECTURE_REDUCTION_STEP_KINDS",
+        "TARGET_ACTION_RETIRE_BEHAVIOR",
+        "PROOF_AUTHORIZED_RETIREMENT",
         "review_architecture_reduction",
     ),
     "code_structure_recommendation": (
@@ -3071,19 +3013,6 @@ _ROUTE_STARTER_API_GROUPS = {
         "MaintenanceObligation",
         "MaintenanceObligationReport",
         "build_maintenance_obligation_report",
-    ),
-    "maintenance_scan_router": (
-        "MaintenanceScanPlan",
-        "MaintenanceAction",
-        "MaintenanceScanReport",
-        "review_maintenance_scan",
-        "maintenance_scan_template_files",
-    ),
-    "model_angle_deliberation": (
-        "ModelAngleDeliberation",
-        "ModelAngleReviewReport",
-        "review_model_angle_deliberations",
-        "model_angle_deliberation_template_files",
     ),
     "risk_template_library": (
         "RiskTemplate",
@@ -3144,10 +3073,6 @@ _ROUTE_STARTER_API_GROUPS = {
         "review_development_process_simulator",
     ),
     "model_miss_review": (
-        "DefectFamilyGatePlan",
-        "DefectFamilyGateReport",
-        "DefectFamilyCase",
-        "review_defect_family_gates",
         "model_miss_review_template_files",
     ),
     "risk_evidence_ledger": (
@@ -3290,11 +3215,8 @@ _PUBLIC_API_SUPPLEMENT = (
     "FLOWGUARD_SELF_MAINTENANCE_ROUTE_API",
     "FIELD_LIFECYCLE_MESH_API",
     "MAINTENANCE_OBLIGATION_MEMORY_API",
-    "MAINTENANCE_SCAN_ROUTE_API",
-    "MODEL_ANGLE_DELIBERATION_API",
     "MODEL_MESH_ROUTE_API",
     "MODEL_MISS_REVIEW_ROUTE_API",
-    "MODEL_SIMILARITY_ROUTE_API",
     "MODEL_TEST_ALIGNMENT_ROUTE_API",
     "MODEL_IMPACT_FRESHNESS_API",
     "MODEL_MATURATION_API",

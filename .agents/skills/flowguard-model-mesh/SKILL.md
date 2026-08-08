@@ -1,43 +1,45 @@
 ---
 name: flowguard-model-mesh
-description: Use for affected topology, oversized models, stale child evidence, partitioning, reattachment, siblings, or mesh closure; count alone is not a trigger.
+description: Use for affected topology, partitions, stale child evidence, reattachment, siblings, or mesh closure; count alone is not a trigger.
 ---
 
 # FlowGuard Model Mesh
 
 ## Purpose
-Govern model ownership, evidence tiers/freshness, partitioning, reattachment, siblings, and closure.
+Govern ownership, evidence tiers/freshness, partitions, reattachment, siblings, closure.
 
 ## Entrypoint Scope
-This standalone FlowGuard satellite skill owns model hierarchy, not test/code splits.
+This standalone FlowGuard satellite skill owns hierarchy, not test/code splits.
 
 ## Local Material Routing
-After admission, read `references/model_mesh_protocol.md`; load `references/model_mesh_partition_protocol.md`, `references/model_mesh_reattachment_protocol.md`, or `references/model_mesh_closure_protocol.md` only when triggered.
+After admission read `references/model_mesh_protocol.md`; load `references/model_mesh_partition_protocol.md`, `references/model_mesh_reattachment_protocol.md`, or `references/model_mesh_closure_protocol.md` only when triggered.
 
 ## Entrypoint Acceptance Map
-Accept children; verify partitions/receipts; block overlap, stale or incomplete closure.
+Accept children; verify partitions/receipts; block incomplete closure.
 
 ## Use When
-- A relation crosses model boundaries, a model is oversized/incomplete, or a changed child/sibling/whole-flow claim needs review.
+- A relation crosses models, a model is oversized/incomplete, or a changed child/sibling/whole-flow claim needs review.
 
 ## Do Not Use When
-- Do not trigger on raw count, split tests/code, promote child-local green, or handle ordinary single-model work; use `flowguard`.
+- Do not trigger on count, split tests/code, promote child-local green, or handle ordinary one-model work; use `flowguard`.
 
 ## Required Workflow
-1. Load observed authority; inventory hierarchy, owners, partitions, and evidence tiers/freshness. Whole-flow claims disposition every model and require consumer relations.
-2. Review disjointness, Child Reattachment Gate, siblings, receipts, leaves, and triggered closure.
-3. For explicit blueprint scope, connect purpose, producer/consumer, and realization references to independent inventory/binding identities without copying source semantics.
-4. Consume explicit `flowguard.portable_refinement.v1` for portable refinement; preserve gaps and hand exact cases/receipts to alignment, test, risk, or portable owners without running a joint graph here.
+1. Inventory observed hierarchy, owners, partitions, and evidence tiers/freshness. Whole-flow claims disposition every model and consumer relation.
+2. Consume compact path-quality fingerprints. Reopen only changed children, ancestors, consumers, and siblings; ModelMaturation retains single-model judgment.
+3. Review disjointness, Child Reattachment Gate, siblings, receipts, leaves, and closure. Topology may trigger deep review, never a second path comparison.
+4. In blueprint scope, connect purpose, producers/consumers, and realization references to independent inventory/binding identities without copying semantics.
+5. Consume `flowguard.portable_refinement.v1`; hand exact gaps/cases/receipts to alignment, test, risk, or portable owners without a second interpreter.
 
 ## Hard Gates
-- Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework.
-- One logical model has one current snapshot instance; fingerprints bind model, runner, purpose, and inputs. Compile exact ownership before execution; never rerun-all.
-- Multi-model replacement is one revision set. Partial activation, stale heads, omitted siblings, illegal overlap, incomplete relations, or stale child receipts block parent confidence.
-- Ordinary work materializes affected topology only. Blueprint-wide topology requires explicit scope and never triggers repository discovery.
-- ModelMesh proves relationships, not source semantics, inventory, or static qualification. Counts alone prove none of them.
+- Model-purpose gate: freeze task-specific failure(s) and claim boundary; bind the candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework.
+- One logical model has one current instance; fingerprints bind model, runner, purpose, and inputs. Compile exact ownership before execution; never rerun-all.
+- Multi-model replacement is one revision. Partial activation, stale head, omitted sibling, overlap, incomplete relation, stale receipt, or missing path-quality row blocks parent confidence.
+- Ordinary work materializes affected topology; blueprint-wide topology needs explicit scope and never triggers repository discovery.
+- Parent projections omit deep candidates/witnesses/costs. `normative_target` cannot replace `observed` until implementation and evidence match.
+- ModelMesh proves relationships, not semantics, single-model path quality, inventory, or qualification; counts prove none.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, Child Reattachment Gate, siblings, receipts, and a mesh diagram; edges mean delegates, reattaches, consumes output, realizes, or blocks. Blueprint output adds depth/first gap, fingerprints, and missing relations.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, Child Reattachment Gate, siblings, gaps, receipts, and a mesh diagram; edges mean delegates, reattaches, consumes output, realizes, or blocks. Blueprint output adds depth/first gap.
 
 
 <!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

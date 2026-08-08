@@ -10,7 +10,10 @@ from typing import Any, Iterable, Mapping, Sequence
 from .evidence_receipts import (
     RECEIPT_STATUS_PASS,
     EvidenceReceipt,
+    ReceiptVerificationResult,
     fingerprint_value,
+    load_evidence_receipt,
+    verify_evidence_receipt,
 )
 from .model_authority import (
     REVISION_EVIDENCE_PASS,
@@ -18,11 +21,32 @@ from .model_authority import (
     ModelAuthorityError,
     ModelSystemSnapshot,
 )
-from .model_authority_store import load_observed_model_system
-from .model_intent import ModelIntentContribution, ModelIntentDisposition
+from .model_authority_store import (
+    load_current_accepted_revision_set,
+    load_observed_model_system,
+)
+from .model_intent import (
+    ModelIntentContribution,
+    ModelIntentDisposition,
+    verify_model_intent_sources,
+)
+from .model_intent_authority import (
+    EffectiveIntentBootstrapReceipt,
+    EffectiveIntentTransition,
+    bootstrap_current_effective_intent_view,
+    build_current_effective_intent_view,
+    build_current_intent_bootstrap_receipt,
+    fold_effective_intent_contributions,
+    validate_candidate_intent_source_input_bindings,
+    validate_current_effective_intent_refinement,
+    validate_current_effective_intent_view,
+)
+from .model_path_quality import PathQualityResult, PathQualitySubject
 from .model_regressions import (
     ModelRegressionManifest,
+    _model_parent_owner_contract,
     _model_owner_contract,
+    audit_intent_source_input_bindings,
     audit_manifest,
     select_entries,
 )
@@ -37,14 +61,20 @@ from .model_system_inventory import build_manifest_model_system_snapshot
 from .project_manifest import project_manifest_lock
 from .source_identity import source_file_fingerprint
 from .validation_ownership import (
+    OWNER_RECEIPT_KIND,
     OWNER_REUSE_CURRENT,
-    plan_validation_owners,
+    ValidationOwnerContract,
+    ValidationOwnerObservation,
+    _assert_owner_receipt_integrity,
+    build_child_bound_owner_receipt_context,
+    build_owner_current,
+    observe_validation_owners,
 )
 
 
 MODEL_REVISION_BUILD_REPORT_SCHEMA = "flowguard.model_revision_build_report.v1"
 MODEL_REGRESSION_PARENT_RECEIPT_SCHEMA = (
-    "flowguard.model_regression_parent_receipt.v1"
+    "flowguard.model_regression_parent_receipt.v2"
 )
 MODEL_REGRESSION_PARENT_ARTIFACT_TYPE = (
     "flowguard_model_regression_parent_receipt"
@@ -60,6 +90,8 @@ _PARENT_FIELDS = frozenset(
         "selected_model_ids",
         "skipped_model_ids",
         "children",
+        "execution_receipt_id",
+        "execution_receipt_fingerprint",
         "claim_boundary",
         "parent_receipt_fingerprint",
     }
@@ -83,14 +115,20 @@ class ModelRevisionBuildReport:
     task_id: str
     snapshot_id: str
     affected_owner_routes: tuple[str, ...]
+    missing_owner_routes: tuple[str, ...]
+    missing_path_quality_model_ids: tuple[str, ...]
     affected_id_count: int
-    status: str = "pass"
+    status: str = "incomplete"
     schema: str = MODEL_REVISION_BUILD_REPORT_SCHEMA
     claim_boundary: str = (
-        "Generation proves one accepted current-format candidate/revision pair "
-        "against the exact supplied full model-regression parent receipt. It "
-        "does not execute models, activate authority, update the observed head, "
-        "or prove release readiness."
+        "Generation freezes one current-format candidate/revision pair. The "
+        "model-regression parent proves only its parent execution; acceptance "
+        "additionally requires one exact current leaf receipt per affected "
+        "native owner and exact current observed path-quality results covering "
+        "at least every added or replaced model. An explicitly supplied larger "
+        "current candidate denominator is accepted only as one fully checked set. "
+        "It does not execute models, activate authority, update "
+        "the observed head, or prove release readiness."
     )
 
     def to_dict(self) -> dict[str, Any]:
@@ -111,6 +149,10 @@ class ModelRevisionBuildReport:
             "task_id": self.task_id,
             "snapshot_id": self.snapshot_id,
             "affected_owner_routes": list(self.affected_owner_routes),
+            "missing_owner_routes": list(self.missing_owner_routes),
+            "missing_path_quality_model_ids": list(
+                self.missing_path_quality_model_ids
+            ),
             "affected_id_count": self.affected_id_count,
             "claim_boundary": self.claim_boundary,
         }
@@ -119,10 +161,11 @@ class ModelRevisionBuildReport:
 @dataclass(frozen=True)
 class _VerifiedModelParent:
     fingerprint: str
-    receipt_id: str
-    obligation_ids: tuple[str, ...]
-    toolchain_fingerprint: str
-    environment_fingerprint: str
+    observation: ValidationOwnerObservation
+    contracts_by_model: Mapping[str, ValidationOwnerContract]
+    currents_by_model: Mapping[str, Any]
+    receipts_by_model: Mapping[str, EvidenceReceipt]
+    verifications_by_model: Mapping[str, ReceiptVerificationResult]
 
 
 def _reject_duplicate_json_keys(
@@ -193,20 +236,6 @@ def _parent_children(value: Any) -> tuple[Mapping[str, str], ...]:
     return tuple(rows)
 
 
-def _aggregate_fingerprint(
-    schema: str,
-    parent_fingerprint: str,
-    rows: Iterable[Mapping[str, Any]],
-) -> str:
-    return fingerprint_value(
-        {
-            "schema": schema,
-            "parent_receipt_fingerprint": parent_fingerprint,
-            "children": list(rows),
-        }
-    )
-
-
 def _verify_model_parent_receipt(
     root: Path,
     parent_receipt_path: Path,
@@ -270,11 +299,15 @@ def _verify_model_parent_receipt(
         )
 
     contracts = tuple(_model_owner_contract(root, manifest, entry) for entry in entries)
-    rows, _currents, reusable = plan_validation_owners(
+    observation = observe_validation_owners(
         root,
         contracts,
         receipt_root=receipt_root,
     )
+    rows = observation.rows
+    currents = observation.current_by_owner
+    reusable = observation.receipt_by_owner
+    observed_verifications = observation.verification_by_owner
     noncurrent = tuple(
         row.owner_id for row in rows if row.disposition != OWNER_REUSE_CURRENT
     )
@@ -284,8 +317,8 @@ def _verify_model_parent_receipt(
             + ", ".join(noncurrent)
         )
 
-    verified_children: list[tuple[str, EvidenceReceipt]] = []
-    obligations: list[str] = []
+    exact_children: list[EvidenceReceipt] = []
+    child_verifications: list[ReceiptVerificationResult] = []
     for model_id in selected_ids:
         owner_id = f"model:{model_id}"
         receipt = reusable[owner_id]
@@ -309,13 +342,95 @@ def _verify_model_parent_receipt(
             raise ModelAuthorityError(
                 f"model parent child is not terminal full exact-obligation pass: {model_id}"
             )
-        verified_children.append((model_id, receipt))
-        obligations.extend(receipt.covered_obligations)
+        child_verification = observed_verifications[owner_id]
+        if not child_verification.ok:
+            raise ModelAuthorityError(
+                f"model parent child failed independent current verification: {model_id}"
+            )
+        exact_children.append(receipt)
+        child_verifications.append(child_verification)
 
-    toolchain_rows = (
+    execution_receipt_id = str(payload["execution_receipt_id"])
+    execution_receipt_fingerprint = str(
+        payload["execution_receipt_fingerprint"]
+    )
+    if not execution_receipt_id or not execution_receipt_fingerprint:
+        raise ModelAuthorityError(
+            "passing model parent lacks its canonical execution receipt"
+        )
+    try:
+        execution_receipt = load_evidence_receipt(
+            execution_receipt_id,
+            root,
+            output_directory=receipt_root,
+        )
+        _assert_owner_receipt_integrity(execution_receipt)
+    except (OSError, ValueError) as exc:
+        raise ModelAuthorityError(
+            f"model parent execution receipt is unavailable or invalid: {exc}"
+        ) from exc
+    if (
+        execution_receipt.fingerprint != execution_receipt_fingerprint
+        or execution_receipt.subject_id
+        != "validation-owner:model-regression-parent"
+        or execution_receipt.subject_kind != OWNER_RECEIPT_KIND
+    ):
+        raise ModelAuthorityError(
+            "model parent execution receipt identity does not match its canonical store object"
+        )
+    parent_contract = _model_parent_owner_contract(
+        manifest,
+        entries,
+        claim_scope="full",
+        tier="full",
+    )
+    parent_current = build_owner_current(
+        root,
+        parent_contract,
+        all_contracts=(parent_contract,),
+    )
+    parent_context = build_child_bound_owner_receipt_context(
+        parent_current,
+        execution_receipt,
+        root,
+        receipt_root,
+        child_receipts=tuple(exact_children),
+        child_verification_results=tuple(child_verifications),
+    )
+    parent_verification = verify_evidence_receipt(
+        execution_receipt,
+        parent_context,
+    )
+    if not parent_verification.ok:
+        raise ModelAuthorityError(
+            "model parent execution receipt is not an exact-current full composition: "
+            + ", ".join(item.code for item in parent_verification.findings)
+        )
+    return _VerifiedModelParent(
+        fingerprint=declared_fingerprint,
+        observation=observation,
+        contracts_by_model={
+            entry.model_id: currents[f"model:{entry.model_id}"].contract
+            for entry in entries
+        },
+        currents_by_model={
+            entry.model_id: currents[f"model:{entry.model_id}"]
+            for entry in entries
+        },
+        receipts_by_model={
+            entry.model_id: reusable[f"model:{entry.model_id}"]
+            for entry in entries
+        },
+        verifications_by_model={
+            entry.model_id: observed_verifications[f"model:{entry.model_id}"]
+            for entry in entries
+        },
+    )
+
+
+def _owner_toolchain_fingerprint(receipt: EvidenceReceipt) -> str:
+    return fingerprint_value(
         {
-            "model_id": model_id,
-            "receipt_fingerprint": receipt.fingerprint,
             "producer_id": receipt.producer_id,
             "producer_version": receipt.producer_version,
             "contract_hash": receipt.contract_hash,
@@ -323,33 +438,174 @@ def _verify_model_parent_receipt(
             "suite_map_hash": receipt.suite_map_hash,
             "command": list(receipt.command),
         }
-        for model_id, receipt in verified_children
     )
-    environment_rows = (
-        {
-            "model_id": model_id,
-            "receipt_fingerprint": receipt.fingerprint,
-            "environment_fingerprint": receipt.environment_fingerprint,
-            "environment_metadata": dict(receipt.environment_metadata),
-        }
-        for model_id, receipt in verified_children
+
+
+def _native_owner_revision_evidence(
+    *,
+    ids_by_owner: Mapping[str, Sequence[str]],
+    candidate: ModelSystemSnapshot,
+    affected_closure_fingerprint: str,
+    contracts: Sequence[ValidationOwnerContract],
+    receipts: Sequence[EvidenceReceipt],
+    verification_results: Sequence[ReceiptVerificationResult],
+) -> tuple[tuple[RevisionEvidenceRef, ...], tuple[str, ...]]:
+    expected_owners = set(ids_by_owner)
+    contracts_by_owner: dict[str, list[ValidationOwnerContract]] = {}
+    for contract in contracts:
+        contracts_by_owner.setdefault(contract.owner_id, []).append(contract)
+    foreign_contract_owners = tuple(
+        sorted(set(contracts_by_owner) - expected_owners)
     )
-    digest = declared_fingerprint.split(":", 1)[1]
-    return _VerifiedModelParent(
-        fingerprint=declared_fingerprint,
-        receipt_id=f"receipt:model-regression-parent:{digest}",
-        obligation_ids=tuple(obligations),
-        toolchain_fingerprint=_aggregate_fingerprint(
-            "flowguard.model_revision_evidence_toolchain.v1",
-            declared_fingerprint,
-            toolchain_rows,
-        ),
-        environment_fingerprint=_aggregate_fingerprint(
-            "flowguard.model_revision_evidence_environment.v1",
-            declared_fingerprint,
-            environment_rows,
-        ),
+    if foreign_contract_owners:
+        raise ModelAuthorityError(
+            "native owner contracts contain foreign routes: "
+            + ", ".join(foreign_contract_owners)
+        )
+    duplicate_contract_owners = tuple(
+        sorted(
+            owner_id
+            for owner_id, rows in contracts_by_owner.items()
+            if len(rows) != 1
+        )
     )
+    if duplicate_contract_owners:
+        raise ModelAuthorityError(
+            "native owner contracts must be unique: "
+            + ", ".join(duplicate_contract_owners)
+        )
+
+    receipts_by_owner: dict[str, list[EvidenceReceipt]] = {}
+    receipt_ids: set[str] = set()
+    receipt_fingerprints: set[str] = set()
+    for receipt in receipts:
+        if receipt.subject_kind == "validation_parent":
+            raise ModelAuthorityError(
+                "validation-parent receipt cannot substitute for native owner evidence"
+            )
+        if receipt.subject_kind != OWNER_RECEIPT_KIND:
+            raise ModelAuthorityError(
+                "native owner evidence must use validation_owner leaf receipts"
+            )
+        prefix = "validation-owner:"
+        if not receipt.subject_id.startswith(prefix):
+            raise ModelAuthorityError(
+                "native owner receipt subject does not identify its owner route"
+            )
+        owner_route = receipt.subject_id[len(prefix) :]
+        if owner_route not in expected_owners:
+            raise ModelAuthorityError(
+                f"native owner receipt has foreign route: {owner_route}"
+            )
+        if receipt.producer_id != receipt.subject_id:
+            raise ModelAuthorityError(
+                f"native owner receipt producer mismatch: {owner_route}"
+            )
+        if receipt.receipt_id in receipt_ids or receipt.fingerprint in receipt_fingerprints:
+            raise ModelAuthorityError(
+                "native owner leaf receipt cannot be reused across owner routes"
+            )
+        receipt_ids.add(receipt.receipt_id)
+        receipt_fingerprints.add(receipt.fingerprint)
+        receipts_by_owner.setdefault(owner_route, []).append(receipt)
+
+    verifications_by_receipt: dict[str, list[ReceiptVerificationResult]] = {}
+    for result in verification_results:
+        verifications_by_receipt.setdefault(result.receipt_id, []).append(result)
+    supplied_receipt_ids = {
+        receipt.receipt_id for receipt in receipts
+    }
+    foreign_verification_ids = tuple(
+        sorted(set(verifications_by_receipt) - supplied_receipt_ids)
+    )
+    if foreign_verification_ids:
+        raise ModelAuthorityError(
+            "native owner verification references foreign receipts: "
+            + ", ".join(foreign_verification_ids)
+        )
+    duplicate_verification_ids = tuple(
+        sorted(
+            receipt_id
+            for receipt_id, rows in verifications_by_receipt.items()
+            if len(rows) != 1
+        )
+    )
+    if duplicate_verification_ids:
+        raise ModelAuthorityError(
+            "native owner receipts require one verification result: "
+            + ", ".join(duplicate_verification_ids)
+        )
+
+    required_refs: list[RevisionEvidenceRef] = []
+    missing_owners: list[str] = []
+    for owner_route in sorted(expected_owners):
+        contract_rows = contracts_by_owner.get(owner_route, [])
+        receipt_rows = receipts_by_owner.get(owner_route, [])
+        if len(contract_rows) != 1 or len(receipt_rows) != 1:
+            missing_owners.append(owner_route)
+            continue
+        contract = contract_rows[0]
+        receipt = receipt_rows[0]
+        verification_rows = verifications_by_receipt.get(receipt.receipt_id, [])
+        if len(verification_rows) != 1:
+            missing_owners.append(owner_route)
+            continue
+        verification = verification_rows[0]
+        affected_ids = tuple(sorted(ids_by_owner[owner_route]))
+        if not set(affected_ids).issubset(contract.obligation_ids):
+            raise ModelAuthorityError(
+                f"native owner contract omits affected ids: {owner_route}"
+            )
+        if (
+            receipt.result_status != RECEIPT_STATUS_PASS
+            or receipt.exit_code != 0
+            or receipt.claim_scope != "full"
+            or receipt.skipped_checks
+            or receipt.blockers
+        ):
+            raise ModelAuthorityError(
+                f"native owner receipt is not terminal full pass: {owner_route}"
+            )
+        if not set(affected_ids).issubset(receipt.covered_obligations):
+            raise ModelAuthorityError(
+                f"native owner receipt omits affected ids: {owner_route}"
+            )
+        if verification.receipt_fingerprint != receipt.fingerprint:
+            raise ModelAuthorityError(
+                f"native owner verification fingerprint mismatch: {owner_route}"
+            )
+        if (
+            not verification.current
+            or not verification.eligible
+            or verification.status != RECEIPT_STATUS_PASS
+        ):
+            raise ModelAuthorityError(
+                f"native owner verification is not exact-current pass: {owner_route}"
+            )
+        if not set(affected_ids).issubset(
+            verification.satisfied_obligations
+        ):
+            raise ModelAuthorityError(
+                f"native owner verification omits affected ids: {owner_route}"
+            )
+        required_refs.append(
+            RevisionEvidenceRef(
+                receipt_id=receipt.receipt_id,
+                receipt_fingerprint=receipt.fingerprint,
+                owner_route=owner_route,
+                subject_fingerprint=candidate.fingerprint,
+                obligation_ids=receipt.covered_obligations,
+                affected_closure_fingerprint=affected_closure_fingerprint,
+                covered_affected_ids=affected_ids,
+                candidate_snapshot_fingerprint=candidate.fingerprint,
+                toolchain_fingerprint=_owner_toolchain_fingerprint(receipt),
+                environment_fingerprint=receipt.environment_fingerprint,
+                status=REVISION_EVIDENCE_REQUIRED,
+                current=True,
+                eligible=True,
+            )
+        )
+    return tuple(required_refs), tuple(missing_owners)
 
 
 def _content_addressed_bytes(payload: Mapping[str, Any]) -> bytes:
@@ -420,6 +676,76 @@ def _write_content_addressed_pair(
     return candidate_path, revision_path
 
 
+def _unique_intent_source_inputs(
+    *inventories: Iterable[ModelIntentContribution],
+) -> tuple[ModelIntentContribution, ...]:
+    by_id: dict[str, ModelIntentContribution] = {}
+    for inventory in inventories:
+        for contribution in inventory:
+            if not isinstance(contribution, ModelIntentContribution):
+                raise ModelAuthorityError(
+                    "intent source inventory requires typed current contributions"
+                )
+            existing = by_id.get(contribution.contribution_id)
+            if existing is not None and existing.fingerprint != contribution.fingerprint:
+                raise ModelAuthorityError(
+                    "one intent contribution id has conflicting content across "
+                    f"revision and current view: {contribution.contribution_id}"
+                )
+            by_id[contribution.contribution_id] = contribution
+    return tuple(sorted(by_id.values(), key=lambda item: item.contribution_id))
+
+
+def _validate_bootstrap_revision_delta(
+    active_contributions: tuple[ModelIntentContribution, ...],
+    revision_contributions: tuple[ModelIntentContribution, ...],
+    revision_dispositions: tuple[ModelIntentDisposition, ...],
+) -> None:
+    active_by_id = {
+        item.contribution_id: item for item in active_contributions
+    }
+    revision_by_id = {
+        item.contribution_id: item for item in revision_contributions
+    }
+    dispositions_by_id = {
+        item.contribution_id: item for item in revision_dispositions
+    }
+    if len(revision_by_id) != len(revision_contributions) or len(
+        dispositions_by_id
+    ) != len(revision_dispositions):
+        raise ModelAuthorityError(
+            "bootstrap revision intent requires unique contribution and disposition ids"
+        )
+    if set(revision_by_id) != set(dispositions_by_id):
+        raise ModelAuthorityError(
+            "bootstrap revision intent requires one exact disposition per contribution"
+        )
+    for contribution_id, disposition in dispositions_by_id.items():
+        revision_contribution = revision_by_id[contribution_id]
+        if disposition.contribution_fingerprint != revision_contribution.fingerprint:
+            raise ModelAuthorityError(
+                "bootstrap revision disposition fingerprint mismatch: "
+                f"{contribution_id}"
+            )
+        active_contribution = active_by_id.get(contribution_id)
+        if (
+            active_contribution is not None
+            and active_contribution.fingerprint != revision_contribution.fingerprint
+        ):
+            raise ModelAuthorityError(
+                "bootstrap current design and revision delta reuse an id with different content: "
+                f"{contribution_id}"
+            )
+        if disposition.disposition == "accepted" and (
+            active_contribution is None
+            or active_contribution.fingerprint != revision_contribution.fingerprint
+        ):
+            raise ModelAuthorityError(
+                "accepted bootstrap revision intent must also exist in the current design view: "
+                f"{contribution_id}"
+            )
+
+
 def build_current_model_revision(
     root: str | Path,
     *,
@@ -432,15 +758,27 @@ def build_current_model_revision(
     removal_dispositions: Iterable[RevisionRemovalDisposition] = (),
     intent_contributions: Iterable[ModelIntentContribution] = (),
     intent_dispositions: Iterable[ModelIntentDisposition] = (),
+    effective_intent_transitions: Iterable[EffectiveIntentTransition] = (),
+    current_design_intent_contributions: Iterable[
+        ModelIntentContribution
+    ] = (),
+    effective_intent_bootstrap_receipt: (
+        EffectiveIntentBootstrapReceipt | None
+    ) = None,
+    native_owner_contracts: Iterable[ValidationOwnerContract] = (),
+    native_owner_receipts: Iterable[EvidenceReceipt] = (),
+    native_owner_verification_results: Iterable[ReceiptVerificationResult] = (),
+    path_quality_subjects: Iterable[PathQualitySubject | Mapping[str, Any]] = (),
+    path_quality_results: Iterable[PathQualityResult | Mapping[str, Any]] = (),
     no_declared_intent_rationale_id: str = "",
     no_declared_intent_evidence_fingerprints: Iterable[tuple[str, str]] = (),
     no_declared_intent_rationale: str = "",
     decision_reason: str = (
-        "The exact-current terminal-pass full model-regression parent receipt "
-        "covers every affected native owner."
+        "The model-regression parent is exact-current and every affected "
+        "native owner contributes its own exact-current terminal-pass leaf receipt."
     ),
 ) -> ModelRevisionBuildReport:
-    """Build and persist one accepted revision while leaving authority untouched."""
+    """Build a proposed or accepted revision while leaving authority untouched."""
 
     root_path = Path(root).resolve()
     parent_path = Path(model_parent_receipt).resolve()
@@ -457,6 +795,15 @@ def build_current_model_revision(
     dispositions = tuple(removal_dispositions)
     contributions = tuple(intent_contributions)
     contribution_dispositions = tuple(intent_dispositions)
+    lineage_transitions = tuple(effective_intent_transitions)
+    current_design_contributions = tuple(
+        current_design_intent_contributions
+    )
+    owner_contracts = tuple(native_owner_contracts)
+    owner_receipts = tuple(native_owner_receipts)
+    owner_verifications = tuple(native_owner_verification_results)
+    path_subjects = tuple(path_quality_subjects)
+    path_results = tuple(path_quality_results)
     if any(not isinstance(item, RevisionRemovalDisposition) for item in dispositions):
         raise ModelAuthorityError(
             "removal dispositions must be current typed RevisionRemovalDisposition records"
@@ -465,6 +812,72 @@ def build_current_model_revision(
     manifest_path = root_path / ".flowguard" / "project.toml"
     with project_manifest_lock(manifest_path):
         head, base = load_observed_model_system(root_path)
+        if effective_intent_bootstrap_receipt is not None:
+            if not current_design_contributions:
+                raise ModelAuthorityError(
+                    "explicit intent bootstrap requires current design contributions"
+                )
+            if lineage_transitions:
+                raise ModelAuthorityError(
+                    "intent bootstrap cannot also consume prior-view transitions"
+                )
+            _validate_bootstrap_revision_delta(
+                current_design_contributions,
+                contributions,
+                contribution_dispositions,
+            )
+            active_contributions = current_design_contributions
+            base_effective_view = None
+        else:
+            if current_design_contributions:
+                raise ModelAuthorityError(
+                    "current design bootstrap contributions require an explicit bootstrap receipt"
+                )
+            current_revision = load_current_accepted_revision_set(
+                root_path,
+                head=head,
+                snapshot=base,
+            )
+            if current_revision is None:
+                raise ModelAuthorityError(
+                    "the first cumulative intent revision requires an explicit bootstrap receipt"
+                )
+            base_effective_view = (
+                current_revision.current_effective_intent_view
+            )
+            active_contributions = fold_effective_intent_contributions(
+                base_effective_view,
+                contributions,
+                contribution_dispositions,
+                lineage_transitions,
+            )
+        intent_source_inputs = _unique_intent_source_inputs(
+            active_contributions,
+            contributions,
+        )
+        frozen_intent_sources = verify_model_intent_sources(
+            root_path,
+            intent_source_inputs,
+        )
+        frozen_sources_by_id = {
+            item.contribution_id: item for item in frozen_intent_sources
+        }
+        frozen_active_sources = tuple(
+            frozen_sources_by_id[item.contribution_id]
+            for item in active_contributions
+        )
+        manifest = ModelRegressionManifest.load(root_path)
+        binding_errors = audit_intent_source_input_bindings(
+            root_path,
+            manifest,
+            active_contributions,
+            frozen_active_sources,
+        )
+        if binding_errors:
+            raise ModelAuthorityError(
+                "candidate intent-source model-input binding is incomplete: "
+                + "; ".join(binding_errors)
+            )
         verified_parent = _verify_model_parent_receipt(
             root_path,
             parent_path,
@@ -477,34 +890,145 @@ def build_current_model_revision(
             subject_lane=base.subject_lane,
             lifecycle=base.lifecycle,
         )
+        validate_candidate_intent_source_input_bindings(
+            candidate,
+            active_contributions,
+            frozen_active_sources,
+        )
+        if effective_intent_bootstrap_receipt is not None:
+            receipt = effective_intent_bootstrap_receipt
+            rebuilt_receipt = build_current_intent_bootstrap_receipt(
+                root_path,
+                receipt_id=receipt.receipt_id,
+                candidate_snapshot=candidate,
+                current_design_contributions=active_contributions,
+                rationale=receipt.rationale,
+                legacy_entry_dispositions=(
+                    receipt.legacy_entry_dispositions
+                ),
+                claim_boundary=receipt.claim_boundary,
+            )
+            if rebuilt_receipt != receipt:
+                raise ModelAuthorityError(
+                    "effective intent bootstrap receipt is stale or foreign"
+                )
+            current_effective_intent_view = (
+                bootstrap_current_effective_intent_view(
+                    candidate,
+                    active_contributions,
+                    frozen_active_sources,
+                    receipt,
+                )
+            )
+        else:
+            current_effective_intent_view = (
+                build_current_effective_intent_view(
+                    base_effective_view,
+                    candidate,
+                    active_contributions,
+                    frozen_active_sources,
+                    lineage_transitions,
+                )
+            )
+        validate_current_effective_intent_view(
+            candidate,
+            current_effective_intent_view,
+        )
+        if base_effective_view is not None:
+            validate_current_effective_intent_refinement(
+                root_path,
+                base_view=base_effective_view,
+                candidate_snapshot=candidate,
+                revision_contributions=contributions,
+                revision_dispositions=contribution_dispositions,
+                candidate_view=current_effective_intent_view,
+            )
         diff = derive_revision_snapshot_diff(base, candidate)
         closure = derive_revision_affected_closure(base, candidate, diff)
         if not closure.affected_ids:
             raise ModelAuthorityError(
                 "current manifest does not differ from the observed model authority"
             )
+        if owner_contracts or owner_receipts or owner_verifications:
+            # Keep this import local: the producer reuses the builder's parent
+            # verification helpers, while the builder consumes the producer's
+            # strict wire bundle only after both modules are initialized.
+            from .model_revision_owner_evidence import (
+                ModelRevisionOwnerEvidenceBundle,
+                assert_verified_model_revision_owner_evidence_current,
+                verify_model_revision_owner_evidence_bundle,
+            )
+
+            try:
+                supplied_bundle = ModelRevisionOwnerEvidenceBundle(
+                    contracts=owner_contracts,
+                    receipts=owner_receipts,
+                    verification_results=owner_verifications,
+                )
+            except ValueError as exc:
+                raise ModelAuthorityError(
+                    f"native owner evidence bundle is incomplete or malformed: {exc}"
+                ) from exc
+            independently_verified = verify_model_revision_owner_evidence_bundle(
+                root_path,
+                model_parent_receipt=parent_path,
+                snapshot_id=snapshot_id,
+                bundle=supplied_bundle,
+                receipt_root=receipt_store,
+                verified_parent=verified_parent,
+            )
+            frozen_identities = (
+                (
+                    "model-regression parent",
+                    verified_parent.fingerprint,
+                    independently_verified.parent_receipt_fingerprint,
+                ),
+                (
+                    "observed authority head",
+                    head.fingerprint,
+                    independently_verified.observed_head_fingerprint,
+                ),
+                (
+                    "candidate snapshot",
+                    candidate.fingerprint,
+                    independently_verified.candidate_snapshot_fingerprint,
+                ),
+                (
+                    "snapshot diff",
+                    diff.fingerprint,
+                    independently_verified.snapshot_diff_fingerprint,
+                ),
+                (
+                    "affected closure",
+                    closure.fingerprint,
+                    independently_verified.affected_closure_fingerprint,
+                ),
+            )
+            changed_identities = tuple(
+                name
+                for name, builder_fingerprint, verified_fingerprint in frozen_identities
+                if builder_fingerprint != verified_fingerprint
+            )
+            if changed_identities:
+                raise ModelAuthorityError(
+                    "native owner evidence was verified against different revision "
+                    "inputs: " + ", ".join(changed_identities)
+                )
+            owner_contracts = independently_verified.bundle.contracts
+            owner_receipts = independently_verified.bundle.receipts
+            owner_verifications = (
+                independently_verified.bundle.verification_results
+            )
         ids_by_owner: dict[str, list[str]] = {}
         for affected_id, owner_route in closure.owner_bindings:
             ids_by_owner.setdefault(owner_route, []).append(affected_id)
-        required = tuple(
-            RevisionEvidenceRef(
-                receipt_id=verified_parent.receipt_id,
-                receipt_fingerprint=verified_parent.fingerprint,
-                owner_route=owner_route,
-                subject_fingerprint=candidate.fingerprint,
-                obligation_ids=verified_parent.obligation_ids,
-                affected_closure_fingerprint=closure.fingerprint,
-                covered_affected_ids=tuple(ids_by_owner[owner_route]),
-                candidate_snapshot_fingerprint=candidate.fingerprint,
-                toolchain_fingerprint=verified_parent.toolchain_fingerprint,
-                environment_fingerprint=(
-                    verified_parent.environment_fingerprint
-                ),
-                status=REVISION_EVIDENCE_REQUIRED,
-                current=True,
-                eligible=True,
-            )
-            for owner_route in sorted(ids_by_owner)
+        required, missing_owner_routes = _native_owner_revision_evidence(
+            ids_by_owner=ids_by_owner,
+            candidate=candidate,
+            affected_closure_fingerprint=closure.fingerprint,
+            contracts=owner_contracts,
+            receipts=owner_receipts,
+            verification_results=owner_verifications,
         )
         proposed = ModelRevisionSet(
             revision_set_id=revision_set_id,
@@ -534,8 +1058,22 @@ def build_current_model_revision(
             removed_ids=diff.removed_ids,
             fingerprint_changed_ids=diff.fingerprint_changed_ids,
             removal_dispositions=dispositions,
+            required_path_quality_model_ids=(
+                ()
+                if path_subjects or path_results
+                else tuple(
+                    sorted(
+                        item.member_id
+                        for item in diff.members
+                        if item.operation in {"add", "replace"}
+                    )
+                )
+            ),
+            path_quality_subjects=path_subjects,
+            path_quality_results=path_results,
             intent_contributions=contributions,
             intent_dispositions=contribution_dispositions,
+            current_effective_intent_view=current_effective_intent_view,
             no_declared_intent_rationale_id=no_declared_intent_rationale_id,
             no_declared_intent_evidence_fingerprints=tuple(
                 no_declared_intent_evidence_fingerprints
@@ -543,13 +1081,15 @@ def build_current_model_revision(
             no_declared_intent_rationale=no_declared_intent_rationale,
             required_evidence_refs=required,
         )
-        accepted = proposed.accept(
-            (
-                replace(item, status=REVISION_EVIDENCE_PASS)
-                for item in required
-            ),
-            reason=decision_reason,
-        )
+        revision = proposed
+        if not missing_owner_routes and proposed.path_quality_acceptance_ready:
+            revision = proposed.accept(
+                (
+                    replace(item, status=REVISION_EVIDENCE_PASS)
+                    for item in required
+                ),
+                reason=decision_reason,
+            )
         final_head, _final_base = load_observed_model_system(root_path)
         if final_head.fingerprint != head.fingerprint:
             raise ModelAuthorityError(
@@ -562,14 +1102,55 @@ def build_current_model_revision(
             subject_lane=base.subject_lane,
             lifecycle=base.lifecycle,
         )
+        validate_candidate_intent_source_input_bindings(
+            final_candidate,
+            active_contributions,
+            frozen_active_sources,
+        )
         if final_candidate.identity_payload() != candidate.identity_payload():
             raise ModelAuthorityError(
                 "live model inputs changed during revision generation"
             )
+        validate_current_effective_intent_view(
+            final_candidate,
+            current_effective_intent_view,
+        )
+        if owner_contracts or owner_receipts or owner_verifications:
+            # Recheck only the identities consumed by the already verified
+            # frozen bundle.  Candidate semantics were rebuilt immediately
+            # above, so repeating the complete model-parent/child verifier here
+            # would add no independent evidence.
+            assert_verified_model_revision_owner_evidence_current(
+                root_path,
+                independently_verified,
+            )
+        try:
+            final_intent_sources = verify_model_intent_sources(
+                root_path,
+                intent_source_inputs,
+            )
+        except ModelAuthorityError as exc:
+            raise ModelAuthorityError(
+                "intent source changed before revision publication: "
+                f"{exc}"
+            ) from exc
+        if final_intent_sources != frozen_intent_sources:
+            raise ModelAuthorityError(
+                "intent source identity changed before revision publication"
+            )
+        if base_effective_view is not None:
+            validate_current_effective_intent_refinement(
+                root_path,
+                base_view=base_effective_view,
+                candidate_snapshot=final_candidate,
+                revision_contributions=contributions,
+                revision_dispositions=contribution_dispositions,
+                candidate_view=current_effective_intent_view,
+            )
         candidate_path, revision_path = _write_content_addressed_pair(
             destination,
             candidate,
-            accepted,
+            revision,
         )
 
     return ModelRevisionBuildReport(
@@ -580,12 +1161,15 @@ def build_current_model_revision(
         candidate_snapshot_path=str(candidate_path),
         candidate_snapshot_fingerprint=candidate.fingerprint,
         revision_set_path=str(revision_path),
-        revision_set_fingerprint=accepted.fingerprint,
-        revision_set_id=accepted.revision_set_id,
-        task_id=accepted.task_id,
+        revision_set_fingerprint=revision.fingerprint,
+        revision_set_id=revision.revision_set_id,
+        task_id=revision.task_id,
         snapshot_id=candidate.snapshot_id,
         affected_owner_routes=tuple(sorted(ids_by_owner)),
+        missing_owner_routes=missing_owner_routes,
+        missing_path_quality_model_ids=revision.path_quality_blocked_model_ids,
         affected_id_count=len(closure.affected_ids),
+        status=("pass" if revision.status == "accepted" else "incomplete"),
     )
 
 

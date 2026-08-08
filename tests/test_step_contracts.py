@@ -10,8 +10,6 @@ from flowguard import (
     ProcessEvidence,
     RiskIntent,
     RiskProfile,
-    TemplateHarvestReview,
-    TemplateReuseReview,
     Trace,
     TraceStep,
     Workflow,
@@ -62,17 +60,8 @@ def formal_entry_kwargs():
                 adversarial_inputs=("claim done before inventory",),
                 hard_invariants=("required steps precede done claim",),
                 known_bad_cases=("done_without_inventory",),
-                template_no_match_reason="step contract unit test owns this local boundary",
                 blindspots=("production replay is covered by model-test alignment tests",),
             ),
-        ),
-        "template_reuse_review": TemplateReuseReview(
-            no_match_reason="step contract unit test owns this local boundary",
-            searched_layers=("public", "local"),
-        ),
-        "template_harvest_review": TemplateHarvestReview(
-            disposition="not_harvestable",
-            not_harvestable_reason="not_reusable_project_specific",
         ),
         "minimum_model_contract": MinimumModelContract(
             protected_error_classes=("premature_completion",),

@@ -41,7 +41,22 @@ class AuthorityCase:
     affected_closure_is_fixed_point: bool = True
     aggregate_evidence_complete: bool = True
     evidence_coverage_union_exact: bool = True
+    path_quality_changed_model_count: int = 1
+    path_quality_current_model_count: int = 1
+    path_quality_result_count: int = 1
+    path_quality_changed_members_covered: bool = True
+    path_quality_rows_belong_to_candidate_current_models: bool = True
+    path_quality_rows_share_candidate_snapshot: bool = True
+    path_quality_rows_exact_current_and_resolved: bool = True
+    whole_self_qualification_requested: bool = False
     revision_builder_receipt_exact_current: bool = True
+    revision_builder_native_owner_leaf_receipts_unique: bool = True
+    revision_builder_native_owner_model_map_complete: bool = True
+    revision_builder_full_parent_execution_bound: bool = True
+    revision_builder_native_owner_independently_verified: bool = True
+    revision_builder_one_frozen_child_observation: bool = True
+    revision_builder_final_identity_freshness_passed: bool = True
+    revision_builder_canonical_store_stable_through_publication: bool = True
     revision_builder_content_addressed_current: bool = True
     revision_builder_pointer_unchanged: bool = True
     expected_head_matches: bool = True
@@ -74,11 +89,46 @@ class AuthorityCase:
     semantic_completion_evidence_terminal_verified: bool = True
     target_provider_registry_exact_current: bool = True
     target_snapshot_exact_current: bool = True
+    target_provider_payload_matches_current_native_reports: bool = True
     broad_blueprint_claim_consumes_provider_lineage: bool = True
+    semantic_mesh_identity_derived_from_topology: bool = True
+    topology_runtime_evidence_exact_current: bool = True
+    affected_semantic_relation_closure_complete: bool = True
+    topology_root_sentinel_present: bool = True
+    topology_root_sentinel_unique: bool = True
+    topology_structural_parent_unique: bool = True
+    topology_cross_boundary_support_non_structural: bool = True
+    topology_parent_receipt_composition_only: bool = True
+    topology_child_receipt_coverage_exact: bool = True
+    topology_child_receipts_exact_current: bool = True
+    topology_child_receipts_owner_bound: bool = True
+    topology_child_receipts_distinct: bool = True
+    topology_feedback_relation_classification_complete: bool = True
+    topology_feedback_progress_contract_present: bool = True
+    topology_retry_progress_contract_present: bool = True
+    topology_repair_progress_contract_present: bool = True
+    topology_feedback_progress_contract_exact_current: bool = True
+    topology_feedback_progress_evidence_exact_current: bool = True
+    topology_currentness_independent_of_checked_in_declaration: bool = True
+    raw_manifest_route_has_no_blueprint_authority: bool = True
+    project_document_carries_intent_inventory: bool = True
+    canonical_export_preserves_all_blueprint_layers: bool = True
+    export_status_is_distinct_from_model_readiness: bool = True
     intent_inventory_exact_current: bool = True
+    intent_direct_source_fingerprints_exact_current: bool = True
+    intent_work_context_identity_exact_current: bool = True
+    intent_sources_stable_through_publication: bool = True
     intent_present_or_evidence_bound_no_intent: bool = True
     accepted_intent_effects_resolved: bool = True
     intent_conflicts_block_activation: bool = True
+    cumulative_intent_view_inside_current_revision: bool = True
+    prior_active_intent_transitions_complete: bool = True
+    intent_identity_changes_use_explicit_supersession: bool = True
+    active_intent_sources_all_reverified: bool = True
+    active_direct_intent_sources_bound_to_logical_owner_inputs: bool = True
+    current_model_owner_denominator_exact: bool = True
+    current_model_owner_bindings_exact: bool = True
+    legacy_intent_schema_has_no_current_fallback: bool = True
 
 
 @dataclass(frozen=True)
@@ -96,7 +146,22 @@ class AuthorityState:
     affected_closure_is_fixed_point: bool = False
     aggregate_evidence_complete: bool = False
     evidence_coverage_union_exact: bool = False
+    path_quality_changed_model_count: int = 0
+    path_quality_current_model_count: int = 0
+    path_quality_result_count: int = 0
+    path_quality_changed_members_covered: bool = False
+    path_quality_rows_belong_to_candidate_current_models: bool = False
+    path_quality_rows_share_candidate_snapshot: bool = False
+    path_quality_rows_exact_current_and_resolved: bool = False
+    whole_self_qualification_requested: bool = False
     revision_builder_receipt_exact_current: bool = False
+    revision_builder_native_owner_leaf_receipts_unique: bool = False
+    revision_builder_native_owner_model_map_complete: bool = False
+    revision_builder_full_parent_execution_bound: bool = False
+    revision_builder_native_owner_independently_verified: bool = False
+    revision_builder_one_frozen_child_observation: bool = False
+    revision_builder_final_identity_freshness_passed: bool = False
+    revision_builder_canonical_store_stable_through_publication: bool = False
     revision_builder_content_addressed_current: bool = False
     revision_builder_pointer_unchanged: bool = False
     expected_head_matches: bool = False
@@ -129,11 +194,46 @@ class AuthorityState:
     semantic_completion_evidence_terminal_verified: bool = False
     target_provider_registry_exact_current: bool = False
     target_snapshot_exact_current: bool = False
+    target_provider_payload_matches_current_native_reports: bool = False
     broad_blueprint_claim_consumes_provider_lineage: bool = False
+    semantic_mesh_identity_derived_from_topology: bool = False
+    topology_runtime_evidence_exact_current: bool = False
+    affected_semantic_relation_closure_complete: bool = False
+    topology_root_sentinel_present: bool = False
+    topology_root_sentinel_unique: bool = False
+    topology_structural_parent_unique: bool = False
+    topology_cross_boundary_support_non_structural: bool = False
+    topology_parent_receipt_composition_only: bool = False
+    topology_child_receipt_coverage_exact: bool = False
+    topology_child_receipts_exact_current: bool = False
+    topology_child_receipts_owner_bound: bool = False
+    topology_child_receipts_distinct: bool = False
+    topology_feedback_relation_classification_complete: bool = False
+    topology_feedback_progress_contract_present: bool = False
+    topology_retry_progress_contract_present: bool = False
+    topology_repair_progress_contract_present: bool = False
+    topology_feedback_progress_contract_exact_current: bool = False
+    topology_feedback_progress_evidence_exact_current: bool = False
+    topology_currentness_independent_of_checked_in_declaration: bool = False
+    raw_manifest_route_has_no_blueprint_authority: bool = False
+    project_document_carries_intent_inventory: bool = False
+    canonical_export_preserves_all_blueprint_layers: bool = False
+    export_status_is_distinct_from_model_readiness: bool = False
     intent_inventory_exact_current: bool = False
+    intent_direct_source_fingerprints_exact_current: bool = False
+    intent_work_context_identity_exact_current: bool = False
+    intent_sources_stable_through_publication: bool = False
     intent_present_or_evidence_bound_no_intent: bool = False
     accepted_intent_effects_resolved: bool = False
     intent_conflicts_block_activation: bool = False
+    cumulative_intent_view_inside_current_revision: bool = False
+    prior_active_intent_transitions_complete: bool = False
+    intent_identity_changes_use_explicit_supersession: bool = False
+    active_intent_sources_all_reverified: bool = False
+    active_direct_intent_sources_bound_to_logical_owner_inputs: bool = False
+    current_model_owner_denominator_exact: bool = False
+    current_model_owner_bindings_exact: bool = False
+    legacy_intent_schema_has_no_current_fallback: bool = False
 
 
 class EvaluateAuthorityRevision:
@@ -270,6 +370,63 @@ def revision_set_closes_as_one_unit(
     return _pass()
 
 
+def path_quality_denominators_are_distinct_and_current(
+    state: AuthorityState, _trace: object
+) -> InvariantResult:
+    if not state.case_name:
+        return _pass()
+    if state.path_quality_changed_model_count < 1:
+        return _fail(
+            "path_quality_denominators_are_distinct_and_current",
+            "the revision has no non-empty independently derived add-or-replace model denominator",
+        )
+    if state.path_quality_current_model_count < state.path_quality_changed_model_count:
+        return _fail(
+            "path_quality_denominators_are_distinct_and_current",
+            "the candidate current-model denominator is smaller than its changed-model denominator",
+        )
+    if not state.path_quality_changed_members_covered:
+        return _fail(
+            "path_quality_denominators_are_distinct_and_current",
+            "one or more added or replaced models lack a candidate path-quality row",
+        )
+    if state.path_quality_result_count < state.path_quality_changed_model_count:
+        return _fail(
+            "path_quality_denominators_are_distinct_and_current",
+            "path-quality results do not cover the complete minimum changed-model denominator",
+        )
+    if state.path_quality_result_count > state.path_quality_current_model_count:
+        return _fail(
+            "path_quality_denominators_are_distinct_and_current",
+            "path-quality results exceed the candidate current-model denominator",
+        )
+    if (
+        state.whole_self_qualification_requested
+        and state.path_quality_result_count
+        != state.path_quality_current_model_count
+    ):
+        return _fail(
+            "path_quality_denominators_are_distinct_and_current",
+            "whole-self qualification does not cover the complete current-model denominator",
+        )
+    if not state.path_quality_rows_belong_to_candidate_current_models:
+        return _fail(
+            "path_quality_denominators_are_distinct_and_current",
+            "a path-quality row names a foreign or non-current model outside the candidate denominator",
+        )
+    if not state.path_quality_rows_share_candidate_snapshot:
+        return _fail(
+            "path_quality_denominators_are_distinct_and_current",
+            "a path-quality row belongs to a different candidate snapshot",
+        )
+    if not state.path_quality_rows_exact_current_and_resolved:
+        return _fail(
+            "path_quality_denominators_are_distinct_and_current",
+            "a supplied path-quality row is stale, unvalidated, or unresolved",
+        )
+    return _pass()
+
+
 def revision_generation_is_current_and_pointer_free(
     state: AuthorityState, _trace: object
 ) -> InvariantResult:
@@ -279,6 +436,41 @@ def revision_generation_is_current_and_pointer_free(
         return _fail(
             "revision_generation_is_current_and_pointer_free",
             "revision generation accepted stale, scoped, incomplete, or foreign parent evidence",
+        )
+    if not state.revision_builder_native_owner_leaf_receipts_unique:
+        return _fail(
+            "revision_generation_is_current_and_pointer_free",
+            "revision generation copied one parent receipt into several native-owner evidence leaves",
+        )
+    if not state.revision_builder_native_owner_model_map_complete:
+        return _fail(
+            "revision_generation_is_current_and_pointer_free",
+            "an affected or candidate-reachable native owner route has no unique explicit semantic model binding",
+        )
+    if not state.revision_builder_full_parent_execution_bound:
+        return _fail(
+            "revision_generation_is_current_and_pointer_free",
+            "revision generation accepted a relabeled parent wrapper without a canonical full-selection composition receipt",
+        )
+    if not state.revision_builder_native_owner_independently_verified:
+        return _fail(
+            "revision_generation_is_current_and_pointer_free",
+            "revision generation trusted caller-declared native-owner verification instead of reloading the canonical receipt and deriving current verification",
+        )
+    if not state.revision_builder_one_frozen_child_observation:
+        return _fail(
+            "revision_generation_is_current_and_pointer_free",
+            "revision generation rebuilt the same complete model-child closure independently for each native owner",
+        )
+    if not state.revision_builder_final_identity_freshness_passed:
+        return _fail(
+            "revision_generation_is_current_and_pointer_free",
+            "revision generation omitted or failed its final source, environment, parent, child, and aggregate identity comparison",
+        )
+    if not state.revision_builder_canonical_store_stable_through_publication:
+        return _fail(
+            "revision_generation_is_current_and_pointer_free",
+            "revision generation retained an in-memory pass after canonical aggregate or child evidence disappeared",
         )
     if not state.revision_builder_content_addressed_current:
         return _fail(
@@ -466,10 +658,138 @@ def whole_system_understanding_is_semantic_and_current(
             "whole_system_understanding_is_semantic_and_current",
             "target-system descriptor and provider results do not match one current snapshot",
         )
+    if not state.target_provider_payload_matches_current_native_reports:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "frozen provider payloads differ from the current native project reports",
+        )
     if not state.broad_blueprint_claim_consumes_provider_lineage:
         return _fail(
             "whole_system_understanding_is_semantic_and_current",
             "a broad static-blueprint claim omits its provider registry or snapshot lineage",
+        )
+    if not state.semantic_mesh_identity_derived_from_topology:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "semantic mesh identity is caller-declared instead of derived from the reviewed topology",
+        )
+    if not state.topology_runtime_evidence_exact_current:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "topology consumes missing, stale, foreign, or cross-revision runtime evidence",
+        )
+    if not state.affected_semantic_relation_closure_complete:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "affected understanding omits a producer, consumer, delegation, or support dependency",
+        )
+    if not state.raw_manifest_route_has_no_blueprint_authority:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "a raw manifest/current-label comparison remains an alternate blueprint authority",
+        )
+    if not state.project_document_carries_intent_inventory:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "the strict project document omits the intent inventory used by readiness",
+        )
+    if not state.canonical_export_preserves_all_blueprint_layers:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "the portable project export omits a canonical blueprint layer",
+        )
+    if not state.export_status_is_distinct_from_model_readiness:
+        return _fail(
+            "whole_system_understanding_is_semantic_and_current",
+            "successful materialization is being reported as complete model understanding",
+        )
+    return _pass()
+
+
+def topology_authority_is_typed_current_and_independently_evidenced(
+    state: AuthorityState, _trace: object
+) -> InvariantResult:
+    if not state.case_name:
+        return _pass()
+    if not state.topology_root_sentinel_present:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "the authoritative topology has no node that declares the root sentinel",
+        )
+    if not state.topology_root_sentinel_unique:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "more than one authoritative topology node declares the root sentinel",
+        )
+    if not state.topology_structural_parent_unique:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "one child model has more than one structural parent",
+        )
+    if not state.topology_cross_boundary_support_non_structural:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "cross-boundary support is being counted as another structural parent",
+        )
+    if not state.topology_parent_receipt_composition_only:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "a full parent receipt is being promoted from composition evidence to child evidence",
+        )
+    if not state.topology_child_receipt_coverage_exact:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "the current declared child-model set is not covered exactly by child receipts",
+        )
+    if not state.topology_child_receipts_exact_current:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "a child evidence slot contains missing, stale, scoped, foreign-revision, or non-terminal evidence",
+        )
+    if not state.topology_child_receipts_owner_bound:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "a child receipt does not bind its exact child model and execution owner",
+        )
+    if not state.topology_child_receipts_distinct:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "one receipt identity is reused by more than one child-model evidence slot",
+        )
+    if not state.topology_feedback_relation_classification_complete:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "feedback, retry, and repair relations are not completely classified into the bounded feedback graph",
+        )
+    if not state.topology_feedback_progress_contract_present:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "an explicit feedback SCC has no finite progress contract",
+        )
+    if not state.topology_retry_progress_contract_present:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "a retry SCC has no finite progress contract",
+        )
+    if not state.topology_repair_progress_contract_present:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "a repair SCC has no finite progress contract",
+        )
+    if not state.topology_feedback_progress_contract_exact_current:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "a typed feedback, retry, or repair SCC uses a stale, foreign, or cross-revision progress contract",
+        )
+    if not state.topology_feedback_progress_evidence_exact_current:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "a typed feedback, retry, or repair SCC has missing, stale, foreign, or progress-only progress evidence",
+        )
+    if not state.topology_currentness_independent_of_checked_in_declaration:
+        return _fail(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "a checked-in semantic declaration is being accepted as proof of its own child or progress currentness",
         )
     return _pass()
 
@@ -483,6 +803,21 @@ def revision_intent_lineage_is_exact_and_resolved(
         return _fail(
             "revision_intent_lineage_is_exact_and_resolved",
             "revision lineage omits or accepts stale declared intent contributions",
+        )
+    if not state.intent_direct_source_fingerprints_exact_current:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "a direct project intent source no longer matches its frozen canonical fingerprint",
+        )
+    if not state.intent_work_context_identity_exact_current:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "a WorkContext intent source does not match its declared current context, native owner, source reference, and artifact identity",
+        )
+    if not state.intent_sources_stable_through_publication:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "an intent source identity changed after the revision build froze it and before publication",
         )
     if not state.intent_present_or_evidence_bound_no_intent:
         return _fail(
@@ -498,6 +833,46 @@ def revision_intent_lineage_is_exact_and_resolved(
         return _fail(
             "revision_intent_lineage_is_exact_and_resolved",
             "conflicting accepted intent contributions do not block activation",
+        )
+    if not state.cumulative_intent_view_inside_current_revision:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "the latest revision delta is being treated as whole-system current intent or a second current-intent pointer exists",
+        )
+    if not state.prior_active_intent_transitions_complete:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "a prior active intent contribution disappeared without an explicit retain, supersede, or retire transition",
+        )
+    if not state.intent_identity_changes_use_explicit_supersession:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "a contribution id changed content through implicit last-write-wins instead of a new id and exact supersession",
+        )
+    if not state.active_intent_sources_all_reverified:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "revision construction reverified only the new delta and left a stale active cumulative intent source",
+        )
+    if not state.active_direct_intent_sources_bound_to_logical_owner_inputs:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "an active direct intent source is detached from its exact logical owner model input identity",
+        )
+    if not state.current_model_owner_denominator_exact:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "intent contributions or bindings shrank or invented the independently derived current model-owner denominator",
+        )
+    if not state.current_model_owner_bindings_exact:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "a current model owner lacks one exact effective intent and model-realizes-purpose binding or uses a root fallback",
+        )
+    if not state.legacy_intent_schema_has_no_current_fallback:
+        return _fail(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "normal current authority fell back to a legacy revision or reconstructed cumulative intent from historical deltas",
         )
     return _pass()
 
@@ -557,6 +932,11 @@ INVARIANTS = (
         revision_set_closes_as_one_unit,
     ),
     Invariant(
+        "path_quality_denominators_are_distinct_and_current",
+        "Added or replaced models form the ordinary minimum path-quality denominator; an explicit whole-self qualification requires the complete current-model denominator while an ordinary exact-current candidate may carry any verified subset through that boundary.",
+        path_quality_denominators_are_distinct_and_current,
+    ),
+    Invariant(
         "revision_generation_is_current_and_pointer_free",
         "Revision generation consumes exact-current evidence and cannot activate authority.",
         revision_generation_is_current_and_pointer_free,
@@ -595,6 +975,11 @@ INVARIANTS = (
         "whole_system_understanding_is_semantic_and_current",
         "Whole-system understanding requires the exact universe, semantic dispositions and relations, derivation identity, and current terminal evidence.",
         whole_system_understanding_is_semantic_and_current,
+    ),
+    Invariant(
+        "topology_authority_is_typed_current_and_independently_evidenced",
+        "Topology authority has exactly one root sentinel, one structural parent per child, complete feedback relation classification, exact independent child receipts, and current feedback, retry, and repair progress evidence.",
+        topology_authority_is_typed_current_and_independently_evidenced,
     ),
     Invariant(
         "revision_intent_lineage_is_exact_and_resolved",
@@ -654,6 +1039,110 @@ SCENARIOS = (
         _expect_ok("complete model-system transaction passes"),
     ),
     _scenario(
+        "incremental_revision_may_carry_complete_current_path_quality_dna",
+        "An incremental revision with five added or replaced models may carry exact-current path-quality rows for all 51 models in the same candidate snapshot; the minimum changed denominator is not an exact result-set ceiling.",
+        AuthorityCase(
+            "complete_authority_transaction",
+            path_quality_changed_model_count=5,
+            path_quality_current_model_count=51,
+            path_quality_result_count=51,
+        ),
+        _expect_ok("complete current path-quality DNA is accepted for an incremental revision"),
+    ),
+    _scenario(
+        "whole_self_qualification_requires_complete_current_path_quality_dna",
+        "When the caller explicitly requests whole-self qualification, all 51 current models must carry exact-current path-quality rows under the same candidate snapshot.",
+        AuthorityCase(
+            "complete_authority_transaction",
+            path_quality_changed_model_count=1,
+            path_quality_current_model_count=51,
+            path_quality_result_count=51,
+            whole_self_qualification_requested=True,
+        ),
+        _expect_ok("complete current path-quality DNA closes whole-self qualification"),
+    ),
+    _scenario(
+        "whole_self_qualification_rejects_affected_only_path_quality",
+        "Changed-model coverage is sufficient for an ordinary revision but cannot stand in for the complete denominator when whole-self qualification is explicitly requested.",
+        AuthorityCase(
+            "whole_self_qualification_partial_path_quality",
+            path_quality_changed_model_count=1,
+            path_quality_current_model_count=51,
+            path_quality_result_count=1,
+            whole_self_qualification_requested=True,
+        ),
+        _expect_violation(
+            "path_quality_denominators_are_distinct_and_current",
+            "affected-only path quality cannot close whole-self qualification",
+        ),
+    ),
+    _scenario(
+        "every_changed_model_requires_path_quality_coverage",
+        "The independently derived add-or-replace denominator remains the non-negotiable minimum even when optional unchanged current-model rows are allowed.",
+        AuthorityCase(
+            "changed_model_missing_path_quality_row",
+            path_quality_changed_model_count=5,
+            path_quality_current_model_count=51,
+            path_quality_result_count=50,
+            path_quality_changed_members_covered=False,
+        ),
+        _expect_violation(
+            "path_quality_denominators_are_distinct_and_current",
+            "missing changed-model path-quality row is rejected",
+        ),
+    ),
+    _scenario(
+        "foreign_extra_path_quality_row_blocks_revision",
+        "A result beyond the minimum changed denominator cannot enter the candidate merely because every changed model is already covered.",
+        AuthorityCase(
+            "foreign_extra_path_quality_row",
+            path_quality_changed_model_count=5,
+            path_quality_current_model_count=51,
+            path_quality_result_count=51,
+            path_quality_rows_belong_to_candidate_current_models=False,
+        ),
+        _expect_violation(
+            "path_quality_denominators_are_distinct_and_current",
+            "foreign extra path-quality row is rejected",
+        ),
+    ),
+    _scenario(
+        "stale_or_unresolved_extra_path_quality_row_blocks_revision",
+        "Every supplied row, including a current-DNA row beyond the minimum changed denominator, must remain validated, resolved, and current to the same candidate snapshot.",
+        AuthorityCase(
+            "stale_or_unresolved_extra_path_quality_row",
+            path_quality_changed_model_count=5,
+            path_quality_current_model_count=51,
+            path_quality_result_count=51,
+            path_quality_rows_exact_current_and_resolved=False,
+        ),
+        _expect_violation(
+            "path_quality_denominators_are_distinct_and_current",
+            "stale or unresolved extra path-quality row is rejected",
+        ),
+    ),
+    _scenario(
+        "cross_snapshot_extra_path_quality_row_blocks_revision",
+        "Every optional current-DNA row must be frozen under the same candidate snapshot as the changed-model rows.",
+        AuthorityCase(
+            "cross_snapshot_extra_path_quality_row",
+            path_quality_changed_model_count=5,
+            path_quality_current_model_count=51,
+            path_quality_result_count=51,
+            path_quality_rows_share_candidate_snapshot=False,
+        ),
+        _expect_violation(
+            "path_quality_denominators_are_distinct_and_current",
+            "cross-snapshot extra path-quality row is rejected",
+        ),
+    ),
+    _scenario(
+        "current_typed_topology_evidence_passes",
+        "One root sentinel, one structural parent per declared child, complete feedback classification, one distinct owner-bound receipt per declared child, and current feedback, retry, and repair progress evidence pass together.",
+        AuthorityCase("complete_authority_transaction"),
+        _expect_ok("typed current topology evidence passes"),
+    ),
+    _scenario(
         "target_cannot_be_current_by_label",
         "A mutable current label cannot make a target authoritative.",
         AuthorityCase(
@@ -675,6 +1164,42 @@ SCENARIOS = (
         _expect_violation(
             "revision_intent_lineage_is_exact_and_resolved",
             "stale intent inventory is rejected",
+        ),
+    ),
+    _scenario(
+        "direct_intent_source_fingerprint_must_be_current",
+        "A direct project intent file must still match the exact canonical fingerprint frozen by its contribution.",
+        AuthorityCase(
+            "direct_intent_source_fingerprint_stale",
+            intent_direct_source_fingerprints_exact_current=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "stale direct intent-source fingerprint is rejected",
+        ),
+    ),
+    _scenario(
+        "work_context_intent_source_requires_exact_current_identity",
+        "A WorkContext-backed intent contribution must match the current declared context, native owner, source reference, and artifact fingerprint.",
+        AuthorityCase(
+            "work_context_intent_source_identity_mismatch",
+            intent_work_context_identity_exact_current=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "mismatched WorkContext intent-source identity is rejected",
+        ),
+    ),
+    _scenario(
+        "intent_source_cannot_change_during_revision_build",
+        "Every frozen direct-file or WorkContext intent source is rechecked and must retain the same identity through revision publication.",
+        AuthorityCase(
+            "intent_source_changes_during_revision_build",
+            intent_sources_stable_through_publication=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "intent-source drift during revision build is rejected",
         ),
     ),
     _scenario(
@@ -714,6 +1239,102 @@ SCENARIOS = (
         ),
     ),
     _scenario(
+        "latest_delta_cannot_stand_for_whole_system_intent",
+        "The accepted revision owns one cumulative current-intent view in addition to its revision-local delta.",
+        AuthorityCase(
+            "latest_delta_used_as_current_intent",
+            cumulative_intent_view_inside_current_revision=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "latest-delta-as-current intent is rejected",
+        ),
+    ),
+    _scenario(
+        "every_prior_active_intent_needs_one_transition",
+        "A prior active contribution cannot vanish while the current view is folded.",
+        AuthorityCase(
+            "prior_active_intent_silently_dropped",
+            prior_active_intent_transitions_complete=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "missing cumulative intent transition is rejected",
+        ),
+    ),
+    _scenario(
+        "changed_contribution_identity_requires_supersession",
+        "Reusing one contribution id with different content cannot create implicit last-write-wins authority.",
+        AuthorityCase(
+            "same_intent_id_changed_fingerprint",
+            intent_identity_changes_use_explicit_supersession=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "silent contribution replacement is rejected",
+        ),
+    ),
+    _scenario(
+        "all_active_intent_sources_are_reverified",
+        "Revision construction rechecks every cumulative active source, not only the current delta.",
+        AuthorityCase(
+            "unchanged_active_intent_source_is_stale",
+            active_intent_sources_all_reverified=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "stale cumulative intent source is rejected",
+        ),
+    ),
+    _scenario(
+        "active_direct_intent_source_requires_owner_model_input",
+        "A current direct-file intent source must participate in its exact logical owner model identity.",
+        AuthorityCase(
+            "active_intent_source_missing_from_logical_owner_inputs",
+            active_direct_intent_sources_bound_to_logical_owner_inputs=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "detached intent source owner input is rejected",
+        ),
+    ),
+    _scenario(
+        "model_owner_denominator_is_independently_complete",
+        "The candidate snapshot independently supplies every and only current model owner required by intent coverage.",
+        AuthorityCase(
+            "intent_view_shrinks_model_owner_denominator",
+            current_model_owner_denominator_exact=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "shrunk model-owner denominator is rejected",
+        ),
+    ),
+    _scenario(
+        "every_model_owner_has_one_exact_effective_binding",
+        "Each current owner binds active intent through its exact realization relation without a root fallback.",
+        AuthorityCase(
+            "model_owner_uses_root_intent_fallback",
+            current_model_owner_bindings_exact=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "missing or fallback model-owner binding is rejected",
+        ),
+    ),
+    _scenario(
+        "legacy_intent_revision_is_not_a_current_fallback",
+        "After direct migration, normal authority loading accepts only the current cumulative-intent schema.",
+        AuthorityCase(
+            "legacy_revision_read_as_current_intent",
+            legacy_intent_schema_has_no_current_fallback=False,
+        ),
+        _expect_violation(
+            "revision_intent_lineage_is_exact_and_resolved",
+            "legacy current-intent fallback is rejected",
+        ),
+    ),
+    _scenario(
         "candidate_isolation_required",
         "Experiment construction cannot mutate the observed head.",
         AuthorityCase("candidate_mutates_observed", candidate_isolated=False),
@@ -732,6 +1353,90 @@ SCENARIOS = (
         _expect_violation(
             "revision_generation_is_current_and_pointer_free",
             "stale revision-build evidence is rejected",
+        ),
+    ),
+    _scenario(
+        "revision_builder_requires_one_exact_leaf_receipt_per_native_owner",
+        "Each affected native owner must bind its own exact-current leaf receipt; the parent composition receipt proves only the complete parent run.",
+        AuthorityCase(
+            "revision_builder_copies_parent_receipt_into_owner_leaves",
+            revision_builder_native_owner_leaf_receipts_unique=False,
+        ),
+        _expect_violation(
+            "revision_generation_is_current_and_pointer_free",
+            "parent receipt reuse across native owners is rejected",
+        ),
+    ),
+    _scenario(
+        "revision_builder_requires_one_explicit_model_binding_per_native_owner_route",
+        "A green full parent cannot close an affected native owner whose route has no explicit semantic model binding.",
+        AuthorityCase(
+            "revision_builder_missing_native_owner_model_binding",
+            revision_builder_native_owner_model_map_complete=False,
+        ),
+        _expect_violation(
+            "revision_generation_is_current_and_pointer_free",
+            "missing native-owner semantic model binding is rejected",
+        ),
+    ),
+    _scenario(
+        "revision_builder_rejects_relabeled_scoped_parent",
+        "A scoped run cannot become full evidence by rewriting and rehashing its parent wrapper.",
+        AuthorityCase(
+            "revision_builder_accepts_relabeled_scoped_parent",
+            revision_builder_full_parent_execution_bound=False,
+        ),
+        _expect_violation(
+            "revision_generation_is_current_and_pointer_free",
+            "relabeled scoped parent is rejected",
+        ),
+    ),
+    _scenario(
+        "revision_builder_rejects_caller_forged_native_owner_verification",
+        "A caller cannot make native-owner evidence current by relabeling a receipt or self-reporting a passing verification.",
+        AuthorityCase(
+            "revision_builder_trusts_caller_native_owner_verification",
+            revision_builder_native_owner_independently_verified=False,
+        ),
+        _expect_violation(
+            "revision_generation_is_current_and_pointer_free",
+            "caller-forged native-owner verification is rejected",
+        ),
+    ),
+    _scenario(
+        "revision_builder_rejects_repeated_complete_child_collection",
+        "All affected native owners must derive their distinct subsets from one frozen, independently verified model-child observation.",
+        AuthorityCase(
+            "revision_builder_rebuilds_complete_child_closure_per_owner",
+            revision_builder_one_frozen_child_observation=False,
+        ),
+        _expect_violation(
+            "revision_generation_is_current_and_pointer_free",
+            "repeated complete child-closure collection is rejected",
+        ),
+    ),
+    _scenario(
+        "revision_builder_requires_final_identity_freshness",
+        "A frozen verified bundle cannot support publication until one fresh identity comparison proves its source, environment, parent, children, and aggregates unchanged.",
+        AuthorityCase(
+            "revision_builder_omits_final_identity_freshness",
+            revision_builder_final_identity_freshness_passed=False,
+        ),
+        _expect_violation(
+            "revision_generation_is_current_and_pointer_free",
+            "missing final identity freshness is rejected",
+        ),
+    ),
+    _scenario(
+        "revision_builder_rejects_canonical_receipt_disappearance",
+        "Aggregate and mapped child receipts must remain exact-current in the canonical store through revision publication.",
+        AuthorityCase(
+            "revision_builder_uses_deleted_canonical_owner_evidence",
+            revision_builder_canonical_store_stable_through_publication=False,
+        ),
+        _expect_violation(
+            "revision_generation_is_current_and_pointer_free",
+            "canonical receipt disappearance is rejected",
         ),
     ),
     _scenario(
@@ -1039,6 +1744,294 @@ SCENARIOS = (
         _expect_violation(
             "whole_system_understanding_is_semantic_and_current",
             "provider-lineage-free broad claim is rejected",
+        ),
+    ),
+    _scenario(
+        "internally_consistent_provider_payload_cannot_replace_current_native_report",
+        "A freshly refrozen provider bundle must still match every current native project report.",
+        AuthorityCase(
+            "counterfeit_provider_payload",
+            target_provider_payload_matches_current_native_reports=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "provider payload divergence is rejected",
+        ),
+    ),
+    _scenario(
+        "semantic_mesh_fingerprint_must_be_derived_from_reviewed_topology",
+        "A caller-selected mesh fingerprint cannot identify unchanged reviewed topology.",
+        AuthorityCase(
+            "counterfeit_semantic_mesh_fingerprint",
+            semantic_mesh_identity_derived_from_topology=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "caller-selected semantic mesh identity is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_cannot_consume_ghost_runtime_evidence",
+        "Matching evidence labels in child, relation, and reattachment remain invalid without a current owner-bound artifact.",
+        AuthorityCase(
+            "ghost_topology_runtime_evidence",
+            topology_runtime_evidence_exact_current=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "ghost topology evidence is rejected",
+        ),
+    ),
+    _scenario(
+        "affected_reader_must_follow_every_semantic_dependency",
+        "A changed producer, delegate, or support owner must invalidate its exact semantic dependants.",
+        AuthorityCase(
+            "affected_reader_omits_non_parent_dependency",
+            affected_semantic_relation_closure_complete=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "incomplete semantic affected closure is rejected",
+        ),
+    ),
+    _scenario(
+        "raw_manifest_cannot_self_certify_semantic_mesh",
+        "A caller cannot repeat one arbitrary mesh fingerprint across manifest and command input to obtain blueprint authority.",
+        AuthorityCase(
+            "raw_manifest_self_certifies_mesh",
+            raw_manifest_route_has_no_blueprint_authority=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "alternate raw-manifest authority is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_requires_one_root_sentinel",
+        "A topology with zero root-sentinel nodes is rejected by the same topology-authority invariant as a duplicate root.",
+        AuthorityCase(
+            "topology_missing_root_sentinel",
+            topology_root_sentinel_present=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "a missing root sentinel is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_rejects_two_root_sentinels",
+        "A topology with two root-sentinel nodes is rejected by the same topology-authority invariant as a missing root.",
+        AuthorityCase(
+            "topology_duplicates_root_sentinel",
+            topology_root_sentinel_unique=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "a duplicate root sentinel is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_rejects_second_structural_parent",
+        "A child model has exactly one structural parent in the authoritative topology.",
+        AuthorityCase(
+            "topology_has_second_structural_parent",
+            topology_structural_parent_unique=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "a second structural parent is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_keeps_cross_boundary_support_non_structural",
+        "A support relationship may cross boundaries without becoming a second structural parent.",
+        AuthorityCase(
+            "topology_promotes_cross_boundary_support_to_parent",
+            topology_cross_boundary_support_non_structural=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "cross-boundary support promoted to parent is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_parent_receipt_proves_only_composition",
+        "The full parent receipt proves only the exact declared-child composition and cannot fill any child evidence slot.",
+        AuthorityCase(
+            "topology_copies_parent_receipt_into_child_slots",
+            topology_parent_receipt_composition_only=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "parent receipt promotion to child evidence is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_requires_exact_child_receipt_coverage",
+        "Every declared child model has one current receipt and no foreign child receipt is added.",
+        AuthorityCase(
+            "topology_omits_one_declared_child_receipt",
+            topology_child_receipt_coverage_exact=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "incomplete child receipt coverage is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_rejects_stale_child_receipt",
+        "Every child receipt must be exact-current for the governed snapshot and execution.",
+        AuthorityCase(
+            "topology_uses_stale_child_receipt",
+            topology_child_receipts_exact_current=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "stale child receipt is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_rejects_foreign_owner_child_receipt",
+        "Each child receipt binds the exact child model and its execution owner.",
+        AuthorityCase(
+            "topology_uses_foreign_owner_child_receipt",
+            topology_child_receipts_owner_bound=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "foreign-owner child receipt is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_rejects_duplicate_child_receipt_identity",
+        "Distinct child models cannot share one projected receipt identity.",
+        AuthorityCase(
+            "topology_duplicates_child_receipt_identity",
+            topology_child_receipts_distinct=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "duplicate child receipt identity is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_feedback_relation_classification_must_be_complete",
+        "Feedback, retry, and repair relation kinds must all be classified into the bounded feedback graph.",
+        AuthorityCase(
+            "topology_feedback_relation_classification_incomplete",
+            topology_feedback_relation_classification_complete=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "incomplete feedback relation classification is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_feedback_loop_requires_progress_contract",
+        "Every explicit feedback SCC has an explicit finite-progress contract.",
+        AuthorityCase(
+            "topology_feedback_loop_has_no_progress_contract",
+            topology_feedback_progress_contract_present=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "missing feedback progress contract is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_retry_loop_requires_progress_contract",
+        "Every retry SCC has an explicit finite-progress contract.",
+        AuthorityCase(
+            "topology_retry_loop_has_no_progress_contract",
+            topology_retry_progress_contract_present=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "missing retry progress contract is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_repair_loop_requires_progress_contract",
+        "Every repair SCC has an explicit finite-progress contract.",
+        AuthorityCase(
+            "topology_repair_loop_has_no_progress_contract",
+            topology_repair_progress_contract_present=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "missing repair progress contract is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_feedback_loop_requires_current_progress_evidence",
+        "A feedback, retry, or repair contract remains unproved when its progress evidence is missing or stale.",
+        AuthorityCase(
+            "topology_feedback_loop_uses_stale_progress_evidence",
+            topology_feedback_progress_evidence_exact_current=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "stale feedback progress evidence is rejected",
+        ),
+    ),
+    _scenario(
+        "topology_feedback_loop_rejects_stale_progress_contract",
+        "A progress contract from another semantic-topology revision cannot license a current feedback, retry, or repair SCC.",
+        AuthorityCase(
+            "topology_feedback_loop_uses_stale_progress_contract",
+            topology_feedback_progress_contract_exact_current=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "stale feedback progress contract is rejected",
+        ),
+    ),
+    _scenario(
+        "checked_in_semantic_declaration_cannot_self_certify_topology_currentness",
+        "The semantic declaration describes child and feedback relationships but needs independently produced current evidence.",
+        AuthorityCase(
+            "checked_in_declaration_self_certifies_topology_currentness",
+            topology_currentness_independent_of_checked_in_declaration=False,
+        ),
+        _expect_violation(
+            "topology_authority_is_typed_current_and_independently_evidenced",
+            "self-certified topology currentness is rejected",
+        ),
+    ),
+    _scenario(
+        "project_document_must_carry_its_intent_authority",
+        "A portable project document carries the exact intent inventory consumed by behavior and readiness review.",
+        AuthorityCase(
+            "intent_supplied_only_outside_project_document",
+            project_document_carries_intent_inventory=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "intent authority cannot live in an optional side argument",
+        ),
+    ),
+    _scenario(
+        "portable_export_preserves_every_blueprint_layer",
+        "A canonical export carries provider evidence, behavior, topology, code and test bindings, resources, intent, indexes, and readiness.",
+        AuthorityCase(
+            "portable_export_omits_one_layer",
+            canonical_export_preserves_all_blueprint_layers=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "partial projection cannot claim portable blueprint identity",
+        ),
+    ),
+    _scenario(
+        "export_completion_does_not_promote_model_depth",
+        "A deterministic export can preserve a growing model while its readiness gaps remain visible.",
+        AuthorityCase(
+            "export_success_promotes_model_readiness",
+            export_status_is_distinct_from_model_readiness=False,
+        ),
+        _expect_violation(
+            "whole_system_understanding_is_semantic_and_current",
+            "materialization status cannot replace readiness status",
         ),
     ),
     _scenario(

@@ -9,6 +9,8 @@ accept them into a candidate revision.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import stat
 from typing import Any, Iterable
 
 from .model_authority import (
@@ -23,6 +25,7 @@ from .model_authority import (
     _text,
     canonical_fingerprint,
 )
+from .source_identity import source_file_fingerprint
 
 
 MODEL_INTENT_CONTRIBUTION_SCHEMA = "flowguard.model_intent_contribution.v1"
@@ -31,6 +34,9 @@ MODEL_INTENT_MAPPING_SCHEMA = "flowguard.work_context_intent_mapping.v1"
 MODEL_INTENT_FINDING_SCHEMA = "flowguard.model_intent_finding.v1"
 MODEL_INTENT_REVIEW_SCHEMA = "flowguard.model_intent_review.v1"
 MODEL_INTENT_INVENTORY_SCHEMA = "flowguard.model_intent_inventory.v1"
+MODEL_INTENT_SOURCE_IDENTITY_SCHEMA = (
+    "flowguard.model_intent_source_identity.v1"
+)
 
 MODEL_INTENT_SOURCE_KINDS = frozenset(
     {
@@ -84,6 +90,302 @@ def _optional_id(value: Any, field_name: str) -> str:
 def _optional_sha(value: Any, field_name: str) -> str:
     text = str(value or "").strip()
     return _sha(text, field_name) if text else ""
+
+
+@dataclass(frozen=True)
+class ModelIntentSourceIdentity:
+    """One exact-current source identity frozen for revision construction.
+
+    Direct project files and WorkContext artifacts deliberately remain
+    different authority kinds.  The former use FlowGuard's canonical source
+    fingerprint; the latter retain the provider-neutral artifact fingerprint
+    plus the complete current WorkContext lineage that produced it.
+    """
+
+    contribution_id: str
+    authority_kind: str
+    source_ref: str
+    source_fingerprint: str
+    resolved_project_ref: str = ""
+    work_context_id: str = ""
+    work_context_fingerprint: str = ""
+    native_owner_id: str = ""
+    work_context_artifact_id: str = ""
+    schema: str = MODEL_INTENT_SOURCE_IDENTITY_SCHEMA
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "contribution_id",
+            _id(self.contribution_id, "contribution_id"),
+        )
+        if self.authority_kind not in {"project_file", "work_context"}:
+            raise ModelAuthorityError(
+                "intent source authority kind must be project_file or work_context"
+            )
+        object.__setattr__(self, "source_ref", _text(self.source_ref, "source_ref"))
+        object.__setattr__(
+            self,
+            "source_fingerprint",
+            _sha(self.source_fingerprint, "source_fingerprint"),
+        )
+        for name in (
+            "resolved_project_ref",
+            "work_context_id",
+            "work_context_fingerprint",
+            "native_owner_id",
+            "work_context_artifact_id",
+        ):
+            object.__setattr__(self, name, str(getattr(self, name) or ""))
+        if self.authority_kind == "project_file":
+            if not self.resolved_project_ref or any(
+                (
+                    self.work_context_id,
+                    self.work_context_fingerprint,
+                    self.native_owner_id,
+                    self.work_context_artifact_id,
+                )
+            ):
+                raise ModelAuthorityError(
+                    "project-file intent identity must bind only one resolved project ref"
+                )
+        else:
+            if self.resolved_project_ref or not all(
+                (
+                    self.work_context_id,
+                    self.work_context_fingerprint,
+                    self.native_owner_id,
+                    self.work_context_artifact_id,
+                )
+            ):
+                raise ModelAuthorityError(
+                    "WorkContext intent identity requires exact context, owner, and artifact"
+                )
+            object.__setattr__(
+                self,
+                "work_context_fingerprint",
+                _sha(
+                    self.work_context_fingerprint,
+                    "work_context_fingerprint",
+                ),
+            )
+        if self.schema != MODEL_INTENT_SOURCE_IDENTITY_SCHEMA:
+            raise ModelAuthorityError(
+                "intent source identity schema must be "
+                f"{MODEL_INTENT_SOURCE_IDENTITY_SCHEMA}"
+            )
+
+    def identity_payload(self) -> dict[str, str]:
+        return {
+            "schema": self.schema,
+            "contribution_id": self.contribution_id,
+            "authority_kind": self.authority_kind,
+            "source_ref": self.source_ref,
+            "source_fingerprint": self.source_fingerprint,
+            "resolved_project_ref": self.resolved_project_ref,
+            "work_context_id": self.work_context_id,
+            "work_context_fingerprint": self.work_context_fingerprint,
+            "native_owner_id": self.native_owner_id,
+            "work_context_artifact_id": self.work_context_artifact_id,
+        }
+
+    @property
+    def fingerprint(self) -> str:
+        return canonical_fingerprint(self.identity_payload())
+
+    def to_dict(self) -> dict[str, str]:
+        return {**self.identity_payload(), "fingerprint": self.fingerprint}
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "ModelIntentSourceIdentity":
+        data = _strict(
+            value,
+            "model_intent_source_identity",
+            (
+                "schema",
+                "contribution_id",
+                "authority_kind",
+                "source_ref",
+                "source_fingerprint",
+                "resolved_project_ref",
+                "work_context_id",
+                "work_context_fingerprint",
+                "native_owner_id",
+                "work_context_artifact_id",
+                "fingerprint",
+            ),
+        )
+        result = cls(
+            contribution_id=data["contribution_id"],
+            authority_kind=data["authority_kind"],
+            source_ref=data["source_ref"],
+            source_fingerprint=data["source_fingerprint"],
+            resolved_project_ref=data["resolved_project_ref"],
+            work_context_id=data["work_context_id"],
+            work_context_fingerprint=data["work_context_fingerprint"],
+            native_owner_id=data["native_owner_id"],
+            work_context_artifact_id=data["work_context_artifact_id"],
+            schema=data["schema"],
+        )
+        if data["fingerprint"] != result.fingerprint:
+            raise ModelAuthorityError("stale intent source identity fingerprint")
+        return result
+
+
+def _resolved_project_source(
+    root: Path,
+    contribution: "ModelIntentContribution",
+) -> tuple[Path, str]:
+    reference = Path(contribution.source_ref)
+    if reference.is_absolute() or reference.drive:
+        raise ModelAuthorityError(
+            "intent source must be a relative project path: "
+            f"{contribution.contribution_id}"
+        )
+    try:
+        lexical = root.joinpath(reference)
+        resolved = lexical.resolve(strict=True)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ModelAuthorityError(
+            "intent source is missing or cannot be resolved: "
+            f"{contribution.contribution_id}: {contribution.source_ref}"
+        ) from exc
+    if resolved != root and root not in resolved.parents:
+        raise ModelAuthorityError(
+            "intent source escapes project root or reaches an external link: "
+            f"{contribution.contribution_id}: {contribution.source_ref}"
+        )
+    try:
+        source_stat = resolved.stat()
+    except OSError as exc:
+        raise ModelAuthorityError(
+            "intent source cannot be inspected: "
+            f"{contribution.contribution_id}: {contribution.source_ref}"
+        ) from exc
+    if not stat.S_ISREG(source_stat.st_mode):
+        raise ModelAuthorityError(
+            "intent source is not a regular file: "
+            f"{contribution.contribution_id}: {contribution.source_ref}"
+        )
+    return resolved, resolved.relative_to(root).as_posix()
+
+
+def verify_model_intent_sources(
+    root: str | Path,
+    contributions: Iterable["ModelIntentContribution"],
+) -> tuple[ModelIntentSourceIdentity, ...]:
+    """Re-resolve every contribution against its current source authority.
+
+    The returned immutable rows are suitable for a build-time freeze and an
+    exact pre-publication comparison.  This function never refreshes a stale
+    contribution, guesses another path, or treats provider status as evidence.
+    """
+
+    root_path = Path(root).expanduser().resolve()
+    if not root_path.is_dir():
+        raise ModelAuthorityError("intent source project root is not a directory")
+    items = tuple(sorted(contributions, key=lambda item: item.contribution_id))
+    if any(not isinstance(item, ModelIntentContribution) for item in items):
+        raise ModelAuthorityError(
+            "intent source verification requires typed current contributions"
+        )
+    contribution_ids = tuple(item.contribution_id for item in items)
+    if len(contribution_ids) != len(set(contribution_ids)):
+        raise ModelAuthorityError(
+            "intent source verification requires unique contribution ids"
+        )
+
+    context_items = tuple(item for item in items if item.work_context_id)
+    contexts_by_id: dict[str, Any] = {}
+    if context_items:
+        # Local import avoids making work_context -> model_intent projection a
+        # module-import cycle.  The current project declarations, not a caller
+        # supplied context object or provider status, are the sole resolver.
+        from .work_context import read_project_work_contexts
+
+        project_review = read_project_work_contexts(root_path)
+        if not project_review.ok:
+            codes = tuple(sorted({item.code for item in project_review.findings}))
+            raise ModelAuthorityError(
+                "current project WorkContext declarations are invalid: "
+                + ", ".join(codes)
+            )
+        contexts_by_id = {
+            context.context_id: context for context in project_review.contexts
+        }
+
+    frozen: list[ModelIntentSourceIdentity] = []
+    for item in items:
+        if not item.work_context_id:
+            resolved, project_ref = _resolved_project_source(root_path, item)
+            try:
+                current_fingerprint = source_file_fingerprint(resolved)
+            except OSError as exc:
+                raise ModelAuthorityError(
+                    "intent source cannot be read: "
+                    f"{item.contribution_id}: {item.source_ref}"
+                ) from exc
+            if current_fingerprint != item.source_fingerprint:
+                raise ModelAuthorityError(
+                    "intent source fingerprint is stale: "
+                    f"{item.contribution_id}: {item.source_ref}"
+                )
+            frozen.append(
+                ModelIntentSourceIdentity(
+                    contribution_id=item.contribution_id,
+                    authority_kind="project_file",
+                    source_ref=item.source_ref,
+                    source_fingerprint=current_fingerprint,
+                    resolved_project_ref=project_ref,
+                )
+            )
+            continue
+
+        context = contexts_by_id.get(item.work_context_id)
+        if context is None:
+            raise ModelAuthorityError(
+                "intent WorkContext is not declared by the current project: "
+                f"{item.contribution_id}: {item.work_context_id}"
+            )
+        if context.context_fingerprint != item.work_context_fingerprint:
+            raise ModelAuthorityError(
+                "intent WorkContext fingerprint is stale or foreign: "
+                f"{item.contribution_id}: {item.work_context_id}"
+            )
+        if context.native_owner_id != item.native_owner_id:
+            raise ModelAuthorityError(
+                "intent WorkContext native owner is stale or foreign: "
+                f"{item.contribution_id}: {item.native_owner_id}"
+            )
+        artifacts = tuple(
+            artifact
+            for artifact in context.artifacts
+            if artifact.source_ref == item.source_ref
+        )
+        if len(artifacts) != 1:
+            raise ModelAuthorityError(
+                "intent WorkContext source reference is missing or ambiguous: "
+                f"{item.contribution_id}: {item.source_ref}"
+            )
+        artifact = artifacts[0]
+        if artifact.content_fingerprint != item.source_fingerprint:
+            raise ModelAuthorityError(
+                "intent WorkContext artifact fingerprint is stale or foreign: "
+                f"{item.contribution_id}: {item.source_ref}"
+            )
+        frozen.append(
+            ModelIntentSourceIdentity(
+                contribution_id=item.contribution_id,
+                authority_kind="work_context",
+                source_ref=item.source_ref,
+                source_fingerprint=artifact.content_fingerprint,
+                work_context_id=context.context_id,
+                work_context_fingerprint=context.context_fingerprint,
+                native_owner_id=context.native_owner_id,
+                work_context_artifact_id=artifact.artifact_id,
+            )
+        )
+    return tuple(frozen)
 
 
 @dataclass(frozen=True)
@@ -1001,6 +1303,7 @@ def review_model_intent_inventory(
     changed_model_ids: Iterable[str] = (),
     changed_gap_ids: Iterable[str] = (),
     enforce_changed_targets: bool = False,
+    known_external_contribution_ids: Iterable[str] = (),
 ) -> ModelIntentReview:
     """Review exact lineage, dispositions, and optional revision mappings."""
 
@@ -1058,6 +1361,16 @@ def review_model_intent_inventory(
     contribution_by_id = {
         item.contribution_id: item for item in contribution_items
     }
+    known_external_ids = set(
+        _ids(
+            known_external_contribution_ids,
+            "known_external_contribution_id",
+        )
+    )
+    if known_external_ids & set(contribution_by_id):
+        raise ModelAuthorityError(
+            "external intent lineage ids cannot also be revision-local contributions"
+        )
     disposition_by_id = {
         item.contribution_id: item for item in disposition_items
     }
@@ -1109,6 +1422,7 @@ def review_model_intent_inventory(
             target_id
             for target_id in item.supersedes_contribution_ids
             if target_id not in contribution_by_id
+            and target_id not in known_external_ids
         )
         if missing_targets:
             findings.append(
@@ -1219,6 +1533,28 @@ def review_model_intent_inventory(
         _ids(changed_model_ids, "changed_model_id")
     )
     allowed_gap_ids = set(_ids(changed_gap_ids, "changed_gap_id"))
+    if enforce_changed_targets and contribution_items:
+        accepted_changed_ids = {
+            item_id
+            for row in disposition_items
+            if row.disposition == "accepted"
+            for item_id in row.changed_model_ids
+        }
+        unmapped_changed_ids = tuple(
+            sorted(allowed_changed_ids - accepted_changed_ids)
+        )
+        if unmapped_changed_ids:
+            findings.append(
+                ModelIntentFinding(
+                    "intent_changed_target_unmapped",
+                    (
+                        "exact revision diff contains changed model identities "
+                        "not mapped by any accepted intent disposition"
+                    ),
+                    unmapped_changed_ids,
+                )
+            )
+            unresolved_ids.update(unmapped_changed_ids)
     for row in disposition_items:
         contribution = contribution_by_id.get(row.contribution_id)
         if row.disposition == "accepted":
@@ -1370,13 +1706,16 @@ __all__ = [
     "MODEL_INTENT_INVENTORY_SCHEMA",
     "MODEL_INTENT_MAPPING_SCHEMA",
     "MODEL_INTENT_REVIEW_SCHEMA",
+    "MODEL_INTENT_SOURCE_IDENTITY_SCHEMA",
     "MODEL_INTENT_SOURCE_KINDS",
     "MODEL_INTENT_SUBJECT_ROLES",
     "ModelIntentContribution",
     "ModelIntentDisposition",
     "ModelIntentFinding",
     "ModelIntentReview",
+    "ModelIntentSourceIdentity",
     "WorkContextIntentMapping",
     "model_intent_inventory_fingerprint",
     "review_model_intent_inventory",
+    "verify_model_intent_sources",
 ]

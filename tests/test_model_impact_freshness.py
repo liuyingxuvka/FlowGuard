@@ -36,15 +36,15 @@ class ModelImpactFreshnessTests(unittest.TestCase):
                         previous_evidence_id="plan-intake-prev",
                     ),
                     ModelFreshnessRecord(
-                        "release-visibility",
-                        ".flowguard/release_visibility_process/model.py",
+                        "development-process",
+                        ".flowguard/development_process_flow/model.py",
                         dependency_artifact_ids=("flowguard.release",),
-                        previous_evidence_id="release-prev",
+                        previous_evidence_id="development-process-prev",
                     ),
                     ModelFreshnessRecord(
                         "old-visibility",
                         ".flowguard/model_visibility/model.py",
-                        replacement_model_id="release-visibility",
+                        replacement_model_id="development-process",
                     ),
                 ),
                 impact=UpgradeImpact(
@@ -59,23 +59,23 @@ class ModelImpactFreshnessTests(unittest.TestCase):
                         rationale="plan-intake helper changed its claim boundary",
                     ),
                     ModelImpactAssessment(
-                        "release-visibility",
+                        "development-process",
                         MODEL_IMPACT_NOT_IMPACTED,
-                        rationale="release model dependencies and output fingerprint are unchanged",
+                        rationale="development-process dependencies and output fingerprint are unchanged",
                     ),
                     ModelImpactAssessment(
                         "old-visibility",
                         MODEL_IMPACT_DEPRECATED,
-                        rationale="superseded by release-visibility",
-                        replacement_model_id="release-visibility",
+                        rationale="superseded by development-process",
+                        replacement_model_id="development-process",
                     ),
                 ),
                 reuse_tickets=(
                     ModelReuseTicket(
-                        "release-visibility",
+                        "development-process",
                         reason="same dependency fingerprint and same output",
-                        previous_evidence_id="release-prev",
-                        same_output_proof_id="release-same-output",
+                        previous_evidence_id="development-process-prev",
+                        same_output_proof_id="development-process-same-output",
                     ),
                 ),
                 rerun_evidence=(
@@ -97,7 +97,7 @@ class ModelImpactFreshnessTests(unittest.TestCase):
         self.assertTrue(report.ok)
         self.assertEqual(MODEL_FRESHNESS_DECISION_CURRENT, report.decision)
         self.assertEqual(("plan-intake",), report.rerun_model_ids)
-        self.assertEqual(("release-visibility",), report.reused_model_ids)
+        self.assertEqual(("development-process",), report.reused_model_ids)
         self.assertEqual(("old-visibility",), report.deprecated_model_ids)
 
     def test_affected_model_requires_current_rerun_evidence(self):

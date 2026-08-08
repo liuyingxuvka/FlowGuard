@@ -18,7 +18,10 @@ def main() -> int:
     print(f"correct_model_maturation_loop: {'exact model pass' if correct_ok else 'failed'}")
     report = run_formal_workflow_suite(
         "model_maturation_loop",
-        (FormalWorkflowCase("broken_permission_upgrades_blocked_maturation", model.broken_permission_upgrade_workflow(), False),),
+        (
+            FormalWorkflowCase("broken_permission_upgrades_blocked_maturation", model.broken_permission_upgrade_workflow(), False),
+            FormalWorkflowCase("broken_path_quality_bypasses_maturation", model.broken_path_quality_bypass_workflow(), False),
+        ),
         initial_states=(model.initial_state(),),
         external_inputs=model.EXTERNAL_INPUTS,
         invariants=model.INVARIANTS,

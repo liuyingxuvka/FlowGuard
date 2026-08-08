@@ -1,17 +1,47 @@
 {
-  "schema_version": "flowguard.self_blueprint_definition.v1",
+  "schema_version": "flowguard.self_blueprint_definition.v5",
   "blueprint_id": "blueprint:flowguard",
   "inventory_id": "implementation-inventory:flowguard",
   "boundary": {
     "boundary_id": "software-boundary:flowguard",
-    "production_patterns": ["flowguard/**/*.py"],
-    "build_patterns": ["pyproject.toml", "scripts/**/*", ".github/**/*"],
-    "config_patterns": [".gitattributes", ".gitignore", ".skillguard/**/*", "AGENTS.md"],
-    "schema_patterns": ["openspec/specs/**/*", "openspec/config.yaml", "flowguard/**/*.json"],
-    "data_patterns": [".agents/**/*"],
-    "asset_patterns": ["assets/**/*", "docs/**/*", "README.md", "CHANGELOG.md", "LICENSE", "ROADMAP.md"],
-    "migration_patterns": ["openspec/changes/**/*"],
-    "test_oracle_patterns": ["tests/**/*", "examples/**/*", ".flowguard/**/*"],
+    "production_patterns": [
+      "flowguard/**/*.py"
+    ],
+    "build_patterns": [
+      "pyproject.toml",
+      "scripts/**/*",
+      ".github/**/*"
+    ],
+    "config_patterns": [
+      ".gitattributes",
+      ".gitignore",
+      ".skillguard/**/*",
+      "AGENTS.md"
+    ],
+    "schema_patterns": [
+      "openspec/specs/**/*",
+      "openspec/config.yaml",
+      "flowguard/**/*.json"
+    ],
+    "data_patterns": [
+      ".agents/**/*"
+    ],
+    "asset_patterns": [
+      "assets/**/*",
+      "docs/**/*",
+      "README.md",
+      "CHANGELOG.md",
+      "LICENSE",
+      "ROADMAP.md"
+    ],
+    "migration_patterns": [
+      "openspec/changes/**/*"
+    ],
+    "test_oracle_patterns": [
+      "tests/**/*",
+      "examples/**/*",
+      ".flowguard/**/*"
+    ],
     "generated_patterns": [],
     "external_patterns": [],
     "exclusions": [
@@ -33,17 +63,14 @@
     "openspec/changes/archive/**/*",
     ".flowguard/model-mesh/revisions/**/*"
   ],
-  "bounded_dynamic_prefixes": ["getattr:", "setattr:", "delattr:"],
+  "bounded_dynamic_prefixes": [
+    "getattr:",
+    "setattr:",
+    "delattr:"
+  ],
   "dynamic_allowances": [
     {
-"surface_key": ".flowguard/authoritative_model_system/model.py#EvaluateAuthorityRevision.apply",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": ".flowguard/development_process_flow/model.py#_stale_if_covering",
+      "surface_key": ".flowguard/authoritative_model_system/model.py#EvaluateAuthorityRevision.apply",
       "operations": [
         "getattr"
       ],
@@ -73,27 +100,6 @@
       "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
     },
     {
-      "surface_key": "flowguard/architecture_reduction.py#_candidate_incomplete",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/architecture_reduction.py#review_architecture_reduction",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/behavior_commitment.py#_review_commitment",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
       "surface_key": "flowguard/checks.py#_field_value",
       "operations": [
         "getattr"
@@ -102,104 +108,6 @@
     },
     {
       "surface_key": "flowguard/contract.py#_changed_fields",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/corpus.py#ProblemCase.validate",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/coverage_inventory.py#ExpectedCoverageItem.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/development_process_flow.py#DistributionEvidence.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/development_process_flow.py#ImplementationAuthorization.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/development_process_strategy.py#ProcessOptimizationCandidate.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/development_process_strategy.py#ProcessOptimizationContract.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/development_process_strategy.py#ProcessRepairGroup.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/evidence_receipts.py#EvidenceReceipt.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/evidence_receipts.py#EvidenceReceipt._validate",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/evidence_receipts.py#ReceiptVerificationContext.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/existing_model_preflight.py#ExistingIntentSurface.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/existing_model_preflight.py#ExistingIntentSurface.missing_material_fields",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/existing_model_preflight.py#_missing_layered_status_fields",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/existing_model_preflight.py#review_existing_model_preflight",
       "operations": [
         "getattr"
       ],
@@ -227,35 +135,7 @@
       "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
     },
     {
-      "surface_key": "flowguard/hierarchy.py#_has_sibling_boundary_overlap",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
       "surface_key": "flowguard/hierarchy.py#_receipt_attr",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/implementation_blueprint.py#ModelImplementationBinding.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/implementation_blueprint.py#SoftwareBlueprintManifest.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/implementation_blueprint.py#SoftwareBlueprintProjection.__post_init__",
       "operations": [
         "getattr"
       ],
@@ -269,140 +149,7 @@
       "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
     },
     {
-      "surface_key": "flowguard/implementation_inventory.py#ImplementationSurface.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/implementation_inventory.py#ImplementationSurfaceInventory.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/implementation_inventory_python.py#_collect_node_specs.<locals>.visit_body",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
       "surface_key": "flowguard/layered_proof.py#_duplicate_child_field_findings",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/maintenance_obligation.py#obligation_from_finding_ledger_entry",
-      "operations": [
-        "invoke_result:getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/maintenance_obligation.py#obligation_from_maintenance_action",
-      "operations": [
-        "invoke_result:getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/maintenance_obligation.py#obligation_from_maturation_finding",
-      "operations": [
-        "invoke_result:getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/maintenance_scan.py#maintenance_scan_plan_from_summary_report",
-      "operations": [
-        "invoke_result:getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_angle_deliberation.py#review_model_angle_deliberations",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_authority.py#CoverageDimension.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_authority.py#ModelAuthorityHead.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_maturation.py#ModelMaturationGapResolutionReceipt.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_maturation.py#ModelMaturationIntake.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_revision_set.py#ModelActivationReceipt.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_revision_set.py#ModelRevisionSet.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_revision_set.py#ModelRollbackContract.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_revision_set.py#PredictionReplayRef.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_revision_set.py#RevisionEvidenceRef.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_revision_set.py#derive_revision_snapshot_diff",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_similarity.py#review_model_similarity_consolidation",
       "operations": [
         "getattr"
       ],
@@ -416,21 +163,7 @@
       "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
     },
     {
-      "surface_key": "flowguard/model_test_alignment.py#_code_contract_findings",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
       "surface_key": "flowguard/model_test_alignment.py#_contract_field_delta",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/model_test_alignment.py#_field_projection_id",
       "operations": [
         "getattr"
       ],
@@ -465,112 +198,7 @@
       "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
     },
     {
-      "surface_key": "flowguard/model_test_alignment.py#_stable_authority_findings",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/portable_model.py#PortableModel.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/portable_system.py#PortableSystemDefinition.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/portable_system.py#SystemCompositionRequest.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/portable_system.py#SystemProperty.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/primary_path_authority.py#_review_candidate",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/primary_path_authority.py#review_primary_path_authority",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/pytest_adapter.py#assert_no_executable_corpus_regression",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/recurring_model_miss.py#review_defect_family_gates",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/replay.py#coerce_observation",
-      "operations": [
-        "invoke_result:getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/risk.py#RiskIntent.format_text",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/risk.py#RiskIntent.is_empty",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/runtime_path.py#_review_binding",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
       "surface_key": "flowguard/runtime_path.py#_review_runtime_authority",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/runtime_path.py#_runtime_authority_values",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/scenario_matrix.py#_risk_family_from_trace",
       "operations": [
         "getattr"
       ],
@@ -612,48 +240,6 @@
       "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
     },
     {
-      "surface_key": "flowguard/task_coverage_demand.py#CoverageDemandRow.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/task_coverage_demand.py#CoverageRule.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/task_coverage_demand.py#OwnerCoverageResolution.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/task_coverage_demand.py#TaskFacts.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/task_local_model.py#TaskReplayEvidence.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/task_local_model.py#TaskReplayEvidence.from_conformance_report",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
       "surface_key": "flowguard/testmesh.py#_duplicate_value_findings",
       "operations": [
         "getattr"
@@ -682,27 +268,6 @@
       "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
     },
     {
-      "surface_key": "flowguard/understanding_readiness.py#UnderstandingReadinessInput.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/understanding_readiness.py#UnderstandingReadinessStatus.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
-      "surface_key": "flowguard/validation_ownership.py#ValidationOwnerContract.__post_init__",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
       "surface_key": "flowguard/validation_ownership.py#build_owner_current",
       "operations": [
         "__import__"
@@ -717,13 +282,6 @@
       "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
     },
     {
-      "surface_key": "scripts/install_flowguard_skills.py#main",
-      "operations": [
-        "getattr"
-      ],
-      "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
-    },
-    {
       "surface_key": "scripts/verify_guard_simulation_readiness.py#_check_version",
       "operations": [
         "importlib.import_module"
@@ -731,83 +289,1165 @@
       "rationale": "This exact current dynamic protocol is bound to the owning model semantics and native known-bad oracle; a new surface or operation remains blocked."
     },
     {
-      "surface_key": "flowguard/project_blueprint.py#ProjectBlueprintOwner.__post_init__",
-      "operations": ["getattr"],
-      "rationale": "Dataclass field normalization is bounded to the finite declared owner identity fields."
-    },
-    {
-      "surface_key": "flowguard/project_blueprint.py#ProjectEvidenceArtifact.__post_init__",
-      "operations": ["getattr"],
-      "rationale": "Evidence artifact field validation is bounded to the four declared identity and path fields."
-    },
-    {
-      "surface_key": "flowguard/project_blueprint.py#PortableModelMemberCatalog.__post_init__",
-      "operations": ["getattr"],
-      "rationale": "Portable member normalization reads only the eight finite declared catalog tuple fields before canonical sorting and validation."
-    },
-    {
-      "surface_key": "flowguard/model_intent.py#ModelIntentContribution.__post_init__",
-      "operations": ["getattr"],
-      "rationale": "Intent contribution normalization is bounded to its strict current tuple fields."
-    },
-    {
-      "surface_key": "flowguard/model_intent.py#ModelIntentDisposition.__post_init__",
-      "operations": ["getattr"],
-      "rationale": "Intent disposition normalization is bounded to its strict current effect fields."
-    },
-    {
-      "surface_key": "flowguard/model_intent.py#WorkContextIntentMapping.__post_init__",
-      "operations": ["getattr"],
-      "rationale": "Work-context intent mapping normalization is bounded to its declared identity and target fields."
-    },
-    {
-      "surface_key": "flowguard/test_inventory.py#TestAssertion.__post_init__",
-      "operations": ["getattr"],
-      "rationale": "Assertion location validation is bounded to three declared integer fields."
-    },
-    {
-      "surface_key": "flowguard/test_inventory.py#TestNode.__post_init__",
-      "operations": ["getattr"],
-      "rationale": "Test-node location validation is bounded to two declared integer fields."
-    },
-    {
-      "surface_key": "flowguard/test_inventory.py#TestFileRecord.__post_init__",
-      "operations": ["getattr"],
-      "rationale": "Test-file normalization is bounded to the declared name and node tuple fields."
-    },
-    {
-      "surface_key": "flowguard/test_inventory.py#ProjectTestInventory.__post_init__",
-      "operations": ["getattr"],
-      "rationale": "Test-inventory normalization is bounded to the five declared record tuple fields."
-    },
-    {
       "surface_key": "flowguard/test_inventory_python.py#_parameterization_marker",
-      "operations": ["getattr"],
+      "operations": [
+        "getattr"
+      ],
       "rationale": "Python AST location lookup is bounded to standard parser node location fields."
     },
     {
       "surface_key": "flowguard/test_inventory_python.py#_TestBodyVisitor._append_assertion",
-      "operations": ["getattr"],
+      "operations": [
+        "getattr"
+      ],
       "rationale": "Python AST assertion lookup is bounded to standard parser node location fields."
     },
     {
       "surface_key": "flowguard/test_inventory_python.py#discover_python_test_file",
-      "operations": ["getattr"],
+      "operations": [
+        "getattr"
+      ],
       "rationale": "Python AST test-node lookup is bounded to standard parser node location fields."
     },
     {
-      "surface_key": "flowguard/software_blueprint_readiness.py#BehaviorBlueprintReport.__post_init__",
-      "operations": ["getattr"],
-      "rationale": "Behavior report normalization is bounded to its two declared status fields and two declared identity tuples."
-    },
-    {
       "surface_key": "flowguard/software_blueprint_readiness.py#generate_candidate_blueprint",
-      "operations": ["getattr"],
+      "operations": [
+        "getattr"
+      ],
       "rationale": "Candidate discovery reads only the finite project-neutral implementation-inventory protocol fields and never accepts them as authority."
     }
   ],
+  "dynamic_selector_contracts": [],
+  "composite_behavior_contracts": [
+    {
+      "owner_id": "adversarial_scenario_synthesis",
+      "surface_key": ".flowguard/adversarial_scenario_synthesis/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:adversarial_scenario_synthesis:input",
+        "state": "composite-contract:adversarial_scenario_synthesis:state",
+        "effect": "composite-contract:adversarial_scenario_synthesis:effect",
+        "output": "composite-contract:adversarial_scenario_synthesis:output",
+        "completion": "composite-contract:adversarial_scenario_synthesis:completion",
+        "semantics": "composite-contract:adversarial_scenario_synthesis:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:adversarial_scenario_synthesis:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:adversarial_scenario_synthesis",
+        "model_path": ".flowguard/adversarial_scenario_synthesis/model.py",
+        "model_source_fingerprint": "sha256:2f3541f764aa2059cd6c5dd8a599a5e904fb15689325132fafb76545281b5f56",
+        "runner_path": ".flowguard/adversarial_scenario_synthesis/run_checks.py",
+        "runner_source_fingerprint": "sha256:ff3a0bb4c1d2cbecfafec730f423198f0cf0850e890fc0eda6b3e7a3f37dafde",
+        "purpose_declaration_fingerprint": "sha256:104476a92d767e88edb69e7757ca3a463eac16a9514cfd5750826877f1fc664b",
+        "purpose_closure_fingerprint": "sha256:0c7268ff5f3f1337357dbf2b1d80e8e5ff1e365ac9a7cc7408de2ad9a8f8b3d4"
+      }
+    },
+    {
+      "owner_id": "ai_entry_surface_reduction",
+      "surface_key": ".flowguard/ai_entry_surface_reduction/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:ai_entry_surface_reduction:input",
+        "state": "composite-contract:ai_entry_surface_reduction:state",
+        "effect": "composite-contract:ai_entry_surface_reduction:effect",
+        "output": "composite-contract:ai_entry_surface_reduction:output",
+        "completion": "composite-contract:ai_entry_surface_reduction:completion",
+        "semantics": "composite-contract:ai_entry_surface_reduction:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:ai_entry_surface_reduction:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:ai_entry_surface_reduction",
+        "model_path": ".flowguard/ai_entry_surface_reduction/model.py",
+        "model_source_fingerprint": "sha256:76426ce97aae89fd9018be857fb8c5162a5abbba32972073e66af32ef68c4652",
+        "runner_path": ".flowguard/ai_entry_surface_reduction/run_checks.py",
+        "runner_source_fingerprint": "sha256:cdea7fdef5e7d425ebef5e7f3ab837bd9511dec2fe26a4475b1c94ba97c39c3e",
+        "purpose_declaration_fingerprint": "sha256:56ad0b1d6a79d2008d5be7df5ffd703fd850a78e257e35518027506e98c9d998",
+        "purpose_closure_fingerprint": "sha256:4301c56661a0517d2061cf3062bf1292ae44d22ff40e8cc15b6e96e6ca0c4a0e"
+      }
+    },
+    {
+      "owner_id": "ai_route_handoffs",
+      "surface_key": ".flowguard/ai_route_handoffs/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:ai_route_handoffs:input",
+        "state": "composite-contract:ai_route_handoffs:state",
+        "effect": "composite-contract:ai_route_handoffs:effect",
+        "output": "composite-contract:ai_route_handoffs:output",
+        "completion": "composite-contract:ai_route_handoffs:completion",
+        "semantics": "composite-contract:ai_route_handoffs:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:ai_route_handoffs:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:ai_route_handoffs",
+        "model_path": ".flowguard/ai_route_handoffs/model.py",
+        "model_source_fingerprint": "sha256:e40125dd661d80675f653d1e7e93f35a2657ea41ae16f0f624cea2035f0fbec4",
+        "runner_path": ".flowguard/ai_route_handoffs/run_checks.py",
+        "runner_source_fingerprint": "sha256:33bc9c67c5ac642441907f1c6400eeaa7eed58a580743ffa40b7d6e9fafb1132",
+        "purpose_declaration_fingerprint": "sha256:b425cdcbc59b2d89a2860e0e87ad273cc2452fa26911a71096cbd917b7517013",
+        "purpose_closure_fingerprint": "sha256:81fd1fc77fd11fe17e8011021aeac38d93aa5b3ceebf6991af8f3acfbf7a6590"
+      }
+    },
+    {
+      "owner_id": "architecture_reduction",
+      "surface_key": "flowguard/architecture_reduction.py#<module>",
+      "contracts": {
+        "input": "composite-contract:architecture_reduction:input",
+        "state": "composite-contract:architecture_reduction:state",
+        "effect": "composite-contract:architecture_reduction:effect",
+        "output": "composite-contract:architecture_reduction:output",
+        "completion": "composite-contract:architecture_reduction:completion",
+        "semantics": "composite-contract:architecture_reduction:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:architecture_reduction:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:architecture_reduction",
+        "model_path": ".flowguard/architecture_reduction/model.py",
+        "model_source_fingerprint": "sha256:a109593f543672a07cc5c510069e44abbfb1bd8b093dcd8ec9c074deefbb213e",
+        "runner_path": ".flowguard/architecture_reduction/run_checks.py",
+        "runner_source_fingerprint": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "purpose_declaration_fingerprint": "sha256:8bb5471bde6bd956a5cabd37694a0c6546bfc2fe412f363edd962429397ec25b",
+        "purpose_closure_fingerprint": "sha256:71b1894d6276b7baf5f6b892da6414cc66113109cd87a6f3da49d864584addf3"
+      }
+    },
+    {
+      "owner_id": "authoritative_model_system",
+      "surface_key": ".flowguard/authoritative_model_system/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:authoritative_model_system:input",
+        "state": "composite-contract:authoritative_model_system:state",
+        "effect": "composite-contract:authoritative_model_system:effect",
+        "output": "composite-contract:authoritative_model_system:output",
+        "completion": "composite-contract:authoritative_model_system:completion",
+        "semantics": "composite-contract:authoritative_model_system:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:authoritative_model_system:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:authoritative_model_system",
+        "model_path": ".flowguard/authoritative_model_system/model.py",
+        "model_source_fingerprint": "sha256:117a694fea3567f106cd52f6d46944ca319fdb3af8ffda993b3788679d7403f3",
+        "runner_path": ".flowguard/authoritative_model_system/run_checks.py",
+        "runner_source_fingerprint": "sha256:8314c070afd937163082fdd4e80257aa7a392ddbf5aa46c1db63e0044bf1ceb6",
+        "purpose_declaration_fingerprint": "sha256:b3dd9ac0c4bb1356ec9727d64ea33c001b43fb86ecc0dae7548b2f0ffebe768e",
+        "purpose_closure_fingerprint": "sha256:6388b70f19f66c6adfa0ed5c9ab3ba5aea42f894a830d0594c41bfa081d2932b"
+      }
+    },
+    {
+      "owner_id": "behavior_commitment_ledger",
+      "surface_key": ".flowguard/behavior_commitment_ledger/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:behavior_commitment_ledger:input",
+        "state": "composite-contract:behavior_commitment_ledger:state",
+        "effect": "composite-contract:behavior_commitment_ledger:effect",
+        "output": "composite-contract:behavior_commitment_ledger:output",
+        "completion": "composite-contract:behavior_commitment_ledger:completion",
+        "semantics": "composite-contract:behavior_commitment_ledger:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:behavior_commitment_ledger:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:behavior_commitment_ledger",
+        "model_path": ".flowguard/behavior_commitment_ledger/model.py",
+        "model_source_fingerprint": "sha256:4cbe5f12a4db89b4716d99250a0d0f81c26bcc402707cb219548ef1d01eb987a",
+        "runner_path": ".flowguard/behavior_commitment_ledger/run_checks.py",
+        "runner_source_fingerprint": "sha256:e2926c9fd1b6743f70a72eebb1e4fb3918ffc491363aa00a61ca7238abc466dd",
+        "purpose_declaration_fingerprint": "sha256:e7e90231c75312bbb77ff176e04fd670c1edaa38c3bedfa1bf2f9ed25c0642b8",
+        "purpose_closure_fingerprint": "sha256:e05ba52632c3da0434f06ba3b64a7a5cd791702de6c8a76724bf5d06d4da3286"
+      }
+    },
+    {
+      "owner_id": "bounded_system_composition_benchmark",
+      "surface_key": ".flowguard/bounded_system_composition_benchmark/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:bounded_system_composition_benchmark:input",
+        "state": "composite-contract:bounded_system_composition_benchmark:state",
+        "effect": "composite-contract:bounded_system_composition_benchmark:effect",
+        "output": "composite-contract:bounded_system_composition_benchmark:output",
+        "completion": "composite-contract:bounded_system_composition_benchmark:completion",
+        "semantics": "composite-contract:bounded_system_composition_benchmark:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:bounded_system_composition_benchmark:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:bounded_system_composition_benchmark",
+        "model_path": ".flowguard/bounded_system_composition_benchmark/model.py",
+        "model_source_fingerprint": "sha256:7ff5762e69fbad14ae9df4d573a4de2224416d0d5d15149a1ecb314b01583ce1",
+        "runner_path": ".flowguard/bounded_system_composition_benchmark/run_checks.py",
+        "runner_source_fingerprint": "sha256:fec460a2253405c27e5a87ca79528c477477e7861ea7a9d234b58abd9448e91c",
+        "purpose_declaration_fingerprint": "sha256:f201b628e9a677ed7dcd389180bbaa81dac112b36883dea4b525cabe0790ab9d",
+        "purpose_closure_fingerprint": "sha256:31b29b994ea64c36aa2d6b10b04c56b88c259344c1b75046421c72c6d2af7bf6"
+      }
+    },
+    {
+      "owner_id": "code_boundary_conformance",
+      "surface_key": ".flowguard/code_boundary_conformance/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:code_boundary_conformance:input",
+        "state": "composite-contract:code_boundary_conformance:state",
+        "effect": "composite-contract:code_boundary_conformance:effect",
+        "output": "composite-contract:code_boundary_conformance:output",
+        "completion": "composite-contract:code_boundary_conformance:completion",
+        "semantics": "composite-contract:code_boundary_conformance:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:code_boundary_conformance:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:code_boundary_conformance",
+        "model_path": ".flowguard/code_boundary_conformance/model.py",
+        "model_source_fingerprint": "sha256:013af70f15bb581d8c44df702f9b7e570b45e5415634c71111109e3fbe4c1119",
+        "runner_path": ".flowguard/code_boundary_conformance/run_checks.py",
+        "runner_source_fingerprint": "sha256:f1128dd4966078a0f481a1b942576465d9a4a92a1f9402c8bbceca6ca51ed9e9",
+        "purpose_declaration_fingerprint": "sha256:37cfd25d0a5905ac024beaa8eb1e367ee7ceab7a1693e8bbee51d763082e0e87",
+        "purpose_closure_fingerprint": "sha256:b3469028162ee15caf543f3779d0e011dff60219f9f9238fdc2261d01908ba4a"
+      }
+    },
+    {
+      "owner_id": "codex_skill_satellites",
+      "surface_key": ".flowguard/codex_skill_satellites/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:codex_skill_satellites:input",
+        "state": "composite-contract:codex_skill_satellites:state",
+        "effect": "composite-contract:codex_skill_satellites:effect",
+        "output": "composite-contract:codex_skill_satellites:output",
+        "completion": "composite-contract:codex_skill_satellites:completion",
+        "semantics": "composite-contract:codex_skill_satellites:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:codex_skill_satellites:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:codex_skill_satellites",
+        "model_path": ".flowguard/codex_skill_satellites/model.py",
+        "model_source_fingerprint": "sha256:afcdf2114a2293a4bfe0ed4ca9d7c0563f5156942066b0e47b778d7ea820e484",
+        "runner_path": ".flowguard/codex_skill_satellites/run_checks.py",
+        "runner_source_fingerprint": "sha256:e8ec3455996bef30e345ee2a45572e917e072561e102909fd2096c5bad3a6092",
+        "purpose_declaration_fingerprint": "sha256:ad6175482e11e5e9d467c7f5e72e1702e024afe77b258b04db89b8b00da742a3",
+        "purpose_closure_fingerprint": "sha256:07b292abdaa7715c635f1d57dbe11b08ade424235ae4cfd079d0df98c0da8ace"
+      }
+    },
+    {
+      "owner_id": "compositional_verification_kernel",
+      "surface_key": ".flowguard/compositional_verification_kernel/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:compositional_verification_kernel:input",
+        "state": "composite-contract:compositional_verification_kernel:state",
+        "effect": "composite-contract:compositional_verification_kernel:effect",
+        "output": "composite-contract:compositional_verification_kernel:output",
+        "completion": "composite-contract:compositional_verification_kernel:completion",
+        "semantics": "composite-contract:compositional_verification_kernel:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:compositional_verification_kernel:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:compositional_verification_kernel",
+        "model_path": ".flowguard/compositional_verification_kernel/model.py",
+        "model_source_fingerprint": "sha256:a3d642f6ee62e72e392435a6d96050209cd9cbd8d49de7cc4488f2b082424e36",
+        "runner_path": ".flowguard/compositional_verification_kernel/run_checks.py",
+        "runner_source_fingerprint": "sha256:6c8c96d0565176202e4ca0e80df647f4237055410d6f004eb61ed0f927f8d740",
+        "purpose_declaration_fingerprint": "sha256:6c2d3a36cab8fbbfd6d6b2240f26d5599fbb329e8d7f61771026b826cc6ad817",
+        "purpose_closure_fingerprint": "sha256:0bd01df111b88111df9e7977fb39bab3032113de65e46d92542002229584b796"
+      }
+    },
+    {
+      "owner_id": "contract_source_audit",
+      "surface_key": ".flowguard/contract_source_audit/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:contract_source_audit:input",
+        "state": "composite-contract:contract_source_audit:state",
+        "effect": "composite-contract:contract_source_audit:effect",
+        "output": "composite-contract:contract_source_audit:output",
+        "completion": "composite-contract:contract_source_audit:completion",
+        "semantics": "composite-contract:contract_source_audit:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:contract_source_audit:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:contract_source_audit",
+        "model_path": ".flowguard/contract_source_audit/model.py",
+        "model_source_fingerprint": "sha256:8da4f8ea565c71f7318e7efcad5134692d3d338fa95b009405874709afb22199",
+        "runner_path": ".flowguard/contract_source_audit/run_checks.py",
+        "runner_source_fingerprint": "sha256:ba985b916212baad69f6bd9c40915e875b772aad8d8cd3526c739a363ced0c47",
+        "purpose_declaration_fingerprint": "sha256:0fff23a7a2a80b754da95c21f2664b313545c2263ea6620778ff39a921b08e9a",
+        "purpose_closure_fingerprint": "sha256:4a19d4e7c3c21428a2307cb7d35d54b6a96a8b4163074aad52024148ce9b3d98"
+      }
+    },
+    {
+      "owner_id": "default_replacement_field_lifecycle",
+      "surface_key": ".flowguard/default_replacement_field_lifecycle/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:default_replacement_field_lifecycle:input",
+        "state": "composite-contract:default_replacement_field_lifecycle:state",
+        "effect": "composite-contract:default_replacement_field_lifecycle:effect",
+        "output": "composite-contract:default_replacement_field_lifecycle:output",
+        "completion": "composite-contract:default_replacement_field_lifecycle:completion",
+        "semantics": "composite-contract:default_replacement_field_lifecycle:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:default_replacement_field_lifecycle:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:default_replacement_field_lifecycle",
+        "model_path": ".flowguard/default_replacement_field_lifecycle/model.py",
+        "model_source_fingerprint": "sha256:fe604d80d974705f5bc9317533b1cfd92c6bce0c85e53349e3507c03bac1d5e1",
+        "runner_path": ".flowguard/default_replacement_field_lifecycle/run_checks.py",
+        "runner_source_fingerprint": "sha256:f5c88064c6b49b41f80b71ac0fe0be4c003faf93153f9bc7aaee1eead94f0089",
+        "purpose_declaration_fingerprint": "sha256:adaf01ea05ac8c79b3b3414fcb0b7463140d3b292a8580c44cbcc0b9ec697c4b",
+        "purpose_closure_fingerprint": "sha256:4bc81da4fdf7324de1b4f32bcf4c75a5c5a8064f5ad9f82aad4ee89c243dc15e"
+      }
+    },
+    {
+      "owner_id": "development_process_flow",
+      "surface_key": "flowguard/development_process_flow.py#<module>",
+      "contracts": {
+        "input": "composite-contract:development_process_flow:input",
+        "state": "composite-contract:development_process_flow:state",
+        "effect": "composite-contract:development_process_flow:effect",
+        "output": "composite-contract:development_process_flow:output",
+        "completion": "composite-contract:development_process_flow:completion",
+        "semantics": "composite-contract:development_process_flow:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:development_process_flow:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:development_process_flow",
+        "model_path": ".flowguard/development_process_flow/model.py",
+        "model_source_fingerprint": "sha256:b4715fa93892a8bc44fe7127a11d8b6c7ea1f02d2675b02302165037c32bb133",
+        "runner_path": ".flowguard/development_process_flow/run_checks.py",
+        "runner_source_fingerprint": "sha256:e3b2750897c480d94ecdf39c2ceebfc77fbf69babdfad5712a1ffb9e10c22b63",
+        "purpose_declaration_fingerprint": "sha256:c01a9b80a65a08dbb2f5ae570c1b4e13fe040477043e1ed12adfb3c8b685b893",
+        "purpose_closure_fingerprint": "sha256:732a2ffc9722738239294822dde9a1404c9d0ffe95dc680282ad569514fb9a62"
+      }
+    },
+    {
+      "owner_id": "development_process_strategy",
+      "surface_key": "flowguard/development_process_strategy.py#<module>",
+      "contracts": {
+        "input": "composite-contract:development_process_strategy:input",
+        "state": "composite-contract:development_process_strategy:state",
+        "effect": "composite-contract:development_process_strategy:effect",
+        "output": "composite-contract:development_process_strategy:output",
+        "completion": "composite-contract:development_process_strategy:completion",
+        "semantics": "composite-contract:development_process_strategy:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:development_process_strategy:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:development_process_strategy",
+        "model_path": ".flowguard/development_process_strategy/model.py",
+        "model_source_fingerprint": "sha256:29bc3fb24552edc8dc721a6c1f4bd12374372eeba7f88a28eedab32e621f2a76",
+        "runner_path": ".flowguard/development_process_strategy/run_checks.py",
+        "runner_source_fingerprint": "sha256:2392f4ef0a48bc5f8011b4671ec00907b17d14e592d480a0cba084dc63ec4315",
+        "purpose_declaration_fingerprint": "sha256:5408944518435c6f14007539c99ae96f54a8b1b92d5f351c5893e2a23bea0bfb",
+        "purpose_closure_fingerprint": "sha256:29fddeb1fab5b1a2f91a4a00aafa0f2cc7546d0a7f2f858db0ec3c878e071f47"
+      }
+    },
+    {
+      "owner_id": "existing_model_preflight",
+      "surface_key": "flowguard/existing_model_preflight.py#<module>",
+      "contracts": {
+        "input": "composite-contract:existing_model_preflight:input",
+        "state": "composite-contract:existing_model_preflight:state",
+        "effect": "composite-contract:existing_model_preflight:effect",
+        "output": "composite-contract:existing_model_preflight:output",
+        "completion": "composite-contract:existing_model_preflight:completion",
+        "semantics": "composite-contract:existing_model_preflight:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:existing_model_preflight:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:existing_model_preflight",
+        "model_path": ".flowguard/existing_model_preflight/model.py",
+        "model_source_fingerprint": "sha256:86d9bdb3bbc88e874a14b6cd63eca408eb2392032b2f066b47060048a2ec5745",
+        "runner_path": ".flowguard/existing_model_preflight/run_checks.py",
+        "runner_source_fingerprint": "sha256:38538119db9dfdd9ee369b5c4338ff3700d2b6f242c03afa236c869635571885",
+        "purpose_declaration_fingerprint": "sha256:cd087d1d3be2fcc693565f8ff385457605b077b8fba0477ae2c30d7afbac2485",
+        "purpose_closure_fingerprint": "sha256:63a5af3145104d8056cc2f220ab4c626bb52339589a69436c3621b81f4ddcc34"
+      }
+    },
+    {
+      "owner_id": "field_prompt_reduction",
+      "surface_key": ".flowguard/field_prompt_reduction/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:field_prompt_reduction:input",
+        "state": "composite-contract:field_prompt_reduction:state",
+        "effect": "composite-contract:field_prompt_reduction:effect",
+        "output": "composite-contract:field_prompt_reduction:output",
+        "completion": "composite-contract:field_prompt_reduction:completion",
+        "semantics": "composite-contract:field_prompt_reduction:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:field_prompt_reduction:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:field_prompt_reduction",
+        "model_path": ".flowguard/field_prompt_reduction/model.py",
+        "model_source_fingerprint": "sha256:308cc59e6b4b3ffca2d95834956013d640067ab750c01b092a757404c77ead77",
+        "runner_path": ".flowguard/field_prompt_reduction/run_checks.py",
+        "runner_source_fingerprint": "sha256:be4e4529df9011f4c88dc08a2a543c162455bc76279f0c138a8e0cc2d97bd923",
+        "purpose_declaration_fingerprint": "sha256:4effc680c5b18079d8868cd13294346eede4b8e1699ea76f648de1519edcc920",
+        "purpose_closure_fingerprint": "sha256:cf4fe0d21e5fa4b6568beb57227556529bca1b55715b371ca63e38a942ec1fc3"
+      }
+    },
+    {
+      "owner_id": "flowguard_closure_contract",
+      "surface_key": ".flowguard/flowguard_closure_contract/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:flowguard_closure_contract:input",
+        "state": "composite-contract:flowguard_closure_contract:state",
+        "effect": "composite-contract:flowguard_closure_contract:effect",
+        "output": "composite-contract:flowguard_closure_contract:output",
+        "completion": "composite-contract:flowguard_closure_contract:completion",
+        "semantics": "composite-contract:flowguard_closure_contract:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:flowguard_closure_contract:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:flowguard_closure_contract",
+        "model_path": ".flowguard/flowguard_closure_contract/model.py",
+        "model_source_fingerprint": "sha256:073eb887d40d133ada4a750a945e59f26b3292bbdf1475ccc16f09016ae5e22e",
+        "runner_path": ".flowguard/flowguard_closure_contract/run_checks.py",
+        "runner_source_fingerprint": "sha256:3e8b5d81780c5659a0e0bbcaa0c682e31b0ca9c532757a107c49443a53d478f4",
+        "purpose_declaration_fingerprint": "sha256:f8bc43cd09d584705cfc7536beb42a45a5d5baa9a2e1a8cd6341a83c06517d9d",
+        "purpose_closure_fingerprint": "sha256:857b3323f4d86a87a243c531ee9a09f39197d2794940d50d2bd21f956ac422d2"
+      }
+    },
+    {
+      "owner_id": "guard_closure_contract",
+      "surface_key": ".flowguard/guard_closure_contract/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:guard_closure_contract:input",
+        "state": "composite-contract:guard_closure_contract:state",
+        "effect": "composite-contract:guard_closure_contract:effect",
+        "output": "composite-contract:guard_closure_contract:output",
+        "completion": "composite-contract:guard_closure_contract:completion",
+        "semantics": "composite-contract:guard_closure_contract:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:guard_closure_contract:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:guard_closure_contract",
+        "model_path": ".flowguard/guard_closure_contract/model.py",
+        "model_source_fingerprint": "sha256:94a5b2fa58ac448b14ce0974492311f6c3bc3ddfef7c871af6497516dd8dc6aa",
+        "runner_path": ".flowguard/guard_closure_contract/run_checks.py",
+        "runner_source_fingerprint": "sha256:38ede397582626d5a9a4cd02988c8398b44004f3d5760adbe63a6f734f33a06c",
+        "purpose_declaration_fingerprint": "sha256:7701b2bdba422947c4a28b05827f36f48c00175cf6a4ba5ebeeb7e7d57eedb45",
+        "purpose_closure_fingerprint": "sha256:ac5f0640f98a75eebb1545edb806ffde30216317b7afa74cc3553331b2b80ab2"
+      }
+    },
+    {
+      "owner_id": "guidance_compression",
+      "surface_key": ".flowguard/guidance_compression/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:guidance_compression:input",
+        "state": "composite-contract:guidance_compression:state",
+        "effect": "composite-contract:guidance_compression:effect",
+        "output": "composite-contract:guidance_compression:output",
+        "completion": "composite-contract:guidance_compression:completion",
+        "semantics": "composite-contract:guidance_compression:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:guidance_compression:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:guidance_compression",
+        "model_path": ".flowguard/guidance_compression/model.py",
+        "model_source_fingerprint": "sha256:92230f17471f260f68d7c6ba012c8648ebfd90fb702be8ac8b1f137bc9b31359",
+        "runner_path": ".flowguard/guidance_compression/run_checks.py",
+        "runner_source_fingerprint": "sha256:9beb9fe2748bed7d2ae7427dbd4e24506632c807090e4f9aaa10d7230d181dc3",
+        "purpose_declaration_fingerprint": "sha256:2b6f94fe2f0de2880dfbfdc15f43251ccd46f711f2f55b64b31b005bff02677e",
+        "purpose_closure_fingerprint": "sha256:223b12a6490b132f78a79b1892b7094b238fce584b88cc29ff51f728cc8714f1"
+      }
+    },
+    {
+      "owner_id": "harden_ui_content_visibility_validation",
+      "surface_key": ".flowguard/harden_ui_content_visibility_validation/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:harden_ui_content_visibility_validation:input",
+        "state": "composite-contract:harden_ui_content_visibility_validation:state",
+        "effect": "composite-contract:harden_ui_content_visibility_validation:effect",
+        "output": "composite-contract:harden_ui_content_visibility_validation:output",
+        "completion": "composite-contract:harden_ui_content_visibility_validation:completion",
+        "semantics": "composite-contract:harden_ui_content_visibility_validation:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:harden_ui_content_visibility_validation:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:harden_ui_content_visibility_validation",
+        "model_path": ".flowguard/harden_ui_content_visibility_validation/model.py",
+        "model_source_fingerprint": "sha256:bd29bd6c6bd2d678a3318b114b0b79a5f922a8636f3c370b9c342abfa71d4850",
+        "runner_path": ".flowguard/harden_ui_content_visibility_validation/run_checks.py",
+        "runner_source_fingerprint": "sha256:1955cda7d0a5676bbd1855a6f7eace7fd0703e2b0d9218a7ad23143ed3ed395b",
+        "purpose_declaration_fingerprint": "sha256:a49722186374e391d00db8e3d29c37f5481be3e582d743389024a2812eebe132",
+        "purpose_closure_fingerprint": "sha256:6ef1899ed242993a786d987ba0f2cfdac5f0dbb1730a96709b16714da262c1d3"
+      }
+    },
+    {
+      "owner_id": "harden_ui_real_surface_validation",
+      "surface_key": ".flowguard/harden_ui_real_surface_validation/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:harden_ui_real_surface_validation:input",
+        "state": "composite-contract:harden_ui_real_surface_validation:state",
+        "effect": "composite-contract:harden_ui_real_surface_validation:effect",
+        "output": "composite-contract:harden_ui_real_surface_validation:output",
+        "completion": "composite-contract:harden_ui_real_surface_validation:completion",
+        "semantics": "composite-contract:harden_ui_real_surface_validation:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:harden_ui_real_surface_validation:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:harden_ui_real_surface_validation",
+        "model_path": ".flowguard/harden_ui_real_surface_validation/model.py",
+        "model_source_fingerprint": "sha256:af3160aa1a867a7d90dc68b7031464b44dde0398ff654ceb94e0d63ec2bced2f",
+        "runner_path": ".flowguard/harden_ui_real_surface_validation/run_checks.py",
+        "runner_source_fingerprint": "sha256:8fa2b7655cd46a91b82b59715a29edf59dc289de3cc94ad55cab694bfcbfce60",
+        "purpose_declaration_fingerprint": "sha256:92c2b13ae6b906af845ef6236fac080beaff891cbf9cc99253be5c9977f9f1fb",
+        "purpose_closure_fingerprint": "sha256:b27eb548c172179797a1bb6f5bd007ff707ec4b2c4df9eaea88c310fa0f7c777"
+      }
+    },
+    {
+      "owner_id": "hierarchical_model_mesh",
+      "surface_key": ".flowguard/hierarchical_model_mesh/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:hierarchical_model_mesh:input",
+        "state": "composite-contract:hierarchical_model_mesh:state",
+        "effect": "composite-contract:hierarchical_model_mesh:effect",
+        "output": "composite-contract:hierarchical_model_mesh:output",
+        "completion": "composite-contract:hierarchical_model_mesh:completion",
+        "semantics": "composite-contract:hierarchical_model_mesh:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:hierarchical_model_mesh:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:hierarchical_model_mesh",
+        "model_path": ".flowguard/hierarchical_model_mesh/model.py",
+        "model_source_fingerprint": "sha256:3622dd3fca9407340a27688b31b6f9dae14d3fe17c638a74a597172788976025",
+        "runner_path": ".flowguard/hierarchical_model_mesh/run_checks.py",
+        "runner_source_fingerprint": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "purpose_declaration_fingerprint": "sha256:ac138d27c48c1ca5c93ef4f731ac044167ebadec9817e96b904017def1af465a",
+        "purpose_closure_fingerprint": "sha256:fa9bbf9aaa3ca5bba6f9bc03271db7741112022f95686db1736feca57b6faa51"
+      }
+    },
+    {
+      "owner_id": "implementation_blueprint",
+      "surface_key": "flowguard/implementation_blueprint.py#<module>",
+      "contracts": {
+        "input": "composite-contract:implementation_blueprint:input",
+        "state": "composite-contract:implementation_blueprint:state",
+        "effect": "composite-contract:implementation_blueprint:effect",
+        "output": "composite-contract:implementation_blueprint:output",
+        "completion": "composite-contract:implementation_blueprint:completion",
+        "semantics": "composite-contract:implementation_blueprint:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:implementation_blueprint:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:implementation_blueprint",
+        "model_path": ".flowguard/implementation_blueprint/model.py",
+        "model_source_fingerprint": "sha256:94c2e374cf1430e4bdfe196a5a52455817e77f946c9e4a908a146b68a9676b95",
+        "runner_path": ".flowguard/implementation_blueprint/run_checks.py",
+        "runner_source_fingerprint": "sha256:0a9c4d5702c8bedd2e7e29429ba5efeedad195da060156862e99c4b12001b477",
+        "purpose_declaration_fingerprint": "sha256:64aa91d593359c7edeb928d3f1b8cd756fd66660655730530919fdbbcc2b01b4",
+        "purpose_closure_fingerprint": "sha256:ad37d93ae52d9654d2429ce5eb976033389844361af145bec2e30e0fe2412319"
+      }
+    },
+    {
+      "owner_id": "maintenance_obligation_memory",
+      "surface_key": ".flowguard/maintenance_obligation_memory/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:maintenance_obligation_memory:input",
+        "state": "composite-contract:maintenance_obligation_memory:state",
+        "effect": "composite-contract:maintenance_obligation_memory:effect",
+        "output": "composite-contract:maintenance_obligation_memory:output",
+        "completion": "composite-contract:maintenance_obligation_memory:completion",
+        "semantics": "composite-contract:maintenance_obligation_memory:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:maintenance_obligation_memory:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:maintenance_obligation_memory",
+        "model_path": ".flowguard/maintenance_obligation_memory/model.py",
+        "model_source_fingerprint": "sha256:0767612805f2d057e201c8a31b977b06acc3aecf4cbc42ea8d08d2d383b5ed27",
+        "runner_path": ".flowguard/maintenance_obligation_memory/run_checks.py",
+        "runner_source_fingerprint": "sha256:30d7a440f0128ad7d1404a3b4697fd4ed113a00df067b068ded2e5ef92d594f8",
+        "purpose_declaration_fingerprint": "sha256:e5c7a33d19ed9f88bc638dde0b12a12bfc18a7730c0c3f19f879c6c56ae322cb",
+        "purpose_closure_fingerprint": "sha256:cffbc09b8df054f5951b386e17ec718fa69f74d7dc9243e8ff7846a8539269e9"
+      }
+    },
+    {
+      "owner_id": "mesh_target_split_derivation",
+      "surface_key": ".flowguard/mesh_target_split_derivation/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:mesh_target_split_derivation:input",
+        "state": "composite-contract:mesh_target_split_derivation:state",
+        "effect": "composite-contract:mesh_target_split_derivation:effect",
+        "output": "composite-contract:mesh_target_split_derivation:output",
+        "completion": "composite-contract:mesh_target_split_derivation:completion",
+        "semantics": "composite-contract:mesh_target_split_derivation:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:mesh_target_split_derivation:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:mesh_target_split_derivation",
+        "model_path": ".flowguard/mesh_target_split_derivation/model.py",
+        "model_source_fingerprint": "sha256:46b969454621a934627aa4719b335ac49a8106088bb6088c06f15c59f267e23e",
+        "runner_path": ".flowguard/mesh_target_split_derivation/run_checks.py",
+        "runner_source_fingerprint": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "purpose_declaration_fingerprint": "sha256:ee0e0340e169a8332105dcd7b904b1f77de1791c408ba05bd2a27bcb04d35b48",
+        "purpose_closure_fingerprint": "sha256:ab1d457cebf470445815dad61e2f7c415b0ca5207f2c8197be17ebe64008ecee"
+      }
+    },
+    {
+      "owner_id": "minimum_valuable_model_entry",
+      "surface_key": ".flowguard/minimum_valuable_model_entry/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:minimum_valuable_model_entry:input",
+        "state": "composite-contract:minimum_valuable_model_entry:state",
+        "effect": "composite-contract:minimum_valuable_model_entry:effect",
+        "output": "composite-contract:minimum_valuable_model_entry:output",
+        "completion": "composite-contract:minimum_valuable_model_entry:completion",
+        "semantics": "composite-contract:minimum_valuable_model_entry:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:minimum_valuable_model_entry:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:minimum_valuable_model_entry",
+        "model_path": ".flowguard/minimum_valuable_model_entry/model.py",
+        "model_source_fingerprint": "sha256:aaec6c87c5a366e253f3eb511e8ecfe231ef5b2ec9df4fa0f34b2c3b341f7b4c",
+        "runner_path": ".flowguard/minimum_valuable_model_entry/run_checks.py",
+        "runner_source_fingerprint": "sha256:e8d6ef3c151577557a97d26bea41f0ddf36961e6669340e2af03c639199f8d17",
+        "purpose_declaration_fingerprint": "sha256:9d0561a27e5e5989afc5464c9e14c17fe766009fc1e4172d504826c385a4e37d",
+        "purpose_closure_fingerprint": "sha256:02fe9d304242f67b517954c5ae9b81dab923fb40cb6690699faf31107d4d8643"
+      }
+    },
+    {
+      "owner_id": "model_impact_freshness_gate",
+      "surface_key": ".flowguard/model_impact_freshness_gate/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:model_impact_freshness_gate:input",
+        "state": "composite-contract:model_impact_freshness_gate:state",
+        "effect": "composite-contract:model_impact_freshness_gate:effect",
+        "output": "composite-contract:model_impact_freshness_gate:output",
+        "completion": "composite-contract:model_impact_freshness_gate:completion",
+        "semantics": "composite-contract:model_impact_freshness_gate:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:model_impact_freshness_gate:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:model_impact_freshness_gate",
+        "model_path": ".flowguard/model_impact_freshness_gate/model.py",
+        "model_source_fingerprint": "sha256:7ab45266625899af77848a42d4df8991a089c8a9ac5b4df88c6505bcfbb1314a",
+        "runner_path": ".flowguard/model_impact_freshness_gate/run_checks.py",
+        "runner_source_fingerprint": "sha256:92c9811251882c769d91083e36acdf8b0cdca429e467b076d4017cbcc118a9e3",
+        "purpose_declaration_fingerprint": "sha256:74db004c002e7fde7f178857ab46522012ddce0a1279dd94f064a4d4ae743f68",
+        "purpose_closure_fingerprint": "sha256:fd917531af3e5793521b784bb897106332fb2fb5f768381e03e1e02cd1216ecf"
+      }
+    },
+    {
+      "owner_id": "model_maturation_loop",
+      "surface_key": ".flowguard/model_maturation_loop/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:model_maturation_loop:input",
+        "state": "composite-contract:model_maturation_loop:state",
+        "effect": "composite-contract:model_maturation_loop:effect",
+        "output": "composite-contract:model_maturation_loop:output",
+        "completion": "composite-contract:model_maturation_loop:completion",
+        "semantics": "composite-contract:model_maturation_loop:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:model_maturation_loop:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:model_maturation_loop",
+        "model_path": ".flowguard/model_maturation_loop/model.py",
+        "model_source_fingerprint": "sha256:462a5c401d42df0befdb6150ae3c9dfd64c5a1802a1048ecd343bff9b62779b5",
+        "runner_path": ".flowguard/model_maturation_loop/run_checks.py",
+        "runner_source_fingerprint": "sha256:4cb8bcd42d37ee3c4b0dbdf22de8a479c4d920246945cf818bc4eef0ace4f40b",
+        "purpose_declaration_fingerprint": "sha256:6a23a6b46bdc42e722042662567ff234cc9329859e5d14c53285419e0c682e40",
+        "purpose_closure_fingerprint": "sha256:7fc4273b0b9ae80256e762126122c78dea7443e8d88c3c8ecb900b7cdb5cb3a0"
+      }
+    },
+    {
+      "owner_id": "model_mesh_closure_model",
+      "surface_key": ".flowguard/model_mesh_closure_model/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:model_mesh_closure_model:input",
+        "state": "composite-contract:model_mesh_closure_model:state",
+        "effect": "composite-contract:model_mesh_closure_model:effect",
+        "output": "composite-contract:model_mesh_closure_model:output",
+        "completion": "composite-contract:model_mesh_closure_model:completion",
+        "semantics": "composite-contract:model_mesh_closure_model:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:model_mesh_closure_model:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:model_mesh_closure_model",
+        "model_path": ".flowguard/model_mesh_closure_model/model.py",
+        "model_source_fingerprint": "sha256:8a48cbfe9066d029ecda7057d90568fc29a1257dc54fa2c9ef751b0ac0b25cd7",
+        "runner_path": ".flowguard/model_mesh_closure_model/run_checks.py",
+        "runner_source_fingerprint": "sha256:db755e05f7e04da47fa469fa3a18cbacc3e8f0ec665371a23c0ed83c911384a4",
+        "purpose_declaration_fingerprint": "sha256:ee80286a7ff79fcbbdef7c6e9749e6d1bd91a98b23e6a83ec81e37d70f32dbf3",
+        "purpose_closure_fingerprint": "sha256:d1e13cd35be31b0ee833e5b3a25b0a7dd33c36824290de7e6ee49855a7cff4ea"
+      }
+    },
+    {
+      "owner_id": "model_miss_review",
+      "surface_key": ".flowguard/model_miss_review/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:model_miss_review:input",
+        "state": "composite-contract:model_miss_review:state",
+        "effect": "composite-contract:model_miss_review:effect",
+        "output": "composite-contract:model_miss_review:output",
+        "completion": "composite-contract:model_miss_review:completion",
+        "semantics": "composite-contract:model_miss_review:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:model_miss_review:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:model_miss_review",
+        "model_path": ".flowguard/model_miss_review/model.py",
+        "model_source_fingerprint": "sha256:75deceafdd4d531aec33bee30df21fc1ef64688f14b4dcc4e20d54fb3c7a893c",
+        "runner_path": ".flowguard/model_miss_review/run_checks.py",
+        "runner_source_fingerprint": "sha256:903a8e2306d15d0e3812bd50aef509aa6e92bac7857741cb7fa9b5280491b64e",
+        "purpose_declaration_fingerprint": "sha256:bbb9a72b09c100967b0f6fb82a3bcfaf50b1d63f8fbccb7716b7e09698d7d99d",
+        "purpose_closure_fingerprint": "sha256:3e690d8d4da80c895e1cc21b9ae6940763487c24675d899f9607b63626e3d909"
+      }
+    },
+    {
+      "owner_id": "model_test_code_alignment",
+      "surface_key": ".flowguard/model_test_code_alignment/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:model_test_code_alignment:input",
+        "state": "composite-contract:model_test_code_alignment:state",
+        "effect": "composite-contract:model_test_code_alignment:effect",
+        "output": "composite-contract:model_test_code_alignment:output",
+        "completion": "composite-contract:model_test_code_alignment:completion",
+        "semantics": "composite-contract:model_test_code_alignment:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:model_test_code_alignment:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:model_test_code_alignment",
+        "model_path": ".flowguard/model_test_code_alignment/model.py",
+        "model_source_fingerprint": "sha256:23ffaeedec6626bc9d3ea7ac3db344168b0f4fcf696989b57a5e8b637dfb607b",
+        "runner_path": ".flowguard/model_test_code_alignment/run_checks.py",
+        "runner_source_fingerprint": "sha256:65219d542723c8a4b24c26cd360a6fdbba9d0b83d73055d1a7e2c023290dc085",
+        "purpose_declaration_fingerprint": "sha256:6647c65063a1324a364136c85c874ac19adbae286b8df25d0585c3f674dc803c",
+        "purpose_closure_fingerprint": "sha256:c043ee7dad1d9d87d533db4604546596337d0d71e2009bdd26fda1435cf30293"
+      }
+    },
+    {
+      "owner_id": "model_topology_hazard_review",
+      "surface_key": ".flowguard/model_topology_hazard_review/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:model_topology_hazard_review:input",
+        "state": "composite-contract:model_topology_hazard_review:state",
+        "effect": "composite-contract:model_topology_hazard_review:effect",
+        "output": "composite-contract:model_topology_hazard_review:output",
+        "completion": "composite-contract:model_topology_hazard_review:completion",
+        "semantics": "composite-contract:model_topology_hazard_review:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:model_topology_hazard_review:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:model_topology_hazard_review",
+        "model_path": ".flowguard/model_topology_hazard_review/model.py",
+        "model_source_fingerprint": "sha256:021d8baaa8645b8f0b01397ae69a88540da2c4d80da489d7838181968c3c6044",
+        "runner_path": ".flowguard/model_topology_hazard_review/run_checks.py",
+        "runner_source_fingerprint": "sha256:694ab88357d8470920860e766ed8f0f78934170b0d45211f7d5e51a7ee13fda8",
+        "purpose_declaration_fingerprint": "sha256:4f6635a01a81b41a6c2ca4c28924caf5c791526fc1342761aafaab5266e00704",
+        "purpose_closure_fingerprint": "sha256:cfdfda9b29064c5c23ebfdd6f134237e0259abd2ee3e14c3fdc4e401fe289c6b"
+      }
+    },
+    {
+      "owner_id": "model_visibility",
+      "surface_key": ".flowguard/model_visibility/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:model_visibility:input",
+        "state": "composite-contract:model_visibility:state",
+        "effect": "composite-contract:model_visibility:effect",
+        "output": "composite-contract:model_visibility:output",
+        "completion": "composite-contract:model_visibility:completion",
+        "semantics": "composite-contract:model_visibility:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:model_visibility:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:model_visibility",
+        "model_path": ".flowguard/model_visibility/model.py",
+        "model_source_fingerprint": "sha256:d235d588017bb1a5bc86639285182fe4d6fb3e5f4089bfb0f607ab9355f6acd3",
+        "runner_path": ".flowguard/model_visibility/run_checks.py",
+        "runner_source_fingerprint": "sha256:19a4333c4d575e8d509c1613bd9ec1c7f1c7c22ea0a136f97f681bb29ad65007",
+        "purpose_declaration_fingerprint": "sha256:ad0f07666c79dcccbd2344276a6287448298d55d6ee4053984840a05e37ff365",
+        "purpose_closure_fingerprint": "sha256:166b0b7298f2fb803a5a8fa846611d78804e492365eefac542045daa0e54d122"
+      }
+    },
+    {
+      "owner_id": "plan_detailing_compiler",
+      "surface_key": ".flowguard/plan_detailing_compiler/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:plan_detailing_compiler:input",
+        "state": "composite-contract:plan_detailing_compiler:state",
+        "effect": "composite-contract:plan_detailing_compiler:effect",
+        "output": "composite-contract:plan_detailing_compiler:output",
+        "completion": "composite-contract:plan_detailing_compiler:completion",
+        "semantics": "composite-contract:plan_detailing_compiler:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:plan_detailing_compiler:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:plan_detailing_compiler",
+        "model_path": ".flowguard/plan_detailing_compiler/model.py",
+        "model_source_fingerprint": "sha256:72d45645ebf9efc33ef34a26e8cf1be19af59e27b8f7700e4579713b51360d5b",
+        "runner_path": ".flowguard/plan_detailing_compiler/run_checks.py",
+        "runner_source_fingerprint": "sha256:985d6aed10c165d6de2fdbe04d5ff584af93bd4ef928ba5e4f2fe2ba3a2ed451",
+        "purpose_declaration_fingerprint": "sha256:0f9916ab6146543d5c6a2463b6be8b587567e8fe17e5b548195605c4f05066ee",
+        "purpose_closure_fingerprint": "sha256:fdbab1399a86966e663c550bef74c6508a48d169e049f65eac5e2f00b8e71823"
+      }
+    },
+    {
+      "owner_id": "primary_path_authority",
+      "surface_key": "flowguard/primary_path_authority.py#<module>",
+      "contracts": {
+        "input": "composite-contract:primary_path_authority:input",
+        "state": "composite-contract:primary_path_authority:state",
+        "effect": "composite-contract:primary_path_authority:effect",
+        "output": "composite-contract:primary_path_authority:output",
+        "completion": "composite-contract:primary_path_authority:completion",
+        "semantics": "composite-contract:primary_path_authority:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:primary_path_authority:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:primary_path_authority",
+        "model_path": ".flowguard/primary_path_authority/model.py",
+        "model_source_fingerprint": "sha256:c8a732b389620e0de9794547aa8b395c76a078d8a8875c4402fb344aa03ec185",
+        "runner_path": ".flowguard/primary_path_authority/run_checks.py",
+        "runner_source_fingerprint": "sha256:f8cdb7386719508f926d65ee0f5c8753aa66d100db4223ceaaeb849e31a4d2ee",
+        "purpose_declaration_fingerprint": "sha256:8bc140793dc187eaa0c1d53ec7050f2af35589650402d54750b40dddc57428fc",
+        "purpose_closure_fingerprint": "sha256:6a519d22bc986d9801dc3601a4959b0202e199b5743eff14703f99a1eefcba40"
+      }
+    },
+    {
+      "owner_id": "project_adoption_version_gate",
+      "surface_key": ".flowguard/project_adoption_version_gate/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:project_adoption_version_gate:input",
+        "state": "composite-contract:project_adoption_version_gate:state",
+        "effect": "composite-contract:project_adoption_version_gate:effect",
+        "output": "composite-contract:project_adoption_version_gate:output",
+        "completion": "composite-contract:project_adoption_version_gate:completion",
+        "semantics": "composite-contract:project_adoption_version_gate:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:project_adoption_version_gate:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:project_adoption_version_gate",
+        "model_path": ".flowguard/project_adoption_version_gate/model.py",
+        "model_source_fingerprint": "sha256:138b1abdb8dd5c25e9e7430d7fe89c194134ac9972f2fa7595b95cc4313b192f",
+        "runner_path": ".flowguard/project_adoption_version_gate/run_checks.py",
+        "runner_source_fingerprint": "sha256:1ad9498bbb0ec8ab471a3ee2e4404fcffd7124cea5e2d22076173f839933b7a1",
+        "purpose_declaration_fingerprint": "sha256:3f3213ffce8490a54a2791acced332d5e6a84d64a5abde3f997fcc759417762c",
+        "purpose_closure_fingerprint": "sha256:ba6f3d7adb4b2fd8e4ad1fd2a1602443d5dc89f2a4e25a692f630be905f61812"
+      }
+    },
+    {
+      "owner_id": "runtime_gateway_adoption",
+      "surface_key": ".flowguard/runtime_gateway_adoption/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:runtime_gateway_adoption:input",
+        "state": "composite-contract:runtime_gateway_adoption:state",
+        "effect": "composite-contract:runtime_gateway_adoption:effect",
+        "output": "composite-contract:runtime_gateway_adoption:output",
+        "completion": "composite-contract:runtime_gateway_adoption:completion",
+        "semantics": "composite-contract:runtime_gateway_adoption:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:runtime_gateway_adoption:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:runtime_gateway_adoption",
+        "model_path": ".flowguard/runtime_gateway_adoption/model.py",
+        "model_source_fingerprint": "sha256:a8ca74e658f8fa2c1ee7d0bf8758f5fcd552dd47e2f28b528a84ad98fbd45466",
+        "runner_path": ".flowguard/runtime_gateway_adoption/run_checks.py",
+        "runner_source_fingerprint": "sha256:cd67bb44174d3735faf148ce3376478ce5d6cd3c5bf968238d3d6e3ff0214d76",
+        "purpose_declaration_fingerprint": "sha256:38f3431f5bfe2996600b0864dca3ee108475481a9c9f311bf6c55455bf8feb85",
+        "purpose_closure_fingerprint": "sha256:24715b43b0439928084f8a74cbd40ab7c34cf64d358def75eaaa67b20a8e6dd6"
+      }
+    },
+    {
+      "owner_id": "runtime_path_evidence",
+      "surface_key": ".flowguard/runtime_path_evidence/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:runtime_path_evidence:input",
+        "state": "composite-contract:runtime_path_evidence:state",
+        "effect": "composite-contract:runtime_path_evidence:effect",
+        "output": "composite-contract:runtime_path_evidence:output",
+        "completion": "composite-contract:runtime_path_evidence:completion",
+        "semantics": "composite-contract:runtime_path_evidence:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:runtime_path_evidence:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:runtime_path_evidence",
+        "model_path": ".flowguard/runtime_path_evidence/model.py",
+        "model_source_fingerprint": "sha256:24851092e2c11f5d5d27a85f92e3d1e3d24b8f8665489d216bd7b65eaf541f0e",
+        "runner_path": ".flowguard/runtime_path_evidence/run_checks.py",
+        "runner_source_fingerprint": "sha256:912c38a03b8e9a608490f88ee0e4cbe2ebf1f5d29e1b286b8be5461abd1c4220",
+        "purpose_declaration_fingerprint": "sha256:26d613658f0e39d0b0cfd25e8f3d749bce07b5e0b3688b46a46b6ab83651ef9b",
+        "purpose_closure_fingerprint": "sha256:c5d5993b14af802cb5268268f9df6047fa20bb156b6c4d56f7db9c07434ce588"
+      }
+    },
+    {
+      "owner_id": "self_maintenance_mesh",
+      "surface_key": ".flowguard/self_maintenance_mesh/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:self_maintenance_mesh:input",
+        "state": "composite-contract:self_maintenance_mesh:state",
+        "effect": "composite-contract:self_maintenance_mesh:effect",
+        "output": "composite-contract:self_maintenance_mesh:output",
+        "completion": "composite-contract:self_maintenance_mesh:completion",
+        "semantics": "composite-contract:self_maintenance_mesh:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:self_maintenance_mesh:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:self_maintenance_mesh",
+        "model_path": ".flowguard/self_maintenance_mesh/model.py",
+        "model_source_fingerprint": "sha256:63e8a95d97b808e5aba8e82d085a824e2e58cff7dee322564a2541289eb4b9f7",
+        "runner_path": ".flowguard/self_maintenance_mesh/run_checks.py",
+        "runner_source_fingerprint": "sha256:655b91e3608e0b57de5e9abbfbe822370423b47191eaf06056e357831985b887",
+        "purpose_declaration_fingerprint": "sha256:074c26c38348704183d1edc5aa15f78cdd528bbc8288d10a60671ccae0a5303d",
+        "purpose_closure_fingerprint": "sha256:4a74571edcf81913bb74cc4cc37a3033111c54b1804a640837c81dc801f93aca"
+      }
+    },
+    {
+      "owner_id": "skill_kernel_modularization",
+      "surface_key": ".flowguard/skill_kernel_modularization/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:skill_kernel_modularization:input",
+        "state": "composite-contract:skill_kernel_modularization:state",
+        "effect": "composite-contract:skill_kernel_modularization:effect",
+        "output": "composite-contract:skill_kernel_modularization:output",
+        "completion": "composite-contract:skill_kernel_modularization:completion",
+        "semantics": "composite-contract:skill_kernel_modularization:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:skill_kernel_modularization:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:skill_kernel_modularization",
+        "model_path": ".flowguard/skill_kernel_modularization/model.py",
+        "model_source_fingerprint": "sha256:64c57d1bb8c7b839cc7a40768cc27a5a2e4fe76cf883cea502a53d3dfac41aec",
+        "runner_path": ".flowguard/skill_kernel_modularization/run_checks.py",
+        "runner_source_fingerprint": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "purpose_declaration_fingerprint": "sha256:67bb15edd41edf3f90db51a5816f6b4e990e868bb116ce03f387003188f2e848",
+        "purpose_closure_fingerprint": "sha256:82bd95cc6c0632f947fb9911aacabceb51498f9a0b9bb58a5692f8f6cabf2bfc"
+      }
+    },
+    {
+      "owner_id": "state_closure_gate",
+      "surface_key": ".flowguard/state_closure_gate/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:state_closure_gate:input",
+        "state": "composite-contract:state_closure_gate:state",
+        "effect": "composite-contract:state_closure_gate:effect",
+        "output": "composite-contract:state_closure_gate:output",
+        "completion": "composite-contract:state_closure_gate:completion",
+        "semantics": "composite-contract:state_closure_gate:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:state_closure_gate:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:state_closure_gate",
+        "model_path": ".flowguard/state_closure_gate/model.py",
+        "model_source_fingerprint": "sha256:0b552a47f2492a9ccd87c1409bb577a72c576ff211398107863d5758c3a727df",
+        "runner_path": ".flowguard/state_closure_gate/run_checks.py",
+        "runner_source_fingerprint": "sha256:8f3e53dd30b5617e75bcd1242636b433b1ad4568fc0c4b5dd914fffdcbc4dd06",
+        "purpose_declaration_fingerprint": "sha256:b9b2b8107f20742c77e2b5af95071e2c0c1b71811fdb5e214be18cc40ef60902",
+        "purpose_closure_fingerprint": "sha256:b59827607ef5565436713f93038ddaab1c24d0d2c3ebab47e90f43fd8d002aff"
+      }
+    },
+    {
+      "owner_id": "structure_refactor_mesh",
+      "surface_key": ".flowguard/structure_refactor_mesh/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:structure_refactor_mesh:input",
+        "state": "composite-contract:structure_refactor_mesh:state",
+        "effect": "composite-contract:structure_refactor_mesh:effect",
+        "output": "composite-contract:structure_refactor_mesh:output",
+        "completion": "composite-contract:structure_refactor_mesh:completion",
+        "semantics": "composite-contract:structure_refactor_mesh:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:structure_refactor_mesh:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:structure_refactor_mesh",
+        "model_path": ".flowguard/structure_refactor_mesh/model.py",
+        "model_source_fingerprint": "sha256:aa0acc5dec0b7d0733f8341236370c52af0bd6791da9617a820753c48e219617",
+        "runner_path": ".flowguard/structure_refactor_mesh/run_checks.py",
+        "runner_source_fingerprint": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "purpose_declaration_fingerprint": "sha256:755a538b00052caba36373508e96b139663ee303a08c1db9ab3e586c9d548b23",
+        "purpose_closure_fingerprint": "sha256:cc290cf7c72182ee42f2c5e2c63111f3a27c9d8e63483a0612b88ca0fc9501bb"
+      }
+    },
+    {
+      "owner_id": "task_coverage_demand",
+      "surface_key": "flowguard/task_coverage_demand.py#<module>",
+      "contracts": {
+        "input": "composite-contract:task_coverage_demand:input",
+        "state": "composite-contract:task_coverage_demand:state",
+        "effect": "composite-contract:task_coverage_demand:effect",
+        "output": "composite-contract:task_coverage_demand:output",
+        "completion": "composite-contract:task_coverage_demand:completion",
+        "semantics": "composite-contract:task_coverage_demand:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:task_coverage_demand:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:task_coverage_demand",
+        "model_path": ".flowguard/task_coverage_demand/model.py",
+        "model_source_fingerprint": "sha256:d3425dad220f3cb429223474953ba17298704b61839c93c47c371f9a99e336ef",
+        "runner_path": ".flowguard/task_coverage_demand/run_checks.py",
+        "runner_source_fingerprint": "sha256:d34d91fabf5f095b9bae067ca941ff0e345f39870b5d25f2f454c58694b7e9f9",
+        "purpose_declaration_fingerprint": "sha256:d5344222f325c57d2f43708c8b77ccdd4c425857a1dba80c4ee8c0dbc56460ec",
+        "purpose_closure_fingerprint": "sha256:acb0898b6e481fda789838047a1a832c683e5e23fdda70486cd3519eee197708"
+      }
+    },
+    {
+      "owner_id": "task_local_prediction_replay",
+      "surface_key": ".flowguard/task_local_prediction_replay/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:task_local_prediction_replay:input",
+        "state": "composite-contract:task_local_prediction_replay:state",
+        "effect": "composite-contract:task_local_prediction_replay:effect",
+        "output": "composite-contract:task_local_prediction_replay:output",
+        "completion": "composite-contract:task_local_prediction_replay:completion",
+        "semantics": "composite-contract:task_local_prediction_replay:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:task_local_prediction_replay:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:task_local_prediction_replay",
+        "model_path": ".flowguard/task_local_prediction_replay/model.py",
+        "model_source_fingerprint": "sha256:ac0df635a0894c200852815888c0610b940c5a1486eb0e779931882353394ef1",
+        "runner_path": ".flowguard/task_local_prediction_replay/run_checks.py",
+        "runner_source_fingerprint": "sha256:09c829aa896106a61dd3ec84247ee23e2a0eb067aa05b2864ae33aaf12d16f48",
+        "purpose_declaration_fingerprint": "sha256:bc85f810ece60c661ccc04c34146c4ba920fcc8b0cebeab5483eca4c1ccaeddf",
+        "purpose_closure_fingerprint": "sha256:7902206ff4398c50c7276f0c232e7eb7a1ddebb8d8a6a36bf9a27eccf141c9b2"
+      }
+    },
+    {
+      "owner_id": "template_public_release",
+      "surface_key": ".flowguard/template_public_release/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:template_public_release:input",
+        "state": "composite-contract:template_public_release:state",
+        "effect": "composite-contract:template_public_release:effect",
+        "output": "composite-contract:template_public_release:output",
+        "completion": "composite-contract:template_public_release:completion",
+        "semantics": "composite-contract:template_public_release:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:template_public_release:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:template_public_release",
+        "model_path": ".flowguard/template_public_release/model.py",
+        "model_source_fingerprint": "sha256:c2796ec2e322c7d6e5e97960cec40d6c991c92c54f4e30a88d9282d51b28c545",
+        "runner_path": ".flowguard/template_public_release/run_checks.py",
+        "runner_source_fingerprint": "sha256:d10ffba9f91383afbf2d05220b782c82811f2768241cccbc5986c04c6592cbdc",
+        "purpose_declaration_fingerprint": "sha256:1a7d59214188942e5bf7f92930ecdd309a124e80f39383647de0727be69f3ec7",
+        "purpose_closure_fingerprint": "sha256:da01db4e6a32030eedf7fa2b85f69a712a868f1bbdeab4306bc26677ba0f1a49"
+      }
+    },
+    {
+      "owner_id": "test_evidence_mesh",
+      "surface_key": ".flowguard/test_evidence_mesh/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:test_evidence_mesh:input",
+        "state": "composite-contract:test_evidence_mesh:state",
+        "effect": "composite-contract:test_evidence_mesh:effect",
+        "output": "composite-contract:test_evidence_mesh:output",
+        "completion": "composite-contract:test_evidence_mesh:completion",
+        "semantics": "composite-contract:test_evidence_mesh:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:test_evidence_mesh:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:test_evidence_mesh",
+        "model_path": ".flowguard/test_evidence_mesh/model.py",
+        "model_source_fingerprint": "sha256:766490ef9c003544183da36408c604d6b92acde0e32389b59a1877d98d2e6e38",
+        "runner_path": ".flowguard/test_evidence_mesh/run_checks.py",
+        "runner_source_fingerprint": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "purpose_declaration_fingerprint": "sha256:4c2f9de4a71002f66f6f9f8d2b00527f7b4f22d7c99a1a8e0ea6d8a8f040d468",
+        "purpose_closure_fingerprint": "sha256:907b5fdd79ab0161a07d9168033eb8da9e3cd788b57b63346024ce0d0b8b93f7"
+      }
+    },
+    {
+      "owner_id": "ui_flow_structure_skill",
+      "surface_key": ".flowguard/ui_flow_structure_skill/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:ui_flow_structure_skill:input",
+        "state": "composite-contract:ui_flow_structure_skill:state",
+        "effect": "composite-contract:ui_flow_structure_skill:effect",
+        "output": "composite-contract:ui_flow_structure_skill:output",
+        "completion": "composite-contract:ui_flow_structure_skill:completion",
+        "semantics": "composite-contract:ui_flow_structure_skill:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:ui_flow_structure_skill:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:ui_flow_structure_skill",
+        "model_path": ".flowguard/ui_flow_structure_skill/model.py",
+        "model_source_fingerprint": "sha256:95f5fc219f3ff3f8d7d3fa930b7cac19ed1453ae135f318619920e5b22d73a0a",
+        "runner_path": ".flowguard/ui_flow_structure_skill/run_checks.py",
+        "runner_source_fingerprint": "sha256:c23526ec84ae28a82a6b9a8951124a9716b5ad984369b39e095764347433dab0",
+        "purpose_declaration_fingerprint": "sha256:2fe78f37bfa49014d0fd8753269c5dd546293ed339a9eb9e4867ae02ced9e210",
+        "purpose_closure_fingerprint": "sha256:2b9cdd41f2da8e6881618b68294c9c17cc9f52c2e5bd187d72396ae0b72a87e9"
+      }
+    },
+    {
+      "owner_id": "ui_human_operability_gate",
+      "surface_key": ".flowguard/ui_human_operability_gate/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:ui_human_operability_gate:input",
+        "state": "composite-contract:ui_human_operability_gate:state",
+        "effect": "composite-contract:ui_human_operability_gate:effect",
+        "output": "composite-contract:ui_human_operability_gate:output",
+        "completion": "composite-contract:ui_human_operability_gate:completion",
+        "semantics": "composite-contract:ui_human_operability_gate:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:ui_human_operability_gate:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:ui_human_operability_gate",
+        "model_path": ".flowguard/ui_human_operability_gate/model.py",
+        "model_source_fingerprint": "sha256:8ed2befb699b5d4c151505ed1d7f27571a658ba83e0c4c6863759f7a3c69dcc4",
+        "runner_path": ".flowguard/ui_human_operability_gate/run_checks.py",
+        "runner_source_fingerprint": "sha256:a94d01a33a8c188dd0eacc82e95bfd2d61c7c9131bccb08567af5d3b50770d46",
+        "purpose_declaration_fingerprint": "sha256:1ab7beba16da341e77529ec0ca7216902f6ead01ae41cef727be31919a2e3284",
+        "purpose_closure_fingerprint": "sha256:8ae0aa78c80e0b1d0f01b3b8f994ebb2da2aa2cd11c2289b0031b426852790d9"
+      }
+    },
+    {
+      "owner_id": "user_facing_model_diagrams",
+      "surface_key": ".flowguard/user_facing_model_diagrams/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:user_facing_model_diagrams:input",
+        "state": "composite-contract:user_facing_model_diagrams:state",
+        "effect": "composite-contract:user_facing_model_diagrams:effect",
+        "output": "composite-contract:user_facing_model_diagrams:output",
+        "completion": "composite-contract:user_facing_model_diagrams:completion",
+        "semantics": "composite-contract:user_facing_model_diagrams:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:user_facing_model_diagrams:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:user_facing_model_diagrams",
+        "model_path": ".flowguard/user_facing_model_diagrams/model.py",
+        "model_source_fingerprint": "sha256:6f19977619dce81b7d21422a93b085999fd59930e8b8a199cdf81d9c4598de37",
+        "runner_path": ".flowguard/user_facing_model_diagrams/run_checks.py",
+        "runner_source_fingerprint": "sha256:58107684dd9ef16e1e49bbe0ac219db17a049af3ab3e6245a5aab8a3802eaa74",
+        "purpose_declaration_fingerprint": "sha256:6f5cabce42b7096044bfac7508cdc889797746a0eb512c1b80ac8de1f798f09c",
+        "purpose_closure_fingerprint": "sha256:70dca389f7a96d66239467cd30893b99cc63858cd3ed9bf5acda66cf2996e81a"
+      }
+    },
+    {
+      "owner_id": "validation_evidence_gates",
+      "surface_key": ".flowguard/validation_evidence_gates/model.py#<module>",
+      "contracts": {
+        "input": "composite-contract:validation_evidence_gates:input",
+        "state": "composite-contract:validation_evidence_gates:state",
+        "effect": "composite-contract:validation_evidence_gates:effect",
+        "output": "composite-contract:validation_evidence_gates:output",
+        "completion": "composite-contract:validation_evidence_gates:completion",
+        "semantics": "composite-contract:validation_evidence_gates:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:validation_evidence_gates:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:validation_evidence_gates",
+        "model_path": ".flowguard/validation_evidence_gates/model.py",
+        "model_source_fingerprint": "sha256:1a11f15cb43ed9962565b4eb72c6b07bdbe584ffc1be67d52f240206548d4f03",
+        "runner_path": ".flowguard/validation_evidence_gates/run_checks.py",
+        "runner_source_fingerprint": "sha256:0eb8e90bc2081bd9784ed5842adfec50421c74c4c800c7e558ebbeb136dcbf03",
+        "purpose_declaration_fingerprint": "sha256:75506b7c3f06cdf53ad527db2ce65bd4e001f7449ce3b5624418c890ae471082",
+        "purpose_closure_fingerprint": "sha256:b1955176c87b9be183c092fa09d3427fe5982190fb2e10390150cb644ad0d582"
+      }
+    },
+    {
+      "owner_id": "work_context",
+      "surface_key": "flowguard/work_context.py#<module>",
+      "contracts": {
+        "input": "composite-contract:work_context:input",
+        "state": "composite-contract:work_context:state",
+        "effect": "composite-contract:work_context:effect",
+        "output": "composite-contract:work_context:output",
+        "completion": "composite-contract:work_context:completion",
+        "semantics": "composite-contract:work_context:semantics"
+      },
+      "source_identity": {
+        "purpose_source_id": ".flowguard/model-regression-manifest.json#model:work_context:purpose-declaration",
+        "purpose_source_owner_id": "model-purpose-declaration:work_context",
+        "model_path": ".flowguard/work_context/model.py",
+        "model_source_fingerprint": "sha256:56d78e73a3b7401f9b203f5383403ebfdccc9c4b3691a8d1b247dd6146a944d0",
+        "runner_path": ".flowguard/work_context/run_checks.py",
+        "runner_source_fingerprint": "sha256:38cc45ffa69cac91f3263f0375cc68ddc322427095d1c3fa7954c7445088081e",
+        "purpose_declaration_fingerprint": "sha256:c36ccf16feb1e74b5052a0e43305026ed64f35e2649ffcde066e6ad9af8246c5",
+        "purpose_closure_fingerprint": "sha256:929d7d3f6bd41617acca6e1ead256beee869d4cdc71cbea07cf79151cc936f82"
+      }
+    }
+  ],
   "owner_overrides": {
+    "flowguard/_hashing.py": "validation_evidence_gates",
     "flowguard/_normalization.py": "compositional_verification_kernel",
+    "flowguard/_package_identity.py": "codex_skill_satellites",
+    "flowguard/_runtime_progress.py": "compositional_verification_kernel",
+    "flowguard/_wire.py": "authoritative_model_system",
     "flowguard/__init__.py": "codex_skill_satellites",
     "flowguard/__main__.py": "codex_skill_satellites",
     "flowguard/adoption.py": "project_adoption_version_gate",
@@ -827,6 +1467,8 @@
     "flowguard/checks.py": "compositional_verification_kernel",
     "flowguard/closure_contract.py": "flowguard_closure_contract",
     "flowguard/code_structure.py": "structure_refactor_mesh",
+    "flowguard/development_process_strategy.py": "development_process_strategy",
+    "flowguard/_development_process_strategy_review.py": "development_process_strategy",
     "flowguard/conformance.py": "code_boundary_conformance",
     "flowguard/contract.py": "model_test_code_alignment",
     "flowguard/contract_exhaustion.py": "model_test_code_alignment",
@@ -847,11 +1489,13 @@
     "flowguard/hierarchy.py": "hierarchical_model_mesh",
     "flowguard/implementation_inventory.py": "implementation_blueprint",
     "flowguard/implementation_inventory_python.py": "implementation_blueprint",
+    "flowguard/affected_blueprint_reader.py": "implementation_blueprint",
+    "flowguard/blueprint_compact_projection.py": "implementation_blueprint",
+    "flowguard/canonical_blueprint_projection.py": "implementation_blueprint",
     "flowguard/layered_proof.py": "validation_evidence_gates",
-    "flowguard/legacy_path_disposition.py": "legacy_compatibility_cleanup",
+    "flowguard/legacy_path_disposition.py": "model_miss_review",
     "flowguard/loop.py": "state_closure_gate",
     "flowguard/maintenance_obligation.py": "maintenance_obligation_memory",
-    "flowguard/maintenance_scan.py": "maintenance_scan_router",
     "flowguard/mermaid.py": "user_facing_model_diagrams",
     "flowguard/minimize.py": "architecture_reduction",
     "flowguard/model_authority.py": "authoritative_model_system",
@@ -859,14 +1503,18 @@
     "flowguard/model_freshness.py": "model_impact_freshness_gate",
     "flowguard/model_maturation.py": "model_maturation_loop",
     "flowguard/model_maturation_receipt.py": "model_maturation_loop",
+    "flowguard/model_path_quality.py": "model_maturation_loop",
     "flowguard/modelmesh.py": "hierarchical_model_mesh",
     "flowguard/model_miss_diagnostics.py": "model_miss_review",
     "flowguard/model_intent.py": "work_context",
+    "flowguard/model_intent_authority.py": "authoritative_model_system",
     "flowguard/model_purpose.py": "authoritative_model_system",
     "flowguard/model_regressions.py": "authoritative_model_system",
     "flowguard/model_revision_builder.py": "authoritative_model_system",
+    "flowguard/model_revision_owner_evidence.py": "authoritative_model_system",
+    "flowguard/model_revision_plan.py": "authoritative_model_system",
     "flowguard/model_revision_set.py": "authoritative_model_system",
-    "flowguard/model_similarity.py": "model_similarity_consolidation",
+    "flowguard/canonical_relation.py": "authoritative_model_system",
     "flowguard/model_system_inventory.py": "authoritative_model_system",
     "flowguard/model_test_alignment.py": "model_test_code_alignment",
     "flowguard/model_test_alignment_source.py": "model_test_code_alignment",
@@ -881,26 +1529,29 @@
     "flowguard/plan_intake.py": "development_process_flow",
     "flowguard/portable_checker.py": "compositional_verification_kernel",
     "flowguard/portable_model.py": "compositional_verification_kernel",
+    "flowguard/portable_path_quality.py": "model_maturation_loop",
     "flowguard/portable_system.py": "compositional_verification_kernel",
     "flowguard/process_supervision.py": "development_process_flow",
+    "flowguard/primary_path_authority.py": "primary_path_authority",
     "flowguard/progress.py": "state_closure_gate",
     "flowguard/project_adoption.py": "project_adoption_version_gate",
     "flowguard/project_blueprint.py": "implementation_blueprint",
     "flowguard/blueprint_topology.py": "implementation_blueprint",
     "flowguard/software_blueprint_readiness.py": "implementation_blueprint",
     "flowguard/target_system_blueprint.py": "implementation_blueprint",
+    "flowguard/target_native_qualification.py": "implementation_blueprint",
     "flowguard/project_manifest.py": "project_adoption_version_gate",
     "flowguard/prompt_budget.py": "guidance_compression",
     "flowguard/proof_artifact.py": "validation_evidence_gates",
     "flowguard/pytest_adapter.py": "test_evidence_mesh",
     "flowguard/recurring_model_miss.py": "model_miss_review",
-    "flowguard/release_verification.py": "release_visibility_process",
+    "flowguard/release_verification.py": "development_process_flow",
     "flowguard/report.py": "compositional_verification_kernel",
     "flowguard/replay.py": "code_boundary_conformance",
     "flowguard/review.py": "compositional_verification_kernel",
-    "flowguard/risk.py": "risk_purpose_header",
-    "flowguard/risk_evidence_ledger.py": "risk_purpose_header",
-    "flowguard/risk_templates.py": "risk_purpose_header",
+    "flowguard/risk.py": "minimum_valuable_model_entry",
+    "flowguard/risk_evidence_ledger.py": "model_maturation_loop",
+    "flowguard/risk_templates.py": "template_public_release",
     "flowguard/route_topology.py": "ai_route_handoffs",
     "flowguard/runner.py": "compositional_verification_kernel",
     "flowguard/runtime_gateway.py": "runtime_gateway_adoption",
@@ -909,7 +1560,10 @@
     "flowguard/scenario_matrix.py": "adversarial_scenario_synthesis",
     "flowguard/schema.py": "authoritative_model_system",
     "flowguard/self_blueprint.py": "implementation_blueprint",
+    "flowguard/self_path_quality.py": "authoritative_model_system",
     "flowguard/self_architecture_reduction.py": "architecture_reduction",
+    "flowguard/self_reduction_inventory.py": "architecture_reduction",
+    "flowguard/validation_owner_execution.py": "architecture_reduction",
     "flowguard/self_maintenance.py": "self_maintenance_mesh",
     "flowguard/shard_safety.py": "test_evidence_mesh",
     "flowguard/skill_contract_model.py": "codex_skill_satellites",
@@ -926,25 +1580,31 @@
     "flowguard/summary_report.py": "compositional_verification_kernel",
     "flowguard/system_composition.py": "compositional_verification_kernel",
     "flowguard/task_local_model.py": "task_local_prediction_replay",
-    "flowguard/template_packs.py": "template_harvest_closure",
+    "flowguard/template_packs.py": "template_public_release",
     "flowguard/template_text/__init__.py": "codex_skill_satellites",
     "flowguard/template_text/code_structure_recommendation.py": "codex_skill_satellites",
     "flowguard/template_text/core.py": "codex_skill_satellites",
+    "flowguard/template_text/development_process_flow.py": "development_process_flow",
+    "flowguard/template_text/existing_model_preflight.py": "existing_model_preflight",
     "flowguard/template_text/field_lifecycle.py": "codex_skill_satellites",
+    "flowguard/template_text/flowguard_closure_contract.py": "flowguard_closure_contract",
     "flowguard/template_text/layered_boundary_proof.py": "codex_skill_satellites",
-    "flowguard/template_text/maintenance_scan.py": "codex_skill_satellites",
     "flowguard/template_text/maintenance_workflow.py": "codex_skill_satellites",
+    "flowguard/template_text/model_miss_review.py": "model_miss_review",
     "flowguard/template_text/model_test_alignment.py": "codex_skill_satellites",
     "flowguard/template_text/plan_detailing.py": "codex_skill_satellites",
+    "flowguard/template_text/primary_path_authority.py": "primary_path_authority",
     "flowguard/template_text/risk_evidence_ledger.py": "codex_skill_satellites",
     "flowguard/template_text/risk_intent_check_plan.py": "codex_skill_satellites",
     "flowguard/template_text/risk_template_library.py": "codex_skill_satellites",
+    "flowguard/template_text/runtime_path_evidence.py": "runtime_path_evidence",
     "flowguard/template_text/structure_mesh.py": "codex_skill_satellites",
     "flowguard/template_text/test_mesh.py": "codex_skill_satellites",
     "flowguard/template_text/topology_hazard.py": "codex_skill_satellites",
     "flowguard/template_text/ui_flow_structure.py": "codex_skill_satellites",
+    "flowguard/template_text/work_context.py": "work_context",
     "flowguard/template_text/workflow_step_contracts.py": "codex_skill_satellites",
-    "flowguard/templates.py": "template_harvest_closure",
+    "flowguard/templates.py": "codex_skill_satellites",
     "flowguard/test_reuse.py": "test_evidence_mesh",
     "flowguard/test_inventory.py": "test_evidence_mesh",
     "flowguard/test_inventory_python.py": "test_evidence_mesh",
@@ -965,9 +1625,10 @@
     "scripts/check_flowguard_route_topology.py": "ai_route_handoffs",
     "scripts/check_flowguard_self_governance.py": "codex_skill_satellites",
     "scripts/check_flowguard_skill_suite.py": "codex_skill_satellites",
-    "scripts/check_openspec_change.py": "openspec_archive_cleanup",
-    "scripts/check_openspec_semantic_sync.py": "openspec_archive_cleanup",
+    "scripts/check_openspec_change.py": "development_process_flow",
+    "scripts/check_openspec_semantic_sync.py": "development_process_flow",
     "scripts/check_prompt_budgets.py": "guidance_compression",
+    "scripts/compile_flowguard_self_blueprint_definition.py": "authoritative_model_system",
     "scripts/compile_flowguard_consumer_suite_authority.py": "codex_skill_satellites",
     "scripts/compile_flowguard_skill_contracts.py": "codex_skill_satellites",
     "scripts/flowguard_adoption_review_helper.py": "project_adoption_version_gate",
@@ -976,23 +1637,56 @@
     "scripts/prove_model_shard_safety.py": "test_evidence_mesh",
     "scripts/run_flowguard_model_regressions.py": "authoritative_model_system",
     "scripts/run_flowguard_skill_native_checks.py": "codex_skill_satellites",
-    "scripts/run_openspec_selected_check.py": "openspec_archive_cleanup",
+    "scripts/run_openspec_selected_check.py": "test_evidence_mesh",
     "scripts/sync_shadow_workspace.py": "development_process_flow",
-    "scripts/verify_flowguard_release.py": "release_visibility_process",
+    "scripts/verify_flowguard_release.py": "development_process_flow",
     "scripts/verify_guard_simulation_readiness.py": "authoritative_model_system",
-    "scripts/verify_openspec_recorded_check.py": "openspec_archive_cleanup",
+    "scripts/verify_openspec_recorded_check.py": "test_evidence_mesh",
     "scripts/verify_skill_suite_markers.py": "codex_skill_satellites"
   },
   "resource_groups": {
-    "build": ["pyproject.toml", "scripts/**/*", ".github/**/*"],
-    "runtime": ["flowguard/**/*.py"],
-    "dependency": ["pyproject.toml"],
-    "configuration": ["AGENTS.md", ".flowguard/project.toml", ".agents/**/*"],
-    "schema": ["openspec/specs/**/*", "openspec/config.yaml", "flowguard/**/*.json"],
-    "data": [".flowguard/authoritative_model_system/semantic_model_mesh.json", ".flowguard/behavior_commitment_ledger/ledger.json"],
-    "asset": ["assets/**/*", "docs/**/*", "README.md", "CHANGELOG.md", "LICENSE", "ROADMAP.md"],
-    "migration": ["openspec/changes/**/*"],
-    "verification": ["tests/**/*", "examples/**/*", ".flowguard/*/model.py", ".flowguard/*/run_checks.py"]
+    "build": [
+      "pyproject.toml",
+      "scripts/**/*",
+      ".github/**/*"
+    ],
+    "runtime": [
+      "flowguard/**/*.py"
+    ],
+    "dependency": [
+      "pyproject.toml"
+    ],
+    "configuration": [
+      "AGENTS.md",
+      ".flowguard/project.toml",
+      ".agents/**/*"
+    ],
+    "schema": [
+      "openspec/specs/**/*",
+      "openspec/config.yaml",
+      "flowguard/**/*.json"
+    ],
+    "data": [
+      ".flowguard/authoritative_model_system/semantic_model_mesh.json",
+      ".flowguard/behavior_commitment_ledger/ledger.json"
+    ],
+    "asset": [
+      "assets/**/*",
+      "docs/**/*",
+      "README.md",
+      "CHANGELOG.md",
+      "LICENSE",
+      "ROADMAP.md"
+    ],
+    "migration": [
+      "openspec/changes/**/*"
+    ],
+    "verification": [
+      "tests/**/*",
+      "examples/**/*",
+      ".flowguard/*/model.py",
+      ".flowguard/*/run_checks.py"
+    ]
   },
   "claim_boundary": "This blueprint covers the exact current FlowGuard repository boundary, its discovered implementation surfaces, source-independent semantic and oracle payloads, parent-child interfaces, tests, intent, and resources. It claims no behavior outside the declared repository boundary."
 }

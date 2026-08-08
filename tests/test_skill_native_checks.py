@@ -8,6 +8,7 @@ from flowguard.skill_native_checks import (
     build_current_native_receipt_context,
     run_native_skill_check,
 )
+from scripts.run_flowguard_skill_native_checks import _current_receipt_row
 
 
 def write_json(path, value):
@@ -79,6 +80,106 @@ def build_fixture(root, *, command="python native_check.py"):
 
 
 class SkillNativeCheckTests(unittest.TestCase):
+    def test_resume_reuses_only_an_exact_current_terminal_pass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skill_id = build_fixture(root)
+            (root / "native_check.py").write_text("print('pass')\n", encoding="utf-8")
+            result = run_native_skill_check(root, skill_id, timeout_seconds=10)
+
+            current = _current_receipt_row(root, skill_id, None)
+
+            self.assertTrue(result.ok, result.to_dict())
+            self.assertIsNotNone(current)
+            self.assertEqual("reuse_current", current["disposition"])
+            self.assertEqual(result.receipt.receipt_id, current["receipt_id"])
+            (root / "native_check.py").write_text("print('changed')\n", encoding="utf-8")
+            self.assertIsNone(_current_receipt_row(root, skill_id, None))
+
+    def test_receipt_binds_every_declared_native_command_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skill_id = build_fixture(root)
+            (root / "native_check.py").write_text("print('first')\n", encoding="utf-8")
+            (root / "second_check.py").write_text("print('second')\n", encoding="utf-8")
+            skill = root / ".agents/skills" / skill_id / ".skillguard"
+            source_path = skill / "contract-source.json"
+            contract_path = skill / "compiled-contract.json"
+            manifest_path = skill / "check-manifest.json"
+            second = {
+                "check_id": "fixture-second-check",
+                "kind": "command",
+                "command": "python",
+                "args": ["second_check.py"],
+            }
+            source = json.loads(source_path.read_text(encoding="utf-8"))
+            source["checks"].append(second)
+            source["native_check_bindings"].append(
+                {
+                    "authority": "target-native",
+                    "check_id": "fixture-second-check",
+                    "owner_id": "fixture-owner",
+                }
+            )
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            contract["obligations"].append(
+                {
+                    "obligation_id": "fixture-second-obligation",
+                    "required": True,
+                    "required_check_ids": ["fixture-second-check"],
+                }
+            )
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["checks"].append(second)
+            write_json(source_path, source)
+            write_json(contract_path, contract)
+            write_json(manifest_path, manifest)
+
+            result = run_native_skill_check(root, skill_id, timeout_seconds=10)
+
+            self.assertTrue(result.ok, result.to_dict())
+            self.assertEqual(2, len(result.runs))
+            self.assertIn(
+                "file:second_check.py",
+                {item.artifact_id for item in result.receipt.input_snapshots},
+            )
+            (root / "second_check.py").write_text("print('changed')\n", encoding="utf-8")
+            stale = verify_evidence_receipt(
+                result.receipt,
+                build_current_native_receipt_context(result.receipt, root),
+            )
+            self.assertFalse(stale.current)
+            self.assertIn("input_raw_hash_mismatch", stale.finding_codes)
+
+    def test_resume_rejects_a_changed_declared_input_artifact_set(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skill_id = build_fixture(root)
+            (root / "native_check.py").write_text("print('pass')\n", encoding="utf-8")
+            inputs = root / "native_inputs"
+            inputs.mkdir()
+            (inputs / "first.txt").write_text("first\n", encoding="utf-8")
+            skill = root / ".agents/skills" / skill_id / ".skillguard"
+            source_path = skill / "contract-source.json"
+            manifest_path = skill / "check-manifest.json"
+            source = json.loads(source_path.read_text(encoding="utf-8"))
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            selector = {"kind": "path", "path": "native_inputs"}
+            source["checks"][0]["input_selectors"] = [selector]
+            manifest["checks"][0]["input_selectors"] = [selector]
+            write_json(source_path, source)
+            write_json(manifest_path, manifest)
+
+            result = run_native_skill_check(root, skill_id, timeout_seconds=10)
+
+            self.assertTrue(result.ok, result.to_dict())
+            self.assertIsNotNone(_current_receipt_row(root, skill_id, None))
+            (inputs / "second.txt").write_text("second\n", encoding="utf-8")
+            self.assertIsNone(
+                build_current_native_receipt_context(result.receipt, root)
+            )
+            self.assertIsNone(_current_receipt_row(root, skill_id, None))
+
     def test_pass_receipt_recomputes_current_context_and_detects_input_change(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -13,7 +13,10 @@ import json
 from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Any, Iterable, Mapping, Sequence
 
-from ._normalization import unique_strings as _unique
+from ._normalization import (
+    nonempty_string_sequence as _as_tuple,
+    unique_strings as _unique,
+)
 from .export import to_jsonable
 
 
@@ -98,12 +101,6 @@ _STATE_FIELD_HINTS = {
     "type",
     "version",
 }
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _value_text(value: Any) -> str:

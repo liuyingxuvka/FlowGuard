@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
@@ -40,12 +41,6 @@ FIELD_DISPOSITION_TO_LEGACY_PATH = {
     "out_of_scope": LEGACY_PATH_OUT_OF_SCOPE,
     "unknown": LEGACY_PATH_UNKNOWN,
 }
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 @dataclass(frozen=True)

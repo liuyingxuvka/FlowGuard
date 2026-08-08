@@ -26,6 +26,7 @@ from flowguard.understanding_readiness import (
     ADMISSION_BLOCKED,
     ADMISSION_NO_CODE,
     ADMISSION_READY,
+    ADMISSION_STALE,
     UNDERSTANDING_NOT_RUN,
     UNDERSTANDING_SCOPED_VERIFIED,
     UNDERSTANDING_STALE,
@@ -56,21 +57,21 @@ def _complete_source_snapshots() -> tuple[TaskFactSourceSnapshot, ...]:
 class UnderstandingReadinessTests(unittest.TestCase):
     def blueprint_summary(self, *, scope: str = "affected", status: str = "pass"):
         payload = {
-            "schema_version": "flowguard.blueprint_understanding_summary.v1",
+            "schema_version": "flowguard.blueprint_compact_projection.v1",
             "scope": scope,
             "target_system_id": "target:fixture",
             "subject_revision": "revision:current",
             "descriptor_fingerprint": "sha256:" + "1" * 64,
             "blueprint_fingerprint": "sha256:" + "2" * 64,
-            "layer_statuses": {
-                "evidence_qualification": "pass",
-                "implementation_inventory": "pass",
-                "traceability": "pass",
-                "independent_semantics": "pass",
-                "model_code_test": status,
-                "resource_oracle": status,
-                "static_blueprint": status,
-            },
+            "layer_statuses": [
+                {"layer": "evidence_qualification", "status": "pass"},
+                {"layer": "implementation_inventory", "status": "pass"},
+                {"layer": "traceability", "status": "pass"},
+                {"layer": "independent_semantics", "status": "pass"},
+                {"layer": "model_code_test", "status": status},
+                {"layer": "resource_oracle", "status": status},
+                {"layer": "static_blueprint", "status": status},
+            ],
             "deepest_proven_layer": (
                 "static_blueprint" if status == "pass" else "independent_semantics"
             ),
@@ -84,7 +85,8 @@ class UnderstandingReadinessTests(unittest.TestCase):
                 }
             ),
             "gap_count": 0 if status == "pass" else 1,
-            "affected_surface_ids": ["surface:fixture"],
+            "status": status,
+            "affected_ids": ["surface:fixture"],
             "provider_fingerprints": {},
             "claim_boundary": "read-only compact fixture",
         }
@@ -213,6 +215,78 @@ class UnderstandingReadinessTests(unittest.TestCase):
         self.assertEqual("pass", status.blueprint_status)
         self.assertEqual("static_blueprint", status.blueprint_deepest_proven_layer)
         self.assertEqual(0, status.blueprint_gap_count)
+        self.assertEqual(
+            ("surface:fixture",), status.blueprint_affected_member_ids
+        )
+        self.assertEqual(
+            "pass", dict(status.blueprint_layer_statuses)["static_blueprint"]
+        )
+
+    def test_blueprint_summary_rejects_unordered_status_object_without_fallback(
+        self,
+    ) -> None:
+        artifacts = self.complete_artifacts()
+        current = self.blueprint_summary()
+        payload = {key: value for key, value in current.items() if key != "fingerprint"}
+        payload["layer_statuses"] = {
+            row["layer"]: row["status"] for row in payload["layer_statuses"]
+        }
+        supplied = {**payload, "fingerprint": fingerprint_value(payload)}
+
+        status = compose_understanding_status(
+            UnderstandingReadinessInput(
+                **artifacts,
+                blueprint_summary=supplied,
+                blueprint_scope_required="affected",
+            )
+        )
+
+        self.assertIn("blueprint_layer_statuses_invalid", status.blocker_codes)
+        self.assertEqual(ADMISSION_STALE, status.implementation_admission)
+
+    def test_non_code_profile_uses_its_own_last_layer_for_final_status(self) -> None:
+        artifacts = self.complete_artifacts()
+        payload = {
+            "schema_version": "flowguard.blueprint_compact_projection.v1",
+            "scope": "affected",
+            "target_system_id": "target:approval-workflow",
+            "subject_revision": "revision:current",
+            "descriptor_fingerprint": "sha256:" + "1" * 64,
+            "blueprint_fingerprint": "sha256:" + "2" * 64,
+            "layer_statuses": [
+                {"layer": "workflow_boundary", "status": "pass"},
+                {"layer": "workflow_states", "status": "pass"},
+                {"layer": "workflow_transitions", "status": "pass"},
+                {"layer": "workflow_resources", "status": "pass"},
+                {"layer": "workflow_intent", "status": "pass"},
+                {"layer": "workflow_verification", "status": "pass"},
+            ],
+            "status": "pass",
+            "deepest_proven_layer": "workflow_verification",
+            "first_gap": None,
+            "gap_count": 0,
+            "affected_ids": ["transition:approve"],
+            "provider_fingerprints": {},
+            "claim_boundary": "workflow fixture",
+        }
+        summary = {**payload, "fingerprint": fingerprint_value(payload)}
+
+        status = compose_understanding_status(
+            UnderstandingReadinessInput(
+                **artifacts,
+                blueprint_summary=summary,
+                blueprint_scope_required="affected",
+            )
+        )
+
+        self.assertTrue(status.ok)
+        self.assertEqual("pass", status.blueprint_status)
+        self.assertEqual(
+            "workflow_verification", status.blueprint_deepest_proven_layer
+        )
+        self.assertEqual(
+            ("transition:approve",), status.blueprint_affected_member_ids
+        )
 
     def test_whole_claim_rejects_affected_or_incomplete_blueprint(self) -> None:
         artifacts = self.complete_artifacts()
@@ -319,6 +393,7 @@ class UnderstandingReadinessTests(unittest.TestCase):
 
     def test_cli_reads_explicit_artifacts_without_writing(self) -> None:
         artifacts = self.complete_artifacts()
+        artifacts["blueprint_summary"] = self.blueprint_summary()
         with TemporaryDirectory() as directory:
             root = Path(directory)
             arguments = ["model-understanding-status"]
@@ -329,6 +404,7 @@ class UnderstandingReadinessTests(unittest.TestCase):
                 "maturation_report": "--maturation-report",
                 "receipt_verification": "--receipt-verification",
                 "implementation_admission": "--implementation-admission",
+                "blueprint_summary": "--blueprint-summary",
             }
             for key, option in option_names.items():
                 path = root / f"{key}.json"
@@ -338,6 +414,7 @@ class UnderstandingReadinessTests(unittest.TestCase):
                 path = root / f"resolution-{index}.json"
                 path.write_text(json.dumps(resolution), encoding="utf-8")
                 arguments.extend(("--owner-resolution", str(path)))
+            arguments.extend(("--blueprint-scope-required", "affected"))
             arguments.append("--json")
             before = sorted(path.name for path in root.iterdir())
             output = StringIO()
@@ -348,6 +425,18 @@ class UnderstandingReadinessTests(unittest.TestCase):
         self.assertEqual(before, after)
         payload = json.loads(output.getvalue())
         self.assertEqual(UNDERSTANDING_VERIFIED, payload["understanding_sufficiency"])
+        self.assertEqual(
+            [
+                "evidence_qualification",
+                "implementation_inventory",
+                "traceability",
+                "independent_semantics",
+                "model_code_test",
+                "resource_oracle",
+                "static_blueprint",
+            ],
+            [row["layer"] for row in payload["blueprint_layer_statuses"]],
+        )
 
     def test_status_api_is_registered_only_under_existing_kernel_route(self) -> None:
         names = {

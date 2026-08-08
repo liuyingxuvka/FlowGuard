@@ -8,6 +8,9 @@ parent confidence, accepting missing or duplicate ownership, losing public
 entrypoints or facades, accepting target structures that were not derived from
 a FlowGuard functional model, hiding dependency/config drift, overclaiming
 behavior parity, and publishing without release-scope evidence.
+An ArchitectureReduction handoff is admitted only when it binds the exact
+universe member, observable contract, current proof, consumers/tests, target
+action, and required next validation route.
 
 Run:
 python .flowguard/structure_refactor_mesh/run_checks.py
@@ -44,6 +47,13 @@ class StructureMeshCase:
     ui_evidence_partition_owned: bool = True
     receipt_supervision_partition_owned: bool = True
     package_api_registry_partition_owned: bool = True
+    architecture_reduction_handoff_present: bool = False
+    reduction_universe_member_bound: bool = True
+    reduction_observable_contract_bound: bool = True
+    reduction_current_proof_bound: bool = True
+    reduction_consumers_and_tests_bound: bool = True
+    reduction_target_action_bound: bool = True
+    reduction_next_route_bound: bool = True
 
 
 @dataclass(frozen=True)
@@ -68,6 +78,13 @@ class StructureMeshPolicy:
     ui_evidence_partition_owned: bool = False
     receipt_supervision_partition_owned: bool = False
     package_api_registry_partition_owned: bool = False
+    architecture_reduction_handoff_present: bool = False
+    reduction_universe_member_bound: bool = False
+    reduction_observable_contract_bound: bool = False
+    reduction_current_proof_bound: bool = False
+    reduction_consumers_and_tests_bound: bool = False
+    reduction_target_action_bound: bool = False
+    reduction_next_route_bound: bool = False
 
 
 GOOD_PLAN = StructureMeshCase("good_structure_mesh_plan")
@@ -111,6 +128,40 @@ BROKEN_PACKAGE_API_PARTITION = StructureMeshCase(
     "broken_package_api_partition",
     package_api_registry_partition_owned=False,
 )
+GOOD_ARCHITECTURE_REDUCTION_HANDOFF = StructureMeshCase(
+    "good_architecture_reduction_handoff",
+    architecture_reduction_handoff_present=True,
+)
+BROKEN_REDUCTION_UNIVERSE_MEMBER = StructureMeshCase(
+    "broken_reduction_universe_member",
+    architecture_reduction_handoff_present=True,
+    reduction_universe_member_bound=False,
+)
+BROKEN_REDUCTION_OBSERVABLE_CONTRACT = StructureMeshCase(
+    "broken_reduction_observable_contract",
+    architecture_reduction_handoff_present=True,
+    reduction_observable_contract_bound=False,
+)
+BROKEN_REDUCTION_CURRENT_PROOF = StructureMeshCase(
+    "broken_reduction_current_proof",
+    architecture_reduction_handoff_present=True,
+    reduction_current_proof_bound=False,
+)
+BROKEN_REDUCTION_CONSUMER_TEST_MAP = StructureMeshCase(
+    "broken_reduction_consumer_test_map",
+    architecture_reduction_handoff_present=True,
+    reduction_consumers_and_tests_bound=False,
+)
+BROKEN_REDUCTION_TARGET_ACTION = StructureMeshCase(
+    "broken_reduction_target_action",
+    architecture_reduction_handoff_present=True,
+    reduction_target_action_bound=False,
+)
+BROKEN_REDUCTION_NEXT_ROUTE = StructureMeshCase(
+    "broken_reduction_next_route",
+    architecture_reduction_handoff_present=True,
+    reduction_next_route_bound=False,
+)
 
 
 class EvaluateStructureMeshPlan:
@@ -137,6 +188,13 @@ class EvaluateStructureMeshPlan:
         "ui_evidence_partition_owned",
         "receipt_supervision_partition_owned",
         "package_api_registry_partition_owned",
+        "architecture_reduction_handoff_present",
+        "reduction_universe_member_bound",
+        "reduction_observable_contract_bound",
+        "reduction_current_proof_bound",
+        "reduction_consumers_and_tests_bound",
+        "reduction_target_action_bound",
+        "reduction_next_route_bound",
     )
     accepted_input_type = StructureMeshCase
     input_description = "structure mesh rollout case"
@@ -165,6 +223,13 @@ class EvaluateStructureMeshPlan:
             ui_evidence_partition_owned=input_obj.ui_evidence_partition_owned,
             receipt_supervision_partition_owned=input_obj.receipt_supervision_partition_owned,
             package_api_registry_partition_owned=input_obj.package_api_registry_partition_owned,
+            architecture_reduction_handoff_present=input_obj.architecture_reduction_handoff_present,
+            reduction_universe_member_bound=input_obj.reduction_universe_member_bound,
+            reduction_observable_contract_bound=input_obj.reduction_observable_contract_bound,
+            reduction_current_proof_bound=input_obj.reduction_current_proof_bound,
+            reduction_consumers_and_tests_bound=input_obj.reduction_consumers_and_tests_bound,
+            reduction_target_action_bound=input_obj.reduction_target_action_bound,
+            reduction_next_route_bound=input_obj.reduction_next_route_bound,
         )
         return (
             FunctionResult(
@@ -316,6 +381,32 @@ def currentness_partitions_have_single_owners(
     return _pass()
 
 
+def architecture_reduction_handoff_is_proof_ready(
+    state: StructureMeshPolicy,
+    _trace: object,
+) -> InvariantResult:
+    if _empty(state) or not state.architecture_reduction_handoff_present:
+        return _pass()
+    missing = tuple(
+        name
+        for name, bound in (
+            ("independent_universe_member", state.reduction_universe_member_bound),
+            ("observable_contract", state.reduction_observable_contract_bound),
+            ("current_equivalence_or_facade_proof", state.reduction_current_proof_bound),
+            ("consumer_and_test_map", state.reduction_consumers_and_tests_bound),
+            ("target_action", state.reduction_target_action_bound),
+            ("required_next_route", state.reduction_next_route_bound),
+        )
+        if not bound
+    )
+    if missing:
+        return _fail(
+            "architecture_reduction_handoff_is_proof_ready",
+            "ArchitectureReduction handoff is missing: " + ", ".join(missing),
+        )
+    return _pass()
+
+
 INVARIANTS = (
     Invariant(
         "parent_child_structure_exists",
@@ -372,6 +463,11 @@ INVARIANTS = (
         "UI evidence, receipt supervision, and package API registry each have one extracted child owner.",
         currentness_partitions_have_single_owners,
     ),
+    Invariant(
+        "architecture_reduction_handoff_is_proof_ready",
+        "ArchitectureReduction handoff binds an independent universe member, observable contract, current proof, consumers/tests, target action, and required next route.",
+        architecture_reduction_handoff_is_proof_ready,
+    ),
 )
 
 
@@ -414,6 +510,69 @@ SCENARIOS = (
         "A complete StructureMesh rollout plan passes.",
         GOOD_PLAN,
         _expect_ok("complete StructureMesh plan passes", labels=("good_structure_mesh_plan",)),
+    ),
+    scenario(
+        "complete_architecture_reduction_handoff_passes",
+        "A proof-ready ArchitectureReduction handoff carries every required identity into StructureMesh.",
+        GOOD_ARCHITECTURE_REDUCTION_HANDOFF,
+        _expect_ok(
+            "complete ArchitectureReduction handoff passes",
+            labels=("good_architecture_reduction_handoff",),
+        ),
+    ),
+    scenario(
+        "reduction_handoff_without_universe_member_fails",
+        "The handoff must name its exact independent reduction-universe member.",
+        BROKEN_REDUCTION_UNIVERSE_MEMBER,
+        _expect_violation(
+            "missing universe member fails",
+            ("architecture_reduction_handoff_is_proof_ready",),
+        ),
+    ),
+    scenario(
+        "reduction_handoff_without_observable_contract_fails",
+        "The handoff must bind the observable behavior contract being preserved.",
+        BROKEN_REDUCTION_OBSERVABLE_CONTRACT,
+        _expect_violation(
+            "missing observable contract fails",
+            ("architecture_reduction_handoff_is_proof_ready",),
+        ),
+    ),
+    scenario(
+        "reduction_handoff_without_current_proof_fails",
+        "The handoff must carry current equivalence or exact facade-delegation proof.",
+        BROKEN_REDUCTION_CURRENT_PROOF,
+        _expect_violation(
+            "missing current proof fails",
+            ("architecture_reduction_handoff_is_proof_ready",),
+        ),
+    ),
+    scenario(
+        "reduction_handoff_without_consumer_test_map_fails",
+        "The handoff must bind consumers and tests affected by the contraction.",
+        BROKEN_REDUCTION_CONSUMER_TEST_MAP,
+        _expect_violation(
+            "missing consumer/test map fails",
+            ("architecture_reduction_handoff_is_proof_ready",),
+        ),
+    ),
+    scenario(
+        "reduction_handoff_without_target_action_fails",
+        "The handoff must name the exact delete, merge, delegate, or retain action.",
+        BROKEN_REDUCTION_TARGET_ACTION,
+        _expect_violation(
+            "missing target action fails",
+            ("architecture_reduction_handoff_is_proof_ready",),
+        ),
+    ),
+    scenario(
+        "reduction_handoff_without_next_route_fails",
+        "The handoff must name the next StructureMesh or lifecycle validation owner.",
+        BROKEN_REDUCTION_NEXT_ROUTE,
+        _expect_violation(
+            "missing next route fails",
+            ("architecture_reduction_handoff_is_proof_ready",),
+        ),
     ),
     scenario(
         "flat_split_fails",

@@ -1,44 +1,45 @@
 ---
 name: flowguard-model-test-alignment
-description: Align model obligations, CodeContracts, bindings, and test evidence.
+description: Align model obligations, CodeContracts, bindings, and tests.
 ---
 
 # FlowGuard Model-Test Alignment
 
 ## Purpose
-Compare model obligations, `CodeContract`, bindings, and current tests.
+Compare obligations, path-quality bindings, `CodeContract`, and tests without deciding path quality.
 
 ## Entrypoint Scope
-This standalone FlowGuard satellite skill owns `model_test_alignment` (`public_owner`) rows and hands large evidence to TestMesh.
+This standalone FlowGuard satellite skill owns `model_test_alignment` rows and hands large evidence to TestMesh.
 
 ## Local Material Routing
-After admission, read `references/model_test_alignment_protocol.md`; load `references/model_test_transition_protocol.md`, `references/model_test_field_protocol.md`, or `references/model_test_payload_protocol.md` only when triggered.
+After admission read `references/model_test_alignment_protocol.md`; load transition, field, or payload details from `references/model_test_transition_protocol.md`, `references/model_test_field_protocol.md`, or `references/model_test_payload_protocol.md` only when triggered.
 
 ## Entrypoint Acceptance Map
-Accept obligations/contracts/evidence; compare current bindings; block gaps and hand them to owners.
+Compare obligations/contracts/evidence; route gaps.
 
 ## Use When
-- Use for model-code-test coverage, cells, field projections, code boundaries, targets, or payload evidence.
+- Use for model-code-test coverage, fields, boundaries, or payloads.
 
 ## Do Not Use When
-- Do not split tests/code/models or make TestMesh a semantic owner; return undefined obligations to `flowguard`.
+- Do not split artifacts or make TestMesh a semantic owner; return undefined obligations to `flowguard`.
 
 ## Required Workflow
-1. List obligations, stable plane/intent/commitment/path ids, fields, `ArtifactPayloadContract`, owner/delegating contracts, similarity, and evidence kinds.
-2. Convert pre-code rows into obligations, contracts, targets, owner-declared cases, accepted checker designs, or scoped dispositions. A complete static design may remain `not_run`; only receipt-backed executed-evidence claims require `pass`.
-3. Preserve system-property trace from request through component transition and optional current code/runtime evidence.
-4. For explicit blueprint scope, consume independent inventory/bindings and check both model-to-implementation and behavior-bearing implementation-to-model/contract coverage. Pure helpers may support one owner without becoming external contracts.
-5. Require source-independent semantics and oracles; paths/symbols are traceability only. Classify gaps and hand them to TestMesh, maturation, risk, or closure.
+1. List obligations, owner/path ids, current-intent bindings, `ArtifactPayloadContract`, relations, and evidence kinds.
+2. Bind affected semantics/witnesses to one owner, code contract, exact test/native member, oracle, and evidence. Verify identities; never re-rank candidates.
+3. Convert pre-code rows into obligations, contracts, targets, cases, checker designs, or dispositions. Keep static and executed status separate; pass needs current leaf receipts.
+4. Trace system properties through runtime transitions. Blueprint scope consumes independent inventory/bindings both ways; helpers remain internal.
+5. Paths/symbols prove traceability only. Hand semantic/path gaps to ModelMaturation, large evidence to TestMesh, broad claims to risk/closure.
 
 ## Hard Gates
-- Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework. Full confidence requires one owner contract and current same-plane test per obligation.
-- One intent cannot align to two primary paths. Opaque ids and missing/stale/skipped/audit-only evidence do not count.
-- Ordinary alignment stays affected-only. Whole-software inventory requires explicit blueprint/export/qualification or release scope.
-- Omitted surfaces, unresolved dispositions, orphan helpers, hidden writers, duplicate bindings, stale fingerprints, or missing semantics/oracles block blueprint alignment.
-- Bind evidence and recommendations to exact current model, maturation, and admission identities; drift makes them stale.
+- Model-purpose gate: freeze task-specific failure(s) and claim boundary; bind the candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework. Full confidence requires one owner contract and current same-plane test per obligation.
+- One intent cannot align to two primary paths. Opaque, stale, skipped, cross-owner, or normative-as-observed evidence does not count.
+- Existing intent resolves only through the exact owner in complete `CurrentEffectiveIntentView`; delta/history/word/path matches are not authority.
+- Ordinary alignment is affected-only; whole-target needs explicit scope. Omitted surfaces, orphan helpers, hidden writers, duplicate bindings, or missing semantics/oracles block.
+- Path quality cannot license its own witness. Bind exact model, path-quality, maturation, and admission identities; drift is stale.
+- Each row binds semantics, owner code/contract, oracle/checker, exact test/native member, and execution owner. Parent success cannot invent a leaf or relabel receipts.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, status, gaps, and a diagram whose edges mean covers, partially covers, or does not cover. Blueprint output adds depth/first gap, fingerprints, exact ids, and semantic/oracle gaps.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, rows/gaps, and a diagram whose edges mean covers, partially covers, or does not cover. Blueprint output adds depth/first gap and exact semantic/oracle ids.
 
 
 <!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

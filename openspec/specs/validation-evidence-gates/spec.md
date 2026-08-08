@@ -6,22 +6,23 @@ manual/native boundaries, installed prompt synchronization, and proof artifacts
 so broad confidence cannot rest on planned, fake, stale, or incomplete checks.
 ## Requirements
 ### Requirement: Cross-route validation evidence gate
-FlowGuard SHALL define a shared evidence gate for implemented UI actions,
-external artifact payloads, AI work packages, conditional manual checks, and
-final broad confidence claims.
+The retained `validation_evidence_gates` model SHALL represent the permanent evidence-kernel contract rather than an implementation rollout. It SHALL bind current evidence primitives, field structures, lifecycle, receipts, proof artifacts, validation ownership, and terminal results to their real code, tests, and normative specifications. It SHALL preserve stale, failed, skipped, not-run, progress-only, duplicate-owner, foreign-owner, and proof-fingerprint mismatch states as non-terminal evidence and SHALL require the current-head identity to match the terminal receipt before a broad claim. UI click-through, payload-domain semantics, manual operability, installed-skill synchronization, and release order SHALL remain delegated to their existing specialist owners.
 
-#### Scenario: Claim includes UI or payload boundary
-- **WHEN** a completion claim includes implemented UI behavior, file
-  import/export, artifact payload parsing, generated output files, or AI work
-  packages
-- **THEN** the claim MUST identify route-owned evidence for that boundary or a
-  scoped blindspot
+#### Scenario: Rollout milestones are offered as current evidence behavior
+- **WHEN** the retained model reaches success only because documentation, prompt, installation, or one-time rollout flags are set
+- **THEN** current evidence-kernel purpose closure is blocked
 
-#### Scenario: Prose-only validation is insufficient
-- **WHEN** a claim relies on manual or browser validation without a current
-  evidence id, boundary, steps or cases, result, and revision/freshness marker
-- **THEN** FlowGuard MUST treat the claim as scoped or blocked rather than full
-  confidence
+#### Scenario: Real evidence implementation changes
+- **WHEN** an owned evidence primitive, lifecycle, receipt, proof, ownership, result, test, or normative spec changes
+- **THEN** the model-regression input identity becomes stale and the old evidence-kernel result cannot support current DNA
+
+#### Scenario: Progress or skipped work is presented as terminal success
+- **WHEN** a receipt is progress-only or hides failed, skipped, or not-run child work
+- **THEN** the evidence model rejects terminal success and preserves the exact non-pass identities
+
+#### Scenario: Ordinary validation would purge evidence automatically
+- **WHEN** an ordinary run proposes automatic persistent evidence deletion without the recoverable lifecycle owner and explicit boundary
+- **THEN** the model rejects the operation rather than treating cleanup as validation
 
 ### Requirement: Representative synthetic payload packs
 FlowGuard SHALL require representative synthetic payload packs when artifact
@@ -116,3 +117,35 @@ repository mutation.
   artifacts, current inputs, and no repository mutation
 - **THEN** the receipt SHALL bind the model id, proof contract, source
   fingerprint, result projections, and claim boundary for the current release
+
+### Requirement: Invocation-local validation observations are strict non-authoritative reuse
+FlowGuard SHALL permit one frozen validation observation to be shared only inside the bounded operation that created it. The observation SHALL preserve the canonical repository-input manifest, receipt inventory, owner contexts, terminal states, obligations, dependencies, toolchain, environment, and independently verified child identities without weakening, relabeling, or omitting any evidence gate.
+
+#### Scenario: Several aggregates consume one verified child
+- **WHEN** one independently produced exact-current child receipt is declared by several owner aggregates in the same frozen operation
+- **THEN** the child MAY be verified once and referenced by every exact declared aggregate subset
+- **AND** every aggregate SHALL retain its distinct owner, subject, obligations, and result identity
+
+#### Scenario: Frozen observation contains a non-terminal child
+- **WHEN** a required child is failed, blocked, stale, skipped, timed out, cancelled, not run, ambiguous, or cleanup-unconfirmed
+- **THEN** every consuming aggregate SHALL preserve the corresponding non-pass state
+- **AND** observation sharing SHALL NOT turn it into terminal success
+
+### Requirement: Observation reuse has one visible freshness boundary
+Every bounded operation that uses a frozen validation observation SHALL expose the initial observation identity and final freshness outcome. Current parent, revision, activation, release, or broad-confidence claims SHALL require an exact matching final observation; absence of the final comparison SHALL be `not_run`, not pass.
+
+#### Scenario: Final comparison was skipped
+- **WHEN** an operation has produced candidate aggregates but did not perform the required fresh identity comparison
+- **THEN** its currentness result SHALL be `not_run`
+- **AND** the candidate artifacts SHALL remain non-authoritative
+
+#### Scenario: Final comparison matches
+- **WHEN** all governed identities match and every required child was already independently terminal and exact-current
+- **THEN** the operation MAY publish its parent or bundle result
+- **AND** the final comparison SHALL not manufacture a new child result
+
+#### Scenario: Final observation publishes several new leaves
+- **WHEN** one bounded operation has several newly executed terminal children
+- **THEN** their owner receipts SHALL consume the one final fresh owner-context projection
+- **AND** per-leaf source-current rebuild and per-leaf receipt-store scan counts SHALL be zero
+- **AND** exactly one post-publication receipt reconciliation SHALL be required before a parent claim becomes current

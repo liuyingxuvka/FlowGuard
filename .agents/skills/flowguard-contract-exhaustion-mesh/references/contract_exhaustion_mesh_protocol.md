@@ -45,7 +45,7 @@ matrix can be treated as complete.
 - ObligationFamily/ArchitectureReduction completeness: use independently
   expected member/candidate ids for omission cases; never infer completeness
   from the materialized subset.
-- Similarity: materialize in-scope relation/test/code obligation ids into
+- Canonical relation: materialize in-scope relation/test/code obligation ids into
   concrete member, candidate, obligation, or case targets; opaque ids fail.
 - UI product language: generate illegal fourth visibility class, internal
   content leak, semantic drift, authority-changing exception, and valid

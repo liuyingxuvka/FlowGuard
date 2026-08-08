@@ -9,15 +9,13 @@ from .contract import check_trace_contracts
 from .explorer import Explorer
 from .minimize import minimize_report_counterexample
 from .plan import FlowGuardCheckPlan, ScenarioMatrixConfig
+from .portable_path_quality import path_quality_binding_errors
 from .progress import check_progress
 from .review import review_scenarios
 from .risk_templates import (
     MinimumModelContract,
-    TemplateHarvestReview,
-    TemplateReuseReview,
     review_known_bad_proofs,
     review_minimum_model_contract,
-    review_template_harvest_closure,
 )
 from .scenario import run_exact_sequence
 from .scenario_matrix import ScenarioMatrixBuilder
@@ -73,6 +71,7 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
         artifacts["assumption_card"] = plan.assumption_card
         _append_assumption_card_section(sections, plan.assumption_card)
     _append_minimum_model_section(sections, artifacts, plan)
+    _append_model_path_quality_section(sections, artifacts, plan)
     skipped_steps = tuple(
         f"{item.name}: {item.status}; {item.reason}"
         for item in risk_profile.skipped_checks
@@ -90,8 +89,6 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
         declared_risk_classes=risk_classes,
         skipped_steps=skipped_steps,
         risk_profile=risk_profile,
-        template_reuse_review=plan.template_reuse_review,
-        template_harvest_review=plan.template_harvest_review,
         minimum_model_contract=plan.minimum_model_contract,
         known_bad_proofs=plan.known_bad_proofs,
     )
@@ -275,11 +272,7 @@ def _append_minimum_model_section(
     plan: FlowGuardCheckPlan,
 ) -> None:
     contract = plan.minimum_model_contract or _contract_from_risk_profile(plan.risk_profile)
-    template_reuse_review = plan.template_reuse_review or _template_reuse_from_risk_profile(plan.risk_profile)
-    report = review_minimum_model_contract(
-        contract,
-        template_reuse_review=template_reuse_review,
-    )
+    report = review_minimum_model_contract(contract)
     artifacts["minimum_model_review"] = report
     sections.append(
         FlowGuardSection(
@@ -305,23 +298,52 @@ def _append_minimum_model_section(
             metadata={"report": proof_report, "always_show_findings": bool(proof_report.findings)},
         )
     )
-    _append_template_harvest_section(sections, artifacts, plan.template_harvest_review)
 
 
-def _append_template_harvest_section(
+def _append_model_path_quality_section(
     sections: list[FlowGuardSection],
     artifacts: dict[str, Any],
-    review: TemplateHarvestReview | None,
+    plan: FlowGuardCheckPlan,
 ) -> None:
-    report = review_template_harvest_closure(review)
-    artifacts["template_harvest_review"] = report
+    subject = plan.path_quality_subject
+    result = plan.path_quality_result
+    if subject is None and result is None:
+        return
+    errors = path_quality_binding_errors(subject, result)
+    claim_boundary = (
+        "This section validates one compact current subject/result binding only; "
+        "ModelMaturation owns the required model denominator and path-quality evidence."
+    )
+    if errors:
+        sections.append(
+            FlowGuardSection(
+                name="model_path_quality",
+                status="blocked",
+                summary="optional path-quality intake is incomplete or stale",
+                findings=errors,
+                metadata={"claim_boundary": claim_boundary, "always_show_findings": True},
+            )
+        )
+        return
+
+    assert subject is not None and result is not None
+    compact = result.to_compact_dict()
+    artifacts["model_path_quality_result"] = compact
     sections.append(
         FlowGuardSection(
-            name="template_harvest_review",
-            status=report.status,
-            summary=report.summary,
-            findings=report.findings,
-            metadata={"report": report, "always_show_findings": bool(report.findings)},
+            name="model_path_quality",
+            status="pass_with_gaps" if result.conclusion == "unresolved" else "pass",
+            summary=(
+                f"conclusion={result.conclusion} currentness={result.currentness_id} "
+                "compact_result=true"
+            ),
+            findings=result.unresolved_ids,
+            metadata={
+                "subject_fingerprint": subject.fingerprint,
+                "path_quality_result": compact,
+                "claim_boundary": claim_boundary,
+                "always_show_findings": bool(result.unresolved_ids),
+            },
         )
     )
 
@@ -336,21 +358,6 @@ def _contract_from_risk_profile(risk_profile: Any) -> MinimumModelContract | Non
         modeled_side_effects=getattr(intent, "must_model_side_effects", ()),
         completion_evidence=getattr(intent, "completion_evidence", ()),
         known_bad_cases=getattr(intent, "known_bad_cases", ()),
-    )
-
-
-def _template_reuse_from_risk_profile(risk_profile: Any) -> TemplateReuseReview | None:
-    intent = getattr(risk_profile, "risk_intent", None)
-    if intent is None:
-        return None
-    used_template_ids = getattr(intent, "used_template_ids", ())
-    no_match_reason = getattr(intent, "template_no_match_reason", "")
-    if not used_template_ids and not no_match_reason:
-        return None
-    return TemplateReuseReview(
-        used_template_ids=used_template_ids,
-        no_match_reason=no_match_reason,
-        searched_layers=("public", "local"),
     )
 
 

@@ -50,19 +50,191 @@ def run_implementation_admission_model() -> bool:
     return report.ok
 
 
+def run_release_identity_model() -> bool:
+    scenarios = []
+    for identity, sequence in model.STALE_OR_SUBSTITUTED_RELEASE_SEQUENCES:
+        scenarios.append(
+            Scenario(
+                f"{identity}_stale_or_substituted_is_rejected",
+                f"a stale or substituted {identity} identity cannot support release",
+                model.initial_state(),
+                sequence,
+                ScenarioExpectation(
+                    expected_status="ok",
+                    required_trace_labels=("release_rejected",),
+                    forbidden_trace_labels=("release_accepted",),
+                ),
+                workflow=model.build_correct_workflow(),
+            )
+        )
+        scenarios.append(
+            Scenario(
+                f"broken_{identity}_substitution_is_detected",
+                f"the known-bad gate exposes an accepted release with substituted {identity}",
+                model.initial_state(),
+                sequence,
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=(
+                        "no_release_with_stale_or_incomplete_evidence",
+                    ),
+                    required_trace_labels=("release_accepted",),
+                ),
+                workflow=model.build_broken_workflow(),
+            )
+        )
+    report = review_scenarios(tuple(scenarios), default_invariants=model.INVARIANTS)
+    print(report.format_text())
+    print()
+    return report.ok
+
+
+def run_author_shadow_sync_model() -> bool:
+    scenarios = [
+        Scenario(
+            "failed_author_activation_rolls_back_before_claim",
+            "a failed author activation restores the prior shadow and cannot claim author currentness",
+            model.author_sync_initial_state(),
+            model.GOOD_AUTHOR_SYNC_ROLLBACK_SEQUENCE,
+            ScenarioExpectation(
+                expected_status="ok",
+                required_trace_labels=("author_sync_rolled_back",),
+                forbidden_trace_labels=("author_sync_accepted",),
+            ),
+            workflow=model.build_author_sync_workflow(),
+        )
+    ]
+    for case_id, _failure_id, invariant_id, sequence in model.AUTHOR_SYNC_FAILURE_CASES:
+        scenarios.append(
+            Scenario(
+                f"{case_id}_is_rejected",
+                f"the correct author-sync gate rejects {case_id.replace('_', ' ')}",
+                model.author_sync_initial_state(),
+                sequence,
+                ScenarioExpectation(
+                    expected_status="ok",
+                    required_trace_labels=("author_sync_rejected",),
+                    forbidden_trace_labels=("author_sync_accepted",),
+                ),
+                workflow=model.build_author_sync_workflow(),
+            )
+        )
+        scenarios.append(
+            Scenario(
+                f"broken_{case_id}",
+                f"the known-bad author-sync gate exposes {case_id.replace('_', ' ')}",
+                model.author_sync_initial_state(),
+                sequence,
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=(invariant_id,),
+                    required_trace_labels=("author_sync_accepted",),
+                ),
+                workflow=model.build_author_sync_workflow(broken=True),
+            )
+        )
+    report = review_scenarios(
+        tuple(scenarios),
+        default_invariants=model.AUTHOR_SYNC_INVARIANTS,
+    )
+    print(report.format_text())
+    print()
+    exact_ok = run_exact_workflow_case(
+        "correct_author_shadow_sync",
+        workflow=model.build_author_sync_workflow(),
+        initial_state=model.author_sync_initial_state(),
+        external_input_sequence=model.GOOD_AUTHOR_SYNC_SEQUENCE,
+        invariants=model.AUTHOR_SYNC_INVARIANTS,
+        final_state_predicate=lambda state: state.claim == "accepted",
+    )
+    return report.ok and exact_ok
+
+
+def run_path_quality_lifecycle_model() -> bool:
+    scenarios = [
+        Scenario(
+            "ordinary_path_quality_stays_lightweight",
+            "an ordinary change refreshes only the deterministic light review before activation",
+            model.path_quality_lifecycle_initial_state(),
+            model.GOOD_PATH_QUALITY_SEQUENCE,
+            ScenarioExpectation(
+                expected_status="ok",
+                required_trace_labels=("activation_bound_to_current_review",),
+                forbidden_trace_labels=("deep_review_current",),
+            ),
+            workflow=model.build_path_quality_lifecycle_workflow(),
+        ),
+        Scenario(
+            "evidence_triggered_deep_review_stays_current",
+            "a triggered deep review runs before implementation and again after the change",
+            model.path_quality_lifecycle_initial_state(),
+            model.GOOD_TRIGGERED_DEEP_PATH_QUALITY_SEQUENCE,
+            ScenarioExpectation(
+                expected_status="ok",
+                required_trace_labels=(
+                    "deep_review_triggered",
+                    "deep_review_current",
+                    "activation_bound_to_current_review",
+                ),
+            ),
+            workflow=model.build_path_quality_lifecycle_workflow(),
+        ),
+    ]
+    for case_id, sequence, rejected_label in model.PATH_QUALITY_FAILURE_SEQUENCES:
+        scenarios.append(
+            Scenario(
+                f"{case_id}_is_rejected",
+                f"the process rejects {case_id.replace('_', ' ')}",
+                model.path_quality_lifecycle_initial_state(),
+                sequence,
+                ScenarioExpectation(
+                    expected_status="ok",
+                    required_trace_labels=(rejected_label,),
+                    forbidden_trace_labels=("activation_bound_to_current_review",),
+                ),
+                workflow=model.build_path_quality_lifecycle_workflow(),
+            )
+        )
+    stale_sequence = next(
+        sequence
+        for case_id, sequence, _label in model.PATH_QUALITY_FAILURE_SEQUENCES
+        if case_id == "candidate_without_post_change_refresh"
+    ) + (model.PathQualityLifecycleAction("activate", model.PATH_QUALITY_STALE_FINGERPRINT),)
+    scenarios.append(
+        Scenario(
+            "broken_gate_exposes_stale_activation",
+            "the known-bad gate exposes activation without a refreshed exact result",
+            model.path_quality_lifecycle_initial_state(),
+            stale_sequence,
+            ScenarioExpectation(
+                expected_status="violation",
+                expected_violation_names=(
+                    "path_quality_activation_requires_current_exact_result",
+                ),
+                required_trace_labels=("activation_bound_to_current_review",),
+            ),
+            workflow=model.build_path_quality_lifecycle_workflow(broken=True),
+        )
+    )
+    report = review_scenarios(
+        tuple(scenarios),
+        default_invariants=model.PATH_QUALITY_LIFECYCLE_INVARIANTS,
+    )
+    print(report.format_text())
+    print()
+    return report.ok
+
+
 def main() -> int:
     admission_ok = run_implementation_admission_model()
+    release_identity_ok = run_release_identity_model()
+    author_sync_ok = run_author_shadow_sync_model()
+    path_quality_lifecycle_ok = run_path_quality_lifecycle_model()
     exact_ok = run_exact_workflow_case(
         "correct_development_process_flow",
         workflow=model.build_correct_workflow(),
         initial_state=model.initial_state(),
-        external_input_sequence=(
-            model.LifecycleAction("update_requirement"),
-            model.LifecycleAction("update_code"),
-            model.LifecycleAction("update_tests"),
-            model.LifecycleAction("run_validation"),
-            model.LifecycleAction("claim_release"),
-        ),
+        external_input_sequence=model.GOOD_RELEASE_SEQUENCE,
         invariants=model.INVARIANTS,
         final_state_predicate=lambda state: state.release_claim == "accepted",
     )
@@ -99,7 +271,16 @@ def main() -> int:
         terminal_predicate=model.terminal_predicate,
         protected_error_class="stale_process_evidence",
     )
-    return 0 if admission_ok and exact_ok and report.ok else 1
+    return (
+        0
+        if admission_ok
+        and release_identity_ok
+        and author_sync_ok
+        and path_quality_lifecycle_ok
+        and exact_ok
+        and report.ok
+        else 1
+    )
 
 
 if __name__ == "__main__":

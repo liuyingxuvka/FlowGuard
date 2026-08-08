@@ -38,10 +38,11 @@ owners of their own declarations and evidence:
 - Model-Test Alignment, TestMesh, ModelMesh, LayeredBoundaryProof, and Risk
   Evidence Ledger consume canonical case ids as proof requirements.
 
-Old hand-written analogous-bug prompts, fallback same-class generators, and
-compatibility-like generator paths are cleanup candidates unless they are the
-current declaration owner, current evidence consumer, explicit public facade,
-negative legacy test, or archive-only record.
+Current guidance has no free lookalike search or fallback case generator. The
+owner declares finite affected relations from commitment, blueprint, and
+topology evidence; ContractExhaustionMesh alone materializes canonical bad
+cases. Retired identities may remain only in negative tests or historical
+records, never as a current route or completion authority.
 
 ## Public Route Control Plane
 
@@ -75,14 +76,14 @@ Current role shape:
   optimization -> agent workflow -> execution freshness. Ordinary one-route
   work keeps optimization inactive; rough-plan and multi-skill routing still
   enters DevelopmentProcessFlow first, and no competing public route is added.
-- ExistingModelPreflight feeders: model-angle deliberation and model-similarity
-  consolidation. They preserve candidate viewpoint and sibling-workflow
-  evidence, then hand ownership back to ExistingModelPreflight or the selected
-  public owner route.
-- DevelopmentProcessFlow feeders: development-process simulator,
-  maintenance-obligation memory, and maintenance-scan output. They decide or
-  preserve process/freshness signals; they do not validate implementation,
-  model/test alignment, or release confidence by themselves.
+- ExistingModelPreflight consumes current commitment, blueprint, code-map, and
+  topology evidence directly. When another owner has already declared an exact
+  relation, the internal `CanonicalRelationHandoff` transports that edge
+  without becoming a discovery or decision route.
+- DevelopmentProcessFlow consumes development-process simulation,
+  maintenance-obligation memory, changed-artifact identity, and freshness
+  evidence directly. It reopens the exact affected owner route; no separate
+  post-change scanner owns completion.
 - ContractExhaustionMesh feeders: StateClosure, ScenarioMatrix, transition
   coverage, parent/child mesh closure, payload contracts, and model-miss family
   seeds. They declare finite boundaries; canonical bad-case ids are generated

@@ -24,7 +24,8 @@ Guards against:
   contract;
 - leaving old, fallback, compatibility, or alternate paths reachable without a
   disposition;
-- treating a recurring same-class miss as another ordinary point fix;
+- closing a recurring same-class miss without contributing exact affected
+  relation and case identities to ContractExhaustion and ModelMaturation;
 - using the known bug as the whole model target instead of holdout evidence;
 - treating a later green runtime check as enough to close a known miss.
 
@@ -56,6 +57,7 @@ class State:
     affected_behavior_plane: str = ""
     affected_commitment_id: str = ""
     primary_owner_model_id: str = ""
+    affected_blueprint_gap_id: str = ""
     same_plane_lookup_performed: bool = False
     coverage_gap_registered: bool = False
     root_cause_backpropagated: bool = False
@@ -71,8 +73,10 @@ class State:
     legacy_path_disposition_in_scope: bool = True
     legacy_path_disposition_recorded: bool = False
     recurring_family_detected: bool = False
-    defect_family_gate_promoted: bool = False
-    defect_family_gate_reviewed: bool = False
+    affected_canonical_relation_ids: tuple[str, ...] = ()
+    affected_contract_case_ids: tuple[str, ...] = ()
+    contract_exhaustion_contribution_emitted: bool = False
+    model_maturation_contribution_emitted: bool = False
     fix_validated_after_refinement: bool = False
     completed: bool = False
 
@@ -83,6 +87,9 @@ class Event:
     affected_behavior_plane: str = ""
     affected_commitment_id: str = ""
     primary_owner_model_id: str = ""
+    affected_blueprint_gap_id: str = ""
+    affected_canonical_relation_ids: tuple[str, ...] = ()
+    affected_contract_case_ids: tuple[str, ...] = ()
     same_plane_lookup_performed: bool = False
     coverage_gap_registered: bool = False
 
@@ -94,6 +101,7 @@ CLASSIFY_MISS = Event(
     affected_behavior_plane="agent_operation",
     affected_commitment_id="commitment:flowguard-agent-guidance-route",
     primary_owner_model_id=".flowguard/minimum_valuable_model_entry/model.py",
+    affected_blueprint_gap_id="blueprint-gap:model-miss-review:guidance-route",
     same_plane_lookup_performed=True,
 )
 BACKPROPAGATE_ROOT_CAUSE = Event("backpropagate_root_cause")
@@ -107,8 +115,15 @@ BIND_OWNER_CODE_CONTRACT = Event("bind_owner_code_contract")
 RERUN_MODEL_TEST_ALIGNMENT = Event("rerun_model_test_alignment")
 RECORD_LEGACY_PATH_DISPOSITION = Event("record_legacy_path_disposition")
 MARK_RECURRING_FAMILY = Event("mark_recurring_family")
-PROMOTE_DEFECT_FAMILY_GATE = Event("promote_defect_family_gate")
-REVIEW_DEFECT_FAMILY_GATE = Event("review_defect_family_gate")
+EMIT_CONTRACT_EXHAUSTION_CONTRIBUTION = Event(
+    "emit_contract_exhaustion_contribution",
+    affected_canonical_relation_ids=("relation:shared-owner:model-miss-review",),
+    affected_contract_case_ids=(
+        "case:observed:model-miss-review",
+        "case:same-class:model-miss-review",
+    ),
+)
+EMIT_MODEL_MATURATION_CONTRIBUTION = Event("emit_model_maturation_contribution")
 VALIDATE_FIX = Event("validate_fix")
 FINALIZE = Event("finalize")
 
@@ -122,6 +137,7 @@ class ApplyReviewStep:
         "affected_behavior_plane",
         "affected_commitment_id",
         "primary_owner_model_id",
+        "affected_blueprint_gap_id",
         "same_plane_lookup_performed",
         "coverage_gap_registered",
         "root_cause_backpropagated",
@@ -137,8 +153,10 @@ class ApplyReviewStep:
         "legacy_path_disposition_in_scope",
         "legacy_path_disposition_recorded",
         "recurring_family_detected",
-        "defect_family_gate_promoted",
-        "defect_family_gate_reviewed",
+        "affected_canonical_relation_ids",
+        "affected_contract_case_ids",
+        "contract_exhaustion_contribution_emitted",
+        "model_maturation_contribution_emitted",
         "fix_validated_after_refinement",
     )
     writes = (
@@ -148,6 +166,7 @@ class ApplyReviewStep:
         "affected_behavior_plane",
         "affected_commitment_id",
         "primary_owner_model_id",
+        "affected_blueprint_gap_id",
         "same_plane_lookup_performed",
         "coverage_gap_registered",
         "root_cause_backpropagated",
@@ -161,8 +180,10 @@ class ApplyReviewStep:
         "model_test_alignment_rerun",
         "legacy_path_disposition_recorded",
         "recurring_family_detected",
-        "defect_family_gate_promoted",
-        "defect_family_gate_reviewed",
+        "affected_canonical_relation_ids",
+        "affected_contract_case_ids",
+        "contract_exhaustion_contribution_emitted",
+        "model_maturation_contribution_emitted",
         "fix_validated_after_refinement",
         "completed",
     )
@@ -208,6 +229,9 @@ class ApplyReviewStep:
             if has_existing_owner and input_obj.coverage_gap_registered:
                 yield FunctionResult("classification_duplicate_gap", state, label="blocked")
                 return
+            if not input_obj.affected_blueprint_gap_id:
+                yield FunctionResult("classification_missing_blueprint_gap", state, label="blocked")
+                return
             yield FunctionResult(
                 "model_miss_classified",
                 replace(
@@ -216,6 +240,7 @@ class ApplyReviewStep:
                     affected_behavior_plane=input_obj.affected_behavior_plane,
                     affected_commitment_id=input_obj.affected_commitment_id,
                     primary_owner_model_id=input_obj.primary_owner_model_id,
+                    affected_blueprint_gap_id=input_obj.affected_blueprint_gap_id,
                     same_plane_lookup_performed=True,
                     coverage_gap_registered=input_obj.coverage_gap_registered,
                 ),
@@ -335,33 +360,48 @@ class ApplyReviewStep:
                 label="recurring_family_detected",
             )
             return
-        if input_obj.name == "promote_defect_family_gate":
+        if input_obj.name == "emit_contract_exhaustion_contribution":
             if not state.recurring_family_detected:
-                yield FunctionResult("defect_family_gate_not_required", state, label="blocked")
+                yield FunctionResult("contract_exhaustion_contribution_not_required", state, label="blocked")
                 return
             if state.generalized_bad_case_in_scope and not state.model_test_alignment_rerun:
-                yield FunctionResult("defect_family_gate_promotion_blocked", state, label="blocked")
+                yield FunctionResult("contract_exhaustion_contribution_blocked", state, label="blocked")
+                return
+            if not state.affected_blueprint_gap_id:
+                yield FunctionResult("contract_exhaustion_missing_blueprint_gap", state, label="blocked")
+                return
+            if not input_obj.affected_canonical_relation_ids:
+                yield FunctionResult("contract_exhaustion_missing_canonical_relations", state, label="blocked")
+                return
+            if not input_obj.affected_contract_case_ids:
+                yield FunctionResult("contract_exhaustion_missing_case_identities", state, label="blocked")
                 return
             yield FunctionResult(
-                "defect_family_gate_promoted",
-                replace(state, defect_family_gate_promoted=True),
-                label="defect_family_gate_promoted",
+                "contract_exhaustion_contribution_emitted",
+                replace(
+                    state,
+                    affected_canonical_relation_ids=input_obj.affected_canonical_relation_ids,
+                    affected_contract_case_ids=input_obj.affected_contract_case_ids,
+                    contract_exhaustion_contribution_emitted=True,
+                ),
+                label="contract_exhaustion_contribution_emitted",
             )
             return
-        if input_obj.name == "review_defect_family_gate":
-            if not state.defect_family_gate_promoted:
-                yield FunctionResult("defect_family_gate_review_blocked", state, label="blocked")
+        if input_obj.name == "emit_model_maturation_contribution":
+            if not state.contract_exhaustion_contribution_emitted:
+                yield FunctionResult("model_maturation_contribution_blocked", state, label="blocked")
                 return
             yield FunctionResult(
-                "defect_family_gate_reviewed",
-                replace(state, defect_family_gate_reviewed=True),
-                label="defect_family_gate_reviewed",
+                "model_maturation_contribution_emitted",
+                replace(state, model_maturation_contribution_emitted=True),
+                label="model_maturation_contribution_emitted",
             )
             return
         if input_obj.name == "validate_fix":
             if not (
                 state.same_plane_lookup_performed
                 and state.affected_behavior_plane
+                and state.affected_blueprint_gap_id
                 and (
                     (
                         state.affected_commitment_id
@@ -408,9 +448,10 @@ class ApplyReviewStep:
                 yield FunctionResult("legacy_path_disposition_validation_blocked", state, label="blocked")
                 return
             if state.recurring_family_detected and not (
-                state.defect_family_gate_promoted and state.defect_family_gate_reviewed
+                state.contract_exhaustion_contribution_emitted
+                and state.model_maturation_contribution_emitted
             ):
-                yield FunctionResult("defect_family_gate_validation_blocked", state, label="blocked")
+                yield FunctionResult("canonical_contribution_validation_blocked", state, label="blocked")
                 return
             yield FunctionResult(
                 "fix_validated_after_refinement",
@@ -422,8 +463,8 @@ class ApplyReviewStep:
             if state.runtime_issue_observed and not state.fix_validated_after_refinement:
                 yield FunctionResult("finalize_blocked_open_model_miss", state, label="finalize_blocked")
                 return
-            if state.recurring_family_detected and not state.defect_family_gate_reviewed:
-                yield FunctionResult("finalize_blocked_open_defect_family_gate", state, label="finalize_blocked")
+            if state.recurring_family_detected and not state.model_maturation_contribution_emitted:
+                yield FunctionResult("finalize_blocked_open_model_maturation", state, label="finalize_blocked")
                 return
             yield FunctionResult("completed", replace(state, completed=True), label="completed")
             return
@@ -571,13 +612,13 @@ class BrokenValidateWithoutLegacyPathDisposition(ApplyReviewStep):
         yield from super().apply(input_obj, state)
 
 
-class BrokenValidateRecurringWithoutDefectFamilyGate(ApplyReviewStep):
+class BrokenValidateRecurringWithoutCanonicalContributions(ApplyReviewStep):
     def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
         if input_obj.name == "validate_fix" and state.recurring_family_detected:
             yield FunctionResult(
-                "recurring_family_validated_without_defect_family_gate",
+                "recurring_family_validated_without_canonical_contributions",
                 replace(state, fix_validated_after_refinement=True),
-                label="broken_validate_recurring_without_defect_family_gate",
+                label="broken_validate_recurring_without_canonical_contributions",
             )
             return
         yield from super().apply(input_obj, state)
@@ -602,6 +643,8 @@ def invariants() -> tuple[Invariant, ...]:
             return InvariantResult.fail("model miss classification has neither a same-plane owner nor a registered gap")
         if has_existing_owner and state.coverage_gap_registered:
             return InvariantResult.fail("model miss classification duplicates a gap for an existing same-plane owner")
+        if not state.affected_blueprint_gap_id:
+            return InvariantResult.fail("model miss classification has no exact affected blueprint gap")
         return InvariantResult.pass_()
 
     def completion_requires_review(state: State, _trace) -> InvariantResult:
@@ -610,6 +653,7 @@ def invariants() -> tuple[Invariant, ...]:
                 state.model_miss_classified
                 and state.same_plane_lookup_performed
                 and state.affected_behavior_plane
+                and state.affected_blueprint_gap_id
                 and (
                     (
                         state.affected_commitment_id
@@ -646,14 +690,16 @@ def invariants() -> tuple[Invariant, ...]:
                 and (
                     not state.recurring_family_detected
                     or (
-                        state.defect_family_gate_promoted
-                        and state.defect_family_gate_reviewed
+                        state.affected_canonical_relation_ids
+                        and state.affected_contract_case_ids
+                        and state.contract_exhaustion_contribution_emitted
+                        and state.model_maturation_contribution_emitted
                     )
                 )
                 and state.fix_validated_after_refinement
             ):
                 return InvariantResult.fail(
-                    "completed runtime issue without classification, root-cause backpropagation, observed issue model representation, same-class generalized bad case representation, known-bug holdout role, owner code contract, target-aware replay evidence, same-class test evidence, legacy path disposition, Model-Test Alignment rerun, recurring defect-family gate when needed, and refined validation"
+                    "completed runtime issue without exact commitment/blueprint-gap classification, root-cause backpropagation, observed issue model representation, same-class generalized bad case representation, known-bug holdout role, owner code contract, target-aware replay evidence, same-class test evidence, legacy path disposition, Model-Test Alignment rerun, canonical ContractExhaustion and ModelMaturation contributions when needed, and refined validation"
                 )
         return InvariantResult.pass_()
 
@@ -723,13 +769,17 @@ def invariants() -> tuple[Invariant, ...]:
             return InvariantResult.fail("fix validated before recording legacy, fallback, or compatibility path disposition")
         return InvariantResult.pass_()
 
-    def recurring_family_requires_defect_family_gate(state: State, _trace) -> InvariantResult:
+    def recurring_family_requires_canonical_contributions(state: State, _trace) -> InvariantResult:
         if not (state.fix_validated_after_refinement and state.recurring_family_detected):
             return InvariantResult.pass_()
-        if not state.defect_family_gate_promoted:
-            return InvariantResult.fail("recurring same-class miss validated before promoting a defect-family gate")
-        if not state.defect_family_gate_reviewed:
-            return InvariantResult.fail("recurring same-class miss validated before reviewing defect-family gate evidence")
+        if not state.affected_canonical_relation_ids:
+            return InvariantResult.fail("recurring same-class miss has no affected canonical relation identities")
+        if not state.affected_contract_case_ids:
+            return InvariantResult.fail("recurring same-class miss has no affected ContractExhaustion case identities")
+        if not state.contract_exhaustion_contribution_emitted:
+            return InvariantResult.fail("recurring same-class miss validated before emitting a ContractExhaustion contribution")
+        if not state.model_maturation_contribution_emitted:
+            return InvariantResult.fail("recurring same-class miss validated before emitting a ModelMaturation contribution")
         return InvariantResult.pass_()
 
     return (
@@ -780,9 +830,9 @@ def invariants() -> tuple[Invariant, ...]:
             fix_validation_requires_legacy_path_disposition,
         ),
         Invariant(
-            "recurring_family_requires_defect_family_gate",
-            "Recurring same-class misses require a reviewed defect-family gate before validation.",
-            recurring_family_requires_defect_family_gate,
+            "recurring_family_requires_canonical_contributions",
+            "Recurring same-class misses contribute exact canonical relations/cases to ContractExhaustion and ModelMaturation before validation.",
+            recurring_family_requires_canonical_contributions,
         ),
     )
 
@@ -823,8 +873,8 @@ def run_checks():
                 RERUN_MODEL_TEST_ALIGNMENT,
                 RECORD_LEGACY_PATH_DISPOSITION,
                 MARK_RECURRING_FAMILY,
-                PROMOTE_DEFECT_FAMILY_GATE,
-                REVIEW_DEFECT_FAMILY_GATE,
+                EMIT_CONTRACT_EXHAUSTION_CONTRIBUTION,
+                EMIT_MODEL_MATURATION_CONTRIBUTION,
                 VALIDATE_FIX,
                 FINALIZE,
             ),
@@ -998,8 +1048,8 @@ def run_checks():
                 block=BrokenValidateWithoutLegacyPathDisposition(),
             ),
             scenario(
-                "validate_recurring_without_defect_family_gate",
-                "Broken workflow treats a recurring same-class miss as another ordinary point fix.",
+                "validate_recurring_without_canonical_contributions",
+                "Broken workflow closes a recurring same-class miss without contributing its exact relations and cases to the canonical owners.",
                 (
                     FLOWGUARD_PASS,
                     RUNTIME_FAIL,
@@ -1020,9 +1070,9 @@ def run_checks():
                 ),
                 ScenarioExpectation(
                     expected_status="violation",
-                    expected_violation_names=("recurring_family_requires_defect_family_gate",),
+                    expected_violation_names=("recurring_family_requires_canonical_contributions",),
                 ),
-                block=BrokenValidateRecurringWithoutDefectFamilyGate(),
+                block=BrokenValidateRecurringWithoutCanonicalContributions(),
             ),
         )
     )

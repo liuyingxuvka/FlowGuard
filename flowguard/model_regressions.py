@@ -21,7 +21,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Callable, Mapping, Sequence
 
 from .evidence_lifecycle import (
@@ -31,9 +31,14 @@ from .evidence_lifecycle import (
     store_text_object,
 )
 from .evidence_receipts import (
+    RECEIPT_STATUS_PASS,
+    VERIFICATION_STATUS_STALE,
     EvidenceReceipt,
+    ReceiptVerificationResult,
     fingerprint_value,
+    load_evidence_receipt,
     receipt_path as evidence_receipt_path,
+    verify_evidence_receipt,
 )
 from .model_authority import (
     ModelInstanceRef,
@@ -41,7 +46,14 @@ from .model_authority import (
 )
 from .model_purpose import ModelPurposeClosure, ModelPurposeError, validate_unique_model_instances
 from .source_identity import source_file_fingerprint
-from .process_supervision import run_supervised, write_terminal_artifact
+from .process_supervision import (
+    SupervisedCommandResult,
+    run_supervised,
+    write_terminal_artifact,
+)
+from .validation_owner_execution import (
+    publish_supervised_validation_owner_result,
+)
 
 from .validation_results import (
     VALIDATION_STATUS_BLOCKED,
@@ -57,18 +69,68 @@ from .validation_results import (
 from .validation_ownership import (
     OWNER_BLOCKED,
     OWNER_EXECUTE,
+    OWNER_RECEIPT_KIND,
     OWNER_REUSE_CURRENT,
     ValidationOwnerContract,
+    ValidationOwnerObservation,
+    ValidationObservationFreshness,
+    _assert_owner_receipt_integrity,
+    assert_validation_owner_observation_fresh,
+    assert_validation_owner_observation_receipts_fresh,
+    build_child_bound_owner_receipt_context,
+    build_owner_current,
+    build_owner_current_from_observation,
+    build_owner_receipt_context,
     child_from_owner_receipt,
+    observe_validation_owners,
     plan_validation_owners,
-    save_owner_receipt,
+    record_validation_owner_nonpass,
+    refresh_validation_owner_observation_receipts,
+    save_child_bound_owner_receipt,
+    save_child_bound_owner_receipt_from_observation,
 )
 
 
-MANIFEST_SCHEMA = "flowguard.model_regression_manifest.v3"
+MANIFEST_SCHEMA = "flowguard.model_regression_manifest.v4"
+MODEL_REGRESSION_PARENT_RECEIPT_SCHEMA = (
+    "flowguard.model_regression_parent_receipt.v2"
+)
+MODEL_REGRESSION_PARENT_ARTIFACT_TYPE = (
+    "flowguard_model_regression_parent_receipt"
+)
+_MODEL_REGRESSION_PARENT_FIELDS = frozenset(
+    {
+        "artifact_type",
+        "schema_version",
+        "claim_scope",
+        "tier",
+        "status",
+        "manifest_sha256",
+        "selected_model_ids",
+        "skipped_model_ids",
+        "children",
+        "execution_receipt_id",
+        "execution_receipt_fingerprint",
+        "claim_boundary",
+        "parent_receipt_fingerprint",
+    }
+)
+_MODEL_REGRESSION_PARENT_CHILD_FIELDS = frozenset(
+    {"model_id", "receipt_id", "receipt_fingerprint"}
+)
 TIER_RANK = {"fast": 0, "focused": 1, "full": 2}
+
+
 class ModelRegressionManifestError(ValueError):
     """Raised when the checked-in model inventory is incomplete or invalid."""
+
+
+class ModelRegressionEvidenceError(ValueError):
+    """Raised when no unique exact-current full model evidence composition exists."""
+
+
+class ModelRegressionParentNotCurrentError(ModelRegressionEvidenceError):
+    """Raised when only structurally valid but stale parent wrappers remain."""
 
 
 @dataclass(frozen=True)
@@ -81,6 +143,7 @@ class ModelRegressionEntry:
     shard_safe: bool
     mutation_policy: str
     input_globs: tuple[str, ...]
+    intent_source_inputs: tuple[str, ...] = ()
     expected_artifacts: tuple[str, ...] = ()
     exclusion_reason: str = ""
     distribution_policy: str = "required_public"
@@ -100,6 +163,7 @@ class ModelRegressionEntry:
             "shard_safe",
             "mutation_policy",
             "input_globs",
+            "intent_source_inputs",
             "expected_artifacts",
             "exclusion_reason",
             "distribution_policy",
@@ -127,6 +191,9 @@ class ModelRegressionEntry:
             shard_safe=bool(payload.get("shard_safe", False)),
             mutation_policy=str(payload.get("mutation_policy", "")),
             input_globs=tuple(str(item) for item in payload.get("input_globs", ())),
+            intent_source_inputs=tuple(
+                str(item) for item in payload.get("intent_source_inputs", ())
+            ),
             expected_artifacts=tuple(str(item) for item in payload.get("expected_artifacts", ())),
             exclusion_reason=str(payload.get("exclusion_reason", "")),
             distribution_policy=str(payload.get("distribution_policy", "required_public")),
@@ -141,6 +208,12 @@ class ModelRegressionEntry:
     @property
     def excluded(self) -> bool:
         return bool(self.exclusion_reason)
+
+    @property
+    def effective_input_patterns(self) -> tuple[str, ...]:
+        """Return authored selectors plus exact local intent-source inputs."""
+
+        return tuple(dict.fromkeys((*self.input_globs, *self.intent_source_inputs)))
 
     def command(self, *, root: Path) -> tuple[str, ...]:
         values = {"python": sys.executable, "root": str(root)}
@@ -245,6 +318,7 @@ class ModelRegressionManifest:
             "shard_safe": entry.shard_safe,
             "mutation_policy": entry.mutation_policy,
             "input_globs": list(entry.input_globs),
+            "intent_source_inputs": list(entry.intent_source_inputs),
             "expected_artifacts": list(entry.expected_artifacts),
             "exclusion_reason": entry.exclusion_reason,
             "distribution_policy": entry.distribution_policy,
@@ -303,6 +377,96 @@ class ModelImpactMap:
     @property
     def ok(self) -> bool:
         return not self.errors
+
+
+def audit_intent_source_input_bindings(
+    root: str | Path,
+    manifest: ModelRegressionManifest,
+    contributions: Sequence[Any],
+    source_identities: Sequence[Any] = (),
+) -> tuple[str, ...]:
+    """Compare active local intent sources with exact owner-local inputs.
+
+    WorkContext artifacts deliberately remain on their typed external identity
+    path.  This comparison owns only direct project files and never treats a
+    broad authored glob as an intent-owner binding.
+    """
+
+    from .model_intent import (
+        ModelIntentContribution,
+        ModelIntentSourceIdentity,
+    )
+
+    root_path = Path(root).resolve()
+    items = tuple(contributions)
+    identities = tuple(source_identities)
+    errors: list[str] = []
+    if any(not isinstance(item, ModelIntentContribution) for item in items):
+        return ("intent-source input review requires typed contributions",)
+    if identities and any(
+        not isinstance(item, ModelIntentSourceIdentity) for item in identities
+    ):
+        return ("intent-source input review requires typed source identities",)
+
+    contribution_by_id = {item.contribution_id: item for item in items}
+    if len(contribution_by_id) != len(items):
+        errors.append("intent-source input review has duplicate contribution ids")
+    identity_by_id = {item.contribution_id: item for item in identities}
+    if identities and len(identity_by_id) != len(identities):
+        errors.append("intent-source input review has duplicate source identities")
+    if identities and set(identity_by_id) != set(contribution_by_id):
+        errors.append(
+            "intent-source input review contribution/source denominator differs"
+        )
+
+    entries = {entry.model_id: entry for entry in manifest.entries}
+    expected_by_owner: dict[str, set[str]] = {
+        owner: set() for owner in entries
+    }
+    for contribution in items:
+        raw_owner = contribution.logical_model_id
+        if not raw_owner.startswith("model:"):
+            errors.append(
+                f"{contribution.contribution_id}: logical model owner is not exact: {raw_owner}"
+            )
+            continue
+        owner = raw_owner.split("model:", 1)[1]
+        if not owner or owner not in entries:
+            errors.append(
+                f"{contribution.contribution_id}: unknown logical model owner: {raw_owner}"
+            )
+            continue
+        identity = identity_by_id.get(contribution.contribution_id)
+        if identity is not None:
+            if identity.authority_kind == "work_context":
+                continue
+            path = identity.resolved_project_ref
+        elif contribution.work_context_id:
+            continue
+        else:
+            path = contribution.source_ref
+        expected_by_owner[owner].add(path)
+
+    for owner, entry in sorted(entries.items()):
+        actual_rows = tuple(entry.intent_source_inputs)
+        actual = set(actual_rows)
+        if len(actual) != len(actual_rows):
+            errors.append(f"{owner}: duplicate exact intent-source inputs")
+        expected = expected_by_owner[owner]
+        for path in sorted(expected - actual):
+            errors.append(f"{owner}: missing intent-source input: {path}")
+        for path in sorted(actual - expected):
+            errors.append(f"{owner}: extra intent-source input: {path}")
+        for path in sorted(actual):
+            candidate = (root_path / Path(*PurePosixPath(path).parts)).resolve()
+            try:
+                candidate.relative_to(root_path)
+            except ValueError:
+                errors.append(f"{owner}: intent-source input escapes repository: {path}")
+                continue
+            if not candidate.is_file():
+                errors.append(f"{owner}: intent-source input is not a file: {path}")
+    return tuple(errors)
 
 
 def _resolve_relative_files(
@@ -364,7 +528,10 @@ def compile_model_impact_map(
     )
     owners: dict[str, set[str]] = {}
     for entry in manifest.entries:
-        for path in _resolve_relative_files(root_path, entry.input_globs):
+        for path in _resolve_relative_files(
+            root_path,
+            entry.effective_input_patterns,
+        ):
             owners.setdefault(path, set()).add(entry.model_id)
     for group in manifest.shared_input_groups:
         for path in _resolve_relative_files(root_path, group.globs):
@@ -407,6 +574,11 @@ class ModelRunResult:
     execution_disposition: str = "execute"
     producer_invocations: int = 1
     receipt_fingerprint: str = ""
+    supervision: SupervisedCommandResult | None = field(
+        default=None,
+        compare=False,
+        repr=False,
+    )
 
     @property
     def ok(self) -> bool:
@@ -459,6 +631,15 @@ class ModelRegressionReport:
     parent_claim_scope: str = "scoped"
     parent_receipt_path: str = ""
     parent_receipt_fingerprint: str = ""
+    initial_observation_seconds: float = 0.0
+    receipt_reconciliation_seconds: float = 0.0
+    final_freshness_seconds: float = 0.0
+    parent_composition_seconds: float = 0.0
+    per_leaf_source_current_rebuild_count: int = 0
+    per_leaf_receipt_store_scan_count: int = 0
+    receipt_reconciliation_count: int = 0
+    initial_observation_fingerprint: str = ""
+    final_freshness_fingerprint: str = ""
 
     @property
     def status(self) -> str:
@@ -571,10 +752,93 @@ class ModelRegressionReport:
                 "parent_claim_scope": self.parent_claim_scope,
                 "parent_receipt_path": self.parent_receipt_path,
                 "parent_receipt_fingerprint": self.parent_receipt_fingerprint,
+                "validation_observation": {
+                    "initial_fingerprint": self.initial_observation_fingerprint,
+                    "final_freshness_fingerprint": (
+                        self.final_freshness_fingerprint
+                    ),
+                    "complete_observation_count": (
+                        2 if self.final_freshness_fingerprint else 1
+                    ),
+                    "initial_seconds": self.initial_observation_seconds,
+                    "receipt_reconciliation_seconds": (
+                        self.receipt_reconciliation_seconds
+                    ),
+                    "final_freshness_seconds": self.final_freshness_seconds,
+                    "parent_composition_seconds": self.parent_composition_seconds,
+                    "per_leaf_source_current_rebuild_count": (
+                        self.per_leaf_source_current_rebuild_count
+                    ),
+                    "per_leaf_receipt_store_scan_count": (
+                        self.per_leaf_receipt_store_scan_count
+                    ),
+                    "receipt_reconciliation_count": (
+                        self.receipt_reconciliation_count
+                    ),
+                },
                 "results": [item.to_dict() for item in self.results],
             }
         )
         return payload
+
+
+@dataclass(frozen=True)
+class CurrentModelRegressionChildEvidence:
+    """One independently verified current model-owner leaf receipt."""
+
+    model_id: str
+    receipt_id: str
+    receipt_fingerprint: str
+    model_instance_id: str = ""
+    model_instance_fingerprint: str = ""
+    input_inventory_fingerprint: str = ""
+    purpose_closure_fingerprint: str = ""
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "model_id": self.model_id,
+            "receipt_id": self.receipt_id,
+            "receipt_fingerprint": self.receipt_fingerprint,
+            "model_instance_id": self.model_instance_id,
+            "model_instance_fingerprint": self.model_instance_fingerprint,
+            "input_inventory_fingerprint": self.input_inventory_fingerprint,
+            "purpose_closure_fingerprint": self.purpose_closure_fingerprint,
+        }
+
+
+@dataclass(frozen=True)
+class CurrentModelRegressionParentEvidence:
+    """The unique current full parent plus its independently verified leaves."""
+
+    manifest_fingerprint: str
+    parent_artifact_path: str
+    parent_artifact_fingerprint: str
+    parent_execution_receipt_id: str
+    parent_execution_receipt_fingerprint: str
+    children: tuple[CurrentModelRegressionChildEvidence, ...]
+    claim_boundary: str = (
+        "The parent proves only the exact current full/full/pass composition. "
+        "Every child identity remains independently owned by its model receipt."
+    )
+
+    @property
+    def child_evidence_by_model_id(
+        self,
+    ) -> Mapping[str, CurrentModelRegressionChildEvidence]:
+        return {item.model_id: item for item in self.children}
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "manifest_fingerprint": self.manifest_fingerprint,
+            "parent_artifact_path": self.parent_artifact_path,
+            "parent_artifact_fingerprint": self.parent_artifact_fingerprint,
+            "parent_execution_receipt_id": self.parent_execution_receipt_id,
+            "parent_execution_receipt_fingerprint": (
+                self.parent_execution_receipt_fingerprint
+            ),
+            "children": [item.to_dict() for item in self.children],
+            "claim_boundary": self.claim_boundary,
+        }
 
 
 ProgressCallback = Callable[[Mapping[str, Any]], None]
@@ -625,6 +889,14 @@ def audit_manifest(root: str | Path, manifest: ModelRegressionManifest) -> Manif
         elif not purpose.model_instance_id.startswith(f"regression:{entry.model_id}:"):
             errors.append(
                 f"{entry.model_id}: purpose model_instance_id is not scoped to its logical regression model"
+            )
+        elif tuple(
+            evidence_id
+            for evidence_id in purpose.evidence_check_ids
+            if evidence_id.startswith("check:model-regression:")
+        ) != (f"check:model-regression:{entry.model_id}",):
+            errors.append(
+                f"{entry.model_id}: purpose requires one exact logical model-regression evidence identity"
             )
         if not entry.model_id or entry.model_path != f".flowguard/{entry.model_id}/model.py":
             errors.append(f"{entry.model_id or '<empty>'}: model_path must match model_id")
@@ -683,6 +955,51 @@ def audit_manifest(root: str | Path, manifest: ModelRegressionManifest) -> Manif
                 f"{entry.model_id}: input_glob resolves no files: {pattern}"
                 for pattern in unresolved_patterns
             )
+        intent_paths = tuple(entry.intent_source_inputs)
+        duplicate_intent_paths = tuple(
+            sorted(
+                path
+                for path in set(intent_paths)
+                if intent_paths.count(path) > 1
+            )
+        )
+        errors.extend(
+            f"{entry.model_id}: duplicate intent_source_input: {path}"
+            for path in duplicate_intent_paths
+        )
+        for intent_path in intent_paths:
+            normalized = intent_path.replace("\\", "/")
+            pure = PurePosixPath(normalized)
+            windows = PureWindowsPath(intent_path)
+            if (
+                not intent_path
+                or intent_path != normalized
+                or intent_path.startswith(("/", "\\"))
+                or pure.is_absolute()
+                or windows.is_absolute()
+                or bool(windows.drive)
+                or ".." in pure.parts
+                or any(token in intent_path for token in ("*", "?", "[", "]"))
+            ):
+                errors.append(
+                    f"{entry.model_id}: unsafe intent_source_input: {intent_path}"
+                )
+                continue
+            resolved_intent = (root_path / Path(*pure.parts)).resolve()
+            try:
+                resolved_intent.relative_to(root_path)
+            except ValueError:
+                errors.append(
+                    f"{entry.model_id}: intent_source_input escapes repository: {intent_path}"
+                )
+                continue
+            if (
+                entry.distribution_policy == "required_public"
+                and not resolved_intent.is_file()
+            ):
+                errors.append(
+                    f"{entry.model_id}: intent_source_input is not a file: {intent_path}"
+                )
         if entry.excluded:
             if entry.runner:
                 errors.append(f"{entry.model_id}: excluded entry must not define a runner")
@@ -783,7 +1100,7 @@ def resolve_entry_input_inventory(
 
     root_path = Path(root).resolve()
     inventory: dict[str, str] = {}
-    for pattern in entry.input_globs:
+    for pattern in entry.effective_input_patterns:
         for path in root_path.glob(pattern):
             if not path.is_file():
                 continue
@@ -907,6 +1224,7 @@ def _run_entry(
     status = VALIDATION_STATUS_INTERNAL_ERROR
     finding_codes: tuple[str, ...] = ("model.internal_error",)
     message = "model runner did not reach a terminal state"
+    supervised = None
     try:
         supervised = run_supervised(
             command,
@@ -994,6 +1312,7 @@ def _run_entry(
         purpose_claim_boundary=entry.purpose_closure.claim_boundary if entry.purpose_closure else "",
         stdout=stdout_descriptor,
         stderr=stderr_descriptor,
+        supervision=supervised,
     )
     if progress:
         progress({"event": "finished", "model_id": entry.model_id, "status": status, "seconds": elapsed_seconds})
@@ -1055,7 +1374,7 @@ def _model_owner_contract(
         input_patterns=tuple(
             dict.fromkeys(
                 (
-                    *entry.input_globs,
+                    *entry.effective_input_patterns,
                     *(
                         pattern
                         for pattern in manifest.shared_patterns_for(
@@ -1074,6 +1393,54 @@ def _model_owner_contract(
                 manifest.owner_projection_fingerprint(entry),
             ),
         ),
+    )
+
+
+def _model_parent_owner_contract(
+    manifest: ModelRegressionManifest,
+    entries: Sequence[ModelRegressionEntry],
+    *,
+    claim_scope: str,
+    tier: str,
+) -> ValidationOwnerContract:
+    """Return the exact composition contract for one model parent run.
+
+    The tier and claim scope are projected into the native contract even when
+    two selections happen to contain the same model ids.  A scoped execution
+    therefore cannot be relabeled as a full parent by rewriting its wrapper.
+    """
+
+    selected_model_ids = tuple(entry.model_id for entry in entries)
+    selection_fingerprint = fingerprint_value(
+        {
+            "manifest_sha256": source_file_fingerprint(manifest.path),
+            "selected_model_ids": list(selected_model_ids),
+            "claim_scope": claim_scope,
+            "tier": tier,
+        }
+    )
+    return ValidationOwnerContract(
+        owner_id="model-regression-parent",
+        command=(
+            "flowguard-model-regression-parent",
+            "--tier",
+            tier,
+            "--claim-scope",
+            claim_scope,
+        ),
+        input_patterns=(
+            ".flowguard/model-regression-manifest.json",
+            "flowguard/model_regressions.py",
+            "flowguard/evidence_receipts.py",
+            "flowguard/validation_ownership.py",
+        ),
+        projected_inputs=(
+            ("model-parent-selection", selection_fingerprint),
+        ),
+        obligation_ids=(
+            f"model-regression-parent:{selection_fingerprint}",
+        ),
+        resource_keys=("model-regression-parent",),
     )
 
 
@@ -1123,7 +1490,9 @@ def _persist_model_owner_result(
     current: Any,
     result: ModelRunResult,
     *,
+    all_contracts: Sequence[ValidationOwnerContract],
     started_at: str,
+    source_freshness: ValidationObservationFreshness,
 ) -> ModelRunResult:
     child = ValidationChildResult(
         child_id=current.contract.owner_id,
@@ -1142,14 +1511,38 @@ def _persist_model_owner_result(
         ),
         payload={"model_result": result.to_dict()},
     )
-    receipt = save_owner_receipt(
-        current,
-        child,
-        root,
-        receipt_root,
-        started_at=started_at,
-        finished_at=datetime.now(timezone.utc).isoformat(),
-    )
+    if result.status == VALIDATION_STATUS_PASS:
+        if result.supervision is None:
+            raise ValueError(
+                f"passing model owner lacks supervised producer evidence: {result.model_id}"
+            )
+        publication = publish_supervised_validation_owner_result(
+            current,
+            result.supervision,
+            root,
+            receipt_root,
+            all_contracts=all_contracts,
+            child_id=child.child_id,
+            evidence_context={"model_result": result.to_dict()},
+            summary=child.summary,
+            claim_boundary=child.claim_boundary,
+            source_freshness=source_freshness,
+        )
+        if not publication.ok or publication.receipt is None:
+            raise ValueError(
+                f"passing model owner publication blocked: {publication.blocker}"
+            )
+        receipt = publication.receipt
+    else:
+        receipt = record_validation_owner_nonpass(
+            current,
+            child,
+            root,
+            receipt_root,
+            all_contracts=all_contracts,
+            started_at=started_at,
+            finished_at=datetime.now(timezone.utc).isoformat(),
+        )
     path = evidence_receipt_path(
         receipt.receipt_id,
         root,
@@ -1173,9 +1566,11 @@ def _execute_pending_models(
     output_path: Path,
     receipt_root: Path,
     currents: Mapping[str, Any],
+    contracts: Sequence[ValidationOwnerContract],
+    planning_observation: ValidationOwnerObservation,
     cancel: threading.Event,
     progress: ProgressCallback | None,
-) -> list[ModelRunResult]:
+) -> tuple[list[ModelRunResult], ValidationObservationFreshness]:
     """Preflight every model resource lease, then execute the frozen set."""
 
     results: list[ModelRunResult] = []
@@ -1252,6 +1647,12 @@ def _execute_pending_models(
                     entry, owner_started_at = futures[future]
                     completed.append((entry, owner_started_at, future.result()))
 
+        source_freshness = assert_validation_owner_observation_fresh(
+            planning_observation,
+            root_path,
+            receipt_root,
+        )
+        fresh_currents = source_freshness.current_by_owner
         for entry, owner_started_at, result in completed:
             if "model.cleanup_unconfirmed" in result.finding_codes:
                 lease = lease_payloads[entry.model_id]
@@ -1270,12 +1671,14 @@ def _execute_pending_models(
                 _persist_model_owner_result(
                     root_path,
                     receipt_root,
-                    currents[f"model:{entry.model_id}"],
+                    fresh_currents[f"model:{entry.model_id}"],
                     result,
+                    all_contracts=contracts,
                     started_at=owner_started_at,
+                    source_freshness=source_freshness,
                 )
             )
-    return results
+    return results, source_freshness
 
 
 def _write_model_parent_receipt(
@@ -1283,10 +1686,22 @@ def _write_model_parent_receipt(
     manifest: ModelRegressionManifest,
     receipt_root: Path,
     report: ModelRegressionReport,
-) -> tuple[str, str]:
+    *,
+    planning_observation: ValidationOwnerObservation,
+    source_freshness: ValidationObservationFreshness,
+) -> tuple[
+    str,
+    str,
+    ValidationOwnerObservation,
+    ValidationObservationFreshness,
+    float,
+]:
     """Compose exact child-owner receipts into one scoped/full model parent."""
 
+    composition_started_at = time.perf_counter()
+
     children: list[dict[str, str]] = []
+    loaded_children: dict[str, EvidenceReceipt] = {}
     for result in report.results:
         if not result.receipt_path or not result.receipt_fingerprint:
             continue
@@ -1314,6 +1729,7 @@ def _write_model_parent_receipt(
             raise ValueError(
                 f"model parent child subject changed: {result.model_id}"
             )
+        loaded_children[result.model_id] = child_receipt
         children.append(
             {
                 "model_id": result.model_id,
@@ -1322,9 +1738,233 @@ def _write_model_parent_receipt(
             }
         )
     children.sort(key=lambda row: row["model_id"])
+    execution_receipt_id = ""
+    execution_receipt_fingerprint = ""
+    composition_observation = planning_observation
+    freshness = ValidationObservationFreshness.not_run(planning_observation)
+    if report.ok:
+        entries_by_id = {entry.model_id: entry for entry in manifest.entries}
+        try:
+            selected_entries = tuple(
+                entries_by_id[model_id]
+                for model_id in report.selected_model_ids
+            )
+        except KeyError as exc:
+            raise ValueError(
+                f"passing model parent selects an unknown model: {exc.args[0]}"
+            ) from exc
+        child_contracts = tuple(
+            _model_owner_contract(root, manifest, entry)
+            for entry in selected_entries
+        )
+        if child_contracts != planning_observation.contracts:
+            raise ValueError(
+                "model parent selection differs from the frozen owner observation"
+            )
+        composition_observation = refresh_validation_owner_observation_receipts(
+            planning_observation,
+            root,
+            receipt_root,
+            tuple(loaded_children[entry.model_id] for entry in selected_entries),
+        )
+        rows = composition_observation.rows
+        child_currents = composition_observation.current_by_owner
+        reusable = composition_observation.receipt_by_owner
+        observed_verifications = composition_observation.verification_by_owner
+        noncurrent = tuple(
+            row.owner_id
+            for row in rows
+            if row.disposition != OWNER_REUSE_CURRENT
+        )
+        if noncurrent:
+            raise ValueError(
+                "passing model parent child evidence is not exact-current: "
+                + ", ".join(noncurrent)
+        )
+        exact_children: list[EvidenceReceipt] = []
+        child_verifications: list[ReceiptVerificationResult] = []
+        for entry in selected_entries:
+            owner_id = f"model:{entry.model_id}"
+            child = reusable[owner_id]
+            loaded = loaded_children.get(entry.model_id)
+            if loaded is None or loaded.fingerprint != child.fingerprint:
+                raise ValueError(
+                    f"passing model parent child changed: {entry.model_id}"
+                )
+            verification = observed_verifications[owner_id]
+            if not verification.ok:
+                raise ValueError(
+                    f"passing model parent child is not current: {entry.model_id}"
+                )
+            exact_children.append(child)
+            child_verifications.append(verification)
+
+        parent_contract = _model_parent_owner_contract(
+            manifest,
+            selected_entries,
+            claim_scope=report.parent_claim_scope,
+            tier=report.tier,
+        )
+        parent_current = build_owner_current_from_observation(
+            root,
+            parent_contract,
+            all_contracts=(parent_contract,),
+            observation=composition_observation,
+        )
+        freshness = assert_validation_owner_observation_receipts_fresh(
+            planning_observation,
+            composition_observation,
+            source_freshness,
+            root,
+            receipt_root,
+            additional_receipt_subject_ids=(
+                "validation-owner:model-regression-parent",
+            ),
+        )
+
+        if (
+            report.parent_claim_scope == "full"
+            and report.tier == "full"
+            and not report.skipped_model_ids
+        ):
+            manifest_fingerprint = source_file_fingerprint(manifest.path)
+            parent_dir = receipt_root / "model-parents"
+            report_child_identities = {
+                (
+                    model_id,
+                    receipt.receipt_id,
+                    receipt.fingerprint,
+                )
+                for model_id, receipt in loaded_children.items()
+            }
+            matching_current_wrappers: list[
+                tuple[Path, Mapping[str, Any]]
+            ] = []
+            for candidate_path in _current_model_parent_artifact_paths(
+                parent_dir
+            ):
+                (
+                    candidate_payload,
+                    candidate_selected,
+                    candidate_skipped,
+                    _candidate_children,
+                ) = _read_model_parent_artifact(candidate_path)
+                if (
+                    candidate_payload["claim_scope"] == "full"
+                    and candidate_payload["tier"] == "full"
+                    and candidate_payload["status"] == RECEIPT_STATUS_PASS
+                    and candidate_payload["manifest_sha256"]
+                    == manifest_fingerprint
+                    and candidate_selected
+                    == tuple(report.selected_model_ids)
+                    and not candidate_skipped
+                    and {
+                        (
+                            row["model_id"],
+                            row["receipt_id"],
+                            row["receipt_fingerprint"],
+                        )
+                        for row in _candidate_children
+                    }
+                    == report_child_identities
+                ):
+                    matching_current_wrappers.append(
+                        (candidate_path, candidate_payload)
+                    )
+            if matching_current_wrappers:
+                verified_wrappers: list[tuple[Path, Mapping[str, Any]]] = []
+                for candidate_path, candidate_payload in matching_current_wrappers:
+                    try:
+                        execution = load_evidence_receipt(
+                            str(candidate_payload["execution_receipt_id"]),
+                            root,
+                            output_directory=receipt_root,
+                        )
+                        _assert_owner_receipt_integrity(execution)
+                    except (OSError, ValueError) as exc:
+                        raise ValueError(
+                            "matching model parent execution receipt is invalid: "
+                            f"{candidate_path.name}: {exc}"
+                        ) from exc
+                    if execution.fingerprint != str(
+                        candidate_payload["execution_receipt_fingerprint"]
+                    ):
+                        raise ValueError(
+                            "matching model parent execution fingerprint changed: "
+                            + candidate_path.name
+                        )
+                    context = build_child_bound_owner_receipt_context(
+                        parent_current,
+                        execution,
+                        root,
+                        receipt_root,
+                        child_receipts=tuple(exact_children),
+                        child_verification_results=tuple(child_verifications),
+                    )
+                    result = verify_evidence_receipt(execution, context)
+                    if result.ok:
+                        verified_wrappers.append(
+                            (candidate_path, candidate_payload)
+                        )
+                    elif result.status != VERIFICATION_STATUS_STALE:
+                        raise ValueError(
+                            "matching model parent execution is invalid: "
+                            + ", ".join(item.code for item in result.findings)
+                        )
+                if len(verified_wrappers) > 1:
+                    raise ValueError(
+                        "ambiguous exact-current full model parent artifacts: "
+                        + ", ".join(path.name for path, _payload in verified_wrappers)
+                    )
+                if verified_wrappers:
+                    current_path, current_payload = verified_wrappers[0]
+                    return (
+                        str(current_path),
+                        str(current_payload["parent_receipt_fingerprint"]),
+                        composition_observation,
+                        freshness,
+                        max(0.0, time.perf_counter() - composition_started_at),
+                    )
+
+        parent_execution, parent_verification = (
+            save_child_bound_owner_receipt_from_observation(
+            parent_current,
+            tuple(f"model:{entry.model_id}" for entry in selected_entries),
+            root,
+            receipt_root,
+            observation=composition_observation,
+            freshness=freshness,
+            started_at=datetime.fromtimestamp(
+                report.started_at_epoch,
+                tz=timezone.utc,
+            ).isoformat(),
+            finished_at=datetime.fromtimestamp(
+                report.finished_at_epoch,
+                tz=timezone.utc,
+            ).isoformat(),
+            evidence_context={
+                "manifest_sha256": source_file_fingerprint(manifest.path),
+                "selected_model_ids": list(report.selected_model_ids),
+                "skipped_model_ids": list(report.skipped_model_ids),
+                "claim_scope": report.parent_claim_scope,
+                "tier": report.tier,
+                "status": report.status,
+            },
+            claim_boundary=(
+                "One exact model-regression parent composition over the named "
+                "tier, selection, and canonical child receipts."
+            ),
+        ))
+        if not parent_verification.ok:
+            raise ValueError(
+                "saved model parent execution receipt is not exact-current"
+            )
+        execution_receipt_id = parent_execution.receipt_id
+        execution_receipt_fingerprint = parent_execution.fingerprint
+
     payload: dict[str, Any] = {
-        "artifact_type": "flowguard_model_regression_parent_receipt",
-        "schema_version": "flowguard.model_regression_parent_receipt.v1",
+        "artifact_type": MODEL_REGRESSION_PARENT_ARTIFACT_TYPE,
+        "schema_version": MODEL_REGRESSION_PARENT_RECEIPT_SCHEMA,
         "claim_scope": report.parent_claim_scope,
         "tier": report.tier,
         "status": report.status,
@@ -1332,6 +1972,8 @@ def _write_model_parent_receipt(
         "selected_model_ids": list(report.selected_model_ids),
         "skipped_model_ids": list(report.skipped_model_ids),
         "children": children,
+        "execution_receipt_id": execution_receipt_id,
+        "execution_receipt_fingerprint": execution_receipt_fingerprint,
         "claim_boundary": (
             "Full model-regression confidence over the exact current manifest."
             if report.parent_claim_scope == "full"
@@ -1361,7 +2003,829 @@ def _write_model_parent_receipt(
     ):
         if report.ok:
             raise ValueError("passing model parent does not compose every selected owner")
-    return str(path), identity
+    return (
+        str(path),
+        identity,
+        composition_observation,
+        freshness,
+        max(0.0, time.perf_counter() - composition_started_at),
+    )
+
+
+def _reject_duplicate_model_parent_keys(
+    pairs: Sequence[tuple[str, Any]],
+) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ModelRegressionEvidenceError(
+                f"duplicate model parent JSON key: {key}"
+            )
+        result[key] = value
+    return result
+
+
+def _reject_nonfinite_model_parent_number(value: str) -> Any:
+    raise ModelRegressionEvidenceError(
+        f"non-finite model parent JSON number: {value}"
+    )
+
+
+def _model_parent_string_array(
+    value: Any,
+    field_name: str,
+) -> tuple[str, ...]:
+    if not isinstance(value, list) or any(
+        not isinstance(item, str) or not item for item in value
+    ):
+        raise ModelRegressionEvidenceError(
+            f"model parent {field_name} must be an array of non-empty strings"
+        )
+    result = tuple(value)
+    if len(result) != len(set(result)):
+        raise ModelRegressionEvidenceError(
+            f"model parent {field_name} must not contain duplicates"
+        )
+    return result
+
+
+def _model_parent_children(
+    value: Any,
+) -> tuple[Mapping[str, str], ...]:
+    if not isinstance(value, list):
+        raise ModelRegressionEvidenceError(
+            "model parent children must be an array"
+        )
+    rows: list[Mapping[str, str]] = []
+    for index, item in enumerate(value):
+        if not isinstance(item, Mapping):
+            raise ModelRegressionEvidenceError(
+                f"model parent child {index} must be an object"
+            )
+        if set(item) != _MODEL_REGRESSION_PARENT_CHILD_FIELDS:
+            raise ModelRegressionEvidenceError(
+                "model parent child fields do not match the current schema"
+            )
+        if any(
+            not isinstance(item[name], str) or not item[name]
+            for name in _MODEL_REGRESSION_PARENT_CHILD_FIELDS
+        ):
+            raise ModelRegressionEvidenceError(
+                "model parent child fields must be non-empty strings"
+            )
+        rows.append(
+            {name: item[name] for name in _MODEL_REGRESSION_PARENT_CHILD_FIELDS}
+        )
+    model_ids = tuple(row["model_id"] for row in rows)
+    if len(model_ids) != len(set(model_ids)):
+        raise ModelRegressionEvidenceError(
+            "model parent children must identify unique models"
+        )
+    return tuple(rows)
+
+
+def _current_model_parent_artifact_paths(parent_dir: Path) -> tuple[Path, ...]:
+    """Return current-format authority candidates, excluding retired history.
+
+    This is schema classification only, not a legacy reader: v1 artifacts remain
+    immutable historical evidence and are never parsed as current authority.  Any
+    malformed or unknown-format artifact in the active store remains a visible
+    blocker.
+    """
+
+    current: list[Path] = []
+    for path in sorted(parent_dir.glob("*.json")) if parent_dir.is_dir() else ():
+        try:
+            header = json.loads(
+                path.read_text(encoding="utf-8"),
+                object_pairs_hook=_reject_duplicate_model_parent_keys,
+                parse_constant=_reject_nonfinite_model_parent_number,
+            )
+        except (OSError, json.JSONDecodeError, ModelRegressionEvidenceError) as exc:
+            raise ModelRegressionEvidenceError(
+                f"cannot classify model parent artifact {path.name}: {exc}"
+            ) from exc
+        if not isinstance(header, Mapping) or not isinstance(
+            header.get("schema_version"), str
+        ):
+            raise ModelRegressionEvidenceError(
+                f"model parent artifact has no schema identity: {path.name}"
+            )
+        schema_version = header["schema_version"]
+        if schema_version == MODEL_REGRESSION_PARENT_RECEIPT_SCHEMA:
+            current.append(path)
+        elif schema_version == "flowguard.model_regression_parent_receipt.v1":
+            continue
+        else:
+            raise ModelRegressionEvidenceError(
+                "unknown model parent schema remains in the active store: "
+                f"{path.name}"
+            )
+    return tuple(current)
+
+
+def _read_model_parent_artifact(
+    path: Path,
+) -> tuple[
+    Mapping[str, Any],
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[Mapping[str, str], ...],
+]:
+    try:
+        payload = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_model_parent_keys,
+            parse_constant=_reject_nonfinite_model_parent_number,
+        )
+    except (OSError, json.JSONDecodeError, ModelRegressionEvidenceError) as exc:
+        raise ModelRegressionEvidenceError(
+            f"cannot load model parent artifact {path.name}: {exc}"
+        ) from exc
+    if not isinstance(payload, Mapping):
+        raise ModelRegressionEvidenceError(
+            f"model parent artifact must be an object: {path.name}"
+        )
+    if set(payload) != _MODEL_REGRESSION_PARENT_FIELDS:
+        missing = sorted(_MODEL_REGRESSION_PARENT_FIELDS - set(payload))
+        unknown = sorted(set(payload) - _MODEL_REGRESSION_PARENT_FIELDS)
+        raise ModelRegressionEvidenceError(
+            "model parent artifact fields do not match the current schema: "
+            f"missing={missing}, unknown={unknown}"
+        )
+    for field_name in (
+        "artifact_type",
+        "schema_version",
+        "claim_scope",
+        "tier",
+        "status",
+        "manifest_sha256",
+        "execution_receipt_id",
+        "execution_receipt_fingerprint",
+        "claim_boundary",
+        "parent_receipt_fingerprint",
+    ):
+        if not isinstance(payload[field_name], str):
+            raise ModelRegressionEvidenceError(
+                f"model parent {field_name} must be a string"
+            )
+    if payload["artifact_type"] != MODEL_REGRESSION_PARENT_ARTIFACT_TYPE:
+        raise ModelRegressionEvidenceError(
+            f"unexpected artifact in model parent store: {path.name}"
+        )
+    if payload["schema_version"] != MODEL_REGRESSION_PARENT_RECEIPT_SCHEMA:
+        raise ModelRegressionEvidenceError(
+            f"non-current model parent schema remains in store: {path.name}"
+        )
+    selected_ids = _model_parent_string_array(
+        payload["selected_model_ids"],
+        "selected_model_ids",
+    )
+    skipped_ids = _model_parent_string_array(
+        payload["skipped_model_ids"],
+        "skipped_model_ids",
+    )
+    children = _model_parent_children(payload["children"])
+    declared_fingerprint = payload["parent_receipt_fingerprint"]
+    identity_payload = {
+        key: value
+        for key, value in payload.items()
+        if key != "parent_receipt_fingerprint"
+    }
+    if fingerprint_value(identity_payload) != declared_fingerprint:
+        raise ModelRegressionEvidenceError(
+            f"model parent artifact fingerprint is stale: {path.name}"
+        )
+    if not declared_fingerprint.startswith("sha256:"):
+        raise ModelRegressionEvidenceError(
+            f"model parent artifact fingerprint is malformed: {path.name}"
+        )
+    expected_name = declared_fingerprint.split(":", 1)[1] + ".json"
+    if path.name != expected_name:
+        raise ModelRegressionEvidenceError(
+            f"model parent artifact filename does not match identity: {path.name}"
+        )
+    return payload, selected_ids, skipped_ids, children
+
+
+def _exact_model_result_identity(
+    raw: Mapping[str, Any],
+    field_name: str,
+    expected: str,
+    *,
+    model_id: str,
+) -> str:
+    value = raw.get(field_name)
+    if value in (None, ""):
+        return ""
+    if not isinstance(value, str) or value != expected:
+        raise ModelRegressionEvidenceError(
+            f"model child result {field_name} is not current: {model_id}"
+        )
+    return value
+
+
+def resolve_current_full_model_regression_parent(
+    root: str | Path = ".",
+    *,
+    receipt_dir: str | Path | None = None,
+) -> CurrentModelRegressionParentEvidence:
+    """Resolve one unique, exact-current full model parent without executing.
+
+    Historical parent artifacts are retained, but only an exact current-format
+    ``full/full/pass`` artifact with zero skipped models and the complete
+    current manifest selection is eligible.  The aggregate never substitutes
+    for its leaves: every model owner receipt is independently rediscovered,
+    verified against its current contract, and then supplied to the parent
+    verification context as a real child.
+    """
+
+    root_path = Path(root).resolve()
+    receipt_root = (
+        Path(receipt_dir).resolve()
+        if receipt_dir is not None
+        else root_path / ".flowguard" / "evidence" / "model-owner-receipts"
+    )
+    manifest = ModelRegressionManifest.load(root_path)
+    audit = audit_manifest(root_path, manifest)
+    if not audit.ok:
+        raise ModelRegressionEvidenceError(
+            "current model-regression manifest is invalid: "
+            + "; ".join(audit.errors)
+        )
+    entries = select_entries(manifest, tier="full")
+    selected_ids = tuple(entry.model_id for entry in entries)
+    manifest_fingerprint = source_file_fingerprint(manifest.path)
+    parent_dir = receipt_root / "model-parents"
+    candidates: list[
+        tuple[
+            Path,
+            Mapping[str, Any],
+            tuple[Mapping[str, str], ...],
+        ]
+    ] = []
+    for path in _current_model_parent_artifact_paths(parent_dir):
+        payload, declared_selected, skipped_ids, children = (
+            _read_model_parent_artifact(path)
+        )
+        if (
+            payload["claim_scope"] == "full"
+            and payload["tier"] == "full"
+            and payload["status"] == RECEIPT_STATUS_PASS
+            and payload["manifest_sha256"] == manifest_fingerprint
+            and declared_selected == selected_ids
+            and not skipped_ids
+        ):
+            candidates.append((path, payload, children))
+    if not candidates:
+        raise ModelRegressionEvidenceError(
+            "no exact-current full/full/pass model parent artifact with zero "
+            "skipped models matches the current manifest"
+        )
+    for _candidate_path, candidate_payload, candidate_children in candidates:
+        candidate_model_ids = tuple(
+            row["model_id"] for row in candidate_children
+        )
+        if candidate_model_ids != tuple(sorted(selected_ids)):
+            raise ModelRegressionEvidenceError(
+                "model parent children do not cover the current full manifest exactly"
+            )
+        candidate_execution_id = candidate_payload["execution_receipt_id"]
+        candidate_execution_fingerprint = candidate_payload[
+            "execution_receipt_fingerprint"
+        ]
+        if not candidate_execution_id or not candidate_execution_fingerprint:
+            raise ModelRegressionEvidenceError(
+                "passing full model parent lacks its canonical execution receipt"
+            )
+        if any(
+            row["receipt_id"] == candidate_execution_id
+            or row["receipt_fingerprint"] == candidate_execution_fingerprint
+            for row in candidate_children
+        ):
+            raise ModelRegressionEvidenceError(
+                "model parent execution receipt cannot claim itself as a child"
+            )
+        for row in candidate_children:
+            model_id = row["model_id"]
+            try:
+                candidate_receipt = load_evidence_receipt(
+                    row["receipt_id"],
+                    root_path,
+                    output_directory=receipt_root,
+                )
+                _assert_owner_receipt_integrity(candidate_receipt)
+            except (OSError, ValueError) as exc:
+                raise ModelRegressionEvidenceError(
+                    "model parent child receipt is missing or invalid: "
+                    f"{model_id}: {exc}"
+                ) from exc
+            if candidate_receipt.fingerprint != row["receipt_fingerprint"]:
+                raise ModelRegressionEvidenceError(
+                    "model parent child fingerprint does not match the "
+                    f"canonical receipt: {model_id}"
+                )
+            if (
+                candidate_receipt.subject_id
+                != f"validation-owner:model:{model_id}"
+            ):
+                raise ModelRegressionEvidenceError(
+                    "model parent child subject does not match its model: "
+                    + model_id
+                )
+    contracts = tuple(
+        _model_owner_contract(root_path, manifest, entry) for entry in entries
+    )
+    plan_rows, currents, reusable = plan_validation_owners(
+        root_path,
+        contracts,
+        receipt_root=receipt_root,
+    )
+    noncurrent = tuple(
+        f"{row.owner_id} ({row.reason})"
+        for row in plan_rows
+        if row.disposition != OWNER_REUSE_CURRENT
+    )
+    if noncurrent:
+        raise ModelRegressionEvidenceError(
+            "model parent child evidence is not exact-current: "
+            + ", ".join(noncurrent)
+        )
+    exact_child_identities = {
+        (
+            model_id,
+            reusable[f"model:{model_id}"].receipt_id,
+            reusable[f"model:{model_id}"].fingerprint,
+        )
+        for model_id in selected_ids
+    }
+    candidates = [
+        (path, payload, children)
+        for path, payload, children in candidates
+        if {
+            (
+                row["model_id"],
+                row["receipt_id"],
+                row["receipt_fingerprint"],
+            )
+            for row in children
+        }
+        == exact_child_identities
+    ]
+    if not candidates:
+        raise ModelRegressionEvidenceError(
+            "no exact-current full model parent artifact composes the current "
+            "leaf receipt identities"
+        )
+
+    # Leaf identity equality is necessary but not sufficient for parent
+    # currentness.  Parent-only inputs (the manifest, aggregation code, receipt
+    # verifier, or ownership rules) can change while every leaf remains
+    # reusable.  Verify the canonical parent execution for every leaf-matching
+    # wrapper before applying the 0/1/>1 cardinality rule.  A merely stale
+    # parent is retained as history; malformed or invalid evidence still
+    # blocks instead of being renewed over.
+    exact_children_for_parent: list[EvidenceReceipt] = []
+    child_verifications_for_parent: list[ReceiptVerificationResult] = []
+    for model_id in selected_ids:
+        owner_id = f"model:{model_id}"
+        receipt = reusable[owner_id]
+        context = build_owner_receipt_context(
+            currents[owner_id],
+            receipt,
+            receipt_root,
+        )
+        verification = verify_evidence_receipt(receipt, context)
+        if not verification.ok:
+            raise ModelRegressionEvidenceError(
+                f"model child failed independent current verification: {model_id}: "
+                + ", ".join(item.code for item in verification.findings)
+            )
+        exact_children_for_parent.append(receipt)
+        child_verifications_for_parent.append(verification)
+
+    parent_contract_for_filter = _model_parent_owner_contract(
+        manifest,
+        entries,
+        claim_scope="full",
+        tier="full",
+    )
+    parent_current_for_filter = build_owner_current(
+        root_path,
+        parent_contract_for_filter,
+        all_contracts=(parent_contract_for_filter,),
+    )
+    expected_child_identities_for_parent = {
+        (item.receipt_id, item.fingerprint)
+        for item in exact_children_for_parent
+    }
+    current_candidates: list[
+        tuple[
+            Path,
+            Mapping[str, Any],
+            tuple[Mapping[str, str], ...],
+        ]
+    ] = []
+    stale_candidate_findings: list[str] = []
+    for candidate_path, candidate_payload, candidate_children in candidates:
+        candidate_execution_id = candidate_payload["execution_receipt_id"]
+        candidate_execution_fingerprint = candidate_payload[
+            "execution_receipt_fingerprint"
+        ]
+        try:
+            candidate_execution = load_evidence_receipt(
+                candidate_execution_id,
+                root_path,
+                output_directory=receipt_root,
+            )
+            _assert_owner_receipt_integrity(candidate_execution)
+        except (OSError, ValueError) as exc:
+            raise ModelRegressionEvidenceError(
+                "model parent execution receipt is unavailable or invalid: "
+                f"{exc}"
+            ) from exc
+        if (
+            candidate_execution.fingerprint
+            != candidate_execution_fingerprint
+            or candidate_execution.subject_id
+            != "validation-owner:model-regression-parent"
+            or candidate_execution.subject_kind != OWNER_RECEIPT_KIND
+            or candidate_execution.producer_id
+            != "validation-owner:model-regression-parent"
+        ):
+            raise ModelRegressionEvidenceError(
+                "model parent execution identity does not match its canonical receipt"
+            )
+        if any(
+            item.receipt_id == candidate_execution.receipt_id
+            for item in (
+                *candidate_execution.required_child_receipts,
+                *candidate_execution.consumed_child_receipts,
+            )
+        ):
+            raise ModelRegressionEvidenceError(
+                "model parent execution receipt cannot require or consume itself"
+            )
+        if (
+            candidate_execution.result_status != RECEIPT_STATUS_PASS
+            or candidate_execution.exit_code != 0
+            or candidate_execution.claim_scope != "full"
+            or candidate_execution.covered_obligations
+            != parent_contract_for_filter.obligation_ids
+            or candidate_execution.skipped_checks
+            or candidate_execution.blockers
+        ):
+            raise ModelRegressionEvidenceError(
+                "model parent execution receipt is not terminal full "
+                "exact-obligation pass"
+            )
+        required_child_identities = {
+            (item.receipt_id, item.expected_receipt_fingerprint)
+            for item in candidate_execution.required_child_receipts
+        }
+        consumed_child_identities = {
+            (item.receipt_id, item.receipt_fingerprint)
+            for item in candidate_execution.consumed_child_receipts
+        }
+        if (
+            required_child_identities != expected_child_identities_for_parent
+            or consumed_child_identities != expected_child_identities_for_parent
+        ):
+            raise ModelRegressionEvidenceError(
+                "model parent execution receipt does not compose the exact "
+                "current children"
+            )
+        try:
+            candidate_context = build_child_bound_owner_receipt_context(
+                parent_current_for_filter,
+                candidate_execution,
+                root_path,
+                receipt_root,
+                child_receipts=tuple(exact_children_for_parent),
+                child_verification_results=tuple(
+                    child_verifications_for_parent
+                ),
+            )
+        except ValueError as exc:
+            raise ModelRegressionEvidenceError(
+                f"model parent child-bound context is invalid: {exc}"
+            ) from exc
+        candidate_verification = verify_evidence_receipt(
+            candidate_execution,
+            candidate_context,
+        )
+        if candidate_verification.ok:
+            current_candidates.append(
+                (candidate_path, candidate_payload, candidate_children)
+            )
+            continue
+        finding_codes = ", ".join(
+            item.code for item in candidate_verification.findings
+        )
+        if candidate_verification.status == VERIFICATION_STATUS_STALE:
+            stale_candidate_findings.append(
+                f"{candidate_path.name}: {finding_codes}"
+            )
+            continue
+        raise ModelRegressionEvidenceError(
+            "model parent execution receipt is invalid: " + finding_codes
+        )
+
+    candidates = current_candidates
+    if not candidates:
+        detail = "; ".join(stale_candidate_findings)
+        raise ModelRegressionParentNotCurrentError(
+            "no exact-current full model parent execution composes the current "
+            "leaves"
+            + (f": {detail}" if detail else "")
+        )
+    if len(candidates) > 1:
+        raise ModelRegressionEvidenceError(
+            "ambiguous exact-current full model parent artifacts: "
+            + ", ".join(path.name for path, _payload, _children in candidates)
+        )
+
+    parent_path, payload, declared_children = candidates[0]
+    if tuple(row["model_id"] for row in declared_children) != tuple(
+        sorted(selected_ids)
+    ):
+        raise ModelRegressionEvidenceError(
+            "model parent children do not cover the current full manifest exactly"
+        )
+    execution_receipt_id = payload["execution_receipt_id"]
+    execution_receipt_fingerprint = payload["execution_receipt_fingerprint"]
+    if not execution_receipt_id or not execution_receipt_fingerprint:
+        raise ModelRegressionEvidenceError(
+            "passing full model parent lacks its canonical execution receipt"
+        )
+    if any(
+        row["receipt_id"] == execution_receipt_id
+        or row["receipt_fingerprint"] == execution_receipt_fingerprint
+        for row in declared_children
+    ):
+        raise ModelRegressionEvidenceError(
+            "model parent execution receipt cannot claim itself as a child"
+        )
+
+    declared_receipts: dict[str, EvidenceReceipt] = {}
+    for row in declared_children:
+        model_id = row["model_id"]
+        try:
+            declared_receipt = load_evidence_receipt(
+                row["receipt_id"],
+                root_path,
+                output_directory=receipt_root,
+            )
+            _assert_owner_receipt_integrity(declared_receipt)
+        except (OSError, ValueError) as exc:
+            raise ModelRegressionEvidenceError(
+                f"model parent child receipt is missing or invalid: {model_id}: {exc}"
+            ) from exc
+        if declared_receipt.fingerprint != row["receipt_fingerprint"]:
+            raise ModelRegressionEvidenceError(
+                f"model parent child fingerprint does not match the canonical receipt: {model_id}"
+            )
+        if declared_receipt.subject_id != f"validation-owner:model:{model_id}":
+            raise ModelRegressionEvidenceError(
+                f"model parent child subject does not match its model: {model_id}"
+            )
+        declared_receipts[model_id] = declared_receipt
+
+    declared_by_model = {
+        row["model_id"]: row for row in declared_children
+    }
+    entries_by_model = {entry.model_id: entry for entry in entries}
+    exact_children: list[EvidenceReceipt] = []
+    child_verifications: list[ReceiptVerificationResult] = []
+    child_evidence: list[CurrentModelRegressionChildEvidence] = []
+    for model_id in selected_ids:
+        owner_id = f"model:{model_id}"
+        receipt = reusable.get(owner_id)
+        declared = declared_by_model.get(model_id)
+        declared_receipt = declared_receipts.get(model_id)
+        if receipt is None or declared is None or declared_receipt is None:
+            raise ModelRegressionEvidenceError(
+                f"model parent child is missing: {model_id}"
+            )
+        if (
+            declared["receipt_id"] != receipt.receipt_id
+            or declared["receipt_fingerprint"] != receipt.fingerprint
+            or declared_receipt.receipt_id != receipt.receipt_id
+            or declared_receipt.fingerprint != receipt.fingerprint
+        ):
+            raise ModelRegressionEvidenceError(
+                f"model parent child identity is not exact-current: {model_id}"
+            )
+        expected_obligations = (f"model-regression:{model_id}",)
+        if (
+            receipt.subject_id != f"validation-owner:model:{model_id}"
+            or receipt.subject_kind != OWNER_RECEIPT_KIND
+            or receipt.result_status != RECEIPT_STATUS_PASS
+            or receipt.exit_code != 0
+            or receipt.claim_scope != "full"
+            or receipt.covered_obligations != expected_obligations
+            or receipt.skipped_checks
+            or receipt.blockers
+        ):
+            raise ModelRegressionEvidenceError(
+                f"model child is not a terminal full exact-obligation pass: {model_id}"
+            )
+        if str(receipt.metadata.get("publication_kind", "")) != "supervised_producer":
+            raise ModelRegressionEvidenceError(
+                f"model child is not a direct supervised producer receipt: {model_id}"
+            )
+        if receipt.required_child_receipts or receipt.consumed_child_receipts:
+            raise ModelRegressionEvidenceError(
+                f"model child receipt cannot be an aggregate: {model_id}"
+            )
+        context = build_owner_receipt_context(
+            currents[owner_id],
+            receipt,
+            receipt_root,
+        )
+        verification = verify_evidence_receipt(receipt, context)
+        if not verification.ok:
+            raise ModelRegressionEvidenceError(
+                f"model child failed independent current verification: {model_id}: "
+                + ", ".join(item.code for item in verification.findings)
+            )
+        child_result = child_from_owner_receipt(receipt, receipt_root)
+        if (
+            child_result.child_id != f"model:{model_id}"
+            or child_result.status != VALIDATION_STATUS_PASS
+            or child_result.payload.get("nested_receipt_id")
+        ):
+            raise ModelRegressionEvidenceError(
+                f"model child proof is not a direct terminal result: {model_id}"
+            )
+        raw_result = child_result.payload.get("model_result")
+        if not isinstance(raw_result, Mapping):
+            raise ModelRegressionEvidenceError(
+                f"model child proof is missing its model result: {model_id}"
+            )
+        if (
+            raw_result.get("model_id") != model_id
+            or raw_result.get("status") != VALIDATION_STATUS_PASS
+            or raw_result.get("ok") is not True
+            or raw_result.get("exit_code") != 0
+        ):
+            raise ModelRegressionEvidenceError(
+                f"model child proof result is not terminal pass: {model_id}"
+            )
+        entry = entries_by_model[model_id]
+        inventory = resolve_entry_input_inventory(root_path, entry)
+        expected_model_instance = build_regression_model_instance(
+            root_path,
+            entry,
+            inventory,
+        )
+        expected_input_inventory = input_inventory_fingerprint(inventory)
+        expected_purpose = (
+            entry.purpose_closure.closure_fingerprint
+            if entry.purpose_closure is not None
+            else ""
+        )
+        child_evidence.append(
+            CurrentModelRegressionChildEvidence(
+                model_id=model_id,
+                receipt_id=receipt.receipt_id,
+                receipt_fingerprint=receipt.fingerprint,
+                model_instance_id=_exact_model_result_identity(
+                    raw_result,
+                    "model_instance_id",
+                    entry.purpose_closure.model_instance_id
+                    if entry.purpose_closure is not None
+                    else "",
+                    model_id=model_id,
+                ),
+                model_instance_fingerprint=_exact_model_result_identity(
+                    raw_result,
+                    "model_instance_fingerprint",
+                    expected_model_instance.fingerprint,
+                    model_id=model_id,
+                ),
+                input_inventory_fingerprint=_exact_model_result_identity(
+                    raw_result,
+                    "input_inventory_fingerprint",
+                    expected_input_inventory,
+                    model_id=model_id,
+                ),
+                purpose_closure_fingerprint=_exact_model_result_identity(
+                    raw_result,
+                    "purpose_closure_fingerprint",
+                    expected_purpose,
+                    model_id=model_id,
+                ),
+            )
+        )
+        exact_children.append(receipt)
+        child_verifications.append(verification)
+
+    try:
+        parent_execution = load_evidence_receipt(
+            execution_receipt_id,
+            root_path,
+            output_directory=receipt_root,
+        )
+        _assert_owner_receipt_integrity(parent_execution)
+    except (OSError, ValueError) as exc:
+        raise ModelRegressionEvidenceError(
+            f"model parent execution receipt is unavailable or invalid: {exc}"
+        ) from exc
+    if (
+        parent_execution.fingerprint != execution_receipt_fingerprint
+        or parent_execution.subject_id
+        != "validation-owner:model-regression-parent"
+        or parent_execution.subject_kind != OWNER_RECEIPT_KIND
+        or parent_execution.producer_id
+        != "validation-owner:model-regression-parent"
+    ):
+        raise ModelRegressionEvidenceError(
+            "model parent execution identity does not match its canonical receipt"
+        )
+    if any(
+        item.receipt_id == parent_execution.receipt_id
+        for item in (
+            *parent_execution.required_child_receipts,
+            *parent_execution.consumed_child_receipts,
+        )
+    ):
+        raise ModelRegressionEvidenceError(
+            "model parent execution receipt cannot require or consume itself"
+        )
+
+    parent_contract = _model_parent_owner_contract(
+        manifest,
+        entries,
+        claim_scope="full",
+        tier="full",
+    )
+    if (
+        parent_execution.result_status != RECEIPT_STATUS_PASS
+        or parent_execution.exit_code != 0
+        or parent_execution.claim_scope != "full"
+        or parent_execution.covered_obligations
+        != parent_contract.obligation_ids
+        or parent_execution.skipped_checks
+        or parent_execution.blockers
+    ):
+        raise ModelRegressionEvidenceError(
+            "model parent execution receipt is not terminal full exact-obligation pass"
+        )
+    expected_child_identities = {
+        (item.receipt_id, item.fingerprint) for item in exact_children
+    }
+    required_child_identities = {
+        (item.receipt_id, item.expected_receipt_fingerprint)
+        for item in parent_execution.required_child_receipts
+    }
+    consumed_child_identities = {
+        (item.receipt_id, item.receipt_fingerprint)
+        for item in parent_execution.consumed_child_receipts
+    }
+    if (
+        required_child_identities != expected_child_identities
+        or consumed_child_identities != expected_child_identities
+    ):
+        raise ModelRegressionEvidenceError(
+            "model parent execution receipt does not compose the exact current children"
+        )
+    parent_current = build_owner_current(
+        root_path,
+        parent_contract,
+        all_contracts=(parent_contract,),
+    )
+    try:
+        parent_context = build_child_bound_owner_receipt_context(
+            parent_current,
+            parent_execution,
+            root_path,
+            receipt_root,
+            child_receipts=tuple(exact_children),
+            child_verification_results=tuple(child_verifications),
+        )
+    except ValueError as exc:
+        raise ModelRegressionEvidenceError(
+            f"model parent child-bound context is invalid: {exc}"
+        ) from exc
+    parent_verification = verify_evidence_receipt(
+        parent_execution,
+        parent_context,
+    )
+    if not parent_verification.ok:
+        raise ModelRegressionEvidenceError(
+            "model parent execution receipt is not an exact-current full composition: "
+            + ", ".join(item.code for item in parent_verification.findings)
+        )
+
+    return CurrentModelRegressionParentEvidence(
+        manifest_fingerprint=manifest_fingerprint,
+        parent_artifact_path=str(parent_path),
+        parent_artifact_fingerprint=payload["parent_receipt_fingerprint"],
+        parent_execution_receipt_id=parent_execution.receipt_id,
+        parent_execution_receipt_fingerprint=parent_execution.fingerprint,
+        children=tuple(child_evidence),
+    )
 
 
 def run_manifest_regressions(
@@ -1414,11 +2878,14 @@ def run_manifest_regressions(
     contracts = tuple(
         _model_owner_contract(root_path, manifest, entry) for entry in selected
     )
-    plan_rows, currents, reusable_receipts = plan_validation_owners(
+    planning_observation = observe_validation_owners(
         root_path,
         contracts,
         receipt_root=receipt_root,
     )
+    plan_rows = planning_observation.rows
+    currents = planning_observation.current_by_owner
+    reusable_receipts = planning_observation.receipt_by_owner
     if not reuse_current:
         plan_rows = tuple(
             replace(
@@ -1489,9 +2956,11 @@ def run_manifest_regressions(
     before = _snapshot(tracked)
     started_at = time.time()
     results: list[ModelRunResult] = list(reused_results.values())
+    source_freshness = ValidationObservationFreshness.not_run(
+        planning_observation
+    )
     if audit.ok:
-        results.extend(
-            _execute_pending_models(
+        executed_results, source_freshness = _execute_pending_models(
                 root_path=root_path,
                 pending=pending,
                 jobs=jobs,
@@ -1499,10 +2968,12 @@ def run_manifest_regressions(
                 output_path=output_path,
                 receipt_root=receipt_root,
                 currents=currents,
+                contracts=contracts,
+                planning_observation=planning_observation,
                 cancel=cancel,
                 progress=progress,
             )
-        )
+        results.extend(executed_results)
     results.sort(key=lambda item: item.model_id)
     after = _snapshot(tracked)
     mutations = _mutation_paths(before, after, root_path)
@@ -1534,16 +3005,39 @@ def run_manifest_regressions(
         command=command,
         parent_claim_scope=parent_claim_scope,
     )
-    parent_path, parent_fingerprint = _write_model_parent_receipt(
+    (
+        parent_path,
+        parent_fingerprint,
+        composition_observation,
+        final_freshness,
+        parent_composition_seconds,
+    ) = _write_model_parent_receipt(
         root_path,
         manifest,
         receipt_root,
         report,
+        planning_observation=planning_observation,
+        source_freshness=source_freshness,
     )
     report = replace(
         report,
         parent_receipt_path=parent_path,
         parent_receipt_fingerprint=parent_fingerprint,
+        initial_observation_seconds=planning_observation.observation_seconds,
+        receipt_reconciliation_seconds=(
+            composition_observation.observation_seconds
+        ),
+        final_freshness_seconds=final_freshness.observation_seconds,
+        parent_composition_seconds=parent_composition_seconds,
+        per_leaf_source_current_rebuild_count=0,
+        per_leaf_receipt_store_scan_count=0,
+        receipt_reconciliation_count=(1 if final_freshness.ok else 0),
+        initial_observation_fingerprint=(
+            composition_observation.observation_fingerprint
+        ),
+        final_freshness_fingerprint=(
+            final_freshness.final_observation_fingerprint
+        ),
     )
     report_path = output_path / "report.json"
     _write_json(report_path, report.to_dict())
@@ -1560,13 +3054,19 @@ def run_manifest_regressions(
 
 __all__ = [
     "MANIFEST_SCHEMA",
+    "MODEL_REGRESSION_PARENT_ARTIFACT_TYPE",
+    "MODEL_REGRESSION_PARENT_RECEIPT_SCHEMA",
+    "CurrentModelRegressionChildEvidence",
+    "CurrentModelRegressionParentEvidence",
     "ManifestAudit",
     "ModelImpactMap",
+    "ModelRegressionEvidenceError",
     "ModelRegressionEntry",
     "ModelRegressionManifest",
     "ModelRegressionManifestError",
     "ModelRegressionReport",
     "ModelRunResult",
+    "audit_intent_source_input_bindings",
     "audit_manifest",
     "build_regression_model_instance",
     "compile_model_impact_map",
@@ -1574,6 +3074,7 @@ __all__ = [
     "input_inventory_fingerprint",
     "model_instance_fingerprint",
     "parse_shard",
+    "resolve_current_full_model_regression_parent",
     "resolve_entry_input_inventory",
     "run_manifest_regressions",
     "select_entries",

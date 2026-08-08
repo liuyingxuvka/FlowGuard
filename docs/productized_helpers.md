@@ -12,7 +12,8 @@ RiskIntent + MinimumModelContract + KnownBadProof
 The helper layer exists to make that path repeatable for AI coding agents. It
 should not become a second formal system, but the model-first entry must still
 name the protected error class, model completion evidence, prove a known-bad
-case is caught, and close template reuse/harvest.
+case is caught, and keep missing evidence visible. Template reuse/harvest is a
+separate conditional helper path, not part of ordinary model completion.
 
 ContractExhaustionMesh is the canonical helper for expanding declared finite
 boundaries into bad cases. It does not discover the whole world by magic. A
@@ -20,8 +21,8 @@ route must first declare the field, state/input boundary, same-class family,
 payload contract, transition matrix, or parent/child closure token. Then
 `review_contract_exhaustion()` creates stable bad-case ids, expected oracle
 reactions, and downstream MTA/TestMesh/ModelMesh/Risk Ledger handoffs. This
-replaces older patterns where each prompt hand-wrote "similar bug" examples
-as if they were canonical coverage.
+replaces older patterns where prompts hand-wrote lookalike examples as if they
+were a finite coverage universe.
 
 For broad/full claims, the route must also declare a `ContractCoverageUniverse`.
 This is the generic list of what the matrix claims to cover: dimensions, axes,
@@ -220,37 +221,18 @@ result can support Model-Test Alignment or TestMesh only when the ticket and
 matching `ProofArtifactRef` prove unchanged command, test source, tested
 artifact, dependencies, environment, result fingerprint, and covered scope.
 
-## ExistingModelPreflight Angle Evidence
+## ExistingModelPreflight Gap Ownership
 
 ExistingModelPreflight owns route-boundary doubt in an existing modeled
-system. It may consume `review_model_angle_deliberations(...)` when an agent
-needs to preserve candidate viewpoints before deciding whether to reuse,
-extend, split, or scope a model. This is the answer to a common AI failure
-mode: the agent follows the provided route list but does not ask whether the
-current situation needs a different model viewpoint.
+system. It looks up the current commitment, blueprint shard, model/code owner,
+field map, and affected topology. When current evidence cannot answer a
+question, it records one typed gap and sends that gap to the owner route that
+can produce executable model, test, replay, structure, or lifecycle evidence.
 
-Each `ModelAngleDeliberation` row is intentionally free-form:
-
-- `angle_name`: the possible viewpoint in plain language;
-- `current_model_sees`: what the current model already covers;
-- `current_model_misses`: what might still be invisible;
-- `failure_if_ignored`: what can go wrong if that angle is skipped;
-- `candidate_action`: reuse, extend, add child model, create new model, scope
-  out, defer, or ask for human review;
-- `owner_route_hint`: the route that should produce real evidence.
-
-Known FlowGuard routes are hints, not the full imagination space. The angle can
-be about fields, lifecycle, installation sync, release evidence, user policy,
-runtime topology, AI workflow ordering, or another domain-specific surface.
-The review only preserves the decision; ExistingModelPreflight or the owning
-route still supplies the actual model, test, replay, or closure evidence.
-
-The template remains an internal evidence scaffold:
-
-```powershell
-python -m flowguard model-angle-template --output .
-python .flowguard/model_angle_deliberation/run_checks.py
-```
+This keeps uncertainty visible without creating an open-ended parallel review
+authority. Reuse, extension, child-model creation, structure reduction,
+scoping, and human review remain explicit outcomes of the current owner and
+its evidence.
 
 ## FlowGuard Self-Maintenance Mesh
 
@@ -284,12 +266,12 @@ required input kinds, proof gap codes, suggested command text, and claim
 effect. This lets AI agents continue through the existing route system instead
 of guessing from prose.
 
-Use `maintenance_scan_plan_from_summary_report(...)` to turn those report gaps
-into a `MaintenanceScanPlan`. DevelopmentProcessFlow owns the post-change scan
-decision: it consumes the scan output and points each unresolved item to
-existing specialists such as DevelopmentProcessFlow, Model-Test Alignment,
-Model Maturation, TestMesh, StructureMesh, or AgentWorkflowRehearsal, but the
-scan helper itself does not run those routes or validate their evidence.
+DevelopmentProcessFlow consumes the summary's changed-artifact identities,
+finding ledger, remembered obligations, and freshness evidence directly. It
+reopens only the exact owner routes required by those typed gaps, such as
+Model-Test Alignment, ModelMaturation, TestMesh, StructureMesh, or its own
+process modes. No extra scan plan or completion authority sits between the
+summary and those owners.
 
 `DevelopmentProcessFlow` revalidation recommendations include the prior
 producer route, proof-artifact requirement, freshness gap codes, and claim
@@ -415,7 +397,7 @@ Status rules:
 Use the summary in PR notes or agent replies to avoid overstating "FlowGuard
 passed" when only the model checker ran.
 `FlowGuardSummaryReport.maintenance_obligations` also turns non-pass gaps into
-route-owned memory that future maintenance scans and risk ledgers can inherit.
+route-owned memory that DevelopmentProcessFlow and risk ledgers can consume.
 
 ## Mermaid Source Export
 
@@ -453,8 +435,7 @@ the low-friction formal path for AI agents:
 3. Declare the intended risk boundary in `RiskProfile`, preferably with a
    `RiskIntent` that names failure modes, protected harms, model-critical
    state, adversarial inputs, hard invariants, and blindspots.
-4. Bind a `MinimumModelContract`, template reuse/no-match review, at least one
-   current `KnownBadProof`, and template harvest closure.
+4. Bind a `MinimumModelContract` and at least one current `KnownBadProof`.
 5. Use property factories or domain packs when they fit.
 6. Run `run_model_first_checks(...)`.
 7. Inspect minimized counterexamples when present.
@@ -494,8 +475,6 @@ python -m flowguard plan-detailing-template --output .
 python -m flowguard model-miss-template --output .
 python -m flowguard model-test-alignment-template --output .
 python -m flowguard development-process-flow-template --output .
-python -m flowguard maintenance-scan-template --output .
-python -m flowguard model-angle-template --output .
 ```
 
 The project adoption template writes the target-project AGENTS block,
@@ -503,13 +482,16 @@ The project adoption template writes the target-project AGENTS block,
 URL and version policy. The basic project template demonstrates validation,
 rejection, duplicate input, source-trace invariants, completion evidence, and a
 known-bad variant that must fail. The Risk Intent template shows how to bind a
-`RiskIntent`, `RiskProfile`, template reuse review, minimum model contract,
-current `KnownBadProof`, template harvest closure, and `FlowGuardCheckPlan`
-before running `run_model_first_checks(...)`. The risk
-template library template shows how to search packaged public templates,
-reference the per-machine local template library, prepare a local candidate,
-and close harvest as written, merged, duplicate-linked, or not-harvestable
-without hard-coding a developer path. The plan-detailing template shows how to turn a
+`RiskIntent`, `RiskProfile`, minimum model contract, current `KnownBadProof`,
+and `FlowGuardCheckPlan` before running `run_model_first_checks(...)`. The risk
+template library template is the single strict route scaffold for an explicit
+reuse/publication request or current executable evidence of a bounded stable
+pattern intended for use outside the target project. Once triggered, it shows
+how to search packaged public templates, reference the per-machine local
+library, prepare a local candidate, and close harvest as written, merged,
+duplicate-linked, or not-harvestable without hard-coding a developer path.
+Ordinary modeling, repair, maintenance, cleanup, and release do not run it.
+The plan-detailing template shows how to turn a
 rough plan into explicit PlanDetail rows and broken variants before projecting
 to PlanIntake, WorkflowStepContracts, and DevelopmentProcessFlow. The
 model-miss template models the feedback loop
@@ -521,12 +503,8 @@ matching current tests. The development process flow template models
 non-trivial staged development or modification with validation, lifecycle
 ordering, artifact overwrite, validation freshness, V-style validation pairs,
 and minimum revalidation before safe continuation, done, or release claims.
-The maintenance scan template shows how to summarize changed artifacts,
-remembered maintenance obligations, skipped candidate routes, stale evidence,
-and structure/reduction signals into required or suggested owner-route actions
-before a broad FlowGuard claim. The model-angle template shows how to record
-open-ended missing-viewpoint reasoning before trusting a single model boundary
-or route decision.
+DevelopmentProcessFlow consumes changed artifacts, remembered obligations,
+skipped checks, stale evidence, and structure/reduction signals directly.
 
 These are scaffolds, not reusable business logic. Rename every state field,
 input, output, invariant, and blindspot to match the target project before
@@ -537,30 +515,6 @@ execution-freshness owner. It can reference evidence produced by ModelMesh,
 TestMesh, StructureMesh, Model-Test Alignment, LongCheck, or Conformance
 Adoption through evidence ids and artifact-version metadata, but it does not
 inspect or supervise those route owners.
-
-## Maintenance Scan Router
-
-Use the maintenance scan router after non-trivial FlowGuard-managed project
-work when the question is "what maintenance route did this change make
-necessary?":
-
-```powershell
-python -m flowguard maintenance-scan-template --output .
-```
-
-The scaffold writes:
-
-- `.flowguard/maintenance_scan/run_scan.py`
-- `docs/flowguard_maintenance_scan.md`
-
-The helper is intentionally thin. It turns model/code/test drift, remembered
-open obligations, state-closure gaps, model-angle gaps, stale evidence, skipped candidate routes,
-reducible branches, large modules, mesh pressure, and slow or broad validation
-into owner-route actions such as
-Model-Test Alignment, DevelopmentProcessFlow, Architecture Reduction,
-StructureMesh, ModelMesh, TestMesh, Model Maturation, or
-AgentWorkflowRehearsal. It does not run those routes and a clear scan is not
-validation evidence by itself.
 
 ## Maintenance Workflow Template
 

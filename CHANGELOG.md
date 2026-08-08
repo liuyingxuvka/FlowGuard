@@ -1,5 +1,239 @@
 # Changelog
 
+## v0.68.7 - 2026-08-07
+
+- **Breaking:** retired fourteen historical, task-local, or completed construction current-model routes whose useful
+  protections are now owned by the canonical DNA path: Model Angle
+  Deliberation, Maintenance Scan Router, standalone Model Similarity
+  Consolidation, Legacy Compatibility Cleanup, and the dedicated Template
+  Harvest Closure self-model, plus OpenSpec Archive Cleanup, README Positioning
+  20260602, Release Visibility Process, Risk Purpose Header, AI Surface
+  Streamlining, Reduce Architecture Surface, Simplify FlowGuard Structure,
+  Structure Surface Simplification, and Simplify Field Schema. Their old
+  module, template, route, and public identities fail visibly; no alias,
+  compatibility reader, or fallback was added. Historical changelog, archive,
+  snapshot, and receipt evidence remains immutable.
+- Made current-goal necessity a first-class Architecture Reduction decision.
+  Ordinary contraction still requires observable equivalence, while an
+  intentional behavior retirement now requires an exact responsibility,
+  consumer, negative-case, replacement-owner, and validation disposition
+  before deletion is authorized.
+- Extended Architecture Reduction inside retained routes. Internal scans,
+  builders, reflections, projections, fingerprints, and other steps now receive
+  an exact retain/merge/delegate/remove/explicit-on-demand/unresolved decision
+  from the same caller and responsibility inventory. Measured operations,
+  invocations, payload bytes, and estimated tokens rank cleanup priority only;
+  they cannot authorize removal of a unique safety or final-evidence owner.
+- Consolidated post-green bug back-propagation into one bounded path: exact
+  commitment and behavior-block gap, canonical affected relations, finite
+  ContractExhaustion cases, ModelMaturation, then current model/code/test and
+  affected-topology replay. The independent open-ended analogous-scan and
+  model-angle completion paths are no longer current authorities.
+- Replaced the standalone similarity-planning engine with a small immutable
+  CanonicalRelation handoff consumed directly by preflight, contract
+  exhaustion, code-structure, model-test alignment, and architecture
+  reduction owners.
+- Rebased FlowGuard's semantic self-model on the exact 51-owner current
+  manifest rather than a historical snapshot plus additions. The semantic
+  mesh now rejects missing, foreign, duplicate, or retired owners and records
+  the exact fourteen-owner contraction from the observed 65-owner baseline.
+- Added a provider-neutral per-model path-quality decision to current DNA.
+  Ordinary models receive one compact lightweight result; finite deep review
+  runs only for explicit or evidence-derived triggers. Hard semantics precede
+  cost comparison, cost remains multi-dimensional, retained elements require
+  necessity witnesses, and only bounded conclusions are licensed—never an
+  unrestricted global-optimum claim or routine reconstruction exercise.
+- Added a read-only model-revision preview that derives the exact
+  base-to-live-candidate diff, affected closure, and required native evidence
+  owners without creating snapshots, receipts, locks, leases, or authority.
+- Added cumulative current-effective-intent authority to v5 model revisions.
+  Each accepted revision now keeps its local change delta separate from the
+  complete current intent view, reverifies every active source, binds every
+  independently derived current model owner exactly once, and records explicit
+  retain, supersede, or retire transitions. One ancestry-audited
+  `model-revision-intent-bootstrap` creates the first v5 view; later revisions
+  refine the accepted view directly. The corresponding stable Python API
+  exposes the typed view, transitions, owner bindings, bootstrap receipt,
+  validators, accepted-revision loader, and read-only revision preview without
+  exporting private ancestry helpers.
+- Added a strict self-blueprint-definition compiler. Check mode is read-only;
+  explicit write mode may refresh only mechanical source identities and
+  preserves every authored behavior, interface, state, effect, resource, and
+  claim-boundary field.
+- Added one ownership-safe `author-sync` path for the explicit author shadow.
+  It stages and verifies the complete managed member set, preserves peer-owned
+  surrounding files, and rolls back an incomplete activation instead of
+  copying an entire dirty repository. Consumer installation remains the
+  separate `install` projection, and `parity` compares source, formal author,
+  author shadow, and installed consumer identities without converting one role
+  into another.
+- Retired the unowned whole-repository `sync_shadow_workspace.py` helper. It
+  had no current caller, preserved stale files by design, and duplicated the
+  author-shadow responsibility without the current 15-member ownership and
+  atomic-activation boundary. Historical release records remain unchanged.
+- Measured the cleanup against `fa8a9a4`: current runtime plus executable
+  self-model files fell from 303 to 283 (-20, or 6.600660%) and current owners
+  from 65 to 51 (-14, or 21.538462%). The
+  former standalone similarity engine contracted from 16,359 to 1,174 Python
+  lexical tokens, while necessary DNA and evidence work increased the combined
+  runtime/self-model token count from 867,087 to 1,055,846 (+188,759, or
+  21.769326%); this release therefore claims
+  fewer duplicate authorities, not a fictitious whole-codebase shrink. The
+  recorded pre-finalization read-only revision report rendered from 364,497
+  characters in full form to 2,604 in compact form (-99.285591%) with
+  identical report identities and no writes or model execution.
+
+- Added one strict portable project document and deterministic canonical
+  export. The document now carries its exact intent inventory, and the export
+  preserves twenty content-addressed layers covering target/provider identity,
+  behavior and cases, parent/child interfaces, code and test bindings,
+  resources, intent, affected indexes, and every depth/readiness gap.
+- Added the provider-neutral `target-system-blueprint-export` entry for
+  non-Python software and non-code workflows. It preserves the exact descriptor,
+  frozen provider evidence and layer plan, complete native report set, and
+  compiler-owned readiness through the same projection envelope, shard writer,
+  and verifier used by the Python-project convenience export.
+- Added one strict current-schema loader for that canonical projection. It
+  rejects extra files or directories, missing shards, symlinks, Windows
+  junctions and other reparse points, content-address drift, and changes during
+  verification; target and project exports then rebind the materialized tree to
+  their exact compiler inputs instead of treating internal self-consistency as
+  proof of the intended target.
+- Made projection replacement failure-atomic on Windows. The writer rechecks
+  both the staged and existing trees immediately before activation, restores
+  the complete prior tree after an interrupted swap, preserves recovery
+  material when rollback is incomplete, and reports post-commit backup cleanup
+  failure without falsely relabeling a successful activation as failed.
+- Separated export completion from model completeness. An explicitly requested
+  checkpoint can preserve a growing model with `incomplete`, `stale`,
+  `blocked`, or `not_run` findings without relabeling those gaps as sufficient
+  whole-target understanding.
+- Retired the raw-manifest check/export authority and the separate empirical
+  reconstruction status, receipt, readiness, API, and lifecycle branch.
+  Blueprint sufficiency now has one direct current representation: ordered
+  layers, deepest proven depth, and exact gaps.
+- Strengthened the provider-neutral target blueprint into a typed, layered
+  software/workflow DNA: frozen target identity, parent/child topology,
+  interfaces, state transitions, effects, errors, resources, intent, code or
+  workflow bindings, and test obligations now stay connected by exact
+  fingerprints instead of descriptive labels.
+- Made native target qualification derive its own detailed member evidence
+  from the observed target. Caller-authored downstream pass rows, gap lists,
+  or an exported public assembler can no longer manufacture a ready result.
+- Replaced the formerly public static qualification result with an internal,
+  compiler-derived manifest-consistency child report. It has no generic `ok`
+  or whole-blueprint claim, cannot be directly constructed by callers, and is
+  excluded from the root API; sufficient understanding remains a mechanical
+  result of the canonical target ledger and every required native layer.
+- Added typed affected-topology propagation across ancestors, children,
+  siblings, realization owners, and realization members, while keeping the
+  requested seeds, propagated neighborhood, and actually loaded objects
+  separately visible.
+- Bound accepted intent to independently fingerprinted user objectives,
+  OpenSpec, Spark, OpenSpark, changelog/history, and target-contract sources,
+  including explicit revision, conflict, and unresolved-authority evidence.
+- Upgraded native code/workflow, interface, test, resource, and intent members
+  from label-only summaries to exact payloads with source identity,
+  structure, checker/oracle, lifecycle, currentness, and evidence ownership.
+- Kept ordinary maintenance lightweight with a content-addressed affected
+  reader that loads only the exact referenced neighborhood. Its readiness
+  ledger is bound outside the normalized projection, closing the circular
+  fingerprint path without turning ordinary work into a whole-target scan.
+- Rebuilt self-cleanup around an independently observed reduction-signal
+  inventory and exact proof registry. Declared candidates can no longer prove
+  their own denominator or equivalence; only proof-ready candidates may enter
+  behavior-preserving reduction, and unproved surfaces remain visible.
+- Made self-cleanup evidence linear in the unique evidence it actually owns.
+  Candidates that share the same tests, coverage rows, dimensions, and current
+  receipts now bind one content-addressed neighborhood instead of repeating the
+  complete evidence per candidate; missing, stale, foreign, duplicate,
+  fingerprint-mismatched, or inline-fallback references fail closed while proof
+  receipts remain self-contained.
+- Removed a quadratic affected-index integrity loop. Every base object still
+  receives an independent real fingerprint check and every affected or topology
+  edge is still validated, but all edges now reuse one exact validated object-id
+  denominator instead of reconstructing the complete set for each edge.
+- Made model-revision acceptance reload native-owner receipts from the
+  canonical store and independently rederive current contract, input,
+  command, toolchain, environment, proof, result, and child-receipt
+  verification. Aggregate and child evidence must remain present through
+  revision publication; caller-authored passing verification projections no
+  longer create accepted model authority.
+- Made every later model-system audit reload and revalidate the exact accepted
+  revision instead of trusting its historical label. Distinct native owners
+  must have distinct exact leaf receipt identities, while an invalid accepted
+  artifact and a separately stale live model remain visible as two findings
+  until a new current revision is built and activated.
+- Replaced the recomputable model-parent wrapper as execution authority with a
+  canonical child-bound composition receipt. A scoped run cannot become full
+  model evidence by rewriting and rehashing its wrapper labels.
+- Made self-reduction consume the exact current typed self-blueprint and
+  explicit evidence-bound retain, contract, or unresolved dispositions.
+  Owned singleton signals may close as typed retain, but signals that form one
+  contraction relation require candidate-specific distinct-commitment evidence
+  or real contraction proof. Unknown members can no longer be rewritten
+  automatically as retained.
+- Replaced caller-authored self-reduction leaf passes with supervised candidate
+  test and caller/state/effect/error parity owners composed through one
+  child-bound canonical receipt. Alternate receipt roots, unrelated tests,
+  missing parity children, stale inputs, failed or unclean process trees, and
+  proof reuse across candidates remain blocked; governed inputs are rechecked
+  immediately before the review result is published.
+- Tightened supervised validation publication so a passing owner receipt can
+  be created only from the exact frozen command, working directory, current
+  inputs, producer-attested result, and confirmed clean process tree; the old
+  public pass-receipt saver was removed.
+- Corrected Python implementation discovery so function parameters, locals,
+  built-ins, and exception class names are not misclassified as persistent
+  state while real attribute, subscript, global, and nonlocal state remains
+  visible.
+- Tightened FlowGuard's own self-blueprint and release-facing prompts around
+  the same provider-neutral route, while keeping the six affected skill
+  entrypoints compact and delegating detailed rules to their native
+  protocols.
+- Bound project qualification to a freshly rederived current provider result
+  for every capability. A counterfeit payload can no longer pass merely by
+  rebuilding an internally consistent provider snapshot around itself.
+- Rebound project export across definition, inventory, bindings, behavior,
+  topology, tests, resources, intent, readiness, affected index, normalized
+  shared objects, and all canonical child fingerprints. A self-consistently
+  rewritten shard, target object, logical fingerprint, or invalidation edge
+  can no longer survive by updating only its neighboring hashes.
+- Made the software manifest's semantic-mesh fingerprint derive from the
+  reviewed topology report instead of accepting a caller-selected content
+  fingerprint.
+- Required every child validation/runtime evidence id to exist in the current
+  owner-bound evidence registry with its exact current fingerprint; repeating
+  the same ghost or cross-owner id across child, relation, and reattachment
+  records no longer creates topology closure.
+- Extended affected reading beyond parent/child edges so producer-consumer,
+  delegation, and support dependencies enter the exact invalidation closure
+  together with the relation that caused the propagation.
+- Corrected FlowGuard's self-DNA so one model owner may contain many exact
+  behavior blocks without lending the primary block's fields, cases, checker
+  identities, or coverage to its siblings. Every block now carries its own
+  portable input/output/state mapping and good, boundary, and protected-failure
+  cases while preserving the shared model-level source-case lineage.
+- Kept the complete implementation map while separating real behavior surfaces
+  from structural and supporting surfaces. Public callables and observed
+  state/effect/dynamic/entry behavior receive independent blocks; modules,
+  classes, nested functions, and pure private helpers remain fingerprinted and
+  owner-bound without fabricated business cases.
+- Removed quadratic self-audit expansion by making dimension applicability
+  surface-local and pre-indexing owner bindings, cases, intent targets, calls,
+  coverage, reduction signals, and candidate neighborhoods. Added 1x/2x/4x
+  structural scale regressions and exact real-self materialization invariants.
+- Gave normalized coverage payloads one complete physical owner. Native typed
+  readiness remains self-contained, while normalized reports, affected shards,
+  and canonical behavior exports carry only exact fingerprints and strict
+  object references; legacy full-payload shards are rejected without fallback.
+- Replaced the second whole self-blueprint construction at architecture-review
+  publication with an independently recomputed build-input identity over model
+  authority, accepted intent, observed snapshot, all classified source/test
+  files, the semantic mesh, and provider contracts. Any input drift still
+  blocks publication, but an unchanged audit no longer rematerializes the full
+  behavior and coverage graph.
+
 ## v0.68.6 - 2026-08-03
 
 - Added one provider-neutral target-system blueprint kernel for software,

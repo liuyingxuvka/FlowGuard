@@ -12,10 +12,11 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from importlib import metadata as importlib_metadata
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from ._hashing import sha256_bytes as _sha256_bytes
+from ._package_identity import flowguard_package_version as _package_version
 from .evidence_receipts import (
     EvidenceReceipt,
     INPUT_HASH_BOTH,
@@ -47,19 +48,8 @@ SKILL_ROOT = Path(".agents/skills")
 _ABSOLUTE_PATH = re.compile(r"(?i)(?:[A-Z]:[\\/]|\\\\)[^\s\"']+")
 
 
-def _package_version() -> str:
-    try:
-        return importlib_metadata.version("flowguard")
-    except importlib_metadata.PackageNotFoundError:
-        return "0+local"
-
-
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def _sha256_bytes(value: bytes) -> str:
-    return f"sha256:{hashlib.sha256(value).hexdigest()}"
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -149,10 +139,49 @@ def _command_input_paths(root: Path, command_parts: Sequence[str]) -> tuple[Path
     return tuple(sorted(paths))
 
 
+def _declared_native_input_paths(
+    root: Path,
+    native_checks: Sequence[Mapping[str, Any]],
+) -> tuple[Path, ...]:
+    """Resolve every exact command and path selector consumed by one child owner."""
+
+    paths: set[Path] = set()
+    for check in native_checks:
+        paths.update(_command_input_paths(root, _check_command(check)))
+        for selector in check.get("input_selectors", ()):
+            if not isinstance(selector, Mapping) or selector.get("kind") != "path":
+                continue
+            raw_path = str(selector.get("path", "")).strip()
+            if not raw_path or "*" in raw_path:
+                continue
+            candidate = (root / raw_path).resolve()
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                continue
+            if candidate.is_file():
+                paths.add(candidate)
+            elif candidate.is_dir():
+                paths.update(path for path in candidate.rglob("*") if path.is_file())
+    producer_paths = (
+        Path(__file__).resolve(),
+        root / "scripts" / "run_flowguard_skill_native_checks.py",
+    )
+    for path in producer_paths:
+        if not path.is_file():
+            continue
+        try:
+            path.resolve().relative_to(root)
+        except ValueError:
+            continue
+        paths.add(path.resolve())
+    return tuple(sorted(paths))
+
+
 def _input_snapshots(
     root: Path,
     skill_id: str,
-    command_parts: Sequence[str],
+    native_checks: Sequence[Mapping[str, Any]],
     obligation_ids: Sequence[str],
 ) -> tuple[Any, ...]:
     skill_dir = root / SKILL_ROOT / skill_id
@@ -163,7 +192,7 @@ def _input_snapshots(
         skill_dir / COMPILED_CONTRACT_FILE,
         skill_dir / CHECK_MANIFEST_FILE,
     ]
-    paths.extend(_command_input_paths(root, command_parts))
+    paths.extend(_declared_native_input_paths(root, native_checks))
     unique_paths = tuple(dict.fromkeys(path for path in paths if path.is_file()))
     snapshots = [
         snapshot_file(
@@ -321,13 +350,13 @@ def run_native_skill_check(
     native_checks, contract_obligations, binding_blockers = _validate_binding(source, contract, manifest)
     umbrella = f"flowguard.skill_contract.{skill_id}.deep"
     covered_obligations = tuple(dict.fromkeys((umbrella,) + contract_obligations))
-    command_parts = _check_command(native_checks[0]) if native_checks else (
+    command_parts = (
         "python",
         "scripts/run_flowguard_skill_native_checks.py",
         "--member",
         skill_id,
     )
-    snapshots = _input_snapshots(root, skill_id, command_parts, covered_obligations)
+    snapshots = _input_snapshots(root, skill_id, native_checks, covered_obligations)
     evidence_root = evidence_storage_root(root, output_directory=output_directory)
     proof_path = evidence_root / "proofs" / f"{skill_id}.json"
     log_path = evidence_root / "logs" / f"{skill_id}.log"
@@ -505,21 +534,30 @@ def build_current_native_receipt_context(
     except (OSError, ValueError, json.JSONDecodeError):
         return None
 
-    current_snapshots = {}
-    for expected in receipt.input_snapshots:
-        path = _resolve_workspace_token(root, expected.path_token)
-        if path is not None and path.is_file():
-            current_snapshots[expected.artifact_id] = snapshot_file(
-                expected.artifact_id,
-                path,
-                workspace_root=root,
-                hash_policy=expected.hash_policy,
-                obligation_ids=expected.obligation_ids,
-            )
-    checks, _, blockers = _validate_binding(source, contract, manifest)
+    checks, contract_obligations, blockers = _validate_binding(source, contract, manifest)
     if not checks or blockers:
         return None
-    current_command = tokenize_command(_check_command(checks[0]), workspace_root=root)
+    umbrella = f"flowguard.skill_contract.{receipt.subject_id}.deep"
+    current_required = _input_snapshots(
+        root,
+        receipt.subject_id,
+        checks,
+        tuple(dict.fromkeys((umbrella,) + contract_obligations)),
+    )
+    if {item.artifact_id for item in current_required} != {
+        item.artifact_id for item in receipt.input_snapshots
+    }:
+        return None
+    current_snapshots = {item.artifact_id: item for item in current_required}
+    current_command = tokenize_command(
+        (
+            "python",
+            "scripts/run_flowguard_skill_native_checks.py",
+            "--member",
+            receipt.subject_id,
+        ),
+        workspace_root=root,
+    )
     environment = build_environment_fingerprint(
         {
             "python_implementation": platform.python_implementation(),
@@ -529,7 +567,6 @@ def build_current_native_receipt_context(
             "flowguard_version": _package_version(),
         }
     )
-    umbrella = f"flowguard.skill_contract.{receipt.subject_id}.deep"
     return ReceiptVerificationContext(
         input_snapshots=current_snapshots,
         contract_hash=str(contract.get("contract_hash", "")),

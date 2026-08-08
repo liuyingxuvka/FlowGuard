@@ -1,0 +1,12 @@
+{
+  "candidate_snapshot_fingerprint": "sha256:20c6d7ea8c2f08f3d04e8ca049381584af7409b2693bf3ec5747cb58a3071f47",
+  "expected_head_fingerprint": "sha256:3777af7447893f9f45a5ba81c250bd9dddad547c140d8e2db9bdd0a23c753987",
+  "fingerprint": "sha256:f624c567a5d3862320f0f852c7b8c2ebeadecad02bd56a03bbed6bbfae37df2d",
+  "next_generation": 75,
+  "previous_snapshot_fingerprint": "sha256:113e877973a8530f5ce773c6b1d7679b07af96fdf7cd36f7235ca37ed26a5f06",
+  "receipt_id": "activation:flowguard-v0687-final-current-75",
+  "revision_set_fingerprint": "sha256:ef05f99a1892c99615e23623be51cbb36ed94d14be7884d09a1f1bbc99e47920",
+  "schema": "flowguard.model_activation_receipt.v1",
+  "subject_revision": "source-inventory:53292a1b33cd4c894312e0fbc20300e992ae0bab1452cd90ffcf2bc91d91fc71",
+  "system_id": "flowguard"
+}

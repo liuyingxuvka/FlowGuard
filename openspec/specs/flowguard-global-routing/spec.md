@@ -78,23 +78,6 @@ evidence to `flowguard-development-process-flow` first, recording
 - **THEN** the guidance may skip the `agent_workflow` simulator mode with a
   concrete reason
 
-### Requirement: Global routing preserves existing routes while adding handoff continuation
-Global FlowGuard routing SHALL preserve the existing direct satellite route
-map and SHALL treat SummaryReport-to-MaintenanceScan-to-specialist output as a
-continuation inside the existing route system, not a new parent route.
-
-#### Scenario: Existing route remains owner
-- **WHEN** a structured handoff recommends Model-Test Alignment,
-  DevelopmentProcessFlow, ModelMesh, TestMesh, StructureMesh, Model
-  Maturation, or AgentWorkflowRehearsal
-- **THEN** the recommended existing route SHALL remain the owner of validation
-  evidence and claim promotion
-
-#### Scenario: Handoff is not a session runner
-- **WHEN** the AI hot path describes the handoff sequence
-- **THEN** it SHALL NOT introduce a new top-level session runner or require
-  every task to pass through a parallel workflow
-
 ### Requirement: Installed route groups
 FlowGuard global routing SHALL expose installed satellite routes as route groups with stable ids, trigger summaries, minimal inputs, primary outputs, evidence boundaries, and downstream handoffs.
 
@@ -103,23 +86,12 @@ FlowGuard global routing SHALL expose installed satellite routes as route groups
 - **THEN** the route SHALL have a corresponding route discovery group unless it is explicitly scoped out with a reason
 
 ### Requirement: Handoff continuity
-Route groups SHALL express how SummaryReport, MaintenanceScan, ExistingModelPreflight, FieldLifecycleMesh, Model-Test Alignment, StructureMesh, TestMesh, ModelMesh, DevelopmentProcessFlow, Risk Evidence Ledger, and Closure Contract hand off to one another.
+Route groups SHALL express how SummaryReport findings, typed maintenance obligations, ExistingModelPreflight, FieldLifecycleMesh, Model-Test Alignment, StructureMesh, TestMesh, ModelMesh, DevelopmentProcessFlow, ModelMaturation, Risk Evidence Ledger, and Closure Contract hand off directly to one another.
 
 #### Scenario: Maintenance finding identifies a route owner
-- **WHEN** a finding or maintenance obligation names a route owner
-- **THEN** route discovery SHALL provide the minimal inputs and next-action path for that owner
-
-### Requirement: Global routing includes model-angle deliberation
-FlowGuard global routing SHALL expose model-angle deliberation as a lightweight
-preflight companion for open-ended model sufficiency review.
-
-#### Scenario: Route is selected
-- **WHEN** a task may need another model angle beyond the current model boundary
-- **THEN** routing guidance MUST point to model-angle deliberation before or during existing-model preflight
-
-#### Scenario: Specialist route owns follow-up
-- **WHEN** deliberation chooses a model update, child model, code boundary, freshness review, or human review
-- **THEN** routing guidance MUST hand off to the existing owner route rather than adding a parallel session runner
+- **WHEN** a finding or maintenance obligation names a current route owner
+- **THEN** route discovery SHALL provide the minimal typed inputs and next-action path for that owner
+- **AND** no retired routing intermediary is inserted
 
 ### Requirement: Replacement defaults to disposition
 FlowGuard global routing SHALL treat feature replacement, route migration,
@@ -141,37 +113,17 @@ declared.
   route it through the owner route for parity, migration, or rejection evidence
 
 ### Requirement: Global routing inherits open FlowGuard obligations
-Global FlowGuard guidance SHALL make normal FlowGuard work inherit relevant open
-maintenance obligations through existing routes instead of invoking a separate
-technical-debt scanner.
+Global FlowGuard guidance SHALL make normal FlowGuard work inherit relevant open maintenance obligations through their existing owners instead of invoking a separate technical-debt or maintenance-scan route.
 
 #### Scenario: Existing obligation is part of route selection
-- **WHEN** a non-trivial coding, prompt, skill, test, process, release, archive,
-  or publish task touches a model, code path, test surface, or public entrypoint
-  with open FlowGuard obligations
-- **THEN** global routing MUST include those obligations in route selection
-- **AND** it MUST route to the existing owner route named by the obligation
+- **WHEN** a non-trivial coding, prompt, skill, test, process, release, archive, or publish task touches a model, code path, test surface, or public entrypoint with open FlowGuard obligations
+- **THEN** global routing MUST include those exact obligations in route selection
+- **AND** it MUST route each obligation directly to its named current owner
 
 #### Scenario: No standalone technical-debt route
-- **WHEN** a task asks FlowGuard to reduce technical-debt risk naturally during
-  ordinary use
-- **THEN** global routing MUST use existing FlowGuard routes such as
-  maintenance scan, model maturation, Architecture Reduction, StructureMesh,
-  Model-Test Alignment, DevelopmentProcessFlow, and Risk Evidence Ledger
-- **AND** it MUST NOT require a separate technical-debt scanner route
-
-### Requirement: FlowGuard-managed projects use maintenance scan before broad claims
-Global FlowGuard routing SHALL present the maintenance scan as the compact default guardrail for FlowGuard-managed project work where changed artifacts may require model/code/test/structure upkeep.
-
-#### Scenario: Non-trivial project work enters maintenance scan
-- **WHEN** an agent works in a project with FlowGuard adoption records
-- **AND** the task changes behavior, models, tests, structure, workflow guidance, release assets, or evidence-bearing artifacts
-- **THEN** global routing MUST direct the agent to run or construct a maintenance scan before broad completion confidence
-- **AND** the scan MUST route any resulting required actions to the existing specialist FlowGuard routes
-
-#### Scenario: Tiny work can skip scan with reason
-- **WHEN** the task is a tiny copy edit, formatting-only change, direct command answer, or read-only explanation
-- **THEN** global routing MAY skip the maintenance scan with a concrete reason
+- **WHEN** a task asks FlowGuard to reduce technical-debt risk naturally during ordinary use
+- **THEN** global routing MUST use current owners such as ModelMaturation, Architecture Reduction, StructureMesh, Model-Test Alignment, DevelopmentProcessFlow, and Risk Evidence Ledger
+- **AND** it MUST NOT require a separate technical-debt scanner or scan-plan conversion route
 
 ### Requirement: Global routing does not duplicate satellite internals
 Global FlowGuard routing SHALL name the selected route and hand off to the
@@ -269,21 +221,22 @@ Global FlowGuard routing SHALL prevent broad done, release, publish, archive, or
 - **THEN** global routing keeps the final claim scoped or blocked until the missing structured evidence is created
 
 ### Requirement: Global routing uses public owner routes
-Global FlowGuard routing SHALL present only public owner routes as direct
-AI-facing route choices.
+Global FlowGuard routing SHALL present only current public owner routes as direct AI-facing choices and SHALL pass typed findings, canonical relation handoffs, state-closure gaps, and guard-closure evidence through those owners.
 
 #### Scenario: Helper is consumed through owner
-- **WHEN** a task needs model-angle review, similarity review, post-change
-  maintenance scanning, state closure, or guard-family closure support
-- **THEN** global routing MUST route the task through the public owner route
-  that consumes that helper
-- **AND** it MUST NOT list the helper as a competing generic first stop
+- **WHEN** a task has a canonical relation, post-change finding, state-closure gap, or guard-family closure contribution
+- **THEN** global routing MUST route it through the public owner that decides and validates that evidence
+- **AND** it MUST NOT list the carrier or feeder as a competing generic first stop
+
+#### Scenario: Retired route identity is requested
+- **WHEN** routing input names Model Angle Deliberation, Maintenance Scan, or standalone Model Similarity as a current route
+- **THEN** route selection fails visibly or reports the retired identity
+- **AND** it MUST NOT reinterpret the old name as an alias for a current owner
 
 #### Scenario: Route table stays compact
 - **WHEN** reusable AGENTS guidance or the model-first kernel route map is read
 - **THEN** it MUST show owner routes for ordinary AI selection
-- **AND** it MUST describe delegated modes and feeders inside the owning route
-  wording rather than as peer public entries
+- **AND** it MUST describe only current delegated modes and feeders inside their owning route wording
 
 ### Requirement: DevelopmentProcessFlow is the process hot path
 Global FlowGuard routing SHALL use `development_process_flow` as the direct
@@ -295,17 +248,6 @@ archive, publish, and final process claims.
 - **THEN** routing MUST select `development_process_flow`
 - **AND** `development_process_simulator` MUST be treated as an internal helper
   or mode selector, not as a separate public route id
-
-### Requirement: ExistingModelPreflight owns angle and similarity consumption
-Global FlowGuard routing SHALL use ExistingModelPreflight as the owner route
-for current-model sufficiency, angle, and similarity evidence before selecting
-or creating a boundary.
-
-#### Scenario: Similarity is needed
-- **WHEN** a task resembles another workflow or model
-- **THEN** global routing MUST put similarity evidence into
-  ExistingModelPreflight or a downstream owner
-- **AND** it MUST NOT select model similarity as a standalone first-stop route
 
 ### Requirement: Canonical Route Ownership Projection
 The global route registry SHALL be authoritative for stable route id, route role, entry policy, canonical owner skill, and typed next actions. Kernel route indexes, skill metadata, and generated route documentation MUST match that registry.
@@ -335,3 +277,41 @@ After migration, bare-string handoffs and legacy alias targets MUST NOT remain a
 #### Scenario: Legacy bare string is supplied
 - **WHEN** a caller supplies an untyped historical next-action string
 - **THEN** the system returns a migration error naming the required typed target and does not follow the legacy path
+
+### Requirement: Summary reports and typed findings hand off directly to current owners
+Global FlowGuard routing SHALL send each SummaryReport finding, maintenance obligation, model-depth gap, structure finding, and reduction candidate directly to the one current route that owns its decision and evidence. No intermediate MaintenanceScan or ModelAngle route SHALL be required to translate, repeat, or approve that handoff.
+
+#### Scenario: A typed finding already names its owner
+- **WHEN** a SummaryReport or current evidence record names DevelopmentProcessFlow, ModelMaturation, Architecture Reduction, StructureMesh, Model-Test Alignment, ModelMesh, TestMesh, or another current specialist
+- **THEN** global routing provides that owner with the finding's exact source, scope, affected identities, evidence status, and unresolved gaps
+- **AND** it MUST NOT create an intermediate scan plan or deliberation report
+
+#### Scenario: A model-depth gap is discovered
+- **WHEN** current coverage is missing a state, branch, child, boundary, finite case, binding, or evidence dimension
+- **THEN** routing records the gap in TaskCoverageDemand and sends one typed contribution to ModelMaturation
+- **AND** it MUST NOT require a separate open-ended angle inventory
+
+### Requirement: ExistingModelPreflight owns current-owner lookup before boundary choice
+Global FlowGuard routing SHALL use ExistingModelPreflight to resolve exact current blueprint, commitment, surface, and owner identities before a boundary is reused, extended, split, reduced, or created. Canonical relation handoffs MAY inform that bounded decision, but no standalone similarity or deliberation route SHALL own it.
+
+#### Scenario: A task resembles another modeled behavior
+- **WHEN** a current canonical relation connects the affected behavior to another model, surface, owner, or mechanism
+- **THEN** ExistingModelPreflight consumes that relation inside the exact affected owner closure
+- **AND** the selected downstream owner remains responsible for its decision and proof
+
+#### Scenario: No current relation or owner exists
+- **WHEN** owner lookup or canonical relation evidence is absent, stale, ambiguous, or blocked
+- **THEN** preflight preserves the gap or enters explicit non-authoritative adoption discovery
+- **AND** routing MUST NOT launch a free-form similarity or angle search as a substitute for current authority
+
+### Requirement: FlowGuard-managed project changes propagate through affected owners
+For non-trivial FlowGuard-managed project work, global routing SHALL derive the affected current owners from changed artifacts, commitments, blueprint bindings, and canonical topology, then route each typed obligation directly to its owner before broad completion confidence.
+
+#### Scenario: A changed artifact affects current obligations
+- **WHEN** behavior, models, tests, structure, workflow guidance, release assets, or evidence-bearing artifacts change
+- **THEN** DevelopmentProcessFlow records the affected owner set and each owner receives its typed obligation
+- **AND** broad confidence waits for current owner evidence rather than an intermediate maintenance-scan receipt
+
+#### Scenario: Tiny work has no affected modeled obligation
+- **WHEN** a task is a tiny copy edit, formatting-only change, direct command answer, or read-only explanation
+- **THEN** routing MAY record that no non-trivial affected owner was triggered

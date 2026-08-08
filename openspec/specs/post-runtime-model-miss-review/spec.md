@@ -23,20 +23,17 @@ formal daily categories.
   new required category
 
 ### Requirement: In-scope misses add one generalized bad case
-The model-first Skill SHALL require an in-scope model miss to be represented by
-the observed issue and at least one same-class generalized bad case when
-practical before the model is trusted for the repair.
+The model-first Skill SHALL require an in-scope model miss to contribute the observed failure and, when the canonical affected relation set contains a practical same-class dimension, at least one bounded seed to ContractExhaustionMesh before the repaired model is trusted.
 
 #### Scenario: Same-class bad case is practical
-- **WHEN** the missed issue belongs inside the modeled boundary and a simple
-  same-class variant can be expressed
-- **THEN** the agent adds or updates executable model evidence so that the
-  same-class bad case fails for the intended reason
+- **WHEN** the missed issue belongs inside the modeled boundary and a finite same-class variant can be expressed over canonical relation endpoints
+- **THEN** ContractExhaustionMesh creates or reuses a stable canonical case with an executable oracle
+- **AND** the accepted model and current evidence reference that case id
 
 #### Scenario: Same-class bad case is not practical
-- **WHEN** the missed issue is outside the modeled boundary or a same-class
-  variant is not practical for the current change
-- **THEN** the agent records the reason instead of adding a generalized case
+- **WHEN** the miss is outside the modeled boundary, no canonical related member exists, or the additional case is not practical for the current scoped claim
+- **THEN** the review records the exact boundary or scoped reason
+- **AND** it does not manufacture an open-ended search obligation
 
 ### Requirement: Adoption notes stay lightweight
 The model-first Skill SHALL keep post-runtime model-miss adoption notes compact
@@ -49,38 +46,6 @@ ordinary post-runtime model misses.
 - **WHEN** an agent finishes post-runtime model-miss review
 - **THEN** the adoption note includes `Miss type` and `Generalized case` or an
   explicit reason that the generalized case was not added
-
-### Requirement: Model-miss review can derive family sibling bad cases
-
-Post-runtime model-miss review SHALL be able to use obligation-family declarations to derive same-class sibling bad cases from an observed family-member miss.
-
-#### Scenario: Observed miss creates sibling obligations
-- **WHEN** a model miss is assigned to an obligation family member
-- **AND** the family has other required members sharing the same mechanism
-- **THEN** FlowGuard can derive sibling same-class bad cases for those members before the repair is broadly closed.
-
-#### Scenario: Observed-only closure remains scoped
-- **WHEN** only the observed failure case has evidence
-- **AND** sibling same-class bad cases have not been generated or scoped out with reasons
-- **THEN** model-miss closure remains scoped rather than full family confidence.
-
-### Requirement: Model-miss review scans analogous defect radius
-
-Post-runtime model-miss review SHALL ask where the same failure shape may recur and record dispositions for mandatory same-family siblings before broad closure.
-
-#### Scenario: Same-family sibling is mandatory scan radius
-- **WHEN** a model miss belongs to an obligation family member
-- **AND** another required member shares the failed mechanism
-- **THEN** FlowGuard treats that sibling as a must-scan analogous defect candidate.
-
-#### Scenario: Open analogous candidate blocks full closure
-- **WHEN** a must-scan candidate is unreviewed, marked repair-now, or marked model-upgrade-needed
-- **THEN** full model-miss closure remains blocked until the candidate is repaired, covered by current evidence, or explicitly moved to a separate scoped change.
-
-#### Scenario: Related surfaces remain visible without endless expansion
-- **WHEN** a related surface is outside the direct family but has the same abstract failure shape
-- **THEN** FlowGuard may record it as should-scan or record-only
-- **AND** a concrete separate-change or exclusion reason keeps the current claim scoped rather than silently broad.
 
 ### Requirement: Model-miss review checks field lifecycle gaps
 Post-runtime model-miss review SHALL treat missing field modeling, stale field
@@ -214,47 +179,32 @@ Post-runtime Model Miss Review SHALL treat user-observed missing UI functionalit
 - **THEN** Model Miss Review records `evidence_overclaimed` and requires same-class capability/output evidence before broad closure
 
 ### Requirement: User-observed UI mismatch after green evidence is a model miss
-Post-runtime Model Miss Review SHALL treat user-visible UI mismatch after a
-green FlowGuard claim as a model miss. The review MUST record previous green
-claim, observed UI failure, miss classification, why the previous model passed,
-same-class UI controls or fields, and the tests or implementation evidence
-needed to prevent recurrence.
+Post-runtime Model Miss Review SHALL treat user-visible UI mismatch after a green FlowGuard claim as a model miss. The review MUST record the previous green claim, observed UI failure, miss classification, why the previous model passed, exact affected UI behavior owner, bounded canonical relations, and the tests or implementation evidence needed to prevent recurrence.
 
 #### Scenario: User opens UI and a wired button fails
-- **WHEN** a user observes that an enabled UI button does not perform the
-  claimed function after a prior green model or implementation claim
-- **THEN** Model Miss Review classifies the issue as `evidence_overclaimed`,
-  `boundary_missing`, `state_too_coarse`, `input_branch_missing`, or another
-  supported miss type
-- **AND** it requires same-class scan and same-class validation before broad
-  closure
+- **WHEN** a user observes that an enabled UI button does not perform the claimed function after a prior green model or implementation claim
+- **THEN** Model Miss Review classifies the issue as evidence_overclaimed, boundary_missing, state_too_coarse, input_branch_missing, or another supported miss type
+- **AND** ContractExhaustionMesh materializes the required finite related UI cases before broad closure
 
 #### Scenario: Local patch cannot close UI miss
-- **WHEN** a UI miss affects a class of buttons, fields, file pickers, table
-  loaders, or visible state updates
-- **THEN** repairing only the observed instance is insufficient for broad
-  confidence unless same-class cases are explicitly scoped out with rationale
+- **WHEN** canonical relations show that a UI miss affects a finite class of buttons, fields, file pickers, table loaders, or visible state updates
+- **THEN** repairing only the observed instance is insufficient for broad confidence unless the remaining canonical cases are explicitly scoped with rationale
 
 #### Scenario: Previous green reason is preserved
 - **WHEN** a prior FlowGuard model or task was marked green before the UI miss
-- **THEN** the miss review records which evidence passed, why it was too narrow,
-  and which new model/test/validation row would have failed earlier
+- **THEN** the miss review records which evidence passed, why it was too narrow, and which new model, case, test, or validation row would have failed earlier
 
 ### Requirement: Model misses upgrade the model before same-class exhaustion
-FlowGuard MUST require non-trivial in-scope model misses to be abstracted into
-a model rule or declared boundary before same-class bad-case exhaustion can
-support broad closure.
+FlowGuard MUST require non-trivial in-scope model misses to become an exact model rule, state or branch refinement, child-model obligation, declared boundary, or evidence-depth gap on the current blueprint owner before ContractExhaustionMesh case evidence can support broad closure.
 
 #### Scenario: Observed bug becomes model rule
-- **WHEN** a runtime, test, replay, or manual validation bug appears after a
-  FlowGuard pass
-- **THEN** the review records the root-cause model gap and the model rule or
-  declared boundary that now represents the bug class
+- **WHEN** a runtime, test, replay, UI, log, manual, or production bug appears after a FlowGuard pass
+- **THEN** the review records the exact root-cause blueprint gap and the accepted model rule or declared boundary that now represents the failure
 
 #### Scenario: Same-class closure uses contract exhaustion
-- **WHEN** the repaired bug class requires same-class evidence
-- **THEN** ModelMissReview uses ContractExhaustionMesh cases rather than a
-  hand-written same-class case as canonical coverage
+- **WHEN** the repaired failure requires finite same-class, sibling, interaction, boundary, or holdout evidence
+- **THEN** Model Miss Review consumes stable ContractExhaustionMesh case ids and oracles
+- **AND** a hand-written family list or analogous-scan result MUST NOT become canonical coverage
 
 ### Requirement: Bug repair fixes primary path instead of adding fallback
 Post-runtime Model Miss Review SHALL require bug repairs to backpropagate the
@@ -275,24 +225,17 @@ evidence.
   ledger closure
 
 ### Requirement: Concrete miss records preserve behavior identity
-Runtime, UI, and recurring-defect miss records SHALL preserve the affected behavior plane, affected commitment id, primary owner model id, and typed related relation ids when those identities are known.
+Runtime, UI, and recurring-miss records SHALL preserve the affected behavior plane, commitment id, blueprint block id, primary owner model id, owner code-contract id when known, evidence source, previous green identity, and bounded canonical relation ids.
 
 #### Scenario: UI test operation miss is recorded
 - **WHEN** an AI-operated UI integration run fails because the agent did not connect required services
-- **THEN** the concrete miss record SHALL identify the `agent_operation` commitment and owner model
+- **THEN** the concrete miss record SHALL identify the agent-operation commitment and owner model
 - **AND** the visible product capability MAY be recorded only as typed related context
 
 #### Scenario: Identity is unknown
-- **WHEN** concrete evidence proves a failure but no commitment identity can be found
-- **THEN** the record SHALL preserve the selected plane and a coverage-gap status
-- **AND** SHALL route to Behavior Commitment Ledger gap backfill
-
-### Requirement: Recurring defect gates remain plane-local
-Defect-family gates SHALL bind their observed failure, canonical cases, owner model, and commitment to one primary behavior plane.
-
-#### Scenario: Same symptom occurs in different planes
-- **WHEN** two defects share a visible symptom but fail different product/agent/process promises
-- **THEN** they SHALL NOT be counted as one recurrence family without an explicit family relation and separate plane-local owners
+- **WHEN** concrete evidence proves a failure but no current commitment or blueprint owner can be resolved
+- **THEN** the record SHALL preserve the selected plane and an ownership or coverage-gap status
+- **AND** it SHALL route to Behavior Commitment Ledger or blueprint ownership repair without guessing a family or owner
 
 ### Requirement: Lookup backfeed remains evidence-bound
 Runtime miss lookup backfeed SHALL remain evidence-bound. Concrete miss records MAY contribute stable error signatures and workflow-family terms to lookup binding only when the record names the source evidence and affected commitment or gap.
@@ -300,4 +243,34 @@ Runtime miss lookup backfeed SHALL remain evidence-bound. Concrete miss records 
 #### Scenario: Unverified diagnosis cannot become lookup binding
 - **WHEN** a failure explanation is speculative or lacks current observed evidence
 - **THEN** the system SHALL NOT register its text as a canonical error signature
+
+### Requirement: Model Miss Review emits an exact blueprint gap and bounded case seed
+Post-runtime Model Miss Review SHALL classify why the accepted current model missed the observed behavior, bind the miss to one exact current blueprint owner and behavior commitment, and emit only a typed model-depth gap plus observed-problem and bounded canonical-relation seeds. ContractExhaustionMesh, not Model Miss Review, SHALL generate or own the finite same-class, sibling, combination, boundary, and holdout case identities.
+
+#### Scenario: Observed miss resolves to a current owner
+- **WHEN** runtime, replay, test, UI, log, manual, or production evidence exposes a miss and current authority resolves its blueprint owner
+- **THEN** Model Miss Review records the observed failure, previous green reason, root-cause gap type, exact owner and commitment identities, and canonical relation ids
+- **AND** it hands those seeds to ContractExhaustionMesh and the gap to ModelMaturation
+
+#### Scenario: Related risk has no canonical relation
+- **WHEN** a suspected sibling or similar surface is not connected by a current same-intent, shared-owner, affected-sibling, shared-mechanism, or other canonical relation
+- **THEN** Model Miss Review records an unresolved relation or model-depth gap
+- **AND** it MUST NOT widen the review through a caller-supplied or free-form analogous repository scan
+
+#### Scenario: Canonical cases return to the miss chain
+- **WHEN** ContractExhaustionMesh materializes the finite required cases and oracles
+- **THEN** Model Miss Review references those case ids for the model update, model-code-test binding, and affected-topology replay
+- **AND** it MUST NOT create a parallel case list or completion receipt
+
+### Requirement: Recurring misses reopen the same canonical owner
+When a miss recurs, FlowGuard SHALL reopen the same exact blueprint owner, canonical case universe, model-code-test bindings, and affected replay scope. Recurrence MAY increase required finite coverage or maturation depth, but MUST NOT create a new DefectFamily owner or merge failures from different behavior planes by shared wording alone.
+
+#### Scenario: Same owner and mechanism recur
+- **WHEN** current evidence shows another miss against the same commitment, owner, and mechanism
+- **THEN** ModelMaturation and ContractExhaustionMesh deepen that same owner and case universe
+- **AND** the new evidence retains its own observed case id and source identity
+
+#### Scenario: Similar symptom belongs to another plane
+- **WHEN** two misses share a visible symptom but affect different product, agent-operation, or development-process commitments
+- **THEN** they remain separate owner-local misses unless a current typed relation explicitly connects them
 

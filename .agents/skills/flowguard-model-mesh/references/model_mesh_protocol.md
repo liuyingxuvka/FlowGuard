@@ -54,6 +54,30 @@ Group compact prompts as `model`, `interface`, `ownership`, `evidence`, and
     ReviewMeshClosure x State -> Set(ClosureReport x State)
     DecideMeshAuthority x State -> Set(ContinueOrBlock x State)
 
+## Per-Model Path-Quality Propagation
+
+ModelMaturation remains the sole single-model path-quality owner. For every
+affected model, ModelMesh consumes only its exact `PathQualitySubject`, compact
+`PathQualityResult`, currentness id, and detail-evidence fingerprint. Parent
+and normalized projections reference those compact identities; they do not
+copy deep candidates, rewrite traces, cost vectors, or necessity-witness
+bodies.
+
+When a child model or any consumed purpose, effective intent, obligation,
+provider, dependency, code, test, oracle, evidence, or retained-element
+identity changes, stale that child's result and reopen only its ancestors,
+consumers, and affected siblings. A changed topology boundary may emit an exact
+affected structural/material-growth trigger to ModelMaturation, but ModelMesh
+never enumerates single-model alternatives or recomputes Pareto dominance.
+
+Parent confidence requires one current non-unresolved result for each required
+new or materially changed child, exact child-to-parent interface mapping, and
+current reattachment evidence. A parent/sibling result cannot fill a missing
+child row. Preserve an `observed` child separately from a behavior-changing
+`normative_target` until implementation, bindings, topology, and evidence
+match. These rules are provider-neutral and apply equally to software and
+non-code workflow hierarchies.
+
 ## Shared gates
 
 - Start from the sole observed authority snapshot. Targets and experiments are candidates.
@@ -64,6 +88,9 @@ Group compact prompts as `model`, `interface`, `ownership`, `evidence`, and
 - Parent confidence requires complete partition ownership, current
   parent-consumed child receipts, affected-sibling review, and closure when
   whole-flow confidence is claimed.
+- Missing, stale, unresolved, aggregate-only, or normative-as-observed required
+  path-quality evidence blocks only the matching topology/parent claim; a
+  current unchanged compact result is reused without deep execution.
 - Consume the canonical `flowguard.portable_refinement.v1` result; do not build a second mesh-owned interpreter.
   Portable checker semantics remain owned by the portable refinement route.
 - Feed reattachment, boundary, oversized-model, and duplicate-edge findings to

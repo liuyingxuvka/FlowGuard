@@ -10,6 +10,10 @@ from __future__ import annotations
 import ast
 from typing import Mapping, Sequence
 
+from ._normalization import (
+    string_set as _tuple_set,
+    unique_sorted_strings as _unique_sorted,
+)
 from .model_test_alignment import (
     SIDE_EFFECT_CALL_PREFIXES,
     TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
@@ -22,14 +26,6 @@ from .model_test_alignment import (
     PythonTestAssertionEvidence,
     TestEvidence,
 )
-
-
-def _unique_sorted(values: Sequence[str]) -> tuple[str, ...]:
-    return tuple(sorted({str(value) for value in values if str(value)}))
-
-
-def _tuple_set(values: Sequence[str]) -> set[str]:
-    return {str(value) for value in values}
 
 
 def _call_name(node: ast.AST) -> str:

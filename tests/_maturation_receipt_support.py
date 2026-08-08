@@ -16,6 +16,11 @@ from flowguard.model_maturation import (
     MODEL_MATURATION_DECISION_PROGRESS_STALLED,
     ModelMaturationReport,
 )
+from flowguard.model_path_quality import (
+    PathQualityResult,
+    PathQualitySubject,
+    canonical_fingerprint,
+)
 from flowguard.model_maturation_receipt import (
     MODEL_MATURATION_RECEIPT_CLAIM_SCOPE,
     ModelMaturationReceiptPublication,
@@ -25,6 +30,50 @@ from flowguard.model_maturation_receipt import (
     build_model_maturation_receipt,
     verify_model_maturation_receipt,
 )
+
+
+def _path_quality_material(model_id: str, model_fingerprint: str):
+    identity = lambda name: canonical_fingerprint(
+        {"model_id": model_id, "identity": name}
+    )
+    subject = PathQualitySubject(
+        model_id=model_id,
+        boundary_id=f"behavior:{model_id}",
+        model_fingerprint=model_fingerprint,
+        normalized_facts_fingerprint=identity("normalized-facts"),
+        retained_element_inventory_fingerprint=identity("retained-elements"),
+        purpose_fingerprint=identity("purpose"),
+        intent_fingerprint=identity("intent"),
+        obligation_fingerprint=identity("obligations"),
+        provider_fingerprint=identity("provider"),
+        dependency_fingerprint=identity("dependencies"),
+        code_fingerprint=identity("code"),
+        test_fingerprint=identity("tests"),
+        oracle_fingerprint=identity("oracles"),
+        evidence_fingerprint=identity("evidence"),
+        currentness_id="revision:test",
+    )
+    result = PathQualityResult(
+        result_id=f"path-quality:{model_id}",
+        subject_fingerprint=subject.fingerprint,
+        mode="lightweight",
+        trigger_ids=(),
+        finding_ids=(),
+        candidate_ids=(),
+        rewrite_rule_ids=(),
+        conclusion="single_clear_path",
+        unresolved_ids=(),
+        selected_candidate_id="",
+        selected_candidate_lane="",
+        comparison_boundary_id="",
+        candidate_set_fingerprint="",
+        rewrite_set_fingerprint="",
+        necessity_witness_set_fingerprint=identity("necessity-witnesses"),
+        detail_evidence_fingerprint=identity("path-detail"),
+        producer_id="model_maturation:path-quality",
+        currentness_id=subject.currentness_id,
+    )
+    return subject, result
 
 
 def verified_maturation(
@@ -42,6 +91,12 @@ def verified_maturation(
     )
     confidence = MODEL_MATURATION_CONFIDENCE_FULL if closed else MODEL_MATURATION_CONFIDENCE_BLOCKED
     gaps = () if closed else (gap,)
+    candidate_fingerprint = canonical_fingerprint(
+        {"candidate": model_id, "task_id": task_id}
+    )
+    subject, path_result = _path_quality_material(
+        model_id, candidate_fingerprint
+    )
     report = ModelMaturationReport(
         ok=closed,
         plan_id="plan:test",
@@ -53,12 +108,15 @@ def verified_maturation(
         coverage_demand_fingerprint="sha256:demand",
         coverage_universe_fingerprint="sha256:coverage",
         base_model_fingerprint="sha256:base",
-        candidate_model_fingerprint="sha256:candidate",
+        candidate_model_fingerprint=candidate_fingerprint,
         evidence_fingerprint="sha256:evidence",
         evidence_id=evidence_id,
         terminal_reason=decision,
         open_gap_fingerprints=gaps,
         input_fingerprint="sha256:input",
+        required_path_quality_model_ids=(model_id,),
+        path_quality_subjects=(subject,),
+        path_quality_results=(path_result,),
         owner_resolution_ids=("resolution:test",),
         owner_resolution_fingerprints=("sha256:resolution-test",),
         owner_resolution_owner_ids=("model_first_function_flow",),
@@ -114,6 +172,14 @@ def verified_maturation(
             coverage_universe_fingerprint=report.coverage_universe_fingerprint,
             input_fingerprint=report.input_fingerprint,
             evidence_fingerprint=report.evidence_fingerprint,
+            required_path_quality_model_ids=(
+                report.required_path_quality_model_ids
+            ),
+            path_quality_subjects=report.path_quality_subjects,
+            path_quality_results=report.path_quality_results,
+            path_quality_result_set_fingerprint=(
+                report.path_quality_result_set_fingerprint
+            ),
             owner_resolution_ids=report.owner_resolution_ids,
             owner_resolution_fingerprints=report.owner_resolution_fingerprints,
             owner_resolution_owner_ids=report.owner_resolution_owner_ids,

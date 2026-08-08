@@ -88,11 +88,22 @@ def atomic_write_project_manifest(
 def replace_project_manifest_locked(
     path: str | Path,
     text: str,
+    *,
+    expected_fingerprint: str | None = None,
 ) -> str:
     """Replace manifest bytes while the caller owns ``project_manifest_lock``."""
 
     manifest_path = Path(path).resolve()
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    if expected_fingerprint is not None:
+        current_fingerprint = manifest_text_fingerprint(
+            read_manifest_text(manifest_path)
+        )
+        if current_fingerprint != expected_fingerprint:
+            raise ProjectManifestError(
+                "project manifest changed before locked replacement; rebuild "
+                "from the new authority head"
+            )
     normalized = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
     if normalized and not normalized.endswith("\n"):
         normalized += "\n"

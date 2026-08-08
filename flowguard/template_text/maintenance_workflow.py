@@ -401,8 +401,6 @@ from flowguard import (
     MinimumModelContract,
     RiskIntent,
     RiskProfile,
-    TemplateHarvestReview,
-    TemplateReuseReview,
     run_model_first_checks,
 )
 
@@ -459,14 +457,9 @@ def build_plan(workflow, inputs, *, known_bad_proofs=(), max_sequence_length=1):
                     "completed_without_report",
                     "publish_without_install_sync",
                 ),
-                used_template_ids=("side_effect_at_most_once", "completion_requires_evidence"),
                 blindspots=("real install command and package artifact checks require project evidence"),
             ),
             confidence_goal="model_level",
-        ),
-        template_reuse_review=TemplateReuseReview(
-            used_template_ids=("side_effect_at_most_once", "completion_requires_evidence"),
-            searched_layers=("public", "local"),
         ),
         minimum_model_contract=MinimumModelContract(
             protected_error_classes=(
@@ -490,10 +483,6 @@ def build_plan(workflow, inputs, *, known_bad_proofs=(), max_sequence_length=1):
             ),
         ),
         known_bad_proofs=known_bad_proofs,
-        template_harvest_review=TemplateHarvestReview(
-            disposition="not_harvestable",
-            not_harvestable_reason="not_reusable_project_specific",
-        ),
     )
 
 

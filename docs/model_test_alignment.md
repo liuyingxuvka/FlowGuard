@@ -11,9 +11,9 @@ describe the same behavioral surface.
 When behavior authority is in scope, alignment carries the same stable intent,
 commitment, and selected-path ids across model obligations, UI transition
 projections, owner and delegating code contracts, runtime evidence, family
-evidence, and tests. Similarity test/code ids must materialize into these rows;
-an id that no obligation, owner contract, test target, or scoped disposition
-consumes does not count as coverage.
+evidence, and tests. Canonical relation, test-obligation, and code-obligation
+ids must materialize into these rows; an id that no obligation, owner contract,
+test target, or scoped disposition consumes does not count as coverage.
 
 Plane-aware alignment adds the same `behavior_plane` to `ModelObligation`, the
 public owner/delegating `CodeContract`, and every supporting `TestEvidence` row.
@@ -52,12 +52,13 @@ proof, add a target-aware closure requirement. Use
 `known_bad_replay`, and make the matching `TestEvidence` cite the same
 `evidence_target_id`, owner code contract, and external assertion scope.
 
-If the same-class miss recurs or is high risk, Model-Test Alignment still only
-proves the obligation/test rows. The recurring family itself is handled by
-`review_defect_family_gates(...)` and then consumed by the Risk Evidence Ledger.
-The sibling bad-case ids should come from ContractExhaustionMesh, normally via
-`family_bad_case_seed_to_contract_cases(...)` and
-`contract_exhaustion_to_model_obligations(...)`.
+Model-Test Alignment proves the obligation/code/test rows; it does not create a
+separate recurrence authority. The Model-Miss owner declares the exact
+blueprint gap and finite canonical relation ids, ContractExhaustionMesh
+materializes their stable bad-case ids and oracles, and ModelMaturation carries
+the task-bound depth decision into the Risk Evidence Ledger. Generated cases
+can be projected with `contract_exhaustion_to_model_obligations(...)` and must
+bind to the same owner code contract and external test boundary.
 
 When the claim spans a family of related obligations, add obligation-family
 parity evidence to the same plan. Alignment can prove that each declared

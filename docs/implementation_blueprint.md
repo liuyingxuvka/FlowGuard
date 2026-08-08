@@ -34,6 +34,13 @@ they are conflicting ownership. An internal helper does not need to become a
 public contract, but it must have a unique supporting path to its owner. An
 unbound public entrypoint or hidden writer blocks the blueprint.
 
+The direct behavior implementation binding owns the exact behavior-block
+obligation. A helper, adapter, serializer, or storage binding references that
+same obligation and the direct owner's required semantic dimensions, but does
+not enter the primary-obligation denominator as another owner. A missing,
+ambiguous, or mismatched direct owner is a real gap; FlowGuard does not invent a
+helper-local fallback obligation.
+
 A path and function name provide traceability only. Static blueprint closure
 also needs source-independent semantic references and applicable oracles. Together
 they cover inputs, outputs, state and effects, errors, and any relevant order,
@@ -50,9 +57,13 @@ they are not promoted into duplicate product behaviors merely because they
 contain code.
 
 Every block has exact `BehaviorCaseContract` and `BehaviorCoverageEdge` rows
-connecting implementation surfaces, source-independent rules, portable model,
-oracle, owner-declared good/boundary/bad cases, one accepted checker design per
-dimension, and its current pytest or native-check owner.
+connecting its own implementation surface and block-local portable
+input/output/state mapping to source-independent rules, the shared parent
+model, oracle, owner-declared good/boundary/protected-failure cases, one
+accepted checker design per dimension, and its current pytest or native-check
+owner. Several blocks may share one model-level source-case origin, but each
+materialized checker uses its own block-local case identity; a primary block's
+fields or cases cannot stand in for a sibling.
 `CoverageExecutionEvidence` is separate. Placeholder cases and generated case
 or checker ids cannot close static readiness, and one full-suite receipt cannot be copied
 across all blocks. Delegated assertion helpers need a current acyclic call graph
@@ -113,24 +124,140 @@ sibling shards may be reused only when their exact content and consumed owner
 fingerprints remain current.
 
 The normalized projection stores shared owners, contracts, semantics, oracles,
-tests, resources, and intent once. Its logical fingerprint does not change
-merely because shard sizes or layout change. An ordinary task loads one exact
+tests, resources, and intent once. Native readiness keeps typed coverage rows
+so it remains a self-contained review, but the normalized and canonical
+physical form gives every complete coverage row one owner:
+`shared_objects[coverage_id]`. The normalized behavior view carries the report
+identity and exact coverage fingerprints; each coverage shard is a strict
+current-schema envelope containing only ordered object references. The affected
+reader rejects an old full-payload shard instead of guessing or falling back to
+the whole report. Its logical fingerprint does not change merely because shard
+sizes or layout change. An ordinary task loads one exact
 `AffectedBlueprintNeighborhood` and verifies every referenced shared object
 before use, which keeps token use proportional to the change.
+The affected index fingerprints every base object independently, then builds the
+validated object-id denominator once for all affected and topology edges. It
+does not recreate that complete denominator per edge, but every reference still
+fails closed when its object is missing.
 
 ## Provider-Neutral Command-Line Entries
 
-Audit any declared target system in memory through exact observation and
-authority providers. Python AST and pytest are two software-provider examples;
-JavaScript, workflow, trace, contract, or mixed providers use the same core.
-The strict definition names the target kind and boundary, stable model owners, independent semantic provenance,
-implementation surfaces, an embedded `ProjectTestInventory`, exact test
-evidence, resources, and current fingerprints. On every audit, FlowGuard
-re-discovers the current test sources and assertion-bearing nodes and compares
-them with that embedded inventory; a test fingerprint copied only from the
-blueprint cannot certify itself. A model that owns a native checker instead of
-a pytest node must declare its bounded checker path; FlowGuard re-hashes that
-actual checker file before accepting its evidence identity:
+The primary whole-target route accepts three independently prepared, strict
+current artifacts: the target descriptor, frozen provider evidence, and the
+native report set. FlowGuard derives every readiness row and gap; callers do
+not submit their own pass rows. Python AST and pytest are only possible
+providers. TypeScript, another software language, a workflow engine, traces,
+contracts, or a mixed target use the same target-neutral entry:
+
+The project preset also derives one internal
+`BlueprintManifestQualificationReport` while checking manifest identity,
+inventory, bindings, independent semantic and oracle references, resources,
+tests, and current fingerprints. It is deliberately not a public constructor
+and exposes `static_manifest_status`, `static_manifest_ready`, and an exact
+claim boundary rather than a generic `ok` or completion sentence. This child
+result is one input to project/static/target readiness; it cannot represent
+whole-target understanding, implementation admission, execution, or release
+readiness by itself.
+
+```powershell
+python -m flowguard target-system-blueprint-audit `
+  --descriptor target-system.json `
+  --frozen-evidence frozen-provider-evidence.json `
+  --native-report-set native-report-set.json `
+  --json
+```
+
+When the same audited target must be saved or exchanged, use the single
+provider-neutral export entry with the same three strict inputs:
+
+```powershell
+python -m flowguard target-system-blueprint-export `
+  --descriptor target-system.json `
+  --frozen-evidence frozen-provider-evidence.json `
+  --native-report-set native-report-set.json `
+  --output exported-target-blueprint `
+  --json
+```
+
+Export invokes the same native qualifier used by audit, then mechanically
+projects that exact descriptor, frozen provider evidence and layer plan,
+complete native report set (including portable models, typed members,
+implementation or external owners, tests, resources, intent, topology, and
+typed receipts), and qualification/readiness result. It uses the existing
+`CanonicalBlueprintProjection` manifest, `BlueprintShard` content addressing,
+writer, and verifier. The Python-project convenience export below uses that
+same envelope and materialization kernel; it is not a second authority or a
+compatibility format.
+
+`load_canonical_blueprint_projection` is the one strict current-schema disk
+loader. It rejects extra files, extra or missing directories, reparse points,
+non-current manifest/shard shapes, and content-address mismatches. Its generic
+claim stops there: it does not prove that identity or readiness is a function
+of the intended target. `target-system-blueprint-export` therefore performs a
+second, target-owned rebind against the exact descriptor, frozen evidence,
+native report set, and compiler qualification after writing. A manifest and
+identity shard that were rewritten and rehashed consistently pass the generic
+content check but fail this target rebind.
+
+The writer snapshots the complete owned tree, validates the staged tree, and
+revalidates both immediately before activation. If directory activation fails
+after the old tree was moved aside, the prior tree is restored even when
+another process recreated the output path. Cleanup of an obsolete backup is
+best-effort after commitment and cannot make an already activated projection
+look uncommitted.
+
+This command always qualifies the whole declared target. It has no affected
+scope switch. Local maintenance uses `affected-blueprint-understanding` below,
+whose content-addressed reader owns the smaller affected neighborhood.
+
+A native test row may remain a static `not_run` design without inventing a
+receipt. A `passed` row is accepted only when the report set carries the exact
+leaf `ValidationOwnerContract`, immutable `EvidenceReceipt`, and independently
+derived `ReceiptVerificationResult`. FlowGuard checks their owner, revision-
+bound member obligation, command, input, toolchain, environment, terminal
+result, currentness, eligibility, and content fingerprints; parent, relabeled,
+cross-owner, incomplete, or reused receipts are rejected.
+
+The compact self-qualification view therefore reports two bounded groups:
+static blockers and execution gaps. A planned leaf whose checker design is
+complete but whose execution is `not_run` remains visible as an execution gap;
+it is neither misreported as a broken DNA binding nor implied to have passed.
+Missing owners, obligations, dimensions, oracles, or checker designs remain
+static blockers.
+
+Ordinary maintenance starts from an already qualified, content-addressed
+index. It reads only the named change seeds, their propagated parent/child,
+producer-consumer, delegation, support, or sibling impact, the exact relation
+objects that caused propagation, referenced objects, and the common readiness
+ledger. Cycles and duplicate declarations converge to the same deterministic
+closure:
+
+```powershell
+python -m flowguard affected-blueprint-understanding `
+  --index affected-blueprint-index.json `
+  --shard-store blueprint-shards.json `
+  --object-store blueprint-objects.json `
+  --affected-id <changed-model-or-surface-id> `
+  --json
+```
+
+`project-blueprint-audit` remains the language-specific convenience route for
+a declared project definition whose concrete discovery and test adapters are
+already registered. Its definition names the target kind and boundary, stable
+model owners, independent semantic provenance, implementation surfaces, an
+embedded `ProjectTestInventory`, exact test evidence, resources, intent, and
+current fingerprints. On every audit, FlowGuard re-discovers the current test
+sources and assertion-bearing nodes and compares them with that embedded
+inventory; a test fingerprint copied only from the blueprint cannot certify
+itself. A model that owns a native checker instead of a pytest node must declare
+its bounded checker path; FlowGuard re-hashes that actual checker file before
+accepting its evidence identity. Qualification also rederives every canonical
+provider result from the current preparation and compares the complete input,
+payload, capability, status, finding, kind, version, and registry identity
+against the frozen evidence. Re-freezing a changed payload around itself does
+not make it current. The manifest's semantic-mesh fingerprint is derived from
+the reviewed topology report, and child runtime evidence must exist in the
+current owner-bound evidence registry:
 
 ```powershell
 python -m flowguard project-blueprint-audit `
@@ -140,8 +267,9 @@ python -m flowguard project-blueprint-audit `
 ```
 
 A missing required provider capability blocks that exact boundary; the core
-does not reject a target merely because it is not Python. The command does not
-write the target, start a validator, or activate a model revision.
+does not reject a target merely because it is not Python. These audit/read
+commands do not write the target, start a validator, or activate a model
+revision.
 
 Audit FlowGuard's own checked-in self-blueprint without writing any projection.
 When release cleanup needs both static DNA and
@@ -164,6 +292,21 @@ python -m flowguard flowguard-self-blueprint-check `
   --json
 ```
 
+The checked-in self-blueprint definition keeps authored behavior semantics
+separate from mechanical source identities. Check those identities without
+writing by default; only an explicit author-maintenance step may refresh them:
+
+```powershell
+python scripts/compile_flowguard_self_blueprint_definition.py
+python scripts/compile_flowguard_self_blueprint_definition.py --write
+```
+
+The compiler requires exactly one current composite contract for each manifest
+owner and changes only its model, runner, purpose-declaration, and
+purpose-closure source identities. Missing, foreign, duplicate, stale, linked,
+or concurrently changed owners block; it never invents behavior semantics or a
+fallback owner.
+
 Find unresolved behavior candidates from an independently discovered provider
 inventory without writing a project definition or claiming that inferred
 semantics are complete:
@@ -183,6 +326,13 @@ needed; the release-facing composed form above avoids a second blueprint build.
 Caller relations are resolved from one deterministic reverse call index rather
 than rescanning every surface for every candidate:
 
+Candidates that share the same tests and coverage rows reference one
+content-addressed evidence neighborhood. The review stores that full
+neighborhood once, while each candidate binds its own callers, behavior, state,
+effects, and errors to the exact neighborhood fingerprint. Missing, stale, or
+inline fallback evidence is rejected; proof receipts continue to carry the
+complete resolved evidence.
+
 ```powershell
 python -m flowguard flowguard-self-architecture-reduction-review `
   --root . `
@@ -199,47 +349,39 @@ python -m flowguard implementation-inventory-audit `
   --json
 ```
 
-Check static artifact status from existing artifacts without writing or
-running missing owners:
+When a caller explicitly needs a portable checkpoint of the model, write the
+same canonical project bundle to an explicitly selected directory:
 
 ```powershell
-python -m flowguard model-blueprint-check `
-  --inventory implementation-inventory.json `
-  --manifest software-blueprint.json `
-  --binding-report model-implementation-bindings.json `
-  --observed-snapshot-fingerprint <current-snapshot-fingerprint> `
-  --semantic-mesh-fingerprint <current-mesh-fingerprint> `
-  --test-inventory-fingerprint <current-test-inventory-fingerprint> `
-  --model-test-alignment-report-fingerprint <current-alignment-fingerprint> `
-  --portable-owner-fingerprints '{"portable:system":"<current-portable-fingerprint>"}' `
-  --resource-fingerprints '{"resource:runtime":"<current-resource-fingerprint>"}' `
-  --oracle-fingerprints '{"oracle:behavior":"<current-oracle-fingerprint>"}' `
-  --json
-```
-
-Write one deterministic projection to an explicitly selected directory:
-
-```powershell
-python -m flowguard model-blueprint-export `
-  --inventory implementation-inventory.json `
-  --manifest software-blueprint.json `
-  --binding-report model-implementation-bindings.json `
-  --observed-snapshot-fingerprint <current-snapshot-fingerprint> `
-  --semantic-mesh-fingerprint <current-mesh-fingerprint> `
-  --test-inventory-fingerprint <current-test-inventory-fingerprint> `
-  --model-test-alignment-report-fingerprint <current-alignment-fingerprint> `
-  --portable-owner-fingerprints '{"portable:system":"<current-portable-fingerprint>"}' `
-  --resource-fingerprints '{"resource:runtime":"<current-resource-fingerprint>"}' `
-  --oracle-fingerprints '{"oracle:behavior":"<current-oracle-fingerprint>"}' `
+python -m flowguard project-blueprint-export `
+  --root <project-root> `
+  --definition <project-blueprint.json> `
   --output exported-blueprint `
   --json
 ```
 
-The project, self, candidate, reduction, inventory, and artifact check commands
-are read-only. Export writes only beneath the
-explicit output directory and verifies its canonical manifest and
-content-addressed JSON shards. None of these commands starts a builder,
-missing validation owner, or model-authority update.
+The project, self, candidate, reduction, and inventory audit commands are
+read-only. Project export consumes that same canonically assembled project
+bundle and reuses the provider-neutral export's existing projection envelope,
+writer, and verifier. It writes only beneath the explicit output directory and
+verifies its manifest and content-addressed JSON shards. Its twenty
+project-specialized projection kinds preserve the project identity and
+definition, frozen provider evidence, independent
+implementation inventory and audit, model/code bindings, semantics, oracles,
+behavior model and cases, topology, model/test alignment, test inventory,
+resources, intent lineage, normalized and affected indexes, shared objects,
+and every readiness/depth/gap result. A raw manifest plus caller-repeated labels
+is not another qualification path. None of these commands starts a missing
+validation owner or model-authority update.
+
+Export completion means only that this exact snapshot was materialized and
+verified. The provider-neutral and Python-project convenience exports can both
+materialize a growing blueprint while it still reports `incomplete`, `stale`,
+`blocked`, or `not_run`; those statuses travel inside the readiness shard and
+remain distinct from model completeness. Both commands report
+`materialization_ok` / `materialization_status` for the write-and-verify action
+and `model_readiness_status` for the blueprint itself; neither reuses a generic
+`ok` field that could be mistaken for model readiness.
 
 ## Architecture Reduction Before Release
 
@@ -248,21 +390,76 @@ branches, state fields, and validation layers. This is a review queue, not
 permission to delete them.
 
 Before release, FlowGuard may use the current model and implementation bindings
-to propose a smaller architecture. A removal or collapse is eligible only with
-current `safe_by_equivalence` evidence that the observable contract is
-preserved. A public entrypoint may remain as a thin facade only with current
+to propose a smaller architecture. It first asks whether each surface is still
+necessary to the current DNA. An ordinary removal or collapse needs current
+`safe_by_equivalence` evidence that its observable contract is preserved. A
+public entrypoint may remain as a thin facade only with current
 `safe_by_public_facade` evidence showing that it delegates to the selected
-owner contract and primary path and has no independent business authority.
-Property-only evidence, stale delegation evidence, a required conformance
-replay, or missing proof keeps the candidate blocked or retained.
+owner contract and primary path and has no independent business authority. A
+behavior that the current product goal intentionally no longer needs may be
+removed only through `retire_behavior` with a complete disposition of every
+commitment, consumer, interface, model, code path, test, negative case, skill,
+prompt, topology relation, and release claim. Property-only evidence, stale
+delegation evidence, or an incomplete retirement inventory keeps the candidate
+unresolved; historical age and apparent duplication are not proof.
+
+A contraction proof is not a caller-written `pass`. FlowGuard executes the
+candidate's exact covered test and its caller/consumer, state, side-effect, and
+error parity check under bounded process-tree supervision. Only exact-current
+passing child receipts are composed into one child-bound aggregate in the
+repository's canonical validation-owner store. The review reloads the aggregate
+and children, rebuilds their current owner contexts, and rechecks governed
+inputs immediately before publishing its result. An unrelated test, alternate
+receipt root, missing parity dimension, failed or unclean command, stale child,
+or relabeled receipt cannot make a contraction ready.
 
 Architecture reduction therefore follows the model; it never makes the model
 look complete by deleting an unexplained behavior.
 
-FlowGuard's self-audit independently derives the complete candidate denominator
-from the exact current self blueprint. Large modules and repeated shapes are
-reported as `risky_keep`, not automatic cleanup. A clean review may therefore
-finish with candidates visible and zero safe deletions.
+FlowGuard's self-audit independently derives the complete reduction universe
+and a separate candidate inventory from the exact current self blueprint. An
+owned singleton signal may close as typed retain. A signal that forms a real
+candidate can close only through candidate-bound distinct-commitment retain
+evidence or verified contraction proof; otherwise it remains visible and blocks
+release cleanup readiness. A clean review may finish with candidates recorded,
+all of them honestly retained for distinct responsibilities, and zero safe
+deletions.
+
+## Measured v0.68.7 Contraction
+
+The v0.68.7 cleanup was measured against commit
+`fa8a9a4d9280cea6128e9d23517fe67533424e5e`. Immutable history, archived
+OpenSpec changes, old model snapshots, receipts, and adoption logs were kept as
+evidence and were not counted as current runtime. The current runtime package
+plus executable self-model surface changed from 303 to 283 files (-20, or
+6.600660%), and the current model-owner manifest changed from 65 to 51 owners
+(-14, or 21.538462%). The fourteen retired owners are
+`legacy_compatibility_cleanup`, `maintenance_scan_router`,
+`model_angle_deliberation`, `model_similarity_consolidation`, and
+`template_harvest_closure`, plus `openspec_archive_cleanup`,
+`readme_positioning_20260602`, `release_visibility_process`, and
+`risk_purpose_header`, plus `ai_surface_streamlining`,
+`reduce_architecture_surface`, `simplify_flowguard_structure`,
+`structure_surface_simplification`, and `simplify_field_schema`.
+
+This is not a claim that the whole implementation became smaller. Completing
+the DNA, topology, intent, binding, affected-scope, and authority paths added
+necessary mainline detail: Python lexical tokens in the runtime package plus
+current executable self-models rose from 867,087 to 1,055,846 (+188,759, or
+21.769326%). The
+contraction is structural: fewer independent owners and paths, with the
+remaining protection moved into their direct current owners. The clearest
+local example is the former 2,468-line standalone similarity engine: its
+current `CanonicalRelation` handoff is 256 lines and uses 1,174 rather than
+16,359 Python lexical tokens (-92.823522%).
+
+Daily AI use is reduced independently from model depth. On one recorded
+pre-finalization read-only `ModelRevisionPlan` report, the full representation was 364,497
+characters and the compact projection was 2,604 characters. The compact view
+kept the same base, candidate, affected-closure, diff, and observed-head
+identities while reducing rendered text by 99.285591% (139.975806 times
+smaller); it performed no writes and executed no models. This proves compact
+projection of that report, not universal token usage for every tool or model.
 
 ## 中文说明
 
@@ -278,7 +475,9 @@ finish with candidates visible and zero safe deletions.
 蓝图的基本单位不是一个文件、一个角色或者一句“大功能”，而是一个行为块。
 每个行为块只有一个主要负责人，并且要明确写出输入、状态、输出、副作用、
 错误、判断、顺序、重试、超时和完成条件。helper、适配器、序列化和存储代码
-只作为支持关系连接到主要行为，不能被重复算成另一个产品功能。
+只作为支持关系连接到主要行为，引用同一个行为义务和同一组语义要求，但不进入
+主要义务统计成为第二个负责人；负责人缺失、歧义或要求不一致时必须明确报错，
+不能被重复算成另一个产品功能，也不能临时造一个 helper 自己的替代义务。
 
 每个行为块都要精确连到代码、独立语义、判断依据、测试设计、具体测试节点和
 当前执行证据。整套测试通过不能平均贴到所有行为块上。意图清单为空时，也只
@@ -290,17 +489,40 @@ AI 必须报告最深已证明层和缺口，不能自己给自己打一个笼�
 在这些层闭合后，静态蓝图准备度会给出 `ready`、`incomplete`、`stale` 或
 `blocked`，列出全部缺口、最深完成层和第一个未完成层。测试设计是否齐全与
 本次测试是否真正执行并通过是两个独立结果，不能互相冒充。
+紧凑报告也会把静态结构缺口和执行缺口分开：设计完整但尚未运行的叶子测试仍会
+显示为 `not_run` 执行缺口，却不会被误算成 DNA 绑定损坏，更不会被说成已经通过。
 
 普通修改仍然只看受影响范围：加载紧凑的蓝图身份、找到受影响的负责人邻域，
 只更新失效的内容寻址分片。共享的负责人、契约、语义、oracle、测试、资源和
 意图只保存一次，调整分片大小不会改变逻辑身份，所以 token 消耗跟当前改动
 范围走。只有明确要求整套蓝图、导出、自我资格或发布闭合时，才检查完整边界。
 
-发布前可以让模型帮助寻找重复结构，但这不是随意删代码。只有具备当前等价性
-证据的候选才可以删除或合并；公开入口如果必须保留为委托门面，还要有当前证
-据证明它只转交给唯一的负责人和主路径，没有自己的业务权威。缺少证据、证据
-过期或只证明少数属性时，都必须保留或继续验证。
+显式导出会把同一份规范蓝图的全部层做成内容寻址文件，包括目标定义、provider
+证据、行为和父子接口、代码绑定、测试绑定、资源、意图、受影响索引以及完整的
+准备度和缺口。导出成功只说明这份模型快照已经被完整写出并校验，不会把模型里
+仍存在的 `incomplete`、`stale`、`blocked` 或 `not_run` 自动说成“理解完整”。
 
-FlowGuard 自己的清理审计也遵守同样规则：它从当前自我蓝图独立列出全部候选，
-体积大或形状相似默认只是 `risky_keep`。即使有候选，只要没有等价性证据，
-“零个可以安全删除”也是一个正常、诚实的审计结果。
+发布前可以让模型帮助寻找重复结构和历史功能，但这不是随意删代码。它先判断
+每个表面对当前软件 DNA 是否仍有必要。普通删除或合并仍然需要当前等价性证据；
+公开入口如果必须保留为委托门面，还要证明它只转交给唯一负责人和主路径，没
+有自己的业务权威。如果当前产品目标明确不再需要某个历史行为，也可以走
+`retire_behavior`，但必须逐项说明它的承诺、使用者、接口、模型、代码、测试、
+反例、技能、提示词、拓扑关系和发布声明是删除、转移还是仅留在历史里。缺少普
+通等价性证据或完整退役证据时，它仍是未解决问题，不能用“看起来没用”冒充清
+理完成。
+
+FlowGuard 自己的清理审计也遵守同样规则：它从当前自我蓝图独立列出完整清理
+分母，再另外生成候选。所谓“可以安全收缩”的证明必须真的运行候选绑定测试和
+调用者、状态、副作用、错误四类一致性检查，再把这些子结果组成一份当前证明；
+自己写一个通过记录、拿无关测试来凑数或换一个临时证据目录都不算。最终即使
+没有任何可以安全删除的候选，只要所有表面都已有明确职责或有诚实的未解决记
+录，报告仍能准确说明软件现在为什么保留这些结构；发布门只接受前者全部闭合。
+
+这次 v0.68.7 的实测结果也要分开理解。当前运行包和可执行自模型合计少了 20 个
+文件，模型负责人从 65 个降到 51 个；旧的独立相似性引擎被精确关系交接替代，
+这一个局部的代码 token 减少了约 92.82%。但是为了补齐 DNA、拓扑、意图、代码
+和测试绑定以及权威证据，运行主干和当前自模型的代码 token 总量增加了约
+20.39%。所以这次清理的真实结果是“重复路线变少、主干理解变完整”，不是整库
+代码盲目变少。日常 AI 使用通过紧凑投影单独解决：一份明确记录为发布前样本的
+同源只读报告从 364,497 个字符缩到 2,604 个字符，减少约 99.29%，而且模型身份
+和受影响范围保持一致。

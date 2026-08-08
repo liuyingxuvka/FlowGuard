@@ -1,6 +1,9 @@
+import ast
 import importlib.util
 import sys
+import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from flowguard import (
@@ -16,6 +19,13 @@ from flowguard import (
     BCL_REPLACEMENT_REPLACED,
     BCL_SCOPE_FULL,
     BCL_SCOPE_ROUTINE,
+    BCL_SOURCE_AUTHORITY_OBSERVED,
+    BCL_SOURCE_AUTHORITY_SUPPORTING,
+    BCL_SOURCE_CLASSIFICATION_EXTERNAL_NORMATIVE_CONTRACT,
+    BCL_SOURCE_CLASSIFICATION_GENERATED_EVIDENCE,
+    BCL_SOURCE_CLASSIFICATION_IMPLEMENTATION,
+    BCL_SOURCE_CLASSIFICATION_OBSERVED_EXTERNAL_BEHAVIOR,
+    BCL_SOURCE_CLASSIFICATION_TEST,
     BCL_SOURCE_DOC,
     BCL_SOURCE_FRESHNESS_CHANGED,
     BCL_TEST_MESH_SHARD_MISSING,
@@ -24,6 +34,8 @@ from flowguard import (
     BehaviorCommitmentLedger,
     BehaviorEvidenceBinding,
     BehaviorSourceSurface,
+    audit_behavior_commitment_source_inventory,
+    refresh_behavior_commitment_source_inventory,
     review_behavior_commitment_ledger,
 )
 
@@ -56,6 +68,7 @@ def surface(**kwargs):
         "inventory_revision": "rev-1",
         "discovery_evidence_ids": ("inventory:rev-1",),
         "source_authority_role": "normative",
+        "source_classification": BCL_SOURCE_CLASSIFICATION_EXTERNAL_NORMATIVE_CONTRACT,
         "declared_semantics_fingerprint": "sha256:workflow-semantics",
         "coverage_disposition": "modeled",
         "freshness_state": "current",
@@ -131,6 +144,250 @@ def load_repo_model(relative_path: str, module_name: str):
 
 
 class BehaviorCommitmentLedgerTests(unittest.TestCase):
+    def _live_ledger(self, root: Path, source_ref: str) -> BehaviorCommitmentLedger:
+        candidate = ledger(
+            surfaces=(
+                surface(
+                    source_ref=source_ref,
+                    native_artifact_id=source_ref,
+                    metadata={"authored": "preserved"},
+                ),
+            ),
+        )
+        return refresh_behavior_commitment_source_inventory(candidate, root)
+
+    def test_live_source_audit_is_read_only_and_crlf_equivalent(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "README.md"
+            source.write_bytes(b"# Usage\n\nhello\n")
+            refreshed = self._live_ledger(root, "README.md#Usage")
+            source.write_bytes(b"# Usage\r\n\r\nhello\r\n")
+            before = source.read_bytes()
+
+            report = audit_behavior_commitment_source_inventory(refreshed, root)
+
+            self.assertTrue(report.ok, report.to_dict())
+            self.assertEqual(before, source.read_bytes())
+            self.assertEqual(
+                "preserved",
+                refreshed.source_surfaces[0].metadata["authored"],
+            )
+
+    def test_composite_member_content_change_is_stale_without_membership_drift(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "a.py").write_text("A = 1\n", encoding="utf-8")
+            (root / "b.py").write_text("B = 1\n", encoding="utf-8")
+            refreshed = self._live_ledger(root, "a.py; b.py")
+            (root / "b.py").write_text("B = 2\n", encoding="utf-8")
+
+            report = audit_behavior_commitment_source_inventory(refreshed, root)
+
+            self.assertIn("source_surface_content_fingerprint_stale", codes(report))
+            self.assertNotIn("source_surface_membership_stale", codes(report))
+            self.assertIn("source_inventory_fingerprint_stale", codes(report))
+
+    def test_bounded_glob_membership_change_is_reported(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            skills = root / "skills"
+            skills.mkdir()
+            (skills / "a.md").write_text("# A\n", encoding="utf-8")
+            refreshed = self._live_ledger(root, "skills/*.md")
+            (skills / "b.md").write_text("# B\n", encoding="utf-8")
+
+            report = audit_behavior_commitment_source_inventory(refreshed, root)
+
+            self.assertIn("source_surface_membership_stale", codes(report))
+            self.assertIn("source_surface_content_fingerprint_stale", codes(report))
+
+    def test_root_level_or_prefix_free_glob_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "root.md").write_text("# Root\n", encoding="utf-8")
+            nested = root / "nested"
+            nested.mkdir()
+            (nested / "child.md").write_text("# Child\n", encoding="utf-8")
+            for source_ref in ("*.md", "**/*.md"):
+                with self.subTest(source_ref=source_ref):
+                    candidate = ledger(
+                        surfaces=(
+                            surface(
+                                source_ref=source_ref,
+                                native_artifact_id=source_ref,
+                            ),
+                        ),
+                    )
+                    report = audit_behavior_commitment_source_inventory(candidate, root)
+                    self.assertIn("source_surface_glob_unbounded", codes(report))
+                    with self.assertRaises(ValueError):
+                        refresh_behavior_commitment_source_inventory(candidate, root)
+
+    def test_duplicate_member_across_direct_and_glob_refs_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            sources = root / "sources"
+            sources.mkdir()
+            (sources / "a.md").write_text("# A\n", encoding="utf-8")
+            candidate = ledger(
+                surfaces=(
+                    surface(
+                        source_ref="sources/a.md; sources/*.md",
+                        native_artifact_id="sources/a.md; sources/*.md",
+                    ),
+                ),
+            )
+
+            report = audit_behavior_commitment_source_inventory(candidate, root)
+
+            self.assertIn("source_surface_member_duplicate", codes(report))
+            with self.assertRaises(ValueError):
+                refresh_behavior_commitment_source_inventory(candidate, root)
+
+    def test_authored_surface_semantics_do_not_change_physical_inventory_identity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "source.py").write_text("VALUE = 1\n", encoding="utf-8")
+            refreshed = self._live_ledger(root, "source.py")
+            changed_semantics = replace(
+                refreshed,
+                source_surfaces=(
+                    replace(
+                        refreshed.source_surfaces[0],
+                        owner="different-authored-owner",
+                        source_authority_role="supporting",
+                    ),
+                ),
+            )
+
+            report = audit_behavior_commitment_source_inventory(changed_semantics, root)
+
+            self.assertTrue(report.ok, report.to_dict())
+            self.assertEqual(
+                refreshed.source_inventory_fingerprint,
+                report.live_inventory_fingerprint,
+            )
+
+    def test_missing_anchor_file_empty_glob_and_escape_are_distinct(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "doc.md").write_text("# Present\n", encoding="utf-8")
+            cases = {
+                "doc.md#Absent": "source_surface_anchor_missing",
+                "missing.md": "source_surface_ref_missing",
+                "none/*.md": "source_surface_glob_empty",
+                "../outside.md": "source_surface_ref_unsafe",
+            }
+            for source_ref, expected_code in cases.items():
+                with self.subTest(source_ref=source_ref):
+                    candidate = ledger(
+                        surfaces=(
+                            surface(
+                                source_ref=source_ref,
+                                native_artifact_id=source_ref,
+                            ),
+                        ),
+                    )
+                    report = audit_behavior_commitment_source_inventory(candidate, root)
+                    self.assertIn(expected_code, codes(report))
+                    with self.assertRaises(ValueError):
+                        refresh_behavior_commitment_source_inventory(candidate, root)
+
+    def test_symlink_escape_is_rejected_when_supported(self):
+        with tempfile.TemporaryDirectory() as project_temporary, tempfile.TemporaryDirectory() as outside_temporary:
+            root = Path(project_temporary)
+            outside = Path(outside_temporary) / "outside.md"
+            outside.write_text("# Outside\n", encoding="utf-8")
+            link = root / "linked.md"
+            try:
+                link.symlink_to(outside)
+            except (NotImplementedError, OSError):
+                self.skipTest("symlinks are unavailable in this environment")
+            candidate = ledger(
+                surfaces=(
+                    surface(
+                        source_ref="linked.md",
+                        native_artifact_id="linked.md",
+                    ),
+                ),
+            )
+
+            report = audit_behavior_commitment_source_inventory(candidate, root)
+
+            self.assertIn("source_surface_ref_unsafe", codes(report))
+
+    def test_live_audit_rejects_stale_top_revision_and_evidence(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "source.py").write_text("VALUE = 1\n", encoding="utf-8")
+            refreshed = self._live_ledger(root, "source.py")
+            stale = replace(
+                refreshed,
+                source_inventory_fingerprint="sha256:stale",
+                source_inventory_revision="source-inventory:stale",
+                source_inventory_evidence_ids=("source-inventory-discovery:stale",),
+            )
+
+            report = audit_behavior_commitment_source_inventory(stale, root)
+
+            self.assertIn("source_inventory_fingerprint_stale", codes(report))
+            self.assertIn("source_inventory_revision_stale", codes(report))
+            self.assertIn("source_inventory_evidence_stale", codes(report))
+
+    def test_review_can_bind_static_coverage_to_live_source_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source.py"
+            source.write_text("VALUE = 1\n", encoding="utf-8")
+            refreshed = self._live_ledger(root, "source.py")
+            self.assertTrue(
+                review_behavior_commitment_ledger(
+                    refreshed,
+                    project_root=root,
+                ).ok
+            )
+            source.write_text("VALUE = 2\n", encoding="utf-8")
+
+            report = review_behavior_commitment_ledger(
+                refreshed,
+                project_root=root,
+            )
+
+            self.assertFalse(report.ok)
+            self.assertIn("source_surface_content_fingerprint_stale", codes(report))
+
+    def test_native_runner_performs_one_live_source_scan(self):
+        runner_path = (
+            Path(__file__).resolve().parents[1]
+            / ".flowguard/behavior_commitment_ledger/run_checks.py"
+        )
+        tree = ast.parse(runner_path.read_text(encoding="utf-8"))
+        calls = tuple(node for node in ast.walk(tree) if isinstance(node, ast.Call))
+        live_audit_calls = tuple(
+            node
+            for node in calls
+            if isinstance(node.func, ast.Name)
+            and node.func.id == "audit_flowguard_behavior_commitment_source_inventory"
+        )
+        review_calls = tuple(
+            node
+            for node in calls
+            if isinstance(node.func, ast.Name)
+            and node.func.id == "review_behavior_commitment_ledger"
+        )
+
+        self.assertEqual(1, len(live_audit_calls))
+        self.assertTrue(review_calls)
+        self.assertFalse(
+            any(
+                keyword.arg == "project_root"
+                for call in review_calls
+                for keyword in call.keywords
+            ),
+            "the native runner must not repeat the live source scan through review()",
+        )
+
     def test_change_mode_does_not_require_bootstrap_wide_inventory(self):
         affected = ledger(
             claim_scope=BCL_SCOPE_ROUTINE,
@@ -166,6 +423,119 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
         self.assertIn("risk_gate:behavior_commitment_coverage:ledger", report.required_risk_gate_ids)
         self.assertIn("contract_coverage:behavior_commitment_ledger", report.coverage_receipt_ids)
 
+    def test_only_external_normative_contract_can_license_a_broad_commitment(self):
+        observed = review_behavior_commitment_ledger(
+            ledger(
+                surfaces=(
+                    surface(
+                        source_classification=BCL_SOURCE_CLASSIFICATION_OBSERVED_EXTERNAL_BEHAVIOR,
+                        source_authority_role=BCL_SOURCE_AUTHORITY_OBSERVED,
+                    ),
+                )
+            )
+        )
+        self.assertIn("commitment_current_normative_source_missing", codes(observed))
+        self.assertNotIn("source_surface_non_contract_authority_forbidden", codes(observed))
+
+        for source_classification in (
+            BCL_SOURCE_CLASSIFICATION_IMPLEMENTATION,
+            BCL_SOURCE_CLASSIFICATION_TEST,
+            BCL_SOURCE_CLASSIFICATION_GENERATED_EVIDENCE,
+        ):
+            with self.subTest(source_classification=source_classification):
+                report = review_behavior_commitment_ledger(
+                    ledger(
+                        surfaces=(
+                            surface(
+                                source_classification=source_classification,
+                                source_authority_role=BCL_SOURCE_AUTHORITY_SUPPORTING,
+                            ),
+                        )
+                    )
+                )
+                self.assertIn(
+                    "source_surface_non_contract_authority_forbidden",
+                    codes(report),
+                )
+                self.assertIn(
+                    "commitment_current_normative_source_missing",
+                    codes(report),
+                )
+
+    def test_source_classification_and_authority_role_must_agree(self):
+        report = review_behavior_commitment_ledger(
+            ledger(
+                surfaces=(
+                    surface(
+                        source_classification=BCL_SOURCE_CLASSIFICATION_GENERATED_EVIDENCE,
+                        source_authority_role="normative",
+                    ),
+                )
+            )
+        )
+
+        self.assertIn("source_surface_classification_role_mismatch", codes(report))
+
+    def test_project_ledger_uses_normative_contract_sources_and_separate_bindings(self):
+        ledger_model = load_repo_model(
+            ".flowguard/behavior_commitment_ledger/model.py",
+            "flowguard_behavior_commitment_ledger_external_contract_test",
+        )
+        project_ledger = ledger_model.build_flowguard_behavior_commitment_ledger()
+
+        self.assertTrue(project_ledger.source_surfaces)
+        self.assertEqual(
+            {BCL_SOURCE_CLASSIFICATION_EXTERNAL_NORMATIVE_CONTRACT},
+            {surface.source_classification for surface in project_ledger.source_surfaces},
+        )
+        self.assertTrue(
+            all(surface.licenses_external_commitment() for surface in project_ledger.source_surfaces)
+        )
+        self.assertFalse(
+            any(
+                member.endswith(".py")
+                for surface in project_ledger.source_surfaces
+                for member in surface.metadata["live_source_identity"]["member_paths"]
+            )
+        )
+        self.assertTrue(
+            all(commitment.evidence.has_required_links() for commitment in project_ledger.commitments)
+        )
+
+    def test_permanent_owner_commitments_and_public_facade_evidence_are_current(self):
+        ledger_model = load_repo_model(
+            ".flowguard/behavior_commitment_ledger/model.py",
+            "flowguard_behavior_commitment_ledger_permanent_owner_test",
+        )
+        project_ledger = ledger_model.build_flowguard_behavior_commitment_ledger()
+        commitment_by_id = {
+            commitment.commitment_id: commitment
+            for commitment in project_ledger.commitments
+        }
+
+        expected_owners = {
+            "commitment:validation-evidence-gates": ".flowguard/validation_evidence_gates/model.py",
+            "commitment:user-facing-model-diagrams": ".flowguard/user_facing_model_diagrams/model.py",
+            "commitment:codex-skill-satellites": ".flowguard/codex_skill_satellites/model.py",
+        }
+        for commitment_id, owner_model_id in expected_owners.items():
+            with self.subTest(commitment_id=commitment_id):
+                self.assertIn(commitment_id, commitment_by_id)
+                self.assertEqual(
+                    owner_model_id,
+                    commitment_by_id[commitment_id].primary_owner_model_id,
+                )
+
+        public_api = commitment_by_id["commitment:flowguard-public-api-surface"]
+        self.assertIn(
+            ".flowguard/architecture_reduction/run_checks.py",
+            public_api.path_authority.evidence_refs,
+        )
+        self.assertNotIn(
+            ".flowguard/reduce_architecture_surface/run_checks.py",
+            public_api.path_authority.evidence_refs,
+        )
+
     def test_ui_content_admission_has_single_primary_owner(self):
         ledger_model = load_repo_model(
             ".flowguard/behavior_commitment_ledger/model.py",
@@ -197,7 +567,10 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
             commitment_row.evidence.model_obligation_ids,
         )
         self.assertEqual(
-            (closure_model.CODE_CONTRACT_ID,),
+            (
+                closure_model.CODE_CONTRACT_ID,
+                "owner-contract:.flowguard/ui_flow_structure_skill/model.py",
+            ),
             commitment_row.evidence.code_contract_ids,
         )
         self.assertEqual(
@@ -219,6 +592,26 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
             (closure_model.CONTRACT_COVERAGE_RECEIPT_ID,),
             commitment_row.evidence.coverage_receipt_ids,
         )
+
+    def test_every_active_flowguard_commitment_binds_its_current_blueprint_owner_contract(self):
+        ledger_model = load_repo_model(
+            ".flowguard/behavior_commitment_ledger/model.py",
+            "flowguard_behavior_commitment_owner_contracts_for_test",
+        )
+        project_ledger = ledger_model.build_flowguard_behavior_commitment_ledger()
+
+        for commitment in project_ledger.commitments:
+            if not commitment.active_external_commitment():
+                continue
+            expected_owner_contract_id = (
+                "owner-contract:"
+                + commitment.primary_owner_model_id.replace("\\", "/")
+            )
+            with self.subTest(commitment_id=commitment.commitment_id):
+                self.assertIn(
+                    expected_owner_contract_id,
+                    commitment.evidence.code_contract_ids,
+                )
 
     def test_missing_expected_commitment_blocks(self):
         report = review_behavior_commitment_ledger(ledger(expected=("commitment:missing",)))

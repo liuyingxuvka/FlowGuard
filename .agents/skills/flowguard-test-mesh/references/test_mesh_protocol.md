@@ -65,6 +65,26 @@ protected failures and claim boundary. Bind the exact candidate to native good,
 per-failure bad, oracle, and current evidence. Only declared FlowGuard checks
 may support completion claims.
 
+## Path-Quality Evidence Ownership
+
+When Model-Test Alignment or ModelMaturation requires path-quality evidence,
+inventory each affected hard-semantic check and retained-element necessity
+witness under its real test/native owner. Bind exact subject, model, code,
+oracle, evidence, covered obligation/element ids, terminal receipt, and
+currentness. An existing current leaf may be reused only through the ordinary
+exact reuse contract; a changed subject or any consumed code/test/oracle/
+evidence identity stales the matching member and declared dependants.
+
+TestMesh owns this hierarchy and receipt currentness only. It does not create
+necessity witnesses, decide whether a model path is lightweight or deep,
+enumerate candidates, compare cost vectors, compute Pareto dominance, or
+promote `normative_target` to observed authority. Deep evidence members enter
+the mesh only for exact currently triggered affected models; a current
+`single_clear_path` result adds no deep suite or candidate payload.
+
+These rows are provider-neutral. Non-code workflows use their native oracle
+and verification members rather than fabricated Python or pytest owners.
+
 ## Closure Coverage
 
 When ModelMesh closure is in scope, include

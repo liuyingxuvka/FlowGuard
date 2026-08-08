@@ -140,9 +140,20 @@ class SkillContractCurrentProjectionTests(unittest.TestCase):
         manifest = json.loads((skill / ".skillguard" / "check-manifest.json").read_text(encoding="utf-8"))
         obligation = "obligation:flowguard-development-process-flow:process-strategy-equivalence"
         self.assertIn(obligation, {row["obligation_id"] for row in compiled["obligations"]})
-        native = next(row for row in manifest["checks"] if row["check_id"].endswith(":native-authority"))
-        self.assertIn(obligation, native["covers_obligation_ids"])
-        self.assertIn("tests/test_development_process_strategy.py", native["args"])
+        strategy = next(
+            row
+            for row in manifest["checks"]
+            if row["check_id"].endswith(":process-strategy-equivalence")
+        )
+        self.assertEqual([obligation], strategy["covers_obligation_ids"])
+        self.assertIn("tests/test_development_process_strategy.py", strategy["args"])
+        self.assertEqual(
+            1,
+            sum(
+                obligation in row["covers_obligation_ids"]
+                for row in manifest["checks"]
+            ),
+        )
 
     def test_development_process_maintenance_routes_compose_for_one_enforced_closure(self) -> None:
         skill = ROOT / ".agents" / "skills" / "flowguard-development-process-flow"

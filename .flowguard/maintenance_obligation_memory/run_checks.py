@@ -3,24 +3,25 @@
 from __future__ import annotations
 
 from flowguard import (
-    MAINTENANCE_ARTIFACT_CODE,
-    MAINTENANCE_ROUTE_STRUCTURE_MESH,
     OBLIGATION_STATUS_RESOLVED,
-    MaintenanceChangedArtifact,
-    MaintenanceEvidence,
     MaintenanceObligation,
-    MaintenanceScanPlan,
     RISK_GATE_MAINTENANCE_OBLIGATION,
     RiskEvidenceGate,
     RiskEvidenceLedgerPlan,
     RiskEvidenceProof,
     RiskEvidenceRow,
-    review_maintenance_scan,
+    build_maintenance_obligation_report,
+    public_owner_descriptor,
     review_risk_evidence_ledger,
     run_exact_sequence,
 )
 from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
 import model
+
+
+STRUCTURE_MESH_OWNER_ROUTE = public_owner_descriptor(
+    "structure_mesh_maintenance"
+).route_id
 
 
 REQUIRED_LABELS = (
@@ -74,22 +75,13 @@ def helper_case(name: str, ok: bool, text: str) -> bool:
 def run_helper_cases() -> bool:
     open_obligation = MaintenanceObligation(
         "structure:checkout",
-        owner_route=MAINTENANCE_ROUTE_STRUCTURE_MESH,
+        owner_route=STRUCTURE_MESH_OWNER_ROUTE,
         reason_code="large_module",
         anchor_paths=("flowguard/checkout.py",),
     )
-    reopened = review_maintenance_scan(
-        MaintenanceScanPlan(
-            "self-model-reopen",
-            changed_artifacts=(
-                MaintenanceChangedArtifact(
-                    "checkout-code",
-                    MAINTENANCE_ARTIFACT_CODE,
-                    path="src/flowguard/checkout.py",
-                ),
-            ),
-            prior_obligations=(open_obligation,),
-        )
+    open_report = build_maintenance_obligation_report(
+        "self-model-open-obligation",
+        (open_obligation,),
     )
 
     blocked_ledger = review_risk_evidence_ledger(
@@ -111,7 +103,7 @@ def run_helper_cases() -> bool:
 
     resolved_obligation = MaintenanceObligation(
         "structure:checkout",
-        owner_route=MAINTENANCE_ROUTE_STRUCTURE_MESH,
+        owner_route=STRUCTURE_MESH_OWNER_ROUTE,
         reason_code="large_module",
         status=OBLIGATION_STATUS_RESOLVED,
         evidence_ids=("structuremesh:passed",),
@@ -133,35 +125,18 @@ def run_helper_cases() -> bool:
         )
     )
 
-    resolved_scan = review_maintenance_scan(
-        MaintenanceScanPlan(
-            "self-model-resolved-scan",
-            changed_artifacts=(
-                MaintenanceChangedArtifact(
-                    "checkout-code",
-                    MAINTENANCE_ARTIFACT_CODE,
-                    path="src/flowguard/checkout.py",
-                ),
-            ),
-            prior_obligations=(open_obligation,),
-            evidence=(
-                MaintenanceEvidence(
-                    "structuremesh:passed",
-                    MAINTENANCE_ROUTE_STRUCTURE_MESH,
-                    status="passed",
-                    current=True,
-                ),
-            ),
-        )
+    resolved_report = build_maintenance_obligation_report(
+        "self-model-resolved-obligation",
+        (resolved_obligation,),
     )
 
     return all(
         (
             helper_case(
-                "anchored_obligation_reopens_maintenance_scan",
-                reopened.reopened_obligation_ids == ("structure:checkout",)
-                and bool(reopened.unresolved_required_action_ids),
-                reopened.format_text(),
+                "anchored_obligation_remains_a_route_owned_action",
+                open_report.open_required_obligation_ids == ("structure:checkout",)
+                and open_obligation.has_anchor(),
+                open_report.format_text(),
             ),
             helper_case(
                 "open_obligation_blocks_risk_ledger",
@@ -174,9 +149,10 @@ def run_helper_cases() -> bool:
                 clear_ledger.format_text(),
             ),
             helper_case(
-                "owner_evidence_resolves_reopened_scan",
-                resolved_scan.ok and not resolved_scan.unresolved_required_action_ids,
-                resolved_scan.format_text(),
+                "owner_evidence_resolves_the_route_owned_obligation",
+                not resolved_report.open_required_obligation_ids
+                and resolved_obligation.has_resolution_evidence(),
+                resolved_report.format_text(),
             ),
         )
     )

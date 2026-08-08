@@ -9,13 +9,15 @@ turns provider state into model or test evidence.
 from __future__ import annotations
 
 import hashlib
-import json
 import tomllib
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
-from ._normalization import string_tuple as _string_tuple
+from ._normalization import (
+    canonical_json_text as _canonical_json,
+    string_tuple as _string_tuple,
+)
 from .model_authority import SUBJECT_NORMATIVE_TARGET
 from .model_intent import ModelIntentContribution, WorkContextIntentMapping
 
@@ -50,10 +52,6 @@ _FORBIDDEN_AUTHORITY_KEYS = {
 }
 def _wire_hash(value: bytes) -> str:
     return "sha256:" + hashlib.sha256(value).hexdigest()
-
-
-def _canonical_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _bounded_path(project_root: Path, path: Path, label: str) -> Path:

@@ -16,6 +16,10 @@
       "input_selectors": [
         {
           "kind": "path",
+          "path": ".flowguard/behavior_commitment_ledger/ledger.json"
+        },
+        {
+          "kind": "path",
           "path": ".flowguard/behavior_commitment_ledger/model.py"
         }
       ],
@@ -46,6 +50,10 @@
         "exit_code": 0
       },
       "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/behavior_commitment_ledger/ledger.json"
+        },
         {
           "kind": "path",
           "path": ".flowguard/behavior_commitment_ledger/model.py"
@@ -243,7 +251,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Run the existing Behavior Commitment Ledger owner against exact expected source ids, fingerprints, authority roles, and one coverage disposition per source."
+        "summary": "Run the existing Behavior Commitment Ledger owner against one bounded project root, live canonical physical source content and unique fixed-prefix membership, exact expected source ids, separately authored authority roles, and one coverage disposition per source; stored currentness alone never passes."
       },
       "check_ids": [
         "check:flowguard-behavior-commitment-ledger:native-authority"

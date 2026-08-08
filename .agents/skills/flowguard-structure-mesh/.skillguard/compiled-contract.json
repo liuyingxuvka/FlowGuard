@@ -1,6 +1,6 @@
 {
   "artifacts": [],
-  "check_declarations_hash": "972FB64711A000166506AED650CA75D8E3D0681FE02CF401A6F0370922B373E3",
+  "check_declarations_hash": "6115823A07BE482D2B16EA08F64E436BC82B6A9B46E16504F7BF864651F2A82A",
   "checks": [
     {
       "args": [
@@ -9,7 +9,7 @@
       "assertion_scope": "current_full_flowguard_model",
       "check_id": "check:flowguard-structure-mesh:plane-boundary",
       "command": "python",
-      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_rationale": "The model assertion is the single declared owner for the StructureMesh plane-boundary obligation.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
         "obligation:flowguard-structure-mesh:plane-boundary"
@@ -37,7 +37,7 @@
       "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-structure-mesh",
       "owner_declaration_hash": "sha256:c4f9fca3ef370bb2e2e88f86f6317445a85cb5336820db7c76a6bfac836fd1a4",
-      "owner_input_projection_hash": "sha256:4d57653495490e5b235932203ae1da95d7d7c99f0dd831e8f33565388dc7532b",
+      "owner_input_projection_hash": "sha256:7ba67c0b75ce6215223ea09911f1c305cfbb4e64d2a0acfa166e9c4dec036652",
       "projection_declaration_hash": "sha256:47db6aae54e8c00aa8c22230169cddf9e333b8fe65cb36f41af5952b853e234d",
       "semantic_check_id": "semantic:check:flowguard-structure-mesh:plane-boundary",
       "target_input_role_ids": [],
@@ -48,11 +48,14 @@
         "-m",
         "pytest",
         "tests/test_structure_mesh.py",
+        "tests/test_blueprint_topology.py",
+        "tests/test_project_blueprint.py",
+        "tests/test_architecture_reduction.py",
         "-q"
       ],
       "check_id": "check:flowguard-structure-mesh:native-authority",
       "command": "python",
-      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_rationale": "The native command jointly exercises StructureMesh, topology, project blueprint, and ArchitectureReduction evidence, including the exact proof-ready handoff into structural validation.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
         "obligation:flowguard-structure-mesh:native-authority"
@@ -71,14 +74,38 @@
         "component:documentation_model:972b2233048de1a5",
         "component:documentation_model:d1642a7b0d6a9002",
         "component:runtime_source:080f9faa510b9dfd",
-        "component:runtime_source:54b8f20e0ec412d6",
+        "component:runtime_source:398e1de2590c454f",
         "component:runtime_source:b136623ff610f3f7",
-        "component:test_dev:a2487e6ce6a7ce76"
+        "component:test_dev:9c6fcd8a06b59341"
       ],
       "input_selectors": [
         {
           "kind": "path",
           "path": ".flowguard/structure_refactor_mesh/model.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/architecture_reduction.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/blueprint_topology.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/project_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_architecture_reduction.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_blueprint_topology.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_project_blueprint.py"
         },
         {
           "kind": "path",
@@ -100,8 +127,8 @@
       "kind": "command",
       "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-structure-mesh",
-      "owner_declaration_hash": "sha256:7b0349eb07a96c36aa9b4a9df46487090641f3bd015dd0848d4fecc3ad2e77ae",
-      "owner_input_projection_hash": "sha256:327f67aa759783e79f37569dcfdafc4cd13db43f4113ffb8358f01ec17aae7e1",
+      "owner_declaration_hash": "sha256:3f04206f8991e98973620b176b229a4ed01692159c306448d3921475caa1417d",
+      "owner_input_projection_hash": "sha256:bcf0eda86fc37793682d7e5349be2033af82deea3f17782aaaa2e8a85463fa37",
       "projection_declaration_hash": "sha256:44b6b7f35cf45d42432198606ebcfd483a206cc1711d35053edbc53c20fd4e99",
       "semantic_check_id": "semantic:check:flowguard-structure-mesh:native-authority",
       "target_input_role_ids": [],
@@ -142,14 +169,14 @@
       "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-structure-mesh",
       "owner_declaration_hash": "sha256:c4f9fca3ef370bb2e2e88f86f6317445a85cb5336820db7c76a6bfac836fd1a4",
-      "owner_input_projection_hash": "sha256:4d57653495490e5b235932203ae1da95d7d7c99f0dd831e8f33565388dc7532b",
+      "owner_input_projection_hash": "sha256:7ba67c0b75ce6215223ea09911f1c305cfbb4e64d2a0acfa166e9c4dec036652",
       "projection_declaration_hash": "sha256:a1b98d558555609be5c97918248bac01a8aa77d7abee32a41d1fcc50f80b5541",
       "semantic_check_id": "semantic:check:flowguard-structure-mesh:evidence-closure",
       "target_input_role_ids": [],
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "StructureMesh proves only the declared existing-code split, ownership, facade, dependency/config, and parity evidence for the current scope.",
+  "claim_boundary": "StructureMesh proves only the declared existing-code split, ownership, facade, dependency/config, parity evidence, and completeness of a supplied ArchitectureReduction handoff for the current scope.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -218,7 +245,7 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:contract_schema"
         ],
-        "component_hash": "sha256:08cf7e7a7a7f3dd38123fd14f241acb9bc76b5c95d8c3f6f3fb4478af2eb1406",
+        "component_hash": "sha256:a8b87a2bc0eefa9088907385b4652e7bf81bd688bd9177885057562bc672ab56",
         "component_id": "component:contract_schema:8607b879df5a4249",
         "consumer_ids": [
           "projection:contract-compile",
@@ -234,7 +261,7 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:documentation_model"
         ],
-        "component_hash": "sha256:972b24fd2f515a0f3fed7b20396bcd32480a88012b33a9910974b85c8f4a848c",
+        "component_hash": "sha256:5333222c79dccc63d1b8206a2e5812f0e59c5a3c58edfa1738d9c8032c514cd4",
         "component_id": "component:documentation_model:d1642a7b0d6a9002",
         "consumer_ids": [
           "owner:check:flowguard-structure-mesh:native-authority",
@@ -251,7 +278,7 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:documentation_model"
         ],
-        "component_hash": "sha256:a0a70568e3d013e4c529f526e9057b234ebf1e6f10ff8ec9bac8fd6893eb71a8",
+        "component_hash": "sha256:aef43e327b2ee89ef92119781d5420b842d10abcb2814718f673c8f0edbf389c",
         "component_id": "component:documentation_model:972b2233048de1a5",
         "consumer_ids": [
           "owner:check:flowguard-structure-mesh:evidence-closure",
@@ -284,7 +311,7 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:runtime_source"
         ],
-        "component_hash": "sha256:979d1a4fde4f57f441f9b8e9ed621cf9c11a1bc0de31cd4fa2e983285f8630e2",
+        "component_hash": "sha256:c744a67dbce7be9bd88b7a3e12f34a50efce49f1b99f2d9700a790b501673ca9",
         "component_id": "component:runtime_source:080f9faa510b9dfd",
         "consumer_ids": [
           "owner:check:flowguard-structure-mesh:native-authority",
@@ -318,13 +345,16 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:runtime_source"
         ],
-        "component_hash": "sha256:695d0e63f8e88688d9f9e6bbd8e7396f158f26fff9495af190e13540e541e25d",
-        "component_id": "component:runtime_source:54b8f20e0ec412d6",
+        "component_hash": "sha256:3e740cc6486bd9ede8a33827f44a9fba48a9a1723d683f2c146e47a4c54efe8b",
+        "component_id": "component:runtime_source:398e1de2590c454f",
         "consumer_ids": [
           "owner:check:flowguard-structure-mesh:native-authority"
         ],
         "install_disposition": "source_only",
         "member_paths": [
+          "flowguard/architecture_reduction.py",
+          "flowguard/blueprint_topology.py",
+          "flowguard/project_blueprint.py",
           "flowguard/structuremesh.py"
         ],
         "role": "runtime_source"
@@ -333,13 +363,16 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:test_dev"
         ],
-        "component_hash": "sha256:74205e5f30e7aecaf8d1c999768329f3d68927b804ba396384a4b9d627c67fc9",
-        "component_id": "component:test_dev:a2487e6ce6a7ce76",
+        "component_hash": "sha256:c0a0ec82005c4a7b3e6585660413dbd313a5dfa10e91557c369e5a0df20b9315",
+        "component_id": "component:test_dev:9c6fcd8a06b59341",
         "consumer_ids": [
           "owner:check:flowguard-structure-mesh:native-authority"
         ],
         "install_disposition": "source_only",
         "member_paths": [
+          "tests/test_architecture_reduction.py",
+          "tests/test_blueprint_topology.py",
+          "tests/test_project_blueprint.py",
           "tests/test_structure_mesh.py"
         ],
         "role": "test_dev"
@@ -360,39 +393,39 @@
       "owner_cycles": [],
       "unmapped_paths": []
     },
-    "impact_graph_hash": "sha256:da65eb9c47e158ad290a7b86b996de5ebd5f8f4b92aaea44953e70b265026701",
+    "impact_graph_hash": "sha256:d9c983404acb6066a9202f1dc3f72eb16b0ba867be12a13ab0045c458cbd49e3",
     "inventory": [
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:contract_schema",
-        "content_hash": "sha256:278c4787aeff823bcaf2b2d57665a80c93254c7784b6afd6a5cbbc4938db8530",
+        "content_hash": "sha256:c76bfdaeae07d3f3134b184c61c437a7dafaea14daf9a5a11e78159efa46abb2",
         "install_disposition": "source_only",
         "path": ".agents/skills/flowguard-structure-mesh/.skillguard/contract-source.json",
         "role": "contract_schema"
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
-        "content_hash": "sha256:348e856f288da950bd0e653aa4916da2dfca3f50169ff4d64441ef6034d82261",
+        "content_hash": "sha256:8afa80f40270506ca356d7afe95d31ed1a328e8acb191ce69a9772ecfd8ad609",
         "install_disposition": "copy",
         "path": ".agents/skills/flowguard-structure-mesh/SKILL.md",
         "role": "documentation_model"
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:runtime_source",
-        "content_hash": "sha256:0748657e6ac559697de12f3470ca2522562d299f63d8777364656ff09fffb4b5",
+        "content_hash": "sha256:4321fd4ef00934412984aa948a9b7034e840d2b9d5f9cb669b2fcc5ae7cb7e7d",
         "install_disposition": "copy",
         "path": ".agents/skills/flowguard-structure-mesh/agents/openai.yaml",
         "role": "runtime_source"
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
-        "content_hash": "sha256:31d71f69a3a2c330a72d4be58196318a9663de23488c1f16a1bfe3e0b649e84e",
+        "content_hash": "sha256:a5a790728454602d45a8220c7258571566fba5dc3d5dcdce2397083f53ebdf33",
         "install_disposition": "copy",
         "path": ".agents/skills/flowguard-structure-mesh/references/structure_mesh_protocol.md",
         "role": "documentation_model"
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
-        "content_hash": "sha256:2f0eba7fa05629e4e2e987ee19b6064160dab588d1faef4d248306f20fc99afb",
+        "content_hash": "sha256:aa0acc5dec0b7d0733f8341236370c52af0bd6791da9617a820753c48e219617",
         "install_disposition": "source_only",
         "path": ".flowguard/structure_refactor_mesh/model.py",
         "role": "documentation_model"
@@ -406,6 +439,27 @@
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:runtime_source",
+        "content_hash": "sha256:2ec354c2b69314958b07cfdb3204441f9c4aa7416c04ac09420215ec1620bf43",
+        "install_disposition": "source_only",
+        "path": "flowguard/architecture_reduction.py",
+        "role": "runtime_source"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:runtime_source",
+        "content_hash": "sha256:c1d0a267d84ec61e9e53353e89f81c9bae61a7b8fd0b855bbf6bf1a3cacbea60",
+        "install_disposition": "source_only",
+        "path": "flowguard/blueprint_topology.py",
+        "role": "runtime_source"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:runtime_source",
+        "content_hash": "sha256:6eb1ab96739e31fc2f5643cb338f0d33f7aa9075944fa01cbe9de2d0feaf0dac",
+        "install_disposition": "source_only",
+        "path": "flowguard/project_blueprint.py",
+        "role": "runtime_source"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:runtime_source",
         "content_hash": "sha256:d2ee0c3a0f3b731bd070e1619443c83a1f1a59b0949abfdb22289430eb4ed9db",
         "install_disposition": "source_only",
         "path": "flowguard/skill_contract_model.py",
@@ -413,10 +467,31 @@
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:runtime_source",
-        "content_hash": "sha256:c0b0c62362f55af5efbcee140746693771fb38c6fdf4fe4c82e626e0d38194f7",
+        "content_hash": "sha256:fb5eb8df70898140502209065e380de29932ad8c4e5664fe93338cf6ded9f76c",
         "install_disposition": "source_only",
         "path": "flowguard/structuremesh.py",
         "role": "runtime_source"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:test_dev",
+        "content_hash": "sha256:1fb5fa63999600dce0273cded22b6a46c322893ba4422ea96556e57ffa2724a4",
+        "install_disposition": "source_only",
+        "path": "tests/test_architecture_reduction.py",
+        "role": "test_dev"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:test_dev",
+        "content_hash": "sha256:89d44c6e53b16db0a34ff4e06750a7a8834a368c90535e60d50bb3f38e8f10b1",
+        "install_disposition": "source_only",
+        "path": "tests/test_blueprint_topology.py",
+        "role": "test_dev"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:test_dev",
+        "content_hash": "sha256:3c7ece17f9867160d8777a80b83e346ecc5c98858b5b5579e64d8afa6e7d22ad",
+        "install_disposition": "source_only",
+        "path": "tests/test_project_blueprint.py",
+        "role": "test_dev"
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:test_dev",
@@ -426,7 +501,7 @@
         "role": "test_dev"
       }
     ],
-    "inventory_hash": "sha256:8be1270ee1487823e63c4adee9bdafab4d9896c1b2385f784f7e78a4009419ce",
+    "inventory_hash": "sha256:d3529afa2d62dc6be6ee4ea91ffc35a574f41cdd5d7447035be94dfda73fc82e",
     "member_root_path": ".agents/skills/flowguard-structure-mesh",
     "owner_receipt_root_ref": {
       "path_token": "owner_evidence_root",
@@ -450,7 +525,7 @@
           }
         ],
         "owner_declaration_hash": "sha256:c4f9fca3ef370bb2e2e88f86f6317445a85cb5336820db7c76a6bfac836fd1a4",
-        "owner_input_projection_hash": "sha256:4d57653495490e5b235932203ae1da95d7d7c99f0dd831e8f33565388dc7532b",
+        "owner_input_projection_hash": "sha256:7ba67c0b75ce6215223ea09911f1c305cfbb4e64d2a0acfa166e9c4dec036652",
         "target_input_role_ids": []
       },
       {
@@ -464,14 +539,38 @@
           "component:documentation_model:972b2233048de1a5",
           "component:documentation_model:d1642a7b0d6a9002",
           "component:runtime_source:080f9faa510b9dfd",
-          "component:runtime_source:54b8f20e0ec412d6",
+          "component:runtime_source:398e1de2590c454f",
           "component:runtime_source:b136623ff610f3f7",
-          "component:test_dev:a2487e6ce6a7ce76"
+          "component:test_dev:9c6fcd8a06b59341"
         ],
         "input_selectors": [
           {
             "kind": "path",
             "path": ".flowguard/structure_refactor_mesh/model.py"
+          },
+          {
+            "kind": "path",
+            "path": "flowguard/architecture_reduction.py"
+          },
+          {
+            "kind": "path",
+            "path": "flowguard/blueprint_topology.py"
+          },
+          {
+            "kind": "path",
+            "path": "flowguard/project_blueprint.py"
+          },
+          {
+            "kind": "path",
+            "path": "tests/test_architecture_reduction.py"
+          },
+          {
+            "kind": "path",
+            "path": "tests/test_blueprint_topology.py"
+          },
+          {
+            "kind": "path",
+            "path": "tests/test_project_blueprint.py"
           },
           {
             "kind": "path",
@@ -490,8 +589,8 @@
             "role": "test_dev"
           }
         ],
-        "owner_declaration_hash": "sha256:7b0349eb07a96c36aa9b4a9df46487090641f3bd015dd0848d4fecc3ad2e77ae",
-        "owner_input_projection_hash": "sha256:327f67aa759783e79f37569dcfdafc4cd13db43f4113ffb8358f01ec17aae7e1",
+        "owner_declaration_hash": "sha256:3f04206f8991e98973620b176b229a4ed01692159c306448d3921475caa1417d",
+        "owner_input_projection_hash": "sha256:bcf0eda86fc37793682d7e5349be2033af82deea3f17782aaaa2e8a85463fa37",
         "target_input_role_ids": []
       },
       {
@@ -511,7 +610,7 @@
           }
         ],
         "owner_declaration_hash": "sha256:c4f9fca3ef370bb2e2e88f86f6317445a85cb5336820db7c76a6bfac836fd1a4",
-        "owner_input_projection_hash": "sha256:4d57653495490e5b235932203ae1da95d7d7c99f0dd831e8f33565388dc7532b",
+        "owner_input_projection_hash": "sha256:7ba67c0b75ce6215223ea09911f1c305cfbb4e64d2a0acfa166e9c4dec036652",
         "target_input_role_ids": []
       }
     ],
@@ -520,7 +619,7 @@
     "projection_consumers": [
       {
         "consumer_id": "projection:contract-compile",
-        "consumer_projection_hash": "sha256:f6d3fa0352bd4806d07329c7a015466f6aeec9a59be88fc9ebf9897387fbd196",
+        "consumer_projection_hash": "sha256:bb601b0cc3911ba3a088783c75c2a5f3e2a25d4cdf6a9c9eb878b5880d73b4dc",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
@@ -528,7 +627,7 @@
           "component:documentation_model:972b2233048de1a5",
           "component:runtime_source:b136623ff610f3f7"
         ],
-        "input_projection_hash": "sha256:9e2f045781f0137f7599b87e8ec7f04ace7758d00236808995361c54e89d6b76",
+        "input_projection_hash": "sha256:65944f2219b46d19e1af6733ba8438e9ad1dda51981bf11adfa7392933a8ac2c",
         "kind": "contract_compile",
         "projection_declaration_hash": "sha256:d8be90f8ccf7963666f8477a59c8aa6f77376413c99fe1e31d0c7ecd09acd8a1"
       },
@@ -544,14 +643,14 @@
       },
       {
         "consumer_id": "projection:installation",
-        "consumer_projection_hash": "sha256:8a518dc3589bb709e2fb2ef4081b66f3190ad3d0fe8df5da0bf20b5ce8a145c8",
+        "consumer_projection_hash": "sha256:77546440265994cfa7c2f2b80528332c103b0d7cddce2605ad58f8eccac1543c",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
           "component:documentation_model:d1642a7b0d6a9002",
           "component:runtime_source:080f9faa510b9dfd"
         ],
-        "input_projection_hash": "sha256:b8ab04e20fdeef2ab6f698b684bb4ba838c4fd3902026faef0c94640c0d51da9",
+        "input_projection_hash": "sha256:6ba25c4a50c0cf28b8e68e118ed9d15a95660835279f6d52e61e602507387893",
         "kind": "installation",
         "projection_declaration_hash": "sha256:0d7fd12721dbf4c4c2853a245ed423ba15608cb206371a980872ac6f34514c2e"
       },
@@ -567,13 +666,13 @@
       },
       {
         "consumer_id": "projection:source-maintenance",
-        "consumer_projection_hash": "sha256:cf3265357952319abb6ae605d473bab953363b84a3430ead35db54e2196550d6",
+        "consumer_projection_hash": "sha256:04894cc0a53e57c29a503e618bd803c36de115f538e55fcd72993490e09bca29",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
           "component:contract_schema:8607b879df5a4249"
         ],
-        "input_projection_hash": "sha256:4a92836a8ead7619c1ad98b6772e939daace0b6c24ce753c620a424fd5ef3827",
+        "input_projection_hash": "sha256:b85fa8e607bb3a38255ef3ea92c801aa38cfeb1c35fd311434edef57e3962e3c",
         "kind": "source_maintenance",
         "projection_declaration_hash": "sha256:437e4e9c88bf088451a4737fb92a78dea9c267893f6cae0eb97d382629493043"
       }
@@ -581,7 +680,7 @@
     "schema_version": "skillguard.content_impact_plan.current",
     "unknown_mapping_disposition": "block"
   },
-  "contract_hash": "84DB861F03FBAE72F7A5289A560DCD51A37F7298D82344F3F79986389C9BAAA4",
+  "contract_hash": "8B88261E2A5B215A5536930ADEA51AF6E83A9FB4D642CDBDEE94AF9CD9620366",
   "depth_profile": {
     "claim_boundary": "flowguard-structure-mesh owns every check's domain meaning; SkillGuard only reconciles the exact current declared-check inventory and terminal receipts in one fixed enforced closure.",
     "enforcement_level": "enforced",
@@ -719,14 +818,20 @@
   "schema_version": "skillguard.compiled_contract.v2",
   "skill_id": "flowguard-structure-mesh",
   "source_fingerprints": {
-    "binding": "278C4787AEFF823BCAF2B2D57665A80C93254C7784B6AFD6A5CBBC4938DB8530",
-    "entrypoint": "348E856F288DA950BD0E653AA4916DA2DFCA3F50169FF4D64441EF6034D82261",
-    "implementation:.agents/skills/flowguard-structure-mesh": "EBA31F98EF7E90A3A00AAC2A2B1CF77346E9299D24165E6255F76B1D1688A723",
-    "implementation:.flowguard/structure_refactor_mesh": "2D02038353BC7EC66683AB6902F83A31DA0E9124593BAAACC4F00459A27FEA25",
+    "binding": "C76BFDAEAE07D3F3134B184C61C437A7DAFAEA14DAF9A5A11E78159EFA46ABB2",
+    "entrypoint": "8AFA80F40270506CA356D7AFE95D31ED1A328E8ACB191CE69A9772ECFD8AD609",
+    "implementation:.agents/skills/flowguard-structure-mesh": "7258409BD4545C34E1D28C77C12EED05D81E57B2F5D34E0D7FFF0ABC7B1906E2",
+    "implementation:.flowguard/structure_refactor_mesh": "F643775E3543DDF5D5C32495ECC84AE3E5DF6087BEF9826848C144B591F353DA",
+    "implementation:flowguard/architecture_reduction.py": "2EC354C2B69314958B07CFDB3204441F9C4AA7416C04AC09420215EC1620BF43",
+    "implementation:flowguard/blueprint_topology.py": "C1D0A267D84EC61E9E53353E89F81C9BAE61A7B8FD0B855BBF6BF1A3CACBEA60",
+    "implementation:flowguard/project_blueprint.py": "6EB1AB96739E31FC2F5643CB338F0D33F7AA9075944FA01CBE9DE2D0FEAF0DAC",
     "implementation:flowguard/skill_contract_model.py": "D2EE0C3A0F3B731BD070E1619443C83A1F1A59B0949ABFDB22289430EB4ED9DB",
-    "implementation:flowguard/structuremesh.py": "C0B0C62362F55AF5EFBCEE140746693771FB38C6FDF4FE4C82E626E0D38194F7",
+    "implementation:flowguard/structuremesh.py": "FB5EB8DF70898140502209065E380DE29932AD8C4E5664FE93338CF6DED9F76C",
+    "implementation:tests/test_architecture_reduction.py": "1FB5FA63999600DCE0273CDED22B6A46C322893BA4422EA96556E57FFA2724A4",
+    "implementation:tests/test_blueprint_topology.py": "89D44C6E53B16DB0A34FF4E06750A7A8834A368C90535E60D50BB3F38E8F10B1",
+    "implementation:tests/test_project_blueprint.py": "3C7ECE17F9867160D8777A80B83E346ECC5C98858B5B5579E64D8AFA6E7D22AD",
     "implementation:tests/test_structure_mesh.py": "F8569E4CEDE5FF0E313E3AF762F1A0CAC0292BFE2CA6FA857DC5D5A8EFA62887",
-    "model": "2F0EBA7FA05629E4E2E987EE19B6064160DAB588D1FAEF4D248306F20FC99AFB",
+    "model": "AA0ACC5DEC0B7D0733F8341236370C52AF0BD6791DA9617A820753C48E219617",
     "model_export": "5EF870BC9F6B082FB1D844F4F45A420F43900BCE6222A7EEB6C4DE067E8010DD"
   },
   "steps": [
@@ -753,7 +858,7 @@
       "binding": {
         "action": {
           "kind": "native",
-          "summary": "Run the existing StructureMesh owner to assign one owner per partition and preserve facades, dependencies, configuration, and public compatibility."
+          "summary": "Run StructureMesh together with topology, project-blueprint, and ArchitectureReduction checks; require a supplied reduction handoff to bind its universe member, observable contract, current proof, consumers/tests, target action, and next route."
         },
         "check_ids": [
           "check:flowguard-structure-mesh:native-authority"
@@ -773,7 +878,7 @@
       "binding": {
         "action": {
           "kind": "verifier",
-          "summary": "Reject missing derivation or owners, removed entrypoints, cycles, configuration drift, or stale parity evidence."
+          "summary": "Reject missing derivation or owners, removed entrypoints, cycles, configuration drift, stale parity, or an incomplete ArchitectureReduction handoff."
         },
         "check_ids": [
           "check:flowguard-structure-mesh:evidence-closure"

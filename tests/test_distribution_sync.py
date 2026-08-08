@@ -7,9 +7,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from flowguard.distribution_sync import (
+    AUTHOR_OWNERSHIP_ARTIFACT,
+    AUTHOR_PROJECTION_ID,
     DEFAULT_EXCLUSION_RULES,
     OWNERSHIP_MANIFEST_NAME,
     PARITY_ROLE_AUTHOR_SOURCE,
@@ -17,6 +20,7 @@ from flowguard.distribution_sync import (
     _check_skill_tree as check_skill_suite,
     _consumer_release_bytes,
     _install_skill_tree as install_skill_suite,
+    author_sync_skill_suite,
     compare_configured_skill_trees,
     install_skill_suite as install_canonical_skill_suite,
     inventory_skill_tree,
@@ -27,6 +31,14 @@ from flowguard.distribution_sync import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+AUTHOR_MEMBERS = tuple(
+    row["name"]
+    for row in json.loads(
+        (ROOT / ".skillguard" / "flowguard-suite" / "suite-map.json").read_text(
+            encoding="utf-8"
+        )
+    )["included_skills"]
+)
 
 
 class DistributionFixture(unittest.TestCase):
@@ -43,6 +55,67 @@ class DistributionFixture(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
+
+
+class AuthorSyncFixture(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        self.source = self.root / "author" / ".agents" / "skills"
+        self.target = self.root / "shadow" / ".agents" / "skills"
+        self.members = AUTHOR_MEMBERS
+        self.assertEqual(15, len(self.members))
+        for member in self.members:
+            member_root = self.source / member
+            (member_root / "agents").mkdir(parents=True)
+            (member_root / "SKILL.md").write_text(
+                f"# {member}\n",
+                encoding="utf-8",
+            )
+            (member_root / "agents" / "openai.yaml").write_text(
+                "name: fixture\n",
+                encoding="utf-8",
+            )
+            controls = member_root / ".skillguard"
+            controls.mkdir()
+            for name in (
+                "contract-source.json",
+                "compiled-contract.json",
+                "check-manifest.json",
+            ):
+                (controls / name).write_text(
+                    json.dumps({"member": member, "artifact": name}) + "\n",
+                    encoding="utf-8",
+                )
+        installed = install_skill_suite(
+            self.source,
+            self.target,
+            member_ids=self.members,
+        )
+        self.assertTrue(installed.ok, installed.to_dict())
+        unrelated = self.target / "researchguard" / "SKILL.md"
+        unrelated.parent.mkdir(parents=True)
+        unrelated.write_text("# co-located\n", encoding="utf-8")
+        self.peer_file = self.root / "shadow" / "peer-work.txt"
+        self.peer_file.write_text("peer work\n", encoding="utf-8")
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def snapshot(self) -> tuple[tuple[str, ...], dict[str, bytes], bytes]:
+        directories = tuple(
+            sorted(
+                path.relative_to(self.target).as_posix()
+                for path in self.target.rglob("*")
+                if path.is_dir()
+            )
+        )
+        files = {
+            path.relative_to(self.target).as_posix(): path.read_bytes()
+            for path in self.target.rglob("*")
+            if path.is_file()
+        }
+        return directories, files, self.peer_file.read_bytes()
 
 
 class TreeInventoryTests(DistributionFixture):
@@ -319,6 +392,225 @@ class DistributionLifecycleTests(DistributionFixture):
         report = uninstall_skill_suite(self.target)
         self.assertFalse(report.ok)
         self.assertEqual("ownership_manifest_unavailable", report.findings[0].code)
+
+
+class AuthorProjectionSyncTests(AuthorSyncFixture):
+    def test_exact_consumer_projection_becomes_complete_author_source(self) -> None:
+        report = author_sync_skill_suite(self.source, self.target)
+
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertEqual(PARITY_ROLE_CONSUMER_DISTRIBUTION, report.previous_projection_role)
+        self.assertEqual(PARITY_ROLE_AUTHOR_SOURCE, report.projection_role)
+        self.assertEqual("activated", report.transaction_status)
+        self.assertEqual(("researchguard",), report.preserved_paths)
+        self.assertTrue(report.parity and report.parity.ok)
+        for member in self.members:
+            self.assertFalse((self.target / member / "consumer-release.json").exists())
+            self.assertTrue(
+                (self.target / member / ".skillguard" / "contract-source.json").is_file()
+            )
+        manifest = json.loads(
+            (self.target / OWNERSHIP_MANIFEST_NAME).read_text(encoding="utf-8")
+        )
+        self.assertEqual(AUTHOR_OWNERSHIP_ARTIFACT, manifest["artifact_type"])
+        self.assertEqual(PARITY_ROLE_AUTHOR_SOURCE, manifest["projection_role"])
+        self.assertEqual(AUTHOR_PROJECTION_ID, manifest["projection_id"])
+        self.assertEqual(list(self.members), manifest["member_ids"])
+        owned_paths = {row["relative_path"] for row in manifest["files"]}
+        self.assertIn(
+            f"{self.members[0]}/.skillguard/compiled-contract.json",
+            owned_paths,
+        )
+        self.assertNotIn(
+            f"{self.members[0]}/consumer-release.json",
+            owned_paths,
+        )
+        self.assertEqual("# co-located\n", (self.target / "researchguard" / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertEqual("peer work\n", self.peer_file.read_text(encoding="utf-8"))
+
+    def test_dry_run_lists_full_role_transition_without_writing(self) -> None:
+        before = self.snapshot()
+
+        report = author_sync_skill_suite(self.source, self.target, dry_run=True)
+
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertEqual("planned", report.transaction_status)
+        self.assertEqual(PARITY_ROLE_CONSUMER_DISTRIBUTION, report.previous_projection_role)
+        self.assertEqual(PARITY_ROLE_AUTHOR_SOURCE, report.projection_role)
+        self.assertEqual(
+            {f"{member}/consumer-release.json" for member in self.members},
+            set(report.removed_files),
+        )
+        self.assertEqual(45, len([path for path in report.copied_files if "/.skillguard/" in path]))
+        self.assertEqual(("researchguard",), report.preserved_paths)
+        self.assertEqual(before, self.snapshot())
+
+    def test_current_author_projection_is_byte_stable_and_idempotent(self) -> None:
+        first = author_sync_skill_suite(self.source, self.target)
+        self.assertTrue(first.ok, first.to_dict())
+        before = self.snapshot()
+
+        second = author_sync_skill_suite(self.source, self.target)
+
+        self.assertTrue(second.ok, second.to_dict())
+        self.assertEqual(PARITY_ROLE_AUTHOR_SOURCE, second.previous_projection_role)
+        self.assertEqual("unchanged", second.transaction_status)
+        self.assertEqual((), second.copied_files)
+        self.assertEqual((), second.removed_files)
+        self.assertEqual(before, self.snapshot())
+
+    def test_exact_owned_author_projection_accepts_a_later_source_update(self) -> None:
+        first = author_sync_skill_suite(self.source, self.target)
+        self.assertTrue(first.ok, first.to_dict())
+        relative = f"{self.members[0]}/SKILL.md"
+        (self.source / relative).write_text("# updated author source\n", encoding="utf-8")
+
+        second = author_sync_skill_suite(self.source, self.target)
+
+        self.assertTrue(second.ok, second.to_dict())
+        self.assertEqual(PARITY_ROLE_AUTHOR_SOURCE, second.previous_projection_role)
+        self.assertEqual("activated", second.transaction_status)
+        self.assertEqual((relative,), second.copied_files)
+        self.assertEqual(
+            "# updated author source\n",
+            (self.target / relative).read_text(encoding="utf-8"),
+        )
+        self.assertEqual("peer work\n", self.peer_file.read_text(encoding="utf-8"))
+
+    def test_modified_owned_file_blocks_complete_transition_and_is_preserved(self) -> None:
+        changed = self.target / self.members[0] / "SKILL.md"
+        changed.write_text("# peer modification\n", encoding="utf-8")
+        before = self.snapshot()
+
+        report = author_sync_skill_suite(self.source, self.target)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("not_started", report.transaction_status)
+        self.assertIn(
+            "author_sync_modified_owned_file",
+            {finding.code for finding in report.findings},
+        )
+        self.assertEqual(before, self.snapshot())
+
+    def test_unowned_member_collision_blocks_without_touching_peer_paths(self) -> None:
+        extra = self.target / self.members[0] / "peer-notes.txt"
+        extra.write_text("preserve me\n", encoding="utf-8")
+        before = self.snapshot()
+
+        report = author_sync_skill_suite(self.source, self.target)
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "author_sync_unowned_collision",
+            {finding.code for finding in report.findings},
+        )
+        self.assertEqual(before, self.snapshot())
+
+    def test_missing_or_ambiguous_ownership_has_no_adoption_path(self) -> None:
+        (self.target / OWNERSHIP_MANIFEST_NAME).unlink()
+        before = self.snapshot()
+
+        report = author_sync_skill_suite(self.source, self.target)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("author_sync_ownership_unavailable", report.findings[0].code)
+        self.assertEqual(before, self.snapshot())
+        self.assertNotIn("member_ids", inspect.signature(author_sync_skill_suite).parameters)
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlink support is unavailable")
+    def test_unsafe_link_inside_managed_member_blocks_without_writes(self) -> None:
+        link = self.target / self.members[0] / "linked.txt"
+        try:
+            os.symlink(self.peer_file, link)
+        except OSError:
+            self.skipTest("symlink creation is not permitted")
+        before_peer = self.peer_file.read_bytes()
+
+        report = author_sync_skill_suite(self.source, self.target)
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "author_sync_unsafe_target_path",
+            {finding.code for finding in report.findings},
+        )
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(before_peer, self.peer_file.read_bytes())
+
+    def test_post_activation_failure_rolls_back_every_managed_file(self) -> None:
+        before = self.snapshot()
+
+        with patch(
+            "flowguard.distribution_sync._verify_author_projection",
+            side_effect=ValueError("forced post-activation failure"),
+        ):
+            report = author_sync_skill_suite(self.source, self.target)
+
+        self.assertFalse(report.ok)
+        self.assertEqual("rolled_back", report.transaction_status)
+        self.assertEqual("author_sync_activation_rolled_back", report.findings[0].code)
+        self.assertEqual(before, self.snapshot())
+
+    def test_role_aware_parity_keeps_author_controls_out_of_consumer(self) -> None:
+        installed = self.root / "installed" / "skills"
+        consumer = install_skill_suite(
+            self.source,
+            installed,
+            member_ids=self.members,
+        )
+        self.assertTrue(consumer.ok, consumer.to_dict())
+        author = author_sync_skill_suite(self.source, self.target)
+        self.assertTrue(author.ok, author.to_dict())
+
+        parity = compare_configured_skill_trees(
+            {
+                "source": self.source,
+                "shadow": self.target,
+                "installed": installed,
+            },
+            member_ids=self.members,
+            root_roles={
+                "source": PARITY_ROLE_AUTHOR_SOURCE,
+                "shadow": PARITY_ROLE_AUTHOR_SOURCE,
+                "installed": PARITY_ROLE_CONSUMER_DISTRIBUTION,
+            },
+        )
+
+        self.assertTrue(parity.ok, parity.to_dict())
+        source_paths = {
+            item.relative_path for item in parity.inventories["source"].files
+        }
+        installed_paths = {
+            item.relative_path for item in parity.inventories["installed"].files
+        }
+        self.assertTrue(any("/.skillguard/" in path for path in source_paths))
+        self.assertFalse(any("/.skillguard/" in path for path in installed_paths))
+
+    def test_cli_exposes_explicit_author_sync_dry_run(self) -> None:
+        before = self.snapshot()
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "install_flowguard_skills.py"),
+                "author-sync",
+                "--source",
+                str(self.source),
+                "--target",
+                str(self.target),
+                "--dry-run",
+                "--json",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual("author-sync", payload["action"])
+        self.assertEqual(PARITY_ROLE_AUTHOR_SOURCE, payload["projection_role"])
+        self.assertEqual("planned", payload["transaction_status"])
+        self.assertEqual(before, self.snapshot())
 
 
 class ConsumerSuiteAuthorityTests(unittest.TestCase):

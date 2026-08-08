@@ -139,7 +139,7 @@ For non-trivial work, select the smallest current FlowGuard public owner; clear 
     ),
     ManagedAdoptionRule(
         "model_system.revision_transaction",
-        """Change model authority only through one accepted `ModelRevisionSet`; persist evidence before the pointer, and restore/compensate effects before rollback.""",
+        """Change model authority only through one accepted `ModelRevisionSet`; keep the revision-local delta distinct from its complete `CurrentEffectiveIntentView`, bind every current model owner exactly, persist evidence before the pointer, and restore/compensate effects before rollback.""",
     ),
     ManagedAdoptionRule(
         "lifecycle.default_replacement",

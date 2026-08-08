@@ -44,9 +44,27 @@ from .model_intent import (
     model_intent_inventory_fingerprint,
     review_model_intent_inventory,
 )
+from .model_intent_authority import (
+    CurrentEffectiveIntentView,
+    _strict_model_intent_contribution,
+    _strict_model_intent_disposition,
+    validate_current_effective_intent_view,
+)
+from .model_path_quality import (
+    PathQualityResult,
+    PathQualitySubject,
+    normalize_path_quality_material,
+    path_quality_result_set_fingerprint,
+)
+from ._wire import (
+    wire_boolean as _wire_boolean,
+    wire_integer as _wire_integer,
+    wire_string as _wire_string,
+    wire_strings as _wire_strings,
+)
 
 MODEL_REVISION_EVIDENCE_CURRENT_SCHEMA = "flowguard.model_revision_evidence.v2"
-MODEL_REVISION_SET_CURRENT_SCHEMA = "flowguard.model_revision_set.v4"
+MODEL_REVISION_SET_CURRENT_SCHEMA = "flowguard.model_revision_set.v5"
 MODEL_ROLLBACK_CONTRACT_CURRENT_SCHEMA = "flowguard.model_rollback_contract.v2"
 MODEL_ROLLBACK_RECEIPT_CURRENT_SCHEMA = "flowguard.model_rollback_receipt.v2"
 REVISION_REMOVAL_DISPOSITION_SCHEMA = (
@@ -55,6 +73,19 @@ REVISION_REMOVAL_DISPOSITION_SCHEMA = (
 REVISION_REMOVAL_DISPOSITIONS = frozenset(
     {"replace", "retire", "migrate", "scope_out"}
 )
+
+
+def _wire_pair(
+    value: Any,
+    field_name: str,
+    first_name: str,
+    second_name: str,
+) -> tuple[str, str]:
+    data = _strict(value, field_name, (first_name, second_name))
+    return (
+        _wire_string(data[first_name], f"{field_name} {first_name}"),
+        _wire_string(data[second_name], f"{field_name} {second_name}"),
+    )
 
 
 @dataclass(frozen=True)
@@ -203,31 +234,36 @@ class RevisionEvidenceRef:
             ),
         )
         return cls(
-            receipt_id=data["receipt_id"],
-            receipt_fingerprint=data["receipt_fingerprint"],
-            owner_route=data["owner_route"],
-            subject_fingerprint=data["subject_fingerprint"],
-            obligation_ids=tuple(
-                _array(data["obligation_ids"], "obligation_ids")
+            receipt_id=_wire_string(data["receipt_id"], "revision receipt_id"),
+            receipt_fingerprint=_wire_string(
+                data["receipt_fingerprint"], "revision receipt_fingerprint"
             ),
-            affected_closure_fingerprint=data[
-                "affected_closure_fingerprint"
-            ],
-            covered_affected_ids=tuple(
-                _array(
-                    data["covered_affected_ids"],
-                    "covered_affected_ids",
-                )
+            owner_route=_wire_string(data["owner_route"], "revision owner_route"),
+            subject_fingerprint=_wire_string(
+                data["subject_fingerprint"], "revision subject_fingerprint"
             ),
-            candidate_snapshot_fingerprint=data[
-                "candidate_snapshot_fingerprint"
-            ],
-            toolchain_fingerprint=data["toolchain_fingerprint"],
-            environment_fingerprint=data["environment_fingerprint"],
-            status=data["status"],
-            current=data["current"],
-            eligible=data["eligible"],
-            schema=data["schema"],
+            obligation_ids=_wire_strings(data["obligation_ids"], "obligation_ids"),
+            affected_closure_fingerprint=_wire_string(
+                data["affected_closure_fingerprint"],
+                "affected_closure_fingerprint",
+            ),
+            covered_affected_ids=_wire_strings(
+                data["covered_affected_ids"], "covered_affected_ids"
+            ),
+            candidate_snapshot_fingerprint=_wire_string(
+                data["candidate_snapshot_fingerprint"],
+                "candidate_snapshot_fingerprint",
+            ),
+            toolchain_fingerprint=_wire_string(
+                data["toolchain_fingerprint"], "toolchain_fingerprint"
+            ),
+            environment_fingerprint=_wire_string(
+                data["environment_fingerprint"], "environment_fingerprint"
+            ),
+            status=_wire_string(data["status"], "revision evidence status"),
+            current=_wire_boolean(data["current"], "revision evidence current"),
+            eligible=_wire_boolean(data["eligible"], "revision evidence eligible"),
+            schema=_wire_string(data["schema"], "revision evidence schema"),
         )
 
 
@@ -300,16 +336,23 @@ class PredictionReplayRef:
             ),
         )
         return cls(
-            replay_id=data["replay_id"],
-            replay_fingerprint=data["replay_fingerprint"],
-            prediction_id=data["prediction_id"],
-            prediction_fingerprint=data["prediction_fingerprint"],
-            observation_boundary_id=data["observation_boundary_id"],
-            candidate_instance_fingerprint=data[
-                "candidate_instance_fingerprint"
-            ],
-            status=data["status"],
-            schema=data["schema"],
+            replay_id=_wire_string(data["replay_id"], "replay_id"),
+            replay_fingerprint=_wire_string(
+                data["replay_fingerprint"], "replay_fingerprint"
+            ),
+            prediction_id=_wire_string(data["prediction_id"], "prediction_id"),
+            prediction_fingerprint=_wire_string(
+                data["prediction_fingerprint"], "prediction_fingerprint"
+            ),
+            observation_boundary_id=_wire_string(
+                data["observation_boundary_id"], "observation_boundary_id"
+            ),
+            candidate_instance_fingerprint=_wire_string(
+                data["candidate_instance_fingerprint"],
+                "candidate_instance_fingerprint",
+            ),
+            status=_wire_string(data["status"], "prediction replay status"),
+            schema=_wire_string(data["schema"], "prediction replay schema"),
         )
 
 
@@ -401,16 +444,19 @@ class RevisionMemberChange:
             ),
         )
         return cls(
-            member_id=data["member_id"],
-            operation=data["operation"],
-            base_instance_fingerprint=data["base_instance_fingerprint"],
-            candidate_instance_fingerprint=data[
-                "candidate_instance_fingerprint"
-            ],
-            changed_element_ids=tuple(
-                _array(data["changed_element_ids"], "changed_element_ids")
+            member_id=_wire_string(data["member_id"], "revision member_id"),
+            operation=_wire_string(data["operation"], "revision operation"),
+            base_instance_fingerprint=_wire_string(
+                data["base_instance_fingerprint"], "base_instance_fingerprint"
             ),
-            schema=data["schema"],
+            candidate_instance_fingerprint=_wire_string(
+                data["candidate_instance_fingerprint"],
+                "candidate_instance_fingerprint",
+            ),
+            changed_element_ids=_wire_strings(
+                data["changed_element_ids"], "changed_element_ids"
+            ),
+            schema=_wire_string(data["schema"], "revision member schema"),
         )
 
 
@@ -420,6 +466,37 @@ def _endpoint_closure_id(endpoint: AuthorityEndpointRef) -> str:
 
 def _model_endpoint_id(model_id: str) -> str:
     return f"model_instance:model:{model_id}"
+
+
+_MODEL_MESH_AFFECTED_ID_PREFIXES = (
+    "root:model:",
+    "model_relation:",
+    "coverage:",
+    "unresolved_gap:",
+    "system_property:",
+)
+
+
+def _native_owner_route_for_affected_id(
+    affected_id: str,
+    endpoint_routes: Mapping[str, str],
+) -> str:
+    """Resolve one affected identity without a generic owner fallback.
+
+    Endpoint identities carry their native route in the model-system snapshot.
+    The five canonical revision-accounting categories below are the explicit
+    model-topology responsibility of ModelMesh.  Any later category must be
+    classified deliberately before it can enter an affected closure.
+    """
+
+    endpoint_route = endpoint_routes.get(affected_id)
+    if endpoint_route is not None:
+        return endpoint_route
+    if affected_id.startswith(_MODEL_MESH_AFFECTED_ID_PREFIXES):
+        return "model_mesh_maintenance"
+    raise ModelAuthorityError(
+        f"affected id has no native owner route: {affected_id}"
+    )
 
 
 @dataclass(frozen=True)
@@ -890,10 +967,15 @@ def derive_revision_affected_closure(
     affected_ids.update(edge_ids)
     owner_bindings = []
     for affected_id in sorted(affected_ids):
-        owner_route = endpoint_routes.get(affected_id)
-        if owner_route is None:
-            owner_route = "model_mesh_maintenance"
-        owner_bindings.append((affected_id, owner_route))
+        owner_bindings.append(
+            (
+                affected_id,
+                _native_owner_route_for_affected_id(
+                    affected_id,
+                    endpoint_routes,
+                ),
+            )
+        )
     return RevisionAffectedClosure(
         affected_ids=tuple(sorted(affected_ids)),
         edge_ids=tuple(sorted(edge_ids)),
@@ -983,11 +1065,13 @@ class RevisionRemovalDisposition:
             ),
         )
         return cls(
-            removed_id=data["removed_id"],
-            disposition=data["disposition"],
-            reason=data["reason"],
-            replacement_id=data["replacement_id"],
-            schema=data["schema"],
+            removed_id=_wire_string(data["removed_id"], "removed_id"),
+            disposition=_wire_string(
+                data["disposition"], "removal disposition"
+            ),
+            reason=_wire_string(data["reason"], "removal reason"),
+            replacement_id=_wire_string(data["replacement_id"], "replacement_id"),
+            schema=_wire_string(data["schema"], "removal disposition schema"),
         )
 
 
@@ -1023,8 +1107,13 @@ class ModelRevisionSet:
     required_evidence_refs: tuple[RevisionEvidenceRef, ...] = ()
     completed_evidence_refs: tuple[RevisionEvidenceRef, ...] = ()
     prediction_replay_refs: tuple[PredictionReplayRef, ...] = ()
+    required_path_quality_model_ids: tuple[str, ...] = ()
+    path_quality_subjects: tuple[PathQualitySubject, ...] = ()
+    path_quality_results: tuple[PathQualityResult, ...] = ()
+    path_quality_result_set_fingerprint: str = ""
     intent_contributions: tuple[ModelIntentContribution, ...] = ()
     intent_dispositions: tuple[ModelIntentDisposition, ...] = ()
+    current_effective_intent_view: CurrentEffectiveIntentView | None = None
     intent_contribution_inventory_fingerprint: str = ""
     intent_conflict_ids: tuple[str, ...] = ()
     intent_unresolved_ids: tuple[str, ...] = ()
@@ -1180,10 +1269,6 @@ class ModelRevisionSet:
             raise ModelAuthorityError(
                 "revision evidence refs must be RevisionEvidenceRef"
             )
-        if not required:
-            raise ModelAuthorityError(
-                "revision set requires evidence refs"
-            )
         if any(item.status != REVISION_EVIDENCE_REQUIRED for item in required):
             raise ModelAuthorityError(
                 "required revision evidence refs must use required status"
@@ -1229,6 +1314,45 @@ class ModelRevisionSet:
             raise ModelAuthorityError("required revision evidence must be unique")
         if len(completed_keys) != len(set(completed_keys)):
             raise ModelAuthorityError("completed revision evidence must be unique")
+        affected_ids_by_owner: dict[str, tuple[str, ...]] = {}
+        for affected_id, owner_route in owner_bindings:
+            affected_ids_by_owner.setdefault(owner_route, ())
+            affected_ids_by_owner[owner_route] = tuple(
+                sorted((*affected_ids_by_owner[owner_route], affected_id))
+            )
+
+        def validate_leaf_receipt_ownership(
+            refs: tuple[RevisionEvidenceRef, ...],
+            label: str,
+        ) -> None:
+            owner_routes = tuple(item.owner_route for item in refs)
+            if len(owner_routes) != len(set(owner_routes)):
+                raise ModelAuthorityError(
+                    f"{label} revision evidence requires one merged reference "
+                    "per native owner"
+                )
+            receipt_ids = tuple(item.receipt_id for item in refs)
+            receipt_fingerprints = tuple(
+                item.receipt_fingerprint for item in refs
+            )
+            if len(receipt_ids) != len(set(receipt_ids)) or len(
+                receipt_fingerprints
+            ) != len(set(receipt_fingerprints)):
+                raise ModelAuthorityError(
+                    f"{label} revision evidence leaf receipt cannot be reused "
+                    "across native owners"
+                )
+            for item in refs:
+                if item.covered_affected_ids != affected_ids_by_owner.get(
+                    item.owner_route, ()
+                ):
+                    raise ModelAuthorityError(
+                        f"{label} revision evidence must use one merged reference "
+                        "covering the native owner's exact affected ids"
+                    )
+
+        validate_leaf_receipt_ownership(required, "required")
+        validate_leaf_receipt_ownership(completed, "completed")
         object.__setattr__(self, "required_evidence_refs", required)
         object.__setattr__(self, "completed_evidence_refs", completed)
         replay_refs = tuple(
@@ -1249,6 +1373,164 @@ class ModelRevisionSet:
                 "prediction replay is not bound to a candidate member"
             )
         object.__setattr__(self, "prediction_replay_refs", replay_refs)
+        if not isinstance(
+            self.current_effective_intent_view,
+            CurrentEffectiveIntentView,
+        ):
+            raise ModelAuthorityError(
+                "current revision schema requires one typed current effective intent view"
+            )
+        if (
+            self.current_effective_intent_view.candidate_snapshot_fingerprint
+            != self.candidate_snapshot_fingerprint
+        ):
+            raise ModelAuthorityError(
+                "current effective intent view candidate fingerprint mismatch"
+            )
+        current_candidate_model_ids = tuple(
+            sorted(
+                binding.logical_model_id
+                for binding in self.current_effective_intent_view.owner_bindings
+            )
+        )
+        minimum_path_quality_model_ids = tuple(
+            sorted(
+                item.member_id
+                for item in members
+                if item.operation in {"add", "replace"}
+            )
+        )
+        try:
+            (
+                required_path_quality_model_ids,
+                path_quality_subjects,
+                path_quality_results,
+            ) = normalize_path_quality_material(
+                self.required_path_quality_model_ids,
+                self.path_quality_subjects,
+                self.path_quality_results,
+            )
+        except ValueError as exc:
+            raise ModelAuthorityError(
+                f"invalid revision path-quality material: {exc}"
+            ) from exc
+        explicit_material = bool(path_quality_subjects or path_quality_results)
+        subject_model_ids = tuple(
+            subject.model_id for subject in path_quality_subjects
+        )
+        if explicit_material:
+            if (
+                required_path_quality_model_ids
+                and required_path_quality_model_ids != subject_model_ids
+            ):
+                raise ModelAuthorityError(
+                    "explicit revision path-quality denominator must equal its "
+                    "subject model ids"
+                )
+            required_path_quality_model_ids = subject_model_ids
+        else:
+            if (
+                required_path_quality_model_ids
+                and required_path_quality_model_ids
+                != minimum_path_quality_model_ids
+            ):
+                raise ModelAuthorityError(
+                    "revision without path-quality material must use the added "
+                    "or replaced model denominator"
+                )
+            required_path_quality_model_ids = minimum_path_quality_model_ids
+        missing_required_path_quality_model_ids = tuple(
+            sorted(
+                set(minimum_path_quality_model_ids)
+                - set(required_path_quality_model_ids)
+            )
+        )
+        if missing_required_path_quality_model_ids:
+            raise ModelAuthorityError(
+                "revision path-quality denominator omits added or replaced "
+                "model members: "
+                + ", ".join(missing_required_path_quality_model_ids)
+            )
+        foreign_path_quality_model_ids = tuple(
+            sorted(
+                set(required_path_quality_model_ids)
+                - set(current_candidate_model_ids)
+            )
+        )
+        if foreign_path_quality_model_ids:
+            raise ModelAuthorityError(
+                "revision path-quality denominator contains models outside "
+                "the current candidate intent-owner denominator: "
+                + ", ".join(foreign_path_quality_model_ids)
+            )
+        expected_path_quality_fingerprint = path_quality_result_set_fingerprint(
+            required_path_quality_model_ids,
+            path_quality_subjects,
+            path_quality_results,
+        )
+        supplied_path_quality_fingerprint = str(
+            self.path_quality_result_set_fingerprint or ""
+        )
+        if (
+            supplied_path_quality_fingerprint
+            and supplied_path_quality_fingerprint
+            != expected_path_quality_fingerprint
+        ):
+            raise ModelAuthorityError(
+                "revision path-quality result-set fingerprint is stale or foreign"
+            )
+        candidate_members = {
+            item.member_id: item
+            for item in members
+            if item.operation in {"add", "replace"}
+        }
+        subjects_by_fingerprint = {
+            subject.fingerprint: subject for subject in path_quality_subjects
+        }
+        for subject in path_quality_subjects:
+            member = candidate_members.get(subject.model_id)
+            if member is not None and (
+                subject.model_fingerprint
+                != member.candidate_instance_fingerprint
+            ):
+                raise ModelAuthorityError(
+                    "revision path-quality subject is not bound to its exact "
+                    f"candidate member: {subject.model_id}"
+                )
+            if subject.currentness_id != self.candidate_snapshot_fingerprint:
+                raise ModelAuthorityError(
+                    "revision path-quality subject currentness must equal the "
+                    f"candidate snapshot: {subject.model_id}"
+                )
+        for result in path_quality_results:
+            subject = subjects_by_fingerprint.get(result.subject_fingerprint)
+            if subject is None:
+                raise ModelAuthorityError(
+                    "revision path-quality result does not participate in its "
+                    "explicit subject denominator"
+                )
+            if (
+                not result.current
+                or result.currentness_id
+                != self.candidate_snapshot_fingerprint
+                or result.currentness_id != subject.currentness_id
+            ):
+                raise ModelAuthorityError(
+                    "revision path-quality result is not current for its exact "
+                    f"candidate subject: {subject.model_id}"
+                )
+        object.__setattr__(
+            self,
+            "required_path_quality_model_ids",
+            required_path_quality_model_ids,
+        )
+        object.__setattr__(self, "path_quality_subjects", path_quality_subjects)
+        object.__setattr__(self, "path_quality_results", path_quality_results)
+        object.__setattr__(
+            self,
+            "path_quality_result_set_fingerprint",
+            expected_path_quality_fingerprint,
+        )
         intent_contributions = tuple(
             sorted(
                 self.intent_contributions,
@@ -1281,12 +1563,18 @@ class ModelRevisionSet:
             "intent_dispositions",
             intent_dispositions,
         )
+        known_external_contribution_ids = tuple(
+            item.prior_contribution_id
+            for item in self.current_effective_intent_view.transitions
+            if item.action == "supersede"
+        )
         intent_review = review_model_intent_inventory(
             intent_contributions,
             intent_dispositions,
-            changed_model_ids=self._changed_model_identity_ids(),
+            changed_model_ids=self._intent_expressible_changed_model_ids(),
             changed_gap_ids=self.changed_gap_ids,
             enforce_changed_targets=True,
+            known_external_contribution_ids=known_external_contribution_ids,
         )
         expected_intent_fingerprint = model_intent_inventory_fingerprint(
             intent_contributions,
@@ -1421,6 +1709,10 @@ class ModelRevisionSet:
             raise ModelAuthorityError(
                 "accepted revision set requires exact resolved intent closure"
             )
+        if self.status == REVISION_ACCEPTED and not self.path_quality_acceptance_ready:
+            raise ModelAuthorityError(
+                "accepted revision set requires exact current observed path-quality closure"
+            )
         if self.status != REVISION_PROPOSED and not self.decision_reason:
             raise ModelAuthorityError(
                 "terminal revision set requires a decision reason"
@@ -1456,7 +1748,14 @@ class ModelRevisionSet:
             == self.affected_closure_ids
         )
 
-    def _changed_model_identity_ids(self) -> tuple[str, ...]:
+    def _intent_expressible_changed_model_ids(self) -> tuple[str, ...]:
+        semantic_prefixes = (
+            "obligation:",
+            "state:",
+            "transition:",
+            "invariant:",
+            "relation:",
+        )
         return tuple(
             sorted(
                 {
@@ -1467,28 +1766,27 @@ class ModelRevisionSet:
                             for member in self.members
                             for changed_id in member.changed_element_ids
                         ),
-                        *self.changed_root_ids,
                         *self.changed_relation_ids,
-                        *self.changed_commitment_ids,
-                        *self.changed_field_ids,
-                        *self.changed_side_effect_ids,
-                        *self.changed_contract_ids,
-                        *self.changed_system_property_ids,
-                        *self.added_ids,
-                        *self.fingerprint_changed_ids,
                     )
+                    if item_id.startswith(semantic_prefixes)
                 }
             )
         )
 
     @property
     def intent_review(self) -> ModelIntentReview:
+        known_external_contribution_ids = tuple(
+            item.prior_contribution_id
+            for item in self.current_effective_intent_view.transitions
+            if item.action == "supersede"
+        )
         return review_model_intent_inventory(
             self.intent_contributions,
             self.intent_dispositions,
-            changed_model_ids=self._changed_model_identity_ids(),
+            changed_model_ids=self._intent_expressible_changed_model_ids(),
             changed_gap_ids=self.changed_gap_ids,
             enforce_changed_targets=True,
+            known_external_contribution_ids=known_external_contribution_ids,
         )
 
     @property
@@ -1498,8 +1796,48 @@ class ModelRevisionSet:
             and self.no_declared_intent_evidence_fingerprints
             and self.no_declared_intent_rationale
         )
-        return self.intent_review.acceptance_ready and bool(
-            self.intent_contributions or no_intent_complete
+        return (
+            self.current_effective_intent_view.complete
+            and self.intent_review.acceptance_ready
+            and bool(self.intent_contributions or no_intent_complete)
+        )
+
+    @property
+    def path_quality_blocked_model_ids(self) -> tuple[str, ...]:
+        subjects_by_model = {
+            item.model_id: item for item in self.path_quality_subjects
+        }
+        results_by_subject = {
+            item.subject_fingerprint: item for item in self.path_quality_results
+        }
+        blocked: list[str] = []
+        for model_id in self.required_path_quality_model_ids:
+            subject = subjects_by_model.get(model_id)
+            if subject is None:
+                blocked.append(model_id)
+                continue
+            result = results_by_subject.get(subject.fingerprint)
+            if result is None:
+                blocked.append(model_id)
+                continue
+            if (
+                not result.current
+                or result.currentness_id != self.candidate_snapshot_fingerprint
+                or result.currentness_id != subject.currentness_id
+                or result.conclusion == "unresolved"
+                or result.unresolved_ids
+                or result.selected_candidate_lane == "normative_target"
+            ):
+                blocked.append(model_id)
+        return tuple(blocked)
+
+    @property
+    def path_quality_acceptance_ready(self) -> bool:
+        return (
+            len(self.path_quality_subjects)
+            == len(self.required_path_quality_model_ids)
+            == len(self.path_quality_results)
+            and not self.path_quality_blocked_model_ids
         )
 
     @property
@@ -1563,12 +1901,27 @@ class ModelRevisionSet:
             "prediction_replay_refs": [
                 item.to_dict() for item in self.prediction_replay_refs
             ],
+            "required_path_quality_model_ids": list(
+                self.required_path_quality_model_ids
+            ),
+            "path_quality_subjects": [
+                item.to_dict() for item in self.path_quality_subjects
+            ],
+            "path_quality_results": [
+                item.to_compact_dict() for item in self.path_quality_results
+            ],
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
             "intent_contributions": [
                 item.to_dict() for item in self.intent_contributions
             ],
             "intent_dispositions": [
                 item.to_dict() for item in self.intent_dispositions
             ],
+            "current_effective_intent_view": (
+                self.current_effective_intent_view.to_dict()
+            ),
             "intent_contribution_inventory_fingerprint": (
                 self.intent_contribution_inventory_fingerprint
             ),
@@ -1599,12 +1952,7 @@ class ModelRevisionSet:
         }
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            **self.identity_payload(),
-            "evidence_complete": self.evidence_complete,
-            "intent_acceptance_ready": self.intent_acceptance_ready,
-            "fingerprint": self.fingerprint,
-        }
+        return {**self.identity_payload(), "fingerprint": self.fingerprint}
 
     def accept(
         self,
@@ -1671,6 +2019,14 @@ class ModelRevisionSet:
 
     @classmethod
     def from_dict(cls, value: Any) -> "ModelRevisionSet":
+        if not isinstance(value, Mapping):
+            raise ModelAuthorityError("model_revision_set must be a JSON object")
+        if value.get("schema") != MODEL_REVISION_SET_CURRENT_SCHEMA:
+            raise ModelAuthorityError(
+                "model revision set schema must be "
+                f"{MODEL_REVISION_SET_CURRENT_SCHEMA}; legacy current authority "
+                "requires explicit intent bootstrap migration"
+            )
         data = _strict(
             value,
             "model_revision_set",
@@ -1706,8 +2062,13 @@ class ModelRevisionSet:
                 "required_evidence_refs",
                 "completed_evidence_refs",
                 "prediction_replay_refs",
+                "required_path_quality_model_ids",
+                "path_quality_subjects",
+                "path_quality_results",
+                "path_quality_result_set_fingerprint",
                 "intent_contributions",
                 "intent_dispositions",
+                "current_effective_intent_view",
                 "intent_contribution_inventory_fingerprint",
                 "intent_conflict_ids",
                 "intent_unresolved_ids",
@@ -1720,11 +2081,54 @@ class ModelRevisionSet:
                 "originating_activation_receipt_fingerprint",
                 "status",
                 "decision_reason",
-                "evidence_complete",
-                "intent_acceptance_ready",
                 "fingerprint",
             ),
         )
+        for field_name in (
+            "schema",
+            "revision_set_id",
+            "task_id",
+            "expected_head_fingerprint",
+            "base_snapshot_fingerprint",
+            "candidate_snapshot_fingerprint",
+            "affected_closure_fingerprint",
+            "snapshot_diff_fingerprint",
+            "intent_contribution_inventory_fingerprint",
+            "no_declared_intent_rationale_id",
+            "no_declared_intent_rationale",
+            "implementation_bundle_fingerprint",
+            "rollback_contract_fingerprint",
+            "originating_revision_set_fingerprint",
+            "originating_activation_receipt_fingerprint",
+            "status",
+            "decision_reason",
+            "fingerprint",
+            "path_quality_result_set_fingerprint",
+        ):
+            _wire_string(data[field_name], field_name)
+        for field_name in (
+            "affected_closure_ids",
+            "affected_edge_ids",
+            "changed_root_ids",
+            "changed_relation_ids",
+            "changed_source_surface_ids",
+            "changed_commitment_ids",
+            "changed_field_ids",
+            "changed_side_effect_ids",
+            "changed_contract_ids",
+            "changed_test_ids",
+            "changed_system_property_ids",
+            "changed_coverage_ids",
+            "changed_gap_ids",
+            "changed_owner_artifact_ids",
+            "added_ids",
+            "removed_ids",
+            "fingerprint_changed_ids",
+            "intent_conflict_ids",
+            "intent_unresolved_ids",
+            "required_path_quality_model_ids",
+        ):
+            _wire_strings(data[field_name], field_name)
         result = cls(
             revision_set_id=data["revision_set_id"],
             task_id=data["task_id"],
@@ -1747,13 +2151,11 @@ class ModelRevisionSet:
                 _array(data["affected_edge_ids"], "affected_edge_ids")
             ),
             affected_owner_bindings=tuple(
-                (
-                    _strict(
-                        item,
-                        "affected_owner_binding",
-                        ("affected_id", "owner_route"),
-                    )["affected_id"],
-                    item["owner_route"],
+                _wire_pair(
+                    item,
+                    "affected_owner_binding",
+                    "affected_id",
+                    "owner_route",
                 )
                 for item in _array(
                     data["affected_owner_bindings"],
@@ -1855,18 +2257,44 @@ class ModelRevisionSet:
                     "prediction_replay_refs",
                 )
             ),
+            required_path_quality_model_ids=tuple(
+                _array(
+                    data["required_path_quality_model_ids"],
+                    "required_path_quality_model_ids",
+                )
+            ),
+            path_quality_subjects=tuple(
+                PathQualitySubject.from_dict(item)
+                for item in _array(
+                    data["path_quality_subjects"], "path_quality_subjects"
+                )
+            ),
+            path_quality_results=tuple(
+                PathQualityResult.from_dict(item)
+                for item in _array(
+                    data["path_quality_results"], "path_quality_results"
+                )
+            ),
+            path_quality_result_set_fingerprint=data[
+                "path_quality_result_set_fingerprint"
+            ],
             intent_contributions=tuple(
-                ModelIntentContribution.from_dict(item)
+                _strict_model_intent_contribution(item)
                 for item in _array(
                     data["intent_contributions"],
                     "intent_contributions",
                 )
             ),
             intent_dispositions=tuple(
-                ModelIntentDisposition.from_dict(item)
+                _strict_model_intent_disposition(item)
                 for item in _array(
                     data["intent_dispositions"],
                     "intent_dispositions",
+                )
+            ),
+            current_effective_intent_view=(
+                CurrentEffectiveIntentView.from_dict(
+                    data["current_effective_intent_view"]
                 )
             ),
             intent_contribution_inventory_fingerprint=data[
@@ -1885,13 +2313,11 @@ class ModelRevisionSet:
                 "no_declared_intent_rationale_id"
             ],
             no_declared_intent_evidence_fingerprints=tuple(
-                (
-                    _strict(
-                        item,
-                        "no_declared_intent_evidence",
-                        ("role", "fingerprint"),
-                    )["role"],
-                    item["fingerprint"],
+                _wire_pair(
+                    item,
+                    "no_declared_intent_evidence",
+                    "role",
+                    "fingerprint",
                 )
                 for item in _array(
                     data["no_declared_intent_evidence_fingerprints"],
@@ -1917,13 +2343,6 @@ class ModelRevisionSet:
             decision_reason=data["decision_reason"],
             schema=data["schema"],
         )
-        if bool(data["evidence_complete"]) != result.evidence_complete:
-            raise ModelAuthorityError("stale revision evidence_complete")
-        if (
-            bool(data["intent_acceptance_ready"])
-            != result.intent_acceptance_ready
-        ):
-            raise ModelAuthorityError("stale revision intent_acceptance_ready")
         if data["fingerprint"] != result.fingerprint:
             raise ModelAuthorityError("stale revision-set fingerprint")
         return result
@@ -1971,6 +2390,10 @@ def validate_revision_set_snapshots(
         raise ModelAuthorityError(
             "revision candidate snapshot fingerprint mismatch"
         )
+    validate_current_effective_intent_view(
+        candidate_snapshot,
+        revision_set.current_effective_intent_view,
+    )
     if base_snapshot.system_id != candidate_snapshot.system_id:
         raise ModelAuthorityError("revision snapshots belong to different systems")
 
@@ -2179,19 +2602,29 @@ class ModelActivationReceipt:
             ),
         )
         return cls(
-            receipt_id=data["receipt_id"],
-            system_id=data["system_id"],
-            revision_set_fingerprint=data["revision_set_fingerprint"],
-            expected_head_fingerprint=data["expected_head_fingerprint"],
-            previous_snapshot_fingerprint=data[
-                "previous_snapshot_fingerprint"
-            ],
-            candidate_snapshot_fingerprint=data[
-                "candidate_snapshot_fingerprint"
-            ],
-            subject_revision=data["subject_revision"],
-            next_generation=data["next_generation"],
-            schema=data["schema"],
+            receipt_id=_wire_string(data["receipt_id"], "activation receipt_id"),
+            system_id=_wire_string(data["system_id"], "activation system_id"),
+            revision_set_fingerprint=_wire_string(
+                data["revision_set_fingerprint"], "revision_set_fingerprint"
+            ),
+            expected_head_fingerprint=_wire_string(
+                data["expected_head_fingerprint"], "expected_head_fingerprint"
+            ),
+            previous_snapshot_fingerprint=_wire_string(
+                data["previous_snapshot_fingerprint"],
+                "previous_snapshot_fingerprint",
+            ),
+            candidate_snapshot_fingerprint=_wire_string(
+                data["candidate_snapshot_fingerprint"],
+                "candidate_snapshot_fingerprint",
+            ),
+            subject_revision=_wire_string(
+                data["subject_revision"], "activation subject_revision"
+            ),
+            next_generation=_wire_integer(
+                data["next_generation"], "activation next_generation"
+            ),
+            schema=_wire_string(data["schema"], "activation schema"),
         )
 
 
@@ -2220,7 +2653,7 @@ def validate_activation_plan(
         != candidate_snapshot.identity_payload()
     ):
         raise ModelAuthorityError(
-            "live candidate reconstruction differs from accepted candidate"
+            "re-derived live candidate differs from accepted candidate"
         )
     validate_revision_set_snapshots(
         base_snapshot,
@@ -2325,16 +2758,16 @@ class ModelRollbackEffect:
             ),
         )
         return cls(
-            effect_id=data["effect_id"],
-            kind=data["kind"],
-            disposition=data["disposition"],
-            required_evidence_fingerprints=tuple(
-                _array(
-                    data["required_evidence_fingerprints"],
-                    "required_evidence_fingerprints",
-                )
+            effect_id=_wire_string(data["effect_id"], "rollback effect_id"),
+            kind=_wire_string(data["kind"], "rollback effect kind"),
+            disposition=_wire_string(
+                data["disposition"], "rollback effect disposition"
             ),
-            schema=data["schema"],
+            required_evidence_fingerprints=_wire_strings(
+                data["required_evidence_fingerprints"],
+                "required_evidence_fingerprints",
+            ),
+            schema=_wire_string(data["schema"], "rollback effect schema"),
         )
 
 
@@ -2453,32 +2886,38 @@ class ModelRollbackContract:
             ),
         )
         result = cls(
-            contract_id=data["contract_id"],
-            expected_head_fingerprint=data["expected_head_fingerprint"],
-            originating_revision_set_fingerprint=data[
-                "originating_revision_set_fingerprint"
-            ],
-            originating_activation_receipt_fingerprint=data[
-                "originating_activation_receipt_fingerprint"
-            ],
-            from_snapshot_fingerprint=data["from_snapshot_fingerprint"],
-            to_snapshot_fingerprint=data["to_snapshot_fingerprint"],
+            contract_id=_wire_string(data["contract_id"], "rollback contract_id"),
+            expected_head_fingerprint=_wire_string(
+                data["expected_head_fingerprint"], "expected_head_fingerprint"
+            ),
+            originating_revision_set_fingerprint=_wire_string(
+                data["originating_revision_set_fingerprint"],
+                "originating_revision_set_fingerprint",
+            ),
+            originating_activation_receipt_fingerprint=_wire_string(
+                data["originating_activation_receipt_fingerprint"],
+                "originating_activation_receipt_fingerprint",
+            ),
+            from_snapshot_fingerprint=_wire_string(
+                data["from_snapshot_fingerprint"], "from_snapshot_fingerprint"
+            ),
+            to_snapshot_fingerprint=_wire_string(
+                data["to_snapshot_fingerprint"], "to_snapshot_fingerprint"
+            ),
             effects=tuple(
                 ModelRollbackEffect.from_dict(item)
                 for item in _array(data["effects"], "effects")
             ),
-            old_snapshot_conformance_evidence_fingerprints=tuple(
-                _array(
-                    data[
-                        "old_snapshot_conformance_evidence_fingerprints"
-                    ],
-                    "old_snapshot_conformance_evidence_fingerprints",
-                )
+            old_snapshot_conformance_evidence_fingerprints=_wire_strings(
+                data["old_snapshot_conformance_evidence_fingerprints"],
+                "old_snapshot_conformance_evidence_fingerprints",
             ),
-            schema=data["schema"],
+            schema=_wire_string(data["schema"], "rollback contract schema"),
         )
         if (
-            bool(data["exact_rollback_possible"])
+            _wire_boolean(
+                data["exact_rollback_possible"], "exact_rollback_possible"
+            )
             != result.exact_rollback_possible
         ):
             raise ModelAuthorityError(
@@ -2566,20 +3005,21 @@ class ModelRollbackReceipt:
             ),
         )
         return cls(
-            receipt_id=data["receipt_id"],
-            contract_fingerprint=data["contract_fingerprint"],
-            reverse_revision_set_fingerprint=data[
-                "reverse_revision_set_fingerprint"
-            ],
-            result=data["result"],
-            completed_evidence_fingerprints=tuple(
-                _array(
-                    data["completed_evidence_fingerprints"],
-                    "completed_evidence_fingerprints",
-                )
+            receipt_id=_wire_string(data["receipt_id"], "rollback receipt_id"),
+            contract_fingerprint=_wire_string(
+                data["contract_fingerprint"], "contract_fingerprint"
             ),
-            reason=data["reason"],
-            schema=data["schema"],
+            reverse_revision_set_fingerprint=_wire_string(
+                data["reverse_revision_set_fingerprint"],
+                "reverse_revision_set_fingerprint",
+            ),
+            result=_wire_string(data["result"], "rollback result"),
+            completed_evidence_fingerprints=_wire_strings(
+                data["completed_evidence_fingerprints"],
+                "completed_evidence_fingerprints",
+            ),
+            reason=_wire_string(data["reason"], "rollback reason"),
+            schema=_wire_string(data["schema"], "rollback receipt schema"),
         )
 
 

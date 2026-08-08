@@ -33,8 +33,10 @@ Accept finite dimensions/seeds; generate cases with oracles; block unbounded cla
 - Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
 - Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Broad/full claims require a complete `ContractCoverageUniverse`; reject/block/repair cases require actionable oracle feedback.
-- Matrix ready is not whole-chain ready; current composite handoff acceptance and template harvest closure remain required where applicable.
-- When behavior authority is finite, generate missing/mismatched intent/commitment/path, wrong-path, parallel-success, stale-proof, omitted member/candidate, opaque-similarity, facade, and invalid UI-exception cases. Expected inventories come from their owners, never from the smaller observed set.
+- Matrix ready is not chain ready; composite acceptance remains required.
+- Only explicit reuse/publication or proven cross-project use
+  triggers strict `risk_template_library` closure.
+- When behavior authority is finite, generate missing/mismatched intent/commitment/path, wrong-path, parallel-success, stale-proof, omitted member/candidate, opaque-relation, facade, and invalid UI-exception cases. Expected inventories come from their owners, never from the smaller observed set.
 
 ## Output Requirements
 - Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, canonical coverage cases, gaps, shards, and receipts.

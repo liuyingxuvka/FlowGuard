@@ -2,10 +2,6 @@
 
 <!-- README HERO START -->
 <p align="center">
-  <img src="./assets/readme-hero/hero.png" alt="FlowGuard concept hero image" width="100%" />
-</p>
-
-<p align="center">
   <img src="./assets/readme-hero/flowguard-icon.png" alt="FlowGuard icon" width="120" />
 </p>
 
@@ -16,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.68.6` | `1.0` | Python standard library only | MIT |
+| `v0.68.7` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -26,7 +22,7 @@ An AI-agent skill suite with executable check scripts, FlowGuard checks the risk
 
 It asks the agent to turn the danger zone into a finite state model, run that model, and inspect counterexample traces. That makes problems such as duplicate side effects, stale test evidence, broken UI recovery paths, or unsupported "done" claims visible before they become maintenance debt.
 
-For a post-green model miss, v0.68.0 can also derive a bounded,
+For a post-green model miss, v0.66.0 can also derive a bounded,
 deletion-minimal conflict from exact observation, model, code/test, and failure
 boundary atoms. The result is deliberately subordinate to the existing
 Model-Miss Review: it preserves the parent decision, reports budget exhaustion
@@ -50,11 +46,37 @@ user chose to do, and whether FlowGuard itself admits implementation. It reads
 only explicit JSON artifacts; it never runs missing owners, resumes validation,
 publishes receipts, changes model authority, or writes files.
 
-The whole-system semantic mesh is the compact map of FlowGuard's existing
-model-system authority, not a second “DNA package.” It supports bounded
-task-understanding claims by loading only affected owners and evidence, and its
-claim remains inside the declared model-system boundary. See
+The whole-system semantic mesh is the relationship layer inside FlowGuard's
+living blueprint. It supports bounded task-understanding claims by loading
+only affected owners and evidence, while its whole-target view connects those
+same current identities inside the declared model-system boundary. See
 [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md).
+
+The v0.68.7 candidate self-model contains an exact inventory of 51 current
+owners. Fourteen historical, task-local, or completed construction routes were removed from current
+authority after their still-useful protections were reattached: Model Angle
+Deliberation, Maintenance Scan Router, standalone Model Similarity
+Consolidation, Legacy Compatibility Cleanup, the dedicated Template Harvest
+Closure self-model, OpenSpec Archive Cleanup, README Positioning 20260602,
+Release Visibility Process, Risk Purpose Header, AI Surface Streamlining,
+Reduce Architecture Surface, Simplify FlowGuard Structure, Structure Surface
+Simplification, and Simplify Field Schema. Bug back-propagation now
+follows one bounded chain from the exact commitment and behavior block through
+canonical affected relations, finite ContractExhaustion cases,
+ModelMaturation, and current model/code/test evidence. Explicit risk-template
+reuse and publication remain available when requested; they are not a
+universal completion gate. Old public route names are errors rather than
+aliases or fallbacks.
+
+Every new or materially changed model now receives a compact path-quality
+decision before it can enter current DNA. Ordinary one-path models stop at a
+lightweight structural result; a finite deep comparison runs only when current
+evidence exposes duplication, unreachable structure, repeated work, missing
+necessity evidence, material growth, or another explicit trigger. Cost remains
+multi-dimensional, every retained model element needs a current necessity
+witness, and FlowGuard makes only bounded claims such as
+`single_clear_path` or `locally_irreducible_under_declared_rewrites`—never an
+unrestricted claim that it found the globally best possible software.
 
 For an explicit whole-target claim, the provider-neutral blueprint composes
 exact observation and authority providers for software, workflows, services,
@@ -76,6 +98,31 @@ green status. Placeholder cases cannot make the graph green; test design stays
 separate from current execution evidence; and ordinary work stays
 affected-only. See
 [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md).
+
+When an explicit portable checkpoint is needed,
+`target-system-blueprint-export` preserves the strict target descriptor,
+frozen provider evidence and layer plan, complete native observation/authority
+report set, and the compiler-owned qualification/readiness result. It uses the
+same `CanonicalBlueprintProjection` manifest, content-addressed shards, writer,
+and verifier as the Python-project convenience export; there is no second DNA
+envelope or raw-manifest authority. `project-blueprint-export` adds the twenty
+project-specialized projection kinds, including code/test bindings, resources,
+intent, topology, and affected indexes, through that same materialization
+kernel. Materialization success is reported separately from model readiness,
+so a growing blueprint can be exchanged without hiding an `incomplete`,
+`stale`, `blocked`, or `not_run` status. Both exports name these boundaries as
+`materialization_ok`, `materialization_status`, and
+`model_readiness_status`.
+
+The generic disk loader proves only exact directory ownership, current
+manifest shape, and content-addressed shard integrity. The target export then
+rebinds the materialized identity, evidence, native reports, and readiness to
+the exact compiler inputs before reporting success. This matters because a
+self-consistent rewritten shard and manifest can still be the wrong target.
+Activation also rechecks the old and staged trees immediately before the
+swap; an activation failure restores the prior projection, while a failure to
+delete an already-obsolete backup cannot turn a successful activation into a
+false failure.
 
 ## The Problem
 
@@ -353,7 +400,7 @@ FlowGuard has one model-first kernel and route-specific skills. These are the sk
 | `flowguard-model-test-alignment` | model obligations, code contracts, and test evidence need direct comparison |
 | `flowguard-model-mesh` | parent/child model evidence, sibling impact, or oversized model surfaces need mesh governance |
 | `flowguard-model-topology-hazard-review` | a locally green model may still imply future-use hazards |
-| `flowguard-architecture-reduction` | duplicated handlers, adapters, modules, branches, or validation layers may be contracted without changing behavior |
+| `flowguard-architecture-reduction` | current DNA necessity must classify repeated or historical surfaces as retain, equivalent contraction, delegating facade, authorized behavior retirement, or unresolved |
 | `flowguard-model-miss-review` | runtime, tests, replay, logs, or manual checks failed after a FlowGuard model passed |
 <!-- FLOWGUARD SKILL TABLE EN END -->
 
@@ -379,6 +426,29 @@ commitments, external surfaces, fields/state/effects, code contracts, and
 tests/evidence. Missing authority or unresolved required coverage blocks broad
 current-model claims.
 
+Every accepted v5 revision carries two intent views that must not be confused.
+The revision-local delta records only what that revision changes. The
+cumulative `CurrentEffectiveIntentView` records the complete intent that remains
+active for the modeled system after the change. It binds every independently
+derived current model owner exactly once, reverifies the active source for each
+contribution, and records whether prior intent was retained, superseded, or
+retired. The first v5 view is created through one explicit ancestry-audited
+bootstrap receipt; later revisions refine the accepted view directly rather
+than reconstructing current meaning from historical deltas.
+
+FlowGuard's executable check engine is a Python runtime, but this authority
+contract is target- and provider-neutral. The modeled target may be software in
+another language, a service, a workflow, an agent, a pipeline, or a mixed
+system; its provider supplies target-native observation and evidence without
+changing the model-authority rules.
+
+The two bootstrap commands own different boundaries. For a brand-new modeled
+project, `model-system-bootstrap` establishes generation-one observed authority
+from its first verified snapshot. Once that observed authority exists,
+`model-revision-intent-bootstrap` creates the first cumulative v5 intent view
+for a generation-one or legacy v4 lineage. It does not replace project
+bootstrap, and later v5 revisions use the normal refine path.
+
 A target or experiment replaces the observed system only as one accepted
 `ModelRevisionSet`: the exact base, candidate, changed relations, affected
 sibling closure, prediction/replay evidence, and current owner receipts must
@@ -390,10 +460,21 @@ pointer; irreversible effects require forward repair.
 ```powershell
 python -m flowguard model-system-bootstrap --root . --snapshot-id <id> --evidence-fingerprint <sha256>
 python -m flowguard model-system-audit --root . --json
-python -m flowguard model-revision-build --root . --model-parent-receipt <model-parent.json> --revision-set-id <revision-id> --task-id <task-id> --snapshot-id <snapshot-id> --json
+python -m flowguard model-revision-plan --root . --snapshot-id <snapshot-id> --compact --json
+python -m flowguard model-revision-owner-evidence --root . --model-parent-receipt <model-parent.json> --snapshot-id <snapshot-id> --output <owner-evidence.json> --json
+python -m flowguard model-revision-intent-bootstrap --root . --model-parent-receipt <model-parent.json> --native-owner-evidence <owner-evidence.json> --revision-set-id <revision-id> --task-id <task-id> --snapshot-id <snapshot-id> --intent-bootstrap-input <bootstrap-input.json> --json
 python -m flowguard model-revision-activate --root . --candidate-snapshot <snapshot.json> --revision-set <revision.json> --receipt-id <id>
+python -m flowguard model-revision-build --root . --model-parent-receipt <later-model-parent.json> --native-owner-evidence <later-owner-evidence.json> --intent-inventory <later-intent-inventory.json> --revision-set-id <later-revision-id> --task-id <later-task-id> --snapshot-id <later-snapshot-id> --json
 python -m flowguard model-revision-rollback --root . --contract <rollback.json> --completed-evidence-fingerprint <sha256> --result exact --receipt-id <id> --reason <reason>
 ```
+
+The first cumulative v5 revision therefore has one direct main line: preview,
+produce exact native-owner evidence, run `model-revision-intent-bootstrap` once
+with both the aggregate bootstrap input and that evidence, then activate the
+accepted pair. Running an evidence-free bootstrap first only creates an
+incomplete non-current candidate and is not a required stage. After v5 is
+current, later revisions use `model-revision-build` with an exact refinement
+intent inventory.
 
 These commands extend the existing model, preflight, ModelMesh, commitment,
 field-lifecycle, test, and development-process routes. They do not introduce a
@@ -477,18 +558,31 @@ still validate. Store plans outside the retained evidence root, repeat
 unclassified bytes before cleanup. Ordinary validation never invokes
 persistent cleanup.
 
-The skill installer manages the complete 15-member tree and records which files it owns:
+The skill installer keeps the complete 15-member author and consumer
+projections separate and records exactly which files it owns. Point
+`FLOWGUARD_AUTHOR_SHADOW_SKILLS` at an explicit maintainer workspace's
+`.agents/skills` directory; `author-sync` never targets `CODEX_HOME` and never
+copies the surrounding repository:
 
 ```powershell
+python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --dry-run --json
+python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --json
 python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --dry-run --json
 python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --json
 python scripts/install_flowguard_skills.py check --source . --codex-home $env:CODEX_HOME --json
-python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_SHADOW\.agents\skills --installed $env:CODEX_HOME\skills --json
+python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --installed $env:CODEX_HOME\skills --json
 python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOME --dry-run --json
 python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOME --json
 ```
 
-`check` and `parity` are read-only, so they do not accept `--dry-run`. Uninstall removes only unchanged installer-owned files and preserves modified or unowned files as conflicts. Current receipts live under `.flowguard/evidence/skill-suite`; model-run artifacts live in the chosen regression `--output-dir`. Environment-local receipts are explicitly excluded from the distributed skill tree and must be regenerated where claims are made.
+`author-sync` atomically maintains only the declared author members and their
+ownership record. `install` independently builds the clean consumer
+distribution. `check` and `parity` are read-only, so they do not accept
+`--dry-run`. Uninstall removes only unchanged installer-owned files and
+preserves modified or unowned files as conflicts. Current receipts live under
+`.flowguard/evidence/skill-suite`; model-run artifacts live in the chosen
+regression `--output-dir`. Environment-local receipts are explicitly excluded
+from the distributed skill tree and must be regenerated where claims are made.
 
 See [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md) for the command contract, exit/status meanings, background-monitoring boundary, evidence locations, and safe install lifecycle.
 
@@ -511,9 +605,18 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.68.6 is source-only: the immutable Git tag is the release
+FlowGuard v0.68.7 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
+
+Verify the frozen source candidate, immutable tag, and published release as
+three separate identities:
+
+```powershell
+python scripts/verify_flowguard_release.py --root . --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.7 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.7 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+```
 
 ## Relationship To The Guard Family
 
@@ -531,8 +634,8 @@ Release asset.
 | [`docs/concept.md`](./docs/concept.md) | short conceptual introduction |
 | [`docs/modeling_protocol.md`](./docs/modeling_protocol.md) | core model-first protocol |
 | [`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md) | task-derived understanding depth, receipts, and implementation admission |
-| [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md) | complete 64-model semantic self-map and claim boundary |
-| [`docs/understanding_plumbing_reduction.md`](./docs/understanding_plumbing_reduction.md) | behavior-preserving contraction and field/surface dispositions |
+| [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md) | complete 51-model candidate inventory, semantic map, and claim boundary |
+| [`docs/understanding_plumbing_reduction.md`](./docs/understanding_plumbing_reduction.md) | earlier behavior-preserving contraction evidence and field/surface dispositions |
 | [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md) | independent inventory, bidirectional bindings, exact model/code/test/topology qualification, and affected-only projection |
 | [`docs/api_surface.md`](./docs/api_surface.md) | public Python API overview |
 | [`docs/invariant_examples.md`](./docs/invariant_examples.md) | examples of useful invariants |
@@ -544,7 +647,7 @@ Release asset.
 | [`docs/model_test_alignment.md`](./docs/model_test_alignment.md) | model obligation and test evidence alignment |
 | [`docs/model_mesh_protocol.md`](./docs/model_mesh_protocol.md) | parent/child model mesh governance |
 | [`docs/model_topology_hazard_review.md`](./docs/model_topology_hazard_review.md) | topology-grounded future-use hazard review |
-| [`docs/model_similarity_consolidation.md`](./docs/model_similarity_consolidation.md) | model-to-model relation review and consolidation handoffs |
+| [`docs/canonical_relation_handoff.md`](./docs/canonical_relation_handoff.md) | exact internal canonical-relation handoffs between current owners |
 | [`docs/flowguard_closure_contract.md`](./docs/flowguard_closure_contract.md) | closure contract for complete FlowGuard use |
 | [`docs/risk_evidence_ledger.md`](./docs/risk_evidence_ledger.md) | risk-to-model-to-code-to-evidence confidence boundary |
 | [`docs/runtime_gateway_adoption.md`](./docs/runtime_gateway_adoption.md) | runtime gateway adoption levels and critical-state writer inventory |
@@ -594,10 +697,18 @@ FlowGuard 不调用 LLM API，不是 prompt trick，也不是普通测试的替�
 深度、用户选择怎样执行、以及 FlowGuard 自己是否允许进入实现。它只读取明确
 提供的 JSON 证据，不会补跑负责人、续跑验证、发布回执、切换模型权威或写文件。
 
-FlowGuard 的整套语义网格就是现有模型权威的紧凑地图，不再额外包装一套
-“DNA Package”。它会按具体任务只加载受影响的负责人和证据，因此轻量任务
-仍然可以轻量走；同时，任何理解声明都不能超出当前模型和证据边界。详见
+FlowGuard 的整套语义网格，是这份持续生长蓝图内部的关系层。它会按具体任务
+只加载受影响的负责人和证据，因此轻量任务仍然可以轻量走；需要整套理解时，
+同一批当前身份会连接成完整视图，而且任何理解声明都不能超出当前模型和证据边界。详见
 [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md)。
+
+v0.68.7 的当前候选 DNA 精确包含 51 个长期模型负责人。14 个历史、任务期或
+已经完成施工职责的模型已经退出当前权威，但它们仍有价值的反例和保护先被移交
+给了现行负责人。每个新增或实质变化的模型还必须有一份紧凑的路径质量结果：
+普通单一路径只做轻量结构检查；只有当前证据发现重复、不可达、重复劳动、缺少
+必要性证明、明显增长或其他明确触发时，才进入有限深审。成本始终是多维的，
+每个保留元素都要说明它保护哪项当前义务，FlowGuard 也不会声称找到了不受边界
+限制的“全局最优软件”。
 
 当任务明确要求整套目标系统蓝图时，FlowGuard 会用同一套核心组合精确的观察
 提供者和权威提供者；目标可以是软件、工作流程、服务、Agent、数据管线或混合
@@ -609,6 +720,18 @@ FlowGuard 的整套语义网格就是现有模型权威的紧凑地图，不再�
 测试设计是否齐全与本轮实际执行证据是否通过会分开；父子模型还必须说明子模型
 的哪个输出接入父模型的哪个输入。普通任务仍然只处理受影响范围。详见
 [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md)。
+
+需要交换或保存完整模型快照时，`target-system-blueprint-export` 会原样保存严格
+目标描述、冻结的 provider 证据和层级计划、完整的观察/权威 native report set，
+以及编译器自己算出的资格与准备度结果。它和 Python 项目便利入口
+`project-blueprint-export` 使用同一个 `CanonicalBlueprintProjection` manifest、
+内容寻址 shard、写入器和校验器，不会额外造第二种 DNA 包装或 raw manifest
+权威。项目便利入口再通过这同一套物化内核写出二十类项目专用投影，包括行为和
+案例、父子接口、代码与测试绑定、资源、意图、受影响索引以及全部深度和缺口。
+写出成功与模型准备度是两个结果，因此一份还在生长的蓝图可以被交换，但其中的
+`incomplete`、`stale`、`blocked` 或 `not_run` 不会被隐藏。两个命令都分别使用
+`materialization_ok`、`materialization_status` 和
+`model_readiness_status`，不会用一个容易误解的总 `ok` 把两件事混在一起。
 
 ## 为什么需要它
 
@@ -853,6 +976,25 @@ FlowGuard 现在明确分开三件事：
 副作用、代码契约、测试/证据六类有限清单连起来。当前权威缺失或必需覆盖有缺口
 时，FlowGuard 会明确阻断“现状模型完整可信”的说法。
 
+每个已经接受的 v5 修订都同时保存两种不能混为一谈的意图。本轮局部变化只说明
+“这一轮改了什么”；累积的 `CurrentEffectiveIntentView` 则说明
+“这一轮完成后，整个已建模系统现在仍然是什么意思”。完整当前视图必须精确
+绑定独立推导出的每一个当前模型负责人，重新核实每项有效意图的来源，并明确
+记录原有意图是保留、被新意图替代，还是正式退休。第一次建立 v5 当前视图时，
+使用一次显式、经过 ancestry 审计的 bootstrap 回执；后续修订直接细化已经接受
+的完整视图，不再从历次局部修改临时拼出“当前含义”。
+
+FlowGuard 的可执行检查引擎本身使用 Python，但这套权威契约不限制目标语言，
+也不绑定某一个 provider。目标可以是其他语言的软件、服务、工作流程、Agent、
+数据管线或混合系统；对应 provider 负责提供目标原生的观察和证据，而不会改变
+模型权威规则。
+
+两个 bootstrap 命令负责的是不同边界。对一个全新的已建模项目，
+`model-system-bootstrap` 根据第一份经过验证的快照建立 generation-one 现状权威。
+已经有现状权威之后，`model-revision-intent-bootstrap` 才负责把 generation-one
+或旧 v4 lineage 建成第一份累积 v5 当前意图视图。后一个命令不会替代新项目的
+初始化；进入 v5 后的日常修订继续走正常 refine 路径。
+
 目标或实验要真正替代现状，必须作为一个完整的 `ModelRevisionSet` 一次通过：
 基础版本、候选版本、关系变化、受影响的兄弟模型、预测/回放证据和当前负责人
 回执都必须精确匹配。系统先写不可变记录，最后才在共享的版本比较锁内切换唯一
@@ -862,10 +1004,20 @@ FlowGuard 现在明确分开三件事：
 ```powershell
 python -m flowguard model-system-bootstrap --root . --snapshot-id <id> --evidence-fingerprint <sha256>
 python -m flowguard model-system-audit --root . --json
-python -m flowguard model-revision-build --root . --model-parent-receipt <model-parent.json> --revision-set-id <revision-id> --task-id <task-id> --snapshot-id <snapshot-id> --json
+python -m flowguard model-revision-plan --root . --snapshot-id <snapshot-id> --compact --json
+python -m flowguard model-revision-owner-evidence --root . --model-parent-receipt <model-parent.json> --snapshot-id <snapshot-id> --output <owner-evidence.json> --json
+python -m flowguard model-revision-intent-bootstrap --root . --model-parent-receipt <model-parent.json> --native-owner-evidence <owner-evidence.json> --revision-set-id <revision-id> --task-id <task-id> --snapshot-id <snapshot-id> --intent-bootstrap-input <bootstrap-input.json> --json
 python -m flowguard model-revision-activate --root . --candidate-snapshot <snapshot.json> --revision-set <revision.json> --receipt-id <id>
+python -m flowguard model-revision-build --root . --model-parent-receipt <later-model-parent.json> --native-owner-evidence <later-owner-evidence.json> --intent-inventory <later-intent-inventory.json> --revision-set-id <later-revision-id> --task-id <later-task-id> --snapshot-id <later-snapshot-id> --json
 python -m flowguard model-revision-rollback --root . --contract <rollback.json> --completed-evidence-fingerprint <sha256> --result exact --receipt-id <id> --reason <reason>
 ```
+
+因此，第一次建立累计 v5 当前意图只有一条直接主线：先预览变化，再生成精确的
+原生负责人证据，然后把完整 bootstrap 输入和负责人证据一起交给一次
+`model-revision-intent-bootstrap`，最后才激活已经接受的快照和修订。先运行一次不带
+负责人证据的 bootstrap 只会得到一个不完整、尚未成为当前权威的候选，并不是必要
+步骤。v5 已经成为当前权威以后，后续修订才使用带精确 refinement intent inventory
+的 `model-revision-build`。
 
 这些入口升级的是原来的建模、预检、ModelMesh、行为承诺、字段生命周期、测试和
 开发流程；没有另造第二套产品流程，也没有把任何规格工具塞进 FlowGuard。
@@ -968,18 +1120,28 @@ audit 和 plan 不修改证据。apply 会重新核对冻结计划，只把仍�
 其他流程绑定的 legacy 根应逐个传入 `--preserve`，存在未分类字节时不得清理。普通
 验证绝不会自动触发持久清理。
 
-技能安装器管理完整的 15 项文件树，并记录自己拥有的文件：
+技能安装器把完整的 15 项作者投影与 consumer 安装投影分开管理，并精确记录自己
+拥有的文件。`FLOWGUARD_AUTHOR_SHADOW_SKILLS` 必须指向一个明确作者工作区里的
+`.agents/skills`；`author-sync` 不会使用 `CODEX_HOME`，也不会复制周围的整个仓库：
 
 ```powershell
+python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --dry-run --json
+python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --json
 python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --dry-run --json
 python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --json
 python scripts/install_flowguard_skills.py check --source . --codex-home $env:CODEX_HOME --json
-python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_SHADOW\.agents\skills --installed $env:CODEX_HOME\skills --json
+python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --installed $env:CODEX_HOME\skills --json
 python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOME --dry-run --json
 python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOME --json
 ```
 
-`check` 和 `parity` 本身只读，因此不接受 `--dry-run`。卸载只删除未被用户改动、且有 installer ownership 记录的文件；修改过或不归安装器拥有的文件会保留并报告 conflict。当前技能回执放在 `.flowguard/evidence/skill-suite`，模型运行产物放在回归命令指定的 `--output-dir`。环境本地回执会被明确排除在技能分发树之外，需要在提出声明的环境中重新生成。
+`author-sync` 只原子维护声明的作者成员和它自己的 ownership record；`install`
+单独生成干净的 consumer distribution。`check` 和 `parity` 本身只读，因此不接受
+`--dry-run`。卸载只删除未被用户改动、且有 installer ownership 记录的文件；修改过
+或不归安装器拥有的文件会保留并报告 conflict。当前技能回执放在
+`.flowguard/evidence/skill-suite`，模型运行产物放在回归命令指定的
+`--output-dir`。环境本地回执会被明确排除在技能分发树之外，需要在提出声明的环境中
+重新生成。
 
 更完整的命令契约、状态/退出码、后台监控边界、证据目录和安全安装生命周期，见 [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md)。
 
@@ -1006,8 +1168,16 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.68.6 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.68.7 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
+
+源码候选、不可变 tag 和已发布 Release 是三个独立身份，应分别验证：
+
+```powershell
+python scripts/verify_flowguard_release.py --root . --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.7 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.7 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+```
 
 ## Guard Family 关系
 
@@ -1025,8 +1195,8 @@ FlowGuard v0.68.6 只发布源码：不可变 Git tag 是唯一发布权威，re
 | [`docs/concept.md`](./docs/concept.md) | 简短概念介绍 |
 | [`docs/modeling_protocol.md`](./docs/modeling_protocol.md) | 核心 model-first 协议 |
 | [`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md) | 任务推导的理解深度、正式收据和代码准入 |
-| [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md) | 64 个现有模型的完整语义自地图和声明边界 |
-| [`docs/understanding_plumbing_reduction.md`](./docs/understanding_plumbing_reduction.md) | 保持行为不变的结构收缩与字段/入口处置 |
+| [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md) | 51 个现有候选模型的完整清单、语义自地图和声明边界 |
+| [`docs/understanding_plumbing_reduction.md`](./docs/understanding_plumbing_reduction.md) | 早期保持行为不变的结构收缩证据与字段/入口处置 |
 | [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md) | 独立实现清单、双向绑定、模型/代码/测试/父子接口静态资格和受影响范围投影 |
 | [`docs/api_surface.md`](./docs/api_surface.md) | 公开 Python API 概览 |
 | [`docs/invariant_examples.md`](./docs/invariant_examples.md) | 常用 invariant 示例 |
@@ -1038,7 +1208,7 @@ FlowGuard v0.68.6 只发布源码：不可变 Git tag 是唯一发布权威，re
 | [`docs/model_test_alignment.md`](./docs/model_test_alignment.md) | 模型义务和测试证据对齐 |
 | [`docs/model_mesh_protocol.md`](./docs/model_mesh_protocol.md) | parent/child model mesh 治理 |
 | [`docs/model_topology_hazard_review.md`](./docs/model_topology_hazard_review.md) | 从模型拓扑推断未来使用风险的审查 |
-| [`docs/model_similarity_consolidation.md`](./docs/model_similarity_consolidation.md) | model-to-model 关系审查和 consolidation handoff |
+| [`docs/canonical_relation_handoff.md`](./docs/canonical_relation_handoff.md) | 当前负责人之间的精确内部规范关系传递 |
 | [`docs/flowguard_closure_contract.md`](./docs/flowguard_closure_contract.md) | 完整 FlowGuard 使用的 closure contract |
 | [`docs/risk_evidence_ledger.md`](./docs/risk_evidence_ledger.md) | risk-to-model-to-code-to-evidence 信心边界 |
 | [`docs/runtime_gateway_adoption.md`](./docs/runtime_gateway_adoption.md) | runtime gateway adoption level 和 critical-state writer inventory |

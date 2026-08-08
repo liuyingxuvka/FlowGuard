@@ -21,6 +21,12 @@ REQUIRED_LABELS = (
     "blocked_duplicate_risk",
     "preflight_skipped_with_reason",
     "blocked_surface_inventory_incomplete",
+    "blocked_affected_index_fingerprint",
+    "blocked_affected_object_missing",
+    "blocked_affected_ancestor_missing",
+    "blocked_affected_whole_builder",
+    "blocked_affected_understanding_missing",
+    "blocked_implicit_whole_qualification",
 )
 
 
@@ -108,6 +114,12 @@ def main() -> int:
             "stale-spec-context",
             "mutable-spec-context",
             "over-materialized-selection",
+            "affected-index-fingerprint-drift",
+            "affected-object-missing",
+            "affected-ancestor-missing",
+            "affected-whole-builder-invoked",
+            "affected-understanding-not-derived",
+            "whole-qualification-implicit",
         }
     )
     exact_ok = run_exact_workflow_case(
@@ -157,6 +169,102 @@ def main() -> int:
                 required_labels=("broken_grounded_from_caller_selected_surface_subset",),
                 external_inputs=(
                     next(item for item in model.EXTERNAL_INPUTS if item.task_id == "stale-spec-context"),
+                ),
+                max_sequence_length=3,
+            ),
+            FormalWorkflowCase(
+                "broken_accepts_stale_affected_index",
+                model.build_workflow(
+                    search_block=model.BrokenAcceptsUnverifiedBlueprintScope()
+                ),
+                False,
+                required_labels=("broken_accepts_affected_index_fingerprint_drift",),
+                external_inputs=(
+                    next(
+                        item
+                        for item in model.EXTERNAL_INPUTS
+                        if item.task_id == "affected-index-fingerprint-drift"
+                    ),
+                ),
+                max_sequence_length=3,
+            ),
+            FormalWorkflowCase(
+                "broken_accepts_missing_affected_object",
+                model.build_workflow(
+                    search_block=model.BrokenAcceptsUnverifiedBlueprintScope()
+                ),
+                False,
+                required_labels=("broken_accepts_missing_affected_object",),
+                external_inputs=(
+                    next(
+                        item
+                        for item in model.EXTERNAL_INPUTS
+                        if item.task_id == "affected-object-missing"
+                    ),
+                ),
+                max_sequence_length=3,
+            ),
+            FormalWorkflowCase(
+                "broken_accepts_missing_affected_ancestor",
+                model.build_workflow(
+                    search_block=model.BrokenAcceptsUnverifiedBlueprintScope()
+                ),
+                False,
+                required_labels=("broken_accepts_missing_affected_ancestor",),
+                external_inputs=(
+                    next(
+                        item
+                        for item in model.EXTERNAL_INPUTS
+                        if item.task_id == "affected-ancestor-missing"
+                    ),
+                ),
+                max_sequence_length=3,
+            ),
+            FormalWorkflowCase(
+                "broken_accepts_whole_builder_on_affected_path",
+                model.build_workflow(
+                    search_block=model.BrokenAcceptsUnverifiedBlueprintScope()
+                ),
+                False,
+                required_labels=("broken_accepts_affected_whole_builder",),
+                external_inputs=(
+                    next(
+                        item
+                        for item in model.EXTERNAL_INPUTS
+                        if item.task_id == "affected-whole-builder-invoked"
+                    ),
+                ),
+                max_sequence_length=3,
+            ),
+            FormalWorkflowCase(
+                "broken_accepts_missing_affected_understanding",
+                model.build_workflow(
+                    search_block=model.BrokenAcceptsUnverifiedBlueprintScope()
+                ),
+                False,
+                required_labels=("broken_accepts_missing_affected_understanding",),
+                external_inputs=(
+                    next(
+                        item
+                        for item in model.EXTERNAL_INPUTS
+                        if item.task_id == "affected-understanding-not-derived"
+                    ),
+                ),
+                max_sequence_length=3,
+            ),
+            FormalWorkflowCase(
+                "broken_accepts_implicit_whole_qualification",
+                model.build_workflow(
+                    search_block=model.BrokenAcceptsUnverifiedBlueprintScope()
+                ),
+                False,
+                required_labels=("broken_accepts_implicit_whole_qualification",),
+                external_inputs=(
+                    next(
+                        item
+                        for item in model.EXTERNAL_INPUTS
+                        if item.task_id == "whole-qualification-implicit"
+                    ),
                 ),
                 max_sequence_length=3,
             ),

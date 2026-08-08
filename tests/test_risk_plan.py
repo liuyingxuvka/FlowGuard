@@ -25,7 +25,6 @@ class RiskPlanTests(unittest.TestCase):
             adversarial_inputs=("same request twice",),
             hard_invariants=("at most one notification per request",),
             known_bad_cases=("retry_sends_twice",),
-            used_template_ids=("side_effect_at_most_once",),
             blindspots=("real email provider retries are not replayed",),
         )
 
@@ -35,7 +34,8 @@ class RiskPlanTests(unittest.TestCase):
         self.assertEqual(["duplicate_side_effect"], payload["protected_error_classes"])
         self.assertEqual(["provider_receipt"], payload["completion_evidence"])
         self.assertEqual(["retry_sends_twice"], payload["known_bad_cases"])
-        self.assertEqual(["side_effect_at_most_once"], payload["used_template_ids"])
+        self.assertNotIn("used_template_ids", payload)
+        self.assertNotIn("template_no_match_reason", payload)
         self.assertEqual([], payload["validation_warnings"])
         self.assertIn("duplicate side effect", intent.format_text())
 
@@ -54,7 +54,6 @@ class RiskPlanTests(unittest.TestCase):
                     "adversarial_inputs": ["retry after partial publish"],
                     "hard_invariants": ["no publish without approval"],
                     "known_bad_cases": ["publish_without_approval"],
-                    "used_template_ids": ["completion_requires_evidence"],
                     "blindspots": ["external host availability is not modeled"],
                 },
             }
@@ -110,14 +109,6 @@ class RiskPlanTests(unittest.TestCase):
                 "risk_classes": ("deduplication",),
             },
             scenario_matrix_config={"max_scenarios": 4},
-            template_reuse_review={
-                "used_template_ids": ("side_effect_at_most_once",),
-                "searched_layers": ("public", "local"),
-            },
-            template_harvest_review={
-                "disposition": "duplicate_linked",
-                "linked_template_ids": ("side_effect_at_most_once",),
-            },
             minimum_model_contract={
                 "protected_error_classes": ("duplicate_side_effect",),
                 "modeled_state": ("records",),
@@ -141,19 +132,19 @@ class RiskPlanTests(unittest.TestCase):
         self.assertEqual(1, plan.max_sequence_length)
         self.assertEqual("tiny flow", plan.risk_profile.modeled_boundary)
         self.assertIsInstance(plan.scenario_matrix_config, ScenarioMatrixConfig)
-        self.assertEqual(("side_effect_at_most_once",), plan.template_reuse_review.used_template_ids)
-        self.assertEqual("duplicate_linked", plan.template_harvest_review.disposition)
+        self.assertFalse(hasattr(plan, "template_reuse_review"))
+        self.assertFalse(hasattr(plan, "template_harvest_review"))
         self.assertEqual(("retry_writes_twice",), plan.minimum_model_contract.known_bad_cases)
         self.assertEqual(("retry_writes_twice",), tuple(proof.case_id for proof in plan.known_bad_proofs))
         self.assertIn("workflow: tiny", plan.format_text())
-        self.assertIn("template_harvest_review: provided", plan.format_text())
+        self.assertNotIn("template_reuse_review", plan.format_text())
+        self.assertNotIn("template_harvest_review", plan.format_text())
         self.assertIn("known_bad_proofs: 1", plan.format_text())
-        self.assertEqual("tiny", plan.to_dict()["workflow"])
-        self.assertEqual(
-            ["side_effect_at_most_once"],
-            plan.to_dict()["template_harvest_review"]["linked_template_ids"],
-        )
-        self.assertEqual("retry_writes_twice", plan.to_dict()["known_bad_proofs"][0]["case_id"])
+        payload = plan.to_dict()
+        self.assertEqual("tiny", payload["workflow"])
+        self.assertNotIn("template_reuse_review", payload)
+        self.assertNotIn("template_harvest_review", payload)
+        self.assertEqual("retry_writes_twice", payload["known_bad_proofs"][0]["case_id"])
 
 
 if __name__ == "__main__":

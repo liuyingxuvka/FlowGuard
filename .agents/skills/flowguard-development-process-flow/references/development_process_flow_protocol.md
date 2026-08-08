@@ -36,6 +36,9 @@ a mandatory choice for every task.
 With no optimization reason, record `not_needed` and add no candidates, cost
 records, repair groups, or optimization evidence gate.
 
+Model-path quality is not another public mode. It is a ModelMaturation-owned
+subdecision whose exact result identities are ordered and refreshed here.
+
 ## Ownership
 
 - DevelopmentProcessFlow owns process order, artifact versions, invalidation,
@@ -69,12 +72,18 @@ Capture grouped rows for:
 - Freshness rules: upstream change, affected artifacts/evidence, and rationale;
 - synchronization domains: source, shadow, formal repository, package,
   installed skills, and Git revision/receipt;
+- model-authority intent mode (`bootstrap|refine|blocked`), current accepted
+  revision/effective-view fingerprints, revision-local delta, complete typed
+  transition inventory, independent model-owner denominator/bindings, and any
+  one-way bootstrap receipt;
 - final claim: routine versus release/archive/publish scope and consuming Risk
   Evidence Ledger evidence.
 
-For an explicitly triggered software blueprint, additionally capture the
-observed snapshot, implementation inventory, binding report, resource/oracle
-manifest, projection, and static qualification identities.
+For an explicitly triggered target blueprint, additionally capture the target
+descriptor/profile, frozen layer plan, provider results/registry/snapshot,
+applicable independent inventory, binding/topology, resource/intent/oracle,
+model-test design/execution, normalized projection, and ordered qualification
+identities.
 
 Keep read-only WorkContext adapter/native/artifact/fingerprint ids distinct from
 FlowGuard's own obligation, validation, execution, and receipt ids.
@@ -92,16 +101,33 @@ After the diagnostic boundary closes, relate findings, repair the primary
 owner/root cause, and rerun only affected obligations. Repeat diagnosis only
 when the repair or new material evidence changes the remaining boundary.
 
-Ordinary changes consume the compact current blueprint identity and invalidate
-only affected inventory/binding/resource/projection shards plus their declared
-graph neighborhood. They do not rescan, materialize, or export the
-whole software. Full inventory and static qualification run only for an
+Ordinary changes consume the compact current blueprint identity through the
+direct affected reader and invalidate only affected inventory/binding/resource/
+intent/test/projection shards plus their declared graph neighborhood. They do
+not first construct, rescan, serialize, or export the whole target. Full
+inventory and qualification run only for an
 explicit blueprint/export/qualification scope or a named release obligation.
 
 Reserve broad full verification for a stable frozen integration snapshot.
 Freeze source, toolchain, check inventory, dependencies, and exactly one owner
-per heavy check. Run one all-model owner and one full-test owner; receipt
-consumers project their immutable success and do not rerun them.
+per heavy check. Run exactly one parent full-validation owner whose frozen
+child-owner plan recomposes exact model/test leaf receipts; receipt consumers
+project its immutable success and do not rerun producers.
+
+Inside that one bounded owner invocation, construct one complete immutable
+validation observation after the owner plan is frozen. Resolve and semantically
+verify each exact-current child once, then let sibling rows and aggregates
+consume exact subsets of that same observation. After all native producers
+terminate, make one fresh governed source/dependency/toolchain/environment/owner
+comparison. Publish every newly executed leaf from those exact fresh owner
+contexts without rebuilding source currentness or scanning the receipt store
+per leaf. Reconcile the content-addressed leaf identities once, then complete
+the parent boundary without a third repository scan. Matching identities
+authorize reuse of the already verified objects; they do not justify repeating
+native semantic verification. Any drift blocks the whole candidate operation,
+and an omitted final source comparison or receipt reconciliation is `not_run`.
+Never persist this observation as a cache, receipt alias, alternate store, or
+cross-invocation authority.
 
 Before execution, freeze the complete native owner inventory and derive one
 deterministic plan whose rows are only `execute`, `reuse_current`, or
@@ -114,6 +140,39 @@ composition so sibling or parent failure does not force it to execute again.
 
 If a launcher times out or is interrupted, confirm that its descendant process
 tree is gone before accepting evidence or starting another owner.
+
+## Per-Model Path-Quality Lifecycle
+
+Freeze one affected-model denominator for every new or materially changed
+model. For each member, order exact actions and dependencies as:
+
+1. model owner and complete effective-intent closure;
+2. ModelMaturation's lightweight path-quality review;
+3. ModelMaturation's deep review only when exact current trigger evidence
+   exists;
+4. behavior-sensitive implementation, if authorized;
+5. affected validation;
+6. one candidate `ModelRevisionSet`; and
+7. compare-and-swap activation of that same compact result.
+
+Each review, candidate, and activation row carries one exact compact result
+fingerprint per model. A current `single_clear_path` result proceeds from step
+2 without candidate expansion or deep ceremony. A deep-triggered model cannot
+cross the corresponding implementation or activation claim until the finite
+deep result closes. If a model, implementation, binding, test, oracle,
+provider, dependency, intent, obligation, or evidence input changes after a
+review, stale and minimally refresh that affected model; then refresh triggered
+deep evidence before candidate/activation. Exact unchanged rows may reuse
+current results.
+
+ModelMaturation decides path quality; DPF checks only denominator, order,
+fingerprint currentness, invalidation, and affected validation. Keep faithful
+`observed` behavior separate from a cleaner `normative_target`, and keep user
+execution choice separate from verified understanding and admission. The
+ordinary lifecycle contains no reconstruction phase. Reimplementation,
+language translation, or empirical reconstruction appears only when the user
+explicitly requests that target outcome and never substitutes for static
+closure, model-path evidence, or ordinary validation.
 
 ## Freshness And Sync
 
@@ -169,9 +228,9 @@ its id.
 - A cheaper route is eligible only after outcome, obligation/evidence, safety,
   protected side effect, dependency authority, and execution-owner authority
   are equal.
-- Estimated comparison may support a preferred route; `minimum` requires
-  measured costs over an exhausted named finite set. Never claim a global
-  optimum.
+- Compare hard-equivalent process candidates by current named cost dimensions
+  with Pareto dominance. Missing values are not zero; trade-offs/equality stay
+  unresolved, and no scalar sum, caller tie-break, or global optimum is valid.
 - Material new evidence stales the decision. A repair stays open until every
   affected obligation has current revalidation.
 - A static blueprint result promoted beyond its exact provider and binding
@@ -183,12 +242,22 @@ its id.
 
 Treat current authority, target construction, experiment execution, activation,
 and recovery as separate process states. A target or experiment never mutates
-the observed head. Freeze one revision set against the exact current head,
-recompute its complete base/candidate and affected-closure diff, consume
-current owner receipts, persist immutable records, then update the sole pointer
-last under the shared project-manifest lock.
+the observed head. Freeze `bootstrap` only for the explicit one-way legacy
+migration; otherwise freeze `refine` against the exact current accepted
+revision and complete effective-view fingerprint. Keep the revision-local delta
+separate, require a complete typed retain/supersede/retire transition inventory,
+independently derive the current model-owner denominator and bindings,
+recompute the complete base/candidate and affected-closure diff, consume current
+owner receipts, persist immutable records, then update the sole pointer last
+under the shared project-manifest lock. Legacy current authority, missing
+transition input, or an unlinked prior view is `blocked`, never an implicit
+history/latest-delta fallback.
 
-Before operational rollback, restore or compensate declared code, data,
+Before operational rollback, require a new current-schema reverse revision
+whose effective-intent base fingerprint equals the presently accepted view;
+rolling back toward a pre-current-schema snapshot still reconstructs that
+target state in the current schema and never revives a legacy reader. Then
+restore or compensate declared code, data,
 configuration, migration, and external effects and rerun old-snapshot
 conformance. Exact rollback is allowed only when every effect is restorable;
 compensation must remain visible; irreversible effects route to forward repair.
@@ -235,10 +304,12 @@ candidate, coverage, evidence, request-scope, or owner change stales admission.
 
 ## Blueprint Layer Lifecycle
 
-For explicit whole-target scope, first qualify the frozen provider registry and
-target snapshot, then track exact identities and freshness for the ordered
-layers `implementation_inventory`, `traceability`, `independent_semantics`,
-`model_code_test`, `resource_oracle`, and `static_blueprint`. Native specialists retain layer semantics;
+For explicit whole-target scope, first qualify the frozen profile-matching layer
+plan, provider results/registry, and target snapshot, then track exact identities
+and freshness for every ordered plan layer. The canonical software plan uses
+implementation inventory, traceability, independent semantics, model-code-test,
+resource/intent/oracle, and final static qualification; a non-code workflow uses
+its real workflow layers without fabricated software rows. Native specialists retain layer semantics;
 DevelopmentProcessFlow sequences producers, consumes receipts, invalidates
 affected edges, and reports status without rescoring them.
 Software specialization embeds the complete `ProjectTestInventory`; every
@@ -262,7 +333,7 @@ Keep `user_execution_choice`, `verified_model_maturation`, and
 Track exact fingerprints for the behavior report, resource inventory, intent
 inventory, normalized projection, and readiness report.
 After a normal change, invalidate only affected blocks/shared objects and load
-their verified neighborhood. Before release cleanup, consume the read-only
+their verified neighborhood directly from the normalized index. Before release cleanup, consume the read-only
 self-architecture-reduction review bound to the same self blueprint; route
 only proof-ready candidates into StructureMesh and leave `risky_keep` visible.
 Cleanup never authorizes deletion by size or similarity alone.

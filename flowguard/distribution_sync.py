@@ -1,4 +1,4 @@
-"""Declarative install, uninstall, and parity checks for FlowGuard skills.
+"""Declarative consumer install, author sync, uninstall, and parity for FlowGuard skills.
 
 The distribution surface is deliberately file based.  Every managed file is
 identified by its path and hashes, while volatile evidence is omitted only by
@@ -20,12 +20,20 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping, Sequence
 
+from ._normalization import canonical_json_text as _canonical_json
 from .suite_contract import FLOWGUARD_EXPECTED_MEMBER_COUNT
 
 
 DISTRIBUTION_SCHEMA = "flowguard.skill_distribution.v1"
 OWNERSHIP_SCHEMA = "flowguard.skill_distribution_ownership.v1"
 OWNERSHIP_MANIFEST_NAME = ".flowguard-skill-suite-ownership.json"
+AUTHOR_OWNERSHIP_SCHEMA = "flowguard.skill_author_projection_ownership.v1"
+AUTHOR_OWNERSHIP_ARTIFACT = "flowguard_skill_author_projection_ownership"
+AUTHOR_PROJECTION_ID = "projection:author-source"
+AUTHOR_OWNERSHIP_CLAIM = (
+    "This authority owns only the complete declared FlowGuard author-source "
+    "skill members. It owns no co-located skill or surrounding repository path."
+)
 CONSUMER_RELEASE_SCHEMA = "consumer.skill_distribution.current"
 CONSUMER_RELEASE_MANIFEST = "consumer-release.json"
 CONSUMER_RELEASE_CLAIM = (
@@ -70,9 +78,9 @@ DEFAULT_EXCLUSION_RULES = (
     ),
 )
 
-
-def _canonical_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+AUTHOR_EXCLUSION_RULES = tuple(
+    rule for rule in DEFAULT_EXCLUSION_RULES if rule.rule_id != "author_control"
+)
 
 
 def _sha256(value: bytes) -> str:
@@ -1024,6 +1032,7 @@ def compare_configured_skill_trees(
     reference_name: str = "source",
     member_ids: Sequence[str] | None = None,
     exclusion_rules: Sequence[ExclusionRule] = DEFAULT_EXCLUSION_RULES,
+    author_exclusion_rules: Sequence[ExclusionRule] = AUTHOR_EXCLUSION_RULES,
 ) -> ConfiguredParityReport:
     if reference_name not in roots:
         raise ValueError(f"reference root {reference_name!r} is not configured")
@@ -1040,7 +1049,7 @@ def compare_configured_skill_trees(
     reference_author = inventory_skill_tree(
         roots[reference_name],
         member_ids=ids,
-        exclusion_rules=exclusion_rules,
+        exclusion_rules=author_exclusion_rules,
     )
     reference_consumer, _ = _consumer_source_inventory(
         roots[reference_name],
@@ -1055,7 +1064,11 @@ def compare_configured_skill_trees(
         inventory = inventory_skill_tree(
             root,
             member_ids=ids,
-            exclusion_rules=exclusion_rules,
+            exclusion_rules=(
+                exclusion_rules
+                if root_roles[name] == PARITY_ROLE_CONSUMER_DISTRIBUTION
+                else author_exclusion_rules
+            ),
             allow_missing_root=True,
         )
         inventories[name] = inventory
@@ -1106,6 +1119,10 @@ class DistributionReport:
     authority_raw_tree_hash: str = ""
     authority_semantic_tree_hash: str = ""
     authority_member_ids: tuple[str, ...] = ()
+    previous_projection_role: str = ""
+    projection_role: str = ""
+    preserved_paths: tuple[str, ...] = ()
+    transaction_status: str = ""
 
     @property
     def ok(self) -> bool:
@@ -1143,7 +1160,15 @@ class DistributionReport:
             "authority_raw_tree_hash": self.authority_raw_tree_hash,
             "authority_semantic_tree_hash": self.authority_semantic_tree_hash,
             "authority_member_ids": list(self.authority_member_ids),
-            "claim_boundary": "Only manifest-owned files whose installed raw hash is unchanged may be removed automatically.",
+            "previous_projection_role": self.previous_projection_role,
+            "projection_role": self.projection_role,
+            "preserved_paths": list(self.preserved_paths),
+            "transaction_status": self.transaction_status,
+            "claim_boundary": (
+                AUTHOR_OWNERSHIP_CLAIM
+                if self.action == "author-sync"
+                else "Only manifest-owned files whose installed raw hash is unchanged may be removed automatically."
+            ),
         }
 
 
@@ -1271,6 +1296,179 @@ def _read_manifest_snapshot(
     except (TypeError, ValueError) as exc:
         return None, str(exc), raw
     return payload, "", raw
+
+
+def _author_ownership_payload(
+    source: Path,
+    target: Path,
+    inventory: SkillTreeInventory,
+) -> dict[str, Any]:
+    return {
+        "artifact_type": AUTHOR_OWNERSHIP_ARTIFACT,
+        "schema_version": AUTHOR_OWNERSHIP_SCHEMA,
+        "projection_role": PARITY_ROLE_AUTHOR_SOURCE,
+        "projection_id": AUTHOR_PROJECTION_ID,
+        "source_root": str(source),
+        "target_root": str(target),
+        "member_ids": list(inventory.member_ids),
+        "source_raw_tree_hash": inventory.raw_tree_hash,
+        "source_semantic_tree_hash": inventory.semantic_tree_hash,
+        "files": [item.to_dict() for item in inventory.files],
+        "exclusion_policy": [rule.to_dict() for rule in AUTHOR_EXCLUSION_RULES],
+        "source_excluded_files": [
+            item.to_dict() for item in inventory.excluded_files
+        ],
+        "claim_boundary": AUTHOR_OWNERSHIP_CLAIM,
+    }
+
+
+def _read_author_manifest_snapshot(
+    target: Path,
+) -> tuple[dict[str, Any] | None, str, bytes | None]:
+    path = _manifest_path(target)
+    if not path.is_file():
+        return None, "", None
+    try:
+        raw = path.read_bytes()
+        payload = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return None, str(exc), None
+    expected_keys = {
+        "artifact_type",
+        "schema_version",
+        "projection_role",
+        "projection_id",
+        "source_root",
+        "target_root",
+        "member_ids",
+        "source_raw_tree_hash",
+        "source_semantic_tree_hash",
+        "files",
+        "exclusion_policy",
+        "source_excluded_files",
+        "claim_boundary",
+    }
+    if not isinstance(payload, dict) or set(payload) != expected_keys:
+        return None, "author ownership manifest fields do not match the current schema", raw
+    if payload.get("artifact_type") != AUTHOR_OWNERSHIP_ARTIFACT:
+        return None, "author ownership manifest artifact type is invalid", raw
+    if payload.get("schema_version") != AUTHOR_OWNERSHIP_SCHEMA:
+        return None, "author ownership manifest schema is missing or unsupported", raw
+    if payload.get("projection_role") != PARITY_ROLE_AUTHOR_SOURCE:
+        return None, "author ownership manifest projection role is invalid", raw
+    if payload.get("projection_id") != AUTHOR_PROJECTION_ID:
+        return None, "author ownership manifest projection id is invalid", raw
+    if payload.get("claim_boundary") != AUTHOR_OWNERSHIP_CLAIM:
+        return None, "author ownership manifest claim boundary is invalid", raw
+    try:
+        for field_name in ("source_root", "target_root"):
+            value = payload.get(field_name)
+            if not isinstance(value, str) or not value:
+                raise ValueError(
+                    f"author ownership manifest {field_name} must be a non-empty string"
+                )
+        members = payload.get("member_ids")
+        if not isinstance(members, list) or any(
+            not isinstance(item, str) for item in members
+        ):
+            raise ValueError(
+                "author ownership manifest member_ids must be a string array"
+            )
+        normalized_members = tuple(_safe_relative(item) for item in members)
+        if len(set(normalized_members)) != len(normalized_members):
+            raise ValueError("author ownership manifest member ids must be unique")
+        if len(normalized_members) != FLOWGUARD_EXPECTED_MEMBER_COUNT:
+            raise ValueError(
+                "author ownership manifest must name the complete fifteen-member suite"
+            )
+        for field_name in ("source_raw_tree_hash", "source_semantic_tree_hash"):
+            value = payload.get(field_name)
+            if not isinstance(value, str) or re.fullmatch(
+                r"[0-9A-F]{64}", value
+            ) is None:
+                raise ValueError(
+                    f"author ownership manifest {field_name} must be an uppercase SHA-256 digest"
+                )
+        rows = payload.get("files")
+        if not isinstance(rows, list):
+            raise ValueError("author ownership manifest files must be an array")
+        fingerprints = []
+        for row in rows:
+            if not isinstance(row, Mapping):
+                raise ValueError("author ownership manifest file row must be an object")
+            fingerprints.append(
+                _strict_file_fingerprint(
+                    row,
+                    context="author ownership manifest file row",
+                )
+            )
+        paths = tuple(item.relative_path for item in fingerprints)
+        if len(set(paths)) != len(paths) or paths != tuple(sorted(paths)):
+            raise ValueError(
+                "author ownership manifest file paths must be unique and sorted"
+            )
+        if payload.get("exclusion_policy") != [
+            rule.to_dict() for rule in AUTHOR_EXCLUSION_RULES
+        ]:
+            raise ValueError(
+                "author ownership manifest exclusion policy differs from the current fixed policy"
+            )
+        excluded_rows = payload.get("source_excluded_files")
+        excluded_keys = {"relative_path", "rule_id", "pattern", "reason"}
+        if not isinstance(excluded_rows, list):
+            raise ValueError(
+                "author ownership manifest source_excluded_files must be an array"
+            )
+        for row in excluded_rows:
+            if (
+                not isinstance(row, Mapping)
+                or set(row) != excluded_keys
+                or any(not isinstance(row.get(key), str) for key in excluded_keys)
+            ):
+                raise ValueError(
+                    "author ownership manifest excluded-file row is invalid"
+                )
+            _safe_relative(row["relative_path"])
+    except (TypeError, ValueError) as exc:
+        return None, str(exc), raw
+    return payload, "", raw
+
+
+def _read_projection_ownership(
+    target: Path,
+) -> tuple[dict[str, Any] | None, str, str, bytes | None]:
+    path = _manifest_path(target)
+    if path.is_symlink():
+        return None, "", "ownership manifest must not be a link", None
+    if not path.is_file():
+        return None, "", "author synchronization requires an ownership manifest", None
+    try:
+        raw = path.read_bytes()
+        header = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return None, "", str(exc), None
+    if not isinstance(header, Mapping):
+        return None, "", "ownership manifest must be a JSON object", raw
+    artifact_type = header.get("artifact_type")
+    schema_version = header.get("schema_version")
+    if (
+        artifact_type == "flowguard_skill_distribution_ownership"
+        and schema_version == OWNERSHIP_SCHEMA
+    ):
+        payload, error, parsed_raw = _read_manifest_snapshot(target)
+        return payload, PARITY_ROLE_CONSUMER_DISTRIBUTION, error, parsed_raw
+    if (
+        artifact_type == AUTHOR_OWNERSHIP_ARTIFACT
+        and schema_version == AUTHOR_OWNERSHIP_SCHEMA
+    ):
+        payload, error, parsed_raw = _read_author_manifest_snapshot(target)
+        return payload, PARITY_ROLE_AUTHOR_SOURCE, error, parsed_raw
+    return (
+        None,
+        "",
+        "ownership manifest does not declare one exact supported projection role",
+        raw,
+    )
 
 
 def validate_installed_consumer_suite(
@@ -1618,6 +1816,741 @@ def _fingerprint_if_file(path: Path, relative: str) -> FileFingerprint | None:
     if path.is_symlink():
         raise ValueError(f"target path is a symlink: {relative}")
     return FileFingerprint.from_path(path, relative) if path.is_file() else None
+
+
+def _author_source_inventory(
+    source: str | Path,
+) -> tuple[Path, SkillTreeInventory, tuple[DistributionFinding, ...]]:
+    source_root = resolve_source_skill_root(source)
+    member_ids = discover_member_ids(source)
+    inventory = inventory_skill_tree(
+        source_root,
+        member_ids=member_ids,
+        exclusion_rules=AUTHOR_EXCLUSION_RULES,
+    )
+    findings: list[DistributionFinding] = []
+    if len(member_ids) != FLOWGUARD_EXPECTED_MEMBER_COUNT:
+        findings.append(
+            DistributionFinding(
+                "invalid_author_suite_cardinality",
+                "author synchronization requires the complete fifteen-member FlowGuard suite",
+                metadata={
+                    "actual": len(member_ids),
+                    "expected": FLOWGUARD_EXPECTED_MEMBER_COUNT,
+                },
+            )
+        )
+    for member_id in inventory.missing_member_ids:
+        findings.append(
+            DistributionFinding(
+                "author_source_member_missing",
+                "declared author-source member is missing",
+                member_id,
+            )
+        )
+    for relative in inventory.unsafe_paths:
+        findings.append(
+            DistributionFinding(
+                "unsafe_author_source_path",
+                "author source contains a link or escaping path",
+                relative,
+            )
+        )
+    required_member_paths = (
+        "SKILL.md",
+        "agents/openai.yaml",
+        ".skillguard/contract-source.json",
+        ".skillguard/compiled-contract.json",
+        ".skillguard/check-manifest.json",
+    )
+    source_paths = {item.relative_path for item in inventory.files}
+    for member_id in member_ids:
+        for suffix in required_member_paths:
+            relative = f"{member_id}/{suffix}"
+            if relative not in source_paths:
+                findings.append(
+                    DistributionFinding(
+                        "author_source_authority_missing",
+                        "author source is missing a required prompt, metadata, or SkillGuard authority artifact",
+                        relative,
+                    )
+                )
+        consumer_release = f"{member_id}/{CONSUMER_RELEASE_MANIFEST}"
+        if consumer_release in source_paths:
+            findings.append(
+                DistributionFinding(
+                    "author_source_consumer_artifact",
+                    "author source contains a consumer-only release manifest",
+                    consumer_release,
+                )
+            )
+    return source_root, inventory, tuple(findings)
+
+
+def _projection_manifest_rows(
+    manifest: Mapping[str, Any],
+) -> dict[str, FileFingerprint]:
+    return {
+        item.relative_path: item
+        for item in (
+            _strict_file_fingerprint(
+                row,
+                context="projection ownership manifest file row",
+            )
+            for row in manifest.get("files", ())
+            if isinstance(row, Mapping)
+        )
+    }
+
+
+def _owned_projection_findings(
+    target_root: Path,
+    manifest: Mapping[str, Any],
+    *,
+    projection_role: str,
+    member_ids: Sequence[str],
+) -> tuple[DistributionFinding, ...]:
+    findings: list[DistributionFinding] = []
+    manifest_members = tuple(str(item) for item in manifest.get("member_ids", ()))
+    if manifest_members != tuple(member_ids):
+        findings.append(
+            DistributionFinding(
+                "author_sync_member_ownership_mismatch",
+                "target ownership does not name the exact current fifteen-member suite",
+                OWNERSHIP_MANIFEST_NAME,
+                metadata={
+                    "ownership_member_ids": manifest_members,
+                    "source_member_ids": tuple(member_ids),
+                },
+            )
+        )
+    if str(manifest.get("target_root", "")) != str(target_root):
+        findings.append(
+            DistributionFinding(
+                "author_sync_target_ownership_mismatch",
+                "target ownership authority names a different skill root",
+                OWNERSHIP_MANIFEST_NAME,
+            )
+        )
+    if projection_role == PARITY_ROLE_AUTHOR_SOURCE and manifest.get(
+        "projection_role"
+    ) != PARITY_ROLE_AUTHOR_SOURCE:
+        findings.append(
+            DistributionFinding(
+                "author_sync_projection_role_mismatch",
+                "author ownership authority does not declare author_source",
+                OWNERSHIP_MANIFEST_NAME,
+            )
+        )
+    try:
+        target_inventory = inventory_skill_tree(
+            target_root,
+            member_ids=member_ids,
+            exclusion_rules=AUTHOR_EXCLUSION_RULES,
+            allow_missing_root=True,
+        )
+        owned_rows = _projection_manifest_rows(manifest)
+    except (OSError, TypeError, ValueError) as exc:
+        return (
+            DistributionFinding(
+                "author_sync_target_inventory_invalid",
+                f"{type(exc).__name__}: {exc}",
+            ),
+        )
+    owned_files = tuple(sorted(owned_rows.values(), key=lambda item: item.relative_path))
+    owned_raw_tree_hash = _sha256(
+        _canonical_json(
+            [[item.relative_path, item.raw_hash] for item in owned_files]
+        ).encode("utf-8")
+    )
+    owned_semantic_tree_hash = _sha256(
+        _canonical_json(
+            [[item.relative_path, item.semantic_hash] for item in owned_files]
+        ).encode("utf-8")
+    )
+    if manifest.get("source_raw_tree_hash") != owned_raw_tree_hash:
+        findings.append(
+            DistributionFinding(
+                "author_sync_ownership_tree_hash_mismatch",
+                "ownership raw tree identity does not match its exact file rows",
+                OWNERSHIP_MANIFEST_NAME,
+            )
+        )
+    if manifest.get("source_semantic_tree_hash") != owned_semantic_tree_hash:
+        findings.append(
+            DistributionFinding(
+                "author_sync_ownership_tree_hash_mismatch",
+                "ownership semantic tree identity does not match its exact file rows",
+                OWNERSHIP_MANIFEST_NAME,
+            )
+        )
+    required_common = ("SKILL.md", "agents/openai.yaml")
+    for member_id in member_ids:
+        required = list(required_common)
+        if projection_role == PARITY_ROLE_CONSUMER_DISTRIBUTION:
+            required.append(CONSUMER_RELEASE_MANIFEST)
+        else:
+            required.extend(
+                (
+                    ".skillguard/contract-source.json",
+                    ".skillguard/compiled-contract.json",
+                    ".skillguard/check-manifest.json",
+                )
+            )
+        for suffix in required:
+            relative = f"{member_id}/{suffix}"
+            if relative not in owned_rows:
+                findings.append(
+                    DistributionFinding(
+                        "author_sync_owned_authority_missing",
+                        "owned projection lacks a required role-specific artifact",
+                        relative,
+                    )
+                )
+        consumer_release = f"{member_id}/{CONSUMER_RELEASE_MANIFEST}"
+        author_controls = tuple(
+            relative
+            for relative in owned_rows
+            if relative.startswith(f"{member_id}/.skillguard/")
+        )
+        if (
+            projection_role == PARITY_ROLE_CONSUMER_DISTRIBUTION
+            and author_controls
+        ):
+            findings.append(
+                DistributionFinding(
+                    "author_sync_consumer_role_contains_author_control",
+                    "consumer ownership authority contains author-only control files",
+                    author_controls[0],
+                )
+            )
+        if (
+            projection_role == PARITY_ROLE_AUTHOR_SOURCE
+            and consumer_release in owned_rows
+        ):
+            findings.append(
+                DistributionFinding(
+                    "author_sync_author_role_contains_consumer_artifact",
+                    "author ownership authority contains a consumer-only release manifest",
+                    consumer_release,
+                )
+            )
+    for member_id in target_inventory.missing_member_ids:
+        findings.append(
+            DistributionFinding(
+                "author_sync_owned_member_missing",
+                "an ownership-declared member is missing from the target",
+                member_id,
+            )
+        )
+    for relative in target_inventory.unsafe_paths:
+        findings.append(
+            DistributionFinding(
+                "author_sync_unsafe_target_path",
+                "managed target contains a link or escaping path",
+                relative,
+            )
+        )
+    actual_rows = {item.relative_path: item for item in target_inventory.files}
+    for relative in sorted(owned_rows.keys() - actual_rows.keys()):
+        findings.append(
+            DistributionFinding(
+                "author_sync_owned_file_missing",
+                "ownership-declared target file is missing",
+                relative,
+            )
+        )
+    for relative in sorted(actual_rows.keys() - owned_rows.keys()):
+        findings.append(
+            DistributionFinding(
+                "author_sync_unowned_collision",
+                "managed member contains a file absent from its ownership authority",
+                relative,
+            )
+        )
+    for relative in sorted(actual_rows.keys() & owned_rows.keys()):
+        if actual_rows[relative].raw_hash != owned_rows[relative].raw_hash:
+            findings.append(
+                DistributionFinding(
+                    "author_sync_modified_owned_file",
+                    "ownership-declared target file changed after the recorded projection",
+                    relative,
+                )
+            )
+    return tuple(findings)
+
+
+def _preserved_colocated_paths(
+    target_root: Path,
+    member_ids: Sequence[str],
+) -> tuple[str, ...]:
+    if not target_root.is_dir():
+        return ()
+    managed = set(member_ids) | {OWNERSHIP_MANIFEST_NAME}
+    return tuple(
+        child.relative_to(target_root).as_posix()
+        for child in sorted(target_root.iterdir(), key=lambda item: item.name)
+        if child.name not in managed
+    )
+
+
+def _manifest_bytes(payload: Mapping[str, Any]) -> bytes:
+    return (
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+
+
+def _inventories_match(
+    left: SkillTreeInventory,
+    right: SkillTreeInventory,
+) -> bool:
+    return (
+        left.member_ids == right.member_ids
+        and left.missing_member_ids == right.missing_member_ids
+        and left.files == right.files
+        and left.excluded_files == right.excluded_files
+        and left.unsafe_paths == right.unsafe_paths
+        and left.raw_tree_hash == right.raw_tree_hash
+        and left.semantic_tree_hash == right.semantic_tree_hash
+    )
+
+
+def _verify_author_projection(
+    target_root: Path,
+    source_inventory: SkillTreeInventory,
+    expected_manifest: Mapping[str, Any],
+) -> TreeParity:
+    target_inventory = inventory_skill_tree(
+        target_root,
+        member_ids=source_inventory.member_ids,
+        exclusion_rules=AUTHOR_EXCLUSION_RULES,
+    )
+    parity = compare_tree_inventories(source_inventory, target_inventory)
+    if not parity.ok:
+        raise ValueError("activated author projection does not match the frozen source")
+    manifest, error, _raw = _read_author_manifest_snapshot(target_root)
+    if error or manifest != dict(expected_manifest):
+        raise ValueError(
+            error or "activated author ownership authority differs from the frozen projection"
+        )
+    return parity
+
+
+class _AuthorActivationError(RuntimeError):
+    def __init__(self, message: str, *, rollback_ok: bool) -> None:
+        super().__init__(message)
+        self.rollback_ok = rollback_ok
+
+
+def _activate_author_projection(
+    source_root: Path,
+    target_root: Path,
+    source_inventory: SkillTreeInventory,
+    old_manifest: Mapping[str, Any],
+    old_manifest_raw: bytes,
+    expected_manifest: Mapping[str, Any],
+    copied_files: Sequence[str],
+    removed_files: Sequence[str],
+) -> TreeParity:
+    stage_root = Path(
+        tempfile.mkdtemp(prefix=".fgas-", dir=target_root)
+    )
+    backup_root = Path(
+        tempfile.mkdtemp(prefix=".fgab-", dir=target_root)
+    )
+    activated: list[tuple[str, bool]] = []
+    created_directories: list[Path] = []
+    manifest_activated = False
+    manifest_backup = backup_root / OWNERSHIP_MANIFEST_NAME
+    manifest_path = _manifest_path(target_root)
+    try:
+        frozen_rows = {item.relative_path: item for item in source_inventory.files}
+        prior_rows = _projection_manifest_rows(old_manifest)
+        for relative in copied_files:
+            source_file = _contained_path(source_root, relative)
+            staged_file = _contained_path(stage_root, relative)
+            staged_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_file, staged_file)
+            if FileFingerprint.from_path(staged_file, relative) != frozen_rows[relative]:
+                raise ValueError(
+                    f"author source changed while staging: {relative}"
+                )
+        _write_manifest(
+            _manifest_path(stage_root),
+            expected_manifest,
+        )
+        source_after = inventory_skill_tree(
+            source_root,
+            member_ids=source_inventory.member_ids,
+            exclusion_rules=AUTHOR_EXCLUSION_RULES,
+        )
+        if not _inventories_match(source_inventory, source_after):
+            raise ValueError("author source changed before synchronization activation")
+        if manifest_path.read_bytes() != old_manifest_raw:
+            raise ValueError("target ownership authority changed before activation")
+        ownership_findings = _owned_projection_findings(
+            target_root,
+            old_manifest,
+            projection_role=(
+                PARITY_ROLE_AUTHOR_SOURCE
+                if old_manifest.get("artifact_type") == AUTHOR_OWNERSHIP_ARTIFACT
+                else PARITY_ROLE_CONSUMER_DISTRIBUTION
+            ),
+            member_ids=source_inventory.member_ids,
+        )
+        if ownership_findings:
+            raise ValueError(
+                "target projection changed before activation: "
+                + ", ".join(item.relative_path or item.code for item in ownership_findings)
+            )
+
+        for relative in copied_files:
+            destination = _contained_path(target_root, relative)
+            staged_file = _contained_path(stage_root, relative)
+            actual_before = _fingerprint_if_file(destination, relative)
+            expected_before = prior_rows.get(relative)
+            if expected_before is None and actual_before is not None:
+                raise ValueError(
+                    f"unowned target path appeared before activation: {relative}"
+                )
+            if (
+                expected_before is not None
+                and (
+                    actual_before is None
+                    or actual_before.raw_hash != expected_before.raw_hash
+                )
+            ):
+                raise ValueError(
+                    f"owned target path changed before activation: {relative}"
+                )
+            missing_parents: list[Path] = []
+            cursor = destination.parent
+            while cursor != target_root and not cursor.exists():
+                missing_parents.append(cursor)
+                cursor = cursor.parent
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            created_directories.extend(reversed(missing_parents))
+            had_old = destination.is_file() and not destination.is_symlink()
+            if had_old:
+                backup_file = _contained_path(backup_root, relative)
+                backup_file.parent.mkdir(parents=True, exist_ok=True)
+                destination.replace(backup_file)
+            activated.append((relative, had_old))
+            staged_file.replace(destination)
+
+        for relative in removed_files:
+            destination = _contained_path(target_root, relative)
+            actual_before = _fingerprint_if_file(destination, relative)
+            expected_before = prior_rows[relative]
+            if (
+                actual_before is None
+                or actual_before.raw_hash != expected_before.raw_hash
+            ):
+                raise ValueError(
+                    f"obsolete owned path changed before removal: {relative}"
+                )
+            backup_file = _contained_path(backup_root, relative)
+            backup_file.parent.mkdir(parents=True, exist_ok=True)
+            destination.replace(backup_file)
+            activated.append((relative, True))
+
+        if manifest_path.read_bytes() != old_manifest_raw:
+            raise ValueError("target ownership authority changed before publication")
+        manifest_path.replace(manifest_backup)
+        manifest_activated = True
+        _manifest_path(stage_root).replace(manifest_path)
+        parity = _verify_author_projection(
+            target_root,
+            source_inventory,
+            expected_manifest,
+        )
+        source_final = inventory_skill_tree(
+            source_root,
+            member_ids=source_inventory.member_ids,
+            exclusion_rules=AUTHOR_EXCLUSION_RULES,
+        )
+        if not _inventories_match(source_inventory, source_final):
+            raise ValueError("author source changed before post-activation closure")
+        return parity
+    except Exception as exc:
+        rollback_errors: list[str] = []
+        try:
+            if manifest_activated:
+                if manifest_path.exists() or manifest_path.is_symlink():
+                    if manifest_path.is_dir() and not manifest_path.is_symlink():
+                        shutil.rmtree(manifest_path)
+                    else:
+                        manifest_path.unlink()
+                if manifest_backup.is_file():
+                    manifest_backup.replace(manifest_path)
+            for relative, had_old in reversed(activated):
+                destination = _contained_path(target_root, relative)
+                backup_file = _contained_path(backup_root, relative)
+                if destination.exists() or destination.is_symlink():
+                    if destination.is_dir() and not destination.is_symlink():
+                        shutil.rmtree(destination)
+                    else:
+                        destination.unlink()
+                if had_old and backup_file.is_file():
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    backup_file.replace(destination)
+            for directory in reversed(created_directories):
+                try:
+                    directory.rmdir()
+                except OSError:
+                    pass
+            if manifest_path.read_bytes() != old_manifest_raw:
+                rollback_errors.append("ownership authority was not restored byte-for-byte")
+        except Exception as rollback_exc:
+            rollback_errors.append(f"{type(rollback_exc).__name__}: {rollback_exc}")
+        raise _AuthorActivationError(
+            f"{type(exc).__name__}: {exc}"
+            + (
+                "; rollback failed: " + "; ".join(rollback_errors)
+                if rollback_errors
+                else "; previous projection restored"
+            ),
+            rollback_ok=not rollback_errors,
+        ) from exc
+    finally:
+        shutil.rmtree(stage_root, ignore_errors=True)
+        shutil.rmtree(backup_root, ignore_errors=True)
+
+
+def author_sync_skill_suite(
+    source: str | Path,
+    target: str | Path,
+    *,
+    dry_run: bool = False,
+) -> DistributionReport:
+    """Synchronize one exact complete FlowGuard author-source projection.
+
+    The target must already be owned as either an unchanged consumer
+    distribution or an unchanged author source. No adoption, partial-member,
+    or role-guessing path exists.
+    """
+
+    target_root = resolve_target_skill_root(target)
+    preserved_paths: tuple[str, ...] = ()
+    try:
+        source_root, source_inventory, source_findings = _author_source_inventory(
+            source
+        )
+        _assert_disjoint(source_root, target_root)
+        preserved_paths = _preserved_colocated_paths(
+            target_root,
+            source_inventory.member_ids,
+        )
+        if source_findings:
+            return DistributionReport(
+                action="author-sync",
+                source=str(source_root),
+                target=str(target_root),
+                dry_run=dry_run,
+                excluded_files=source_inventory.excluded_files,
+                findings=source_findings,
+                ownership_manifest=str(_manifest_path(target_root)),
+                projection_role=PARITY_ROLE_AUTHOR_SOURCE,
+                preserved_paths=preserved_paths,
+                transaction_status="not_started",
+            )
+        old_manifest, previous_role, manifest_error, old_manifest_raw = (
+            _read_projection_ownership(target_root)
+        )
+        if manifest_error or old_manifest is None or old_manifest_raw is None:
+            return DistributionReport(
+                action="author-sync",
+                source=str(source_root),
+                target=str(target_root),
+                dry_run=dry_run,
+                excluded_files=source_inventory.excluded_files,
+                findings=(
+                    DistributionFinding(
+                        "author_sync_ownership_unavailable",
+                        manifest_error
+                        or "author synchronization requires exact projection ownership",
+                        OWNERSHIP_MANIFEST_NAME,
+                    ),
+                ),
+                ownership_manifest=str(_manifest_path(target_root)),
+                previous_projection_role=previous_role,
+                projection_role=PARITY_ROLE_AUTHOR_SOURCE,
+                preserved_paths=preserved_paths,
+                transaction_status="not_started",
+            )
+        findings = list(
+            _owned_projection_findings(
+                target_root,
+                old_manifest,
+                projection_role=previous_role,
+                member_ids=source_inventory.member_ids,
+            )
+        )
+        old_rows = _projection_manifest_rows(old_manifest)
+        source_rows = {item.relative_path: item for item in source_inventory.files}
+        copied: list[str] = []
+        unchanged: list[str] = []
+        removed: list[str] = []
+        for relative, source_file in source_rows.items():
+            old_file = old_rows.get(relative)
+            destination = _contained_path(target_root, relative)
+            if old_file is None and (destination.exists() or destination.is_symlink()):
+                findings.append(
+                    DistributionFinding(
+                        "author_sync_unowned_collision",
+                        "an unowned target path collides with the author projection",
+                        relative,
+                    )
+                )
+            elif old_file is not None and old_file.raw_hash == source_file.raw_hash:
+                unchanged.append(relative)
+            else:
+                copied.append(relative)
+        removed.extend(sorted(old_rows.keys() - source_rows.keys()))
+        expected_manifest = _author_ownership_payload(
+            source_root,
+            target_root,
+            source_inventory,
+        )
+        if findings:
+            return DistributionReport(
+                action="author-sync",
+                source=str(source_root),
+                target=str(target_root),
+                dry_run=dry_run,
+                copied_files=tuple(sorted(copied)),
+                removed_files=tuple(removed),
+                unchanged_files=tuple(sorted(unchanged)),
+                conflict_files=tuple(
+                    sorted(
+                        {
+                            item.relative_path
+                            for item in findings
+                            if item.relative_path
+                            and item.relative_path != OWNERSHIP_MANIFEST_NAME
+                        }
+                    )
+                ),
+                excluded_files=source_inventory.excluded_files,
+                findings=tuple(findings),
+                ownership_manifest=str(_manifest_path(target_root)),
+                previous_projection_role=previous_role,
+                projection_role=PARITY_ROLE_AUTHOR_SOURCE,
+                preserved_paths=preserved_paths,
+                transaction_status="not_started",
+            )
+        manifest_current = (
+            previous_role == PARITY_ROLE_AUTHOR_SOURCE
+            and old_manifest == expected_manifest
+        )
+        if not copied and not removed and manifest_current:
+            parity = _verify_author_projection(
+                target_root,
+                source_inventory,
+                expected_manifest,
+            )
+            return DistributionReport(
+                action="author-sync",
+                source=str(source_root),
+                target=str(target_root),
+                dry_run=dry_run,
+                unchanged_files=tuple(sorted(unchanged)),
+                excluded_files=source_inventory.excluded_files,
+                ownership_manifest=str(_manifest_path(target_root)),
+                parity=parity,
+                previous_projection_role=previous_role,
+                projection_role=PARITY_ROLE_AUTHOR_SOURCE,
+                preserved_paths=preserved_paths,
+                transaction_status="unchanged",
+            )
+        if dry_run:
+            return DistributionReport(
+                action="author-sync",
+                source=str(source_root),
+                target=str(target_root),
+                dry_run=True,
+                copied_files=tuple(sorted(copied)),
+                removed_files=tuple(removed),
+                unchanged_files=tuple(sorted(unchanged)),
+                excluded_files=source_inventory.excluded_files,
+                ownership_manifest=str(_manifest_path(target_root)),
+                previous_projection_role=previous_role,
+                projection_role=PARITY_ROLE_AUTHOR_SOURCE,
+                preserved_paths=preserved_paths,
+                transaction_status="planned",
+            )
+        try:
+            parity = _activate_author_projection(
+                source_root,
+                target_root,
+                source_inventory,
+                old_manifest,
+                old_manifest_raw,
+                expected_manifest,
+                tuple(sorted(copied)),
+                tuple(removed),
+            )
+        except _AuthorActivationError as exc:
+            return DistributionReport(
+                action="author-sync",
+                source=str(source_root),
+                target=str(target_root),
+                dry_run=False,
+                copied_files=tuple(sorted(copied)),
+                removed_files=tuple(removed),
+                unchanged_files=tuple(sorted(unchanged)),
+                excluded_files=source_inventory.excluded_files,
+                findings=(
+                    DistributionFinding(
+                        (
+                            "author_sync_activation_rolled_back"
+                            if exc.rollback_ok
+                            else "author_sync_rollback_failed"
+                        ),
+                        str(exc),
+                    ),
+                ),
+                ownership_manifest=str(_manifest_path(target_root)),
+                previous_projection_role=previous_role,
+                projection_role=PARITY_ROLE_AUTHOR_SOURCE,
+                preserved_paths=preserved_paths,
+                transaction_status=(
+                    "rolled_back" if exc.rollback_ok else "rollback_failed"
+                ),
+            )
+        return DistributionReport(
+            action="author-sync",
+            source=str(source_root),
+            target=str(target_root),
+            dry_run=False,
+            copied_files=tuple(sorted(copied)),
+            removed_files=tuple(removed),
+            unchanged_files=tuple(sorted(unchanged)),
+            excluded_files=source_inventory.excluded_files,
+            ownership_manifest=str(_manifest_path(target_root)),
+            parity=parity,
+            previous_projection_role=previous_role,
+            projection_role=PARITY_ROLE_AUTHOR_SOURCE,
+            preserved_paths=preserved_paths,
+            transaction_status="activated",
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        return DistributionReport(
+            action="author-sync",
+            source=str(Path(source).expanduser()),
+            target=str(target_root),
+            dry_run=dry_run,
+            findings=(
+                DistributionFinding(
+                    "author_sync_invalid",
+                    f"{type(exc).__name__}: {exc}",
+                ),
+            ),
+            ownership_manifest=str(_manifest_path(target_root)),
+            projection_role=PARITY_ROLE_AUTHOR_SOURCE,
+            preserved_paths=preserved_paths,
+            transaction_status="not_started",
+        )
 
 
 def _install_skill_tree(
@@ -2069,6 +3002,11 @@ def uninstall_skill_suite(
 
 
 __all__ = [
+    "AUTHOR_EXCLUSION_RULES",
+    "AUTHOR_OWNERSHIP_ARTIFACT",
+    "AUTHOR_OWNERSHIP_CLAIM",
+    "AUTHOR_OWNERSHIP_SCHEMA",
+    "AUTHOR_PROJECTION_ID",
     "CANONICAL_SKILL_ROOT",
     "CANONICAL_SUITE_MAP",
     "CONSUMER_SUITE_AUTHORITY_ARTIFACT",
@@ -2093,6 +3031,7 @@ __all__ = [
     "FileFingerprint",
     "SkillTreeInventory",
     "TreeParity",
+    "author_sync_skill_suite",
     "build_consumer_suite_authority_bytes",
     "check_skill_suite",
     "compare_configured_skill_trees",

@@ -55,10 +55,6 @@ from .template_text.maintenance_workflow import (
     MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE,
     MAINTENANCE_WORKFLOW_NOTES_TEMPLATE,
 )
-from .template_text.maintenance_scan import (
-    MAINTENANCE_SCAN_RUN_TEMPLATE,
-    MAINTENANCE_SCAN_NOTES_TEMPLATE,
-)
 from .template_text.model_miss_review import (
     MODEL_MISS_REVIEW_MODEL_TEMPLATE,
     MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE,
@@ -66,16 +62,6 @@ from .template_text.model_miss_review import (
     MODEL_MISS_REVIEW_FULL_MODEL_TEMPLATE,
     MODEL_MISS_REVIEW_FULL_RUN_CHECKS_TEMPLATE,
     MODEL_MISS_REVIEW_FULL_NOTES_TEMPLATE,
-)
-from .template_text.model_angle_deliberation import (
-    MODEL_ANGLE_DELIBERATION_MODEL_TEMPLATE,
-    MODEL_ANGLE_DELIBERATION_RUN_CHECKS_TEMPLATE,
-    MODEL_ANGLE_DELIBERATION_NOTES_TEMPLATE,
-)
-from .template_text.model_similarity_consolidation import (
-    MODEL_SIMILARITY_CONSOLIDATION_MODEL_TEMPLATE,
-    MODEL_SIMILARITY_CONSOLIDATION_RUN_CHECKS_TEMPLATE,
-    MODEL_SIMILARITY_CONSOLIDATION_NOTES_TEMPLATE,
 )
 from .template_text.model_test_alignment import (
     MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE,
@@ -252,13 +238,6 @@ def maintenance_workflow_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def maintenance_scan_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/maintenance_scan/run_scan.py", MAINTENANCE_SCAN_RUN_TEMPLATE),
-        TemplateFile("docs/flowguard_maintenance_scan.md", MAINTENANCE_SCAN_NOTES_TEMPLATE),
-    )
-
-
 def runtime_path_evidence_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/runtime_path_evidence/model.py", RUNTIME_PATH_EVIDENCE_MODEL_TEMPLATE),
@@ -331,36 +310,11 @@ def existing_model_preflight_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def model_angle_deliberation_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/model_angle_deliberation/model.py", MODEL_ANGLE_DELIBERATION_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/model_angle_deliberation/run_checks.py", MODEL_ANGLE_DELIBERATION_RUN_CHECKS_TEMPLATE),
-        TemplateFile("docs/flowguard_model_angle_deliberation.md", MODEL_ANGLE_DELIBERATION_NOTES_TEMPLATE),
-    )
-
-
 def field_lifecycle_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/field_lifecycle/model.py", FIELD_LIFECYCLE_MODEL_TEMPLATE),
         TemplateFile(".flowguard/field_lifecycle/run_checks.py", FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE),
         TemplateFile("docs/flowguard_field_lifecycle_mesh.md", FIELD_LIFECYCLE_NOTES_TEMPLATE),
-    )
-
-
-def model_similarity_consolidation_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(
-            ".flowguard/model_similarity_consolidation/model.py",
-            MODEL_SIMILARITY_CONSOLIDATION_MODEL_TEMPLATE,
-        ),
-        TemplateFile(
-            ".flowguard/model_similarity_consolidation/run_checks.py",
-            MODEL_SIMILARITY_CONSOLIDATION_RUN_CHECKS_TEMPLATE,
-        ),
-        TemplateFile(
-            "docs/flowguard_model_similarity_consolidation.md",
-            MODEL_SIMILARITY_CONSOLIDATION_NOTES_TEMPLATE,
-        ),
     )
 
 
@@ -473,11 +427,6 @@ __all__ = [
     "MAINTENANCE_WORKFLOW_MODEL_TEMPLATE",
     "MAINTENANCE_WORKFLOW_NOTES_TEMPLATE",
     "MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE",
-    "MAINTENANCE_SCAN_NOTES_TEMPLATE",
-    "MAINTENANCE_SCAN_RUN_TEMPLATE",
-    "MODEL_ANGLE_DELIBERATION_MODEL_TEMPLATE",
-    "MODEL_ANGLE_DELIBERATION_NOTES_TEMPLATE",
-    "MODEL_ANGLE_DELIBERATION_RUN_CHECKS_TEMPLATE",
     "MODEL_MISS_REVIEW_MODEL_TEMPLATE",
     "MODEL_MISS_REVIEW_NOTES_TEMPLATE",
     "MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE",
@@ -534,11 +483,8 @@ __all__ = [
     "field_lifecycle_template_files",
     "layered_boundary_proof_template_files",
     "maintenance_workflow_template_files",
-    "maintenance_scan_template_files",
-    "model_angle_deliberation_template_files",
     "model_miss_review_full_template_files",
     "model_miss_review_template_files",
-    "model_similarity_consolidation_template_files",
     "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
     "plan_detailing_template_files",

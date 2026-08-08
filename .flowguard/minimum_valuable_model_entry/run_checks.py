@@ -1,4 +1,4 @@
-"""Run the minimum valuable model entry self-checks."""
+"""Run the continuing minimum valuable model entry self-checks."""
 
 from __future__ import annotations
 
@@ -11,9 +11,74 @@ import model
 
 
 ROOT = Path(__file__).resolve().parents[2]
+REQUIRED_LABELS = ("minimum_contract_inspected", "minimum_model_accepted")
+FORBIDDEN_TEMPLATE_OPERATION_MARKERS = (
+    "template",
+    "no_match",
+    "nomatch",
+    "harvest",
+)
 
 
-REQUIRED_LABELS = ("template_search_done", "minimum_model_accepted", "local_candidate_harvested")
+def _trace_has_template_operation(trace) -> bool:
+    return any(
+        marker in f"{step.function_name}:{step.label}".lower()
+        for step in trace.steps
+        for marker in FORBIDDEN_TEMPLATE_OPERATION_MARKERS
+    )
+
+
+def run_ordinary_entry_review() -> bool:
+    result = run_exact_sequence(
+        workflow=model.correct_workflow(),
+        initial_state=model.initial_state(),
+        external_input_sequence=(model.COMPLETE_REQUEST,),
+        invariants=model.INVARIANTS,
+    )
+    accepted = bool(result.final_states) and all(
+        state.accepted_model_ids == (model.COMPLETE_REQUEST.request_id,)
+        for state in result.final_states
+    )
+    no_template_operation = all(
+        not _trace_has_template_operation(trace)
+        for trace in result.traces
+    )
+    ok = result.model_report.ok and accepted and no_template_operation
+    print(f"ordinary minimum-model entry: {'pass' if ok else 'fail'}")
+    print(
+        "ordinary path template operations: "
+        f"{'none' if no_template_operation else 'unexpected'}"
+    )
+    return ok
+
+
+def run_rejection_examples() -> bool:
+    all_ok = True
+    for request in model.INCOMPLETE_REQUESTS:
+        result = run_exact_sequence(
+            workflow=model.correct_workflow(),
+            initial_state=model.initial_state(),
+            external_input_sequence=(request,),
+            invariants=model.INVARIANTS,
+        )
+        outputs = tuple(trace.final_output for trace in result.traces)
+        expected_requirement = model.EXPECTED_REJECTION_REQUIREMENTS[request.request_id]
+        rejected = bool(outputs) and all(
+            isinstance(output, model.Rejected)
+            and expected_requirement in output.reason
+            for output in outputs
+        )
+        no_template_operation = all(
+            not _trace_has_template_operation(trace)
+            for trace in result.traces
+        )
+        case_ok = result.model_report.ok and rejected and no_template_operation
+        print(
+            f"{request.request_id}: "
+            f"{'rejected as expected' if case_ok else 'failed'}"
+        )
+        all_ok = all_ok and case_ok
+    return all_ok
 
 
 def run_narrow_entry_projection_review() -> bool:
@@ -32,26 +97,21 @@ def run_narrow_entry_projection_review() -> bool:
 
 
 def main() -> int:
-    correct = run_exact_sequence(
-        workflow=model.correct_workflow(),
-        initial_state=model.initial_state(),
-        external_input_sequence=tuple(
-            request
-            for request in model.EXTERNAL_INPUTS
-            if request.protected_error_class
-            and request.completion_evidence
-            and request.known_bad_case
-            and request.portable_local_root
-        ),
-        invariants=model.INVARIANTS,
-    )
-    correct_ok = correct.model_report.ok and len(correct.final_states) == 1
-    print(f"correct_minimum_valuable_model: {'exact model pass' if correct_ok else 'failed'}")
+    ordinary_ok = run_ordinary_entry_review()
+    rejection_ok = run_rejection_examples()
     report = run_formal_workflow_suite(
         "minimum_valuable_model_entry",
         (
-            FormalWorkflowCase("broken_without_evidence", model.broken_without_evidence_workflow(), False),
-            FormalWorkflowCase("broken_hardcoded_root", model.broken_hardcoded_root_workflow(), False),
+            FormalWorkflowCase(
+                "broken_accepts_incomplete_model",
+                model.broken_incomplete_workflow(),
+                False,
+            ),
+            FormalWorkflowCase(
+                "broken_runs_template_operation_on_ordinary_path",
+                model.broken_template_operation_workflow(),
+                False,
+            ),
         ),
         initial_states=(model.initial_state(),),
         external_inputs=model.EXTERNAL_INPUTS,
@@ -59,10 +119,10 @@ def main() -> int:
         max_sequence_length=model.MAX_SEQUENCE_LENGTH,
         terminal_predicate=model.terminal_predicate,
         required_labels=REQUIRED_LABELS,
-        protected_error_class="minimum_valuable_model_missing_evidence",
+        protected_error_class="minimum_valuable_model_missing_contract_or_binding",
     )
     projection_ok = run_narrow_entry_projection_review()
-    return 0 if correct_ok and report.ok and projection_ok else 1
+    return 0 if ordinary_ok and rejection_ok and report.ok and projection_ok else 1
 
 
 if __name__ == "__main__":

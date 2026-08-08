@@ -89,6 +89,34 @@ or authority.
 - **THEN** the model is reported as non-authoritative candidate or drift
 - **AND** it is not selected as a current owner
 
+### Requirement: Local intent sources are exact model inputs
+Every active `project_file` intent contribution SHALL have one exact owner-local source-path binding on its declared logical model. The binding SHALL participate in that model instance's resolved immutable input inventory and focused validation contract. For each model owner, the bound path set SHALL equal the active local intent-source set for that owner: missing, extra, duplicate, unsafe, unresolved, or foreign-owner paths SHALL block candidate construction and current-authority audit. A broad input selector, matching text, shared source file, or system-level stale finding SHALL NOT substitute for the exact owner-local binding.
+
+#### Scenario: One model's local design source changes
+- **WHEN** an active local intent source changes after the observed snapshot was accepted
+- **THEN** fresh model observation changes the exact input identity of every logical model owner that declares that source
+- **AND** affected-owner planning selects those models without treating unrelated models as changed
+
+#### Scenario: Active local contribution has no owner-local input
+- **WHEN** a current or candidate project-file contribution names a logical model but that model does not declare the exact source path
+- **THEN** revision construction and current-authority audit block with the missing owner/source pair
+- **AND** a broad glob, root owner, or inferred textual match cannot close the binding
+
+#### Scenario: Model keeps an unused historical intent path
+- **WHEN** a model declares an intent-source path that no active project-file contribution for that exact owner uses
+- **THEN** current binding review reports the extra path and remains blocked
+- **AND** the path must be deliberately removed instead of accumulating as a historical fallback input
+
+#### Scenario: Several models consume one design source
+- **WHEN** one local source legitimately informs several logical models
+- **THEN** every model declares its own exact path binding and includes the same file identity in its own input inventory
+- **AND** the shared file does not create a shared primary model owner
+
+#### Scenario: Intent comes from WorkContext
+- **WHEN** an active contribution is owned by a declared external WorkContext artifact
+- **THEN** its exact context, native owner, source reference, and artifact fingerprint remain bound through the cumulative current-intent view
+- **AND** FlowGuard does not convert the external artifact into a repository path or require a particular programming language or provider
+
 ### Requirement: Snapshots connect existing owners through typed references
 A snapshot SHALL connect model instances and existing governance artifacts
 through declared typed relations. Supported relation meanings SHALL include
@@ -149,55 +177,32 @@ currentness gate.
   satisfy current coverage
 
 ### Requirement: Observed authority remains revision truthful
-An observed snapshot SHALL be current only while a fresh reconstruction from
-the live model regression manifest and current source inventory exactly
-matches the observed head's subject revision, model-instance identities,
-resolved input inventories, required source-surface identities and
-fingerprints, referenced owner-artifact identities, coverage-universe
-fingerprint, and required evidence. Pointer-to-snapshot self-consistency SHALL
-be necessary but SHALL NOT be sufficient for a current authority result.
+An observed snapshot SHALL be current only while a fresh live re-observation and derivation from the model regression manifest and current source inventory exactly matches the observed head's subject revision, model-instance identities, resolved input inventories, required source-surface identities and fingerprints, referenced owner-artifact identities, coverage-universe fingerprint, and required evidence. Pointer-to-snapshot self-consistency SHALL be necessary but SHALL NOT be sufficient for a current authority result.
 
 #### Scenario: Live inventory exactly matches the observed snapshot
-- **WHEN** authority audit rebuilds the current source and model inventory
-- **AND** every required live identity and fingerprint exactly equals the
-  corresponding observed-snapshot identity and fingerprint
-- **THEN** the observed head may remain current subject to its native evidence
-  gates
-- **AND** the audit records the rebuilt live-inventory fingerprint used for
-  reconciliation
+- **WHEN** authority audit re-derives the current source and model inventory
+- **AND** every required live identity and fingerprint exactly equals the corresponding observed-snapshot identity and fingerprint
+- **THEN** the observed head may remain current subject to its native evidence gates
+- **AND** the audit records the re-derived live-inventory fingerprint used for reconciliation
 
 #### Scenario: Software changes without a matching observed snapshot
-- **WHEN** source, deployment, configuration, a required source surface, an
-  owner artifact, or another fingerprinted implementation input changes after
-  the observed snapshot was validated
+- **WHEN** source, deployment, configuration, a required source surface, an owner artifact, or another fingerprinted implementation input changes after the observed snapshot was validated
 - **THEN** the system reports the observed authority as stale or blocked
 - **AND** it does not relabel an existing target or experiment as observed
 
 #### Scenario: Stored authority is internally consistent but live inventory differs
-- **WHEN** the project pointer, stored snapshot fingerprint, stored subject
-  revision, and stored coverage status agree with one another
-- **AND** a fresh live reconstruction has a different subject revision,
-  model-instance set, source-surface set, owner-artifact fingerprint, resolved
-  input inventory, or coverage fingerprint
+- **WHEN** the project pointer, stored snapshot fingerprint, stored subject revision, and stored coverage status agree with one another
+- **AND** a fresh live re-observation has a different subject revision, model-instance set, source-surface set, owner-artifact fingerprint, resolved input inventory, or coverage fingerprint
 - **THEN** authority audit reports `observed_source_inventory_stale`
-- **AND** project audit, preflight, activation, release, and broad model
-  coverage claims remain blocked until one accepted `ModelRevisionSet` updates
-  the observed head
+- **AND** project audit, preflight, activation, release, and broad model coverage claims remain blocked until one accepted `ModelRevisionSet` updates the observed head
 
 #### Scenario: A target is implemented
 - **WHEN** implementation work realizes a validated normative target
-- **THEN** the system builds and validates a new
-  `observed_implementation` snapshot from the resulting live source inventory
-- **AND** it links the new observed snapshot to the target through typed
-  realization and supersession relations instead of changing the target's
-  subject lane
+- **THEN** the system builds and validates a new `observed_implementation` snapshot from the resulting live source inventory
+- **AND** it links the new observed snapshot to the target through typed realization and supersession relations instead of changing the target's subject lane
 
-### Requirement: Published observed authority is reconstructable from the release tree
-The release verifier SHALL require every file in the selected snapshot's
-resolved model input inventory to be reachable from the exact committed source
-tree when a project publishes an observed model-system head. A local
-working-tree file, ignored file, untracked file, alternate checkout, or
-historical evidence artifact SHALL NOT satisfy release authority.
+### Requirement: Published observed authority is reproducible from the release tree
+The release verifier SHALL require every file in the selected snapshot's resolved model input inventory to be reachable from the exact committed source tree when a project publishes an observed model-system head. A local working-tree file, ignored file, untracked file, alternate checkout, or historical evidence artifact SHALL NOT satisfy release authority.
 
 #### Scenario: Every authority input is committed
 - **WHEN** release validation examines the selected observed snapshot
@@ -211,9 +216,9 @@ historical evidence artifact SHALL NOT satisfy release authority.
 - **AND** it does not drop that model from the live inventory or infer another authority
 
 #### Scenario: Runner input exists only in the local working tree
-- **WHEN** the model file is tracked but its snapshot-declared runner or another resolved input is ignored or untracked
-- **THEN** the same authority-input reachability gate blocks publication
-- **AND** a locally passing runner execution does not substitute for committed reachability
+- **WHEN** the observed snapshot references a runner input that is absent from the exact committed source tree
+- **THEN** release validation reports the exact missing input and blocks publication
+- **AND** local presence does not satisfy the published authority claim
 
 ### Requirement: Affected authority is relationship-complete
 For an upgraded behavior surface, the authoritative model system SHALL identify its model owner, source owner, test or check owner, runtime entry when applicable, and explicit gaps; an inventory row alone SHALL NOT prove this relationship coverage.
@@ -234,7 +239,7 @@ A whole-system understanding claim SHALL be licensed only when every member of t
 - **THEN** every consuming whole-system claim becomes stale
 
 ### Requirement: Blueprint closure uses an independently discovered implementation universe
-The authoritative model system SHALL consume a fingerprinted implementation and reconstruction-resource inventory derived independently from declared models, code contracts, and tests before it licenses a whole-software blueprint claim. Every admitted inventory item SHALL have one explicit disposition, and unresolved files, parse failures, hidden state or effect writers, duplicate primary owners, and omitted reconstruction resources SHALL block static blueprint completion.
+The authoritative model system SHALL consume fingerprinted implementation and resource inventories derived independently from declared models, code contracts, and tests before it licenses a whole-software blueprint claim. Every admitted inventory item SHALL have one explicit disposition, and unresolved files, parse failures, hidden state or effect writers, duplicate primary owners, and omitted required resources SHALL block static blueprint completion.
 
 #### Scenario: Undeclared helper exists in production source
 - **WHEN** independent discovery finds a behavior-bearing helper that is absent from the declared model and contract bindings
@@ -243,17 +248,6 @@ The authoritative model system SHALL consume a fingerprinted implementation and 
 #### Scenario: Every admitted item has a current disposition
 - **WHEN** the current inventory, bindings, resources, and owner fingerprints cover every item inside the declared boundary
 - **THEN** the system may report static blueprint complete within that boundary
-
-### Requirement: Static blueprint and empirical reconstruction are separate claims
-The authoritative model system SHALL report static blueprint closure independently from empirical reconstruction evidence. Static completion with no reconstruction run SHALL NOT be described as independently reconstructed or empirically verified.
-
-#### Scenario: Static closure passes without a reconstruction receipt
-- **WHEN** every static obligation is current and empirical reconstruction has not run
-- **THEN** the result reports static complete and reconstruction not-run
-
-#### Scenario: Reconstruction receipt targets another blueprint
-- **WHEN** an empirical receipt carries a blueprint fingerprint different from the current manifest
-- **THEN** empirical reconstruction is stale or blocked without changing the static result
 
 ### Requirement: Blueprint projection remains derived from the sole observed authority
 Any portable software-blueprint projection SHALL bind the exact current observed model-system snapshot and existing owner fingerprints. It SHALL NOT create another observed head, copy owner semantics into a competing authority, or remain current after a consumed owner changes.
@@ -281,7 +275,7 @@ The authoritative model system SHALL qualify a software blueprint from one exact
 - **AND** the preset cannot create an alternate model head or evidence owner
 
 ### Requirement: Blueprint depth is licensed one independent layer at a time
-Blueprint qualification SHALL report the status of implementation inventory, traceability, independent semantics, model-code-test binding, resource/oracle closure, static blueprint closure, and empirical reconstruction separately. It SHALL expose the deepest proven layer and the exact missing, stale, or blocked owner and evidence for every higher layer.
+Blueprint qualification SHALL report the status of implementation inventory, traceability, independent semantics, model-code-test binding, resource/oracle closure, and static blueprint closure separately. It SHALL expose the deepest proven layer and the exact missing, stale, or blocked owner and evidence for every higher layer.
 
 #### Scenario: Source scanning produced model and binding text
 - **WHEN** the same production-source scan supplies an implementation surface, its claimed intended semantics, and its binding description without independent semantic evidence
@@ -299,7 +293,7 @@ Blueprint qualification SHALL report the status of implementation inventory, tra
 - **AND** FlowGuard does not substitute a FlowGuard-specific fallback owner
 
 ### Requirement: Observed authority binds behavior-level blueprint evidence
-The sole observed model-system authority SHALL reference the exact owner-level, behavior-block, resource, intent, test-binding, and reconstruction-readiness identities used for a self-qualification claim. A later layer SHALL NOT hide an earlier incomplete or stale layer.
+The sole observed model-system authority SHALL reference the exact owner-level, behavior-block, resource, intent, test-binding, and canonical blueprint-readiness identities used for a self-qualification claim. A later layer SHALL NOT hide an earlier incomplete or stale layer.
 
 #### Scenario: Current model snapshot points to an owner-level-only blueprint
 - **WHEN** the observed snapshot is current but its behavior-block or readiness evidence is incomplete
@@ -321,3 +315,123 @@ Composing software, workflow, service, agent, data-pipeline, or mixed target pro
 - **WHEN** a mixed target combines an observed software snapshot with an independently governed workflow contract
 - **THEN** the blueprint SHALL preserve both authority identities and claim boundaries
 - **AND** neither provider SHALL silently replace the observed model-system head
+
+### Requirement: The affected authority inventory has one existing model-system owner
+An affected authority inventory that binds governed source, runtime, and test
+endpoints into the model-system snapshot, together with the inventory root that
+owns its identity, SHALL be owned by the existing authoritative model-system
+model for revision-evidence purposes. Neither route SHALL create a second
+authority model, inherit a generic owner, or pass solely because the complete
+model-regression parent is green.
+
+#### Scenario: Inventory endpoints enter an affected revision closure
+- **WHEN** a governed source, runtime, or test endpoint owned by the affected authority inventory enters the exact revision closure
+- **THEN** its native-owner evidence SHALL consume the exact-current authoritative model-system child evidence
+- **AND** missing or ambiguous inventory ownership SHALL block model-authority activation
+
+#### Scenario: Inventory root identity changes
+- **WHEN** the affected authority inventory root itself enters the exact revision closure
+- **THEN** the root's authoritative model-system route SHALL consume the same exact-current authoritative model-system child evidence
+- **AND** it SHALL NOT inherit the default model-mesh owner
+
+### Requirement: Current topology evidence is independently produced and registered
+Evidence used to activate or qualify the observed model-system head SHALL originate from an exact supervised terminal execution owned by the declared child or progress-contract evidence owner. A self-blueprint compiler, full model parent, ModelMesh consumer, or qualification call SHALL NOT generate, relabel, or register a passing current receipt for itself or for a child while evaluating the claim that consumes that receipt. Registration SHALL admit and verify an already terminal immutable receipt without launching or simulating its producer.
+
+#### Scenario: Parent manufactures a child pass during aggregation
+- **WHEN** the full model parent or blueprint compiler creates a passing child receipt or execution row inside the same aggregation that consumes it
+- **THEN** observed authority SHALL reject the evidence as self-generated
+- **AND** matching source, model, test, or snapshot fingerprints SHALL NOT make it independent
+
+#### Scenario: Qualification registers its own current evidence
+- **WHEN** a qualification or audit route executes, synthesizes, or rewrites an evidence result and registers that result as current before completing the same claim
+- **THEN** registration and qualification SHALL be blocked
+- **AND** the route SHALL require a separately supervised terminal producer receipt
+
+#### Scenario: Existing terminal receipt is registered directly
+- **WHEN** an immutable terminal receipt already names the exact producer owner, subject snapshot, covered child or progress contract, inputs, environment, result, and fingerprint
+- **THEN** the authority store MAY verify and register that receipt without running its producer
+- **AND** later parent aggregation SHALL consume the unchanged registered identity
+
+### Requirement: Full model parent authority remains aggregation-only
+The full model parent receipt SHALL prove only the declared aggregation over current child, reattachment, feedback-progress, and interface receipts. It SHALL NOT project its own terminal result onto a child, replace a missing child receipt, or become a second evidence producer for a child-owned obligation.
+
+#### Scenario: Parent pass is reused as every child pass
+- **WHEN** a full parent terminal receipt is assigned to two or more child obligations that lack their own terminal producer receipts
+- **THEN** observed authority SHALL reject the child coverage and parent closure
+- **AND** the full parent MAY remain only a failed or blocked aggregation result
+
+### Requirement: Intentional model-owner retirement leaves a complete current authority
+The authoritative model system SHALL accept removal of an obsolete model owner only when the current semantic mesh, software blueprint, behavior commitments, model regression manifest, code/test bindings, and observed authority all agree on the same reduced owner universe and preserve each migrated protection under a current owner.
+
+#### Scenario: Obsolete self-model owner is retired
+- **WHEN** an old model owner has no independent current responsibility and its retained obligations have exact current owners
+- **THEN** the owner is absent from the current model universe and all current references
+- **AND** historical archived evidence may remain explicitly non-current
+
+#### Scenario: A current artifact still references the old owner
+- **WHEN** any current mesh relation, blueprint block, commitment, regression child, code binding, test binding, intent contribution, or observed snapshot references the retired owner
+- **THEN** authority construction and audit MUST fail with the dangling identity
+
+### Requirement: Current self-model owners describe continuing software responsibility
+The authoritative FlowGuard self-model universe SHALL contain only continuing current product, agent-operation, or development-process responsibilities. A model whose guarded purpose is bounded to one completed version, dated task, local-only request, or historical release operation SHALL be classified as historical and removed from current authority after every reusable protection and implementation responsibility has one exact current disposition.
+
+#### Scenario: Dated task model remains in current DNA
+- **WHEN** a current self-model owner is explicitly scoped to one completed release version, dated documentation task, or already-finished cleanup operation
+- **AND** its reusable obligations are already owned by continuing current models
+- **THEN** current authority construction MUST report the historical owner as unresolved until it is retired
+- **AND** renaming the model or replacing its version literal does not satisfy the disposition
+
+#### Scenario: Historical task model is retired completely
+- **WHEN** every current protection, code/test binding, consumer, commitment, topology relation, and negative case has one exact continuing owner or explicit retirement disposition
+- **THEN** the historical model and runner are absent from current manifest, mesh, blueprint, intent denominator, and observed authority
+- **AND** immutable archived source, changelog, and old receipts remain non-current historical evidence
+
+### Requirement: Current observed authority binds model path quality
+Every new or materially changed model in current observed authority SHALL bind one current compact path-quality summary and detailed-evidence fingerprint from ModelMaturation. Observed authority SHALL remain faithful to current implementation behavior and SHALL NOT promote an unimplemented normative improvement.
+
+#### Scenario: Changed model lacks a current summary
+- **WHEN** a changed model has no current path-quality summary or has a stale or unresolved result for the claimed boundary
+- **THEN** current authority activation fails for that affected model set
+- **AND** no prior revision or parent result acts as fallback
+
+#### Scenario: Whole-self qualification is explicitly requested
+- **WHEN** FlowGuard explicitly qualifies its complete current self blueprint rather than an ordinary affected revision
+- **THEN** the accepted authority SHALL bind one exact-current path-quality result for every current model owner under the same candidate snapshot
+- **AND** changed-model-only coverage SHALL remain valid for ordinary revisions but SHALL NOT close the whole-self qualification claim
+
+#### Scenario: Normative path is not observed
+- **WHEN** a normative target proposes a different path that is not yet implemented and evidenced
+- **THEN** current observed authority retains the implemented path and its current result
+
+### Requirement: Model-revision evidence shares one bounded child closure
+One model-revision evidence operation SHALL freeze the affected model set, mapped validation owners, exact-current child receipts, repository input manifest, and receipt inventory into one immutable invocation-local observation. All owner aggregates in that revision SHALL be derived from the same verified child closure, and the operation SHALL NOT reconstruct the complete closure independently for every owner aggregate.
+
+#### Scenario: Six affected owners share current model children
+- **WHEN** one revision requires six owner aggregates over overlapping exact-current model child receipts
+- **THEN** every aggregate SHALL cite the same frozen observation identity and its own exact child subset
+- **AND** each child SHALL be natively verified once for that frozen operation rather than once per consuming aggregate
+
+#### Scenario: Two owners require different child subsets
+- **WHEN** owner A and owner B consume different declared subsets of the frozen child closure
+- **THEN** each aggregate SHALL preserve its own obligations, subject, and child identities
+- **AND** sharing the observation SHALL NOT merge owners, copy one aggregate result to another, or widen either subset
+
+### Requirement: Revision evidence receives one final fail-closed freshness check
+Before a revision-evidence bundle can support candidate construction or observed-head activation, the system SHALL make one fresh observation of every frozen source, model, owner, receipt, dependency, toolchain, and environment identity. Matching identities authorize reuse of the already verified frozen closure; any difference SHALL block the bundle without patching individual aggregates in place.
+
+#### Scenario: Source remains stable through bundle production
+- **WHEN** the final observation exactly matches the frozen observation
+- **THEN** the verified bundle MAY support candidate construction without repeating complete owner-closure collection or child semantic verification
+
+#### Scenario: One governed source changes during bundle production
+- **WHEN** any affected source identity differs at the final observation
+- **THEN** the entire revision-evidence bundle SHALL be stale for activation
+- **AND** unchanged sibling aggregates MAY remain historical evidence but SHALL NOT make the mixed bundle current
+
+### Requirement: Frozen observation reuse cannot create model authority
+An invocation-local observation SHALL be a transient verification input only. It SHALL NOT be persisted as a current model head, receipt alias, compatibility record, alternate owner store, or reusable cross-invocation success result.
+
+#### Scenario: A later revision starts with the same repository content
+- **WHEN** a second revision operation begins after the first operation has ended
+- **THEN** the second operation SHALL create its own fresh frozen observation
+- **AND** equality with the prior observation MAY explain reuse but SHALL NOT replace current receipt and owner verification

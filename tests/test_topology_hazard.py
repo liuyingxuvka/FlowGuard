@@ -7,8 +7,6 @@ from pathlib import Path
 from flowguard import (
     FunctionResult,
     KnownBadProof,
-    MAINTENANCE_ROUTE_MODEL_MATURATION,
-    MAINTENANCE_SIGNAL_TOPOLOGY_HAZARD_GAP,
     MinimumModelContract,
     RISK_CONFIDENCE_BLOCKED,
     RISK_GATE_TOPOLOGY_HAZARD,
@@ -31,17 +29,13 @@ from flowguard import (
     TOPOLOGY_USAGE_RELEASE,
     TopologyHazardCandidate,
     TopologyHazardReviewPlan,
-    TemplateHarvestReview,
-    TemplateReuseReview,
     UsageIntent,
     Workflow,
     infer_topology_digest,
     infer_topology_hazard_plan,
-    review_maintenance_scan,
     review_risk_evidence_ledger,
     review_topology_hazards,
 )
-from flowguard.maintenance_scan import MaintenanceScanPlan, MaintenanceSignal
 from flowguard.plan import FlowGuardCheckPlan
 from flowguard.runner import run_model_first_checks
 
@@ -64,17 +58,8 @@ def formal_entry_kwargs():
                 adversarial_inputs=("save event repeated",),
                 hard_invariants=("save has durable evidence",),
                 known_bad_cases=("save_without_record",),
-                template_no_match_reason="topology hazard unit test uses a local save model",
                 blindspots=("real storage replay is not part of this topology test",),
             ),
-        ),
-        "template_reuse_review": TemplateReuseReview(
-            no_match_reason="topology hazard unit test uses a local save model",
-            searched_layers=("public", "local"),
-        ),
-        "template_harvest_review": TemplateHarvestReview(
-            disposition="not_harvestable",
-            not_harvestable_reason="not_reusable_project_specific",
         ),
         "minimum_model_contract": MinimumModelContract(
             protected_error_classes=("missing_save_evidence",),
@@ -278,22 +263,6 @@ class TopologyHazardTests(unittest.TestCase):
 
         self.assertIn("topology_hazard", sections)
         self.assertIn("topology_hazard_report", metadata)
-
-    def test_maintenance_scan_routes_topology_hazard_gap(self):
-        report = review_maintenance_scan(
-            MaintenanceScanPlan(
-                "topology-gap",
-                signals=(
-                    MaintenanceSignal(
-                        "topology:coarse-done",
-                        MAINTENANCE_SIGNAL_TOPOLOGY_HAZARD_GAP,
-                    ),
-                ),
-            )
-        )
-
-        self.assertFalse(report.ok)
-        self.assertIn(MAINTENANCE_ROUTE_MODEL_MATURATION, {action.route_id for action in report.actions})
 
     def test_risk_ledger_consumes_topology_hazard_review(self):
         report = review_risk_evidence_ledger(

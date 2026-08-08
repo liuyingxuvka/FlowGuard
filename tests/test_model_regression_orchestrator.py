@@ -34,7 +34,7 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
                     "oracle_id": f"native:{model_id}:runner",
                 },),
                 claim_boundary=f"Current {model_id} fixture closure proves only the declared temporary test boundary and no production behavior.",
-                evidence_check_ids=(f"check:{model_id}",),
+                evidence_check_ids=(f"check:model-regression:{model_id}",),
                 model_sha256=file_fingerprint(model_dir / "model.py"),
                 runner_sha256=file_fingerprint(model_dir / "run_checks.py"),
             )

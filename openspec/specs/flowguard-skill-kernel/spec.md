@@ -108,20 +108,6 @@ first-read skill body.
 - **WHEN** an agent needs implementation detail for template library behavior
 - **THEN** the kernel points to route docs, helpers, or CLI commands rather than expanding every field inline
 
-### Requirement: Skill hot path enforces harvest closure
-The FlowGuard skill kernel SHALL state that template harvest closure is required
-after any new or materially deepened model while keeping detailed template
-catalogs out of the hot path.
-
-#### Scenario: Agent reads model-first hot path
-- **WHEN** an agent reads the model-first kernel or reusable AGENTS snippet
-- **THEN** the minimum workflow includes harvest closure as written, merged, duplicate-linked, or not-harvestable with an accepted reason
-- **AND** it does not embed long public or local template catalogs
-
-#### Scenario: Satellite route bypass is prevented
-- **WHEN** a directly routed satellite skill creates or deepens a model
-- **THEN** its first-read guidance also requires template harvest closure before broad completion claims
-
 ### Requirement: Kernel identifies the skill-suite entrypoint
 The public `flowguard` skill SHALL identify itself as the default entrypoint
 for the FlowGuard skill suite. `model-first-function-flow` MAY remain an
@@ -202,3 +188,42 @@ The FlowGuard kernel SHALL route blueprint work by target boundary, provider cap
 - **WHEN** the task requires blueprint reasoning across a workflow and an external service contract
 - **THEN** the kernel SHALL compose the required provider and satellite contributions under one target-system request
 - **AND** it SHALL NOT create a new DNA skill or a language-specific core route
+
+### Requirement: The kernel exposes one canonical blueprint model
+The FlowGuard kernel SHALL coordinate target-system blueprint work through the existing implementation inventory, model, structure, test, resource, intent, topology, and process owners. It SHALL use that one owner graph with direct typed gaps and SHALL NOT add a DNA mode, duplicate authority head, compatibility reader, or generic fallback owner.
+
+#### Scenario: Whole blueprint task is explicit
+- **WHEN** task facts explicitly request whole-target blueprint qualification
+- **THEN** the kernel SHALL coordinate the existing native owners and return their exact layer results
+- **AND** it SHALL NOT create a parallel blueprint format
+
+### Requirement: Target product roles remain inside target models
+The kernel MAY model actors, permissions, and roles declared by a target software or workflow, but SHALL NOT promote those target-specific roles into FlowGuard-global role catalogs or blueprint admission requirements.
+
+#### Scenario: Approval workflow declares an administrator
+- **WHEN** a target workflow contains administrator and requester roles
+- **THEN** those roles SHALL remain members of that workflow model
+- **AND** unrelated targets SHALL NOT inherit them
+
+### Requirement: The compact kernel follows the canonical DNA path without universal template work
+The FlowGuard skill kernel SHALL lead an AI from target/adoption identity to the canonical blueprint owner, affected topology, required specialist route, executable negative cases, and current evidence. Template search or harvest SHALL appear only when the task explicitly requests reuse/publication or current evidence identifies a stable reusable cross-project pattern.
+
+#### Scenario: Ordinary target modeling or maintenance begins
+- **WHEN** no explicit template-reuse/publication request or stable reusable pattern is present
+- **THEN** the kernel proceeds through the canonical DNA path without requiring template search, no-match prose, or harvest closure
+
+#### Scenario: Reusable cross-project pattern is identified
+- **WHEN** current evidence demonstrates a bounded pattern intended for reuse beyond the target project
+- **THEN** the kernel routes to the template-library owner and preserves its separate evidence
+
+### Requirement: Kernel exposes compact path quality without a new route
+The FlowGuard skill kernel SHALL request the lightweight path-quality result for every new or materially changed model and expose only the current conclusion, trigger state, unresolved gap, and detailed-evidence reference needed by the task. It SHALL keep deep review conditional inside ModelMaturation and SHALL NOT present reconstruction, global optimization, or a separate path-optimization skill as ordinary work.
+
+#### Scenario: Lightweight result is sufficient
+- **WHEN** the result is current `single_clear_path` with no deep trigger
+- **THEN** kernel guidance proceeds through the selected specialist using the compact summary
+
+#### Scenario: Deep result is required
+- **WHEN** a current trigger requires finite candidate comparison
+- **THEN** guidance names the exact affected model boundary and bounded conclusion vocabulary
+- **AND** it does not add a public route or load unrelated model details

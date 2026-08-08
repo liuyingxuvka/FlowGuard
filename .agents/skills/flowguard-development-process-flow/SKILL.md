@@ -1,41 +1,44 @@
 ---
 name: flowguard-development-process-flow
-description: Staged work, freshness, sync, release, and final process claims.
+description: Order staged work, freshness, sync, release, and process claims.
 ---
 
 # FlowGuard Development Process Flow
 
 ## Purpose
-Model staged order, evidence freshness, affected validation, sync, and release while specialists retain semantics.
+Order work, freshness, validation, sync, and release; specialists keep semantics.
 
 ## Entrypoint Scope
-Front-door public owner `public_owner`; development-process simulator for `execution_freshness`, conditional internal process optimization, `plan_detailing_compiler`, and `agent_workflow_rehearsal`.
+Public owner `public_owner`; simulator owns freshness, conditional optimization, plan detailing, and workflow rehearsal.
 
 ## Local Material Routing
-After admission, read `references/development_process_flow_protocol.md`; load `references/distribution_release_protocol.md` only for distribution/release.
+Read `references/development_process_flow_protocol.md`; load `references/distribution_release_protocol.md` only when distribution or release is requested.
 
 ## Entrypoint Acceptance Map
-Accept stages, artifacts, versions, payload schemas, owners, peers, and evidence; return ordered execution and revalidation.
+Accept stages, versions, owners, and evidence; return order/revalidation.
 
 ## Use When
-- Use for plans, staged/multi-skill work, artifact versions, payload schemas, sync/release, or broad process claims.
+- Use for plans, staged/multi-skill work, artifact/payload versions, or sync/release claims.
 
 ## Do Not Use When
 - Keep specialists; unclear routing goes to `flowguard`.
 
 ## Required Workflow
-1. Register stages, modes, artifacts/writes, evidence, peers, and WorkContexts. On trigger, choose `diagnostic_boundary_choice` and sequential/`safe_parallel`; otherwise `not_needed`.
-2. Freeze inputs and execution owners as `execute|reuse_current|blocked`; plan-only starts none. Reuse exact TestMesh/Finding Ledger evidence, repair its owner, and revalidate affected obligations.
-3. Consume one verified maturation receipt; return separate `ready|ready_scoped|no_code_requested|blocked` admission and independent `model_first|direct_user_choice|no_code` choice.
-4. For release, consume typed projection parity, freeze manifests, run one final gate, and verify its process tree without restarting producers.
-5. For explicit blueprint scope, track inventory, bindings, resources, projection, and static freshness. Ordinary changes stay affected-only.
-6. Model changes atomically accept one `ModelRevisionSet`, write evidence before pointer, and prove repair.
+1. Register stages, writes, evidence, peers, WorkContexts; `plan_detailing_compiler` and `agent_workflow_rehearsal` detail order. Optimize only `diagnostic_boundary_choice`; isolate `safe_parallel`.
+2. Freeze owners `execute|reuse_current|blocked`; plan-only starts none. Revalidate affected obligations. One invocation shares one observation, source check, leaf publication, and receipt reconciliation.
+3. Model order: owner/intent -> lightweight path quality -> triggered deep review -> implementation -> affected validation -> candidate revision -> activation. Refresh drift minimally.
+4. Verify one ModelMaturation receipt. User choice cannot close missing evidence.
+5. Ordinary work loads affected blueprint shards; whole qualification freezes profile-to-projection identities and freshness.
+6. Accept one `ModelRevisionSet` atomically; delta is not complete `CurrentEffectiveIntentView`. Write evidence before pointer; freeze release identities before one final gate.
 
 ## Hard Gates
-- Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework. Activation/rollback share one lock/CAS owner; stale head stops.
-- Authorization bounds attempts, never confidence, scope, or blockers. Unknown proof/owner, active lease, or missing affected revalidation blocks; never run-all.
-- Static blueprint status must retain its exact provider, model, binding, resource, test, and projection identities.
-- ArchitectureReduction is only for evidence-backed behavior-preserving candidates. Machine success is artifact-backed; every non-pass child stays visible.
+- Model-purpose gate: freeze task-specific failure(s)/claim boundary; bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework. Activation/reverse share lock/CAS; stale head stops.
+- Authorization bounds attempts, not confidence. Unknown owner/impact, active lease, or missing revalidation blocks.
+- `single_clear_path` proceeds directly; an exact deep trigger blocks implementation/activation until closed. Unchanged models reuse exact current results.
+- ModelMaturation owns path quality; DPF verifies order/currentness. Reimplementation is explicit target work, not routine validation.
+- Preserve provider, model/path-quality, binding, resource, test, projection, and observed/normative identities. Success is artifact-backed; non-pass is visible.
+- Source, model/intent, consumer, install, commit, tag, and GitHub Release are separate currentness claims.
+- Invocation-local reuse is not authority. Never repeat semantics, rebuild currentness per leaf, or scan receipts per leaf; missing final freshness/reconciliation is `not_run`.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, modes, freshness, and revalidation; edges mean order, invalidation, or required revalidation. Blueprint output adds depth and first gap.
+- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, phases/modes, freshness; edges mean order, invalidation, or required revalidation. Blueprint adds depth/first gap.

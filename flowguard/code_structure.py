@@ -11,18 +11,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
 from .development_process_flow import (
     ImplementationAdmissionReport,
 )
-from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
+from .canonical_relation import (
+    RELATION_FALSE_FRIEND,
+    CanonicalRelationHandoff,
+    normalize_canonical_relation_handoff,
+)
 from .portable_model import canonical_identity
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 def _as_pairs(values: Sequence[tuple[str, str]] | None) -> tuple[tuple[str, str], ...]:
@@ -121,7 +120,7 @@ class CodeStructureRecommendation:
     field_writer_map: tuple[tuple[str, str], ...] = ()
     public_entrypoint_map: tuple[tuple[str, str], ...] = ()
     facade_module_id: str = ""
-    similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
+    canonical_relation_handoff: CanonicalRelationHandoff | Mapping[str, Any] | None = None
     shared_kernel_module_id: str = ""
     variant_adapter_module_ids: tuple[str, ...] = ()
     validation_boundaries: tuple[str, ...] = ()
@@ -150,7 +149,11 @@ class CodeStructureRecommendation:
         object.__setattr__(self, "field_writer_map", _as_pairs(self.field_writer_map))
         object.__setattr__(self, "public_entrypoint_map", _as_pairs(self.public_entrypoint_map))
         object.__setattr__(self, "facade_module_id", str(self.facade_module_id))
-        object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
+        object.__setattr__(
+            self,
+            "canonical_relation_handoff",
+            normalize_canonical_relation_handoff(self.canonical_relation_handoff),
+        )
         object.__setattr__(self, "shared_kernel_module_id", str(self.shared_kernel_module_id))
         object.__setattr__(self, "variant_adapter_module_ids", _as_tuple(self.variant_adapter_module_ids))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
@@ -217,8 +220,8 @@ class CodeStructureRecommendation:
             "field_writer_map": [list(pair) for pair in self.field_writer_map],
             "public_entrypoint_map": [list(pair) for pair in self.public_entrypoint_map],
             "facade_module_id": self.facade_module_id,
-            "similarity_handoff": self.similarity_handoff.to_dict()
-            if self.similarity_handoff
+            "canonical_relation_handoff": self.canonical_relation_handoff.to_dict()
+            if self.canonical_relation_handoff
             else None,
             "shared_kernel_module_id": self.shared_kernel_module_id,
             "variant_adapter_module_ids": list(self.variant_adapter_module_ids),
@@ -527,32 +530,48 @@ def review_code_structure_recommendation(
                 )
             )
 
-    similarity_handoff = recommendation.similarity_handoff
-    similarity_relation_ids = similarity_handoff.relation_ids if similarity_handoff else ()
-    similarity_code_obligation_ids = similarity_handoff.code_obligation_ids if similarity_handoff else ()
-    similarity_maintenance_group_ids = similarity_handoff.maintenance_group_ids if similarity_handoff else ()
+    canonical_relation_handoff = recommendation.canonical_relation_handoff
+    relation_ids = canonical_relation_handoff.relation_ids if canonical_relation_handoff else ()
+    relation_code_obligation_ids = canonical_relation_handoff.code_obligation_ids if canonical_relation_handoff else ()
+    relation_group_ids = canonical_relation_handoff.relation_group_ids if canonical_relation_handoff else ()
 
-    if similarity_relation_ids:
-        false_friend_relations = tuple(
-            relation_id
-            for relation_id in similarity_relation_ids
-            if "false_friend" in relation_id
+    if canonical_relation_handoff and not canonical_relation_handoff.evidence_current:
+        findings.append(
+            CodeStructureFinding(
+                "canonical_relation_evidence_stale",
+                "code structure cannot consume stale canonical relation evidence",
+                metadata=canonical_relation_handoff.to_dict(),
+            )
+        )
+    for gap_id in canonical_relation_handoff.gap_ids if canonical_relation_handoff else ():
+        findings.append(
+            CodeStructureFinding(
+                "canonical_relation_gap_unresolved",
+                "code structure cannot derive ownership while an affected relation gap remains",
+                item_id=gap_id,
+                metadata=canonical_relation_handoff.to_dict(),
+            )
+        )
+
+    if relation_ids:
+        false_friend_relations = canonical_relation_handoff.relation_ids_of_type(
+            RELATION_FALSE_FRIEND
         )
         if false_friend_relations:
             findings.append(
                 CodeStructureFinding(
-                    "false_friend_similarity_blocks_shared_structure",
-                    "false-friend similarity relations cannot derive a shared module without manual review",
-                    metadata={"similarity_relation_ids": false_friend_relations},
+                    "false_friend_relation_blocks_shared_structure",
+                    "false-friend canonical relations cannot derive a shared module without manual review",
+                    metadata={"relation_ids": false_friend_relations},
                 )
             )
         if recommendation.shared_kernel_module_id and recommendation.shared_kernel_module_id not in module_ids:
             findings.append(
                 CodeStructureFinding(
                     "shared_kernel_module_not_registered",
-                    "similarity-derived shared kernel owner is not a registered target module",
+                    "canonical-relation-derived shared kernel owner is not a registered target module",
                     module_id=recommendation.shared_kernel_module_id,
-                    metadata={"similarity_relation_ids": list(similarity_relation_ids)},
+                    metadata={"relation_ids": list(relation_ids)},
                 )
             )
         for module_id in recommendation.variant_adapter_module_ids:
@@ -560,32 +579,32 @@ def review_code_structure_recommendation(
                 findings.append(
                     CodeStructureFinding(
                         "variant_adapter_module_not_registered",
-                        "similarity-derived variant adapter owner is not a registered target module",
+                        "canonical-relation-derived variant adapter owner is not a registered target module",
                         module_id=module_id,
-                        metadata={"similarity_relation_ids": list(similarity_relation_ids)},
+                        metadata={"relation_ids": list(relation_ids)},
                     )
                 )
         if (
             recommendation.shared_kernel_module_id
             and recommendation.variant_adapter_module_ids
-            and not similarity_code_obligation_ids
+            and not relation_code_obligation_ids
         ):
             findings.append(
                 CodeStructureFinding(
-                    "missing_similarity_code_obligation",
-                    "similarity-derived shared-kernel structure should cite the code maintenance obligation that named the kernel and adapters",
+                    "missing_relation_code_obligation",
+                    "canonical-relation-derived shared-kernel structure should cite the code maintenance obligation that named the kernel and adapters",
                     severity="warning",
                     module_id=recommendation.shared_kernel_module_id,
-                    metadata={"similarity_relation_ids": list(similarity_relation_ids)},
+                    metadata={"relation_ids": list(relation_ids)},
                 )
             )
-        if similarity_maintenance_group_ids and not similarity_code_obligation_ids:
+        if relation_group_ids and not relation_code_obligation_ids:
             findings.append(
                 CodeStructureFinding(
-                    "missing_similarity_group_code_obligation",
-                    "a similarity maintenance group used for code structure should cite the code obligation that drives shared-kernel or adapter ownership",
+                    "missing_relation_group_code_obligation",
+                    "a canonical relation group used for code structure should cite the code obligation that drives shared-kernel or adapter ownership",
                     severity="warning",
-                    metadata={"similarity_maintenance_group_ids": list(similarity_maintenance_group_ids)},
+                    metadata={"relation_group_ids": list(relation_group_ids)},
                 )
             )
 

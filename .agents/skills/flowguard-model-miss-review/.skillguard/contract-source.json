@@ -98,7 +98,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "Closure covers only the classified, generalized, currently evidenced failure class and its subordinate bounded diagnostic projection; the diagnostic preserves the parent decision, and neither a point fix, isolated test, progress log, nor diagnostic core can support broader confidence.",
+  "claim_boundary": "Closure covers only the exact affected commitment, primary owner, blueprint gap, finite canonical ContractExhaustion cases, task-bound ModelMaturation result, owner code/test binding, and affected replay for the currently evidenced failure class. A bounded diagnostic preserves the parent decision; no point fix, isolated test, progress log, raw relation, or diagnostic core supports broader confidence.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -232,7 +232,7 @@
     {
       "action": {
         "kind": "inventory",
-        "summary": "Identify the failed external promise and search its affected plane before creating a gap."
+        "summary": "Bind the failed external promise to one current behavior commitment, primary owner, and exact blueprint gap; create one coverage gap only when no commitment covers it."
       },
       "check_ids": [
         "check:flowguard-model-miss-review:plane-boundary"
@@ -243,7 +243,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Run the existing Model Miss owner to generalize and backfeed the miss, then derive any bounded diagnostic as a read-only projection with conflict, positive, budget, and vacuity evidence."
+        "summary": "Backpropagate the supported miss, materialize finite canonical relations through ContractExhaustionMesh, emit a task-bound ModelMaturation contribution, and keep any bounded diagnostic read-only."
       },
       "check_ids": [
         "check:flowguard-model-miss-review:native-authority"
@@ -254,7 +254,7 @@
     {
       "action": {
         "kind": "verifier",
-        "summary": "Require owner code, replay, tests, and old-path disposition before scoped closure."
+        "summary": "Require owner code/test binding, affected topology and parent replay, lifecycle dispositions, verified maturation evidence, and freshness before scoped closure."
       },
       "check_ids": [
         "check:flowguard-model-miss-review:evidence-closure"

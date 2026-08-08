@@ -3,7 +3,7 @@
   "checks": [
     {
       "check_id": "check:flowguard-model-test-alignment:plane-boundary",
-      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_rationale": "The one native owner executes the alignment rollout plus exact ModelTestAlignment, bidirectional blueprint traceability, pre-code/execution separation, distinct owner-leaf, and parent-not-leaf regressions.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
         "obligation:flowguard-model-test-alignment:plane-boundary"
@@ -55,23 +55,59 @@
           "path": ".flowguard/model_test_code_alignment/run_checks.py"
         },
         {
-          "kind": "role",
-          "role": "runtime_source"
+          "kind": "path",
+          "path": ".agents/skills/flowguard-model-test-alignment/SKILL.md"
         },
         {
-          "kind": "role",
-          "role": "documentation_model"
+          "kind": "path",
+          "path": ".agents/skills/flowguard-model-test-alignment/references/model_test_alignment_protocol.md"
         },
         {
-          "kind": "role",
-          "role": "test_dev"
+          "kind": "path",
+          "path": "flowguard/model_test_alignment.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/implementation_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/software_blueprint_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_revision_owner_evidence.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/validation_ownership.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_test_alignment.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_implementation_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_software_blueprint_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_revision_owner_evidence.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_validation_execution_ownership.py"
         }
       ],
       "kind": "command",
       "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-model-test-alignment",
       "semantic_check_id": "semantic:check:flowguard-model-test-alignment:native-authority",
-      "timeout_seconds": 180
+      "timeout_seconds": 600
     },
     {
       "check_id": "check:flowguard-model-test-alignment:evidence-closure",
@@ -181,7 +217,15 @@
     ".flowguard/model_test_code_alignment",
     "flowguard/model_test_alignment.py",
     "flowguard/skill_contract_model.py",
-    "tests/test_model_test_alignment.py"
+    "flowguard/implementation_blueprint.py",
+    "flowguard/software_blueprint_readiness.py",
+    "flowguard/model_revision_owner_evidence.py",
+    "flowguard/validation_ownership.py",
+    "tests/test_model_test_alignment.py",
+    "tests/test_implementation_blueprint.py",
+    "tests/test_software_blueprint_readiness.py",
+    "tests/test_model_revision_owner_evidence.py",
+    "tests/test_validation_execution_ownership.py"
   ],
   "integration_mode": "native-integrated",
   "judgment_rubrics": [],

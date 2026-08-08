@@ -30,11 +30,9 @@ provenance source?
   bad cases from one observed miss so the family can be tested uniformly. For
   canonical coverage, feed the seed through
   `family_bad_case_seed_to_contract_cases(...)` and use the resulting
-  ContractExhaustionMesh case ids downstream.
-- `AnalogousDefectCandidate` and `review_analogous_defect_scan(...)`: after a
-  real miss, scan where the same failure shape may recur and record whether
-  each candidate is covered, repair-now, model-upgrade-needed, separate-change,
-  or excluded with a reason.
+  ContractExhaustionMesh case ids downstream. The declared family members,
+  mechanism, exclusions, and current canonical relations form the finite
+  denominator; this helper does not search for additional surfaces.
 
 ## Evidence Rules
 
@@ -66,33 +64,25 @@ This catches the class of failure where one route had durable receipt evidence,
 a sibling route had only a manual or controller-level event, and both were
 still being treated as the same class of closed work.
 
-## Analogous Defect Scan
+## Finite Same-Class Cases
 
-Family parity answers whether the declared family is covered now. Analogous
-defect scan answers the next model-miss question: after a real bug, where else
-could the same failure shape happen?
-
-The scan has three radii:
-
-- `must_scan`: same family, same mechanism, same failure shape. Open candidates
-  block broad closure.
-- `should_scan`: related surface or adjacent mechanism. Open candidates keep the
-  claim scoped unless they are assigned to a separate change or excluded with a
-  concrete reason.
-- `record_only`: useful risk note that should stay visible but should not pull
-  unrelated work into the current repair.
-
-Use this after model misses so a repair does not close on the observed bug
-alone. The usual pattern is:
+Family parity answers whether a declared shared claim is covered now. After a
+real miss, related coverage follows one bounded path:
 
 ```text
 observed miss -> FamilyBadCaseSeed
 -> family_bad_case_seed_to_contract_cases(...)
 -> review_contract_exhaustion(...)
--> review_analogous_defect_scan(...) for scan disposition
--> repair/cover required canonical cases
--> feed scan confidence into the Risk Evidence Ledger
+-> repair/cover every required canonical case
+-> ModelMaturation and model-code-test alignment
+-> feed the one current maturation result into the Risk Evidence Ledger
 ```
+
+ContractExhaustionMesh is the sole current owner of the stable observed and
+same-class case ids and their executable oracles. It expands only declared
+family members and current canonical affected relations. A suspected related
+surface with no current relation remains an explicit model/relation gap; it
+does not start a second repository-wide scan or a parallel completion gate.
 
 ## Risk Evidence Ledger
 
@@ -104,16 +94,15 @@ The ledger blocks missing, stale, or blocked family gates. A scoped family gate
 downgrades the final ledger decision unless scoped confidence is explicitly
 allowed.
 
-`RiskEvidenceRow` can also require an analogous defect scan with
-`RiskEvidenceGate(RISK_GATE_ANALOGOUS_SCAN, "analogous:...")`.
-
-This is the final-claim hook for the bug-repair case: if the same-shape risk
-radius is still unreviewed or blocked, the ledger cannot return full
-confidence.
+For a bug-repair claim, the ledger consumes the one current ModelMaturation
+result together with the exact ContractExhaustionMesh case ids, model-code-test
+bindings, affected-topology replay, and any scoped gaps. There is no additional
+same-shape scan receipt to reconcile.
 
 ## Boundary
 
 This helper is not the canonical bad-case generator. It defines the family and
 checks family evidence parity; ContractExhaustionMesh creates the stable
-bad-case ids. It also does not replace Model-Miss Review, Model-Test
-Alignment, TestMesh, or the Risk Evidence Ledger.
+bad-case ids and executable oracles. It also does not replace Model-Miss
+Review, ModelMaturation, Model-Test Alignment, TestMesh, or the Risk Evidence
+Ledger.

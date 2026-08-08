@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import nonempty_string_sequence as _as_tuple
 from .export import to_jsonable
 from .hierarchy import MeshClosureModel
 from .model_test_alignment import (
@@ -34,12 +35,6 @@ MODEL_MESH_CLOSURE_RETRY_TEST_KINDS = (
     TEST_KIND_NEGATIVE_PATH,
     TEST_KIND_REPLAY,
 )
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _unique(values: Sequence[str]) -> tuple[str, ...]:
@@ -81,9 +76,9 @@ class TransitionCoverageCell:
     business_intent_id: str = ""
     behavior_commitment_id: str = ""
     primary_path_id: str = ""
-    similarity_relation_ids: tuple[str, ...] = ()
-    similarity_test_obligation_ids: tuple[str, ...] = ()
-    similarity_code_obligation_ids: tuple[str, ...] = ()
+    canonical_relation_ids: tuple[str, ...] = ()
+    relation_test_obligation_ids: tuple[str, ...] = ()
+    relation_code_obligation_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "cell_id", str(self.cell_id))
@@ -101,16 +96,16 @@ class TransitionCoverageCell:
         object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
         object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
         object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
-        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(self, "canonical_relation_ids", _as_tuple(self.canonical_relation_ids))
         object.__setattr__(
             self,
-            "similarity_test_obligation_ids",
-            _as_tuple(self.similarity_test_obligation_ids),
+            "relation_test_obligation_ids",
+            _as_tuple(self.relation_test_obligation_ids),
         )
         object.__setattr__(
             self,
-            "similarity_code_obligation_ids",
-            _as_tuple(self.similarity_code_obligation_ids),
+            "relation_code_obligation_ids",
+            _as_tuple(self.relation_code_obligation_ids),
         )
 
     def to_model_obligation(
@@ -143,8 +138,8 @@ class TransitionCoverageCell:
             business_intent_id=self.business_intent_id,
             behavior_commitment_id=self.behavior_commitment_id,
             primary_path_id=self.primary_path_id,
-            similarity_relation_ids=self.similarity_relation_ids,
-            similarity_test_obligation_ids=self.similarity_test_obligation_ids,
+            relation_ids=self.canonical_relation_ids,
+            relation_test_obligation_ids=self.relation_test_obligation_ids,
         )
 
     def to_code_contract(
@@ -169,8 +164,8 @@ class TransitionCoverageCell:
             business_intent_id=self.business_intent_id,
             behavior_commitment_id=self.behavior_commitment_id,
             primary_path_id=self.primary_path_id,
-            similarity_relation_ids=self.similarity_relation_ids,
-            similarity_code_obligation_ids=self.similarity_code_obligation_ids,
+            relation_ids=self.canonical_relation_ids,
+            relation_code_obligation_ids=self.relation_code_obligation_ids,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -190,9 +185,9 @@ class TransitionCoverageCell:
             "business_intent_id": self.business_intent_id,
             "behavior_commitment_id": self.behavior_commitment_id,
             "primary_path_id": self.primary_path_id,
-            "similarity_relation_ids": list(self.similarity_relation_ids),
-            "similarity_test_obligation_ids": list(self.similarity_test_obligation_ids),
-            "similarity_code_obligation_ids": list(self.similarity_code_obligation_ids),
+            "canonical_relation_ids": list(self.canonical_relation_ids),
+            "relation_test_obligation_ids": list(self.relation_test_obligation_ids),
+            "relation_code_obligation_ids": list(self.relation_code_obligation_ids),
         }
 
 
@@ -322,12 +317,12 @@ def model_mesh_closure_to_transition_coverage(
                 business_intent_id=str(getattr(transition, "business_intent_id", "")),
                 behavior_commitment_id=str(getattr(transition, "behavior_commitment_id", "")),
                 primary_path_id=str(getattr(transition, "primary_path_id", "")),
-                similarity_relation_ids=tuple(getattr(transition, "similarity_relation_ids", ())),
-                similarity_test_obligation_ids=tuple(
-                    getattr(transition, "similarity_test_obligation_ids", ())
+                canonical_relation_ids=tuple(getattr(transition, "canonical_relation_ids", ())),
+                relation_test_obligation_ids=tuple(
+                    getattr(transition, "relation_test_obligation_ids", ())
                 ),
-                similarity_code_obligation_ids=tuple(
-                    getattr(transition, "similarity_code_obligation_ids", ())
+                relation_code_obligation_ids=tuple(
+                    getattr(transition, "relation_code_obligation_ids", ())
                 ),
             )
         )
@@ -372,12 +367,12 @@ def ui_interaction_model_to_transition_coverage(
                 business_intent_id=str(getattr(transition, "business_intent_id", "")),
                 behavior_commitment_id=str(getattr(transition, "behavior_commitment_id", "")),
                 primary_path_id=str(getattr(transition, "primary_path_id", "")),
-                similarity_relation_ids=tuple(getattr(transition, "similarity_relation_ids", ())),
-                similarity_test_obligation_ids=tuple(
-                    getattr(transition, "similarity_test_obligation_ids", ())
+                canonical_relation_ids=tuple(getattr(transition, "canonical_relation_ids", ())),
+                relation_test_obligation_ids=tuple(
+                    getattr(transition, "relation_test_obligation_ids", ())
                 ),
-                similarity_code_obligation_ids=tuple(
-                    getattr(transition, "similarity_code_obligation_ids", ())
+                relation_code_obligation_ids=tuple(
+                    getattr(transition, "relation_code_obligation_ids", ())
                 ),
             )
         )

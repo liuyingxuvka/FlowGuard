@@ -9,7 +9,7 @@ import model
 
 REQUIRED_LABELS = (
             "summary_gap_recorded",
-            "scan_action_created",
+            "owner_action_bound",
             "specialist_route_ran",
             "owner_proof_recorded",
             "claim_full",

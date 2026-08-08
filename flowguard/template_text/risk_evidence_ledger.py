@@ -5,8 +5,8 @@ from __future__ import annotations
 RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
-Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, UI real-surface/functional-capability/functional-chain/done-claim gates, payload gates, topology/business-path gates, recurring defect-family gates, model/test split gates, and current evidence.
-Guards against: coarse models hiding untested internal branches, skipped UI inventory, functional capability coverage, functional-chain, source-baseline interaction, click-through, or file/work-package payload evidence for real surfaces, business-path-sensitive claims proved by the wrong route, oversized direct model evidence bypassing ModelMesh, slow or broad validation bypassing TestMesh, recurring same-class misses hiding behind local point fixes, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
+Purpose: Review whether a final FlowGuard confidence claim is backed by model obligations, public code contracts, contract-exhaustion coverage, UI real-surface/functional-capability/functional-chain/done-claim gates, payload gates, topology/business-path gates, model/test split gates, and current evidence.
+Guards against: coarse models hiding untested internal branches, skipped same-class or Cartesian contract cases, skipped UI inventory, functional capability coverage, functional-chain, source-baseline interaction, click-through, or file/work-package payload evidence for real surfaces, business-path-sensitive claims proved by the wrong route, oversized direct model evidence bypassing ModelMesh, slow or broad validation bypassing TestMesh, tests covering only helper paths, skipped or stale evidence being treated as pass, and background progress being counted as final proof.
 Use before editing: Run this before claiming done, release-ready, or fully validated after model/test/code changes.
 Run: python .flowguard/risk_evidence_ledger/run_checks.py
 """
@@ -22,7 +22,6 @@ from flowguard import (
     MODEL_MATURATION_RECEIPT_CLAIM_SCOPE,
     RISK_GATE_ARTIFACT_PAYLOAD,
     RISK_GATE_CONTRACT_COVERAGE_SHARD,
-    RISK_GATE_DEFECT_FAMILY,
     RISK_GATE_MAINTENANCE_OBLIGATION,
     RISK_GATE_MODEL_CARTESIAN_COVERAGE,
     RISK_GATE_TOPOLOGY_HAZARD,
@@ -56,17 +55,69 @@ from flowguard import (
     snapshot_bytes,
     verify_model_maturation_receipt,
 )
+from flowguard.model_path_quality import PathQualityResult, PathQualitySubject
+
+
+def resolved_path_quality(model_id, model_fingerprint):
+    def identity(name):
+        return fingerprint_value({"model_id": model_id, "identity": name})
+
+    subject = PathQualitySubject(
+        model_id=model_id,
+        boundary_id=f"behavior:{model_id}",
+        model_fingerprint=model_fingerprint,
+        normalized_facts_fingerprint=identity("normalized-facts"),
+        retained_element_inventory_fingerprint=identity("retained-elements"),
+        purpose_fingerprint=identity("purpose"),
+        intent_fingerprint=identity("intent"),
+        obligation_fingerprint=identity("obligations"),
+        provider_fingerprint=identity("provider"),
+        dependency_fingerprint=identity("dependencies"),
+        code_fingerprint=identity("code"),
+        test_fingerprint=identity("tests"),
+        oracle_fingerprint=identity("oracles"),
+        evidence_fingerprint=identity("evidence"),
+        currentness_id="revision:template-current",
+    )
+    result = PathQualityResult(
+        result_id=f"path-quality:{model_id}",
+        subject_fingerprint=subject.fingerprint,
+        mode="lightweight",
+        trigger_ids=(),
+        finding_ids=(),
+        candidate_ids=(),
+        rewrite_rule_ids=(),
+        conclusion="single_clear_path",
+        unresolved_ids=(),
+        selected_candidate_id="",
+        selected_candidate_lane="",
+        comparison_boundary_id="",
+        candidate_set_fingerprint="",
+        rewrite_set_fingerprint="",
+        necessity_witness_set_fingerprint=identity("necessity-witnesses"),
+        detail_evidence_fingerprint=identity("path-detail"),
+        producer_id="model_maturation:path-quality",
+        currentness_id=subject.currentness_id,
+    )
+    return subject, result
 
 
 def maturation_evidence():
+    model_id = "model:checkout"
+    candidate_model_fingerprint = fingerprint_value(
+        {"model_id": model_id, "candidate": "template-current"}
+    )
+    path_quality_subject, path_quality_result = resolved_path_quality(
+        model_id, candidate_model_fingerprint
+    )
     report = ModelMaturationReport(
         ok=True,
         plan_id="plan:checkout",
         evidence_id="maturation:checkout",
         task_id="task:checkout",
-        model_id="model:checkout",
+        model_id=model_id,
         coverage_demand_fingerprint="sha256:demand",
-        candidate_model_fingerprint="sha256:candidate",
+        candidate_model_fingerprint=candidate_model_fingerprint,
         coverage_universe_id="coverage:checkout",
         coverage_universe_fingerprint="sha256:coverage",
         input_fingerprint="sha256:intake",
@@ -74,6 +125,9 @@ def maturation_evidence():
         decision=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
         confidence=MODEL_MATURATION_CONFIDENCE_FULL,
         terminal_reason=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+        required_path_quality_model_ids=(model_id,),
+        path_quality_subjects=(path_quality_subject,),
+        path_quality_results=(path_quality_result,),
         owner_resolution_ids=("resolution:checkout",),
         owner_resolution_fingerprints=("sha256:resolution-checkout",),
         owner_resolution_owner_ids=("model_first_function_flow",),
@@ -130,6 +184,10 @@ def maturation_evidence():
                 coverage_universe_fingerprint=report.coverage_universe_fingerprint,
                 input_fingerprint=report.input_fingerprint,
                 evidence_fingerprint=report.evidence_fingerprint,
+                required_path_quality_model_ids=report.required_path_quality_model_ids,
+                path_quality_subjects=report.path_quality_subjects,
+                path_quality_results=report.path_quality_results,
+                path_quality_result_set_fingerprint=report.path_quality_result_set_fingerprint,
                 owner_resolution_ids=report.owner_resolution_ids,
                 owner_resolution_fingerprints=report.owner_resolution_fingerprints,
                 owner_resolution_owner_ids=report.owner_resolution_owner_ids,
@@ -155,7 +213,6 @@ def correct_ledger() -> RiskEvidenceLedgerPlan:
                 proof_evidence_ids=("test:duplicate-submit",),
                 gates=(
                     model_maturation_to_risk_evidence_gate(maturation),
-                    RiskEvidenceGate(RISK_GATE_DEFECT_FAMILY, "defect-family:duplicate-submit"),
                     RiskEvidenceGate(RISK_GATE_MODEL_CARTESIAN_COVERAGE, "contract_coverage:checkout-child"),
                     RiskEvidenceGate(RISK_GATE_CONTRACT_COVERAGE_SHARD, "contract_shard:checkout-child:duplicate-submit"),
                     RiskEvidenceGate(RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE, "contract_coverage:checkout-parent"),
@@ -265,30 +322,6 @@ def broken_progress_only_ledger() -> RiskEvidenceLedgerPlan:
                 producer_route="test_mesh_maintenance",
                 command="python -m pytest -q",
                 summary="suite is still running, so it is liveness only",
-            ),
-        ),
-    )
-
-
-def broken_missing_defect_family_gate_ledger() -> RiskEvidenceLedgerPlan:
-    return RiskEvidenceLedgerPlan(
-        "missing-defect-family-gate",
-        rows=(
-            RiskEvidenceRow(
-                "duplicate_submit",
-                model_obligation_id="model:dedupe-submit",
-                code_contract_id="api:submit_order",
-                proof_evidence_ids=("test:duplicate-submit",),
-                gates=(RiskEvidenceGate(RISK_GATE_DEFECT_FAMILY),),
-            ),
-        ),
-        proof_evidence=(
-            RiskEvidenceProof(
-                "test:duplicate-submit",
-                result_status=RISK_PROOF_STATUS_PASSED,
-                producer_route="model_test_alignment",
-                command="python -m unittest tests.test_checkout",
-                summary="observed and same-class test evidence passed, but no defect-family gate was consumed",
             ),
         ),
     )
@@ -407,7 +440,6 @@ def run_checks():
         review_risk_evidence_ledger(correct_ledger()),
         review_risk_evidence_ledger(broken_internal_only_ledger()),
         review_risk_evidence_ledger(broken_progress_only_ledger()),
-        review_risk_evidence_ledger(broken_missing_defect_family_gate_ledger()),
         review_risk_evidence_ledger(broken_missing_model_split_gate_ledger()),
         review_risk_evidence_ledger(broken_missing_cartesian_coverage_ledger()),
         review_risk_evidence_ledger(broken_missing_artifact_payload_gate_ledger()),
@@ -427,7 +459,6 @@ def main() -> int:
         correct,
         internal_only,
         progress_only,
-        missing_defect_family,
         missing_model_split,
         missing_cartesian_coverage,
         missing_artifact_payload,
@@ -438,8 +469,6 @@ def main() -> int:
     print(internal_only.format_text(max_findings=5))
     print()
     print(progress_only.format_text(max_findings=5))
-    print()
-    print(missing_defect_family.format_text(max_findings=5))
     print()
     print(missing_model_split.format_text(max_findings=5))
     print()
@@ -453,8 +482,6 @@ def main() -> int:
         and internal_only.decision == "internal_path_only_evidence"
         and not progress_only.ok
         and progress_only.decision == "proof_evidence_not_passing"
-        and not missing_defect_family.ok
-        and missing_defect_family.decision == "missing_defect_family_gate"
         and not missing_model_split.ok
         and missing_model_split.decision == "missing_model_split_gate"
         and not missing_cartesian_coverage.ok
@@ -479,7 +506,8 @@ Use this scaffold before final confidence claims.
 
 - each user-facing risk has a FlowGuard model obligation owner;
 - each required public behavior has a code contract when the project requires it;
-- each recurring or high-risk same-class model miss has a current defect-family gate;
+- each model miss is bound to one current ContractExhaustion observed/same-class
+  case set and one current ModelMaturation result;
 - each model-scoped Cartesian coverage claim has current coverage receipt,
   shard, and parent-consumed-child gates when the final claim depends on it;
 - each required ModelMesh or TestMesh split gate is current before broad parent

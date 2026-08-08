@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
 
 
@@ -43,12 +44,6 @@ EXTERNAL_PROOF_ARTIFACT_SCOPES = {
     PROOF_ARTIFACT_SCOPE_EXTERNAL_CONTRACT,
     PROOF_ARTIFACT_SCOPE_MIXED,
 }
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 def _as_str_map(values: Mapping[str, Any] | None) -> dict[str, str]:

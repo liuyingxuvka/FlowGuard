@@ -763,7 +763,7 @@ claims must also keep the `ContractCoverageUniverse`, actionable oracle
 feedback fields, and any `ObservedProblemBackfeed` mapping aligned with those
 same obligation ids and receipts.
 
-When Similarity reports an affected family, pass materialized test/code
+When CanonicalRelation identifies an affected family, pass materialized test/code
 obligation ids and expected member/surface inventories into alignment. Opaque
 relation ids are provenance only; they do not prove that the downstream
 obligations were actually created or tested.
@@ -991,7 +991,7 @@ actually guarded by runtime code and tests.
 For behavior-bearing work, the obligation, owner contract, delegate/facade
 contracts, runtime evidence, transition rows, family evidence, and tests must
 agree on one `business_intent_id`, one `behavior_commitment_id`, and one
-singular `primary_path_id`. Similarity ids alone do not count as materialized
+singular `primary_path_id`. Canonical relation ids alone do not count as materialized
 coverage.
 
 Escalate to `model-test-alignment-full-template` when the claim needs

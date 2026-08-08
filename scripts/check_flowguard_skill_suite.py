@@ -43,7 +43,15 @@ from flowguard.evidence_lifecycle import (
     store_text_object,
 )
 from flowguard.evidence_receipts import evidence_storage_root
-from flowguard.process_supervision import run_supervised, write_terminal_artifact
+from flowguard.process_supervision import (
+    SupervisedCommandResult,
+    run_supervised,
+    write_terminal_artifact,
+)
+from flowguard.validation_owner_execution import (
+    ValidationOwnerResultIdentityRequirement,
+    publish_supervised_validation_owner_result,
+)
 from flowguard.model_regressions import ModelRegressionManifest
 from flowguard.validation_ownership import (
     OWNER_BLOCKED,
@@ -56,7 +64,7 @@ from flowguard.validation_ownership import (
     child_from_owner_receipt,
     find_reusable_parent_receipt,
     find_reusable_owner_receipt,
-    save_owner_receipt,
+    record_validation_owner_nonpass,
     save_parent_receipt,
     verify_parent_receipt,
 )
@@ -114,7 +122,7 @@ class CommandOutcome:
     stderr: str = ""
     payload: Mapping[str, Any] | None = None
     launch_error: str = ""
-    supervision: Mapping[str, Any] | None = None
+    supervision: SupervisedCommandResult | None = None
 
 
 @dataclass(frozen=True)
@@ -127,6 +135,7 @@ class ChildSpec:
     resource_keys: tuple[str, ...] = ()
     external_component_bindings: tuple[tuple[str, str], ...] = ()
     external_component_paths: tuple[tuple[str, str], ...] = ()
+    result_identity_requirement: ValidationOwnerResultIdentityRequirement | None = None
     timeout_seconds: float = 900.0
     required_path: Path | None = None
     missing_reason: str = ""
@@ -191,7 +200,7 @@ def _model_regression_input_patterns(root: Path) -> tuple[str, ...]:
     manifest = ModelRegressionManifest.load(root)
     for entry in manifest.entries:
         if not entry.excluded:
-            patterns.update(entry.input_globs)
+            patterns.update(entry.effective_input_patterns)
     for group in manifest.shared_input_groups:
         patterns.update(group.globs)
     return tuple(sorted(patterns))
@@ -239,7 +248,7 @@ def _execute_command(
             stdout=completed.stdout,
             stderr=completed.stderr,
             launch_error="cleanup_unconfirmed",
-            supervision=completed.to_dict(),
+            supervision=completed,
         )
     payload: Mapping[str, Any] | None = None
     if completed.stdout.strip():
@@ -255,7 +264,7 @@ def _execute_command(
         completed.stdout,
         completed.stderr,
         payload,
-        supervision=completed.to_dict(),
+        supervision=completed,
     )
 
 
@@ -604,6 +613,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 str(root),
                 "--output-dir",
                 str(native_receipt_root),
+                "--resume",
                 "--json",
             ),
             (
@@ -662,6 +672,8 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "--root",
                 str(root),
                 "--include-architecture-reduction",
+                "--require-cleanup-release-ready",
+                "--compact",
                 "--json",
             ),
             (
@@ -690,6 +702,18 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
             (
                 "validation:self_blueprint",
                 "validation:architecture_reduction_review",
+            ),
+            result_identity_requirement=ValidationOwnerResultIdentityRequirement(
+                projection_id=(
+                    "flowguard.self_maintenance_review."
+                    "architecture_reduction_identity"
+                ),
+                source_path=("architecture_reduction_review",),
+                fingerprint_fields=(
+                    "review_fingerprint",
+                    "projection_fingerprint",
+                ),
+                content_fingerprint_field="projection_fingerprint",
             ),
             timeout_seconds=1800.0,
         ),
@@ -798,6 +822,14 @@ def _owner_contracts(specs: Sequence[ChildSpec]) -> tuple[ValidationOwnerContrac
                 command=identity_command(spec.command),
                 input_patterns=spec.input_patterns,
                 obligation_ids=spec.obligation_ids,
+                projected_inputs=(
+                    (
+                        "result_identity_requirement",
+                        spec.result_identity_requirement.fingerprint,
+                    ),
+                )
+                if spec.result_identity_requirement is not None
+                else (),
                 dependency_owner_ids=dependencies,
                 resource_keys=spec.resource_keys or ("resource:full-validation-worktree",),
                 timeout_seconds=spec.timeout_seconds,
@@ -944,16 +976,24 @@ def _blocked_child(spec: ChildSpec, reason: str, child_dir: Path) -> ValidationC
     )
 
 
-def _run_full_child(spec: ChildSpec, root: Path, output_dir: Path, index: int) -> ValidationChildResult:
+def _run_full_child(
+    spec: ChildSpec,
+    root: Path,
+    output_dir: Path,
+    index: int,
+) -> tuple[ValidationChildResult, SupervisedCommandResult | None]:
     child_dir = output_dir / f"{index:02d}-{spec.child_id}"
     if spec.child_id == "distribution_parity" and spec.required_path is None:
-        return _blocked_child(spec, spec.missing_reason, child_dir)
+        return _blocked_child(spec, spec.missing_reason, child_dir), None
     if spec.required_path is not None and not spec.required_path.is_file():
-        return _blocked_child(spec, f"{spec.missing_reason}: {spec.required_path}", child_dir)
+        return (
+            _blocked_child(spec, f"{spec.missing_reason}: {spec.required_path}", child_dir),
+            None,
+        )
 
     outcome = _execute_command(spec.command, root, spec.timeout_seconds)
     if outcome.supervision is not None:
-        terminal = outcome.supervision
+        terminal = outcome.supervision.to_dict()
         terminal_path = child_dir / "supervisor-terminal.json"
         terminal_path.parent.mkdir(parents=True, exist_ok=True)
         terminal_path.write_text(
@@ -971,20 +1011,23 @@ def _run_full_child(spec: ChildSpec, root: Path, output_dir: Path, index: int) -
         or payload.get("run_id")
         or ""
     )
-    return ValidationChildResult(
-        spec.child_id,
-        status,
-        _summary(spec.child_id, status, outcome),
-        receipt_id=receipt_id,
-        artifact_paths=paths,
-        claim_boundary=claim_boundary,
-        payload={
-            "command": list(outcome.command),
-            "exit_code": outcome.exit_code,
-            "launch_error": outcome.launch_error,
-            "payload_sha256": fingerprint_payload(payload),
-            "payload_keys": sorted(payload),
-        },
+    return (
+        ValidationChildResult(
+            spec.child_id,
+            status,
+            _summary(spec.child_id, status, outcome),
+            receipt_id=receipt_id,
+            artifact_paths=paths,
+            claim_boundary=claim_boundary,
+            payload={
+                "command": list(outcome.command),
+                "exit_code": outcome.exit_code,
+                "launch_error": outcome.launch_error,
+                "payload_sha256": fingerprint_payload(payload),
+                "payload_keys": sorted(payload),
+            },
+        ),
+        outcome.supervision,
     )
 
 
@@ -1125,7 +1168,7 @@ def _execute_full_owner_plan(
                             owner_receipts[spec.child_id] = receipt
                         else:
                             child_started = datetime.now(timezone.utc).isoformat()
-                            child = _run_full_child(
+                            child, supervised = _run_full_child(
                                 spec,
                                 root,
                                 output_dir,
@@ -1149,12 +1192,54 @@ def _execute_full_owner_plan(
                                             lease["lease_token"],
                                         )
                                     )
+                            elif child.status == VALIDATION_STATUS_PASS:
+                                if supervised is None:
+                                    raise ValueError(
+                                        f"passing validation child lacks supervised producer: {spec.child_id}"
+                                    )
+                                publication = publish_supervised_validation_owner_result(
+                                    locked_current,
+                                    supervised,
+                                    root,
+                                    receipt_root,
+                                    all_contracts=owner_plan.contracts,
+                                    child_id=child.child_id,
+                                    evidence_context={
+                                        "validation_child": child.to_dict(),
+                                    },
+                                    summary=child.summary,
+                                    claim_boundary=child.claim_boundary,
+                                    result_identity_requirement=(
+                                        spec.result_identity_requirement
+                                    ),
+                                )
+                                if not publication.ok or publication.receipt is None:
+                                    raise ValueError(
+                                        "supervised validation child publication blocked: "
+                                        + publication.blocker
+                                    )
+                                receipt = publication.receipt
+                                owner_receipts[spec.child_id] = receipt
+                                child = ValidationChildResult(
+                                    child_id=child.child_id,
+                                    status=child.status,
+                                    summary=child.summary,
+                                    receipt_id=receipt.receipt_id,
+                                    artifact_paths=child.artifact_paths,
+                                    claim_boundary=child.claim_boundary,
+                                    payload={
+                                        **dict(child.payload),
+                                        "execution_disposition": OWNER_EXECUTE,
+                                        "owner_receipt_fingerprint": receipt.fingerprint,
+                                    },
+                                )
                             else:
-                                receipt = save_owner_receipt(
+                                receipt = record_validation_owner_nonpass(
                                     locked_current,
                                     child,
                                     root,
                                     receipt_root,
+                                    all_contracts=owner_plan.contracts,
                                     started_at=child_started,
                                     finished_at=datetime.now(timezone.utc).isoformat(),
                                 )

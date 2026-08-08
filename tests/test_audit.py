@@ -226,10 +226,11 @@ class ModelQualityAuditTests(unittest.TestCase):
         self.assertIn("missing_repeated_input", categories)
         self.assertIn("missing_conformance", categories)
         self.assertIn("skipped_step", categories)
-        self.assertIn("missing_template_harvest_review", categories)
+        self.assertNotIn("missing_template_reuse_review", categories)
+        self.assertNotIn("missing_template_harvest_review", categories)
         self.assertTrue(any("production confidence goal" in finding.message for finding in report.findings))
 
-    def test_template_harvest_review_satisfies_harvest_closure_warning(self):
+    def test_ordinary_audit_does_not_require_template_review(self):
         profile = RiskProfile(modeled_boundary="helper architecture", risk_classes=("deduplication",))
 
         report = audit_model(
@@ -238,13 +239,10 @@ class ModelQualityAuditTests(unittest.TestCase):
             external_inputs=("x", "y"),
             max_sequence_length=2,
             risk_profile=profile,
-            template_harvest_review={
-                "disposition": "duplicate_linked",
-                "linked_template_ids": ("side_effect_at_most_once",),
-            },
         )
 
         categories = [finding.category for finding in report.findings]
+        self.assertNotIn("missing_template_reuse_review", categories)
         self.assertNotIn("missing_template_harvest_review", categories)
 
     def test_declared_conformance_risk_has_specific_gap_message(self):

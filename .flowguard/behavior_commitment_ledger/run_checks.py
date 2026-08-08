@@ -12,15 +12,27 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from flowguard import review_behavior_commitment_ledger
+from flowguard import (
+    BCL_SOURCE_AUTHORITY_SUPPORTING,
+    BCL_SOURCE_CLASSIFICATION_IMPLEMENTATION,
+    review_behavior_commitment_ledger,
+)
 
-from model import build_flowguard_behavior_commitment_ledger
+from model import (
+    audit_flowguard_behavior_commitment_source_inventory,
+    build_flowguard_behavior_commitment_ledger,
+)
 
 
 def main() -> int:
     ledger = build_flowguard_behavior_commitment_ledger()
+    live_source_report = audit_flowguard_behavior_commitment_source_inventory()
     report = review_behavior_commitment_ledger(ledger)
-    payload = {"ok": report.ok, "report": report.to_dict()}
+    payload = {
+        "ok": report.ok and live_source_report.ok,
+        "report": report.to_dict(),
+        "live_source_inventory": live_source_report.to_dict(),
+    }
     output_dir = Path(os.environ.get("FLOWGUARD_OUTPUT_DIR", Path(__file__).parent))
     output_dir.mkdir(parents=True, exist_ok=True)
     output_dir.joinpath("result.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -58,7 +70,41 @@ def main() -> int:
     delegate_codes = {finding.code for finding in delegate_report.findings}
     delegate_ok = "delegate_commitment_forbidden" in delegate_codes
 
-    if report.ok and duplicate_ok and delegate_ok:
+    single_source_commitment = next(
+        commitment
+        for commitment in ledger.commitments
+        if len(commitment.source_surface_ids) == 1
+    )
+    target_surface_id = single_source_commitment.source_surface_ids[0]
+    implementation_ledger = replace(
+        ledger,
+        source_surfaces=tuple(
+            replace(
+                surface,
+                source_classification=BCL_SOURCE_CLASSIFICATION_IMPLEMENTATION,
+                source_authority_role=BCL_SOURCE_AUTHORITY_SUPPORTING,
+            )
+            if surface.surface_id == target_surface_id
+            else surface
+            for surface in ledger.source_surfaces
+        ),
+    )
+    implementation_report = review_behavior_commitment_ledger(implementation_ledger)
+    implementation_codes = {
+        finding.code for finding in implementation_report.findings
+    }
+    implementation_authority_ok = {
+        "source_surface_non_contract_authority_forbidden",
+        "commitment_current_normative_source_missing",
+    }.issubset(implementation_codes)
+
+    if (
+        report.ok
+        and live_source_report.ok
+        and duplicate_ok
+        and delegate_ok
+        and implementation_authority_ok
+    ):
         print("flowguard behavior commitment ledger checks passed")
         return 0
     print("flowguard behavior commitment ledger checks failed")

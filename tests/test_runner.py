@@ -1,15 +1,18 @@
 import unittest
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from flowguard import FunctionResult, InvariantResult, Workflow, assumption_card, conditional_assumption
 from flowguard.checks import no_duplicate_values
+from flowguard.model_path_quality import (
+    PathQualityResult,
+    PathQualitySubject,
+    canonical_fingerprint,
+)
 from flowguard.plan import FlowGuardCheckPlan
 from flowguard.risk import RiskIntent, RiskProfile, SkippedCheck
 from flowguard.risk_templates import (
     KnownBadProof,
     MinimumModelContract,
-    TemplateHarvestReview,
-    TemplateReuseReview,
 )
 from flowguard.runner import run_model_first_checks
 
@@ -86,7 +89,6 @@ def formal_risk_profile(*, confidence_goal="model_level", risk_classes=("dedupli
             adversarial_inputs=("same job repeated",),
             hard_invariants=("records are unique",),
             known_bad_cases=("retry_adds_duplicate_record",),
-            used_template_ids=("side_effect_at_most_once",),
             blindspots=("production storage replay is checked separately",),
         ),
         confidence_goal=confidence_goal,
@@ -104,13 +106,6 @@ def formal_minimum_contract():
     )
 
 
-def formal_template_reuse():
-    return TemplateReuseReview(
-        used_template_ids=("side_effect_at_most_once",),
-        searched_layers=("public", "local"),
-    )
-
-
 def formal_known_bad_proof(**kwargs):
     values = {
         "case_id": "retry_adds_duplicate_record",
@@ -125,13 +120,49 @@ def formal_known_bad_proof(**kwargs):
     return KnownBadProof(**values)
 
 
-def formal_template_harvest(**kwargs):
-    values = {
-        "disposition": "duplicate_linked",
-        "linked_template_ids": ("side_effect_at_most_once",),
-    }
-    values.update(kwargs)
-    return TemplateHarvestReview(**values)
+def _fingerprint(value: str) -> str:
+    return canonical_fingerprint({"value": value})
+
+
+def path_quality_pair() -> tuple[PathQualitySubject, PathQualityResult]:
+    subject = PathQualitySubject(
+        model_id="recording",
+        boundary_id="workflow:recording",
+        model_fingerprint=_fingerprint("recording-model"),
+        normalized_facts_fingerprint=_fingerprint("recording-facts"),
+        retained_element_inventory_fingerprint=_fingerprint("recording-retained"),
+        purpose_fingerprint=_fingerprint("recording-purpose"),
+        intent_fingerprint=_fingerprint("recording-intent"),
+        obligation_fingerprint=_fingerprint("recording-obligations"),
+        provider_fingerprint=_fingerprint("recording-provider"),
+        dependency_fingerprint=_fingerprint("recording-dependencies"),
+        code_fingerprint=_fingerprint("recording-code"),
+        test_fingerprint=_fingerprint("recording-tests"),
+        oracle_fingerprint=_fingerprint("recording-oracles"),
+        evidence_fingerprint=_fingerprint("recording-evidence"),
+        currentness_id="revision:recording:1",
+    )
+    result = PathQualityResult(
+        result_id="path-quality:recording:current",
+        subject_fingerprint=subject.fingerprint,
+        mode="lightweight",
+        trigger_ids=(),
+        finding_ids=(),
+        candidate_ids=(),
+        rewrite_rule_ids=(),
+        conclusion="single_clear_path",
+        unresolved_ids=(),
+        selected_candidate_id="",
+        selected_candidate_lane="",
+        comparison_boundary_id="",
+        candidate_set_fingerprint="",
+        rewrite_set_fingerprint="",
+        necessity_witness_set_fingerprint=_fingerprint("recording-witnesses"),
+        detail_evidence_fingerprint=_fingerprint("recording-path-quality-detail"),
+        producer_id="model_maturation",
+        currentness_id=subject.currentness_id,
+    )
+    return subject, result
 
 
 class RunnerTests(unittest.TestCase):
@@ -152,8 +183,6 @@ class RunnerTests(unittest.TestCase):
             risk_profile=formal_risk_profile(
                 skipped_checks=(SkippedCheck("conformance_replay", "no production adapter yet"),),
             ),
-            template_reuse_review=formal_template_reuse(),
-            template_harvest_review=formal_template_harvest(),
             minimum_model_contract=formal_minimum_contract(),
             known_bad_proofs=(formal_known_bad_proof(),),
             scenario_matrix_config={"max_scenarios": 4},
@@ -163,7 +192,8 @@ class RunnerTests(unittest.TestCase):
         sections = {section.name: section for section in summary.sections}
 
         self.assertEqual("pass_with_gaps", summary.overall_status)
-        self.assertEqual("pass", sections["template_harvest_review"].status)
+        self.assertNotIn("template_reuse_review", sections)
+        self.assertNotIn("template_harvest_review", sections)
         self.assertEqual("pass", sections["model_check"].status)
         self.assertEqual("pass_with_gaps", sections["scenario_matrix"].status)
         self.assertIn("auto-generated", sections["scenario_matrix"].summary)
@@ -194,8 +224,6 @@ class RunnerTests(unittest.TestCase):
             ),
             max_sequence_length=2,
             risk_profile=formal_risk_profile(),
-            template_reuse_review=formal_template_reuse(),
-            template_harvest_review=formal_template_harvest(),
             minimum_model_contract=formal_minimum_contract(),
             known_bad_proofs=(formal_known_bad_proof(),),
             scenario_matrix_config={"enabled": False},
@@ -220,12 +248,6 @@ class RunnerTests(unittest.TestCase):
             risk_profile=formal_risk_profile(
                 confidence_goal="production_conformance",
                 risk_classes=("conformance",),
-            ),
-            template_reuse_review=formal_template_reuse(),
-            template_harvest_review=formal_template_harvest(
-                disposition="not_harvestable",
-                linked_template_ids=(),
-                not_harvestable_reason="no_new_pattern",
             ),
             minimum_model_contract=formal_minimum_contract(),
             known_bad_proofs=(formal_known_bad_proof(),),
@@ -255,12 +277,6 @@ class RunnerTests(unittest.TestCase):
                 confidence_goal="production_conformance",
                 risk_classes=("conformance",),
             ),
-            template_reuse_review=formal_template_reuse(),
-            template_harvest_review=formal_template_harvest(
-                disposition="not_harvestable",
-                linked_template_ids=(),
-                not_harvestable_reason="no_new_pattern",
-            ),
             minimum_model_contract=formal_minimum_contract(),
             known_bad_proofs=(formal_known_bad_proof(),),
             conformance_status="pass",
@@ -275,14 +291,13 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual("blocked", section.status)
         self.assertIn("current ConformanceReport required", section.summary)
 
-    def test_run_model_first_checks_blocks_missing_template_harvest_closure(self):
+    def test_run_model_first_checks_does_not_add_template_gates(self):
         plan = FlowGuardCheckPlan(
             workflow=Workflow((IdempotentRecord(),), name="recording"),
             initial_states=(State(),),
             external_inputs=("job_1",),
             max_sequence_length=1,
             risk_profile=formal_risk_profile(),
-            template_reuse_review=formal_template_reuse(),
             minimum_model_contract=formal_minimum_contract(),
             known_bad_proofs=(formal_known_bad_proof(),),
         )
@@ -290,9 +305,49 @@ class RunnerTests(unittest.TestCase):
         summary = run_model_first_checks(plan)
         sections = {section.name: section for section in summary.sections}
 
-        self.assertEqual("blocked", summary.overall_status)
-        self.assertEqual("blocked", sections["template_harvest_review"].status)
-        self.assertIn("missing_template_harvest_review", sections["template_harvest_review"].findings)
+        self.assertNotIn("template_reuse_review", sections)
+        self.assertNotIn("template_harvest_review", sections)
+        self.assertNotIn("model_path_quality", sections)
+        self.assertEqual("pass", sections["minimum_model_review"].status)
+
+    def test_run_model_first_checks_consumes_only_current_compact_path_quality(self):
+        subject, result = path_quality_pair()
+        plan = FlowGuardCheckPlan(
+            workflow=Workflow((IdempotentRecord(),), name="recording"),
+            initial_states=(State(),),
+            external_inputs=("job_1",),
+            max_sequence_length=1,
+            risk_profile=formal_risk_profile(),
+            minimum_model_contract=formal_minimum_contract(),
+            known_bad_proofs=(formal_known_bad_proof(),),
+            path_quality_subject=subject.to_dict(),
+            path_quality_result=result.to_compact_dict(),
+        )
+
+        summary = run_model_first_checks(plan)
+        section = {item.name: item for item in summary.sections}["model_path_quality"]
+        compact = dict(summary.metadata)["model_path_quality_result"]
+
+        self.assertEqual("pass", section.status)
+        self.assertEqual(result.to_compact_dict(), compact)
+        self.assertEqual(result.to_compact_dict(), plan.to_dict()["path_quality_result"])
+        self.assertNotIn("candidates", compact)
+        self.assertNotIn("necessity_witnesses", compact)
+        self.assertIn("subject=provided result=provided", plan.format_text())
+
+        stale_plan = FlowGuardCheckPlan(
+            workflow=Workflow((IdempotentRecord(),), name="recording"),
+            initial_states=(State(),),
+            external_inputs=("job_1",),
+            path_quality_subject=subject,
+            path_quality_result=replace(result, currentness_id="revision:recording:old"),
+        )
+        stale_summary = run_model_first_checks(stale_plan)
+        stale_section = {
+            item.name: item for item in stale_summary.sections
+        }["model_path_quality"]
+        self.assertEqual("blocked", stale_section.status)
+        self.assertIn("path_quality_result_currentness_mismatch", stale_section.findings)
 
     def test_run_model_first_checks_propagates_assumption_card_to_model_report(self):
         card = make_runner_assumption_card()
@@ -303,8 +358,6 @@ class RunnerTests(unittest.TestCase):
             max_sequence_length=1,
             assumption_card=card,
             risk_profile=formal_risk_profile(),
-            template_reuse_review=formal_template_reuse(),
-            template_harvest_review=formal_template_harvest(),
             minimum_model_contract=formal_minimum_contract(),
             known_bad_proofs=(formal_known_bad_proof(),),
         )

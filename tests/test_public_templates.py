@@ -19,10 +19,8 @@ from flowguard.templates import (
     field_lifecycle_template_files,
     layered_boundary_proof_template_files,
     maintenance_workflow_template_files,
-    model_angle_deliberation_template_files,
     model_miss_review_full_template_files,
     model_miss_review_template_files,
-    model_similarity_consolidation_template_files,
     model_test_alignment_full_template_files,
     model_test_alignment_template_files,
     plan_detailing_template_files,
@@ -57,9 +55,7 @@ PUBLIC_TEMPLATE_FACTORIES = (
     model_test_alignment_template_files,
     code_structure_recommendation_template_files,
     existing_model_preflight_template_files,
-    model_angle_deliberation_template_files,
     field_lifecycle_template_files,
-    model_similarity_consolidation_template_files,
     risk_evidence_ledger_template_files,
     runtime_path_evidence_template_files,
     layered_boundary_proof_template_files,
@@ -89,9 +85,7 @@ TEMPLATE_CLI_COMMANDS = {
     "runtime-path-evidence-template": "runtime_path_evidence",
     "code-structure-recommendation-template": "code_structure_recommendation",
     "existing-model-preflight-template": "existing_model_preflight",
-    "model-angle-template": "model_angle_deliberation",
     "field-lifecycle-template": "field_lifecycle",
-    "model-similarity-template": "model_similarity_consolidation",
     "risk-evidence-ledger-template": "risk_evidence_ledger",
     "layered-boundary-proof-template": "layered_boundary_proof",
     "closure-contract-template": "closure_contract",
@@ -101,7 +95,6 @@ TEMPLATE_CLI_COMMANDS = {
     "workflow-step-contracts-template": "workflow_step_contracts",
     "test-mesh-template": "test_mesh",
     "structure-mesh-template": "structure_mesh",
-    "maintenance-scan-template": "maintenance_scan",
     "topology-hazard-template": "model_topology_hazard_review",
 }
 
@@ -158,7 +151,7 @@ class PublicTemplateTests(unittest.TestCase):
         route_modules = {path.stem for path in template_text_root.glob("*.py") if path.name != "__init__.py"}
 
         self.assertIn("ui_flow_structure", route_modules)
-        self.assertIn("model_similarity_consolidation", route_modules)
+        self.assertNotIn("model_similarity_consolidation", route_modules)
         self.assertIn("risk_evidence_ledger", route_modules)
         self.assertLess(len((ROOT / "flowguard" / "templates.py").read_text(encoding="utf-8").splitlines()), 1000)
         self.assertIn("UIInteractionModel", (template_text_root / "ui_flow_structure.py").read_text(encoding="utf-8"))
@@ -291,6 +284,9 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("owner_code_contract_bound", output)
         self.assertIn("replay_or_negative_check_added", output)
         self.assertIn("ui_promised_capability_miss_not_classified", output)
+        self.assertIn("affected_blueprint_gap_id", output)
+        self.assertIn("contract_exhaustion_contribution_emitted", output)
+        self.assertIn("model_maturation_contribution_emitted", output)
 
     def test_model_miss_review_template_is_compact_but_preserves_gates(self):
         files = model_miss_review_template_files()
@@ -306,11 +302,14 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("point_fix_only_without_same_class_test", combined)
         self.assertIn("validate_without_owner_code_contract", combined)
         self.assertIn("ui_promised_capability_missing_after_green_claim", combined)
-        self.assertIn("missing_same_class_ui_capability_scan", combined)
+        self.assertIn("missing_same_class_ui_capability_scope", combined)
         self.assertIn("missing_same_plane_behavior_lookup", combined)
         self.assertIn("existing_commitment_reused_or_gap_registered", combined)
         self.assertIn("cross_plane_context_promoted_to_primary", combined)
-        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 140)
+        self.assertIn("missing_affected_blueprint_gap", combined)
+        self.assertIn("missing_contract_exhaustion_contribution", combined)
+        self.assertIn("missing_model_maturation_contribution", combined)
+        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 160)
 
     def test_model_miss_full_template_keeps_deep_review_material(self):
         files = model_miss_review_full_template_files()
@@ -323,12 +322,15 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("legacy_path_disposition_recorded", combined)
         self.assertIn("model_test_alignment_rerun", combined)
         self.assertIn("recurring_family_detected", combined)
-        self.assertIn("defect_family_gate_promoted", combined)
-        self.assertIn("defect_family_gate_reviewed", combined)
-        self.assertIn("recurring_family_requires_defect_family_gate", combined)
-        self.assertIn("validate_recurring_without_defect_family_gate", combined)
+        self.assertIn("affected_blueprint_gap_id", combined)
+        self.assertIn("affected_canonical_relation_ids", combined)
+        self.assertIn("affected_contract_case_ids", combined)
+        self.assertIn("contract_exhaustion_contribution_emitted", combined)
+        self.assertIn("model_maturation_contribution_emitted", combined)
+        self.assertIn("recurring_family_requires_canonical_contributions", combined)
+        self.assertIn("validate_recurring_without_canonical_contributions", combined)
         self.assertIn("broken_point_fix_only_validation", combined)
-        self.assertIn("ContractExhaustionMesh same-class case", combined)
+        self.assertIn("affected ContractExhaustion case identities", combined)
 
     def test_model_test_alignment_template_executes(self):
         output = self.run_written_template(
@@ -616,15 +618,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard existing model preflight", output)
         self.assertIn("duplicate_boundary_risk_unresolved", output)
 
-    def test_model_angle_deliberation_template_executes(self):
-        output = self.run_written_template(
-            model_angle_deliberation_template_files(),
-            (".flowguard", "model_angle_deliberation"),
-        )
-        self.assertIn("flowguard model-angle deliberation", output)
-        self.assertIn("unresolved_required_model_angle", output)
-        self.assertIn("template checks passed", output)
-
     def test_field_lifecycle_template_executes(self):
         output = self.run_written_template(
             field_lifecycle_template_files(),
@@ -652,24 +645,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("replay:", combined)
         self.assertIn("Field route refs are handoff labels", combined)
 
-    def test_model_similarity_consolidation_template_executes(self):
-        output = self.run_written_template(
-            model_similarity_consolidation_template_files(),
-            (".flowguard", "model_similarity_consolidation"),
-        )
-        self.assertIn("flowguard model similarity consolidation", output)
-        self.assertIn("same_family_variant", output)
-        self.assertIn("maintenance_group", output)
-        self.assertIn("change_impact", output)
-        self.assertIn("shared_behavior_tests", output)
-        self.assertIn("variant_behavior_tests", output)
-        self.assertIn("missing_current_similarity_evidence", output)
-        self.assertIn("false_friend", output)
-        combined = "\n".join(file.content for file in model_similarity_consolidation_template_files())
-        self.assertIn("Basic Path", combined)
-        self.assertIn("Full Schema Path", combined)
-        self.assertIn("SimilarityHandoff", combined)
-
     def test_risk_evidence_ledger_template_executes(self):
         output = self.run_written_template(
             risk_evidence_ledger_template_files(),
@@ -679,10 +654,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("internal_path_only_evidence", output)
         self.assertIn("proof_evidence_not_passing", output)
         self.assertIn("missing_artifact_payload_gate", output)
-        self.assertIn("missing_defect_family_gate", output)
         self.assertIn("missing_model_split_gate", output)
         self.assertIn("open_maintenance_obligation", output)
-        self.assertIn("defect-family", output)
 
     def test_layered_boundary_proof_template_executes(self):
         output = self.run_written_template(

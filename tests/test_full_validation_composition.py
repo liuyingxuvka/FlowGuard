@@ -10,6 +10,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from flowguard.evidence_receipts import fingerprint_value
+from flowguard.process_supervision import (
+    SupervisedCommandResult,
+    _attest_supervised_result,
+)
 from flowguard.validation_ownership import release_tree_manifest
 from scripts import check_flowguard_skill_suite as suite_command
 
@@ -125,20 +130,58 @@ class FullValidationCompositionTests(unittest.TestCase):
 
         def fake(command, cwd, timeout_seconds=900.0):
             child_id = self.child_id(command)
-            raw_status = overrides.get(child_id, "pass")
+            override = overrides.get(child_id, "pass")
+            raw_status = (
+                str(override.get("status", "pass"))
+                if isinstance(override, dict)
+                else str(override)
+            )
             payload = {
                 "status": raw_status,
                 "ok": raw_status == "pass",
                 "claim_boundary": f"fixture boundary for {child_id}",
                 "receipt_id": f"receipt-{child_id}",
             }
+            if child_id == "self_maintenance_review":
+                reduction = {
+                    "projection_kind": "reduction",
+                    "review_fingerprint": "sha256:" + "a" * 64,
+                }
+                reduction["projection_fingerprint"] = fingerprint_value(reduction)
+                payload["architecture_reduction_review"] = reduction
+            if isinstance(override, dict):
+                payload.update(override)
             exit_code = 0 if raw_status in {"pass", "pass_with_gaps"} else 1
+            supervision = _attest_supervised_result(
+                SupervisedCommandResult(
+                    command=tuple(command),
+                    cwd=str(Path(cwd).resolve()),
+                    episode_token=f"episode:fixture:{child_id}:{raw_status}",
+                    started_at_epoch=1.0,
+                    finished_at_epoch=2.0,
+                    exit_code=exit_code,
+                    stdout=json.dumps(payload),
+                    stderr=f"trace for {child_id}\n",
+                    terminal_reason="process_exit",
+                    timed_out=False,
+                    cancelled=False,
+                    interrupted=False,
+                    termination_stage="none",
+                    cleanup_confirmed=True,
+                    descendant_process_ids=(),
+                    root_process_id=None,
+                    root_process_running=False,
+                    containment_query_succeeded=True,
+                    contained_process_ids_before_cleanup=(),
+                )
+            )
             return suite_command.CommandOutcome(
                 tuple(command),
                 exit_code,
                 stdout=json.dumps(payload),
                 stderr=f"trace for {child_id}\n",
                 payload=payload,
+                supervision=supervision,
             )
 
         return fake
@@ -440,6 +483,7 @@ class FullValidationCompositionTests(unittest.TestCase):
         native_root = Path(native[native.index("--output-dir") + 1])
         parent_root = Path(parent[parent.index("--output-directory") + 1])
 
+        self.assertIn("--resume", native)
         self.assertEqual(native_root, parent_root)
         self.assertEqual(
             self.root / ".flowguard" / "evidence" / "skill-native-receipts",
@@ -463,6 +507,100 @@ class FullValidationCompositionTests(unittest.TestCase):
         }
 
         self.assertIn("flowguard/self_maintenance.py", specs["skill_suite_static"].input_patterns)
+
+    def test_self_maintenance_review_publishes_compact_projection(self):
+        specs = {
+            item.child_id: item
+            for item in suite_command._full_child_specs(self.args(), self.root)
+        }
+
+        spec = specs["self_maintenance_review"]
+        self.assertIn("--compact", spec.command)
+        self.assertIn("--require-cleanup-release-ready", spec.command)
+        requirement = spec.result_identity_requirement
+        self.assertIsNotNone(requirement)
+        self.assertEqual(
+            ("architecture_reduction_review",),
+            requirement.source_path,
+        )
+        self.assertEqual(
+            ("review_fingerprint", "projection_fingerprint"),
+            requirement.fingerprint_fields,
+        )
+        contracts = {
+            item.owner_id: item
+            for item in suite_command._owner_contracts(tuple(specs.values()))
+        }
+        self.assertIn(
+            ("result_identity_requirement", requirement.fingerprint),
+            contracts["self_maintenance_review"].projected_inputs,
+        )
+
+    def test_self_maintenance_owner_receipt_exposes_both_verified_identities(self):
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor(),
+        ):
+            result = suite_command.run_full_validation(self.args())
+
+        self.assertTrue(result.broad_success)
+        receipt_root = (
+            self.root / ".flowguard" / "evidence" / "validation-owners"
+        )
+        receipt = next(
+            json.loads(path.read_text(encoding="utf-8"))
+            for path in receipt_root.glob("*.json")
+            if json.loads(path.read_text(encoding="utf-8")).get("subject_id")
+            == "validation-owner:self_maintenance_review"
+        )
+        proof = json.loads(
+            (receipt_root / receipt["metadata"]["proof_relpath"]).read_text(
+                encoding="utf-8"
+            )
+        )
+        identity = proof["child"]["payload"]["result_identity_projection"]
+        self.assertEqual("sha256:" + "a" * 64, identity["review_fingerprint"])
+        self.assertTrue(identity["projection_fingerprint"].startswith("sha256:"))
+
+    def test_self_maintenance_identity_missing_blocks_green_owner_receipt(self):
+        invalid_review = {
+            "status": "pass",
+            "architecture_reduction_review": {
+                "review_fingerprint": "sha256:" + "a" * 64,
+            },
+        }
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor(
+                {"self_maintenance_review": invalid_review}
+            ),
+        ):
+            result = suite_command.run_full_validation(self.args())
+
+        self.assertFalse(result.broad_success)
+        child = next(
+            item
+            for item in result.children
+            if item.child_id == "self_maintenance_review"
+        )
+        self.assertEqual("internal_error", child.status)
+        self.assertIn(
+            "validation_owner_result_identity_missing:"
+            "architecture_reduction_review.projection_fingerprint",
+            child.summary,
+        )
+        receipt_root = (
+            self.root / ".flowguard" / "evidence" / "validation-owners"
+        )
+        self.assertFalse(
+            any(
+                json.loads(path.read_text(encoding="utf-8")).get("subject_id")
+                == "validation-owner:self_maintenance_review"
+                for path in receipt_root.glob("*.json")
+            )
+        )
 
     def test_identical_second_full_request_reuses_all_ten_owners(self):
         with patch.object(

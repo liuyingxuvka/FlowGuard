@@ -13,8 +13,6 @@ from flowguard import (
     MinimumModelContract,
     RiskIntent,
     RiskProfile,
-    TemplateHarvestReview,
-    TemplateReuseReview,
     Workflow,
     run_model_first_checks,
 )
@@ -62,17 +60,8 @@ def formal_entry_kwargs():
                 adversarial_inputs=("single input record",),
                 hard_invariants=("recorded input is visible in state",),
                 known_bad_cases=("record_without_seen_state",),
-                template_no_match_reason="progress test uses a local recording model",
                 blindspots=("this test checks progress output, not production replay",),
             ),
-        ),
-        "template_reuse_review": TemplateReuseReview(
-            no_match_reason="progress test uses a local recording model",
-            searched_layers=("public", "local"),
-        ),
-        "template_harvest_review": TemplateHarvestReview(
-            disposition="not_harvestable",
-            not_harvestable_reason="not_reusable_project_specific",
         ),
         "minimum_model_contract": MinimumModelContract(
             protected_error_classes=("missing_record_evidence",),

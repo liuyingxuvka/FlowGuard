@@ -24,6 +24,7 @@ from flowguard.review import review_scenarios
 
 ALLOWED_MISS_TYPES = {
     "boundary_missing",
+    "code_boundary_mismatch",
     "state_too_coarse",
     "input_branch_missing",
     "invariant_too_weak",
@@ -42,10 +43,18 @@ class ReviewCase:
     observed_regression_test_added: bool = True
     same_class_test_evidence_added: bool = True
     model_test_alignment_rerun: bool = True
+    affected_commitment_id: str = "commitment:modeled-behavior"
+    primary_owner_model_id: str = "model:modeled-behavior"
+    affected_blueprint_gap_id: str = "blueprint-gap:missed-class"
+    canonical_relation_ids: tuple[str, ...] = ("relation:affected-boundary",)
+    contract_exhaustion_case_ids: tuple[str, ...] = ("case:missed-class",)
+    model_maturation_contribution_ids: tuple[str, ...] = ("maturation:missed-class",)
+    owner_code_test_bound: bool = True
+    affected_topology_replayed: bool = True
     recurrence_count: int = 1
     high_risk: bool = False
-    defect_family_gate_promoted: bool = False
-    defect_family_gate_reviewed: bool = False
+    contract_exhaustion_contributed: bool = True
+    model_maturation_contributed: bool = True
     requires_hazard_registry: bool = False
     requires_upgrade_reviewer: bool = False
     requires_default_model_mesh: bool = False
@@ -64,10 +73,18 @@ class ReviewState:
     observed_regression_test_added: bool = False
     same_class_test_evidence_added: bool = False
     model_test_alignment_rerun: bool = False
+    affected_commitment_id: str = ""
+    primary_owner_model_id: str = ""
+    affected_blueprint_gap_id: str = ""
+    canonical_relation_ids: tuple[str, ...] = ()
+    contract_exhaustion_case_ids: tuple[str, ...] = ()
+    model_maturation_contribution_ids: tuple[str, ...] = ()
+    owner_code_test_bound: bool = False
+    affected_topology_replayed: bool = False
     recurrence_count: int = 1
     high_risk: bool = False
-    defect_family_gate_promoted: bool = False
-    defect_family_gate_reviewed: bool = False
+    contract_exhaustion_contributed: bool = True
+    model_maturation_contributed: bool = True
     requires_hazard_registry: bool = False
     requires_upgrade_reviewer: bool = False
     requires_default_model_mesh: bool = False
@@ -89,8 +106,8 @@ GOOD_OUT_OF_SCOPE = ReviewCase(
     generalized_case_added=False,
     generalized_case_omitted_reason="outside modeled boundary",
 )
-GOOD_RECURRING_FAMILY = ReviewCase(
-    "good_recurring_defect_family_gate",
+GOOD_RECURRING_CANONICAL_PATH = ReviewCase(
+    "good_recurring_canonical_miss_path",
     "evidence_overclaimed",
     observed_issue_represented=True,
     generalized_case_added=True,
@@ -98,8 +115,8 @@ GOOD_RECURRING_FAMILY = ReviewCase(
     same_class_test_evidence_added=True,
     model_test_alignment_rerun=True,
     recurrence_count=2,
-    defect_family_gate_promoted=True,
-    defect_family_gate_reviewed=True,
+    contract_exhaustion_contributed=True,
+    model_maturation_contributed=True,
 )
 BROKEN_POINT_FIX_ONLY = ReviewCase(
     "broken_point_fix_only",
@@ -125,8 +142,8 @@ BROKEN_ALIGNMENT_NOT_RERUN = ReviewCase(
     same_class_test_evidence_added=True,
     model_test_alignment_rerun=False,
 )
-BROKEN_RECURRING_WITHOUT_GATE = ReviewCase(
-    "broken_recurring_without_defect_family_gate",
+BROKEN_RECURRING_WITHOUT_CANONICAL_PATH = ReviewCase(
+    "broken_recurring_without_canonical_miss_path",
     "evidence_overclaimed",
     observed_issue_represented=True,
     generalized_case_added=True,
@@ -134,8 +151,26 @@ BROKEN_RECURRING_WITHOUT_GATE = ReviewCase(
     same_class_test_evidence_added=True,
     model_test_alignment_rerun=True,
     recurrence_count=2,
-    defect_family_gate_promoted=False,
-    defect_family_gate_reviewed=False,
+    contract_exhaustion_contributed=False,
+    model_maturation_contributed=False,
+    canonical_relation_ids=(),
+    contract_exhaustion_case_ids=(),
+    model_maturation_contribution_ids=(),
+)
+BROKEN_MISSING_BLUEPRINT_GAP = ReviewCase(
+    "broken_missing_blueprint_gap",
+    "boundary_missing",
+    affected_blueprint_gap_id="",
+)
+BROKEN_OWNER_CODE_TEST_BINDING = ReviewCase(
+    "broken_owner_code_test_binding",
+    "code_boundary_mismatch",
+    owner_code_test_bound=False,
+)
+BROKEN_TOPOLOGY_REPLAY = ReviewCase(
+    "broken_topology_replay",
+    "boundary_missing",
+    affected_topology_replayed=False,
 )
 BROKEN_DETAILED_CATEGORY = ReviewCase(
     "broken_old_detailed_category",
@@ -175,10 +210,18 @@ class EvaluateModelMissReview:
         "observed_regression_test_added",
         "same_class_test_evidence_added",
         "model_test_alignment_rerun",
+        "affected_commitment_id",
+        "primary_owner_model_id",
+        "affected_blueprint_gap_id",
+        "canonical_relation_ids",
+        "contract_exhaustion_case_ids",
+        "model_maturation_contribution_ids",
+        "owner_code_test_bound",
+        "affected_topology_replayed",
         "recurrence_count",
         "high_risk",
-        "defect_family_gate_promoted",
-        "defect_family_gate_reviewed",
+        "contract_exhaustion_contributed",
+        "model_maturation_contributed",
         "requires_hazard_registry",
         "requires_upgrade_reviewer",
         "requires_default_model_mesh",
@@ -201,10 +244,18 @@ class EvaluateModelMissReview:
             observed_regression_test_added=input_obj.observed_regression_test_added,
             same_class_test_evidence_added=input_obj.same_class_test_evidence_added,
             model_test_alignment_rerun=input_obj.model_test_alignment_rerun,
+            affected_commitment_id=input_obj.affected_commitment_id,
+            primary_owner_model_id=input_obj.primary_owner_model_id,
+            affected_blueprint_gap_id=input_obj.affected_blueprint_gap_id,
+            canonical_relation_ids=input_obj.canonical_relation_ids,
+            contract_exhaustion_case_ids=input_obj.contract_exhaustion_case_ids,
+            model_maturation_contribution_ids=input_obj.model_maturation_contribution_ids,
+            owner_code_test_bound=input_obj.owner_code_test_bound,
+            affected_topology_replayed=input_obj.affected_topology_replayed,
             recurrence_count=input_obj.recurrence_count,
             high_risk=input_obj.high_risk,
-            defect_family_gate_promoted=input_obj.defect_family_gate_promoted,
-            defect_family_gate_reviewed=input_obj.defect_family_gate_reviewed,
+            contract_exhaustion_contributed=input_obj.contract_exhaustion_contributed,
+            model_maturation_contributed=input_obj.model_maturation_contributed,
             requires_hazard_registry=input_obj.requires_hazard_registry,
             requires_upgrade_reviewer=input_obj.requires_upgrade_reviewer,
             requires_default_model_mesh=input_obj.requires_default_model_mesh,
@@ -225,12 +276,12 @@ def _fail(name: str, message: str) -> InvariantResult:
     return InvariantResult.fail(message, {"violation": name})
 
 
-def miss_type_is_one_of_five(state: ReviewState, _trace: object) -> InvariantResult:
+def miss_type_is_supported(state: ReviewState, _trace: object) -> InvariantResult:
     if not state.case_name:
         return InvariantResult.pass_()
     if state.miss_type not in ALLOWED_MISS_TYPES:
         return _fail(
-            "miss_type_is_one_of_five",
+            "miss_type_is_supported",
             f"unexpected formal model-miss category: {state.miss_type!r}",
         )
     return InvariantResult.pass_()
@@ -305,31 +356,66 @@ def ordinary_miss_avoids_heavy_defaults(state: ReviewState, _trace: object) -> I
     return InvariantResult.pass_()
 
 
-def recurring_or_high_risk_miss_gets_defect_family_gate(state: ReviewState, _trace: object) -> InvariantResult:
+def in_scope_miss_binds_current_blueprint_owner(state: ReviewState, _trace: object) -> InvariantResult:
+    if not state.case_name or not state.in_modeled_scope:
+        return InvariantResult.pass_()
+    if not state.affected_commitment_id or not state.primary_owner_model_id:
+        return _fail(
+            "in_scope_miss_binds_current_blueprint_owner",
+            "model miss did not bind the failed promise to one current commitment and primary owner",
+        )
+    if not state.affected_blueprint_gap_id:
+        return _fail(
+            "in_scope_miss_binds_current_blueprint_owner",
+            "model miss did not bind one exact affected blueprint gap",
+        )
+    return InvariantResult.pass_()
+
+
+def in_scope_miss_reaches_contract_exhaustion_and_maturation(state: ReviewState, _trace: object) -> InvariantResult:
     if not state.case_name:
         return InvariantResult.pass_()
     if not state.in_modeled_scope:
         return InvariantResult.pass_()
-    if state.recurrence_count < 2 and not state.high_risk:
-        return InvariantResult.pass_()
-    if not state.defect_family_gate_promoted:
+    if not state.canonical_relation_ids:
         return _fail(
-            "recurring_or_high_risk_miss_gets_defect_family_gate",
-            "recurring or high-risk same-class miss did not promote a defect-family gate",
+            "in_scope_miss_reaches_contract_exhaustion_and_maturation",
+            "model miss did not declare a finite current canonical relation identity",
         )
-    if not state.defect_family_gate_reviewed:
+    if not state.contract_exhaustion_contributed or not state.contract_exhaustion_case_ids:
         return _fail(
-            "recurring_or_high_risk_miss_gets_defect_family_gate",
-            "defect-family gate was promoted but not reviewed before closure",
+            "in_scope_miss_reaches_contract_exhaustion_and_maturation",
+            "model miss did not contribute observed and same-class cases to ContractExhaustion",
+        )
+    if not state.model_maturation_contributed or not state.model_maturation_contribution_ids:
+        return _fail(
+            "in_scope_miss_reaches_contract_exhaustion_and_maturation",
+            "model miss did not contribute its typed gap and case identities to ModelMaturation",
+        )
+    return InvariantResult.pass_()
+
+
+def in_scope_miss_binds_owner_tests_and_replays_topology(state: ReviewState, _trace: object) -> InvariantResult:
+    if not state.case_name or not state.in_modeled_scope:
+        return InvariantResult.pass_()
+    if not state.owner_code_test_bound:
+        return _fail(
+            "in_scope_miss_binds_owner_tests_and_replays_topology",
+            "generated cases were not bound to the owner code contract and external tests",
+        )
+    if not state.affected_topology_replayed:
+        return _fail(
+            "in_scope_miss_binds_owner_tests_and_replays_topology",
+            "affected topology and parent evidence were not replayed",
         )
     return InvariantResult.pass_()
 
 
 INVARIANTS = (
     Invariant(
-        "miss_type_is_one_of_five",
-        "Post-runtime model misses use five practical daily categories.",
-        miss_type_is_one_of_five,
+        "miss_type_is_supported",
+        "Post-runtime model misses use the bounded practical categories.",
+        miss_type_is_supported,
     ),
     Invariant(
         "observed_issue_is_represented_or_out_of_scope",
@@ -352,9 +438,19 @@ INVARIANTS = (
         in_scope_miss_gets_same_class_test_evidence,
     ),
     Invariant(
-        "recurring_or_high_risk_miss_gets_defect_family_gate",
-        "Recurring or high-risk same-class misses are promoted to a defect-family gate.",
-        recurring_or_high_risk_miss_gets_defect_family_gate,
+        "in_scope_miss_reaches_contract_exhaustion_and_maturation",
+        "Every in-scope miss contributes canonical cases to ContractExhaustion and a typed gap to ModelMaturation.",
+        in_scope_miss_reaches_contract_exhaustion_and_maturation,
+    ),
+    Invariant(
+        "in_scope_miss_binds_current_blueprint_owner",
+        "Every in-scope miss binds one current commitment, primary owner, and blueprint gap.",
+        in_scope_miss_binds_current_blueprint_owner,
+    ),
+    Invariant(
+        "in_scope_miss_binds_owner_tests_and_replays_topology",
+        "Every in-scope miss binds generated cases to owner code/tests and replays affected topology.",
+        in_scope_miss_binds_owner_tests_and_replays_topology,
     ),
 )
 
@@ -407,10 +503,10 @@ def scenarios() -> tuple[Scenario, ...]:
             _expect_ok("OK; out-of-scope miss recorded reason", (GOOD_OUT_OF_SCOPE.name,)),
         ),
         scenario(
-            "LMR03_recurring_family_uses_defect_gate",
-            "Recurring same-class misses promote to a defect-family gate.",
-            GOOD_RECURRING_FAMILY,
-            _expect_ok("OK; recurring miss has defect-family gate", (GOOD_RECURRING_FAMILY.name,)),
+            "LMR03_recurring_miss_uses_canonical_path",
+            "Recurring same-class misses use the same ContractExhaustion and ModelMaturation path.",
+            GOOD_RECURRING_CANONICAL_PATH,
+            _expect_ok("OK; recurring miss has canonical contributions", (GOOD_RECURRING_CANONICAL_PATH.name,)),
         ),
         scenario(
             "LMB01_point_fix_only_fails",
@@ -425,7 +521,7 @@ def scenarios() -> tuple[Scenario, ...]:
             "LMB02_old_detailed_category_fails",
             "Broken repair keeps old detailed categories as formal daily types.",
             BROKEN_DETAILED_CATEGORY,
-            _expect_violation("VIOLATION miss_type_is_one_of_five", ("miss_type_is_one_of_five",)),
+            _expect_violation("VIOLATION miss_type_is_supported", ("miss_type_is_supported",)),
         ),
         scenario(
             "LMB03_observed_test_only_fails",
@@ -446,12 +542,12 @@ def scenarios() -> tuple[Scenario, ...]:
             ),
         ),
         scenario(
-            "LMB05_recurring_without_gate_fails",
-            "Broken repair treats a recurring same-class miss as another local point fix.",
-            BROKEN_RECURRING_WITHOUT_GATE,
+            "LMB05_recurring_without_canonical_path_fails",
+            "Broken repair omits the canonical ContractExhaustion and ModelMaturation contributions.",
+            BROKEN_RECURRING_WITHOUT_CANONICAL_PATH,
             _expect_violation(
-                "VIOLATION recurring_or_high_risk_miss_gets_defect_family_gate",
-                ("recurring_or_high_risk_miss_gets_defect_family_gate",),
+                "VIOLATION in_scope_miss_reaches_contract_exhaustion_and_maturation",
+                ("in_scope_miss_reaches_contract_exhaustion_and_maturation",),
             ),
         ),
         scenario(
@@ -470,6 +566,33 @@ def scenarios() -> tuple[Scenario, ...]:
             _expect_violation(
                 "VIOLATION observed_issue_is_represented_or_out_of_scope",
                 ("observed_issue_is_represented_or_out_of_scope",),
+            ),
+        ),
+        scenario(
+            "LMB08_missing_blueprint_gap_fails",
+            "Broken repair cannot name the exact current blueprint gap.",
+            BROKEN_MISSING_BLUEPRINT_GAP,
+            _expect_violation(
+                "VIOLATION in_scope_miss_binds_current_blueprint_owner",
+                ("in_scope_miss_binds_current_blueprint_owner",),
+            ),
+        ),
+        scenario(
+            "LMB09_owner_code_test_binding_fails",
+            "Broken repair has generated cases but no owner code/test binding.",
+            BROKEN_OWNER_CODE_TEST_BINDING,
+            _expect_violation(
+                "VIOLATION in_scope_miss_binds_owner_tests_and_replays_topology",
+                ("in_scope_miss_binds_owner_tests_and_replays_topology",),
+            ),
+        ),
+        scenario(
+            "LMB10_topology_replay_fails",
+            "Broken repair does not replay affected topology and parent evidence.",
+            BROKEN_TOPOLOGY_REPLAY,
+            _expect_violation(
+                "VIOLATION in_scope_miss_binds_owner_tests_and_replays_topology",
+                ("in_scope_miss_binds_owner_tests_and_replays_topology",),
             ),
         ),
     )

@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
+from ._normalization import canonical_json_text as _canonical_json
 from .skill_suite import FLOWGUARD_SKILL_ROOT, validate_skill_suite
 
 
@@ -117,10 +118,6 @@ _DEPTH_PROFILE_FIELDS = frozenset(
         "claim_boundary",
     }
 )
-
-
-def _canonical_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _hash(value: Any) -> str:

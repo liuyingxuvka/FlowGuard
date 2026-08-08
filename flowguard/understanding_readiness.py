@@ -14,7 +14,7 @@ from typing import Any, Mapping, Sequence
 from .evidence_receipts import fingerprint_value
 
 
-UNDERSTANDING_READINESS_SCHEMA_VERSION = "flowguard.understanding_readiness.v1"
+UNDERSTANDING_READINESS_SCHEMA_VERSION = "flowguard.understanding_readiness.v2"
 
 UNDERSTANDING_NOT_RUN = "not_run"
 UNDERSTANDING_UNRESOLVED = "unresolved"
@@ -159,6 +159,8 @@ class UnderstandingReadinessStatus:
     blueprint_deepest_proven_layer: str = ""
     blueprint_first_gap: str = ""
     blueprint_gap_count: int = 0
+    blueprint_layer_statuses: tuple[tuple[str, str], ...] = ()
+    blueprint_affected_member_ids: tuple[str, ...] = ()
     schema_version: str = UNDERSTANDING_READINESS_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -186,6 +188,27 @@ class UnderstandingReadinessStatus:
             raise ValueError(f"unknown blueprint scope: {self.blueprint_scope}")
         if not isinstance(self.blueprint_gap_count, int) or self.blueprint_gap_count < 0:
             raise ValueError("blueprint gap count must be a non-negative integer")
+        object.__setattr__(
+            self,
+            "blueprint_layer_statuses",
+            tuple(
+                (str(layer_id), str(status))
+                for layer_id, status in self.blueprint_layer_statuses
+            ),
+        )
+        layer_ids = tuple(layer_id for layer_id, _status in self.blueprint_layer_statuses)
+        if len(layer_ids) != len(set(layer_ids)):
+            raise ValueError("blueprint layer status identity is duplicated")
+        if any(
+            status not in {"pass", "incomplete", "stale", "blocked"}
+            for _layer_id, status in self.blueprint_layer_statuses
+        ):
+            raise ValueError("blueprint layer status is not current")
+        object.__setattr__(
+            self,
+            "blueprint_affected_member_ids",
+            _strings(self.blueprint_affected_member_ids),
+        )
         for name in (
             "gap_codes",
             "blocker_codes",
@@ -228,6 +251,13 @@ class UnderstandingReadinessStatus:
             "blueprint_deepest_proven_layer": self.blueprint_deepest_proven_layer,
             "blueprint_first_gap": self.blueprint_first_gap,
             "blueprint_gap_count": self.blueprint_gap_count,
+            "blueprint_layer_statuses": [
+                {"layer": layer_id, "status": status}
+                for layer_id, status in self.blueprint_layer_statuses
+            ],
+            "blueprint_affected_member_ids": list(
+                self.blueprint_affected_member_ids
+            ),
         }
 
 
@@ -256,6 +286,8 @@ def compose_understanding_status(
     blueprint_deepest = ""
     blueprint_first_gap = ""
     blueprint_gap_count = 0
+    blueprint_layer_statuses: tuple[tuple[str, str], ...] = ()
+    blueprint_affected_member_ids: tuple[str, ...] = ()
 
     task_id = _first_text(facts, "task_id")
     task_fingerprint = _artifact_fingerprint(facts) if facts else ""
@@ -312,15 +344,72 @@ def compose_understanding_status(
                 and blueprint_scope != "whole"
             ):
                 blockers.append("whole_blueprint_summary_required")
-            layer_statuses = blueprint.get("layer_statuses", {})
-            if not isinstance(layer_statuses, Mapping):
+            layer_statuses = blueprint.get("layer_statuses", ())
+            parsed_layer_statuses: list[tuple[str, str]] = []
+            if not isinstance(layer_statuses, list):
                 blockers.append("blueprint_layer_statuses_invalid")
-                layer_statuses = {}
-            blueprint_status = str(layer_statuses.get("static_blueprint", "incomplete"))
+            else:
+                for index, raw_layer in enumerate(layer_statuses):
+                    if (
+                        not isinstance(raw_layer, Mapping)
+                        or set(raw_layer) != {"layer", "status"}
+                        or not isinstance(raw_layer.get("layer"), str)
+                        or not isinstance(raw_layer.get("status"), str)
+                    ):
+                        blockers.append(
+                            f"blueprint_layer_status_row_invalid:{index}"
+                        )
+                        continue
+                    parsed_layer_statuses.append(
+                        (raw_layer["layer"], raw_layer["status"])
+                    )
+            blueprint_layer_statuses = tuple(parsed_layer_statuses)
+            invalid_layer_statuses = tuple(
+                layer_id
+                for layer_id, status in blueprint_layer_statuses
+                if not layer_id
+                or status not in {"pass", "incomplete", "stale", "blocked"}
+            )
+            layer_ids = tuple(
+                layer_id for layer_id, _status in blueprint_layer_statuses
+            )
+            if (
+                invalid_layer_statuses
+                or not blueprint_layer_statuses
+                or len(layer_ids) != len(set(layer_ids))
+            ):
+                blockers.append("blueprint_layer_statuses_invalid")
+            declared_final_status = _first_text(blueprint, "status")
+            derived_final_status = (
+                blueprint_layer_statuses[-1][1]
+                if blueprint_layer_statuses
+                else "incomplete"
+            )
+            if declared_final_status and declared_final_status != derived_final_status:
+                mismatches.append("blueprint_summary.status")
+            blueprint_status = declared_final_status or derived_final_status
             if blueprint_status not in {"pass", "incomplete", "stale", "blocked"}:
                 blockers.append("blueprint_static_status_invalid")
                 blueprint_status = "blocked"
             blueprint_deepest = _first_text(blueprint, "deepest_proven_layer")
+            if (
+                blueprint_deepest
+                and blueprint_deepest
+                not in {layer_id for layer_id, _status in blueprint_layer_statuses}
+            ):
+                mismatches.append("blueprint_summary.deepest_proven_layer")
+            raw_affected_ids = blueprint.get("affected_ids", ())
+            if not isinstance(raw_affected_ids, list) or any(
+                not isinstance(item, str) or not item
+                for item in raw_affected_ids
+            ):
+                blockers.append("blueprint_affected_ids_invalid")
+                raw_affected_ids = ()
+            elif len(raw_affected_ids) != len(set(raw_affected_ids)):
+                blockers.append("blueprint_affected_ids_invalid")
+            elif blueprint_scope == "affected" and not raw_affected_ids:
+                blockers.append("blueprint_affected_ids_missing")
+            blueprint_affected_member_ids = _strings(raw_affected_ids)
             raw_first_gap = blueprint.get("first_gap")
             if isinstance(raw_first_gap, Mapping):
                 blueprint_first_gap = ":".join(
@@ -626,6 +715,8 @@ def compose_understanding_status(
         blueprint_deepest_proven_layer=blueprint_deepest,
         blueprint_first_gap=blueprint_first_gap,
         blueprint_gap_count=blueprint_gap_count,
+        blueprint_layer_statuses=blueprint_layer_statuses,
+        blueprint_affected_member_ids=blueprint_affected_member_ids,
     )
 
 

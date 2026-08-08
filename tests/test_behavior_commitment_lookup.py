@@ -344,7 +344,7 @@ class BehaviorCommitmentLookupTests(unittest.TestCase):
             report = review_existing_model_preflight(preflight)
 
             self.assertFalse(report.ok, report.format_text())
-            self.assertEqual("blocked", preflight.authority_status)
+            self.assertEqual("not_adopted", preflight.authority_status)
             self.assertEqual(BCL_LOOKUP_STATUS_PERFORMED, preflight.behavior_lookup_status)
             self.assertEqual(BCL_PLANE_AGENT_OPERATION, preflight.primary_behavior_plane)
             self.assertEqual(
@@ -355,10 +355,8 @@ class BehaviorCommitmentLookupTests(unittest.TestCase):
                 "commitment:product-download",
                 {hit.commitment_id for hit in preflight.related_commitment_hits},
             )
-            self.assertIn(
-                "model:agent-port-bridge",
-                {hit.model_id for hit in preflight.relevant_models},
-            )
+            self.assertEqual((), preflight.relevant_models)
+            self.assertEqual("adoption_candidate", preflight.grounding_state)
 
 
 if __name__ == "__main__":

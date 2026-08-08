@@ -377,6 +377,21 @@ class ReceiptFreshnessTests(unittest.TestCase):
         self.assertFalse(result.eligible)
         self.assertIn("superseded_receipt", result.finding_codes)
 
+    def test_configured_receipt_store_requires_the_receipt_itself(self):
+        value = receipt()
+        with tempfile.TemporaryDirectory() as tmp:
+            result = verify_evidence_receipt(
+                value,
+                current_context(
+                    value,
+                    receipt_store_repository_root=tmp,
+                ),
+            )
+
+        self.assertFalse(result.current)
+        self.assertFalse(result.eligible)
+        self.assertIn("receipt_store_self_missing", result.finding_codes)
+
 
 class ParentChildReceiptTests(unittest.TestCase):
     def _child_and_result(self, *, receipt_id="receipt:child:1", supersedes=(), claim_scope="full", covered=("req.child",)):
@@ -427,6 +442,7 @@ class ParentChildReceiptTests(unittest.TestCase):
             results = child_results
         with tempfile.TemporaryDirectory() as tmp:
             stored = tuple(store_children) or (() if child is None else (child,))
+            save_evidence_receipt(parent, tmp)
             for item in stored:
                 save_evidence_receipt(item, tmp)
             return verify_evidence_receipt(

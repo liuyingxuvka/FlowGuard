@@ -1,0 +1,517 @@
+{
+  "added_ids": [],
+  "affected_closure_fingerprint": "sha256:fdbe51d608b596fef054bc47188e1a35d67aa85bc82badff72f78d68e0d60e36",
+  "affected_closure_ids": [
+    "behavior_commitment:commitment:flowguard-public-api-surface",
+    "code_contract:contract:contract:flowguard-public-api-surface",
+    "coverage:universe",
+    "model_instance:model:architecture_reduction",
+    "model_instance:model:implementation_blueprint",
+    "model_relation:relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+    "model_relation:relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+    "model_relation:relation:model-realizes-purpose:architecture_reduction",
+    "model_relation:relation:model-realizes-purpose:implementation_blueprint",
+    "model_relation:relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+    "model_relation:relation:system-contains:architecture_reduction",
+    "model_relation:relation:system-contains:implementation_blueprint",
+    "parent_closure:purpose:architecture_reduction",
+    "parent_closure:purpose:implementation_blueprint",
+    "parent_closure:system:flowguard:model-regression-manifest",
+    "system_property:subject_revision",
+    "test_evidence:test:tests/test_api_surface.py"
+  ],
+  "affected_edge_ids": [
+    "model_relation:relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+    "model_relation:relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+    "model_relation:relation:model-realizes-purpose:architecture_reduction",
+    "model_relation:relation:model-realizes-purpose:implementation_blueprint",
+    "model_relation:relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+    "model_relation:relation:system-contains:architecture_reduction",
+    "model_relation:relation:system-contains:implementation_blueprint"
+  ],
+  "affected_owner_bindings": [
+    {
+      "affected_id": "behavior_commitment:commitment:flowguard-public-api-surface",
+      "owner_route": "behavior_commitment_ledger"
+    },
+    {
+      "affected_id": "code_contract:contract:contract:flowguard-public-api-surface",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "affected_id": "coverage:universe",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_instance:model:architecture_reduction",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "affected_id": "model_instance:model:implementation_blueprint",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-purpose:architecture_reduction",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-realizes-purpose:implementation_blueprint",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:system-contains:architecture_reduction",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "model_relation:relation:system-contains:implementation_blueprint",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "parent_closure:purpose:architecture_reduction",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "affected_id": "parent_closure:purpose:implementation_blueprint",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "affected_id": "parent_closure:system:flowguard:model-regression-manifest",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "system_property:subject_revision",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "affected_id": "test_evidence:test:tests/test_api_surface.py",
+      "owner_route": "test_mesh_maintenance"
+    }
+  ],
+  "base_snapshot_fingerprint": "sha256:4dc7ab0537e4b51b5d3d33f8ba2754703789bcea349e5664a37ec42fe6f8d380",
+  "candidate_snapshot_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+  "changed_commitment_ids": [],
+  "changed_contract_ids": [],
+  "changed_coverage_ids": [
+    "coverage:universe"
+  ],
+  "changed_field_ids": [],
+  "changed_gap_ids": [],
+  "changed_owner_artifact_ids": [],
+  "changed_relation_ids": [
+    "relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+    "relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+    "relation:model-realizes-purpose:architecture_reduction",
+    "relation:model-realizes-purpose:implementation_blueprint",
+    "relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+    "relation:system-contains:architecture_reduction",
+    "relation:system-contains:implementation_blueprint"
+  ],
+  "changed_root_ids": [],
+  "changed_side_effect_ids": [],
+  "changed_source_surface_ids": [],
+  "changed_system_property_ids": [
+    "system_property:subject_revision"
+  ],
+  "changed_test_ids": [],
+  "completed_evidence_refs": [
+    {
+      "affected_closure_fingerprint": "sha256:fdbe51d608b596fef054bc47188e1a35d67aa85bc82badff72f78d68e0d60e36",
+      "candidate_snapshot_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "covered_affected_ids": [
+        "behavior_commitment:commitment:flowguard-public-api-surface"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:1b1f5a726c57afe2f45ba72ebc510e90221ed5f2ac533162e2a2a36f6f12d176",
+      "obligation_ids": [
+        "behavior_commitment:commitment:flowguard-public-api-surface"
+      ],
+      "owner_route": "behavior_commitment_ledger",
+      "receipt_fingerprint": "sha256:ed456c55737b87999b5b748342e72086704a5328aeddc88dea19a9f10a6b75e6",
+      "receipt_id": "receipt:validation-owner:behavior_commitment_ledger:624ee3e0f6d7635d0e2d46a669c361e0",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "toolchain_fingerprint": "sha256:41a3ff04f46bae89cdfcf417e788a3dd5bb41f33187a88a6a56a06a13f76666c"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:fdbe51d608b596fef054bc47188e1a35d67aa85bc82badff72f78d68e0d60e36",
+      "candidate_snapshot_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "covered_affected_ids": [
+        "coverage:universe",
+        "model_relation:relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+        "model_relation:relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+        "model_relation:relation:model-realizes-purpose:architecture_reduction",
+        "model_relation:relation:model-realizes-purpose:implementation_blueprint",
+        "model_relation:relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+        "model_relation:relation:system-contains:architecture_reduction",
+        "model_relation:relation:system-contains:implementation_blueprint",
+        "parent_closure:system:flowguard:model-regression-manifest",
+        "system_property:subject_revision"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:1b1f5a726c57afe2f45ba72ebc510e90221ed5f2ac533162e2a2a36f6f12d176",
+      "obligation_ids": [
+        "coverage:universe",
+        "model_relation:relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+        "model_relation:relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+        "model_relation:relation:model-realizes-purpose:architecture_reduction",
+        "model_relation:relation:model-realizes-purpose:implementation_blueprint",
+        "model_relation:relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+        "model_relation:relation:system-contains:architecture_reduction",
+        "model_relation:relation:system-contains:implementation_blueprint",
+        "parent_closure:system:flowguard:model-regression-manifest",
+        "system_property:subject_revision"
+      ],
+      "owner_route": "model_mesh_maintenance",
+      "receipt_fingerprint": "sha256:e2bb858edb6d56d5cca421c6fc0534136cf818d1917431c9dccab5af9447fe6b",
+      "receipt_id": "receipt:validation-owner:model_mesh_maintenance:615a470f4fdc86ff1c6e7d803ee31935",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "toolchain_fingerprint": "sha256:e0e559b68c384c6158fa08a6b569819337d12ea998333aff4428140f8e3a9370"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:fdbe51d608b596fef054bc47188e1a35d67aa85bc82badff72f78d68e0d60e36",
+      "candidate_snapshot_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "covered_affected_ids": [
+        "code_contract:contract:contract:flowguard-public-api-surface",
+        "model_instance:model:architecture_reduction",
+        "model_instance:model:implementation_blueprint",
+        "parent_closure:purpose:architecture_reduction",
+        "parent_closure:purpose:implementation_blueprint"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:1b1f5a726c57afe2f45ba72ebc510e90221ed5f2ac533162e2a2a36f6f12d176",
+      "obligation_ids": [
+        "code_contract:contract:contract:flowguard-public-api-surface",
+        "model_instance:model:architecture_reduction",
+        "model_instance:model:implementation_blueprint",
+        "parent_closure:purpose:architecture_reduction",
+        "parent_closure:purpose:implementation_blueprint"
+      ],
+      "owner_route": "model_test_alignment",
+      "receipt_fingerprint": "sha256:96be78fafe322f14c9eca764efede622267f0e645d9ecd5f03798e6fc294cb56",
+      "receipt_id": "receipt:validation-owner:model_test_alignment:908e9cb5668f44ecfe24ce000058d8bf",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "toolchain_fingerprint": "sha256:c2104cb15426ee041c1438824a4623ab3f34af4b3ac786d7fa3d49a2d877c00b"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:fdbe51d608b596fef054bc47188e1a35d67aa85bc82badff72f78d68e0d60e36",
+      "candidate_snapshot_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "covered_affected_ids": [
+        "test_evidence:test:tests/test_api_surface.py"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:1b1f5a726c57afe2f45ba72ebc510e90221ed5f2ac533162e2a2a36f6f12d176",
+      "obligation_ids": [
+        "test_evidence:test:tests/test_api_surface.py"
+      ],
+      "owner_route": "test_mesh_maintenance",
+      "receipt_fingerprint": "sha256:cc4480fc5dfa754bee76abdfe1e700b08e69eeda28205ea1fe7fe428f0b1f126",
+      "receipt_id": "receipt:validation-owner:test_mesh_maintenance:25807ff7bc4ac804dd6506d2935cb281",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "pass",
+      "subject_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "toolchain_fingerprint": "sha256:21f62e11eb66ff4a72cf94fac9f7907fe49664b3f85d186ffe88e75e34c88d34"
+    }
+  ],
+  "decision_reason": "The exact-current parent receipt composes exact-current terminal-pass leaf receipts supplied by every affected native owner.",
+  "evidence_complete": true,
+  "expected_head_fingerprint": "sha256:7cfff81b013473deb3e14fdb449ae31c211e168f93682199776e9c87482f28ed",
+  "fingerprint": "sha256:2e13ff949a6c747e3f7c849d4a1b524469419f88e084320931e5fb44344bef49",
+  "fingerprint_changed_ids": [
+    "coverage:universe",
+    "model_instance:model:architecture_reduction",
+    "model_instance:model:implementation_blueprint",
+    "model_relation:relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+    "model_relation:relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+    "model_relation:relation:model-realizes-purpose:architecture_reduction",
+    "model_relation:relation:model-realizes-purpose:implementation_blueprint",
+    "model_relation:relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+    "model_relation:relation:system-contains:architecture_reduction",
+    "model_relation:relation:system-contains:implementation_blueprint"
+  ],
+  "implementation_bundle_fingerprint": "",
+  "intent_acceptance_ready": true,
+  "intent_conflict_ids": [],
+  "intent_contribution_inventory_fingerprint": "sha256:bcde9792c519d2f00a5a1cb1d6fa5f3b5dd5f80c92849716fd9e75632a87369e",
+  "intent_contributions": [
+    {
+      "conflicts_with_contribution_ids": [],
+      "contribution_id": "intent:flowguard-v0687-prearchive-self-owner-binding-architecture-freeze9",
+      "decision_state": "accepted",
+      "declared_consumer_ids": [],
+      "desired_terminal_state_ids": [],
+      "effective_revision": "candidate:flowguard-v0687-prearchive-20260806-freeze9",
+      "fingerprint": "sha256:ba66381196a7dee884b88537051937014d68914f446abd0d1efc7e2e63ea04a2",
+      "lifecycle_state": "candidate",
+      "logical_model_id": "model:architecture_reduction",
+      "native_owner_id": "",
+      "rationale": "The current Architecture Reduction requirements require every retained self-maintenance and cleanup implementation path to have one exact current owner and no duplicate or fallback authority.",
+      "schema": "flowguard.model_intent_contribution.v1",
+      "source_fingerprint": "sha256:09694fa8deea08497b631062405ec535bb0815c28e0bac1c041b18b4f860830a",
+      "source_kind": "requirement",
+      "source_ref": "openspec/specs/architecture-reduction/spec.md",
+      "subject_lane": "normative_target",
+      "subject_role": "requirement",
+      "supersedes_contribution_ids": [],
+      "target_invariant_ids": [],
+      "target_obligation_ids": [],
+      "target_output_ids": [],
+      "target_relation_ids": [
+        "relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+        "relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+        "relation:model-realizes-purpose:architecture_reduction",
+        "relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+        "relation:system-contains:architecture_reduction"
+      ],
+      "target_state_ids": [],
+      "target_transition_ids": [],
+      "unresolved_owner_id": "",
+      "work_context_fingerprint": "",
+      "work_context_id": ""
+    },
+    {
+      "conflicts_with_contribution_ids": [],
+      "contribution_id": "intent:flowguard-v0687-prearchive-self-owner-binding-blueprint-freeze9",
+      "decision_state": "accepted",
+      "declared_consumer_ids": [],
+      "desired_terminal_state_ids": [],
+      "effective_revision": "candidate:flowguard-v0687-prearchive-20260806-freeze9",
+      "fingerprint": "sha256:3388e1ce2642a03d212f35c194641c6235140a949e9f6fe862ddf0ffdcafe3f1",
+      "lifecycle_state": "candidate",
+      "logical_model_id": "model:implementation_blueprint",
+      "native_owner_id": "",
+      "rationale": "The current software-blueprint readiness requirements bind each implementation path to one exact model owner so code, behavior, topology, and test evidence remain connected.",
+      "schema": "flowguard.model_intent_contribution.v1",
+      "source_fingerprint": "sha256:2e7b809cf3fe28117f335c30e7d4544d8ef6ead776b0f23186f595bdc0cee802",
+      "source_kind": "requirement",
+      "source_ref": "openspec/specs/software-blueprint-readiness/spec.md",
+      "subject_lane": "normative_target",
+      "subject_role": "requirement",
+      "supersedes_contribution_ids": [],
+      "target_invariant_ids": [],
+      "target_obligation_ids": [],
+      "target_output_ids": [],
+      "target_relation_ids": [
+        "relation:model-realizes-purpose:implementation_blueprint",
+        "relation:system-contains:implementation_blueprint"
+      ],
+      "target_state_ids": [],
+      "target_transition_ids": [],
+      "unresolved_owner_id": "",
+      "work_context_fingerprint": "",
+      "work_context_id": ""
+    }
+  ],
+  "intent_dispositions": [
+    {
+      "changed_invariant_ids": [],
+      "changed_obligation_ids": [],
+      "changed_relation_ids": [
+        "relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+        "relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+        "relation:model-realizes-purpose:architecture_reduction",
+        "relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+        "relation:system-contains:architecture_reduction"
+      ],
+      "changed_state_ids": [],
+      "changed_transition_ids": [],
+      "conflict_ids": [],
+      "contribution_fingerprint": "sha256:ba66381196a7dee884b88537051937014d68914f446abd0d1efc7e2e63ea04a2",
+      "contribution_id": "intent:flowguard-v0687-prearchive-self-owner-binding-architecture-freeze9",
+      "disposition": "accepted",
+      "fingerprint": "sha256:c214ade9da954497d99c0855ce804b30b8ae0de8e4e60cb9d4b311d93ee6c937",
+      "reason": "This accepted contribution owns its exact partition of the current candidate relation diff with no unresolved effect, conflict, or unconsumed output.",
+      "schema": "flowguard.model_intent_disposition.v1",
+      "scoped_gap_ids": [],
+      "unconsumed_output_ids": [],
+      "unreachable_terminal_state_ids": [],
+      "unresolved_effect_ids": []
+    },
+    {
+      "changed_invariant_ids": [],
+      "changed_obligation_ids": [],
+      "changed_relation_ids": [
+        "relation:model-realizes-purpose:implementation_blueprint",
+        "relation:system-contains:implementation_blueprint"
+      ],
+      "changed_state_ids": [],
+      "changed_transition_ids": [],
+      "conflict_ids": [],
+      "contribution_fingerprint": "sha256:3388e1ce2642a03d212f35c194641c6235140a949e9f6fe862ddf0ffdcafe3f1",
+      "contribution_id": "intent:flowguard-v0687-prearchive-self-owner-binding-blueprint-freeze9",
+      "disposition": "accepted",
+      "fingerprint": "sha256:cbaaf8b7958da969115295654987c627c54a59324951bae6017a92c7abd0b2a1",
+      "reason": "This accepted contribution owns its exact partition of the current candidate relation diff with no unresolved effect, conflict, or unconsumed output.",
+      "schema": "flowguard.model_intent_disposition.v1",
+      "scoped_gap_ids": [],
+      "unconsumed_output_ids": [],
+      "unreachable_terminal_state_ids": [],
+      "unresolved_effect_ids": []
+    }
+  ],
+  "intent_unresolved_ids": [],
+  "members": [
+    {
+      "base_instance_fingerprint": "sha256:85e4eac373154ae4bfd3ce1dbeb0bf00c08101c092e1846d67dea2aa9ee5cd86",
+      "candidate_instance_fingerprint": "sha256:670dc79114873b1165342fdd91d3d442dc25746e60addd1e66ed196daafa4d9e",
+      "changed_element_ids": [
+        "model_instance:model:architecture_reduction"
+      ],
+      "member_id": "architecture_reduction",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    },
+    {
+      "base_instance_fingerprint": "sha256:0fd005faa887ea1fb892ac34a42e2a6d88c32883901e21a44380f5fa5d9e75f4",
+      "candidate_instance_fingerprint": "sha256:a167d9c3b488ff72683dae302ac0654ee9b9d967e754df55545c37e659ad5261",
+      "changed_element_ids": [
+        "model_instance:model:implementation_blueprint"
+      ],
+      "member_id": "implementation_blueprint",
+      "operation": "replace",
+      "schema": "flowguard.model_revision_member.v1"
+    }
+  ],
+  "no_declared_intent_evidence_fingerprints": [],
+  "no_declared_intent_rationale": "",
+  "no_declared_intent_rationale_id": "",
+  "originating_activation_receipt_fingerprint": "",
+  "originating_revision_set_fingerprint": "",
+  "prediction_replay_refs": [],
+  "removal_dispositions": [],
+  "removed_ids": [],
+  "required_evidence_refs": [
+    {
+      "affected_closure_fingerprint": "sha256:fdbe51d608b596fef054bc47188e1a35d67aa85bc82badff72f78d68e0d60e36",
+      "candidate_snapshot_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "covered_affected_ids": [
+        "behavior_commitment:commitment:flowguard-public-api-surface"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:1b1f5a726c57afe2f45ba72ebc510e90221ed5f2ac533162e2a2a36f6f12d176",
+      "obligation_ids": [
+        "behavior_commitment:commitment:flowguard-public-api-surface"
+      ],
+      "owner_route": "behavior_commitment_ledger",
+      "receipt_fingerprint": "sha256:ed456c55737b87999b5b748342e72086704a5328aeddc88dea19a9f10a6b75e6",
+      "receipt_id": "receipt:validation-owner:behavior_commitment_ledger:624ee3e0f6d7635d0e2d46a669c361e0",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "toolchain_fingerprint": "sha256:41a3ff04f46bae89cdfcf417e788a3dd5bb41f33187a88a6a56a06a13f76666c"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:fdbe51d608b596fef054bc47188e1a35d67aa85bc82badff72f78d68e0d60e36",
+      "candidate_snapshot_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "covered_affected_ids": [
+        "coverage:universe",
+        "model_relation:relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+        "model_relation:relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+        "model_relation:relation:model-realizes-purpose:architecture_reduction",
+        "model_relation:relation:model-realizes-purpose:implementation_blueprint",
+        "model_relation:relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+        "model_relation:relation:system-contains:architecture_reduction",
+        "model_relation:relation:system-contains:implementation_blueprint",
+        "parent_closure:system:flowguard:model-regression-manifest",
+        "system_property:subject_revision"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:1b1f5a726c57afe2f45ba72ebc510e90221ed5f2ac533162e2a2a36f6f12d176",
+      "obligation_ids": [
+        "coverage:universe",
+        "model_relation:relation:model-realizes-code_contract:model_instance:model:architecture_reduction--code_contract:contract:contract:flowguard-public-api-surface",
+        "model_relation:relation:model-realizes-commitment:commitment:flowguard-public-api-surface",
+        "model_relation:relation:model-realizes-purpose:architecture_reduction",
+        "model_relation:relation:model-realizes-purpose:implementation_blueprint",
+        "model_relation:relation:model-validates-test_evidence:model_instance:model:architecture_reduction--test_evidence:test:tests/test_api_surface.py",
+        "model_relation:relation:system-contains:architecture_reduction",
+        "model_relation:relation:system-contains:implementation_blueprint",
+        "parent_closure:system:flowguard:model-regression-manifest",
+        "system_property:subject_revision"
+      ],
+      "owner_route": "model_mesh_maintenance",
+      "receipt_fingerprint": "sha256:e2bb858edb6d56d5cca421c6fc0534136cf818d1917431c9dccab5af9447fe6b",
+      "receipt_id": "receipt:validation-owner:model_mesh_maintenance:615a470f4fdc86ff1c6e7d803ee31935",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "toolchain_fingerprint": "sha256:e0e559b68c384c6158fa08a6b569819337d12ea998333aff4428140f8e3a9370"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:fdbe51d608b596fef054bc47188e1a35d67aa85bc82badff72f78d68e0d60e36",
+      "candidate_snapshot_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "covered_affected_ids": [
+        "code_contract:contract:contract:flowguard-public-api-surface",
+        "model_instance:model:architecture_reduction",
+        "model_instance:model:implementation_blueprint",
+        "parent_closure:purpose:architecture_reduction",
+        "parent_closure:purpose:implementation_blueprint"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:1b1f5a726c57afe2f45ba72ebc510e90221ed5f2ac533162e2a2a36f6f12d176",
+      "obligation_ids": [
+        "code_contract:contract:contract:flowguard-public-api-surface",
+        "model_instance:model:architecture_reduction",
+        "model_instance:model:implementation_blueprint",
+        "parent_closure:purpose:architecture_reduction",
+        "parent_closure:purpose:implementation_blueprint"
+      ],
+      "owner_route": "model_test_alignment",
+      "receipt_fingerprint": "sha256:96be78fafe322f14c9eca764efede622267f0e645d9ecd5f03798e6fc294cb56",
+      "receipt_id": "receipt:validation-owner:model_test_alignment:908e9cb5668f44ecfe24ce000058d8bf",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "toolchain_fingerprint": "sha256:c2104cb15426ee041c1438824a4623ab3f34af4b3ac786d7fa3d49a2d877c00b"
+    },
+    {
+      "affected_closure_fingerprint": "sha256:fdbe51d608b596fef054bc47188e1a35d67aa85bc82badff72f78d68e0d60e36",
+      "candidate_snapshot_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "covered_affected_ids": [
+        "test_evidence:test:tests/test_api_surface.py"
+      ],
+      "current": true,
+      "eligible": true,
+      "environment_fingerprint": "sha256:1b1f5a726c57afe2f45ba72ebc510e90221ed5f2ac533162e2a2a36f6f12d176",
+      "obligation_ids": [
+        "test_evidence:test:tests/test_api_surface.py"
+      ],
+      "owner_route": "test_mesh_maintenance",
+      "receipt_fingerprint": "sha256:cc4480fc5dfa754bee76abdfe1e700b08e69eeda28205ea1fe7fe428f0b1f126",
+      "receipt_id": "receipt:validation-owner:test_mesh_maintenance:25807ff7bc4ac804dd6506d2935cb281",
+      "schema": "flowguard.model_revision_evidence.v2",
+      "status": "required",
+      "subject_fingerprint": "sha256:dd587a6f20dbb27d4c80f3ed5155c481d966f4bbf8a1a08fcf31bdc50258d155",
+      "toolchain_fingerprint": "sha256:21f62e11eb66ff4a72cf94fac9f7907fe49664b3f85d186ffe88e75e34c88d34"
+    }
+  ],
+  "revision_set_id": "revision:flowguard-v0687-prearchive-20260806-freeze9",
+  "rollback_contract_fingerprint": "",
+  "schema": "flowguard.model_revision_set.v4",
+  "snapshot_diff_fingerprint": "sha256:b8e54afe821cd9eb22456c12349c9f7e6965e228536b29fa87b645e4bb0f12f9",
+  "status": "accepted",
+  "task_id": "task:flowguard-v0687-prearchive-20260806-freeze9"
+}

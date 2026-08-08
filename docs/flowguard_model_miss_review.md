@@ -1,118 +1,66 @@
 # FlowGuard Model-Miss Review Notes
 
-Use this scaffold for non-trivial bug repairs and when real validation finds an
-issue after a FlowGuard pass.
+Use this scaffold when real runtime, test, replay, log, manual, production, or
+UI evidence exposes a missed behavior after a FlowGuard claim.
+
+## One Current Repair Chain
+
+```text
+observed failure
+-> affected commitment + primary owner + blueprint gap
+-> finite canonical relations
+-> ContractExhaustion cases and oracles
+-> ModelMaturation contribution
+-> owner code/test binding + topology/parent replay
+-> freshness, risk evidence, and bounded closure
+```
+
+The model miss is not a request to inspect every superficially similar feature.
+Existing Model Preflight first resolves the failed promise inside one behavior
+plane. Reuse its commitment and owner when present; create one explicit
+coverage gap only when no same-plane promise covers the failure. Other planes
+remain typed context and do not become duplicate owners.
 
 ## Review Questions
 
-- Which execution plane's promise failed: `product_runtime`,
-  `agent_operation`, or `development_process`?
-- Which same-plane `affected_commitment_id` and `owner_model_id` already own
-  that promise? Search the same plane before creating a coverage gap.
-- If the incident touches other planes, which typed relation ids describe the
-  invoked target, governing process, validation target, or evidence source
-  without transferring ownership?
-- Which stable error signatures should be added to the existing commitment's
-  lookup binding so the next preflight can recall it?
+- What concrete evidence failed, and what earlier claim did it contradict?
+- Which `affected_commitment_id`, `owner_model_id`, and
+  `affected_blueprint_gap_id` own the repair?
+- What supported root cause and `would_have_failed_if` condition explain why
+  the earlier model or evidence went green?
+- Is the miss `boundary_missing`, `code_boundary_mismatch`,
+  `state_too_coarse`, `input_branch_missing`, `invariant_too_weak`, or
+  `evidence_overclaimed`?
+- Which scenario, invariant, replay, trace, leaf cell, or boundary update makes
+  the observed issue executable?
+- Which exact current DNA/BCL/topology relations define the finite affected
+  scope? What source identities prove each relation?
+- Which ContractExhaustion case ids, combination ids, coverage receipt ids,
+  and actionable oracles materialize that scope?
+- If a concrete counterexample or known-bad proof exists, which stable target
+  id binds it to the external regression test?
+- Which owner `CodeContract` implements the repaired behavior, and which
+  observed plus generated-case tests prove that same external boundary?
+- Which task-bound ModelMaturation contribution carries the blueprint gap,
+  coverage/probe ids, candidate fingerprint, and current native receipt?
+- Did the repair change a field, old path, child boundary, topology edge,
+  parent input/output, state owner, side-effect owner, join, or sibling
+  obligation? Where is its disposition or replay evidence?
+- Which later edits would stale the result, and what exact claim remains if any
+  evidence is missing, scoped, skipped, or not run?
 
-- Why did the earlier model miss this bug class?
-- Was there a previous green or broad-confidence claim? If yes, what was the
-  previous claim id, observed failure, supported root cause, and
-  `would_have_failed_if` condition?
-- Which new plan, model, code-contract, or test item would have caught this
-  bug class before the fix?
-- Was the boundary too narrow, the state too coarse, an input branch missing, an
-  invariant weak, a replay skipped, or the issue outside the modeled scope?
-- Was a behavior-bearing field omitted, under-modeled, wrongly scoped out, or
-  left without reader/writer/owner visibility?
-- Was the failure found by a user opening or clicking the UI after a green
-  claim? If yes, record it as a UI model miss rather than a local button fix.
-- Was the failure a repeated rejected intent, missing field, missing body, or
-  same packet shape after a green parent/child route claim? If yes, record it as
-  a ModelMesh closure miss and require repair feedback or an explicit blocker.
-- Which prior UI model or evidence row went green, and was it green only
-  because a label matched, an API route existed, or a planned click was
-  overclaimed?
-- Which affected controls/fields and same-class controls/fields now need
-  same-class click or implementation evidence?
-- Did the user fail because the UI was confusing rather than technically
-  unwired? If yes, preserve task-flow, affordance, action grammar, dialog
-  return, keyboard/focus, walkthrough, and same-class task evidence.
-- How is the issue now represented: scenario, invariant, replay adapter,
-  representative trace, or explicit out-of-scope boundary?
-- If the issue produced a concrete counterexample trace or known-bad proof,
-  what stable target id will be replayed by the real-code regression test?
-- What same-class family seed or finite boundary prevents a point-fix-only
-  repair, and which ContractExhaustionMesh case ids represent that class or
-  explicitly scope it out?
-- If the miss is a combination-shaped bug, which affected model ids,
-  root-cause dimension ids, interaction group ids, generated combination case
-  ids, and coverage receipt ids backpropagate that class into the model?
-- How is the known bug used as validation or holdout evidence instead of the
-  whole model target?
-- Which observed-regression test and contract-exhaustion same-class test
-  evidence now prove the repaired obligation?
-- Which `counterexample_regression` or `known_bad_replay` `TestEvidence` row
-  cites the same `evidence_target_id`, covers the repaired obligation, and
-  binds to the owner `CodeContract`?
-- Which retry/rejection transition cells prove failure, negative, replay, and
-  no-delta repair-feedback behavior when the miss was a repeated packet loop?
-- Which root-cause field ids and ContractExhaustionMesh field case ids prove
-  the repair is not only an observed-field point fix?
-- Which owner code contract implements the repaired behavior, and which
-  Model-Test Alignment rows prove the model obligation, owner code contract,
-  observed-regression test, and same-class test cover the same behavior?
-- Are old, fallback, compatibility, or alternate paths still reachable? If yes,
-  are they deleted, blocked, delegated to the repaired contract,
-  same-contract repaired, or explicitly out of scope with a reason?
-- Are old, replaced, deprecated, or compatibility-like fields still reachable?
-  If yes, has FieldLifecycleMesh produced a closing disposition and can that
-  row be reviewed as legacy path disposition evidence?
-- Has this same-class family appeared before, or is it high risk enough to
-  require a defect-family gate rather than another ordinary bug fix?
-- Which defect-family gate records the family id, authority boundary, observed
-  failure, same-class generalized case, generated combination case ids,
-  coverage receipt ids, historical holdout, and current proof?
-- Which refined model checks, runtime checks, ContractExhaustionMesh cases, and
-  downstream tests must pass before completion?
-- If the repair changed a child model under a parent ModelMesh, which parent
-  reattachment gate consumed the new child evidence id?
-- If contract-exhaustion validation is large, slow, layered, background, or release-only,
-  which TestMesh parent/child suite owns it and where is final result evidence?
-- Which DevelopmentProcessFlow and Risk Evidence Ledger rows consume the final
-  model/code/test/legacy-path evidence, and which later edits would stale them?
+For UI misses, also record why the old row looked green, the user-observed
+failure, missing promised capabilities, affected and same-class controls and
+fields, task-flow and human-operability gaps, code owner, and real click or
+implementation evidence. A label, API route, or planned control is not proof
+of a working visible capability.
 
-Do not let a later green runtime check, one observed-bug regression test, or a
-second local point fix close a known model miss by itself. Full closure needs
-root-cause backpropagation when there was a prior claim, owner code contract
-binding, ContractExhaustionMesh case ids plus same-class test evidence, legacy
-path disposition for reachable old paths, and recurring families need a
-defect-family gate or an explicit scoped-confidence boundary.
-If a miss has a counterexample or known-bad id, broad closure also needs
-target-aware Model-Test Alignment evidence: the repaired obligation declares a
-`ClosureEvidenceTarget`, and the current passing external test uses
-`counterexample_regression` or `known_bad_replay` with the same target id.
-For UI misses, full closure also needs `review_ui_model_misses(...)` evidence:
-previous claim, previous green reason, observed failure, affected
-controls/fields, same-class controls/fields, same-class tests or click
-evidence, task-flow and human-operability gaps, root-cause backpropagation, and
-code owner.
-When the root cause is a field, full closure also needs ContractExhaustionMesh
-field cases, field lifecycle projection into Model-Test Alignment, and
-old-field disposition for any legacy field left in or near the repaired path.
-When the root cause is an interaction between fields, states, inputs, or
-parent/child handoffs, full closure also needs ContractExhaustionMesh
-interaction groups, generated combination case ids, TestMesh shard evidence
-when sharded, and coverage receipts consumed by the relevant ModelMesh parent.
-Child-local green is not enough when parent mesh confidence depends on the
-child's input/output/state/side-effect handoff.
+## Closure Rule
 
-## Same-Plane Backfeed Rule
-
-Model Miss first records `affected_behavior_plane`,
-`affected_commitment_id`, `owner_model_id`, typed related relation ids, and
-evidence-bound error signatures. If a matching same-plane commitment exists,
-reuse it and deepen its owner model, cases, tests, and evidence. Create a new
-coverage-gap row only when no matching promise exists in that plane. A
-multi-plane incident may have related rows, but it still has one primary failed
-promise; cross-plane context never becomes a duplicate owner.
+A later green command, point patch, one observed regression, helper-only test,
+or unmaterialized relation id cannot close an in-scope miss. Broad closure
+requires current commitment/blueprint ownership, executable observed and
+generated cases, owner code/test binding, relevant field and old-path
+dispositions, affected topology/parent replay, closed task-bound
+ModelMaturation evidence, process freshness, and Risk Evidence Ledger
+consumption. Otherwise report the exact scoped boundary and next owner action.

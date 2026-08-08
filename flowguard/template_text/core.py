@@ -269,8 +269,6 @@ from flowguard import (
     MinimumModelContract,
     RiskIntent,
     RiskProfile,
-    TemplateHarvestReview,
-    TemplateReuseReview,
     run_model_first_checks,
 )
 import model
@@ -298,13 +296,8 @@ def build_plan(workflow, known_bad_proofs=()):
                 adversarial_inputs=("same item repeated", "invalid item", "completion after partial work"),
                 hard_invariants=("completed ids have evidence", "stored ids are accepted once"),
                 known_bad_cases=("complete_without_evidence",),
-                used_template_ids=("completion_requires_evidence", "side_effect_at_most_once"),
                 blindspots=("production storage adapter replay is outside this sample template",),
             ),
-        ),
-        template_reuse_review=TemplateReuseReview(
-            used_template_ids=("completion_requires_evidence", "side_effect_at_most_once"),
-            searched_layers=("public", "local"),
         ),
         minimum_model_contract=MinimumModelContract(
             protected_error_classes=("premature_completion", "duplicate_side_effect"),
@@ -314,10 +307,6 @@ def build_plan(workflow, known_bad_proofs=()):
             known_bad_cases=("complete_without_evidence",),
         ),
         known_bad_proofs=known_bad_proofs,
-        template_harvest_review=TemplateHarvestReview(
-            disposition="not_harvestable",
-            not_harvestable_reason="not_reusable_project_specific",
-        ),
         scenario_matrix_config={"enabled": False},
     )
 

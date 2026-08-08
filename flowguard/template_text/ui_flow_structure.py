@@ -2055,7 +2055,7 @@ consolidate unless the exception has an explicit hero, editorial, brand,
 warning, or state-critical purpose.
 
 Keep `business_intent_id`, `behavior_commitment_id`, `primary_path_id`,
-similarity ids, audit/evidence ids, and diagnostic routing fields inside the
+canonical relation ids, audit/evidence ids, and diagnostic routing fields inside the
 model. A UI feature may bind to them for validation, but ordinary UI copy does
 not render them. Repeated business actions across surfaces share the same
 commitment and primary path; expand/collapse, focus, and selection may remain

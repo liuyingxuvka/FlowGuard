@@ -6,14 +6,10 @@ from flowguard import (
     RISK_CONFIDENCE_BLOCKED,
     RISK_CONFIDENCE_FULL,
     RISK_CONFIDENCE_SCOPED,
-    RISK_GATE_ANALOGOUS_SCAN,
     RISK_GATE_ARTIFACT_PAYLOAD,
     RISK_GATE_CONTRACT_COVERAGE_SHARD,
-    RISK_GATE_DEFECT_FAMILY,
-    RISK_GATE_FAMILY,
     RISK_GATE_MAINTENANCE_OBLIGATION,
     RISK_GATE_MODEL_CARTESIAN_COVERAGE,
-    RISK_GATE_MODEL_ANGLE_REVIEW,
     RISK_GATE_MODEL_MATURATION,
     RISK_GATE_MODEL_SPLIT,
     RISK_GATE_PARENT_CONSUMED_CHILD_COVERAGE,
@@ -313,45 +309,9 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual("scoped_out_required_risk", report.decision)
 
-    def test_required_defect_family_gate_must_be_named_and_current(self):
-        missing = review_risk_evidence_ledger(plan(rows=(row(gates=(gate(RISK_GATE_DEFECT_FAMILY),)),)))
-        self.assertFalse(missing.ok)
-        self.assertEqual("missing_defect_family_gate", missing.decision)
-
-        stale = review_risk_evidence_ledger(
-            plan(rows=(row(gates=(gate(RISK_GATE_DEFECT_FAMILY, "defect-family:duplicate-submit", current=False),)),))
-        )
-        self.assertFalse(stale.ok)
-        self.assertEqual("defect_family_gate_not_current", stale.decision)
-
-    def test_scoped_defect_family_gate_downgrades_final_confidence(self):
-        report = review_risk_evidence_ledger(
-            plan(
-                rows=(
-                    row(
-                        gates=(
-                            gate(
-                                RISK_GATE_DEFECT_FAMILY,
-                                "defect-family:duplicate-submit",
-                                scoped_reasons=("release-only holdout deferred",),
-                            ),
-                        ),
-                    ),
-                )
-            )
-        )
-
-        self.assertTrue(report.ok)
-        self.assertEqual(RISK_LEDGER_DECISION_SCOPED, report.decision)
-        self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
-        self.assertIn("defect_family_gate_scoped_confidence", finding_codes(report))
-
-    def test_family_analogous_topology_and_angle_gates_share_one_shape(self):
+    def test_topology_gate_uses_the_common_current_evidence_shape(self):
         cases = (
-            (RISK_GATE_FAMILY, "family:packet-result", "missing_family_gate", "family_gate_not_current", "family_gate_blocked"),
-            (RISK_GATE_ANALOGOUS_SCAN, "analogous:packet-result", "missing_analogous_scan", "analogous_scan_not_current", "analogous_scan_blocked"),
             (RISK_GATE_TOPOLOGY_HAZARD, "topology:future-use", "missing_topology_hazard_review", "topology_hazard_review_not_current", "topology_hazard_review_blocked"),
-            (RISK_GATE_MODEL_ANGLE_REVIEW, "model-angle:ai-route", "missing_model_angle_review", "model_angle_review_not_current", "model_angle_review_blocked"),
         )
         for kind, evidence_id, missing_code, stale_code, blocked_code in cases:
             with self.subTest(kind=kind, mode="missing"):
@@ -371,15 +331,15 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
                 self.assertFalse(blocked.ok)
                 self.assertEqual(blocked_code, blocked.decision)
 
-    def test_scoped_route_gate_downgrades_final_confidence(self):
+    def test_scoped_topology_gate_downgrades_final_confidence(self):
         report = review_risk_evidence_ledger(
-            plan(rows=(row(gates=(gate(RISK_GATE_FAMILY, "family:packet-result", confidence=RISK_CONFIDENCE_SCOPED),)),))
+            plan(rows=(row(gates=(gate(RISK_GATE_TOPOLOGY_HAZARD, "topology:packet-result", confidence=RISK_CONFIDENCE_SCOPED),)),))
         )
 
         self.assertTrue(report.ok)
         self.assertEqual(RISK_LEDGER_DECISION_SCOPED, report.decision)
         self.assertEqual(RISK_CONFIDENCE_SCOPED, report.confidence)
-        self.assertIn("family_gate_scoped_confidence", finding_codes(report))
+        self.assertIn("topology_hazard_review_scoped_confidence", finding_codes(report))
 
     def test_required_model_and_test_split_gates_are_final_confidence_inputs(self):
         missing = review_risk_evidence_ledger(
@@ -483,7 +443,7 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
 
     def test_gate_dicts_are_coerced(self):
         report = review_risk_evidence_ledger(
-            plan(rows=(row(gates=({"kind": RISK_GATE_FAMILY, "evidence_id": "family:submit"},)),))
+            plan(rows=(row(gates=({"kind": RISK_GATE_TOPOLOGY_HAZARD, "evidence_id": "topology:submit"},)),))
         )
 
         self.assertTrue(report.ok, report.format_text())
@@ -550,16 +510,15 @@ class RiskEvidenceLedgerTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual(RISK_LEDGER_DECISION_FULL, report.decision)
 
-    def test_bug_repair_row_can_require_family_analogous_and_maintenance_links(self):
+    def test_bug_repair_row_uses_contract_coverage_and_maintenance_links(self):
         report = review_risk_evidence_ledger(
             plan(
                 rows=(
                     row(
                         "bug:duplicate-submit",
                         gates=(
-                            gate(RISK_GATE_DEFECT_FAMILY, "defect-family:duplicate-submit"),
-                            gate(RISK_GATE_FAMILY, "family:submit-repair"),
-                            gate(RISK_GATE_ANALOGOUS_SCAN, "analogous:submit-repair"),
+                            gate(RISK_GATE_MODEL_CARTESIAN_COVERAGE, "contract-coverage:submit-repair"),
+                            gate(RISK_GATE_CONTRACT_COVERAGE_SHARD, "contract-shard:submit-repair"),
                             gate(RISK_GATE_MAINTENANCE_OBLIGATION, "obligation:structure"),
                         ),
                     ),

@@ -27,10 +27,12 @@ Only the first can satisfy the matching current obligation. A summary, checkbox,
 
 For whole-target blueprint work, preserve static blueprint status as
 `complete`, `incomplete`, `stale`, or `blocked`. It consumes exact behavior,
-resource, intent, projection, test-design, and current-execution identities and
-reports every gap, the deepest complete layer, and the first incomplete layer.
-A parent or full-suite receipt cannot manufacture missing per-block or per-test
-evidence.
+resource, intent, projection, and test-design identities and reports every
+static gap, the deepest complete layer, and the first incomplete layer. Keep
+`executed_evidence_status` as a separate axis: `not_run` does not erase a
+complete static design, while an executed/release claim still requires exact
+current owner receipts. A parent or full-suite receipt cannot manufacture
+missing per-block or per-test execution evidence.
 
 For bounded system composition, record all four stages separately:
 component-local, token composition, affected slice, and executable system.
@@ -46,6 +48,33 @@ If runtime, tests, replay, logs, manual validation, or UI behavior fails after g
 Use internal `model_maturation_loop` whenever a triggered `TaskCoverageDemand` row is unresolved or evidence shows the model is too coarse, stale, disconnected, or supports only a scoped claim. Freeze the task, demand fingerprint, candidate, inputs, obligations, prediction/falsifier, evidence, and gaps. Addressable gaps (`model_edit` or `evidence_acquisition`) cannot disappear without a resolution receipt and cannot be scoped away. `model_maturation_upgrade_required` continues the loop. A terminal result is allowed only for `model_maturation_closed_for_task`, `model_maturation_external_input_required`, `model_maturation_scope_excluded`, `model_maturation_progress_stalled`, or `model_maturation_iteration_limit`.
 
 Publish that terminal result through the canonical EvidenceReceipt store. Only independent verification of the exact task, demand, candidate, input snapshots, obligations, result fingerprint, evidence fingerprint, decision, confidence, and gaps may create `VerifiedModelMaturation`. Raw dictionaries, direct evidence references, model self-reports, caller-authored `current`/`resolved` flags, progress logs, or unrelated later green commands have no authority. Former or missing schemas are rejected; there is one direct-current producer and verifier.
+
+### Path-quality evidence inside maturation
+
+For every new or materially changed model in the affected denominator,
+ModelMaturation requires one current `PathQualitySubject` and compact
+`PathQualityResult`. The subject binds model, purpose, intent, obligation,
+provider, dependency, code, test, oracle, evidence, retained-element inventory,
+and currentness fingerprints. A change to any consumed identity stales only
+that model and topology-required consumers. An unchanged model may reuse its
+result only through exact identity and affected-topology evidence.
+
+Ordinary evidence carries mode, triggers, bounded conclusion, finding and
+unresolved ids, candidate/rewrite/witness-set fingerprints, producer,
+currentness, and one detail-evidence fingerprint. Candidate bodies, rewrite
+traces, cost rows, and witness bodies remain outside parent prompts and load
+only for a triggered claim. Missing, stale, unresolved, self-licensed,
+aggregate-only, or `normative_target`-presented-as-observed material is a typed
+maturation gap; permission, executable model pass, code binding, test presence,
+or a parent summary cannot upgrade it.
+
+Current observed authority publishes this compact result in the same accepted
+`ModelRevisionSet` as the model, intent, topology, bindings, and owner evidence.
+There is no separate current pointer or compatibility reader. ModelMesh owns
+propagation, Model-Test Alignment owns semantic/code/test binding, TestMesh
+owns evidence hierarchy/currentness, Architecture Reduction owns mapped code
+contraction, and DevelopmentProcessFlow owns lifecycle order; none recomputes
+single-model path quality.
 
 ## Maintenance and final claims
 
@@ -97,14 +126,20 @@ fingerprint and checks only identity, material presence, and terminal integrity.
 
 ## Blueprint Depth Evidence
 
-When blueprint scope is explicit, publish exact-current layer results in this
-order: `inventory`, `traceability`, `independent_semantics`,
-`model_code_test`, `resource_oracle`, and `static_blueprint`. Each row names its native owner, evidence
-fingerprints, covered member ids, status, and findings. Compute
-`deepest_proven_layer` only as the longest `complete` prefix through
-`static_blueprint`; also return the first unresolved layer and its exact owner,
-member, and evidence gap. Missing, stale, skipped, planned, aggregate-only,
-ambiguous-owner, or not-run evidence cannot advance the prefix.
+When blueprint scope is explicit, consume one frozen layer plan whose profile
+matches the target. A software plan contains the canonical implementation,
+traceability, semantics, model-code-test, resource/intent/oracle, and final
+qualification layers; a non-code workflow plan contains its real boundary,
+actors, input/state/transition/output, resource, intent, and verification
+layers without fabricated software rows. Each exact-current row names its
+native owner, evidence fingerprints, covered member ids, status, and findings.
+Compute `deepest_proven_layer` only as the longest statically complete prefix
+through the plan's final layer; also return the first unresolved static layer
+and its exact owner, member, and evidence gap. Missing, stale, planned,
+aggregate-only, or ambiguous-owner static evidence cannot advance that prefix.
+Report current execution separately as `not_run`, `passed`, `failed`, or
+`blocked`; missing or not-run execution blocks only executed/release claims and
+does not rewrite a complete static-design result.
 
 The three decisions `user_execution_choice`, `verified_model_maturation`, and
 `implementation_admission` remain separate fields with separate identities.

@@ -1,5 +1,6 @@
 import json
 import unittest
+from dataclasses import replace
 
 from flowguard import (
     ChildModelEvidence,
@@ -18,6 +19,56 @@ from flowguard import (
     review_mesh_closure_model,
     summarize_child_boundary_change,
 )
+from flowguard.model_path_quality import (
+    PathQualityResult,
+    PathQualitySubject,
+    canonical_fingerprint,
+)
+
+
+def path_fp(value):
+    return canonical_fingerprint({"value": value})
+
+
+def path_quality(model_id="payment", currentness_id="snapshot:current"):
+    owner = PathQualitySubject(
+        model_id=model_id,
+        boundary_id=f"boundary:{model_id}",
+        model_fingerprint=path_fp(f"model:{model_id}"),
+        normalized_facts_fingerprint=path_fp(f"facts:{model_id}"),
+        retained_element_inventory_fingerprint=path_fp(f"retained:{model_id}"),
+        purpose_fingerprint=path_fp(f"purpose:{model_id}"),
+        intent_fingerprint=path_fp(f"intent:{model_id}"),
+        obligation_fingerprint=path_fp(f"obligations:{model_id}"),
+        provider_fingerprint=path_fp(f"provider:{model_id}"),
+        dependency_fingerprint=path_fp(f"dependencies:{model_id}"),
+        code_fingerprint=path_fp(f"code:{model_id}"),
+        test_fingerprint=path_fp(f"tests:{model_id}"),
+        oracle_fingerprint=path_fp(f"oracles:{model_id}"),
+        evidence_fingerprint=path_fp(f"evidence:{model_id}"),
+        currentness_id=currentness_id,
+    )
+    result = PathQualityResult(
+        result_id=f"path-quality:{model_id}",
+        subject_fingerprint=owner.fingerprint,
+        mode="lightweight",
+        trigger_ids=(),
+        finding_ids=(),
+        candidate_ids=(),
+        rewrite_rule_ids=(),
+        conclusion="single_clear_path",
+        unresolved_ids=(),
+        selected_candidate_id="",
+        selected_candidate_lane="",
+        comparison_boundary_id="",
+        candidate_set_fingerprint="",
+        rewrite_set_fingerprint="",
+        necessity_witness_set_fingerprint=path_fp(f"witnesses:{model_id}"),
+        detail_evidence_fingerprint=path_fp(f"detail:{model_id}"),
+        producer_id="model_maturation",
+        currentness_id=currentness_id,
+    )
+    return owner, result
 
 
 def child(model_id, **kwargs):
@@ -122,6 +173,176 @@ def reattachment_closure(output="payment_reattached"):
 
 
 class HierarchicalMeshTests(unittest.TestCase):
+    def test_parent_mesh_consumes_exact_current_child_path_quality(self):
+        owner, result = path_quality()
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(
+                child(
+                    "payment",
+                    model_fingerprint=owner.model_fingerprint,
+                    evidence_id="payment:v1",
+                ),
+            ),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            reattachment_contracts=(
+                reattachment_empty(
+                    "payment",
+                    consumed_path_quality_result_fingerprint=result.fingerprint,
+                ),
+            ),
+            closure_model=reattachment_closure(),
+            required_path_quality_model_ids=("payment",),
+            path_quality_subjects=(owner,),
+            path_quality_results=(result,),
+            path_quality_currentness_id=owner.currentness_id,
+        )
+        partition = replace(
+            partition,
+            closure_model=replace(
+                partition.closure_model,
+                consumed_path_quality_result_fingerprints=(result.fingerprint,),
+            ),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(("payment",), report.path_quality_verified_model_ids)
+        self.assertEqual((), report.path_quality_blocked_model_ids)
+        payload = report.to_dict()
+        self.assertEqual(
+            partition.path_quality_result_set_fingerprint,
+            payload["path_quality_result_set_fingerprint"],
+        )
+        self.assertNotIn("candidate_bodies", json.dumps(payload))
+        self.assertNotIn("necessity_witnesses", json.dumps(payload))
+
+    def test_parent_mesh_blocks_missing_stale_unresolved_foreign_and_normative_path_quality(self):
+        owner, clean_result = path_quality()
+        normative_result = replace(
+            clean_result,
+            mode="deep",
+            trigger_ids=("explicit_request",),
+            candidate_ids=("observed", "target"),
+            conclusion="preferred_within_candidates",
+            selected_candidate_id="target",
+            selected_candidate_lane="normative_target",
+            comparison_boundary_id="boundary:named",
+            candidate_set_fingerprint=path_fp("candidate-set"),
+        )
+        cases = (
+            ((), owner, "path_quality_result_missing"),
+            ((replace(clean_result, current=False),), owner, "path_quality_result_stale"),
+            (
+                (
+                    replace(
+                        clean_result,
+                        conclusion="unresolved",
+                        unresolved_ids=("gap:path-quality",),
+                    ),
+                ),
+                owner,
+                "path_quality_result_unresolved",
+            ),
+            (
+                (replace(clean_result, currentness_id="snapshot:foreign"),),
+                owner,
+                "path_quality_result_currentness_mismatch",
+            ),
+            ((clean_result,), owner, "path_quality_subject_model_fingerprint_mismatch"),
+            (
+                (normative_result,),
+                owner,
+                "path_quality_normative_target_not_observed",
+            ),
+        )
+        for index, (results, case_owner, expected_code) in enumerate(cases):
+            with self.subTest(expected_code=expected_code):
+                consumed = results[0].fingerprint if results else ""
+                model_fingerprint = (
+                    path_fp("foreign-current-model")
+                    if expected_code == "path_quality_subject_model_fingerprint_mismatch"
+                    else case_owner.model_fingerprint
+                )
+                partition = HierarchyPartitionMap(
+                    parent_model_id="checkout",
+                    coverage_items=(
+                        HierarchyCoverageItem("payment", owner_model_id="payment"),
+                    ),
+                    child_models=(
+                        child(
+                            "payment",
+                            model_fingerprint=model_fingerprint,
+                            evidence_id="payment:v1",
+                        ),
+                    ),
+                    target_split_derivation=target(
+                        "checkout", ("payment",), ("payment",)
+                    ),
+                    reattachment_contracts=(
+                        reattachment_empty(
+                            "payment",
+                            consumed_path_quality_result_fingerprint=consumed,
+                        ),
+                    ),
+                    closure_model=replace(
+                        reattachment_closure(output=f"payment_reattached_{index}"),
+                        consumed_path_quality_result_fingerprints=(
+                            (consumed,) if consumed else ()
+                        ),
+                    ),
+                    required_path_quality_model_ids=("payment",),
+                    path_quality_subjects=(case_owner,),
+                    path_quality_results=results,
+                    path_quality_currentness_id=case_owner.currentness_id,
+                )
+
+                report = review_hierarchical_mesh(partition)
+
+                self.assertFalse(report.ok)
+                self.assertIn(expected_code, {item.code for item in report.findings})
+                self.assertEqual(("payment",), report.path_quality_blocked_model_ids)
+
+    def test_parent_reattachment_and_closure_reject_foreign_result_fingerprints(self):
+        owner, result = path_quality()
+        foreign = path_fp("foreign-path-quality-result")
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(
+                child(
+                    "payment",
+                    model_fingerprint=owner.model_fingerprint,
+                    evidence_id="payment:v1",
+                ),
+            ),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            reattachment_contracts=(
+                reattachment_empty(
+                    "payment",
+                    consumed_path_quality_result_fingerprint=foreign,
+                ),
+            ),
+            closure_model=replace(
+                reattachment_closure(),
+                consumed_path_quality_result_fingerprints=(foreign,),
+            ),
+            required_path_quality_model_ids=("payment",),
+            path_quality_subjects=(owner,),
+            path_quality_results=(result,),
+            path_quality_currentness_id=owner.currentness_id,
+        )
+
+        report = review_hierarchical_mesh(partition)
+        codes = {finding.code for finding in report.findings}
+
+        self.assertFalse(report.ok)
+        self.assertIn("child_reattachment_path_quality_result_stale", codes)
+        self.assertIn("mesh_closure_path_quality_result_missing", codes)
+        self.assertIn("mesh_closure_path_quality_result_foreign", codes)
+
     def test_complete_partition_map_can_continue(self):
         partition = HierarchyPartitionMap(
             parent_model_id="checkout",

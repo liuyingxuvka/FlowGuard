@@ -1408,9 +1408,17 @@ def verify_evidence_receipt(
             )
         )
 
-    if store_configured and receipt_store:
+    if store_configured:
         stored = receipt_store.get(canonical.receipt_id)
-        if stored is not None and stored.fingerprint != canonical.fingerprint:
+        if stored is None:
+            findings.append(
+                _finding(
+                    "receipt_store_self_missing",
+                    f"loaded receipt {canonical.receipt_id} is absent from the canonical store",
+                    receipt_id=canonical.receipt_id,
+                )
+            )
+        elif stored.fingerprint != canonical.fingerprint:
             findings.append(
                 _finding(
                     "receipt_store_fingerprint_mismatch",
@@ -1418,7 +1426,7 @@ def verify_evidence_receipt(
                     receipt_id=canonical.receipt_id,
                 )
             )
-        elif stored is not None:
+        else:
             successors, supersession_findings = _store_superseding_receipts(
                 canonical,
                 receipt_store,

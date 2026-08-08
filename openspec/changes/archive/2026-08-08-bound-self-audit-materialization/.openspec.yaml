@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-08-05
+goal: Keep the complete FlowGuard self-DNA audit semantically unchanged while
+  making each governed observation, identity construction, ambiguity relation,
+  and publication payload single-owned and bounded.

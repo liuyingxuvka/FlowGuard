@@ -1,4 +1,4 @@
-"""Install, audit, uninstall, or compare the complete FlowGuard skill suite."""
+"""Install, author-sync, audit, uninstall, or compare the FlowGuard skill suite."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ if str(SCRIPT_ROOT) not in sys.path:
 from flowguard.distribution_sync import (
     PARITY_ROLE_AUTHOR_SOURCE,
     PARITY_ROLE_CONSUMER_DISTRIBUTION,
+    author_sync_skill_suite,
     check_skill_suite,
     compare_configured_skill_trees,
     install_skill_suite,
@@ -40,6 +41,18 @@ def _format_report(payload: dict[str, Any]) -> str:
                 f"explicit_exclusions: {len(payload.get('excluded_files', ())) }",
             ]
         )
+        if payload.get("projection_role"):
+            lines.append(
+                "projection_role: "
+                f"{payload.get('previous_projection_role') or 'none'} -> "
+                f"{payload.get('projection_role')}"
+            )
+        if payload.get("transaction_status"):
+            lines.append(f"transaction: {payload.get('transaction_status')}")
+        if payload.get("preserved_paths"):
+            lines.append(
+                f"preserved_co_located_paths: {len(payload.get('preserved_paths', ()))}"
+            )
     else:
         lines.append(f"configured_trees: {len(payload.get('inventories', {}))}")
     for finding in payload.get("findings", ())[:10]:
@@ -50,14 +63,25 @@ def _format_report(payload: dict[str, Any]) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("install", "check", "uninstall", "parity"))
+    parser.add_argument(
+        "action",
+        choices=("install", "author-sync", "check", "uninstall", "parity"),
+    )
     parser.add_argument("--source", default=".", help="FlowGuard repository root or .agents/skills root")
-    parser.add_argument("--target", default=None, help="Explicit installed skills root")
+    parser.add_argument(
+        "--target",
+        default=None,
+        help="Explicit installed skills root or author-sync shadow skill root",
+    )
     parser.add_argument("--codex-home", default=None, help="CODEX_HOME; the target is its skills directory")
     parser.add_argument("--formal", default=None, help="Optional formal-repository skill tree for parity")
     parser.add_argument("--shadow", default=None, help="Optional shadow-workspace skill tree for parity")
     parser.add_argument("--installed", default=None, help="Optional installed skill tree for parity")
-    parser.add_argument("--dry-run", action="store_true", help="Plan install or uninstall without writes")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Plan install, author-sync, or uninstall without writes",
+    )
     parser.add_argument(
         "--adopt-existing",
         action="store_true",
@@ -78,6 +102,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             codex_home=args.codex_home,
             dry_run=args.dry_run,
             adopt_existing=args.adopt_existing,
+        )
+        payload = report.to_dict()
+    elif args.action == "author-sync":
+        if args.codex_home is not None:
+            raise SystemExit(
+                "author-sync requires an explicit shadow --target and never uses --codex-home"
+            )
+        if args.target is None:
+            raise SystemExit("author-sync requires an explicit shadow skill-root --target")
+        report = author_sync_skill_suite(
+            args.source,
+            args.target,
+            dry_run=args.dry_run,
         )
         payload = report.to_dict()
     elif args.action == "check":

@@ -468,14 +468,12 @@ def run_route_topology_review() -> bool:
             {
                 "development_process_flow",
                 "flowguard_closure_contract",
-                "maintenance_scan_router",
                 "model_test_alignment",
                 "risk_evidence_ledger",
                 "structure_mesh_maintenance",
                 "test_mesh_maintenance",
             }
         ),
-        frozenset({"existing_model_preflight", "model_similarity_consolidation"}),
     }
     observed_cycles = {frozenset(component) for component in report.cycle_components}
     return (

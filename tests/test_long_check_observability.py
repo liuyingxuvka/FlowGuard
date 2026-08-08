@@ -31,7 +31,10 @@ class LongCheckObservabilityTests(unittest.TestCase):
                     },
                 ),
                 claim_boundary="This temporary regression instance proves only progress ordering and artifact-backed output for its current fixture.",
-                evidence_check_ids=("check:observable:progress-and-terminal-artifact",),
+                evidence_check_ids=(
+                    "check:model-regression:observable",
+                    "check:observable:progress-and-terminal-artifact",
+                ),
                 model_sha256=file_fingerprint(model_dir / "model.py"),
                 runner_sha256=file_fingerprint(model_dir / "run_checks.py"),
             )

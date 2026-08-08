@@ -7,7 +7,7 @@ from flowguard import (
     CLOSURE_DECISION_BLOCKED,
     CLOSURE_DECISION_FULL,
     CLOSURE_DECISION_SCOPED,
-    CLOSURE_REPORT_MODEL_ANGLE,
+    CLOSURE_REPORT_FIELD_LIFECYCLE,
     CLOSURE_REPORT_RISK_LEDGER,
     CLOSURE_REPORT_RUNTIME_GATEWAY,
     CLOSURE_REPORT_UI_SOURCE_BASELINE_ALIGNMENT,
@@ -18,7 +18,6 @@ from flowguard import (
     ArtifactInvalidation,
     ClosureEvidenceReport,
     FlowGuardClosureContractPlan,
-    ModelAngleReviewReport,
     ModelQualitySignal,
     RuntimeGatewayInventoryClosure,
     RuntimeTraceMapping,
@@ -335,13 +334,18 @@ class FlowGuardClosureContractTests(unittest.TestCase):
 
         scoped_material_with_full_risk = review_flowguard_closure_contract(
             green_plan(
-                require_model_angle_review=True,
-                model_angle_reports=(
-                    ModelAngleReviewReport(
-                        True,
-                        "model-angle:scoped",
-                        "model_angle_scoped_confidence",
-                        CLOSURE_CONFIDENCE_SCOPED,
+                require_field_lifecycle=True,
+                evidence_reports=(
+                    evidence_report(
+                        "report:runtime-gateway",
+                        report_kind=CLOSURE_REPORT_RUNTIME_GATEWAY,
+                    ),
+                    evidence_report(),
+                    evidence_report(
+                        "report:field-lifecycle",
+                        report_kind=CLOSURE_REPORT_FIELD_LIFECYCLE,
+                        decision="field_lifecycle_scoped_confidence",
+                        confidence=CLOSURE_CONFIDENCE_SCOPED,
                     ),
                 ),
             )
@@ -351,47 +355,6 @@ class FlowGuardClosureContractTests(unittest.TestCase):
             "risk_closure_confidence_disagreement",
             finding_codes(scoped_material_with_full_risk),
         )
-
-    def test_required_model_angle_report_is_final_confidence_input(self):
-        missing = review_flowguard_closure_contract(
-            green_plan(require_model_angle_review=True)
-        )
-        self.assertFalse(missing.ok)
-        self.assertIn("missing_model_angle_review", finding_codes(missing))
-
-        scoped = review_flowguard_closure_contract(
-            green_plan(
-                require_model_angle_review=True,
-                evidence_reports=reports_with_scoped_risk(),
-                model_angle_reports=(
-                    ModelAngleReviewReport(
-                        True,
-                        "model-angle:scoped",
-                        "model_angle_scoped_confidence",
-                        CLOSURE_CONFIDENCE_SCOPED,
-                    ),
-                ),
-            )
-        )
-        self.assertTrue(scoped.ok, scoped.format_text())
-        self.assertEqual(CLOSURE_DECISION_SCOPED, scoped.decision)
-        self.assertIn("model_angle_not_full_confidence", finding_codes(scoped))
-
-        evidence_scoped = review_flowguard_closure_contract(
-            green_plan(
-                require_model_angle_review=True,
-                evidence_reports=reports_with_scoped_risk(
-                    evidence_report(
-                        "report:model-angle",
-                        report_kind=CLOSURE_REPORT_MODEL_ANGLE,
-                        decision="model_angle_scoped_confidence",
-                        confidence=CLOSURE_CONFIDENCE_SCOPED,
-                    ),
-                ),
-            )
-        )
-        self.assertTrue(evidence_scoped.ok, evidence_scoped.format_text())
-        self.assertIn("model_angle_evidence_not_full_confidence", finding_codes(evidence_scoped))
 
     def test_required_ui_done_claim_review_is_final_confidence_input(self):
         missing = review_flowguard_closure_contract(

@@ -3,6 +3,10 @@ from __future__ import annotations
 from copy import deepcopy
 import unittest
 
+from flowguard.model_path_quality import (
+    derive_retained_elements,
+    normalized_model_facts_fingerprint,
+)
 from flowguard.portable_model import (
     PORTABLE_MODEL_SCHEMA_VERSION,
     PortableModel,
@@ -12,6 +16,7 @@ from flowguard.portable_model import (
     canonical_json_bytes,
     validate_portable_model,
 )
+from flowguard.portable_path_quality import compile_portable_path_quality_facts
 
 
 def sample_model() -> PortableModel:
@@ -92,6 +97,35 @@ class PortableModelTests(unittest.TestCase):
         errors = validate_portable_model(model)
         self.assertTrue(any("initial state" in item for item in errors))
         self.assertTrue(any("target" in item for item in errors))
+
+    def test_path_quality_adapter_is_provider_neutral_and_keeps_v1_unchanged(self):
+        model = sample_model()
+        portable_payload = model.to_dict()
+
+        facts = compile_portable_path_quality_facts(model)
+
+        self.assertEqual(portable_payload, model.to_dict())
+        self.assertEqual(PORTABLE_MODEL_SCHEMA_VERSION, model.schema_version)
+        self.assertEqual("flowguard.portable_model.v1", facts["provider_kind"])
+        self.assertEqual(model.fingerprint, facts["model_fingerprint"])
+        self.assertEqual(["state:done", "state:new"], [row["id"] for row in facts["states"]])
+        self.assertEqual(1, len(facts["branches"]))
+        self.assertEqual(
+            ["transition:complete-a", "transition:complete-b"],
+            facts["branches"][0]["transition_ids"],
+        )
+        self.assertNotIn("python", repr(facts).lower())
+        self.assertNotIn("source_path", repr(facts).lower())
+        self.assertEqual(
+            normalized_model_facts_fingerprint(facts),
+            normalized_model_facts_fingerprint(
+                compile_portable_path_quality_facts(model)
+            ),
+        )
+        retained = dict(derive_retained_elements(facts))
+        self.assertEqual("branch", retained[facts["branches"][0]["id"]])
+        self.assertEqual("state", retained["state:new"])
+        self.assertEqual("transition", retained["transition:complete-a"])
 
 
 if __name__ == "__main__":

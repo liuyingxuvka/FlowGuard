@@ -24,9 +24,9 @@ Accept a bounded field inventory; create leaf rows and behavior projections; blo
 - Do not put every field in the high-level model, treat inventory as behavior proof, or replace alignment/testing; return missing behavior models to `flowguard`.
 
 ## Required Workflow
-1. Independently discover and freeze the exact field inventory revision, fingerprint, and discovery evidence before lifecycle disposition.
-2. For every field record one owner, exact locations, readers/writers, default semantics, absence/null semantics, serialization, privacy classification, content fingerprint, and exactly one modeled/delegated/scoped coverage disposition.
-3. Add `FieldProjection` rows only for locally modeled behavior-bearing fields; delegated rows name a specialist owner and current native evidence, while scoped rows carry a bounded reason.
+1. Independently discover and freeze the field inventory revision, fingerprint, and evidence before disposition.
+2. For each field record one owner, locations, readers/writers, default, absence/null and serialization semantics, privacy, content fingerprint, and one modeled/delegated/scoped disposition.
+3. Add `FieldProjection` only for locally modeled behavior-bearing fields; delegation names a specialist and current native evidence, while scope needs a bounded reason.
 4. Route invalid/old cases to ContractExhaustionMesh, close replacement disposition, and send owners, projections, cases, and gaps downstream.
 
 ## Hard Gates
@@ -34,10 +34,12 @@ Accept a bounded field inventory; create leaf rows and behavior projections; blo
 - Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
 - Default replacement requires delete, block, migrate, delegate, repair, explicit preserve, or scoped reason; unknown disposition blocks full confidence.
 - A complete claim blocks on empty/stale inventory identity, missing or unexpected rows, duplicate field ids, missing semantics/fingerprints, or incomplete delegated/scoped dispositions.
-- Behavior claims still require current obligations, owner code contracts, tests, freshness, and template harvest closure where the model deepens.
+- Behavior claims need current obligations, code/test owners, and freshness.
+- Only explicit reuse/publication or proven cross-project use
+  triggers strict `risk_template_library` closure.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`, plus leaf rows, projections, owners, and dispositions.
+- Return leaf rows, projections, owners, dispositions, `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`.
 
 
 <!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

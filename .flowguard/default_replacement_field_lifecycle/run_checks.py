@@ -98,8 +98,6 @@ def product_language_authority_field_contract() -> tuple[bool, dict[str, object]
         ("field:expected_surface_ids", "existing_model_preflight"),
         ("field:expected_candidate_ids", "architecture_reduction"),
         ("field:expected_member_ids", "obligation_family"),
-        ("field:model_signature.behavior_plane", "model_similarity"),
-        ("field:model_signature.typed_commitment_relation_refs", "model_similarity"),
         ("field:model_test_alignment.behavior_plane", "model_test_alignment"),
         ("field:model_test_alignment.require_behavior_plane_binding", "model_test_alignment"),
         ("field:process_action.behavior_plane", "development_process_flow"),
@@ -141,7 +139,6 @@ def product_language_authority_field_contract() -> tuple[bool, dict[str, object]
     internal_metadata_fields = (
         "field:variant_of_commitment_id",
         "field:external_difference_fields",
-        "field:similarity_relation_ids",
         "field:consistency_rule_ids",
         "field:path_disposition",
         "field:inventory_revision",
@@ -160,7 +157,6 @@ def product_language_authority_field_contract() -> tuple[bool, dict[str, object]
         "field:behavior_coverage_gap_candidate",
         "field:canonical_ledger_path",
         "field:legacy_primary_path_ids",
-        "field:model_signature.multi_plane_scope_reason",
     )
     prompt_config_fields = (
         "field:skill_contract_v2.schema_version",

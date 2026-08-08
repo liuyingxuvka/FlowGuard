@@ -173,13 +173,29 @@
         "tests/test_model_maturation.py",
         "tests/test_model_maturation_receipt.py",
         "tests/test_understanding_readiness.py",
-        "tests/test_development_process_flow.py",
+        "tests/test_target_system_blueprint.py",
+        "tests/test_target_neutral_blueprint_acceptance.py",
+        "tests/test_implementation_inventory.py",
+        "tests/test_implementation_blueprint.py",
+        "tests/test_implementation_blueprint_cli.py",
+        "tests/test_implementation_blueprint_docs.py",
+        "tests/test_blueprint_topology.py",
+        "tests/test_software_blueprint_readiness.py",
+        "tests/test_project_blueprint.py",
+        "tests/test_self_blueprint.py",
+        "tests/test_affected_blueprint_reader.py",
+        "tests/test_blueprint_compact_projection.py",
+        "tests/test_blueprint_aggregate_integrity.py",
+        "tests/test_blueprint_cli_routes.py",
+        "tests/test_api_surface.py",
+        "tests/test_flowguard_skill_trigger.py",
+        "tests/test_flowguard_skill_collaboration.py",
         "tests/test_evidence_lifecycle.py",
         "-q"
       ],
       "check_id": "check:flowguard:understanding-readiness",
       "command": "python",
-      "coverage_rationale": "The target-owned regressions prove independent task facts, one canonical owner resolution, verifiable proof material, exact maturation receipts, separate user choice and admission, a read-only three-axis status, and publishable parent evidence on deep Windows paths.",
+      "coverage_rationale": "The one target-owned command executes the declared task-coverage, target-neutral blueprint, project/self/affected reader, canonical projection, public API, documentation, and skill-route regressions; input declaration and executed coverage therefore stay identical.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
         "obligation:flowguard:understanding-readiness"
@@ -216,6 +232,54 @@
         },
         {
           "kind": "path",
+          "path": "flowguard/target_system_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/target_native_qualification.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/implementation_inventory.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/implementation_inventory_python.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/implementation_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/canonical_blueprint_projection.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/blueprint_topology.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/software_blueprint_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/project_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/self_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/affected_blueprint_reader.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/blueprint_compact_projection.py"
+        },
+        {
+          "kind": "path",
           "path": "flowguard/development_process_flow.py"
         },
         {
@@ -225,6 +289,18 @@
         {
           "kind": "path",
           "path": "flowguard/__main__.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/__init__.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/implementation_blueprint/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/implementation_blueprint/run_checks.py"
         },
         {
           "kind": "path",
@@ -248,7 +324,71 @@
         },
         {
           "kind": "path",
-          "path": "tests/test_development_process_flow.py"
+          "path": "tests/test_target_system_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_target_neutral_blueprint_acceptance.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_implementation_inventory.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_implementation_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_implementation_blueprint_cli.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_implementation_blueprint_docs.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_blueprint_topology.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_software_blueprint_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_project_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_self_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_affected_blueprint_reader.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_blueprint_compact_projection.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_blueprint_aggregate_integrity.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_blueprint_cli_routes.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_api_surface.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_flowguard_skill_trigger.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_flowguard_skill_collaboration.py"
         },
         {
           "kind": "path",
@@ -259,7 +399,7 @@
       "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard",
       "semantic_check_id": "semantic:check:flowguard:understanding-readiness",
-      "timeout_seconds": 240
+      "timeout_seconds": 900
     },
     {
       "args": [
@@ -267,11 +407,17 @@
         "pytest",
         "tests/test_model_revision_builder.py",
         "tests/test_model_authority_cli.py",
+        "tests/test_model_authority.py",
+        "tests/test_model_authority_store.py",
+        "tests/test_model_revision_owner_evidence.py",
+        "tests/test_validation_execution_ownership.py",
+        "tests/test_model_regression_manifest.py",
+        "tests/test_model_regression_orchestrator.py",
         "-q"
       ],
       "check_id": "check:flowguard:model-revision-build",
       "command": "python",
-      "coverage_rationale": "The target-owned API and CLI regressions prove exact-current full-parent verification, typed affected-owner coverage, content-addressed output, visible stale/scoped failure, and a pointer-free build handoff.",
+      "coverage_rationale": "The one target-owned command executes revision construction, accepted-authority storage/audit, distinct child-bound owner evidence, validation ownership, and exact model-regression manifest/orchestrator regressions; a parent receipt never substitutes for its current owner leaves.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
         "obligation:flowguard:model-revision-build"
@@ -292,6 +438,38 @@
         },
         {
           "kind": "path",
+          "path": "flowguard/model_revision_set.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_revision_owner_evidence.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/validation_ownership.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_authority_store.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_regressions.py"
+        },
+        {
+          "kind": "path",
+          "path": "scripts/run_flowguard_model_regressions.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/model-regression-manifest.json"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/__init__.py"
+        },
+        {
+          "kind": "path",
           "path": "flowguard/__main__.py"
         },
         {
@@ -304,6 +482,30 @@
         },
         {
           "kind": "path",
+          "path": "tests/test_model_authority.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_revision_owner_evidence.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_validation_execution_ownership.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_authority_store.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_regression_manifest.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_regression_orchestrator.py"
+        },
+        {
+          "kind": "path",
           "path": ".flowguard/authoritative_model_system/model.py"
         }
       ],
@@ -311,7 +513,7 @@
       "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard",
       "semantic_check_id": "semantic:check:flowguard:model-revision-build",
-      "timeout_seconds": 300
+      "timeout_seconds": 900
     },
     {
       "check_id": "check:flowguard:evidence-closure",
@@ -430,6 +632,8 @@
     ".flowguard/model_mesh_closure_model",
     ".flowguard/task_coverage_demand",
     ".flowguard/model_maturation_loop",
+    ".flowguard/implementation_blueprint",
+    ".flowguard/model-regression-manifest.json",
     ".flowguard/behavior_commitment_ledger/ledger.json",
     "flowguard/skill_contract_model.py",
     "flowguard/behavior_commitment_lookup.py",
@@ -441,12 +645,30 @@
     "flowguard/proof_artifact.py",
     "flowguard/route_topology.py",
     "flowguard/understanding_readiness.py",
+    "flowguard/target_system_blueprint.py",
+    "flowguard/target_native_qualification.py",
+    "flowguard/implementation_inventory.py",
+    "flowguard/implementation_inventory_python.py",
+    "flowguard/implementation_blueprint.py",
+    "flowguard/canonical_blueprint_projection.py",
+    "flowguard/blueprint_topology.py",
+    "flowguard/software_blueprint_readiness.py",
+    "flowguard/project_blueprint.py",
+    "flowguard/self_blueprint.py",
+    "flowguard/affected_blueprint_reader.py",
+    "flowguard/blueprint_compact_projection.py",
     "flowguard/development_process_flow.py",
     "flowguard/evidence_lifecycle.py",
     "flowguard/risk_evidence_ledger.py",
     "flowguard/closure_contract.py",
     "flowguard/api_registry.py",
     "flowguard/model_revision_builder.py",
+    "flowguard/model_revision_set.py",
+    "flowguard/model_revision_owner_evidence.py",
+    "flowguard/validation_ownership.py",
+    "flowguard/model_authority_store.py",
+    "flowguard/model_regressions.py",
+    "scripts/run_flowguard_model_regressions.py",
     "flowguard/__init__.py",
     "flowguard/__main__.py",
     ".flowguard/compositional_verification_kernel",
@@ -457,13 +679,33 @@
     "tests/test_task_coverage_demand.py",
     "tests/test_proof_artifact.py",
     "tests/test_understanding_readiness.py",
-    "tests/test_development_process_flow.py",
+    "tests/test_target_system_blueprint.py",
+    "tests/test_target_neutral_blueprint_acceptance.py",
+    "tests/test_implementation_inventory.py",
+    "tests/test_implementation_blueprint.py",
+    "tests/test_implementation_blueprint_cli.py",
+    "tests/test_implementation_blueprint_docs.py",
+    "tests/test_blueprint_topology.py",
+    "tests/test_software_blueprint_readiness.py",
+    "tests/test_project_blueprint.py",
+    "tests/test_self_blueprint.py",
+    "tests/test_affected_blueprint_reader.py",
+    "tests/test_blueprint_compact_projection.py",
+    "tests/test_blueprint_aggregate_integrity.py",
+    "tests/test_blueprint_cli_routes.py",
+    "tests/test_api_surface.py",
     "tests/test_evidence_lifecycle.py",
     "tests/test_risk_evidence_ledger.py",
     "tests/test_closure_contract.py",
     "tests/test_api_registry.py",
     "tests/test_model_revision_builder.py",
-    "tests/test_model_authority_cli.py"
+    "tests/test_model_authority_cli.py",
+    "tests/test_model_authority.py",
+    "tests/test_model_authority_store.py",
+    "tests/test_model_revision_owner_evidence.py",
+    "tests/test_validation_execution_ownership.py",
+    "tests/test_model_regression_manifest.py",
+    "tests/test_model_regression_orchestrator.py"
   ],
   "integration_mode": "native-integrated",
   "judgment_rubrics": [],

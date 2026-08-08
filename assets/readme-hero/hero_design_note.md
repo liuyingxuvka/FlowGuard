@@ -18,7 +18,7 @@ Choose the smallest risky boundary worth modeling, define a finite-state functio
 
 ## Hero tagline
 
-A Python toolkit for checking risky AI-agent workflow changes before they become code or release claims.
+An AI-agent skill suite for modeling and checking risky software, UI, service, and workflow changes before they become code or release claims; Python is the current check-engine runtime, not the target-system boundary.
 
 ## Visual concept
 

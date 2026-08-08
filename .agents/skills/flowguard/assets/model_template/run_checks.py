@@ -18,8 +18,6 @@ from flowguard import (  # noqa: E402
     MinimumModelContract,
     RiskIntent,
     RiskProfile,
-    TemplateHarvestReview,
-    TemplateReuseReview,
     run_model_first_checks,
 )
 import model  # noqa: E402
@@ -47,14 +45,9 @@ def build_plan(workflow, *, known_bad_proofs=()):
                 adversarial_inputs=("same item repeated", "invalid item"),
                 hard_invariants=("one store per item", "stored items trace to accepted outputs"),
                 known_bad_cases=("duplicate_item_store",),
-                used_template_ids=("side_effect_at_most_once",),
                 blindspots=("real storage adapter replay is outside this starter template",),
             ),
             confidence_goal="model_level",
-        ),
-        template_reuse_review=TemplateReuseReview(
-            used_template_ids=("side_effect_at_most_once",),
-            searched_layers=("public", "local"),
         ),
         minimum_model_contract=MinimumModelContract(
             protected_error_classes=("duplicate_side_effect", "source_trace_loss"),
@@ -64,10 +57,6 @@ def build_plan(workflow, *, known_bad_proofs=()):
             known_bad_cases=("duplicate_item_store",),
         ),
         known_bad_proofs=known_bad_proofs,
-        template_harvest_review=TemplateHarvestReview(
-            disposition="not_harvestable",
-            not_harvestable_reason="not_reusable_project_specific",
-        ),
         scenario_matrix_config={"enabled": False},
     )
 

@@ -10,7 +10,7 @@ it is a maintainer feedback loop, not the product surface.
 
 ## Public Minimal System
 
-This is the surface that belongs in a future public GitHub release:
+This is the surface of the current public source release:
 
 - `flowguard` Python package;
 - minimal model template;
@@ -22,7 +22,7 @@ This is the surface that belongs in a future public GitHub release:
   flow structure, code structure, model-test alignment, process flow, model
   misses, ModelMesh, TestMesh, and StructureMesh, plus delegated
   DevelopmentProcessFlow mode skills;
-- UI Text Hierarchy Blueprint helpers for the `v0.16.0` public UI text route;
+- UI Text Hierarchy Blueprint helpers for the public UI text route;
 - `AGENTS.md` snippet;
 - lightweight adoption log support;
 - packaged public risk templates and a portable per-machine local risk template
@@ -42,23 +42,73 @@ define a small function-flow model
 -> consume the closure contract before broad completion claims
 ```
 
+The check engine and convenience package are implemented in Python. The target
+model is not Python-specific: the same public path can model software in any
+language, services, workflows, agents, pipelines, and mixed systems. Target
+providers own native discovery and evidence; FlowGuard owns the common model,
+authority, binding, and claim boundaries.
+
+### Living target DNA and current intent
+
+For an existing modeled target, one content-addressed observed snapshot is the
+current implementation authority. A proposed change first produces a
+revision-local delta: the finite statement of what this revision adds,
+supersedes, or retires. That delta is not the complete design of the current
+system. Every accepted v5 `ModelRevisionSet` therefore also carries one
+cumulative `CurrentEffectiveIntentView` that describes all intent still active
+after the change.
+
+The complete view reverifies its intent sources, binds every independently
+derived current model owner exactly once, and records an explicit transition
+for each affected prior contribution. A new modeled project first uses
+`model-system-bootstrap` to establish generation-one observed authority. That
+project, or an existing v4 project, separately uses one ancestry-audited
+`model-revision-intent-bootstrap` and `EffectiveIntentBootstrapReceipt` to
+establish its first cumulative v5 intent view. Normal later revisions refine
+the accepted view directly. The revision and its evidence are persisted before
+the sole project pointer moves.
+
+```mermaid
+flowchart LR
+    A["Observed target and native evidence"] --> J["Generation-one observed authority bootstrap"]
+    J --> B["Current model snapshot"]
+    B --> C["Revision-local delta"]
+    C --> D{"First v5 intent view?"}
+    D -->|"yes"| E["Explicit ancestry-audited bootstrap"]
+    D -->|"no"| F["Refine accepted current view"]
+    E --> G["Complete current-effective-intent view"]
+    F --> G
+    G --> H["Exact binding for every current model owner"]
+    H --> I["Validate, persist, then activate pointer"]
+```
+
+This is the architecture behind the software/workflow DNA metaphor: the
+hierarchical models describe behavior and composition, code or workflow
+bindings locate implementation ownership, tests bind obligations and evidence,
+and cumulative current intent preserves why the system is meant to behave that
+way. Export or checkpoint operations may preserve a still-growing blueprint,
+but their materialization result remains separate from any claim that the model
+is sufficiently complete.
+
 For AI agents, the first screen of the method should be a minimum valuable
 model:
 
 ```text
-risky boundary -> protected error class -> public/local template search
--> Input x State -> Set(Output x State)
+risky boundary -> protected error class -> Input x State -> Set(Output x State)
 -> state + side effects + completion evidence + known-bad case
 -> run checks -> inspect counterexample
 ```
 
 That entry remains compact, but it must have teeth. The model should prevent or
-expose one real error, record used public/local template ids or a no-match
-reason, and include completion evidence plus a known-bad case. Public templates
-ship with FlowGuard for every installed computer. Local templates are
-per-machine reusable risk cards under a portable user data root, not a required
-project-level template library. Complete FlowGuard use requires the closure
-contract for the claim being made. Users should not need to understand
+expose one real error and include completion evidence plus a known-bad case.
+Public templates ship with FlowGuard for every installed computer, and local
+templates remain portable per-machine reusable risk cards. Neither library is
+part of the ordinary model-completion path. The single strict
+`risk_template_library` route runs only when the user explicitly requests
+reuse/publication or current executable evidence identifies a bounded stable
+pattern intended for use outside the target project; then it requires exact
+template reuse or reviewed no-match plus harvest closure. Complete FlowGuard
+use requires the closure contract for the claim being made. Users should not need to understand
 FlowGuard's internal KB, private pilots, daily review process, or full
 benchmark-maintenance machinery before they can use the tool, but broad
 done/release/publish/production-confidence claims still need the current intake,

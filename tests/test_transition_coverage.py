@@ -82,8 +82,8 @@ class TransitionCoverageTests(unittest.TestCase):
                     business_intent_id="intent:map.pan",
                     behavior_commitment_id="commitment:map.pan",
                     primary_path_id="path:map.pan.primary",
-                    similarity_relation_ids=("similarity:map-pan",),
-                    similarity_test_obligation_ids=("similarity-test:map-pan",),
+                    canonical_relation_ids=("canonical-relation:map-pan",),
+                    relation_test_obligation_ids=("relation-test:map-pan",),
                 ),
                 TransitionCoverageCell(
                     "idle.zoom->zooming",
@@ -111,8 +111,8 @@ class TransitionCoverageTests(unittest.TestCase):
         self.assertEqual("intent:map.pan", obligations[0].business_intent_id)
         self.assertEqual("commitment:map.pan", obligations[0].behavior_commitment_id)
         self.assertEqual("path:map.pan.primary", obligations[0].primary_path_id)
-        self.assertEqual(("similarity:map-pan",), obligations[0].similarity_relation_ids)
-        self.assertEqual(("similarity-test:map-pan",), obligations[0].similarity_test_obligation_ids)
+        self.assertEqual(("canonical-relation:map-pan",), obligations[0].relation_ids)
+        self.assertEqual(("relation-test:map-pan",), obligations[0].relation_test_obligation_ids)
         self.assertEqual((TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH), obligations[0].required_test_kinds)
         self.assertEqual("map.drag_handler", matrix.to_dict()["cells"][0]["code_contract_id"])
         self.assertEqual("map.drag_transition", matrix.to_dict()["cells"][0]["runtime_node_id"])
@@ -134,8 +134,8 @@ class TransitionCoverageTests(unittest.TestCase):
                     business_intent_id="intent:map.pan",
                     behavior_commitment_id="commitment:map.pan",
                     primary_path_id="path:map.pan.primary",
-                    similarity_relation_ids=("similarity:map-pan",),
-                    similarity_code_obligation_ids=("similarity-code:map-pan",),
+                    canonical_relation_ids=("canonical-relation:map-pan",),
+                    relation_code_obligation_ids=("relation-code:map-pan",),
                 ),
             ),
         )
@@ -153,8 +153,8 @@ class TransitionCoverageTests(unittest.TestCase):
         self.assertEqual("intent:map.pan", contracts[0].business_intent_id)
         self.assertEqual("commitment:map.pan", contracts[0].behavior_commitment_id)
         self.assertEqual("path:map.pan.primary", contracts[0].primary_path_id)
-        self.assertEqual(("similarity:map-pan",), contracts[0].similarity_relation_ids)
-        self.assertEqual(("similarity-code:map-pan",), contracts[0].similarity_code_obligation_ids)
+        self.assertEqual(("canonical-relation:map-pan",), contracts[0].relation_ids)
+        self.assertEqual(("relation-code:map-pan",), contracts[0].relation_code_obligation_ids)
 
     def test_transition_obligation_without_test_evidence_blocks_alignment(self):
         matrix = TransitionCoverageMatrix(

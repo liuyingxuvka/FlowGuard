@@ -9,6 +9,7 @@ from flowguard.evidence_receipts import (
     snapshot_bytes,
     verify_evidence_receipt,
 )
+from flowguard.model_path_quality import PathQualityResult, PathQualitySubject
 from flowguard import (
     EVIDENCE_ABSTRACT_GREEN,
     EVIDENCE_CONFORMANCE_GREEN,
@@ -33,6 +34,65 @@ def suite(suite_id, **kwargs):
     }
     defaults.update(kwargs)
     return TestSuiteEvidence(suite_id, **defaults)
+
+
+def path_quality(model_id="checkout", currentness_id="snapshot:current"):
+    fp = lambda value: fingerprint_value({"value": value})
+    owner = PathQualitySubject(
+        model_id=model_id,
+        boundary_id=f"boundary:{model_id}",
+        model_fingerprint=fp(f"model:{model_id}"),
+        normalized_facts_fingerprint=fp(f"facts:{model_id}"),
+        retained_element_inventory_fingerprint=fp(f"retained:{model_id}"),
+        purpose_fingerprint=fp(f"purpose:{model_id}"),
+        intent_fingerprint=fp(f"intent:{model_id}"),
+        obligation_fingerprint=fp(f"obligations:{model_id}"),
+        provider_fingerprint=fp(f"provider:{model_id}"),
+        dependency_fingerprint=fp(f"dependencies:{model_id}"),
+        code_fingerprint=fp(f"code:{model_id}"),
+        test_fingerprint=fp(f"tests:{model_id}"),
+        oracle_fingerprint=fp(f"oracles:{model_id}"),
+        evidence_fingerprint=fp(f"evidence:{model_id}"),
+        currentness_id=currentness_id,
+    )
+    result = PathQualityResult(
+        result_id=f"path-quality:{model_id}",
+        subject_fingerprint=owner.fingerprint,
+        mode="lightweight",
+        trigger_ids=(),
+        finding_ids=(),
+        candidate_ids=(),
+        rewrite_rule_ids=(),
+        conclusion="single_clear_path",
+        unresolved_ids=(),
+        selected_candidate_id="",
+        selected_candidate_lane="",
+        comparison_boundary_id="",
+        candidate_set_fingerprint="",
+        rewrite_set_fingerprint="",
+        necessity_witness_set_fingerprint=fp(f"witnesses:{model_id}"),
+        detail_evidence_fingerprint=fp(f"detail:{model_id}"),
+        producer_id="model_maturation",
+        currentness_id=currentness_id,
+    )
+    return owner, result
+
+
+def path_quality_suite_binding(owner, result):
+    return {
+        "path_quality_model_fingerprints": {
+            owner.model_id: owner.model_fingerprint
+        },
+        "path_quality_subject_fingerprints": {
+            owner.model_id: owner.fingerprint
+        },
+        "path_quality_result_fingerprints": {
+            owner.model_id: result.fingerprint
+        },
+        "path_quality_currentness_ids": {
+            owner.model_id: owner.currentness_id
+        },
+    }
 
 
 def verified_suite_binding(
@@ -209,6 +269,177 @@ def target(source_model_id, suite_ids, item_ids, *, state=False, side_effect=Fal
 
 
 class TestMeshTests(unittest.TestCase):
+    def test_test_mesh_consumes_exact_current_model_path_quality_per_partition(self):
+        owner, result = path_quality()
+        plan = TestMeshPlan(
+            parent_suite_id="checkout-parent",
+            partition_items=(
+                TestPartitionItem(
+                    "behavior:checkout",
+                    owner_suite_id="checkout-tests",
+                    model_id=owner.model_id,
+                ),
+            ),
+            child_suites=(
+                suite(
+                    "checkout-tests",
+                    owned_obligation_ids=("behavior:checkout",),
+                    covered_obligation_ids=("behavior:checkout",),
+                    **path_quality_suite_binding(owner, result),
+                ),
+            ),
+            target_split_derivation=target(
+                "checkout-validation",
+                ("checkout-tests",),
+                ("behavior:checkout",),
+            ),
+            required_path_quality_model_ids=(owner.model_id,),
+            path_quality_subjects=(owner,),
+            path_quality_results=(result,),
+            path_quality_currentness_id=owner.currentness_id,
+            current_model_fingerprints={
+                owner.model_id: owner.model_fingerprint
+            },
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual((owner.model_id,), report.path_quality_verified_model_ids)
+        self.assertEqual((), report.path_quality_blocked_model_ids)
+        self.assertTrue(report.path_quality_result_set_fingerprint)
+
+    def test_test_mesh_blocks_missing_or_foreign_path_quality_test_binding(self):
+        owner, result = path_quality()
+        foreign = fingerprint_value({"value": "foreign-path-result"})
+        cases = (
+            ({}, "path_quality_test_model_fingerprint_mismatch"),
+            (
+                {
+                    **path_quality_suite_binding(owner, result),
+                    "path_quality_result_fingerprints": {
+                        owner.model_id: foreign
+                    },
+                },
+                "path_quality_test_result_fingerprint_mismatch",
+            ),
+        )
+        for bindings, expected_code in cases:
+            with self.subTest(expected_code=expected_code):
+                report = review_test_mesh(
+                    TestMeshPlan(
+                        parent_suite_id="checkout-parent",
+                        partition_items=(
+                            TestPartitionItem(
+                                "behavior:checkout",
+                                owner_suite_id="checkout-tests",
+                                model_id=owner.model_id,
+                            ),
+                        ),
+                        child_suites=(
+                            suite(
+                                "checkout-tests",
+                                owned_obligation_ids=("behavior:checkout",),
+                                covered_obligation_ids=("behavior:checkout",),
+                                **bindings,
+                            ),
+                        ),
+                        target_split_derivation=target(
+                            "checkout-validation",
+                            ("checkout-tests",),
+                            ("behavior:checkout",),
+                        ),
+                        required_path_quality_model_ids=(owner.model_id,),
+                        path_quality_subjects=(owner,),
+                        path_quality_results=(result,),
+                        path_quality_currentness_id=owner.currentness_id,
+                        current_model_fingerprints={
+                            owner.model_id: owner.model_fingerprint
+                        },
+                    )
+                )
+
+                self.assertFalse(report.ok)
+                self.assertEqual(
+                    "path_quality_test_evidence_required", report.decision
+                )
+                codes = {finding.code for finding in report.findings}
+                self.assertIn(expected_code, codes)
+                self.assertIn("path_quality_test_evidence_missing", codes)
+                self.assertEqual(
+                    (owner.model_id,), report.path_quality_blocked_model_ids
+                )
+
+    def test_test_mesh_blocks_unresolved_normative_and_stale_path_quality(self):
+        owner, clean_result = path_quality()
+        fp = lambda value: fingerprint_value({"value": value})
+        normative = replace(
+            clean_result,
+            mode="deep",
+            trigger_ids=("explicit_request",),
+            candidate_ids=("observed", "target"),
+            conclusion="preferred_within_candidates",
+            selected_candidate_id="target",
+            selected_candidate_lane="normative_target",
+            comparison_boundary_id="boundary:named",
+            candidate_set_fingerprint=fp("candidate-set"),
+        )
+        cases = (
+            (
+                replace(
+                    clean_result,
+                    conclusion="unresolved",
+                    unresolved_ids=("gap:path-quality",),
+                ),
+                "path_quality_result_unresolved",
+            ),
+            (normative, "path_quality_normative_target_not_observed"),
+            (replace(clean_result, current=False), "path_quality_result_stale"),
+        )
+        for result, expected_code in cases:
+            with self.subTest(expected_code=expected_code):
+                report = review_test_mesh(
+                    TestMeshPlan(
+                        parent_suite_id="checkout-parent",
+                        partition_items=(
+                            TestPartitionItem(
+                                "behavior:checkout",
+                                owner_suite_id="checkout-tests",
+                                model_id=owner.model_id,
+                            ),
+                        ),
+                        child_suites=(
+                            suite(
+                                "checkout-tests",
+                                owned_obligation_ids=("behavior:checkout",),
+                                covered_obligation_ids=("behavior:checkout",),
+                                **path_quality_suite_binding(owner, result),
+                            ),
+                        ),
+                        target_split_derivation=target(
+                            "checkout-validation",
+                            ("checkout-tests",),
+                            ("behavior:checkout",),
+                        ),
+                        required_path_quality_model_ids=(owner.model_id,),
+                        path_quality_subjects=(owner,),
+                        path_quality_results=(result,),
+                        path_quality_currentness_id=owner.currentness_id,
+                        current_model_fingerprints={
+                            owner.model_id: owner.model_fingerprint
+                        },
+                    )
+                )
+
+                self.assertFalse(report.ok)
+                self.assertIn(
+                    expected_code,
+                    {finding.code for finding in report.findings},
+                )
+                self.assertEqual(
+                    (owner.model_id,), report.path_quality_blocked_model_ids
+                )
+
     def test_diagnostic_campaign_preserves_complete_execution_accounting(self):
         child = suite(
             "diagnostic:complete",

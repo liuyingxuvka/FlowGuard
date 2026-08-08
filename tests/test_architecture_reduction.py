@@ -1,10 +1,12 @@
 import unittest
+from dataclasses import replace
 
 from flowguard import (
     CANDIDATE_DISPOSITION_COMPLETED,
     CANDIDATE_COLLAPSE_ADAPTER,
     CANDIDATE_KEEP_PUBLIC_FACADE,
     CANDIDATE_MERGE_HANDLERS,
+    CANDIDATE_REMOVE_BRANCH,
     CANDIDATE_REMOVE_STATE_FIELD,
     COMPATIBILITY_ACTION_ARCHIVE,
     COMPATIBILITY_ACTION_COLLECT_EVIDENCE,
@@ -39,6 +41,44 @@ from flowguard import (
     ObservableArchitectureContract,
     TargetModuleRecommendation,
     review_architecture_reduction,
+)
+
+from flowguard.architecture_reduction import (
+    ARCHITECTURE_REDUCTION_STEP_ACTIONS,
+    ARCHITECTURE_REDUCTION_STEP_ASSESSMENT_SCHEMA,
+    ARCHITECTURE_REDUCTION_STEP_COST_SCHEMA,
+    ARCHITECTURE_RETIREMENT_GOVERNED_IDENTITY_ROLES,
+    ARCHITECTURE_RETIREMENT_REQUIRED_ROUTES,
+    PROOF_AUTHORIZED_RETIREMENT,
+    RETIREMENT_DISPOSITION_MIGRATE,
+    RETIREMENT_DISPOSITION_RETIRE,
+    RETIREMENT_OWNER_STATUS_EXACT_CURRENT,
+    RETIREMENT_RESPONSIBILITY_BEHAVIOR,
+    RETIREMENT_RESPONSIBILITY_CODE,
+    RETIREMENT_RESPONSIBILITY_COMMITMENT,
+    RETIREMENT_RESPONSIBILITY_CONSUMER,
+    RETIREMENT_RESPONSIBILITY_MODEL,
+    RETIREMENT_RESPONSIBILITY_NEGATIVE_CASE,
+    RETIREMENT_RESPONSIBILITY_PROMPT,
+    RETIREMENT_RESPONSIBILITY_PUBLIC_SURFACE,
+    RETIREMENT_RESPONSIBILITY_RELEASE_CLAIM,
+    RETIREMENT_RESPONSIBILITY_ROUTE,
+    RETIREMENT_RESPONSIBILITY_SKILL,
+    RETIREMENT_RESPONSIBILITY_TEST,
+    RETIREMENT_RESPONSIBILITY_TOPOLOGY_RELATION,
+    TARGET_ACTION_RETIRE_BEHAVIOR,
+    STEP_ACTION_DELEGATE,
+    STEP_ACTION_EXPLICIT_ON_DEMAND,
+    STEP_ACTION_MERGE,
+    STEP_ACTION_REMOVE,
+    STEP_ACTION_RETAIN,
+    STEP_ACTION_UNRESOLVED,
+    STEP_KIND_PAYLOAD_MATERIALIZATION,
+    STEP_KIND_VALIDATION,
+    ArchitectureRetirementProof,
+    ArchitectureReductionStepAssessment,
+    ArchitectureReductionStepCost,
+    RetirementResponsibilityDisposition,
 )
 
 
@@ -121,6 +161,208 @@ def target_structure() -> CodeStructureRecommendation:
         validation_boundaries=("focused parity tests",),
         rationale="reduced model collapses pass-through adapter into router core",
     )
+
+
+RETIREMENT_RESPONSIBILITY_IDS = {
+    RETIREMENT_RESPONSIBILITY_COMMITMENT: ("commitment:legacy-search",),
+    RETIREMENT_RESPONSIBILITY_BEHAVIOR: ("behavior:legacy-search",),
+    RETIREMENT_RESPONSIBILITY_CODE: ("code:legacy-search",),
+    RETIREMENT_RESPONSIBILITY_TEST: ("test:legacy-search",),
+    RETIREMENT_RESPONSIBILITY_MODEL: ("model:legacy-search",),
+    RETIREMENT_RESPONSIBILITY_PUBLIC_SURFACE: ("surface:legacy-search",),
+    RETIREMENT_RESPONSIBILITY_CONSUMER: ("consumer:legacy-search",),
+    RETIREMENT_RESPONSIBILITY_NEGATIVE_CASE: ("negative:invalid-query",),
+    RETIREMENT_RESPONSIBILITY_ROUTE: ("route:legacy-search",),
+    RETIREMENT_RESPONSIBILITY_SKILL: ("skill:legacy-search",),
+    RETIREMENT_RESPONSIBILITY_PROMPT: ("prompt:legacy-search",),
+    RETIREMENT_RESPONSIBILITY_TOPOLOGY_RELATION: ("topology:legacy-search",),
+    RETIREMENT_RESPONSIBILITY_RELEASE_CLAIM: ("claim:legacy-search",),
+}
+
+
+def retirement_disposition(
+    responsibility_kind: str,
+    responsibility_id: str,
+) -> RetirementResponsibilityDisposition:
+    if responsibility_kind == RETIREMENT_RESPONSIBILITY_NEGATIVE_CASE:
+        return RetirementResponsibilityDisposition(
+            responsibility_kind,
+            responsibility_id,
+            RETIREMENT_DISPOSITION_MIGRATE,
+            "the rejection rule remains necessary and moves to the current validation owner",
+            evidence_refs=("evidence:negative-case-replay",),
+            replacement_owner_id="owner:current-validation",
+            replacement_owner_status=RETIREMENT_OWNER_STATUS_EXACT_CURRENT,
+            oracle_id="oracle:reject-invalid-query",
+            protection_required=True,
+        )
+    return RetirementResponsibilityDisposition(
+        responsibility_kind,
+        responsibility_id,
+        RETIREMENT_DISPOSITION_RETIRE,
+        "the current goal and exact-current inventory show this responsibility has no remaining authority",
+        evidence_refs=(f"evidence:{responsibility_kind}:current",),
+    )
+
+
+def retirement_proof(**kwargs) -> ArchitectureRetirementProof:
+    defaults = {
+        "retirement_id": "retirement:legacy-search:v1",
+        "current_goal_rationale": (
+            "the current product goal uses one direct search route, so the historical "
+            "parallel search behavior no longer owns a supported outcome"
+        ),
+        "inventory_revision": "retirement-inventory:v1",
+        "inventory_current": True,
+        "owner_resolution_status": RETIREMENT_OWNER_STATUS_EXACT_CURRENT,
+        "retired_commitment_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_COMMITMENT
+        ],
+        "retired_behavior_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_BEHAVIOR
+        ],
+        "code_binding_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_CODE
+        ],
+        "test_binding_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_TEST
+        ],
+        "model_binding_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_MODEL
+        ],
+        "public_surface_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_PUBLIC_SURFACE
+        ],
+        "consumer_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_CONSUMER
+        ],
+        "negative_case_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_NEGATIVE_CASE
+        ],
+        "route_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_ROUTE
+        ],
+        "skill_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_SKILL
+        ],
+        "prompt_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_PROMPT
+        ],
+        "topology_relation_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_TOPOLOGY_RELATION
+        ],
+        "release_claim_ids": RETIREMENT_RESPONSIBILITY_IDS[
+            RETIREMENT_RESPONSIBILITY_RELEASE_CLAIM
+        ],
+        "responsibility_dispositions": tuple(
+            retirement_disposition(kind, responsibility_id)
+            for kind, responsibility_ids in RETIREMENT_RESPONSIBILITY_IDS.items()
+            for responsibility_id in responsibility_ids
+        ),
+        "replacement_owner_ids": ("owner:current-validation",),
+        "required_validation_routes": tuple(
+            sorted(ARCHITECTURE_RETIREMENT_REQUIRED_ROUTES)
+        ),
+        "governed_identity_fingerprints": {
+            role: "sha256:" + (f"{index:064x}"[-64:])
+            for index, role in enumerate(
+                sorted(ARCHITECTURE_RETIREMENT_GOVERNED_IDENTITY_ROLES),
+                start=1,
+            )
+        },
+        "evidence_refs": (
+            "evidence:observed-model-current",
+            "evidence:consumer-inventory-current",
+        ),
+    }
+    defaults.update(kwargs)
+    return ArchitectureRetirementProof(**defaults)
+
+
+def retirement_candidate(**kwargs) -> ArchitectureReductionCandidate:
+    defaults = {
+        "candidate_id": "retire-legacy-search",
+        "candidate_type": CANDIDATE_REMOVE_BRANCH,
+        "code_node_id": "router.legacy_search",
+        "source_model_element": "LegacySearch",
+        "target_action": TARGET_ACTION_RETIRE_BEHAVIOR,
+        "proof_status": PROOF_AUTHORIZED_RETIREMENT,
+        "required_next_route": ROUTE_STRUCTURE_MESH,
+        "rationale": "retire one historical route after every responsibility is dispositioned",
+        "affected_public_entrypoints": ("router.cli",),
+        "affected_state": ("route_status",),
+        "affected_side_effects": ("write_event",),
+        "evidence_refs": ("evidence:retirement-review",),
+        "business_intent_id": "intent:direct-search",
+        "behavior_commitment_id": "commitment:legacy-search",
+        "primary_path_id": "path:legacy-search",
+        "inventory_revision": "retirement-inventory:v1",
+        "retirement_proof": retirement_proof(),
+    }
+    defaults.update(kwargs)
+    return ArchitectureReductionCandidate(**defaults)
+
+
+def retirement_plan(
+    retirement: ArchitectureReductionCandidate | None = None,
+    **kwargs,
+) -> ArchitectureReductionPlan:
+    selected = retirement or retirement_candidate()
+    defaults = {
+        "reduction_id": "retire-legacy-search",
+        "observable_contract": contract(),
+        "candidates": (selected,),
+        "companion_route_triggers": (trigger(),),
+        "rationale": "current goals authorize retiring one historically accumulated branch",
+        "inventory_revision": "retirement-inventory:v1",
+        "inventory_source_ref": "preflight:retirement-inventory:v1",
+        "inventory_current": True,
+        "expected_candidate_ids": (selected.candidate_id,),
+        "require_complete_inventory": True,
+    }
+    defaults.update(kwargs)
+    return ArchitectureReductionPlan(**defaults)
+
+
+def step_cost(**kwargs) -> ArchitectureReductionStepCost:
+    defaults = {
+        "measurement_id": "cost:validation-step:v1",
+        "subject_revision": "source:v1",
+        "source_ref": "inventory:source:v1",
+        "measurement_mode": "static_inventory_projection",
+        "operation_count": 9,
+        "payload_bytes": 4096,
+        "estimated_token_count": 1024,
+        "invocation_count": 3,
+        "current": True,
+        "rationale": "exact current static operations and emitted review bytes",
+    }
+    defaults.update(kwargs)
+    return ArchitectureReductionStepCost(**defaults)
+
+
+def step_assessment(**kwargs) -> ArchitectureReductionStepAssessment:
+    defaults = {
+        "assessment_id": "step-assessment:validate-input:v1",
+        "parent_route_id": "route:router",
+        "step_id": "router.validate_input",
+        "step_kind": STEP_KIND_VALIDATION,
+        "action": STEP_ACTION_RETAIN,
+        "proof_status": PROOF_RISKY_KEEP,
+        "rationale": "the step remains the sole current rejection-rule owner",
+        "current_owner_ids": ("owner:router-validation",),
+        "necessity_evidence_refs": ("commitment:reject-invalid-input",),
+        "caller_inventory_complete": True,
+        "cost_evidence": (step_cost(),),
+        "safety_inventory_complete": True,
+        "safety_responsibility_ids": ("negative-case:invalid-input",),
+        "safety_owner_bindings": {
+            "negative-case:invalid-input": "router.validate_input"
+        },
+        "safety_evidence_refs": ("oracle:reject-invalid-input",),
+    }
+    defaults.update(kwargs)
+    return ArchitectureReductionStepAssessment(**defaults)
 
 
 class ArchitectureReductionTests(unittest.TestCase):
@@ -278,17 +520,25 @@ class ArchitectureReductionTests(unittest.TestCase):
         self.assertIn("expected_reduction_candidate_missing", [finding.code for finding in report.findings])
         self.assertEqual(("merge-cli-handlers",), report.missing_candidate_ids)
 
-    def test_similarity_handoff_cannot_finish_with_empty_candidate_inventory(self):
+    def test_canonical_relation_handoff_cannot_finish_with_empty_candidate_inventory(self):
         plan = ArchitectureReductionPlan(
-            "router-similarity-reduction",
+            "router-canonical-relation-reduction",
             observable_contract=contract(),
             candidates=(),
-            similarity_handoff={
-                "relation_ids": ("similarity:duplicate-router-handler",),
-                "code_obligation_ids": ("similarity-code:router-handler",),
+            canonical_relation_handoff={
+                "relations": ({
+                    "relation_id": "relation:duplicate-router-handler",
+                    "relation_type": "duplicate_boundary",
+                    "source_endpoint_kind": "model",
+                    "source_endpoint_id": "router",
+                    "target_endpoint_kind": "code_boundary",
+                    "target_endpoint_id": "router-handler",
+                    "source_ids": ("semantic-mesh:router:v3",),
+                },),
+                "code_obligation_ids": ("relation-code:router-handler",),
             },
             inventory_revision="candidates:v3",
-            inventory_source_ref="similarity:router:v3",
+            inventory_source_ref="canonical-relation:router:v3",
             companion_route_triggers=(trigger(),),
             rationale="duplicate handoff must materialize a reduction candidate",
         )
@@ -297,7 +547,7 @@ class ArchitectureReductionTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertEqual("candidate_inventory_blocked", report.decision)
-        self.assertIn("similarity_candidate_inventory_empty", [finding.code for finding in report.findings])
+        self.assertIn("canonical_relation_candidate_inventory_empty", [finding.code for finding in report.findings])
 
     def test_retained_facade_with_independent_authority_is_blocked(self):
         plan = ArchitectureReductionPlan(
@@ -667,6 +917,419 @@ class ArchitectureReductionTests(unittest.TestCase):
         self.assertTrue(report.ok)
         self.assertEqual("architecture_reduction_ready", report.decision)
         self.assertEqual(("remove-legacy-test",), report.ready_candidate_ids)
+
+    def test_complete_current_retirement_proof_allows_intentional_behavior_change(self):
+        proof = retirement_proof()
+
+        report = review_architecture_reduction(
+            retirement_plan(retirement_candidate(retirement_proof=proof))
+        )
+
+        self.assertTrue(report.ok)
+        self.assertEqual("architecture_reduction_ready", report.decision)
+        self.assertEqual(("retire-legacy-search",), report.ready_candidate_ids)
+        self.assertEqual(TARGET_ACTION_RETIRE_BEHAVIOR, report.target_actions[0].action)
+        self.assertEqual(proof.fingerprint, report.target_actions[0].retirement_proof.fingerprint)
+        self.assertTrue(
+            ARCHITECTURE_RETIREMENT_REQUIRED_ROUTES.issubset(
+                report.required_next_routes
+            )
+        )
+        self.assertNotIn(
+            "removes_observable_state",
+            {finding.code for finding in report.findings},
+        )
+        self.assertNotIn(
+            "observable_side_effect_without_equivalence",
+            {finding.code for finding in report.findings},
+        )
+        self.assertEqual(proof, ArchitectureRetirementProof.from_dict(proof.to_dict()))
+
+    def test_retirement_proof_requires_every_consumer_disposition(self):
+        proof = retirement_proof()
+        incomplete = replace(
+            proof,
+            responsibility_dispositions=tuple(
+                item
+                for item in proof.responsibility_dispositions
+                if item.responsibility_kind != RETIREMENT_RESPONSIBILITY_CONSUMER
+            ),
+        )
+
+        report = review_architecture_reduction(
+            retirement_plan(retirement_candidate(retirement_proof=incomplete))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual((), report.ready_candidate_ids)
+        self.assertIn(
+            "retirement_responsibility_disposition_incomplete",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_retirement_action_is_withheld_when_complete_inventory_has_a_gap(self):
+        report = review_architecture_reduction(
+            retirement_plan(
+                expected_candidate_ids=(
+                    "retire-legacy-search",
+                    "retire-unmaterialized-route",
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual((), report.ready_candidate_ids)
+        self.assertEqual((), report.target_actions)
+        self.assertIn(
+            "expected_reduction_candidate_missing",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_retirement_blocks_stale_ambiguous_or_unknown_authority(self):
+        cases = {
+            "stale inventory": (
+                replace(retirement_proof(), inventory_current=False),
+                "retirement_inventory_stale",
+            ),
+            "ambiguous owner": (
+                replace(
+                    retirement_proof(),
+                    owner_resolution_status="ambiguous",
+                ),
+                "retirement_owner_resolution_not_current",
+            ),
+            "unknown identity": (
+                replace(
+                    retirement_proof(),
+                    governed_identity_fingerprints={
+                        **retirement_proof().governed_identity_fingerprints,
+                        "unknown_inventory": "sha256:" + "f" * 64,
+                    },
+                ),
+                "retirement_governed_identities_incomplete",
+            ),
+        }
+
+        for label, (proof, expected_code) in cases.items():
+            with self.subTest(label=label):
+                report = review_architecture_reduction(
+                    retirement_plan(retirement_candidate(retirement_proof=proof))
+                )
+                self.assertFalse(report.ok)
+                self.assertEqual((), report.ready_candidate_ids)
+                self.assertIn(
+                    expected_code,
+                    {finding.code for finding in report.findings},
+                )
+
+    def test_retirement_forbids_alias_compatibility_and_fallback_dispositions(self):
+        for disposition in ("alias", "compatibility", "fallback"):
+            with self.subTest(disposition=disposition):
+                proof = retirement_proof()
+                rows = tuple(
+                    replace(item, disposition=disposition)
+                    if item.responsibility_kind == RETIREMENT_RESPONSIBILITY_CONSUMER
+                    else item
+                    for item in proof.responsibility_dispositions
+                )
+                report = review_architecture_reduction(
+                    retirement_plan(
+                        retirement_candidate(
+                            retirement_proof=replace(
+                                proof,
+                                responsibility_dispositions=rows,
+                            )
+                        )
+                    )
+                )
+
+                self.assertFalse(report.ok)
+                self.assertEqual((), report.ready_candidate_ids)
+                self.assertIn(
+                    "retirement_compatibility_or_fallback_forbidden",
+                    {finding.code for finding in report.findings},
+                )
+
+    def test_retirement_preserves_required_negative_case_under_current_owner(self):
+        proof = retirement_proof()
+        rows = tuple(
+            replace(
+                item,
+                disposition=RETIREMENT_DISPOSITION_RETIRE,
+                replacement_owner_id="",
+                replacement_owner_status="not_applicable",
+                oracle_id="",
+            )
+            if item.responsibility_kind == RETIREMENT_RESPONSIBILITY_NEGATIVE_CASE
+            else item
+            for item in proof.responsibility_dispositions
+        )
+        orphaned = replace(
+            proof,
+            responsibility_dispositions=rows,
+            replacement_owner_ids=(),
+        )
+
+        report = review_architecture_reduction(
+            retirement_plan(retirement_candidate(retirement_proof=orphaned))
+        )
+        codes = {finding.code for finding in report.findings}
+
+        self.assertFalse(report.ok)
+        self.assertEqual((), report.ready_candidate_ids)
+        self.assertIn("retained_protection_without_current_owner", codes)
+        self.assertIn("retirement_negative_case_orphaned", codes)
+
+    def test_retirement_cannot_survive_as_a_kept_compatibility_surface(self):
+        report = review_architecture_reduction(
+            retirement_plan(
+                compatibility_surfaces=(
+                    surface(
+                        surface_id="legacy-search-surface",
+                        classification=COMPATIBILITY_SURFACE_CURRENT_CONTRACT,
+                        recommended_action=COMPATIBILITY_ACTION_KEEP,
+                        code_node_ids=("router.legacy_search",),
+                        candidate_ids=("retire-legacy-search",),
+                        rationale="this contradictory classification still keeps the old route current",
+                    ),
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual((), report.ready_candidate_ids)
+        self.assertIn(
+            "retirement_compatibility_surface_retained",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_retirement_serialization_accepts_only_exact_current_schema(self):
+        payload = retirement_proof().to_dict()
+        with_extra_field = {**payload, "legacy_alias": "retirement:v0"}
+        stale_fingerprint = {
+            **payload,
+            "current_goal_rationale": "a changed rationale invalidates the frozen identity",
+        }
+
+        with self.assertRaisesRegex(ValueError, "current schema exactly"):
+            ArchitectureRetirementProof.from_dict(with_extra_field)
+        with self.assertRaisesRegex(ValueError, "fingerprint is stale"):
+            ArchitectureRetirementProof.from_dict(stale_fingerprint)
+
+    def test_ordinary_equivalence_action_cannot_attach_retirement_authority(self):
+        report = review_architecture_reduction(
+            ArchitectureReductionPlan(
+                "ordinary-collapse",
+                observable_contract=contract(),
+                candidates=(candidate(retirement_proof=retirement_proof()),),
+                companion_route_triggers=(trigger(),),
+                rationale="ordinary contraction remains governed by equivalence",
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual((), report.ready_candidate_ids)
+        self.assertIn(
+            "retirement_proof_on_contract_action",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_retained_route_internal_step_has_typed_necessity_and_cost_evidence(self):
+        retained = step_assessment()
+        report = review_architecture_reduction(
+            ArchitectureReductionPlan(
+                "router-internal-step-review",
+                observable_contract=contract(),
+                candidates=(candidate(),),
+                companion_route_triggers=(trigger(),),
+                rationale="review the retained route and its internal validation step",
+                step_assessments=(retained,),
+            )
+        )
+
+        self.assertTrue(report.ok)
+        self.assertEqual((retained,), report.step_assessments)
+        self.assertEqual((retained.step_id,), report.cost_priority_step_ids)
+        payload = retained.to_dict()
+        self.assertEqual(
+            ARCHITECTURE_REDUCTION_STEP_ASSESSMENT_SCHEMA,
+            payload["schema_version"],
+        )
+        self.assertEqual(
+            ARCHITECTURE_REDUCTION_STEP_COST_SCHEMA,
+            payload["cost_evidence"][0]["schema_version"],
+        )
+        self.assertEqual(
+            retained,
+            ArchitectureReductionStepAssessment.from_dict(payload),
+        )
+        self.assertEqual(
+            {
+                STEP_ACTION_RETAIN,
+                STEP_ACTION_MERGE,
+                STEP_ACTION_DELEGATE,
+                STEP_ACTION_REMOVE,
+                STEP_ACTION_EXPLICIT_ON_DEMAND,
+                STEP_ACTION_UNRESOLVED,
+            },
+            ARCHITECTURE_REDUCTION_STEP_ACTIONS,
+        )
+
+    def test_high_cost_does_not_authorize_step_removal_without_equivalence(self):
+        high_cost = step_cost(
+            measurement_id="cost:large-payload:v1",
+            operation_count=100_000,
+            payload_bytes=50_000_000,
+            estimated_token_count=12_500_000,
+        )
+        removal_candidate = candidate(
+            candidate_id="remove-large-projection",
+            candidate_type=CANDIDATE_REMOVE_BRANCH,
+            code_node_id="router.large_projection",
+            target_action=TARGET_ACTION_REMOVE,
+            proof_status=PROOF_RISKY_KEEP,
+            required_next_route=ROUTE_STRUCTURE_MESH,
+        )
+        assessment = step_assessment(
+            assessment_id="step-assessment:large-projection:v1",
+            step_id="router.large_projection",
+            step_kind=STEP_KIND_PAYLOAD_MATERIALIZATION,
+            action=STEP_ACTION_REMOVE,
+            proof_status=PROOF_RISKY_KEEP,
+            candidate_id=removal_candidate.candidate_id,
+            current_owner_ids=(),
+            necessity_evidence_refs=(),
+            equivalence_evidence_refs=(),
+            caller_ids=(),
+            replacement_step_ids=(),
+            cost_evidence=(high_cost,),
+            safety_responsibility_ids=(),
+            safety_owner_bindings={},
+            safety_evidence_refs=(),
+            unresolved_gap_ids=("current_observable_equivalence",),
+            rationale="the payload is expensive, but cost alone cannot prove removal safe",
+        )
+
+        report = review_architecture_reduction(
+            ArchitectureReductionPlan(
+                "large-projection-review",
+                observable_contract=contract(),
+                candidates=(removal_candidate,),
+                companion_route_triggers=(trigger(),),
+                rationale="prioritize the expensive step without weakening proof",
+                step_assessments=(assessment,),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "step_contraction_equivalence_missing",
+            {finding.code for finding in report.findings},
+        )
+        self.assertEqual((), report.ready_candidate_ids)
+
+    def test_unique_safety_owner_blocks_remove_even_with_equivalence(self):
+        removal_candidate = candidate(
+            candidate_id="remove-validation-step",
+            candidate_type=CANDIDATE_REMOVE_BRANCH,
+            code_node_id="router.validate_input",
+            target_action=TARGET_ACTION_REMOVE,
+            proof_status=PROOF_SAFE_BY_EQUIVALENCE,
+            required_next_route=ROUTE_STRUCTURE_MESH,
+            evidence_refs=("equivalence:validation:v1",),
+        )
+        assessment = step_assessment(
+            action=STEP_ACTION_REMOVE,
+            proof_status=PROOF_SAFE_BY_EQUIVALENCE,
+            candidate_id=removal_candidate.candidate_id,
+            equivalence_evidence_refs=("equivalence:validation:v1",),
+            current_owner_ids=(),
+            necessity_evidence_refs=(),
+            safety_owner_bindings={
+                "negative-case:invalid-input": "router.validate_input"
+            },
+            rationale="removal still leaves its negative-case oracle bound to the removed step",
+        )
+        report = review_architecture_reduction(
+            ArchitectureReductionPlan(
+                "unsafe-validation-removal",
+                observable_contract=contract(),
+                candidates=(removal_candidate,),
+                companion_route_triggers=(trigger(),),
+                rationale="verify exact safety ownership before contraction",
+                step_assessments=(assessment,),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "step_unique_safety_owner_removed",
+            {finding.code for finding in report.findings},
+        )
+        self.assertEqual((), report.ready_candidate_ids)
+
+    def test_on_demand_step_requires_explicit_trigger_and_equivalence(self):
+        on_demand_candidate = candidate(
+            candidate_id="defer-deep-scan",
+            candidate_type=CANDIDATE_COLLAPSE_ADAPTER,
+            code_node_id="router.deep_scan",
+            target_action=TARGET_ACTION_COLLAPSE,
+            proof_status=PROOF_SAFE_BY_EQUIVALENCE,
+            evidence_refs=("equivalence:deep-scan:v1",),
+        )
+        assessment = step_assessment(
+            assessment_id="step-assessment:deep-scan:v1",
+            step_id="router.deep_scan",
+            step_kind=STEP_KIND_PAYLOAD_MATERIALIZATION,
+            action=STEP_ACTION_EXPLICIT_ON_DEMAND,
+            proof_status=PROOF_SAFE_BY_EQUIVALENCE,
+            candidate_id=on_demand_candidate.candidate_id,
+            equivalence_evidence_refs=("equivalence:deep-scan:v1",),
+            current_owner_ids=(),
+            necessity_evidence_refs=(),
+            safety_responsibility_ids=(),
+            safety_owner_bindings={},
+            safety_evidence_refs=(),
+            on_demand_trigger_ids=(),
+            rationale="the deep scan may move behind an explicit request only with a trigger",
+        )
+        report = review_architecture_reduction(
+            ArchitectureReductionPlan(
+                "deep-scan-on-demand",
+                observable_contract=contract(),
+                candidates=(on_demand_candidate,),
+                companion_route_triggers=(trigger(),),
+                rationale="make expensive optional work explicit",
+                step_assessments=(assessment,),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "step_on_demand_trigger_missing",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_step_assessment_serialization_rejects_extra_and_stale_fields(self):
+        assessment_payload = step_assessment().to_dict()
+        cost_payload = step_cost().to_dict()
+
+        with self.assertRaisesRegex(ValueError, "current schema exactly"):
+            ArchitectureReductionStepAssessment.from_dict(
+                {**assessment_payload, "legacy_action": "prune"}
+            )
+        with self.assertRaisesRegex(ValueError, "fingerprint is stale"):
+            ArchitectureReductionStepAssessment.from_dict(
+                {**assessment_payload, "rationale": "changed after freeze"}
+            )
+        with self.assertRaisesRegex(ValueError, "current schema exactly"):
+            ArchitectureReductionStepCost.from_dict(
+                {**cost_payload, "score": 99}
+            )
+        with self.assertRaisesRegex(ValueError, "fingerprint is stale"):
+            ArchitectureReductionStepCost.from_dict(
+                {**cost_payload, "payload_bytes": cost_payload["payload_bytes"] + 1}
+            )
 
 
 if __name__ == "__main__":

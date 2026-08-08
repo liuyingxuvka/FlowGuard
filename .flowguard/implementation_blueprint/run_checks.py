@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,7 +21,7 @@ import model
 GOOD_LABELS = (
     "inventory_complete",
     "binding_complete",
-    "static_blueprint_complete",
+    "manifest_qualification_complete",
     "behavior_readiness_complete",
     "target_system_blueprint_complete",
     "projection_verified",
@@ -41,20 +42,30 @@ def _expected_finding_codes(action: model.BlueprintAction) -> tuple[str, ...]:
 
 
 def run_good_path() -> bool:
-    return run_exact_workflow_case(
-        "static blueprint complete",
-        workflow=model.build_workflow(),
-        initial_state=model.initial_state(),
-        external_input_sequence=(model.GOOD_ACTION,) * model.MAX_SEQUENCE_LENGTH,
-        invariants=model.INVARIANTS,
-        final_state_predicate=lambda state: (
-            state.done_claim == "accepted"
-            and state.static_status == "complete"
-            and state.behavior_status == "complete"
-            and state.readiness_status == "ready"
-            and state.claim_text == "static blueprint complete"
-        ),
+    results = tuple(
+        run_exact_workflow_case(
+            f"bounded blueprint path qualified: {action.scenario_id}",
+            workflow=model.build_workflow(),
+            initial_state=model.initial_state(),
+            external_input_sequence=(action,) * model.MAX_SEQUENCE_LENGTH,
+            invariants=model.INVARIANTS,
+            final_state_predicate=lambda state, scenario_id=action.scenario_id: (
+                state.done_claim == "accepted"
+                and state.static_manifest_status == "complete"
+                and state.behavior_status == "complete"
+                and state.readiness_status == "ready"
+                and state.delegated_assertion_status
+                == (
+                    "current"
+                    if scenario_id == "delegated_direct_terminal"
+                    else "not_applicable"
+                )
+                and state.claim_boundary == model.MODEL_CLAIM_BOUNDARY
+            ),
+        )
+        for action in model.GOOD_ACTIONS
     )
+    return all(results)
 
 
 def run_bad_case_reason_review() -> bool:
@@ -117,7 +128,7 @@ def run_formal_bad_case_suite():
         "implementation_blueprint",
         cases,
         initial_states=(model.initial_state(),),
-        external_inputs=(model.GOOD_ACTION,),
+        external_inputs=model.GOOD_ACTIONS,
         invariants=model.INVARIANTS,
         max_sequence_length=model.MAX_SEQUENCE_LENGTH,
         terminal_predicate=model.terminal_predicate,
@@ -126,15 +137,42 @@ def run_formal_bad_case_suite():
     )
 
 
+def run_native_pytest_contract() -> bool:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            *model.NATIVE_PYTEST_SELECTORS,
+            "-q",
+            "-p",
+            "no:cacheprovider",
+        ],
+        cwd=ROOT,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
 def main() -> int:
     good_ok = run_good_path()
     reasons_ok = run_bad_case_reason_review()
     formal_report = run_formal_bad_case_suite()
-    if good_ok and reasons_ok and formal_report.ok:
+    obligation_bindings_ok = model.native_test_obligation_bindings_are_executed()
+    pytest_ok = run_native_pytest_contract()
+    if (
+        good_ok
+        and reasons_ok
+        and formal_report.ok
+        and obligation_bindings_ok
+        and pytest_ok
+    ):
         print(
             "implementation_blueprint checks passed; "
             f"handled_bad_cases={len(model.BAD_ACTIONS)}; "
-            "static_status=complete"
+            f"good_cases={len(model.GOOD_ACTIONS)}; "
+            f"native_selectors={len(model.NATIVE_PYTEST_SELECTORS)}; "
+            "static_manifest_status=complete"
         )
         return 0
     return 1

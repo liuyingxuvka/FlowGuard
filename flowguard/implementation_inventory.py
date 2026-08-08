@@ -9,16 +9,20 @@ blueprint alignment layer.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 import json
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping, Sequence
 
 from .portable_model import canonical_identity, canonical_json_bytes
 from .source_identity import source_file_fingerprint
-from .validation_ownership import resolve_input_manifest
+from .validation_ownership import (
+    filter_resolved_input_manifest,
+    resolve_input_manifest,
+)
 
 
-IMPLEMENTATION_INVENTORY_SCHEMA_VERSION = "flowguard.implementation_inventory.v1"
+IMPLEMENTATION_INVENTORY_SCHEMA_VERSION = "flowguard.implementation_inventory.v3"
 
 IMPLEMENTATION_DISPOSITION_MODEL = "model_implementation"
 IMPLEMENTATION_DISPOSITION_SUPPORTING = "supporting"
@@ -66,6 +70,20 @@ IMPLEMENTATION_SURFACE_KINDS = (
 )
 
 IMPLEMENTATION_FINDING_SEVERITIES = ("info", "warning", "blocker")
+DISCOVERY_NOT_APPLICABLE_KINDS = (
+    "declarative_no_internal_members",
+    "independent_test_oracle_surface",
+    "non_executable_resource",
+    "opaque_external_surface",
+)
+DYNAMIC_SELECTOR_CONTRACT_OPERATIONS = (
+    "getattr",
+    "setattr",
+    "delattr",
+    "globals",
+    "locals",
+    "invoke_result:getattr",
+)
 
 
 class ImplementationInventoryError(ValueError):
@@ -282,6 +300,8 @@ class ImplementationFileDisposition:
     reason: str
     requires_adapter: bool = False
     adapter_id: str = ""
+    discovery_not_applicable_kind: str = ""
+    discovery_not_applicable_reason: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "path", _relative_path(self.path, context="file.path"))
@@ -296,9 +316,37 @@ class ImplementationFileDisposition:
             raise ImplementationInventoryError(f"file:{self.path}.requires_adapter must be boolean")
         if not isinstance(self.adapter_id, str):
             raise ImplementationInventoryError(f"file:{self.path}.adapter_id must be a string")
+        if not isinstance(self.discovery_not_applicable_kind, str):
+            raise ImplementationInventoryError(
+                f"file:{self.path}.discovery_not_applicable_kind must be a string"
+            )
+        if not isinstance(self.discovery_not_applicable_reason, str):
+            raise ImplementationInventoryError(
+                f"file:{self.path}.discovery_not_applicable_reason must be a string"
+            )
         if self.requires_adapter and not self.adapter_id:
             raise ImplementationInventoryError(
                 f"file:{self.path} requires an explicit discovery adapter id"
+            )
+        if self.requires_adapter and (
+            self.discovery_not_applicable_kind
+            or self.discovery_not_applicable_reason
+        ):
+            raise ImplementationInventoryError(
+                f"file:{self.path} cannot require discovery and declare it not applicable"
+            )
+        if self.discovery_not_applicable_kind:
+            if self.discovery_not_applicable_kind not in DISCOVERY_NOT_APPLICABLE_KINDS:
+                raise ImplementationInventoryError(
+                    f"file:{self.path} has an unknown discovery-not-applicable kind"
+                )
+            if not self.discovery_not_applicable_reason.strip():
+                raise ImplementationInventoryError(
+                    f"file:{self.path} discovery-not-applicable requires a bounded reason"
+                )
+        elif self.discovery_not_applicable_reason:
+            raise ImplementationInventoryError(
+                f"file:{self.path} discovery-not-applicable reason has no typed kind"
             )
         if self.disposition in {
             IMPLEMENTATION_DISPOSITION_GENERATED,
@@ -323,6 +371,8 @@ class ImplementationFileDisposition:
             "reason": self.reason,
             "requires_adapter": self.requires_adapter,
             "adapter_id": self.adapter_id,
+            "discovery_not_applicable_kind": self.discovery_not_applicable_kind,
+            "discovery_not_applicable_reason": self.discovery_not_applicable_reason,
         }
 
     @classmethod
@@ -335,9 +385,118 @@ class ImplementationFileDisposition:
             "reason",
             "requires_adapter",
             "adapter_id",
+            "discovery_not_applicable_kind",
+            "discovery_not_applicable_reason",
         )
         data = _strict_object(value, context="file disposition", required=fields)
         return cls(**{field: data[field] for field in fields})
+
+
+@dataclass(frozen=True)
+class DynamicSelectorContract:
+    """One finite, owner-bound interpretation of an open dynamic selector.
+
+    The contract does not make a dynamic operation safe merely by naming the
+    operation.  It binds one exact surface and owner to the currently observed
+    structure and enumerates the complete selector vocabulary admitted by that
+    interpretation.  A changed surface must therefore produce a new contract.
+    """
+
+    surface_key: str
+    owner_surface_id: str
+    surface_structure_fingerprint: str
+    selector_source_fingerprint: str
+    operation: str
+    selector_values: tuple[str, ...]
+    rationale: str
+
+    def __post_init__(self) -> None:
+        surface_key = _text(self.surface_key, context="dynamic selector surface key")
+        if "#" not in surface_key:
+            raise ImplementationInventoryError(
+                "dynamic selector contract requires one exact path#symbol surface key"
+            )
+        _text(self.owner_surface_id, context=f"dynamic selector:{surface_key}.owner")
+        structure_fingerprint = _text(
+            self.surface_structure_fingerprint,
+            context=f"dynamic selector:{surface_key}.structure fingerprint",
+        )
+        if not structure_fingerprint.startswith("sha256:"):
+            raise ImplementationInventoryError(
+                "dynamic selector contract requires a current sha256 structure fingerprint"
+            )
+        selector_source_fingerprint = _text(
+            self.selector_source_fingerprint,
+            context=f"dynamic selector:{surface_key}.selector source fingerprint",
+        )
+        if not selector_source_fingerprint.startswith("sha256:"):
+            raise ImplementationInventoryError(
+                "dynamic selector contract requires a current sha256 selector-source fingerprint"
+            )
+        if self.operation not in DYNAMIC_SELECTOR_CONTRACT_OPERATIONS:
+            raise ImplementationInventoryError(
+                f"dynamic selector contract has unknown operation: {self.operation}"
+            )
+        values = tuple(sorted({str(value) for value in self.selector_values if str(value)}))
+        if not values or len(values) > 256:
+            raise ImplementationInventoryError(
+                "dynamic selector contract requires a finite non-empty selector set"
+            )
+        if any(value.strip() != value or value in {"*", "**", "..."} for value in values):
+            raise ImplementationInventoryError(
+                "dynamic selector contract rejects open or unbounded selector values"
+            )
+        rationale = _text(
+            self.rationale,
+            context=f"dynamic selector:{surface_key}.rationale",
+        )
+        object.__setattr__(self, "surface_key", surface_key)
+        object.__setattr__(self, "surface_structure_fingerprint", structure_fingerprint)
+        object.__setattr__(self, "selector_source_fingerprint", selector_source_fingerprint)
+        object.__setattr__(self, "selector_values", values)
+        object.__setattr__(self, "rationale", rationale)
+
+    @property
+    def contract_id(self) -> str:
+        return canonical_identity(self.to_dict())
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "surface_key": self.surface_key,
+            "owner_surface_id": self.owner_surface_id,
+            "surface_structure_fingerprint": self.surface_structure_fingerprint,
+            "selector_source_fingerprint": self.selector_source_fingerprint,
+            "operation": self.operation,
+            "selector_values": list(self.selector_values),
+            "rationale": self.rationale,
+        }
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "DynamicSelectorContract":
+        fields = (
+            "surface_key",
+            "owner_surface_id",
+            "surface_structure_fingerprint",
+            "selector_source_fingerprint",
+            "operation",
+            "selector_values",
+            "rationale",
+        )
+        data = _strict_object(value, context="dynamic selector contract", required=fields)
+        selector_values = data["selector_values"]
+        if not isinstance(selector_values, list):
+            raise ImplementationInventoryError(
+                "dynamic selector contract selector_values must be a list"
+            )
+        return cls(
+            surface_key=data["surface_key"],
+            owner_surface_id=data["owner_surface_id"],
+            surface_structure_fingerprint=data["surface_structure_fingerprint"],
+            selector_source_fingerprint=data["selector_source_fingerprint"],
+            operation=data["operation"],
+            selector_values=tuple(selector_values),
+            rationale=data["rationale"],
+        )
 
 
 @dataclass(frozen=True)
@@ -358,6 +517,8 @@ class ImplementationSurface:
     state_writes: tuple[str, ...] = ()
     side_effect_candidates: tuple[str, ...] = ()
     dynamic_operations: tuple[str, ...] = ()
+    dynamic_selector_source_fingerprints: tuple[tuple[str, str], ...] = ()
+    dynamic_selector_values: tuple[tuple[str, tuple[str, ...]], ...] = ()
     raised_errors: tuple[str, ...] = ()
     returns_value: bool = False
     line_start: int = 0
@@ -366,10 +527,23 @@ class ImplementationSurface:
 
     def __post_init__(self) -> None:
         _text(self.surface_id, context="surface_id")
-        object.__setattr__(self, "path", _relative_path(self.path, context="surface.path"))
-        _text(self.symbol, context=f"surface:{self.surface_id}.symbol")
         if self.surface_kind not in IMPLEMENTATION_SURFACE_KINDS:
             raise ImplementationInventoryError(f"unknown surface kind: {self.surface_kind}")
+        if self.surface_kind == "non_code":
+            raw_path = _text(self.path, context="surface.path", allow_empty=True)
+            object.__setattr__(
+                self,
+                "path",
+                _relative_path(raw_path, context="surface.path") if raw_path else "",
+            )
+            _text(
+                self.symbol,
+                context=f"surface:{self.surface_id}.symbol",
+                allow_empty=True,
+            )
+        else:
+            object.__setattr__(self, "path", _relative_path(self.path, context="surface.path"))
+            _text(self.symbol, context=f"surface:{self.surface_id}.symbol")
         if self.disposition not in IMPLEMENTATION_DISPOSITIONS:
             raise ImplementationInventoryError(f"unknown implementation disposition: {self.disposition}")
         for name in (
@@ -392,6 +566,57 @@ class ImplementationSurface:
             "raised_errors",
         ):
             object.__setattr__(self, name, _normalized_strings(getattr(self, name)))
+        selector_sources = tuple(
+            sorted(
+                (str(operation), str(fingerprint))
+                for operation, fingerprint in self.dynamic_selector_source_fingerprints
+            )
+        )
+        if len({operation for operation, _fingerprint in selector_sources}) != len(
+            selector_sources
+        ):
+            raise ImplementationInventoryError(
+                f"surface:{self.surface_id} has duplicate dynamic selector source operations"
+            )
+        if any(
+            operation not in DYNAMIC_SELECTOR_CONTRACT_OPERATIONS
+            or not fingerprint.startswith("sha256:")
+            for operation, fingerprint in selector_sources
+        ):
+            raise ImplementationInventoryError(
+                f"surface:{self.surface_id} has an invalid dynamic selector source fingerprint"
+            )
+        object.__setattr__(
+            self,
+            "dynamic_selector_source_fingerprints",
+            selector_sources,
+        )
+        selector_values = tuple(
+            sorted(
+                (
+                    str(operation),
+                    tuple(sorted({str(value) for value in values if str(value)})),
+                )
+                for operation, values in self.dynamic_selector_values
+            )
+        )
+        if len({operation for operation, _values in selector_values}) != len(
+            selector_values
+        ):
+            raise ImplementationInventoryError(
+                f"surface:{self.surface_id} has duplicate dynamic selector value operations"
+            )
+        if any(
+            operation not in DYNAMIC_SELECTOR_CONTRACT_OPERATIONS
+            or not values
+            or len(values) > 256
+            or any(value in {"*", "**", "..."} for value in values)
+            for operation, values in selector_values
+        ):
+            raise ImplementationInventoryError(
+                f"surface:{self.surface_id} has invalid finite dynamic selector values"
+            )
+        object.__setattr__(self, "dynamic_selector_values", selector_values)
         if not isinstance(self.returns_value, bool):
             raise ImplementationInventoryError(f"surface:{self.surface_id}.returns_value must be boolean")
         if not isinstance(self.line_start, int) or not isinstance(self.line_end, int):
@@ -401,8 +626,20 @@ class ImplementationSurface:
     @property
     def behavior_bearing(self) -> bool:
         return bool(
-            set(self.roles) & {"entrypoint", "state_writer", "effect_writer", "dynamic"}
+            set(self.roles)
+            & {
+                "behavior",
+                "entrypoint",
+                "state_writer",
+                "effect_writer",
+                "dynamic",
+                "workflow_step",
+                "transition",
+            }
             or self.surface_kind == "entrypoint"
+            or self.state_writes
+            or self.side_effect_candidates
+            or self.dynamic_operations
         )
 
     @property
@@ -427,6 +664,13 @@ class ImplementationSurface:
             "state_writes": list(self.state_writes),
             "side_effect_candidates": list(self.side_effect_candidates),
             "dynamic_operations": list(self.dynamic_operations),
+            "dynamic_selector_source_fingerprints": dict(
+                self.dynamic_selector_source_fingerprints
+            ),
+            "dynamic_selector_values": {
+                operation: list(values)
+                for operation, values in self.dynamic_selector_values
+            },
             "raised_errors": list(self.raised_errors),
             "returns_value": self.returns_value,
             "line_start": self.line_start,
@@ -453,6 +697,8 @@ class ImplementationSurface:
             "state_writes",
             "side_effect_candidates",
             "dynamic_operations",
+            "dynamic_selector_source_fingerprints",
+            "dynamic_selector_values",
             "raised_errors",
             "returns_value",
             "line_start",
@@ -460,6 +706,16 @@ class ImplementationSurface:
             "discovery_adapter_id",
         )
         data = _strict_object(value, context="implementation surface", required=fields)
+        selector_sources = data["dynamic_selector_source_fingerprints"]
+        if not isinstance(selector_sources, Mapping):
+            raise ImplementationInventoryError(
+                "surface.dynamic_selector_source_fingerprints must be an object"
+            )
+        selector_values = data["dynamic_selector_values"]
+        if not isinstance(selector_values, Mapping):
+            raise ImplementationInventoryError(
+                "surface.dynamic_selector_values must be an object"
+            )
         tuple_fields = {
             name: _strings(data[name], context=f"surface.{name}")
             for name in (
@@ -478,8 +734,18 @@ class ImplementationSurface:
                 name: data[name]
                 for name in fields
                 if name not in tuple_fields
+                and name != "dynamic_selector_source_fingerprints"
+                and name != "dynamic_selector_values"
             },
             **tuple_fields,
+            dynamic_selector_source_fingerprints=tuple(
+                (str(operation), str(fingerprint))
+                for operation, fingerprint in selector_sources.items()
+            ),
+            dynamic_selector_values=tuple(
+                (str(operation), tuple(str(value) for value in values))
+                for operation, values in selector_values.items()
+            ),
         )
 
 
@@ -580,7 +846,7 @@ class ImplementationSurfaceInventory:
             sorted(item.surface_id for item in self.surfaces if item.disposition not in excluded)
         )
 
-    @property
+    @cached_property
     def inventory_fingerprint(self) -> str:
         return canonical_identity(self._identity_payload())
 
@@ -645,6 +911,29 @@ class ImplementationSurfaceInventory:
         return inventory
 
 
+def implementation_behavior_surface_ids(
+    inventory: ImplementationSurfaceInventory,
+) -> tuple[str, ...]:
+    """Return the active provider's exact independent-behavior denominator.
+
+    Observation facts such as state writes and effects remain preserved on
+    every surface, including exact supporting members.  They do not override
+    the provider's terminal disposition: a supporting member stays in the DNA
+    through its owning-surface edge, while only ``model_implementation``
+    members require an independent behavior contract.
+    """
+
+    required = set(inventory.required_surface_ids)
+    return tuple(
+        sorted(
+            surface.surface_id
+            for surface in inventory.surfaces
+            if surface.surface_id in required
+            and surface.disposition == IMPLEMENTATION_DISPOSITION_MODEL
+        )
+    )
+
+
 @dataclass(frozen=True)
 class ImplementationInventoryAuditReport:
     ok: bool
@@ -676,6 +965,10 @@ class ImplementationInventoryAuditReport:
             "claim_boundary": self.claim_boundary,
         }
 
+    @property
+    def fingerprint(self) -> str:
+        return canonical_identity(self.to_dict())
+
 
 DiscoveryAdapter = Callable[..., ImplementationDiscoveryResult]
 
@@ -683,10 +976,17 @@ DiscoveryAdapter = Callable[..., ImplementationDiscoveryResult]
 def _boundary_manifest(
     root: Path,
     boundary: SoftwareBoundary,
+    *,
+    resolved_manifest: Sequence[Mapping[str, str]] | None = None,
 ) -> tuple[dict[str, str], dict[str, tuple[str, ...]], tuple[ImplementationInventoryFinding, ...]]:
+    manifest_rows = tuple(
+        resolved_manifest
+        if resolved_manifest is not None
+        else resolve_input_manifest(root, ("**/*", "*"))
+    )
     rows = {
         row["path"]: row["sha256"]
-        for row in resolve_input_manifest(root, ("**/*", "*"))
+        for row in manifest_rows
     }
     categories: dict[str, set[str]] = {}
     findings: list[ImplementationInventoryFinding] = []
@@ -694,7 +994,7 @@ def _boundary_manifest(
     for category, patterns in groups.items():
         if not patterns:
             continue
-        for row in resolve_input_manifest(root, patterns):
+        for row in filter_resolved_input_manifest(manifest_rows, patterns):
             path = row["path"]
             categories.setdefault(path, set()).add(category)
     for path in rows:
@@ -737,7 +1037,10 @@ def build_implementation_surface_inventory(
     surface_dispositions: Mapping[str, str] | None = None,
     supporting_owners: Mapping[str, str] | None = None,
     dynamic_allowances: Mapping[str, Sequence[str]] | None = None,
+    dynamic_selector_contracts: Sequence[DynamicSelectorContract] = (),
     discovery_adapters: Mapping[str, DiscoveryAdapter] | None = None,
+    discovery_results: Mapping[str, ImplementationDiscoveryResult] | None = None,
+    resolved_manifest: Sequence[Mapping[str, str]] | None = None,
     claim_boundary: str = (
         "Static implementation discovery and disposition only; model bindings, "
         "source-independent behavior semantics, and current validation evidence are not proven."
@@ -755,7 +1058,11 @@ def build_implementation_surface_inventory(
     if not root_path.is_dir():
         raise ImplementationInventoryError(f"inventory root is not a directory: {root_path}")
     _text(inventory_id, context="inventory_id")
-    manifest, categories, manifest_findings = _boundary_manifest(root_path, boundary)
+    manifest, categories, manifest_findings = _boundary_manifest(
+        root_path,
+        boundary,
+        resolved_manifest=resolved_manifest,
+    )
     findings = list(manifest_findings)
     disposition_by_path: dict[str, ImplementationFileDisposition] = {}
     for item in file_dispositions:
@@ -819,6 +1126,11 @@ def build_implementation_surface_inventory(
         )
 
     adapters = dict(discovery_adapters or {})
+    supplied_results = (
+        None
+        if discovery_results is None
+        else {str(path): result for path, result in discovery_results.items()}
+    )
     surface_dispositions = dict(surface_dispositions or {})
     supporting_owners = dict(supporting_owners or {})
     dynamic_allowances = dict(dynamic_allowances or {})
@@ -834,34 +1146,62 @@ def build_implementation_surface_inventory(
                 )
             )
         if not item.requires_adapter:
-            continue
-        adapter = adapters.get(item.adapter_id)
-        if adapter is None:
-            findings.append(
-                ImplementationInventoryFinding(
-                    "missing_discovery_adapter",
-                    f"required discovery adapter is unavailable: {item.adapter_id}",
-                    path=item.path,
+            if (
+                item.disposition
+                in {
+                    IMPLEMENTATION_DISPOSITION_MODEL,
+                    IMPLEMENTATION_DISPOSITION_SUPPORTING,
+                }
+                and not item.discovery_not_applicable_kind
+            ):
+                findings.append(
+                    ImplementationInventoryFinding(
+                        "implementation_discovery_disabled",
+                        "implementation-bearing file has neither adapter discovery nor a typed bounded not-applicable disposition",
+                        path=item.path,
+                    )
                 )
-            )
             continue
-        try:
-            result = adapter(
-                root=root_path,
-                file_disposition=item,
-                surface_dispositions=surface_dispositions,
-                supporting_owners=supporting_owners,
-                dynamic_allowances=dynamic_allowances,
-            )
-        except Exception as exc:  # adapters are an untrusted boundary
-            findings.append(
-                ImplementationInventoryFinding(
-                    "discovery_adapter_failure",
-                    f"{item.adapter_id} failed: {exc.__class__.__name__}: {exc}",
-                    path=item.path,
+        if supplied_results is not None:
+            result = supplied_results.get(item.path)
+            if result is None:
+                findings.append(
+                    ImplementationInventoryFinding(
+                        "missing_discovery_observation",
+                        "invocation-local discovery observations omit a required file",
+                        path=item.path,
+                    )
                 )
-            )
-            continue
+                continue
+        else:
+            adapter = adapters.get(item.adapter_id)
+            if adapter is None:
+                findings.append(
+                    ImplementationInventoryFinding(
+                        "missing_discovery_adapter",
+                        f"required discovery adapter is unavailable: {item.adapter_id}",
+                        path=item.path,
+                    )
+                )
+                continue
+            try:
+                result = adapter(
+                    root=root_path,
+                    file_disposition=item,
+                    surface_dispositions=surface_dispositions,
+                    supporting_owners=supporting_owners,
+                    dynamic_allowances=dynamic_allowances,
+                    dynamic_selector_contracts=dynamic_selector_contracts,
+                )
+            except Exception as exc:  # adapters are an untrusted boundary
+                findings.append(
+                    ImplementationInventoryFinding(
+                        "discovery_adapter_failure",
+                        f"{item.adapter_id} failed: {exc.__class__.__name__}: {exc}",
+                        path=item.path,
+                    )
+                )
+                continue
         if result.adapter_id != item.adapter_id or result.path != item.path:
             findings.append(
                 ImplementationInventoryFinding(
@@ -870,7 +1210,24 @@ def build_implementation_surface_inventory(
                     path=item.path,
                 )
             )
+            continue
         findings.extend(result.findings)
+        if (
+            item.disposition
+            in {
+                IMPLEMENTATION_DISPOSITION_MODEL,
+                IMPLEMENTATION_DISPOSITION_SUPPORTING,
+            }
+            and not result.surfaces
+            and not any(finding.severity == "blocker" for finding in result.findings)
+        ):
+            findings.append(
+                ImplementationInventoryFinding(
+                    "empty_discovery_adapter_result",
+                    "implementation discovery returned no surfaces and no bounded blocking explanation",
+                    path=item.path,
+                )
+            )
         for surface in result.surfaces:
             if surface.surface_id in seen_surface_ids:
                 findings.append(
@@ -884,6 +1241,19 @@ def build_implementation_surface_inventory(
                 continue
             seen_surface_ids.add(surface.surface_id)
             surfaces.append(surface)
+
+    if supplied_results is not None:
+        required_observation_paths = {
+            item.path for item in admitted if item.requires_adapter
+        }
+        for path in sorted(set(supplied_results) - required_observation_paths):
+            findings.append(
+                ImplementationInventoryFinding(
+                    "extra_discovery_observation",
+                    "invocation-local discovery observation is outside the current adapter denominator",
+                    path=path,
+                )
+            )
 
     ordered_files = tuple(sorted(admitted, key=lambda item: item.path))
     ordered_surfaces = tuple(sorted(surfaces, key=lambda item: (item.path, item.line_start, item.symbol)))
@@ -926,15 +1296,6 @@ def review_implementation_surface_inventory(
                 ImplementationInventoryFinding(
                     "unresolved_surface_disposition",
                     "implementation surface disposition is not terminal",
-                    path=surface.path,
-                    surface_id=surface.surface_id,
-                )
-            )
-        if surface.behavior_bearing and surface.disposition == IMPLEMENTATION_DISPOSITION_SUPPORTING:
-            findings.append(
-                ImplementationInventoryFinding(
-                    "behavior_surface_marked_supporting",
-                    "state/effect/entrypoint behavior cannot be disposed as a pure supporting helper",
                     path=surface.path,
                     surface_id=surface.surface_id,
                 )
@@ -1053,6 +1414,9 @@ def audit_implementation_surface_inventory(
 
 
 __all__ = [
+    "DISCOVERY_NOT_APPLICABLE_KINDS",
+    "DYNAMIC_SELECTOR_CONTRACT_OPERATIONS",
+    "DynamicSelectorContract",
     "IMPLEMENTATION_INVENTORY_SCHEMA_VERSION",
     "IMPLEMENTATION_DISPOSITION_MODEL",
     "IMPLEMENTATION_DISPOSITION_SUPPORTING",
@@ -1076,6 +1440,7 @@ __all__ = [
     "ImplementationInventoryAuditReport",
     "implementation_surface_key",
     "implementation_surface_id",
+    "implementation_behavior_surface_ids",
     "build_implementation_surface_inventory",
     "review_implementation_surface_inventory",
     "serialize_implementation_surface_inventory",

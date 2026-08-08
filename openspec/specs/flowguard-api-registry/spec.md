@@ -50,36 +50,48 @@ FlowGuard SHALL expose a compact agent-default API group and route starter regis
 - **AND** the API registry MUST NOT describe it as the default AI entry
 
 ### Requirement: Risk template library is route-scoped public API
-FlowGuard SHALL expose risk-template library helpers through a route-scoped API
-group and compact starter group, while keeping them out of the core modeling API.
+FlowGuard SHALL retain risk-template search, review, merge, harvest, and harvest-review helpers in the route-scoped risk_template_library API cohort and advanced discovery surface. They SHALL remain outside CORE_API and ROUTE_STARTER_API so ordinary modeling does not inherit a universal template gate.
 
 #### Scenario: Route group exposes template helpers
-- **WHEN** `FLOWGUARD_ROUTE_API` is inspected
-- **THEN** it includes a `risk_template_library` group with search, review, merge, and harvest helpers
+- **WHEN** FLOWGUARD_ROUTE_API or advanced route discovery is inspected
+- **THEN** the current risk_template_library group remains available for explicitly scoped template operations
 
 #### Scenario: Core API remains model primitive only
-- **WHEN** `CORE_API` is inspected
-- **THEN** risk-template library helpers are not included in the core finite-state modeling primitives
+- **WHEN** CORE_API or ROUTE_STARTER_API is inspected
+- **THEN** risk-template search and harvest helpers are absent from the universal model primitives and direct starter path
 
 ### Requirement: Evidence API exposes template files and CLI surfaces
-FlowGuard SHALL expose public template-library template files and CLI command
-surfaces through the same template structure conventions as other routes.
+FlowGuard SHALL retain the public risk-template-library template and the explicit risk-template search, harvest, and harvest-review CLI surfaces under the existing template and CLI conventions. Their discoverability SHALL NOT make them mandatory for ordinary model, repair, maintenance, or release completion.
 
 #### Scenario: Template helper is discoverable
-- **WHEN** public template helpers are inspected
-- **THEN** a risk-template-library template helper is present and exports route-scoped starter files
+- **WHEN** a caller requests template reuse, publication, harvest, or harvest review
+- **THEN** the current risk-template-library-template, risk-template-harvest, and risk-template-harvest-review command surfaces remain discoverable
+
+#### Scenario: Ordinary work inspects its required commands
+- **WHEN** no accepted template trigger is present
+- **THEN** ordinary FlowGuard completion has no required template CLI command or receipt
 
 ### Requirement: Public API exposes harvest closure helpers
-FlowGuard SHALL expose template harvest closure helpers through the
-`risk_template_library` route-scoped API and starter API surfaces.
+FlowGuard SHALL retain TemplateHarvestReview, review_template_harvest_closure, and the current harvest helpers in the route-scoped RISK_TEMPLATE_LIBRARY_API and advanced risk-template discovery surface. FlowGuard SHALL also retain the explicit risk-template-library-template, risk-template-harvest, and risk-template-harvest-review CLI commands. These surfaces SHALL run only for explicit reuse, publication, harvest, or current stable cross-project-pattern work and SHALL NOT be required by CORE_API, the universal kernel hot path, ROUTE_STARTER_API, ordinary model completion, or unrelated maintenance.
 
 #### Scenario: API registry is inspected
-- **WHEN** a consumer inspects route-scoped APIs
-- **THEN** `RISK_TEMPLATE_LIBRARY_API` includes `TemplateHarvestReview` and `review_template_harvest_closure`
+- **WHEN** a consumer inspects RISK_TEMPLATE_LIBRARY_API or the advanced risk-template route group
+- **THEN** TemplateHarvestReview, review_template_harvest_closure, and the current harvest helpers remain discoverable
+- **AND** they are absent from the core finite-state modeling primitives and universal starter path
+
+#### Scenario: Explicit harvest CLI is invoked
+- **WHEN** a caller invokes risk-template-harvest or risk-template-harvest-review for an explicitly scoped template operation
+- **THEN** FlowGuard executes the current strict harvest or review behavior
+- **AND** missing or invalid operation-local evidence remains a visible failure
+
+#### Scenario: Ordinary model work has no template trigger
+- **WHEN** a bounded model, repair, maintenance, or release task contains no explicit template reuse or publication scope and no accepted stable cross-project-pattern trigger
+- **THEN** its completion does not invoke or require the harvest API, template command, or CLI receipt
 
 #### Scenario: Starter API is inspected
-- **WHEN** an AI consumer reads `ROUTE_STARTER_API["risk_template_library"]`
-- **THEN** it includes the helper needed to review harvest closure before final claims
+- **WHEN** a consumer inspects ROUTE_STARTER_API or the universal model-first kernel entry
+- **THEN** template harvest and harvest-review helpers are absent from that starter surface
+- **AND** explicitly scoped callers continue to use the route-scoped risk-template owner
 
 ### Requirement: Route registry separates public and internal surfaces
 The FlowGuard API registry SHALL separate public owner route discovery from
@@ -365,11 +377,12 @@ Public implementation-inventory, model-binding, blueprint-qualification, and det
 - **THEN** API parity validation fails
 
 ### Requirement: Project-neutral blueprint APIs extend the existing kernel cohort
-The public API registry SHALL expose provider-neutral target-system descriptor, provider declaration/registry/result, frozen snapshot, compiler, understanding projection, and project-specialized inventory/binding/qualification APIs through the existing FlowGuard kernel API cohort. These APIs SHALL operate on explicit target definitions and native provider evidence without introducing a new public route, `DNA` skill, or alternate authority cohort.
+The public API registry SHALL expose provider-neutral target-system descriptor, provider declaration/registry/result, frozen snapshot, compiler, understanding projection, canonical target projection, and project-specialized inventory/binding/qualification APIs through the existing FlowGuard kernel API cohort. The target and Python-project projection APIs SHALL return the same existing `CanonicalBlueprintProjection` envelope and use its writer/verifier rather than introducing a second export authority. These APIs SHALL operate on explicit target definitions and native provider evidence without introducing a new public route, `DNA` skill, or alternate authority cohort.
 
 #### Scenario: A consumer builds a non-Python target blueprint
-- **WHEN** a consumer supplies a target descriptor, frozen provider registry and snapshot, current observation and authority results, and downstream layer results
-- **THEN** the kernel cohort exposes the provider-neutral compiler and qualification result
+- **WHEN** a consumer supplies a strict target descriptor, frozen provider evidence, the current native observation/authority report set, and an explicit affected or whole scope
+- **THEN** the public qualifier mechanically derives the canonical provider-neutral layers, gaps, readiness, and admission result
+- **AND** caller-authored downstream layer, gap, status, or admission rows are not a public qualification input
 - **AND** the consumer does not import FlowGuard's Python self-blueprint preset
 
 #### Scenario: FlowGuard builds its own blueprint
@@ -381,15 +394,47 @@ The public API registry SHALL expose provider-neutral target-system descriptor, 
 - **WHEN** registry compilation finds an expected target-system or blueprint API absent, duplicated, or assigned to a conflicting route group
 - **THEN** the API-registry check fails with the exact name and owner conflict
 - **AND** package export cannot claim the provider-neutral cohort current
-### Requirement: API results expose layered understanding without executing reconstruction
-Project-neutral API results SHALL expose the deepest proven understanding layer, per-layer statuses, exact findings and owners, implementation admission status when supplied by its native owner, and empirical reconstruction status. Calling construction, inventory, audit, qualification, affected-neighborhood, or projection preparation APIs SHALL NOT launch reconstruction.
 
-#### Scenario: Static blueprint is complete without reconstruction
-- **WHEN** all static layers pass and no reconstruction receipt is supplied
-- **THEN** the API reports static blueprint complete and reconstruction `not_run`
-- **AND** the result remains successful for a static-only claim
+#### Scenario: A target export projection is requested through Python
+- **WHEN** a consumer supplies the exact typed descriptor, frozen evidence, complete native report set, and native qualification report
+- **THEN** `canonical_target_system_blueprint_projection` SHALL return the existing content-addressed projection type with the exact audit-input and readiness identities
+- **AND** no caller-authored status or alternate envelope API SHALL be registered
 
-#### Scenario: Reconstruction is explicitly required for a claim
-- **WHEN** the caller requests a reconstruction-qualified claim but supplies no matching current receipt
-- **THEN** the API reports the empirical layer `not_run` and the requested claim blocked
-- **AND** it does not schedule or execute reconstruction
+### Requirement: API results expose one canonical layered-understanding result
+Project-neutral API results SHALL expose the deepest proven understanding layer, per-layer statuses, exact findings and owners, and implementation-admission status when supplied by its native owner. Construction, inventory, audit, qualification, affected-neighborhood, and projection APIs SHALL consume and return the same canonical blueprint-readiness semantics.
+
+#### Scenario: Static blueprint is complete
+- **WHEN** all static layers pass
+- **THEN** the API reports static blueprint complete with `static_blueprint` as the deepest proven layer
+
+#### Scenario: Caller supplies an undeclared alternate status field
+- **WHEN** a strict current API payload contains a status field outside the canonical layered-understanding schema
+- **THEN** the payload is rejected as non-current rather than routed to an alternate qualification branch
+
+### Requirement: Static manifest qualification remains an internal child result
+The static manifest consistency report SHALL be derived only by its private qualifier, SHALL NOT be exported from the root package or registered implementation-blueprint API cohort, and SHALL expose a manifest-specific status, readiness boolean, layers, findings, and exact claim boundary without a generic success field or completion sentence.
+
+#### Scenario: Caller attempts to construct or publish manifest success
+- **WHEN** a caller constructs the internal report directly or looks up either the retired report name or its current internal type through the public API
+- **THEN** direct construction SHALL fail and the public lookup SHALL be absent
+- **AND** project or target readiness SHALL remain the only owner of whole readiness and implementation admission
+
+### Requirement: Retired historical routes leave no public or compatibility surface
+When a route or behavior is intentionally retired, FlowGuard SHALL remove its route registry entry, starter/advanced group, top-level exports, template helper, CLI command, documentation cohort, and public commitment. A compact shared data type may remain only under its canonical consuming owner and MUST NOT preserve the retired route identity.
+
+#### Scenario: Public registry is inspected after retirement
+- **WHEN** a retired Model Angle, Maintenance Scan, standalone Model Similarity, duplicate non-canonical route template, or retired model owner name is inspected
+- **THEN** it is absent from public route discovery and package exports
+
+#### Scenario: Retired name is invoked
+- **WHEN** a caller imports or invokes a retired name
+- **THEN** the operation fails visibly without aliasing, forwarding, translating, or falling back to a current owner
+
+#### Scenario: Advanced consumer needs an internal type
+- **WHEN** a small typed relation or maintenance-obligation carrier remains necessary
+- **THEN** it is available through the canonical owner module only and does not recreate the retired public route
+
+#### Scenario: Explicit risk-template work is inspected
+- **WHEN** a caller explicitly requests risk-template reuse, publication, harvest, or harvest review
+- **THEN** the current risk-template library APIs, template surface, and CLI commands remain available
+- **AND** their presence MUST NOT reintroduce them into the universal modeling hot path

@@ -92,9 +92,10 @@ Use the gates that match the claim:
 - Obligation-family parity: when related obligations share one confidence
   claim, each sibling has the required mechanism evidence from allowed
   provenance sources, or the family gap stays visible.
-- Analogous defect scan: after a post-green miss, same-shape sibling risks have
-  been reviewed, covered, assigned to a separate change, or excluded with a
-  concrete reason before broad closure is restored.
+- Model-miss finite closure: after a post-green miss, one exact commitment,
+  primary owner, and blueprint gap select the affected scope; current
+  canonical relations are materialized as ContractExhaustion cases with
+  oracles before broad closure is restored.
 - Runtime gateway adoption: when the claim says FlowGuard protects production
   state mutation, every critical state surface has complete writer inventory,
   gateway ownership, mediated write observations, and current step, boundary,
@@ -111,8 +112,9 @@ Use the gates that match the claim:
 - Evidence freshness: later edits, peer writes, adapter changes, generated
   artifacts, and long-running checks have not made earlier evidence stale.
 - Risk Evidence Ledger: user risks connect to model obligations, owner code
-  contracts, model-code-test binding rows, obligation-family gates, analogous
-  defect scans, defect-family gates, split gates, and current proof evidence.
+  contracts, model-code-test binding rows, ContractExhaustion coverage,
+  independently verified ModelMaturation evidence, split gates, and current
+  proof evidence.
 - UI Done Claim: when the final statement says a UI is complete, runnable, or
   wired, the closure package includes current observed real-surface inventory,
   enabled-control functional chains, human-operability review,
@@ -138,10 +140,11 @@ complete but release/full UI confidence is not complete.
 
 If a later runtime, test, replay, log, manual validation failure, or
 non-trivial bug report appears after a green FlowGuard result, treat it as a
-closure-contract miss until Model-Miss Review, root-cause backpropagation,
-same-class evidence, owner code contract binding, family parity, analogous
-defect scan, legacy path disposition, alignment, model maturation, freshness,
-ledger, and claim-chain evidence have been repaired.
+closure-contract miss until Model-Miss Review has rebound the exact commitment
+and blueprint gap, materialized the finite canonical relations as
+ContractExhaustion cases, repaired owner code/test binding, replayed affected
+topology and parent evidence, closed or scoped ModelMaturation, refreshed
+process evidence, and updated the ledger and claim chain.
 If the miss or replacement involved fields, include FieldLifecycleMesh and
 old-field disposition repair in that same closure chain.
 

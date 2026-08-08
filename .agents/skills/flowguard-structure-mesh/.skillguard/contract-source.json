@@ -3,7 +3,7 @@
   "checks": [
     {
       "check_id": "check:flowguard-structure-mesh:plane-boundary",
-      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_rationale": "The model assertion is the single declared owner for the StructureMesh plane-boundary obligation.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
         "obligation:flowguard-structure-mesh:plane-boundary"
@@ -30,11 +30,14 @@
         "-m",
         "pytest",
         "tests/test_structure_mesh.py",
+        "tests/test_blueprint_topology.py",
+        "tests/test_project_blueprint.py",
+        "tests/test_architecture_reduction.py",
         "-q"
       ],
       "check_id": "check:flowguard-structure-mesh:native-authority",
       "command": "python",
-      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_rationale": "The native command jointly exercises StructureMesh, topology, project blueprint, and ArchitectureReduction evidence, including the exact proof-ready handoff into structural validation.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
         "obligation:flowguard-structure-mesh:native-authority"
@@ -56,6 +59,30 @@
         {
           "kind": "path",
           "path": "tests/test_structure_mesh.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/blueprint_topology.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/project_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/architecture_reduction.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_blueprint_topology.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_project_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_architecture_reduction.py"
         },
         {
           "kind": "role",
@@ -101,7 +128,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "StructureMesh proves only the declared existing-code split, ownership, facade, dependency/config, and parity evidence for the current scope.",
+  "claim_boundary": "StructureMesh proves only the declared existing-code split, ownership, facade, dependency/config, parity evidence, and completeness of a supplied ArchitectureReduction handoff for the current scope.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -184,7 +211,13 @@
     ".flowguard/structure_refactor_mesh",
     "flowguard/structuremesh.py",
     "flowguard/skill_contract_model.py",
-    "tests/test_structure_mesh.py"
+    "flowguard/blueprint_topology.py",
+    "flowguard/project_blueprint.py",
+    "flowguard/architecture_reduction.py",
+    "tests/test_structure_mesh.py",
+    "tests/test_blueprint_topology.py",
+    "tests/test_project_blueprint.py",
+    "tests/test_architecture_reduction.py"
   ],
   "integration_mode": "native-integrated",
   "judgment_rubrics": [],
@@ -244,7 +277,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Run the existing StructureMesh owner to assign one owner per partition and preserve facades, dependencies, configuration, and public compatibility."
+        "summary": "Run StructureMesh together with topology, project-blueprint, and ArchitectureReduction checks; require a supplied reduction handoff to bind its universe member, observable contract, current proof, consumers/tests, target action, and next route."
       },
       "check_ids": [
         "check:flowguard-structure-mesh:native-authority"
@@ -255,7 +288,7 @@
     {
       "action": {
         "kind": "verifier",
-        "summary": "Reject missing derivation or owners, removed entrypoints, cycles, configuration drift, or stale parity evidence."
+        "summary": "Reject missing derivation or owners, removed entrypoints, cycles, configuration drift, stale parity, or an incomplete ArchitectureReduction handoff."
       },
       "check_ids": [
         "check:flowguard-structure-mesh:evidence-closure"

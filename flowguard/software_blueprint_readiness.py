@@ -13,16 +13,36 @@ from dataclasses import dataclass
 from functools import cached_property
 import hashlib
 import json
+from types import MappingProxyType
 from typing import Any, Iterable, Mapping, Sequence
 
-from .implementation_blueprint import BlueprintResourceReference
+from ._normalization import unique_sorted_strings as _tuple
+from .evidence_receipts import (
+    RECEIPT_STATUS_PASS,
+    EvidenceReceipt,
+    ReceiptVerificationResult,
+)
+from .implementation_blueprint import (
+    BlueprintResourceReference,
+    OracleReference,
+    SemanticSpecReference,
+)
+from .validation_ownership import OWNER_RECEIPT_KIND, ValidationOwnerContract
+from .target_system_blueprint import (
+    ModelPathQualityBlueprintBinding,
+    model_path_quality_binding_set_fingerprint,
+)
 
 
-BEHAVIOR_BLUEPRINT_SCHEMA = "flowguard.behavior_blueprint.v3"
-RESOURCE_INVENTORY_SCHEMA = "flowguard.project_resource_inventory.v2"
-INTENT_INVENTORY_SCHEMA = "flowguard.project_intent_inventory.v2"
-STATIC_BLUEPRINT_READINESS_SCHEMA = "flowguard.static_blueprint_readiness.v1"
-NORMALIZED_PROJECTION_SCHEMA = "flowguard.normalized_blueprint_projection.v2"
+BEHAVIOR_BLUEPRINT_SCHEMA = "flowguard.behavior_blueprint.v7"
+RESOURCE_INVENTORY_SCHEMA = "flowguard.project_resource_inventory.v4"
+INTENT_INVENTORY_SCHEMA = "flowguard.project_intent_inventory.v5"
+STATIC_BLUEPRINT_READINESS_SCHEMA = "flowguard.static_blueprint_readiness.v2"
+NORMALIZED_PROJECTION_SCHEMA = "flowguard.normalized_blueprint_projection.v5"
+BEHAVIOR_COVERAGE_REFERENCE_SHARD_SCHEMA = (
+    "flowguard.behavior_coverage_reference_shard.v1"
+)
+BEHAVIOR_COVERAGE_REFERENCE_SHARD_KIND = "behavior_coverage_reference_shard"
 CANDIDATE_BLUEPRINT_SCHEMA = "flowguard.candidate_blueprint.v2"
 
 BEHAVIOR_DIMENSIONS = (
@@ -37,6 +57,11 @@ BEHAVIOR_DIMENSIONS = (
     "timeout",
     "completion",
 )
+BEHAVIOR_CASE_DIMENSIONS = MappingProxyType({
+    "good": ("input", "state", "output", "effect", "order", "completion"),
+    "boundary": ("input", "error", "decision", "retry", "timeout", "completion"),
+    "bad": ("input", "state", "effect", "error", "decision", "completion"),
+})
 DIMENSION_DISPOSITIONS = frozenset({"modeled", "not_applicable"})
 EXECUTION_DISPOSITIONS = frozenset(
     {"pass", "fail", "not_run", "blocked", "not_applicable"}
@@ -64,6 +89,9 @@ RESOURCE_CATEGORIES = (
     "behavioral_oracle",
 )
 RESOURCE_DISPOSITIONS = frozenset({"current", "external", "scoped_out", "blocked"})
+OBSERVED_AUTHORITY_STATUSES = frozenset(
+    {"current", "stale", "blocked", "unavailable"}
+)
 TERMINAL_ASSERTION_CALL_NAMES = frozenset(
     {"assert_called_once", "assert_called_once_with", "assert_not_called"}
 )
@@ -71,14 +99,13 @@ INTENT_DISPOSITIONS = frozenset(
     {"accepted", "superseded", "rejected", "scoped_out", "blocked"}
 )
 READINESS_STATUSES = frozenset({"ready", "incomplete", "stale", "blocked"})
+EXECUTED_EVIDENCE_STATUSES = frozenset(
+    {"not_run", "passed", "failed", "blocked"}
+)
 
 
 class SoftwareBlueprintReadinessError(ValueError):
     """Raised when a behavior blueprint payload is ambiguous or self-licensing."""
-
-
-def _tuple(values: Iterable[str]) -> tuple[str, ...]:
-    return tuple(sorted({str(value) for value in values if str(value)}))
 
 
 def _pairs(values: Mapping[str, str] | Iterable[tuple[str, str]]) -> tuple[tuple[str, str], ...]:
@@ -177,12 +204,14 @@ class BehaviorBlockContract:
     behavior_block_id: str
     implementation_surface_id: str
     model_element_id: str
+    model_fingerprint: str
     owner_contract_id: str
     owner_id: str
     function_relation: str
     dimensions: tuple[BehaviorDimensionContract, ...]
     semantic_spec_ids: tuple[str, ...]
     oracle_ids: tuple[str, ...]
+    intent_contribution_ids: tuple[str, ...]
     portable_binding_ids: tuple[str, ...]
     protected_failure_ids: tuple[str, ...]
     accepted: bool
@@ -194,6 +223,7 @@ class BehaviorBlockContract:
             self.behavior_block_id,
             self.implementation_surface_id,
             self.model_element_id,
+            self.model_fingerprint,
             self.owner_contract_id,
             self.owner_id,
             self.source_fingerprint,
@@ -208,6 +238,9 @@ class BehaviorBlockContract:
             raise SoftwareBlueprintReadinessError("behavior block does not close every canonical dimension")
         object.__setattr__(self, "semantic_spec_ids", _tuple(self.semantic_spec_ids))
         object.__setattr__(self, "oracle_ids", _tuple(self.oracle_ids))
+        object.__setattr__(
+            self, "intent_contribution_ids", _tuple(self.intent_contribution_ids)
+        )
         object.__setattr__(self, "portable_binding_ids", _tuple(self.portable_binding_ids))
         object.__setattr__(self, "protected_failure_ids", _tuple(self.protected_failure_ids))
         if not self.semantic_spec_ids or not self.oracle_ids or not self.portable_binding_ids:
@@ -238,12 +271,14 @@ class BehaviorBlockContract:
             "behavior_block_id": self.behavior_block_id,
             "implementation_surface_id": self.implementation_surface_id,
             "model_element_id": self.model_element_id,
+            "model_fingerprint": self.model_fingerprint,
             "owner_contract_id": self.owner_contract_id,
             "owner_id": self.owner_id,
             "function_relation": self.function_relation,
             "dimensions": [row.to_dict() for row in self.dimensions],
             "semantic_spec_ids": list(self.semantic_spec_ids),
             "oracle_ids": list(self.oracle_ids),
+            "intent_contribution_ids": list(self.intent_contribution_ids),
             "portable_binding_ids": list(self.portable_binding_ids),
             "protected_failure_ids": list(self.protected_failure_ids),
             "accepted": self.accepted,
@@ -275,7 +310,7 @@ class SupportingSurfaceRelation:
         ):
             raise SoftwareBlueprintReadinessError("supporting relation identity is incomplete")
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "supporting_surface_id": self.supporting_surface_id,
             "behavior_block_id": self.behavior_block_id,
@@ -376,6 +411,7 @@ class BehaviorCaseContract:
     value_mode: str
     protected_failure_ids: tuple[str, ...] = ()
     parameter_case_id: str = ""
+    source_case_id: str = ""
 
     def __post_init__(self) -> None:
         if self.case_kind not in {"good", "bad", "boundary"}:
@@ -400,6 +436,7 @@ class BehaviorCaseContract:
         object.__setattr__(self, "expected_errors", _tuple(self.expected_errors))
         object.__setattr__(self, "protected_failure_ids", _tuple(self.protected_failure_ids))
         object.__setattr__(self, "parameter_case_id", str(self.parameter_case_id))
+        object.__setattr__(self, "source_case_id", str(self.source_case_id))
         if self.case_kind == "bad" and not (
             self.expected_errors or self.protected_failure_ids
         ):
@@ -443,7 +480,27 @@ class BehaviorCaseContract:
             "value_mode": self.value_mode,
             "protected_failure_ids": list(self.protected_failure_ids),
             "parameter_case_id": self.parameter_case_id,
+            "source_case_id": self.source_case_id,
         }
+
+    @cached_property
+    def content_fingerprint(self) -> str:
+        """Canonical behavior values/state/effects/errors bound by a checker edge."""
+
+        return _fingerprint(
+            {
+                "behavior_block_id": self.behavior_block_id,
+                "case_kind": self.case_kind,
+                "input_values": dict(self.input_values),
+                "initial_state": dict(self.initial_state),
+                "expected_output": dict(self.expected_output),
+                "expected_state": dict(self.expected_state),
+                "expected_effects": list(self.expected_effects),
+                "expected_errors": list(self.expected_errors),
+                "oracle_id": self.oracle_id,
+                "protected_failure_ids": list(self.protected_failure_ids),
+            }
+        )
 
 
 @dataclass(frozen=True)
@@ -453,14 +510,19 @@ class BehaviorCoverageEdge:
     implementation_surface_id: str
     model_obligation_id: str
     semantic_spec_id: str
+    semantic_content_fingerprint: str
     owner_contract_id: str
+    behavior_owner_id: str
+    implementation_content_fingerprint: str
     test_node_id: str
     oracle_member_id: str
     oracle_member_fingerprint: str
     case_id: str
+    case_content_fingerprint: str
     covered_dimensions: tuple[str, ...]
     evidence_role: str
     oracle_id: str
+    oracle_content_fingerprint: str
 
     def __post_init__(self) -> None:
         required = (
@@ -469,13 +531,18 @@ class BehaviorCoverageEdge:
             self.implementation_surface_id,
             self.model_obligation_id,
             self.semantic_spec_id,
+            self.semantic_content_fingerprint,
             self.owner_contract_id,
+            self.behavior_owner_id,
+            self.implementation_content_fingerprint,
             self.test_node_id,
             self.oracle_member_id,
             self.oracle_member_fingerprint,
             self.case_id,
+            self.case_content_fingerprint,
             self.evidence_role,
             self.oracle_id,
+            self.oracle_content_fingerprint,
         )
         if not all(required):
             raise SoftwareBlueprintReadinessError("behavior coverage identity is incomplete")
@@ -490,15 +557,24 @@ class BehaviorCoverageEdge:
             "implementation_surface_id": self.implementation_surface_id,
             "model_obligation_id": self.model_obligation_id,
             "semantic_spec_id": self.semantic_spec_id,
+            "semantic_content_fingerprint": self.semantic_content_fingerprint,
             "owner_contract_id": self.owner_contract_id,
+            "behavior_owner_id": self.behavior_owner_id,
+            "implementation_content_fingerprint": self.implementation_content_fingerprint,
             "test_node_id": self.test_node_id,
             "oracle_member_id": self.oracle_member_id,
             "oracle_member_fingerprint": self.oracle_member_fingerprint,
             "case_id": self.case_id,
+            "case_content_fingerprint": self.case_content_fingerprint,
             "covered_dimensions": list(self.covered_dimensions),
             "evidence_role": self.evidence_role,
             "oracle_id": self.oracle_id,
+            "oracle_content_fingerprint": self.oracle_content_fingerprint,
         }
+
+    @cached_property
+    def content_fingerprint(self) -> str:
+        return _fingerprint(self.to_dict())
 
 
 @dataclass(frozen=True)
@@ -606,13 +682,73 @@ class ProjectTestNodeDisposition:
 
 
 @dataclass(frozen=True)
+class ObservedResourceMember:
+    """One independently observed current resource denominator member."""
+
+    resource_id: str
+    kind: str
+    owner_id: str
+    artifact_id: str
+    subject_revision: str
+    current_artifact_fingerprint: str
+    provider_id: str
+    capability_id: str
+    payload_id: str
+    status: str = "current"
+
+    def __post_init__(self) -> None:
+        if not all(
+            str(value).strip()
+            for value in (
+                self.resource_id,
+                self.kind,
+                self.owner_id,
+                self.artifact_id,
+                self.subject_revision,
+                self.current_artifact_fingerprint,
+                self.provider_id,
+                self.capability_id,
+                self.payload_id,
+            )
+        ):
+            raise SoftwareBlueprintReadinessError(
+                "observed resource identity is incomplete"
+            )
+        if self.status not in OBSERVED_AUTHORITY_STATUSES:
+            raise SoftwareBlueprintReadinessError(
+                "observed resource status is invalid"
+            )
+
+    @cached_property
+    def fingerprint(self) -> str:
+        return _fingerprint(self.to_dict())
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "resource_id": self.resource_id,
+            "kind": self.kind,
+            "owner_id": self.owner_id,
+            "artifact_id": self.artifact_id,
+            "subject_revision": self.subject_revision,
+            "current_artifact_fingerprint": self.current_artifact_fingerprint,
+            "provider_id": self.provider_id,
+            "capability_id": self.capability_id,
+            "payload_id": self.payload_id,
+            "status": self.status,
+        }
+
+
+@dataclass(frozen=True)
 class ProjectResourceMember:
     member_id: str
     category: str
     category_disposition: str
     category_evidence_fingerprint: str
     resource_reference: BlueprintResourceReference | None
+    consuming_behavior_ids: tuple[str, ...]
+    consuming_model_ids: tuple[str, ...]
     rationale: str
+    observed_resource: ObservedResourceMember | None = None
 
     def __post_init__(self) -> None:
         if self.category not in RESOURCE_CATEGORIES:
@@ -621,23 +757,50 @@ class ProjectResourceMember:
             raise SoftwareBlueprintReadinessError("unknown resource disposition")
         if not self.member_id or not self.category_evidence_fingerprint or not self.rationale.strip():
             raise SoftwareBlueprintReadinessError("resource member identity is incomplete")
-        if self.category_disposition == "blocked":
-            if self.resource_reference is not None:
+        object.__setattr__(
+            self, "consuming_behavior_ids", _tuple(self.consuming_behavior_ids)
+        )
+        object.__setattr__(self, "consuming_model_ids", _tuple(self.consuming_model_ids))
+        if self.resource_reference is not None:
+            if self.member_id != self.resource_reference.resource_id:
                 raise SoftwareBlueprintReadinessError(
-                    "blocked category member cannot claim a canonical resource reference"
+                    "resource category member identity must equal the canonical resource identity"
                 )
+            if (
+                self.consuming_behavior_ids
+                != self.resource_reference.consuming_behavior_ids
+                or self.consuming_model_ids
+                != self.resource_reference.consuming_model_ids
+            ):
+                raise SoftwareBlueprintReadinessError(
+                    "resource member consumer bindings must equal the canonical resource bindings"
+                )
+        if self.observed_resource is not None and (
+            self.member_id != self.observed_resource.resource_id
+        ):
+            raise SoftwareBlueprintReadinessError(
+                "resource category member identity must equal the observed resource identity"
+            )
+        if self.category_disposition == "blocked":
             return
         if self.resource_reference is None:
             raise SoftwareBlueprintReadinessError(
-                "non-blocked category member requires the canonical resource reference"
+                "non-blocked category member requires a declared resource identity"
             )
-        if self.member_id != self.resource_reference.resource_id:
+        if self.category_disposition == "current" and self.observed_resource is None:
             raise SoftwareBlueprintReadinessError(
-                "resource category member identity must equal the canonical resource identity"
+                "current category member requires an independently observed resource identity"
             )
         if self.category_disposition != self.resource_reference.disposition:
             raise SoftwareBlueprintReadinessError(
                 "resource category disposition must preserve the canonical lifecycle disposition"
+            )
+        if (
+            self.observed_resource is not None
+            and self.observed_resource.status != "current"
+        ):
+            raise SoftwareBlueprintReadinessError(
+                "non-blocked category member requires a current observed resource"
             )
 
     def to_dict(self) -> dict[str, Any]:
@@ -649,6 +812,11 @@ class ProjectResourceMember:
             "resource_reference": (
                 self.resource_reference.to_dict() if self.resource_reference else None
             ),
+            "observed_resource": (
+                self.observed_resource.to_dict() if self.observed_resource else None
+            ),
+            "consuming_behavior_ids": list(self.consuming_behavior_ids),
+            "consuming_model_ids": list(self.consuming_model_ids),
             "rationale": self.rationale,
         }
 
@@ -659,6 +827,7 @@ class ProjectResourceInventory:
     boundary_fingerprint: str
     members: tuple[ProjectResourceMember, ...]
     discovery_fingerprints: tuple[tuple[str, str], ...]
+    findings: tuple[ReadinessFinding, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.inventory_id or not self.boundary_fingerprint:
@@ -670,15 +839,38 @@ class ProjectResourceInventory:
         object.__setattr__(self, "discovery_fingerprints", _pairs(self.discovery_fingerprints))
         if not self.discovery_fingerprints:
             raise SoftwareBlueprintReadinessError("resource inventory requires independent discovery evidence")
+        object.__setattr__(
+            self,
+            "findings",
+            tuple(
+                sorted(
+                    self.findings,
+                    key=lambda row: (row.code, row.member_ids, row.severity),
+                )
+            ),
+        )
 
-    @property
+    @cached_property
     def fingerprint(self) -> str:
         return _fingerprint(self.to_dict())
 
     @property
     def complete(self) -> bool:
-        return set(row.category for row in self.members) == set(RESOURCE_CATEGORIES) and all(
-            row.category_disposition != "blocked" for row in self.members
+        return (
+            not self.findings
+            and set(row.category for row in self.members) == set(RESOURCE_CATEGORIES)
+            and all(
+                row.category_disposition != "blocked"
+                and (
+                    row.category_disposition != "current"
+                    or (
+                        row.observed_resource is not None
+                        and bool(row.consuming_behavior_ids)
+                        and bool(row.consuming_model_ids)
+                    )
+                )
+                for row in self.members
+            )
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -688,6 +880,7 @@ class ProjectResourceInventory:
             "boundary_fingerprint": self.boundary_fingerprint,
             "members": [row.to_dict() for row in self.members],
             "discovery_fingerprints": dict(self.discovery_fingerprints),
+            "findings": [row.to_dict() for row in self.findings],
         }
 
 
@@ -696,7 +889,10 @@ class ProjectIntentContribution:
     contribution_id: str
     source_kind: str
     source_id: str
+    source_owner_id: str
     source_fingerprint: str
+    expectation_id: str
+    expectation_fingerprint: str
     disposition: str
     target_ids: tuple[str, ...]
     rationale: str
@@ -704,7 +900,17 @@ class ProjectIntentContribution:
     def __post_init__(self) -> None:
         if self.disposition not in INTENT_DISPOSITIONS:
             raise SoftwareBlueprintReadinessError("unknown intent disposition")
-        if not all((self.contribution_id, self.source_kind, self.source_id, self.source_fingerprint)):
+        if not all(
+            (
+                self.contribution_id,
+                self.source_kind,
+                self.source_id,
+                self.source_owner_id,
+                self.source_fingerprint,
+                self.expectation_id,
+                self.expectation_fingerprint,
+            )
+        ):
             raise SoftwareBlueprintReadinessError("intent contribution identity is incomplete")
         if not self.rationale.strip():
             raise SoftwareBlueprintReadinessError("intent contribution requires rationale")
@@ -715,7 +921,10 @@ class ProjectIntentContribution:
             "contribution_id": self.contribution_id,
             "source_kind": self.source_kind,
             "source_id": self.source_id,
+            "source_owner_id": self.source_owner_id,
             "source_fingerprint": self.source_fingerprint,
+            "expectation_id": self.expectation_id,
+            "expectation_fingerprint": self.expectation_fingerprint,
             "disposition": self.disposition,
             "target_ids": list(self.target_ids),
             "rationale": self.rationale,
@@ -725,21 +934,115 @@ class ProjectIntentContribution:
 @dataclass(frozen=True)
 class NoDeclaredIntentRationale:
     rationale_id: str
+    subject_revision: str
+    provider_id: str
+    capability_id: str
+    payload_id: str
     evidence_fingerprints: tuple[tuple[str, str], ...]
     rationale: str
+    status: str = "current"
 
     def __post_init__(self) -> None:
-        if not self.rationale_id or not self.rationale.strip():
+        if not all(
+            str(value).strip()
+            for value in (
+                self.rationale_id,
+                self.subject_revision,
+                self.provider_id,
+                self.capability_id,
+                self.payload_id,
+            )
+        ) or not self.rationale.strip():
             raise SoftwareBlueprintReadinessError("no-intent rationale identity is incomplete")
         object.__setattr__(self, "evidence_fingerprints", _pairs(self.evidence_fingerprints))
         if not self.evidence_fingerprints:
             raise SoftwareBlueprintReadinessError("no-intent rationale requires evidence")
+        if self.status not in OBSERVED_AUTHORITY_STATUSES:
+            raise SoftwareBlueprintReadinessError("no-intent rationale status is invalid")
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "rationale_id": self.rationale_id,
+            "subject_revision": self.subject_revision,
+            "provider_id": self.provider_id,
+            "capability_id": self.capability_id,
+            "payload_id": self.payload_id,
             "evidence_fingerprints": dict(self.evidence_fingerprints),
             "rationale": self.rationale,
+            "status": self.status,
+        }
+
+
+@dataclass(frozen=True)
+class IntentSourceAuthority:
+    source_kind: str
+    source_id: str
+    source_owner_id: str
+    subject_revision: str
+    current_source_fingerprint: str
+    expectation_id: str
+    current_expectation_fingerprint: str
+    target_ids: tuple[str, ...]
+    provider_id: str
+    capability_id: str
+    payload_id: str
+    status: str = "current"
+
+    def __post_init__(self) -> None:
+        if not all(
+            (
+                self.source_kind,
+                self.source_id,
+                self.source_owner_id,
+                self.subject_revision,
+                self.current_source_fingerprint,
+                self.expectation_id,
+                self.current_expectation_fingerprint,
+                self.provider_id,
+                self.capability_id,
+                self.payload_id,
+            )
+        ):
+            raise SoftwareBlueprintReadinessError(
+                "intent source authority identity is incomplete"
+            )
+        object.__setattr__(self, "target_ids", _tuple(self.target_ids))
+        if not self.target_ids:
+            raise SoftwareBlueprintReadinessError(
+                "intent source authority requires exact target identities"
+            )
+        if self.status not in OBSERVED_AUTHORITY_STATUSES:
+            raise SoftwareBlueprintReadinessError(
+                "intent source authority status is invalid"
+            )
+
+    @property
+    def authority_key(self) -> tuple[str, str, str, str]:
+        return (
+            self.source_kind,
+            self.source_id,
+            self.source_owner_id,
+            self.expectation_id,
+        )
+
+    @property
+    def fingerprint(self) -> str:
+        return _fingerprint(self.to_dict())
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "source_kind": self.source_kind,
+            "source_id": self.source_id,
+            "source_owner_id": self.source_owner_id,
+            "subject_revision": self.subject_revision,
+            "current_source_fingerprint": self.current_source_fingerprint,
+            "expectation_id": self.expectation_id,
+            "current_expectation_fingerprint": self.current_expectation_fingerprint,
+            "target_ids": list(self.target_ids),
+            "provider_id": self.provider_id,
+            "capability_id": self.capability_id,
+            "payload_id": self.payload_id,
+            "status": self.status,
         }
 
 
@@ -747,15 +1050,18 @@ class NoDeclaredIntentRationale:
 class ProjectIntentInventory:
     inventory_id: str
     subject_revision: str
-    canonical_review_fingerprint: str
+    observed_subject_revision: str
     contributions: tuple[ProjectIntentContribution, ...]
+    source_authorities: tuple[IntentSourceAuthority, ...]
+    authority_provider_capabilities: tuple[tuple[str, str], ...]
+    required_model_target_ids: tuple[str, ...]
     no_declared_intent: NoDeclaredIntentRationale | None = None
 
     def __post_init__(self) -> None:
         if not (
             self.inventory_id
             and self.subject_revision
-            and self.canonical_review_fingerprint
+            and self.observed_subject_revision
         ):
             raise SoftwareBlueprintReadinessError("intent inventory identity is incomplete")
         object.__setattr__(
@@ -766,16 +1072,321 @@ class ProjectIntentInventory:
         ids = tuple(row.contribution_id for row in self.contributions)
         if len(ids) != len(set(ids)):
             raise SoftwareBlueprintReadinessError("intent inventory contains duplicate contributions")
+        object.__setattr__(
+            self,
+            "source_authorities",
+            tuple(sorted(self.source_authorities, key=lambda row: row.authority_key)),
+        )
+        authority_keys = tuple(row.authority_key for row in self.source_authorities)
+        if len(authority_keys) != len(set(authority_keys)):
+            raise SoftwareBlueprintReadinessError(
+                "intent source authority identity is duplicated"
+            )
         if self.contributions and self.no_declared_intent is not None:
             raise SoftwareBlueprintReadinessError("intent contributions and no-intent rationale are exclusive")
+        object.__setattr__(
+            self,
+            "authority_provider_capabilities",
+            _pairs(self.authority_provider_capabilities),
+        )
+        raw_required_model_target_ids = tuple(
+            str(value) for value in self.required_model_target_ids if str(value)
+        )
+        if len(raw_required_model_target_ids) != len(
+            set(raw_required_model_target_ids)
+        ):
+            raise SoftwareBlueprintReadinessError(
+                "intent model-target denominator contains duplicate identities"
+            )
+        object.__setattr__(
+            self,
+            "required_model_target_ids",
+            tuple(sorted(raw_required_model_target_ids)),
+        )
+        if not self.authority_provider_capabilities:
+            raise SoftwareBlueprintReadinessError(
+                "intent inventory requires exact authority-provider capabilities"
+            )
+
+    @property
+    def findings(self) -> tuple[ReadinessFinding, ...]:
+        findings: list[ReadinessFinding] = []
+        authorities = {row.authority_key: row for row in self.source_authorities}
+        provider_capabilities = set(self.authority_provider_capabilities)
+        contribution_keys = {
+            (
+                row.source_kind,
+                row.source_id,
+                row.source_owner_id,
+                row.expectation_id,
+            )
+            for row in self.contributions
+        }
+        if self.subject_revision != self.observed_subject_revision:
+            findings.append(
+                ReadinessFinding(
+                    "intent_inventory_subject_revision_mismatch",
+                    "intent inventory targets another observed subject revision",
+                    (self.subject_revision, self.observed_subject_revision),
+                    "stale",
+                )
+            )
+        for contribution in self.contributions:
+            key = (
+                contribution.source_kind,
+                contribution.source_id,
+                contribution.source_owner_id,
+                contribution.expectation_id,
+            )
+            authority = authorities.get(key)
+            if authority is None:
+                findings.append(
+                    ReadinessFinding(
+                        "intent_source_authority_missing",
+                        "intent contribution has no independently supplied current source authority",
+                        (contribution.contribution_id, *key),
+                        "blocked",
+                    )
+                )
+                continue
+            if authority.subject_revision != self.subject_revision:
+                findings.append(
+                    ReadinessFinding(
+                        "intent_subject_revision_stale",
+                        "intent source authority targets another subject revision",
+                        (contribution.contribution_id, authority.subject_revision),
+                        "stale",
+                    )
+                )
+            if authority.status != "current":
+                findings.append(
+                    ReadinessFinding(
+                        "intent_source_authority_not_current",
+                        "intent source authority is not current",
+                        (contribution.contribution_id, authority.status),
+                        "stale" if authority.status == "stale" else "blocked",
+                    )
+                )
+            if authority.current_source_fingerprint != contribution.source_fingerprint:
+                findings.append(
+                    ReadinessFinding(
+                        "intent_source_fingerprint_stale",
+                        "intent contribution differs from the independently supplied source fingerprint",
+                        (contribution.contribution_id,),
+                        "stale",
+                    )
+                )
+            if (
+                authority.current_expectation_fingerprint
+                != contribution.expectation_fingerprint
+            ):
+                findings.append(
+                    ReadinessFinding(
+                        "intent_expectation_fingerprint_stale",
+                        "intent contribution differs from the independently observed expectation",
+                        (contribution.contribution_id, contribution.expectation_id),
+                        "stale",
+                    )
+                )
+            if authority.target_ids != contribution.target_ids:
+                findings.append(
+                    ReadinessFinding(
+                        "intent_target_authority_mismatch",
+                        "intent contribution target scope differs from the independently observed authority",
+                        (contribution.contribution_id, *authority.target_ids, *contribution.target_ids),
+                        "blocked",
+                    )
+                )
+            if (
+                authority.provider_id,
+                authority.capability_id,
+            ) not in provider_capabilities:
+                findings.append(
+                    ReadinessFinding(
+                        "intent_authority_provider_mismatch",
+                        "intent source authority is not bound to a declared current authority provider capability",
+                        (
+                            contribution.contribution_id,
+                            authority.provider_id,
+                            authority.capability_id,
+                        ),
+                        "blocked",
+                    )
+                )
+            if (
+                authority.capability_id != "intent_lineage"
+                or authority.payload_id != authority.capability_id
+            ):
+                findings.append(
+                    ReadinessFinding(
+                        "intent_authority_payload_mismatch",
+                        "intent source authority does not bind the canonical intent-lineage payload",
+                        (
+                            contribution.contribution_id,
+                            authority.capability_id,
+                            authority.payload_id,
+                        ),
+                        "blocked",
+                    )
+                )
+        for key in sorted(set(authorities) - contribution_keys):
+            authority = authorities[key]
+            findings.append(
+                ReadinessFinding(
+                    "intent_source_unmodeled",
+                    "an independently observed intent source has no terminal contribution",
+                    (*key, authority.payload_id),
+                    "incomplete",
+                )
+            )
+        no_intent = self.no_declared_intent
+        if no_intent is not None:
+            if no_intent.subject_revision != self.observed_subject_revision:
+                findings.append(
+                    ReadinessFinding(
+                        "no_intent_subject_revision_stale",
+                        "no-intent observation targets another subject revision",
+                        (no_intent.rationale_id, no_intent.subject_revision),
+                        "stale",
+                    )
+                )
+            if no_intent.status != "current":
+                findings.append(
+                    ReadinessFinding(
+                        "no_intent_authority_not_current",
+                        "no-intent observation is not current",
+                        (no_intent.rationale_id, no_intent.status),
+                        "stale" if no_intent.status == "stale" else "blocked",
+                    )
+                )
+            if (
+                no_intent.provider_id,
+                no_intent.capability_id,
+            ) not in provider_capabilities:
+                findings.append(
+                    ReadinessFinding(
+                        "no_intent_provider_mismatch",
+                        "no-intent observation is not bound to a declared authority provider capability",
+                        (
+                            no_intent.rationale_id,
+                            no_intent.provider_id,
+                            no_intent.capability_id,
+                        ),
+                        "blocked",
+                    )
+                )
+            if (
+                no_intent.capability_id != "intent_lineage"
+                or no_intent.payload_id != no_intent.capability_id
+            ):
+                findings.append(
+                    ReadinessFinding(
+                        "no_intent_payload_mismatch",
+                        "no-intent observation does not bind the canonical intent-lineage payload",
+                        (
+                            no_intent.rationale_id,
+                            no_intent.capability_id,
+                            no_intent.payload_id,
+                        ),
+                        "blocked",
+                    )
+                )
+        expectations: dict[tuple[str, str], set[str]] = {}
+        contributors: dict[tuple[str, str], set[str]] = {}
+        for contribution in self.contributions:
+            if contribution.disposition != "accepted":
+                continue
+            for target_id in contribution.target_ids:
+                key = (target_id, contribution.expectation_id)
+                expectations.setdefault(key, set()).add(
+                    contribution.expectation_fingerprint
+                )
+                contributors.setdefault(key, set()).add(contribution.contribution_id)
+        for key, fingerprints in sorted(expectations.items()):
+            if len(fingerprints) > 1:
+                findings.append(
+                    ReadinessFinding(
+                        "intent_expectation_conflict",
+                        "accepted intent sources prescribe conflicting expectations for one exact target",
+                        (*key, *tuple(sorted(contributors[key]))),
+                        "blocked",
+                    )
+                )
+        required_model_targets = set(self.required_model_target_ids)
+        accepted_model_targets = {
+            target_id
+            for contribution in self.contributions
+            if contribution.disposition == "accepted"
+            for target_id in contribution.target_ids
+            if target_id in required_model_targets
+        }
+        missing_model_targets = sorted(
+            required_model_targets - accepted_model_targets
+        )
+        if missing_model_targets:
+            findings.append(
+                ReadinessFinding(
+                    "intent_model_target_coverage_missing",
+                    "the independently observed current model-owner denominator has no accepted effective intent binding",
+                    tuple(missing_model_targets),
+                    "blocked",
+                )
+            )
+        foreign_typed_model_targets = sorted(
+            {
+                target_id
+                for contribution in self.contributions
+                if contribution.disposition == "accepted"
+                for target_id in contribution.target_ids
+                if target_id.startswith("model-obligation:")
+                and target_id not in required_model_targets
+            }
+        )
+        if foreign_typed_model_targets:
+            findings.append(
+                ReadinessFinding(
+                    "intent_model_target_unobserved",
+                    "accepted effective intent binds a model owner outside the independent current denominator",
+                    tuple(foreign_typed_model_targets),
+                    "blocked",
+                )
+            )
+        return tuple(findings)
+
+    @cached_property
+    def canonical_review_fingerprint(self) -> str:
+        return _fingerprint(
+            {
+                "inventory_id": self.inventory_id,
+                "subject_revision": self.subject_revision,
+                "observed_subject_revision": self.observed_subject_revision,
+                "contributions": [row.to_dict() for row in self.contributions],
+                "source_authorities": [
+                    row.to_dict() for row in self.source_authorities
+                ],
+                "findings": [row.to_dict() for row in self.findings],
+                "authority_provider_capabilities": [
+                    {"provider_id": provider_id, "capability_id": capability_id}
+                    for provider_id, capability_id in self.authority_provider_capabilities
+                ],
+                "required_model_target_ids": list(self.required_model_target_ids),
+                "no_declared_intent": (
+                    self.no_declared_intent.to_dict()
+                    if self.no_declared_intent
+                    else None
+                ),
+            }
+        )
 
     @property
     def complete(self) -> bool:
+        if self.findings:
+            return False
         if self.contributions:
             return all(row.disposition != "blocked" for row in self.contributions)
-        return self.no_declared_intent is not None
+        return self.no_declared_intent is not None and not self.source_authorities
 
-    @property
+    @cached_property
     def fingerprint(self) -> str:
         return _fingerprint(self.to_dict())
 
@@ -784,8 +1395,18 @@ class ProjectIntentInventory:
             "schema_version": INTENT_INVENTORY_SCHEMA,
             "inventory_id": self.inventory_id,
             "subject_revision": self.subject_revision,
+            "observed_subject_revision": self.observed_subject_revision,
             "canonical_review_fingerprint": self.canonical_review_fingerprint,
             "contributions": [row.to_dict() for row in self.contributions],
+            "source_authorities": [
+                row.to_dict() for row in self.source_authorities
+            ],
+            "findings": [row.to_dict() for row in self.findings],
+            "authority_provider_capabilities": [
+                {"provider_id": provider_id, "capability_id": capability_id}
+                for provider_id, capability_id in self.authority_provider_capabilities
+            ],
+            "required_model_target_ids": list(self.required_model_target_ids),
             "no_declared_intent": (
                 self.no_declared_intent.to_dict() if self.no_declared_intent else None
             ),
@@ -804,14 +1425,26 @@ class BehaviorBlueprintReport:
     coverage_edges: tuple[BehaviorCoverageEdge, ...]
     coverage_execution_evidence: tuple[CoverageExecutionEvidence, ...]
     test_node_dispositions: tuple[ProjectTestNodeDisposition, ...]
+    path_quality_bindings: tuple[ModelPathQualityBlueprintBinding, ...]
     findings: tuple[ReadinessFinding, ...]
     owner_structure_status: str
-    behavior_closure_status: str
+    pre_code_status: str
+    executed_evidence_status: str
 
     def __post_init__(self) -> None:
-        for name in ("owner_structure_status", "behavior_closure_status"):
-            if getattr(self, name) not in {"complete", "incomplete", "stale", "blocked"}:
-                raise SoftwareBlueprintReadinessError("invalid behavior blueprint status")
+        if self.owner_structure_status not in {
+            "complete",
+            "incomplete",
+            "stale",
+            "blocked",
+        }:
+            raise SoftwareBlueprintReadinessError("invalid behavior owner status")
+        if self.pre_code_status not in READINESS_STATUSES:
+            raise SoftwareBlueprintReadinessError("invalid behavior pre-code status")
+        if self.executed_evidence_status not in EXECUTED_EVIDENCE_STATUSES:
+            raise SoftwareBlueprintReadinessError(
+                "invalid behavior executed-evidence status"
+            )
         for name in ("required_behavior_surface_ids", "supporting_surface_ids"):
             object.__setattr__(self, name, _tuple(getattr(self, name)))
         object.__setattr__(self, "contracts", tuple(sorted(self.contracts, key=lambda row: row.behavior_block_id)))
@@ -821,6 +1454,26 @@ class BehaviorBlueprintReport:
         object.__setattr__(self, "coverage_edges", tuple(sorted(self.coverage_edges, key=lambda row: row.coverage_id)))
         object.__setattr__(self, "coverage_execution_evidence", tuple(sorted(self.coverage_execution_evidence, key=lambda row: row.coverage_id)))
         object.__setattr__(self, "test_node_dispositions", tuple(sorted(self.test_node_dispositions, key=lambda row: row.test_node_id)))
+        if any(
+            not isinstance(row, ModelPathQualityBlueprintBinding)
+            for row in self.path_quality_bindings
+        ):
+            raise SoftwareBlueprintReadinessError(
+                "behavior path-quality rows require current typed bindings"
+            )
+        object.__setattr__(
+            self,
+            "path_quality_bindings",
+            tuple(
+                sorted(
+                    self.path_quality_bindings,
+                    key=lambda row: (
+                        row.model_element_id,
+                        row.compact_current_fingerprint,
+                    ),
+                )
+            ),
+        )
         object.__setattr__(self, "findings", tuple(self.findings))
 
     @cached_property
@@ -829,7 +1482,34 @@ class BehaviorBlueprintReport:
 
     @property
     def complete(self) -> bool:
-        return self.owner_structure_status == "complete" and self.behavior_closure_status == "complete"
+        """Whether the static behavior/checker design is implementation-ready."""
+
+        return (
+            self.owner_structure_status == "complete"
+            and self.pre_code_status == "ready"
+        )
+
+    @property
+    def execution_complete(self) -> bool:
+        return self.executed_evidence_status == "passed"
+
+    @property
+    def pre_code_findings(self) -> tuple[ReadinessFinding, ...]:
+        return tuple(
+            row
+            for row in self.findings
+            if not row.code.startswith("coverage_execution_")
+        )
+
+    @property
+    def required_path_quality_model_ids(self) -> tuple[str, ...]:
+        return _tuple(row.model_element_id for row in self.contracts)
+
+    @property
+    def path_quality_result_set_fingerprint(self) -> str:
+        return model_path_quality_binding_set_fingerprint(
+            self.path_quality_bindings
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -844,9 +1524,71 @@ class BehaviorBlueprintReport:
             "coverage_edges": [row.to_dict() for row in self.coverage_edges],
             "coverage_execution_evidence": [row.to_dict() for row in self.coverage_execution_evidence],
             "test_node_dispositions": [row.to_dict() for row in self.test_node_dispositions],
+            "required_path_quality_model_ids": list(
+                self.required_path_quality_model_ids
+            ),
+            "path_quality_bindings": [
+                row.to_dict() for row in self.path_quality_bindings
+            ],
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
             "findings": [row.to_dict() for row in self.findings],
             "owner_structure_status": self.owner_structure_status,
-            "behavior_closure_status": self.behavior_closure_status,
+            "pre_code_status": self.pre_code_status,
+            "executed_evidence_status": self.executed_evidence_status,
+        }
+
+    def to_normalized_reference_dict(self) -> dict[str, Any]:
+        """Project the typed report without duplicating coverage payloads.
+
+        The complete coverage rows remain part of the native review result.
+        Normalized and canonical physical projections use this reference view;
+        their one complete payload owner is the content-addressed object store.
+        """
+
+        # Resolve the full native identity before constructing the reference
+        # view so the two aggregate dictionaries are never live together.
+        behavior_report_fingerprint = self.fingerprint
+        return {
+            "schema_version": BEHAVIOR_BLUEPRINT_SCHEMA,
+            "inventory_fingerprint": self.inventory_fingerprint,
+            "required_behavior_surface_ids": list(
+                self.required_behavior_surface_ids
+            ),
+            "supporting_surface_ids": list(self.supporting_surface_ids),
+            "contracts": [row.to_dict() for row in self.contracts],
+            "portable_bindings": [
+                row.to_dict() for row in self.portable_bindings
+            ],
+            "case_contracts": [row.to_dict() for row in self.case_contracts],
+            "supporting_relations": [
+                row.to_dict() for row in self.supporting_relations
+            ],
+            "coverage_execution_evidence": [
+                row.to_dict() for row in self.coverage_execution_evidence
+            ],
+            "test_node_dispositions": [
+                row.to_dict() for row in self.test_node_dispositions
+            ],
+            "required_path_quality_model_ids": list(
+                self.required_path_quality_model_ids
+            ),
+            "path_quality_bindings": [
+                row.to_dict() for row in self.path_quality_bindings
+            ],
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
+            "findings": [row.to_dict() for row in self.findings],
+            "owner_structure_status": self.owner_structure_status,
+            "pre_code_status": self.pre_code_status,
+            "executed_evidence_status": self.executed_evidence_status,
+            "behavior_report_fingerprint": behavior_report_fingerprint,
+            "coverage_edge_fingerprints": {
+                row.coverage_id: row.content_fingerprint
+                for row in self.coverage_edges
+            },
         }
 
 
@@ -859,6 +1601,32 @@ def _status(findings: Sequence[ReadinessFinding]) -> str:
     if findings:
         return "incomplete"
     return "complete"
+
+
+def _pre_code_status(findings: Sequence[ReadinessFinding]) -> str:
+    status = _status(findings)
+    return "ready" if status == "complete" else status
+
+
+def _executed_evidence_status(
+    rows: Sequence[CoverageExecutionEvidence],
+    findings: Sequence[ReadinessFinding],
+) -> str:
+    if findings:
+        return "blocked"
+    dispositions = tuple(row.disposition for row in rows)
+    if not dispositions or any(
+        disposition in {"not_run", "not_applicable"}
+        for disposition in dispositions
+    ):
+        return "not_run"
+    if any(disposition == "blocked" for disposition in dispositions):
+        return "blocked"
+    if any(disposition == "fail" for disposition in dispositions):
+        return "failed"
+    if all(disposition == "pass" for disposition in dispositions):
+        return "passed"
+    return "blocked"
 
 
 def review_behavior_blueprint(
@@ -874,6 +1642,13 @@ def review_behavior_blueprint(
     coverage_execution_evidence: Sequence[CoverageExecutionEvidence],
     test_node_dispositions: Sequence[ProjectTestNodeDisposition],
     required_test_node_ids: Sequence[str],
+    semantic_specs: Sequence[SemanticSpecReference],
+    oracles: Sequence[OracleReference],
+    intent_inventory: ProjectIntentInventory,
+    implementation_source_fingerprints: Mapping[str, str],
+    implementation_owner_ids: Mapping[str, str],
+    path_quality_bindings: Sequence[ModelPathQualityBlueprintBinding] = (),
+    expected_path_quality_currentness_id: str = "",
     test_nodes: Sequence[Any] = (),
     native_member_fingerprints: Mapping[str, str] | None = None,
     planned_checker_fingerprints: Mapping[str, str] | None = None,
@@ -882,12 +1657,24 @@ def review_behavior_blueprint(
     expected_portable_fingerprints: Mapping[str, str] | None = None,
     expected_portable_members: Mapping[str, Mapping[str, Sequence[str]]] | None = None,
     supporting_surface_fingerprints: Mapping[str, str] | None = None,
+    supporting_surface_owner_block_ids: Mapping[str, str] | None = None,
+    evidence_receipts: Sequence[EvidenceReceipt] = (),
+    receipt_verification_results: Sequence[ReceiptVerificationResult] = (),
+    validation_owner_contracts: Sequence[ValidationOwnerContract] = (),
 ) -> BehaviorBlueprintReport:
     """Check exact behavior, helper, coverage, and test-node denominators."""
 
     required = set(required_behavior_surface_ids)
     supporting = set(supporting_surface_ids)
-    findings: list[ReadinessFinding] = []
+    findings: list[ReadinessFinding] = list(intent_inventory.findings)
+    raw_path_bindings = tuple(path_quality_bindings)
+    if any(
+        not isinstance(row, ModelPathQualityBlueprintBinding)
+        for row in raw_path_bindings
+    ):
+        raise SoftwareBlueprintReadinessError(
+            "behavior path-quality rows require current typed bindings"
+        )
     contract_by_surface: dict[str, list[BehaviorBlockContract]] = {}
     contract_by_id: dict[str, BehaviorBlockContract] = {}
     for contract in contracts:
@@ -895,47 +1682,466 @@ def review_behavior_blueprint(
         if contract.behavior_block_id in contract_by_id:
             findings.append(ReadinessFinding("duplicate_behavior_block", "behavior block id has more than one owner", (contract.behavior_block_id,), "blocked"))
         contract_by_id[contract.behavior_block_id] = contract
+    required_path_model_ids = {
+        contract.model_element_id for contract in contracts
+    }
+    path_binding_ids = tuple(
+        row.model_element_id for row in raw_path_bindings
+    )
+    duplicate_path_ids = tuple(
+        sorted(
+            model_id
+            for model_id in set(path_binding_ids)
+            if path_binding_ids.count(model_id) > 1
+        )
+    )
+    if duplicate_path_ids:
+        findings.append(
+            ReadinessFinding(
+                "path_quality_binding_duplicate",
+                "required models have more than one compact path-quality owner",
+                duplicate_path_ids,
+                "blocked",
+            )
+        )
+    supplied_path_model_ids = set(path_binding_ids)
+    missing_path_ids = tuple(
+        sorted(required_path_model_ids - supplied_path_model_ids)
+    )
+    if missing_path_ids:
+        findings.append(
+            ReadinessFinding(
+                "path_quality_binding_missing",
+                "required models lack a current compact path-quality result",
+                missing_path_ids,
+                "blocked",
+            )
+        )
+    extra_path_ids = tuple(
+        sorted(supplied_path_model_ids - required_path_model_ids)
+    )
+    if extra_path_ids:
+        findings.append(
+            ReadinessFinding(
+                "path_quality_binding_unobserved",
+                "path-quality rows are absent from the observed model denominator",
+                extra_path_ids,
+                "blocked",
+            )
+        )
+    if required_path_model_ids and not expected_path_quality_currentness_id:
+        findings.append(
+            ReadinessFinding(
+                "path_quality_currentness_missing",
+                "path-quality rows have no exact expected currentness identity",
+                tuple(sorted(required_path_model_ids)),
+                "blocked",
+            )
+        )
+    expected_model_fingerprints: dict[str, set[str]] = {}
+    for contract in contracts:
+        expected_model_fingerprints.setdefault(
+            contract.model_element_id, set()
+        ).add(contract.model_fingerprint)
+    for model_id, fingerprints in sorted(expected_model_fingerprints.items()):
+        if len(fingerprints) > 1:
+            findings.append(
+                ReadinessFinding(
+                    "path_quality_model_identity_ambiguous",
+                    "one model denominator member has conflicting model fingerprints",
+                    (model_id,),
+                    "blocked",
+                )
+            )
+    for binding in raw_path_bindings:
+        if binding.model_element_id not in required_path_model_ids:
+            continue
+        expected_fingerprints = expected_model_fingerprints[
+            binding.model_element_id
+        ]
+        if binding.subject.model_fingerprint not in expected_fingerprints:
+            findings.append(
+                ReadinessFinding(
+                    "path_quality_model_fingerprint_stale",
+                    "path-quality subject model fingerprint differs from the exact blueprint model",
+                    (binding.model_element_id,),
+                    "stale",
+                )
+            )
+        if (
+            expected_path_quality_currentness_id
+            and binding.subject.currentness_id
+            != expected_path_quality_currentness_id
+        ):
+            findings.append(
+                ReadinessFinding(
+                    "path_quality_currentness_stale",
+                    "path-quality subject does not target the expected current blueprint identity",
+                    (binding.model_element_id,),
+                    "stale",
+                )
+            )
+        if not binding.result.current:
+            findings.append(
+                ReadinessFinding(
+                    "path_quality_result_stale",
+                    "required path-quality result is not current",
+                    (binding.model_element_id,),
+                    "stale",
+                )
+            )
+        elif binding.subject_lane != "observed":
+            findings.append(
+                ReadinessFinding(
+                    "path_quality_normative_only",
+                    "normative path-quality evidence cannot license observed readiness",
+                    (binding.model_element_id,),
+                    "blocked",
+                )
+            )
+        elif binding.result.selected_candidate_lane == "normative_target":
+            findings.append(
+                ReadinessFinding(
+                    "path_quality_normative_selection",
+                    "a normative candidate is not the observed implementation path",
+                    (binding.model_element_id,),
+                    "blocked",
+                )
+            )
+        elif binding.result.conclusion == "unresolved":
+            findings.append(
+                ReadinessFinding(
+                    "path_quality_unresolved",
+                    "required model path quality remains unresolved",
+                    (
+                        binding.model_element_id,
+                        *binding.result.unresolved_ids,
+                    ),
+                    "blocked",
+                )
+            )
     missing = sorted(required - set(contract_by_surface))
     if missing:
         findings.append(ReadinessFinding("behavior_contract_missing", "behavior-bearing surfaces lack exact contracts", tuple(missing)))
     duplicates = sorted(key for key, values in contract_by_surface.items() if len(values) != 1)
     if duplicates:
         findings.append(ReadinessFinding("duplicate_behavior_owner", "behavior-bearing surfaces have duplicate contracts", tuple(duplicates), "blocked"))
+    declared_but_unobserved = sorted(set(contract_by_surface) - required)
+    if declared_but_unobserved:
+        findings.append(
+            ReadinessFinding(
+                "behavior_contract_surface_unobserved",
+                "declared behavior contracts refer to surfaces absent from the independent observed denominator",
+                tuple(declared_but_unobserved),
+                "blocked",
+            )
+        )
     unresolved = sorted(contract.implementation_surface_id for contract in contracts if not contract.accepted)
     if unresolved:
         findings.append(ReadinessFinding("behavior_contract_unaccepted", "candidate/source-derived behavior contracts are not accepted", tuple(unresolved)))
-    circular = sorted(
-        contract.implementation_surface_id
-        for contract in contracts
-        if contract.accepted
-        and contract.acceptance_evidence_fingerprints
-        and all(
-            role.startswith("source-observation")
-            for role, _fingerprint_value in contract.acceptance_evidence_fingerprints
-        )
-    )
-    if circular:
+    semantic_by_id: dict[str, SemanticSpecReference] = {}
+    duplicate_semantic_ids: set[str] = set()
+    for reference in semantic_specs:
+        if reference.semantic_spec_id in semantic_by_id:
+            duplicate_semantic_ids.add(reference.semantic_spec_id)
+        semantic_by_id[reference.semantic_spec_id] = reference
+    if duplicate_semantic_ids:
         findings.append(
             ReadinessFinding(
-                "same_source_semantic_oracle_circularity",
-                "implementation source is the sole semantic and oracle basis",
-                tuple(circular),
+                "duplicate_semantic_spec_identity",
+                "semantic specification identities must resolve to one exact source",
+                tuple(sorted(duplicate_semantic_ids)),
+                "blocked",
             )
         )
-    unlicensed_dimensions = tuple(
-        f"{contract.behavior_block_id}:{dimension.dimension}"
-        for contract in contracts
-        for dimension in contract.dimensions
-        if "missing-independent-owner-rule" in dimension.semantics
-    )
-    if unlicensed_dimensions:
+    oracle_by_id: dict[str, OracleReference] = {}
+    duplicate_oracle_ids: set[str] = set()
+    for reference in oracles:
+        if reference.oracle_id in oracle_by_id:
+            duplicate_oracle_ids.add(reference.oracle_id)
+        oracle_by_id[reference.oracle_id] = reference
+    if duplicate_oracle_ids:
         findings.append(
             ReadinessFinding(
-                "behavior_dimension_semantic_missing",
-                "observed behavior dimension lacks an independent owner rule",
-                unlicensed_dimensions,
+                "duplicate_oracle_identity",
+                "oracle identities must resolve to one exact source",
+                tuple(sorted(duplicate_oracle_ids)),
+                "blocked",
             )
         )
+
+    intent_by_id = {
+        contribution.contribution_id: contribution
+        for contribution in intent_inventory.contributions
+    }
+    if len(intent_by_id) != len(intent_inventory.contributions):
+        findings.append(
+            ReadinessFinding(
+                "duplicate_intent_contribution_identity",
+                "intent contribution identities must be unique",
+                tuple(row.contribution_id for row in intent_inventory.contributions),
+                "blocked",
+            )
+        )
+    behavior_model_ids = {contract.model_element_id for contract in contracts}
+    missing_behavior_model_denominator = sorted(
+        behavior_model_ids - set(intent_inventory.required_model_target_ids)
+    )
+    if missing_behavior_model_denominator:
+        findings.append(
+            ReadinessFinding(
+                "intent_model_target_denominator_missing_behavior_owner",
+                "the independent current intent denominator omits a model owner used by an observed behavior block",
+                tuple(missing_behavior_model_denominator),
+                "blocked",
+            )
+        )
+    referenced_semantic_ids = {
+        spec_id for contract in contracts for spec_id in contract.semantic_spec_ids
+    }
+    referenced_oracle_ids = {
+        oracle_id for contract in contracts for oracle_id in contract.oracle_ids
+    }
+    referenced_intent_ids = {
+        intent_id for contract in contracts for intent_id in contract.intent_contribution_ids
+    }
+    extra_semantic_ids = set(semantic_by_id) - referenced_semantic_ids
+    if extra_semantic_ids:
+        findings.append(
+            ReadinessFinding(
+                "declared_semantic_spec_unobserved",
+                "semantic specifications are declared but no observed behavior consumes them",
+                tuple(sorted(extra_semantic_ids)),
+            )
+        )
+    extra_oracle_ids = set(oracle_by_id) - referenced_oracle_ids
+    if extra_oracle_ids:
+        findings.append(
+            ReadinessFinding(
+                "declared_oracle_unobserved",
+                "oracles are declared but no observed behavior consumes them",
+                tuple(sorted(extra_oracle_ids)),
+            )
+        )
+    extra_intent_ids = set(intent_by_id) - referenced_intent_ids
+    if extra_intent_ids:
+        findings.append(
+            ReadinessFinding(
+                "declared_intent_unobserved",
+                "intent contributions are declared but no observed behavior consumes them",
+                tuple(sorted(extra_intent_ids)),
+            )
+        )
+
+    for contract in contracts:
+        surface_id = contract.implementation_surface_id
+        implementation_fingerprint = implementation_source_fingerprints.get(surface_id)
+        implementation_owner = implementation_owner_ids.get(surface_id)
+        if implementation_fingerprint is None:
+            findings.append(
+                ReadinessFinding(
+                    "implementation_source_identity_missing",
+                    "observed behavior lacks an exact implementation content fingerprint",
+                    (surface_id,),
+                    "blocked",
+                )
+            )
+        elif implementation_fingerprint != contract.source_fingerprint:
+            findings.append(
+                ReadinessFinding(
+                    "behavior_implementation_source_stale",
+                    "behavior contract consumes a different implementation content fingerprint",
+                    (contract.behavior_block_id, surface_id),
+                    "stale",
+                )
+            )
+        if implementation_owner is None:
+            findings.append(
+                ReadinessFinding(
+                    "implementation_owner_identity_missing",
+                    "observed behavior lacks an exact implementation owner identity",
+                    (surface_id,),
+                    "blocked",
+                )
+            )
+        elif implementation_owner != contract.owner_id:
+            findings.append(
+                ReadinessFinding(
+                    "behavior_implementation_owner_mismatch",
+                    "behavior contract owner differs from the independently observed implementation owner",
+                    (contract.behavior_block_id, contract.owner_id, implementation_owner),
+                    "blocked",
+                )
+            )
+
+        missing_semantic_ids = set(contract.semantic_spec_ids) - set(semantic_by_id)
+        if missing_semantic_ids:
+            findings.append(
+                ReadinessFinding(
+                    "behavior_semantic_reference_missing",
+                    "behavior contract references no exact semantic specification",
+                    (contract.behavior_block_id, *tuple(sorted(missing_semantic_ids))),
+                    "blocked",
+                )
+            )
+        missing_oracle_ids = set(contract.oracle_ids) - set(oracle_by_id)
+        if missing_oracle_ids:
+            findings.append(
+                ReadinessFinding(
+                    "behavior_oracle_reference_missing",
+                    "behavior contract references no exact oracle",
+                    (contract.behavior_block_id, *tuple(sorted(missing_oracle_ids))),
+                    "blocked",
+                )
+            )
+        missing_intent_ids = set(contract.intent_contribution_ids) - set(intent_by_id)
+        if not contract.intent_contribution_ids:
+            findings.append(
+                ReadinessFinding(
+                    "behavior_intent_coverage_missing",
+                    "a current behavior block consumes no effective current intent through its exact model owner",
+                    (contract.behavior_block_id, contract.model_element_id),
+                    "blocked",
+                )
+            )
+        if missing_intent_ids:
+            findings.append(
+                ReadinessFinding(
+                    "behavior_intent_reference_missing",
+                    "behavior contract references no exact intent contribution",
+                    (contract.behavior_block_id, *tuple(sorted(missing_intent_ids))),
+                    "blocked",
+                )
+            )
+
+        consumed_specs = tuple(
+            semantic_by_id[spec_id]
+            for spec_id in contract.semantic_spec_ids
+            if spec_id in semantic_by_id
+        )
+        consumed_oracles = tuple(
+            oracle_by_id[oracle_id]
+            for oracle_id in contract.oracle_ids
+            if oracle_id in oracle_by_id
+        )
+        consumed_intents = tuple(
+            intent_by_id[intent_id]
+            for intent_id in contract.intent_contribution_ids
+            if intent_id in intent_by_id
+        )
+        for reference in consumed_specs:
+            if contract.model_element_id not in reference.covered_model_element_ids:
+                findings.append(
+                    ReadinessFinding(
+                        "behavior_semantic_model_mismatch",
+                        "semantic specification does not cover the behavior model element",
+                        (contract.behavior_block_id, reference.semantic_spec_id),
+                        "blocked",
+                    )
+                )
+            if (
+                reference.source_id == surface_id
+                or reference.source_content_fingerprint == implementation_fingerprint
+            ):
+                findings.append(
+                    ReadinessFinding(
+                        "behavior_semantic_source_not_independent",
+                        "semantic source identity overlaps the observed implementation source",
+                        (
+                            contract.behavior_block_id,
+                            reference.source_id,
+                            reference.source_owner_id,
+                        ),
+                        "blocked",
+                    )
+                )
+        for reference in consumed_oracles:
+            if contract.model_element_id not in reference.covered_model_element_ids:
+                findings.append(
+                    ReadinessFinding(
+                        "behavior_oracle_model_mismatch",
+                        "oracle does not cover the behavior model element",
+                        (contract.behavior_block_id, reference.oracle_id),
+                        "blocked",
+                    )
+                )
+            if (
+                reference.source_id == surface_id
+                or reference.source_content_fingerprint == implementation_fingerprint
+            ):
+                findings.append(
+                    ReadinessFinding(
+                        "behavior_oracle_source_not_independent",
+                        "oracle source identity overlaps the observed implementation source",
+                        (
+                            contract.behavior_block_id,
+                            reference.source_id,
+                            reference.source_owner_id,
+                        ),
+                        "blocked",
+                    )
+                )
+        for intent in consumed_intents:
+            if intent.disposition != "accepted":
+                findings.append(
+                    ReadinessFinding(
+                        "behavior_intent_not_accepted",
+                        "behavior consumes an intent contribution that is not accepted current intent",
+                        (contract.behavior_block_id, intent.contribution_id),
+                        "blocked" if intent.disposition == "blocked" else "incomplete",
+                    )
+                )
+            if contract.model_element_id not in set(intent.target_ids):
+                root_fallback = any(
+                    target_id.startswith(("root:", "system:", "model-root:"))
+                    for target_id in intent.target_ids
+                )
+                findings.append(
+                    ReadinessFinding(
+                        (
+                            "behavior_intent_root_fallback"
+                            if root_fallback
+                            else "behavior_intent_owner_mismatch"
+                        ),
+                        (
+                            "behavior intent uses a root or system fallback instead of its exact current model owner"
+                            if root_fallback
+                            else "intent contribution is not bound to the consuming behavior's exact current model owner"
+                        ),
+                        (contract.behavior_block_id, intent.contribution_id),
+                        "blocked",
+                    )
+                )
+            if intent.source_fingerprint == implementation_fingerprint:
+                findings.append(
+                    ReadinessFinding(
+                        "behavior_intent_source_not_independent",
+                        "intent and implementation content fingerprints are identical",
+                        (
+                            contract.behavior_block_id,
+                            intent.source_id,
+                            intent.source_owner_id,
+                        ),
+                        "blocked",
+                    )
+                )
+        accepted_intent_sources = {
+            (intent.source_id, intent.source_fingerprint)
+            for intent in consumed_intents
+            if intent.disposition == "accepted"
+        }
+        if accepted_intent_sources and not any(
+            accepted_intent_sources.intersection(set(reference.provenance_fingerprints))
+            for reference in consumed_specs
+        ):
+            findings.append(
+                ReadinessFinding(
+                    "semantic_intent_lineage_missing",
+                    "semantic specifications do not bind the exact accepted intent source",
+                    (contract.behavior_block_id, *tuple(sorted(contract.intent_contribution_ids))),
+                    "blocked",
+                )
+            )
 
     signature_groups: dict[tuple[tuple[str, str, str], ...], list[BehaviorBlockContract]] = {}
     for contract in contracts:
@@ -967,6 +2173,7 @@ def review_behavior_blueprint(
 
     portable_by_id: dict[str, PortableBehaviorBinding] = {}
     portable_by_block: dict[str, list[PortableBehaviorBinding]] = {}
+    portable_members_by_model: dict[str, dict[str, set[str]]] = {}
     expected_portable = dict(expected_portable_fingerprints or {})
     expected_members = {
         str(model_id): {
@@ -1007,44 +2214,55 @@ def review_behavior_blueprint(
                     "blocked",
                 )
             )
-        if catalog is not None:
-            actual_members = {
-                "transition_ids": set(binding.transition_ids),
-                "property_ids": set(binding.property_ids),
-                "invariant_ids": set(binding.invariant_ids),
-                "input_field_ids": {
-                    member_id for _field, member_id in binding.input_field_mappings
-                },
-                "output_field_ids": {
-                    member_id for _field, member_id in binding.output_field_mappings
-                },
-                "state_field_ids": {
-                    member_id for _field, member_id in binding.state_field_mappings
-                },
-                "assumption_ids": set(binding.assumption_ids),
-                "guarantee_ids": set(binding.guarantee_ids),
-            }
-            for member_kind, actual_ids in actual_members.items():
-                declared_ids = catalog.get(member_kind, set())
-                unknown_ids = actual_ids - declared_ids
-                missing_ids = declared_ids - actual_ids
-                if unknown_ids:
-                    findings.append(
-                        ReadinessFinding(
-                            "portable_member_unknown",
-                            "portable binding references members absent from the exact model catalog",
-                            tuple(sorted(unknown_ids)),
-                            "blocked",
-                        )
+        actual_members = {
+            "transition_ids": set(binding.transition_ids),
+            "property_ids": set(binding.property_ids),
+            "invariant_ids": set(binding.invariant_ids),
+            "input_field_ids": {
+                member_id for _field, member_id in binding.input_field_mappings
+            },
+            "output_field_ids": {
+                member_id for _field, member_id in binding.output_field_mappings
+            },
+            "state_field_ids": {
+                member_id for _field, member_id in binding.state_field_mappings
+            },
+            "assumption_ids": set(binding.assumption_ids),
+            "guarantee_ids": set(binding.guarantee_ids),
+            "protected_failure_ids": set(binding.protected_failure_ids),
+        }
+        model_members = portable_members_by_model.setdefault(
+            binding.portable_model_id,
+            {member_kind: set() for member_kind in actual_members},
+        )
+        for member_kind, actual_ids in actual_members.items():
+            model_members[member_kind].update(actual_ids)
+    for portable_model_id, catalog in expected_members.items():
+        actual_members = portable_members_by_model.get(
+            portable_model_id,
+            {member_kind: set() for member_kind in catalog},
+        )
+        for member_kind, declared_ids in catalog.items():
+            actual_ids = actual_members.get(member_kind, set())
+            unknown_ids = actual_ids - declared_ids
+            missing_ids = declared_ids - actual_ids
+            if unknown_ids:
+                findings.append(
+                    ReadinessFinding(
+                        "portable_member_unknown",
+                        "portable bindings reference members absent from the exact model catalog",
+                        tuple(sorted(unknown_ids)),
+                        "blocked",
                     )
-                if missing_ids:
-                    findings.append(
-                        ReadinessFinding(
-                            "portable_member_unbound",
-                            "declared portable members are not bound to the behavior block",
-                            tuple(sorted(missing_ids)),
-                        )
+                )
+            if missing_ids:
+                findings.append(
+                    ReadinessFinding(
+                        "portable_member_unbound",
+                        "declared portable members are not bound across the model's behavior blocks",
+                        tuple(sorted(missing_ids)),
                     )
+                )
     for contract in contracts:
         rows = portable_by_block.get(contract.behavior_block_id, ())
         observed_ids = {row.binding_id for row in rows}
@@ -1122,11 +2340,84 @@ def review_behavior_blueprint(
                 )
             )
 
+    expected_supporting_owners = (
+        None
+        if supporting_surface_owner_block_ids is None
+        else {
+            str(surface_id): str(behavior_block_id)
+            for surface_id, behavior_block_id in supporting_surface_owner_block_ids.items()
+        }
+    )
+    if supporting and expected_supporting_owners is None:
+        findings.append(
+            ReadinessFinding(
+                "supporting_owner_expectation_missing",
+                "supporting surfaces require an independently supplied exact behavior-block owner map",
+                tuple(sorted(supporting)),
+                "blocked",
+            )
+        )
+    elif expected_supporting_owners is not None:
+        missing_owner_expectations = sorted(
+            supporting - set(expected_supporting_owners)
+        )
+        extra_owner_expectations = sorted(
+            set(expected_supporting_owners) - supporting
+        )
+        if missing_owner_expectations:
+            findings.append(
+                ReadinessFinding(
+                    "supporting_owner_expectation_missing",
+                    "supporting surfaces lack an independently supplied exact behavior-block owner",
+                    tuple(missing_owner_expectations),
+                    "blocked",
+                )
+            )
+        if extra_owner_expectations:
+            findings.append(
+                ReadinessFinding(
+                    "supporting_owner_expectation_unobserved",
+                    "supporting owner expectations refer to surfaces outside the supporting denominator",
+                    tuple(extra_owner_expectations),
+                    "blocked",
+                )
+            )
+
     relation_by_surface: dict[str, list[SupportingSurfaceRelation]] = {}
     for relation in supporting_relations:
         relation_by_surface.setdefault(relation.supporting_surface_id, []).append(relation)
+        if relation.supporting_surface_id not in supporting:
+            findings.append(
+                ReadinessFinding(
+                    "supporting_relation_surface_unobserved",
+                    "supporting ownership relation refers to a surface outside the supporting denominator",
+                    (relation.supporting_surface_id,),
+                    "blocked",
+                )
+            )
         if relation.behavior_block_id not in contract_by_id:
             findings.append(ReadinessFinding("supporting_owner_missing", "supporting surface points to an unknown behavior block", (relation.supporting_surface_id,), "blocked"))
+        expected_owner_block = (
+            expected_supporting_owners.get(relation.supporting_surface_id)
+            if expected_supporting_owners is not None
+            else None
+        )
+        if (
+            expected_owner_block is not None
+            and relation.behavior_block_id != expected_owner_block
+        ):
+            findings.append(
+                ReadinessFinding(
+                    "supporting_owner_mismatch",
+                    "supporting ownership relation differs from the active provider's exact owning surface",
+                    (
+                        relation.supporting_surface_id,
+                        relation.behavior_block_id,
+                        expected_owner_block,
+                    ),
+                    "blocked",
+                )
+            )
         expected_fingerprint = dict(supporting_surface_fingerprints or {}).get(
             relation.supporting_surface_id
         )
@@ -1151,6 +2442,7 @@ def review_behavior_blueprint(
     test_node_by_id = {str(row.node_id): row for row in test_nodes}
     oracle_member_owner: dict[str, str] = {}
     oracle_member_fingerprints = dict(native_member_fingerprints or {})
+    native_member_ids = frozenset(oracle_member_fingerprints)
     for member_id, member_fingerprint in dict(
         planned_checker_fingerprints or {}
     ).items():
@@ -1173,7 +2465,9 @@ def review_behavior_blueprint(
             )
     helper_by_id: dict[str, DelegatedAssertionHelper] = {}
     helper_expected = dict(delegated_helper_fingerprints or {})
+    helper_direct_terminal_valid: dict[str, bool] = {}
     for helper in delegated_assertion_helpers:
+        direct_terminal_valid = True
         if helper.helper_id in helper_by_id:
             findings.append(
                 ReadinessFinding(
@@ -1205,8 +2499,10 @@ def review_behavior_blueprint(
                         "stale",
                     )
                 )
+                direct_terminal_valid = False
             else:
                 oracle_member_fingerprints[terminal_id] = terminal_fingerprint
+        helper_direct_terminal_valid[helper.helper_id] = direct_terminal_valid
 
     terminal_member_ids = set(oracle_member_fingerprints)
     helper_state: dict[str, bool] = {}
@@ -1226,8 +2522,8 @@ def review_behavior_blueprint(
             helper_state[helper_id] = False
             return False
         helper = helper_by_id[helper_id]
-        reaches_terminal = False
-        valid = True
+        reaches_terminal = bool(helper.terminal_member_fingerprints)
+        valid = helper_direct_terminal_valid[helper_id]
         for callee_id in helper.callee_member_ids:
             if callee_id in terminal_member_ids:
                 reaches_terminal = True
@@ -1255,11 +2551,44 @@ def review_behavior_blueprint(
             oracle_member_fingerprints[helper_id] = helper.source_fingerprint
             oracle_member_owner[helper_id] = helper.test_node_id
 
+    def helper_leaf(helper_id: str) -> str:
+        return helper_id.rsplit("::", 1)[-1].rsplit(".", 1)[-1]
+
+    helper_ids_by_leaf: dict[str, set[str]] = {}
+    for helper_id in helper_by_id:
+        helper_ids_by_leaf.setdefault(helper_leaf(helper_id), set()).add(
+            helper_id
+        )
     registered_helper_names = {
         name
         for helper_id in helper_by_id
-        for name in (helper_id, helper_id.rsplit(".", 1)[-1])
+        for name in (helper_id, helper_leaf(helper_id))
     }
+    ambiguous_helper_calls: set[str] = set()
+    for node in test_nodes:
+        for call in getattr(node, "calls", ()):
+            leaf = call.rsplit(".", 1)[-1]
+            candidates = helper_ids_by_leaf.get(leaf, set())
+            if len(candidates) < 2:
+                continue
+            exact_callers = {
+                helper_id
+                for helper_id in candidates
+                if helper_by_id[helper_id].test_node_id == str(node.node_id)
+            }
+            if len(exact_callers) != 1:
+                ambiguous_helper_calls.add(
+                    f"{node.node_id}:{call}"
+                )
+    if ambiguous_helper_calls:
+        findings.append(
+            ReadinessFinding(
+                "ambiguous_delegated_assertion_helper",
+                "assert-like helper call does not resolve to one lexical current helper",
+                tuple(sorted(ambiguous_helper_calls)),
+                "blocked",
+            )
+        )
     unregistered_assert_helpers = tuple(
         sorted(
             {
@@ -1283,6 +2612,7 @@ def review_behavior_blueprint(
         )
     checker_scopes: dict[str, set[tuple[str, str]]] = {}
     case_evidence_scopes: dict[str, set[tuple[str, str]]] = {}
+    planned_case_evidence_scopes: dict[str, set[tuple[str, str]]] = {}
     parameter_case_ids_by_node = {
         str(node.node_id): {
             str(case_id)
@@ -1301,15 +2631,88 @@ def review_behavior_blueprint(
         if row.implementation_surface_id != contract_by_id[row.behavior_block_id].implementation_surface_id:
             findings.append(ReadinessFinding("false_surface_coverage", "coverage surface differs from its behavior contract", (row.coverage_id,), "blocked"))
         contract = contract_by_id[row.behavior_block_id]
+        if row.model_obligation_id != contract.model_element_id:
+            findings.append(
+                ReadinessFinding(
+                    "coverage_model_obligation_mismatch",
+                    "coverage references another model obligation",
+                    (row.coverage_id, row.model_obligation_id),
+                    "blocked",
+                )
+            )
+        if row.owner_contract_id != contract.owner_contract_id:
+            findings.append(
+                ReadinessFinding(
+                    "coverage_owner_contract_mismatch",
+                    "coverage references another external owner contract",
+                    (row.coverage_id, row.owner_contract_id),
+                    "blocked",
+                )
+            )
+        if row.behavior_owner_id != contract.owner_id:
+            findings.append(
+                ReadinessFinding(
+                    "coverage_behavior_owner_mismatch",
+                    "coverage owner differs from the exact behavior owner",
+                    (row.coverage_id, row.behavior_owner_id, contract.owner_id),
+                    "blocked",
+                )
+            )
+        if row.implementation_content_fingerprint != contract.source_fingerprint:
+            findings.append(
+                ReadinessFinding(
+                    "coverage_implementation_content_mismatch",
+                    "coverage binds a different implementation content fingerprint",
+                    (row.coverage_id, row.implementation_surface_id),
+                    "stale",
+                )
+            )
         if row.semantic_spec_id not in contract.semantic_spec_ids:
             findings.append(ReadinessFinding("coverage_semantic_mismatch", "coverage references another semantic specification", (row.coverage_id,), "blocked"))
+        semantic_reference = semantic_by_id.get(row.semantic_spec_id)
+        if (
+            semantic_reference is None
+            or row.semantic_content_fingerprint
+            != semantic_reference.source_content_fingerprint
+        ):
+            findings.append(
+                ReadinessFinding(
+                    "coverage_semantic_content_mismatch",
+                    "coverage binds a stale or different semantic content fingerprint",
+                    (row.coverage_id, row.semantic_spec_id),
+                    "blocked",
+                )
+            )
         if row.oracle_id not in contract.oracle_ids:
             findings.append(ReadinessFinding("coverage_oracle_mismatch", "coverage references another behavior oracle", (row.coverage_id,), "blocked"))
+        oracle_reference = oracle_by_id.get(row.oracle_id)
+        if (
+            oracle_reference is None
+            or row.oracle_content_fingerprint
+            != oracle_reference.source_content_fingerprint
+        ):
+            findings.append(
+                ReadinessFinding(
+                    "coverage_oracle_content_mismatch",
+                    "coverage binds a stale or different oracle content fingerprint",
+                    (row.coverage_id, row.oracle_id),
+                    "blocked",
+                )
+            )
         case = case_by_id.get(row.case_id)
         if case is None or case.behavior_block_id != row.behavior_block_id:
             findings.append(ReadinessFinding("coverage_case_missing", "coverage references no exact case for its behavior block", (row.coverage_id,), "blocked"))
         elif case.oracle_id != row.oracle_id:
             findings.append(ReadinessFinding("coverage_case_oracle_mismatch", "coverage case and edge use different oracles", (row.coverage_id,), "blocked"))
+        elif case.content_fingerprint != row.case_content_fingerprint:
+            findings.append(
+                ReadinessFinding(
+                    "coverage_case_content_mismatch",
+                    "coverage binds a stale or different case outcome/state/effect fingerprint",
+                    (row.coverage_id, row.case_id),
+                    "blocked",
+                )
+            )
         elif case.case_evidence_id not in oracle_member_fingerprints:
             findings.append(
                 ReadinessFinding(
@@ -1336,6 +2739,9 @@ def review_behavior_blueprint(
                 (case.case_id, case.parameter_case_id)
             )
             if row.evidence_role == "planned_checker":
+                planned_case_evidence_scopes.setdefault(
+                    case.case_evidence_id, set()
+                ).add((case.case_id, case.parameter_case_id))
                 if case.parameter_case_id != case.case_id:
                     findings.append(
                         ReadinessFinding(
@@ -1369,7 +2775,10 @@ def review_behavior_blueprint(
         member_owner = oracle_member_owner.get(row.oracle_member_id)
         if member_owner is not None and member_owner != row.test_node_id:
             findings.append(ReadinessFinding("coverage_cross_test_member", "assertion belongs to another test node", (row.coverage_id,), "blocked"))
-        if row.test_node_id not in test_node_by_id and row.test_node_id not in dict(native_member_fingerprints or {}):
+        if (
+            row.test_node_id not in test_node_by_id
+            and row.test_node_id not in native_member_ids
+        ):
             findings.append(ReadinessFinding("coverage_test_node_missing", "coverage references no real test node or native check", (row.coverage_id,), "blocked"))
         if len(row.covered_dimensions) != 1:
             findings.append(
@@ -1418,6 +2827,22 @@ def review_behavior_blueprint(
                 "blocked",
             )
         )
+    reused_planned_case_evidence = tuple(
+        sorted(
+            evidence_id
+            for evidence_id, scopes in planned_case_evidence_scopes.items()
+            if len(scopes) > 1
+        )
+    )
+    if reused_planned_case_evidence:
+        findings.append(
+            ReadinessFinding(
+                "planned_case_checker_scope_ambiguous",
+                "one planned case checker identity is reused across distinct case scopes",
+                reused_planned_case_evidence,
+                "blocked",
+            )
+        )
     uncovered: list[str] = []
     for contract in contracts:
         missing_dimensions = set(BEHAVIOR_DIMENSIONS) - coverage_by_block.get(contract.behavior_block_id, set())
@@ -1425,24 +2850,342 @@ def review_behavior_blueprint(
     if uncovered:
         findings.append(ReadinessFinding("behavior_test_design_missing", "behavior blocks lack exact dimension-level checker designs", tuple(uncovered)))
 
+    execution_findings: list[ReadinessFinding] = []
     execution_by_coverage: dict[str, list[CoverageExecutionEvidence]] = {}
     for row in coverage_execution_evidence:
         execution_by_coverage.setdefault(row.coverage_id, []).append(row)
         if row.coverage_id not in coverage_ids:
-            findings.append(ReadinessFinding("execution_unknown_coverage", "execution evidence references unknown coverage", (row.coverage_id,), "blocked"))
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_unknown_coverage",
+                    "execution evidence references unknown coverage",
+                    (row.coverage_id,),
+                    "blocked",
+                )
+            )
     missing_execution = sorted(coverage_ids - set(execution_by_coverage))
     if missing_execution:
-        findings.append(ReadinessFinding("coverage_execution_disposition_missing", "formal coverage edges lack explicit execution disposition", tuple(missing_execution)))
+        execution_findings.append(
+            ReadinessFinding(
+                "coverage_execution_disposition_missing",
+                "formal coverage edges lack explicit execution disposition",
+                tuple(missing_execution),
+                "blocked",
+            )
+        )
     duplicate_execution = sorted(key for key, values in execution_by_coverage.items() if len(values) != 1)
     if duplicate_execution:
-        findings.append(ReadinessFinding("coverage_execution_duplicate", "coverage edges have duplicate execution dispositions", tuple(duplicate_execution), "blocked"))
+        execution_findings.append(
+            ReadinessFinding(
+                "coverage_execution_duplicate",
+                "coverage edges have duplicate execution dispositions",
+                tuple(duplicate_execution),
+                "blocked",
+            )
+        )
+
+    owner_contracts_by_id: dict[str, list[ValidationOwnerContract]] = {}
+    for owner_contract in validation_owner_contracts:
+        owner_contracts_by_id.setdefault(owner_contract.owner_id, []).append(
+            owner_contract
+        )
+    duplicate_owner_contracts = tuple(
+        sorted(
+            owner_id
+            for owner_id, rows in owner_contracts_by_id.items()
+            if len(rows) != 1
+        )
+    )
+    if duplicate_owner_contracts:
+        execution_findings.append(
+            ReadinessFinding(
+                "coverage_execution_owner_contract_duplicate",
+                "execution owners have duplicate validation contracts",
+                duplicate_owner_contracts,
+                "blocked",
+            )
+        )
+
+    receipts_by_id: dict[str, list[EvidenceReceipt]] = {}
+    for receipt in evidence_receipts:
+        receipts_by_id.setdefault(receipt.receipt_id, []).append(receipt)
+    duplicate_receipt_ids = tuple(
+        sorted(
+            receipt_id
+            for receipt_id, rows in receipts_by_id.items()
+            if len(rows) != 1
+        )
+    )
+    if duplicate_receipt_ids:
+        execution_findings.append(
+            ReadinessFinding(
+                "coverage_execution_receipt_duplicate",
+                "execution receipt ids must resolve to one immutable receipt",
+                duplicate_receipt_ids,
+                "blocked",
+            )
+        )
+
+    verifications_by_id: dict[str, list[ReceiptVerificationResult]] = {}
+    for verification in receipt_verification_results:
+        verifications_by_id.setdefault(verification.receipt_id, []).append(
+            verification
+        )
+    duplicate_verification_ids = tuple(
+        sorted(
+            receipt_id
+            for receipt_id, rows in verifications_by_id.items()
+            if len(rows) != 1
+        )
+    )
+    if duplicate_verification_ids:
+        execution_findings.append(
+            ReadinessFinding(
+                "coverage_execution_verification_duplicate",
+                "execution receipt ids must have one current verification result",
+                duplicate_verification_ids,
+                "blocked",
+            )
+        )
+
+    receipt_owners: dict[tuple[str, str], set[str]] = {}
+    for row in coverage_execution_evidence:
+        if row.disposition == "pass":
+            receipt_owners.setdefault(
+                (row.receipt_id, row.receipt_fingerprint), set()
+            ).add(row.execution_owner_id)
+    reused_receipts = tuple(
+        sorted(
+            f"{receipt_id}:{receipt_fingerprint}"
+            for (receipt_id, receipt_fingerprint), owner_ids in receipt_owners.items()
+            if len(owner_ids) > 1
+        )
+    )
+    if reused_receipts:
+        execution_findings.append(
+            ReadinessFinding(
+                "coverage_execution_receipt_reused_across_owners",
+                "one leaf receipt cannot be copied or relabeled across execution owners",
+                reused_receipts,
+                "blocked",
+            )
+        )
+
+    for row in coverage_execution_evidence:
+        if row.disposition != "pass":
+            continue
+        owner_contract_rows = owner_contracts_by_id.get(row.execution_owner_id, [])
+        if len(owner_contract_rows) != 1:
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_owner_contract_missing",
+                    "passing execution has no unique validation-owner contract",
+                    (row.coverage_id, row.execution_owner_id),
+                    "blocked",
+                )
+            )
+            continue
+        owner_contract = owner_contract_rows[0]
+        if row.coverage_id not in owner_contract.obligation_ids:
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_owner_member_missing",
+                    "validation-owner contract omits the exact coverage member",
+                    (row.coverage_id, row.execution_owner_id),
+                    "blocked",
+                )
+            )
+
+        receipt_rows = receipts_by_id.get(row.receipt_id, [])
+        if len(receipt_rows) != 1:
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_receipt_missing",
+                    "passing execution does not resolve to one exact receipt",
+                    (row.coverage_id, row.receipt_id),
+                    "blocked",
+                )
+            )
+            continue
+        receipt = receipt_rows[0]
+        if receipt.fingerprint != row.receipt_fingerprint:
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_receipt_fingerprint_mismatch",
+                    "coverage row receipt fingerprint does not match the immutable receipt",
+                    (row.coverage_id, row.receipt_id),
+                    "blocked",
+                )
+            )
+        if receipt.subject_kind == "validation_parent":
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_parent_receipt_not_leaf",
+                    "a validation-parent receipt cannot substitute for leaf behavior evidence",
+                    (row.coverage_id, row.receipt_id),
+                    "blocked",
+                )
+            )
+        expected_subject = f"validation-owner:{row.execution_owner_id}"
+        if (
+            receipt.subject_kind != OWNER_RECEIPT_KIND
+            or receipt.subject_id != expected_subject
+            or receipt.producer_id != expected_subject
+        ):
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_receipt_owner_mismatch",
+                    "leaf receipt subject and producer must match the execution owner",
+                    (row.coverage_id, row.execution_owner_id, row.receipt_id),
+                    "blocked",
+                )
+            )
+        if (
+            receipt.result_status != RECEIPT_STATUS_PASS
+            or receipt.exit_code != 0
+            or receipt.claim_scope != "full"
+            or receipt.skipped_checks
+            or receipt.blockers
+        ):
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_receipt_not_terminal_pass",
+                    "leaf receipt is not an unskipped terminal full pass",
+                    (row.coverage_id, row.receipt_id),
+                    "blocked",
+                )
+            )
+        if row.coverage_id not in receipt.covered_obligations:
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_receipt_member_missing",
+                    "leaf receipt omits the exact coverage member",
+                    (row.coverage_id, row.receipt_id),
+                    "blocked",
+                )
+            )
+
+        verification_rows = verifications_by_id.get(row.receipt_id, [])
+        if len(verification_rows) != 1:
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_verification_missing",
+                    "passing execution has no unique current receipt verification",
+                    (row.coverage_id, row.receipt_id),
+                    "blocked",
+                )
+            )
+            continue
+        verification = verification_rows[0]
+        if verification.receipt_fingerprint != row.receipt_fingerprint:
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_verification_fingerprint_mismatch",
+                    "receipt verification does not bind the coverage row fingerprint",
+                    (row.coverage_id, row.receipt_id),
+                    "blocked",
+                )
+            )
+        if (
+            not verification.current
+            or not verification.eligible
+            or verification.status != RECEIPT_STATUS_PASS
+        ):
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_verification_not_current",
+                    "receipt verification is not current, eligible, terminal pass",
+                    (row.coverage_id, row.receipt_id),
+                    "blocked",
+                )
+            )
+        if row.coverage_id not in verification.satisfied_obligations:
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_verification_member_missing",
+                    "receipt verification does not satisfy the exact coverage member",
+                    (row.coverage_id, row.receipt_id),
+                    "blocked",
+                )
+            )
 
     disposition_by_node: dict[str, list[ProjectTestNodeDisposition]] = {}
+    dispositions_by_coverage: dict[str, list[ProjectTestNodeDisposition]] = {}
+    edge_by_coverage = {row.coverage_id: row for row in coverage_edges}
     for row in test_node_dispositions:
         disposition_by_node.setdefault(row.test_node_id, []).append(row)
         unknown = set(row.coverage_ids) - coverage_ids
         if unknown:
             findings.append(ReadinessFinding("test_disposition_unknown_coverage", "test disposition references unknown coverage", tuple(sorted(unknown)), "blocked"))
+        expected_owner_ids: set[str] = set()
+        node_mismatches: list[str] = []
+        for coverage_id in row.coverage_ids:
+            dispositions_by_coverage.setdefault(coverage_id, []).append(row)
+            edge = edge_by_coverage.get(coverage_id)
+            if edge is None:
+                continue
+            if edge.test_node_id != row.test_node_id:
+                node_mismatches.append(coverage_id)
+            contract = contract_by_id.get(edge.behavior_block_id)
+            if contract is not None:
+                expected_owner_ids.add(contract.owner_id)
+        if node_mismatches:
+            findings.append(
+                ReadinessFinding(
+                    "test_disposition_node_mismatch",
+                    "coverage disposition is attached to a different test node",
+                    tuple(sorted(node_mismatches)),
+                    "blocked",
+                )
+            )
+        if row.disposition == "behavior_coverage":
+            if len(expected_owner_ids) != 1 or set(row.owner_ids) != expected_owner_ids:
+                findings.append(
+                    ReadinessFinding(
+                        "test_disposition_owner_mismatch",
+                        "ordinary behavior coverage requires one exact behavior owner",
+                        (row.test_node_id, *tuple(sorted(expected_owner_ids))),
+                        "blocked",
+                    )
+                )
+        elif row.disposition == "cross_owner_integration":
+            if len(expected_owner_ids) < 2 or set(row.owner_ids) != expected_owner_ids:
+                findings.append(
+                    ReadinessFinding(
+                        "test_disposition_owner_mismatch",
+                        "cross-owner integration requires the exact complete behavior-owner set",
+                        (row.test_node_id, *tuple(sorted(expected_owner_ids))),
+                        "blocked",
+                    )
+                )
+    missing_coverage_dispositions = tuple(
+        sorted(coverage_ids - set(dispositions_by_coverage))
+    )
+    if missing_coverage_dispositions:
+        findings.append(
+            ReadinessFinding(
+                "coverage_test_disposition_missing",
+                "coverage edges lack an exact test-node disposition",
+                missing_coverage_dispositions,
+                "blocked",
+            )
+        )
+    duplicate_coverage_dispositions = tuple(
+        sorted(
+            coverage_id
+            for coverage_id, rows in dispositions_by_coverage.items()
+            if len(rows) != 1
+        )
+    )
+    if duplicate_coverage_dispositions:
+        findings.append(
+            ReadinessFinding(
+                "coverage_test_disposition_duplicate",
+                "coverage edges are claimed by multiple test-node dispositions",
+                duplicate_coverage_dispositions,
+                "blocked",
+            )
+        )
     missing_nodes = sorted(set(required_test_node_ids) - set(disposition_by_node))
     if missing_nodes:
         findings.append(ReadinessFinding("test_node_unbound", "required project test nodes lack terminal disposition", tuple(missing_nodes)))
@@ -1453,7 +3196,10 @@ def review_behavior_blueprint(
     if blocked_nodes:
         findings.append(ReadinessFinding("test_node_blocked", "required project test nodes remain blocked", tuple(blocked_nodes), "blocked"))
 
-    behavior_status = _status(findings)
+    pre_code_status = _pre_code_status(findings)
+    executed_evidence_status = _executed_evidence_status(
+        tuple(coverage_execution_evidence), execution_findings
+    )
     return BehaviorBlueprintReport(
         inventory_fingerprint=inventory_fingerprint,
         required_behavior_surface_ids=tuple(required_behavior_surface_ids),
@@ -1465,9 +3211,11 @@ def review_behavior_blueprint(
         coverage_edges=tuple(coverage_edges),
         coverage_execution_evidence=tuple(coverage_execution_evidence),
         test_node_dispositions=tuple(test_node_dispositions),
-        findings=tuple(findings),
+        path_quality_bindings=raw_path_bindings,
+        findings=tuple((*findings, *execution_findings)),
         owner_structure_status=("blocked" if any(row.severity == "blocked" and row.code in {"duplicate_behavior_owner", "duplicate_supporting_owner"} for row in findings) else "complete"),
-        behavior_closure_status=behavior_status,
+        pre_code_status=pre_code_status,
+        executed_evidence_status=executed_evidence_status,
     )
 
 
@@ -1479,6 +3227,7 @@ class StaticBlueprintReadinessReport:
     intent_inventory_fingerprint: str
     topology_fingerprint: str
     normalized_projection_fingerprint: str
+    path_quality_result_set_fingerprint: str
     status: str
     deepest_proven_layer: str
     first_gap: str
@@ -1488,7 +3237,7 @@ class StaticBlueprintReadinessReport:
         if self.status not in READINESS_STATUSES:
             raise SoftwareBlueprintReadinessError("invalid static blueprint readiness status")
 
-    @property
+    @cached_property
     def fingerprint(self) -> str:
         return _fingerprint(self.to_dict())
 
@@ -1501,6 +3250,9 @@ class StaticBlueprintReadinessReport:
             "intent_inventory_fingerprint": self.intent_inventory_fingerprint,
             "topology_fingerprint": self.topology_fingerprint,
             "normalized_projection_fingerprint": self.normalized_projection_fingerprint,
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
             "status": self.status,
             "deepest_proven_layer": self.deepest_proven_layer,
             "first_gap": self.first_gap,
@@ -1526,12 +3278,55 @@ def review_static_blueprint_readiness(
 ) -> StaticBlueprintReadinessReport:
     """Return every known static blueprint gap without executing external work."""
 
-    findings = list(behavior_report.findings)
+    findings = list(behavior_report.pre_code_findings)
     findings.extend(topology_findings)
+    findings.extend(resource_inventory.findings)
+    known_behavior_ids = {
+        contract.behavior_block_id for contract in behavior_report.contracts
+    }
+    known_model_ids = {contract.model_element_id for contract in behavior_report.contracts}
+    for member in resource_inventory.members:
+        if member.category_disposition != "current":
+            continue
+        if not member.consuming_behavior_ids or not member.consuming_model_ids:
+            findings.append(
+                ReadinessFinding(
+                    "resource_consumer_binding_missing",
+                    "current resource lacks exact consuming behavior or model identities",
+                    (member.member_id,),
+                    "blocked",
+                )
+            )
+        unknown_behaviors = set(member.consuming_behavior_ids) - known_behavior_ids
+        if unknown_behaviors:
+            findings.append(
+                ReadinessFinding(
+                    "resource_behavior_consumer_unobserved",
+                    "resource references behavior consumers absent from the observed behavior denominator",
+                    (member.member_id, *tuple(sorted(unknown_behaviors))),
+                    "blocked",
+                )
+            )
+        unknown_models = set(member.consuming_model_ids) - known_model_ids
+        if unknown_models:
+            findings.append(
+                ReadinessFinding(
+                    "resource_model_consumer_unobserved",
+                    "resource references model consumers absent from the observed behavior denominator",
+                    (member.member_id, *tuple(sorted(unknown_models))),
+                    "blocked",
+                )
+            )
     if not resource_inventory.complete:
         missing_categories = set(RESOURCE_CATEGORIES) - {row.category for row in resource_inventory.members}
         blocked = {row.member_id for row in resource_inventory.members if row.category_disposition == "blocked"}
-        findings.append(ReadinessFinding("resource_inventory_incomplete", "resource denominator is missing or blocked", tuple(sorted(missing_categories | blocked)), "blocked" if blocked else "incomplete"))
+        unbound = {
+            row.member_id
+            for row in resource_inventory.members
+            if row.category_disposition == "current"
+            and (not row.consuming_behavior_ids or not row.consuming_model_ids)
+        }
+        findings.append(ReadinessFinding("resource_inventory_incomplete", "resource denominator is missing, blocked, or lacks exact consumers", tuple(sorted(missing_categories | blocked | unbound)), "blocked" if blocked or unbound else "incomplete"))
     if not intent_inventory.complete:
         findings.append(ReadinessFinding("intent_inventory_incomplete", "current intent lineage has no terminal contribution or evidence-bound no-intent rationale", (intent_inventory.inventory_id,)))
     if not topology_fingerprint:
@@ -1544,6 +3339,9 @@ def review_static_blueprint_readiness(
         "intent_inventory": intent_inventory.fingerprint,
         "topology": topology_fingerprint,
         "normalized_projection": normalized_projection_fingerprint,
+        "path_quality_result_set": (
+            behavior_report.path_quality_result_set_fingerprint
+        ),
     }
     for identity, expected in sorted((expected_identities or {}).items()):
         if current.get(identity) != expected:
@@ -1553,7 +3351,7 @@ def review_static_blueprint_readiness(
         status = "ready"
     if behavior_report.owner_structure_status != "complete":
         deepest = "inventory"
-    elif behavior_report.behavior_closure_status != "complete":
+    elif behavior_report.pre_code_status != "ready":
         deepest = "owner_structure"
     elif not resource_inventory.complete:
         deepest = "behavior_blocks"
@@ -1569,6 +3367,9 @@ def review_static_blueprint_readiness(
         intent_inventory_fingerprint=intent_inventory.fingerprint,
         topology_fingerprint=topology_fingerprint,
         normalized_projection_fingerprint=normalized_projection_fingerprint,
+        path_quality_result_set_fingerprint=(
+            behavior_report.path_quality_result_set_fingerprint
+        ),
         status=status,
         deepest_proven_layer=deepest,
         first_gap=first_gap,
@@ -1588,7 +3389,7 @@ class NormalizedBlueprintProjection:
     source_projection_bytes: int
     repeated_reference_bytes_avoided: int
 
-    @property
+    @cached_property
     def fingerprint(self) -> str:
         return _fingerprint(self.to_dict())
 
@@ -1615,11 +3416,79 @@ class NormalizedBlueprintProjection:
         }
 
 
+def _validate_normalized_coverage_objects(
+    behavior_report: BehaviorBlueprintReport,
+    shared_objects: Mapping[str, Any],
+) -> tuple[str, ...]:
+    coverage_ids = tuple(row.coverage_id for row in behavior_report.coverage_edges)
+    if len(coverage_ids) != len(set(coverage_ids)):
+        raise SoftwareBlueprintReadinessError(
+            "normalized coverage object denominator contains duplicate ids"
+        )
+    coverage_id_set = set(coverage_ids)
+    supplied_coverage_ids = {
+        str(object_id)
+        for object_id, payload in shared_objects.items()
+        if isinstance(payload, Mapping)
+        and payload.get("kind") == "behavior_coverage_edge"
+    }
+    if supplied_coverage_ids != coverage_id_set:
+        raise SoftwareBlueprintReadinessError(
+            "normalized coverage object denominator is not exact-current: "
+            f"missing={sorted(coverage_id_set - supplied_coverage_ids)}, "
+            f"extra={sorted(supplied_coverage_ids - coverage_id_set)}"
+        )
+    for row in behavior_report.coverage_edges:
+        expected = {"kind": "behavior_coverage_edge", **row.to_dict()}
+        if shared_objects.get(row.coverage_id) != expected:
+            raise SoftwareBlueprintReadinessError(
+                "normalized coverage object is missing or not exact-current: "
+                + row.coverage_id
+            )
+    return coverage_ids
+
+
+def materialize_behavior_blueprint_shards(
+    behavior_report: BehaviorBlueprintReport,
+    *,
+    shared_objects: Mapping[str, Any],
+    shard_size: int = 256,
+) -> tuple[tuple[str, dict[str, Any]], ...]:
+    """Materialize strict reference-only shards for selective readers.
+
+    Coverage rows themselves belong only to the normalized shared-object store.
+    A shard carries content-addressed object ids and therefore cannot become a
+    second behavior authority.
+    """
+
+    if shard_size < 1:
+        raise SoftwareBlueprintReadinessError("shard_size must be positive")
+    coverage_ids = _validate_normalized_coverage_objects(
+        behavior_report, shared_objects
+    )
+    return tuple(
+        (
+            f"coverage:{index // shard_size:05d}",
+            {
+                "schema_version": BEHAVIOR_COVERAGE_REFERENCE_SHARD_SCHEMA,
+                "kind": BEHAVIOR_COVERAGE_REFERENCE_SHARD_KIND,
+                "shard_id": f"coverage:{index // shard_size:05d}",
+                "coverage_ids": list(coverage_ids[index : index + shard_size]),
+                "referenced_object_ids": list(
+                    coverage_ids[index : index + shard_size]
+                ),
+            },
+        )
+        for index in range(0, len(coverage_ids), shard_size)
+    )
+
+
 def normalize_behavior_blueprint(
     *,
     blueprint_fingerprint: str,
     behavior_report: BehaviorBlueprintReport,
     shared_objects: Mapping[str, Any],
+    coverage_reference_shards: Sequence[tuple[str, Mapping[str, Any]]],
     shard_size: int = 256,
     source_projection: Any | None = None,
 ) -> NormalizedBlueprintProjection:
@@ -1627,51 +3496,131 @@ def normalize_behavior_blueprint(
 
     if shard_size < 1:
         raise SoftwareBlueprintReadinessError("shard_size must be positive")
+    object_identity_rows: list[tuple[str, str, int]] = []
+    for key, value in shared_objects.items():
+        object_id = str(key)
+        object_fingerprint, object_bytes = _canonical_fingerprint_and_size(value)
+        object_identity_rows.append(
+            (object_id, object_fingerprint, object_bytes)
+        )
+    object_identity_rows.sort(key=lambda row: row[0])
     object_rows = tuple(
-        sorted((str(key), _fingerprint(value)) for key, value in shared_objects.items())
+        (object_id, object_fingerprint)
+        for object_id, object_fingerprint, _object_bytes in object_identity_rows
     )
-    coverage = [row.to_dict() for row in behavior_report.coverage_edges]
+    object_sizes = {
+        object_id: object_bytes
+        for object_id, _object_fingerprint, object_bytes in object_identity_rows
+    }
+    coverage_by_id = {
+        row.coverage_id: row for row in behavior_report.coverage_edges
+    }
+    coverage_ids = _validate_normalized_coverage_objects(
+        behavior_report, shared_objects
+    )
+    coverage_shards: list[tuple[str, dict[str, Any]]] = []
+    expected_shard_count = (
+        (len(coverage_ids) + shard_size - 1) // shard_size
+        if coverage_ids
+        else 0
+    )
+    if len(coverage_reference_shards) != expected_shard_count:
+        raise SoftwareBlueprintReadinessError(
+            "coverage reference shards are not exact-current"
+        )
+    for shard_index, supplied in enumerate(coverage_reference_shards):
+        if not isinstance(supplied, Sequence) or len(supplied) != 2:
+            raise SoftwareBlueprintReadinessError(
+                "coverage reference shard row is invalid"
+            )
+        shard_id = str(supplied[0])
+        if not isinstance(supplied[1], Mapping):
+            raise SoftwareBlueprintReadinessError(
+                "coverage reference shard payload must be a mapping"
+            )
+        payload = dict(supplied[1])
+        expected_id = f"coverage:{shard_index:05d}"
+        expected_ids = list(
+            coverage_ids[
+                shard_index * shard_size : (shard_index + 1) * shard_size
+            ]
+        )
+        expected_payload = {
+            "schema_version": BEHAVIOR_COVERAGE_REFERENCE_SHARD_SCHEMA,
+            "kind": BEHAVIOR_COVERAGE_REFERENCE_SHARD_KIND,
+            "shard_id": expected_id,
+            "coverage_ids": expected_ids,
+            "referenced_object_ids": expected_ids,
+        }
+        if shard_id != expected_id or payload != expected_payload:
+            raise SoftwareBlueprintReadinessError(
+                "coverage reference shards are not exact-current"
+            )
+        coverage_shards.append((shard_id, payload))
     shard_rows: list[tuple[str, str]] = []
     shard_members: list[tuple[str, tuple[str, ...]]] = []
-    for index in range(0, len(coverage), shard_size):
-        members = coverage[index : index + shard_size]
-        shard_id = f"coverage:{index // shard_size:05d}"
-        shard_rows.append((shard_id, _fingerprint(members)))
-        shard_members.append(
-            (shard_id, tuple(str(member["coverage_id"]) for member in members))
+    shard_payload_bytes = 0
+    for shard_id, shard_payload in coverage_shards:
+        shard_fingerprint, shard_bytes = _canonical_fingerprint_and_size(
+            shard_payload
         )
-    del coverage
-    logical_payload = {
-        "behavior_report": behavior_report.to_dict(),
-        "shared_objects": {key: shared_objects[key] for key, _value in object_rows},
+        shard_payload_bytes += shard_bytes
+        shard_rows.append((shard_id, shard_fingerprint))
+        member_ids: set[str] = set()
+        for coverage_id in shard_payload["coverage_ids"]:
+            member = coverage_by_id[coverage_id].to_dict()
+            member_ids.update(
+                str(member.get(field_name, ""))
+                for field_name in (
+                    "coverage_id",
+                    "behavior_block_id",
+                    "implementation_surface_id",
+                    "model_obligation_id",
+                    "semantic_spec_id",
+                    "owner_contract_id",
+                    "test_node_id",
+                    "oracle_member_id",
+                    "case_id",
+                    "oracle_id",
+                )
+                if str(member.get(field_name, ""))
+            )
+        shard_members.append(
+            (shard_id, tuple(sorted(member_ids)))
+        )
+    # Bind exact content through fingerprints instead of expanding the report
+    # and every shared object into another aggregate dictionary.  This keeps the
+    # calculation linear and avoids a transient whole-blueprint duplicate.
+    behavior_report_reference = behavior_report.to_normalized_reference_dict()
+    logical_identity = {
+        "behavior_report": behavior_report_reference,
+        "object_fingerprints": dict(object_rows),
     }
-    logical_fingerprint, logical_bytes = _canonical_fingerprint_and_size(
-        logical_payload
+    logical_fingerprint, logical_identity_bytes = _canonical_fingerprint_and_size(
+        logical_identity
     )
+    behavior_report_bytes = _canonical_fingerprint_and_size(
+        behavior_report_reference
+    )[1]
+    logical_bytes = behavior_report_bytes + sum(object_sizes.values())
     source_bytes = (
         logical_bytes
         if source_projection is None
         else _canonical_fingerprint_and_size(source_projection)[1]
     )
-    del logical_payload
-    physical_payload = {
-        "contracts": [row.to_dict() for row in behavior_report.contracts],
-        "portable_bindings": [row.to_dict() for row in behavior_report.portable_bindings],
-        "case_contracts": [row.to_dict() for row in behavior_report.case_contracts],
-        "supporting_relations": [row.to_dict() for row in behavior_report.supporting_relations],
-        "coverage_execution_evidence": [
-            row.to_dict() for row in behavior_report.coverage_execution_evidence
-        ],
-        "coverage_shards": dict(shard_rows),
-        "coverage_shard_members": {
-            shard_id: list(member_ids) for shard_id, member_ids in shard_members
+    normalized_index_identity = {
+        "logical_identity_bytes": logical_identity_bytes,
+        "shard_fingerprints": dict(shard_rows),
+        "shard_member_ids": {
+            shard_id: list(member_ids)
+            for shard_id, member_ids in shard_members
         },
-        "objects": dict(object_rows),
     }
-    _physical_fingerprint, physical_bytes = _canonical_fingerprint_and_size(
-        physical_payload
+    physical_bytes = (
+        logical_bytes
+        + shard_payload_bytes
+        + _canonical_fingerprint_and_size(normalized_index_identity)[1]
     )
-    del physical_payload
     return NormalizedBlueprintProjection(
         blueprint_fingerprint=blueprint_fingerprint,
         logical_fingerprint=logical_fingerprint,
@@ -1683,169 +3632,6 @@ def normalize_behavior_blueprint(
         source_projection_bytes=source_bytes,
         repeated_reference_bytes_avoided=max(0, source_bytes - physical_bytes),
     )
-
-@dataclass(frozen=True)
-class AffectedBlueprintNeighborhood:
-    logical_fingerprint: str
-    behavior_block_ids: tuple[str, ...]
-    implementation_surface_ids: tuple[str, ...]
-    supporting_surface_ids: tuple[str, ...]
-    coverage_ids: tuple[str, ...]
-    test_node_ids: tuple[str, ...]
-    shared_objects: tuple[tuple[str, Any], ...]
-    shard_ids: tuple[str, ...]
-
-    @property
-    def fingerprint(self) -> str:
-        return _fingerprint(self.to_dict())
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "logical_fingerprint": self.logical_fingerprint,
-            "behavior_block_ids": list(self.behavior_block_ids),
-            "implementation_surface_ids": list(self.implementation_surface_ids),
-            "supporting_surface_ids": list(self.supporting_surface_ids),
-            "coverage_ids": list(self.coverage_ids),
-            "test_node_ids": list(self.test_node_ids),
-            "shared_objects": dict(self.shared_objects),
-            "shard_ids": list(self.shard_ids),
-        }
-
-
-def load_affected_behavior_neighborhood(
-    projection: NormalizedBlueprintProjection,
-    behavior_report: BehaviorBlueprintReport,
-    shared_objects: Mapping[str, Any],
-    *,
-    affected_surface_ids: Iterable[str] = (),
-    affected_behavior_block_ids: Iterable[str] = (),
-) -> AffectedBlueprintNeighborhood:
-    """Load only behavior/reference shards reachable from the affected identities."""
-
-    expected_objects = dict(projection.object_fingerprints)
-    supplied_objects = {str(object_id): value for object_id, value in shared_objects.items()}
-    surface_ids = {str(value) for value in affected_surface_ids}
-    block_ids = {str(value) for value in affected_behavior_block_ids}
-    for contract in behavior_report.contracts:
-        if contract.implementation_surface_id in surface_ids:
-            block_ids.add(contract.behavior_block_id)
-    for relation in behavior_report.supporting_relations:
-        if relation.supporting_surface_id in surface_ids:
-            block_ids.add(relation.behavior_block_id)
-    known_block_ids = {row.behavior_block_id for row in behavior_report.contracts}
-    unknown = sorted(block_ids - known_block_ids)
-    if unknown:
-        raise SoftwareBlueprintReadinessError(
-            "affected loading references unknown behavior blocks: " + ", ".join(unknown)
-        )
-    selected_contracts = tuple(
-        row for row in behavior_report.contracts if row.behavior_block_id in block_ids
-    )
-    selected_relations = tuple(
-        row
-        for row in behavior_report.supporting_relations
-        if row.behavior_block_id in block_ids
-    )
-    selected_coverage = tuple(
-        row
-        for row in behavior_report.coverage_edges
-        if row.behavior_block_id in block_ids
-    )
-    coverage_ids = {row.coverage_id for row in selected_coverage}
-    selected_dispositions = tuple(
-        row
-        for row in behavior_report.test_node_dispositions
-        if set(row.coverage_ids) & coverage_ids
-    )
-    referenced_object_ids: set[str] = set()
-    for row in selected_contracts:
-        referenced_object_ids.update(row.semantic_spec_ids)
-        referenced_object_ids.update(row.oracle_ids)
-        referenced_object_ids.update(row.portable_binding_ids)
-        referenced_object_ids.add(row.owner_id)
-        referenced_object_ids.add(row.owner_contract_id)
-        referenced_object_ids.add(
-            f"topology-index:{row.model_element_id}"
-        )
-        referenced_object_ids.add(
-            f"model-test-alignment-owner:{row.model_element_id}"
-        )
-    for row in selected_coverage:
-        referenced_object_ids.update(
-            {
-                row.semantic_spec_id,
-                row.oracle_id,
-                row.test_node_id,
-                row.oracle_member_id,
-                row.case_id,
-            }
-        )
-    for row in behavior_report.coverage_execution_evidence:
-        if row.coverage_id in coverage_ids:
-            referenced_object_ids.update(
-                object_id
-                for object_id in (row.receipt_id,)
-                if object_id
-            )
-    referenced_object_ids.update(row.test_node_id for row in selected_dispositions)
-    topology_index_ids = tuple(
-        sorted(
-            object_id
-            for object_id in referenced_object_ids
-            if object_id.startswith("topology-index:")
-        )
-    )
-    for index_id in topology_index_ids:
-        if index_id not in expected_objects or index_id not in supplied_objects:
-            continue
-        index_value = supplied_objects[index_id]
-        if _fingerprint(index_value) != expected_objects[index_id]:
-            continue
-        if isinstance(index_value, Mapping):
-            node_object_id = str(index_value.get("node_object_id", ""))
-            if node_object_id:
-                referenced_object_ids.add(node_object_id)
-            referenced_object_ids.update(
-                str(object_id)
-                for object_id in index_value.get("relation_object_ids", ())
-                if str(object_id)
-            )
-    required_object_ids = referenced_object_ids & set(expected_objects)
-    missing = sorted(required_object_ids - set(supplied_objects))
-    stale = sorted(
-        object_id
-        for object_id in required_object_ids & set(supplied_objects)
-        if _fingerprint(supplied_objects[object_id]) != expected_objects[object_id]
-    )
-    if missing or stale:
-        raise SoftwareBlueprintReadinessError(
-            "affected loading requires exact current referenced objects: "
-            + ", ".join((*missing, *stale))
-        )
-    selected_objects = tuple(
-        (object_id, supplied_objects[object_id])
-        for object_id in sorted(required_object_ids)
-    )
-    selected_shards = tuple(
-        shard_id
-        for shard_id, member_ids in projection.shard_member_ids
-        if set(member_ids) & coverage_ids
-    )
-    return AffectedBlueprintNeighborhood(
-        logical_fingerprint=projection.logical_fingerprint,
-        behavior_block_ids=tuple(sorted(block_ids)),
-        implementation_surface_ids=tuple(
-            sorted(row.implementation_surface_id for row in selected_contracts)
-        ),
-        supporting_surface_ids=tuple(
-            sorted(row.supporting_surface_id for row in selected_relations)
-        ),
-        coverage_ids=tuple(sorted(coverage_ids)),
-        test_node_ids=tuple(sorted(row.test_node_id for row in selected_dispositions)),
-        shared_objects=selected_objects,
-        shard_ids=selected_shards,
-    )
-
 
 @dataclass(frozen=True)
 class CandidateBlueprint:
@@ -1907,8 +3693,12 @@ def generate_candidate_blueprint(
         )
     contracts: list[BehaviorBlockContract] = []
     for surface in getattr(implementation_inventory, "surfaces", ()):
-        possible_behavior = bool(getattr(surface, "behavior_bearing", False)) or (
-            str(getattr(surface, "surface_kind", ""))
+        disposition = str(getattr(surface, "disposition", ""))
+        possible_behavior = (
+            disposition == "model_implementation"
+            if disposition
+            else bool(getattr(surface, "behavior_bearing", False))
+            or str(getattr(surface, "surface_kind", ""))
             in {"class", "function", "method", "entrypoint"}
         )
         if not possible_behavior:
@@ -1922,7 +3712,7 @@ def generate_candidate_blueprint(
                     f"candidate inferred from {surface.path}#{surface.symbol}; independent semantics required"
                 ),
                 rationale="source discovery can locate a possible behavior boundary but cannot accept it",
-                provenance_fingerprints=(("source-observation", str(surface.content_fingerprint)),),
+                provenance_fingerprints=((str(surface.discovery_adapter_id), str(surface.content_fingerprint)),),
                 semantic_rule_ids=(f"candidate-rule:{surface_id}:{dimension}",),
                 applicability_surface_ids=(surface_id,),
             )
@@ -1933,12 +3723,14 @@ def generate_candidate_blueprint(
                 behavior_block_id=f"candidate-behavior:{surface_id}",
                 implementation_surface_id=surface_id,
                 model_element_id=f"candidate-model:{surface_id}",
+                model_fingerprint=str(surface.content_fingerprint),
                 owner_contract_id=f"candidate-owner:{surface_id}",
                 owner_id="candidate:unresolved",
                 function_relation="Input x State -> Set(Output x State)",
                 dimensions=dimensions,
                 semantic_spec_ids=(f"candidate-semantic:{surface_id}",),
                 oracle_ids=(f"candidate-oracle:{surface_id}",),
+                intent_contribution_ids=(),
                 portable_binding_ids=(f"candidate-portable:{surface_id}",),
                 protected_failure_ids=(),
                 accepted=False,
@@ -1961,10 +3753,13 @@ def generate_candidate_blueprint(
 
 __all__ = [
     "BEHAVIOR_BLUEPRINT_SCHEMA",
+    "BEHAVIOR_CASE_DIMENSIONS",
     "BEHAVIOR_DIMENSIONS",
     "CANDIDATE_BLUEPRINT_SCHEMA",
     "INTENT_INVENTORY_SCHEMA",
     "NORMALIZED_PROJECTION_SCHEMA",
+    "OBSERVED_AUTHORITY_STATUSES",
+    "ObservedResourceMember",
     "STATIC_BLUEPRINT_READINESS_SCHEMA",
     "RESOURCE_CATEGORIES",
     "RESOURCE_INVENTORY_SCHEMA",
@@ -1976,9 +3771,10 @@ __all__ = [
     "CoverageExecutionEvidence",
     "DelegatedAssertionHelper",
     "CandidateBlueprint",
-    "AffectedBlueprintNeighborhood",
+    "IntentSourceAuthority",
     "NoDeclaredIntentRationale",
     "NormalizedBlueprintProjection",
+    "ModelPathQualityBlueprintBinding",
     "ProjectIntentContribution",
     "ProjectIntentInventory",
     "ProjectResourceInventory",
@@ -1990,8 +3786,9 @@ __all__ = [
     "SoftwareBlueprintReadinessError",
     "SupportingSurfaceRelation",
     "generate_candidate_blueprint",
-    "load_affected_behavior_neighborhood",
+    "materialize_behavior_blueprint_shards",
     "normalize_behavior_blueprint",
+    "model_path_quality_binding_set_fingerprint",
     "review_behavior_blueprint",
     "review_static_blueprint_readiness",
 ]

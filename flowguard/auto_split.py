@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
 from .hierarchy import DEFAULT_LARGE_MODEL_STATE_THRESHOLD, ModelTargetSplitDerivation
 from .testmesh import TestTargetSplitDerivation
@@ -31,12 +32,6 @@ AUTO_SPLIT_DECISION_SCOPED = "auto_split_scoped_confidence"
 AUTO_SPLIT_DECISION_MODEL_REQUIRED = "model_mesh_split_required"
 AUTO_SPLIT_DECISION_TEST_REQUIRED = "test_mesh_split_required"
 AUTO_SPLIT_DECISION_TARGET_REQUIRED = "target_split_derivation_required"
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 @dataclass(frozen=True)

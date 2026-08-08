@@ -9,16 +9,42 @@ import json
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Mapping
 
 from .adoption import ADOPTION_STATUSES
 from .schema import SCHEMA_VERSION
 
 
+MODEL_REVISION_INTENT_BOOTSTRAP_INPUT_SCHEMA = (
+    "flowguard.model_revision_intent_bootstrap_input.v1"
+)
+
+
+def _reject_duplicate_json_keys(
+    pairs: list[tuple[str, object]],
+) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _strict_json_loads(value: str) -> object:
+    return json.loads(
+        value,
+        object_pairs_hook=_reject_duplicate_json_keys,
+        parse_constant=lambda item: (_ for _ in ()).throw(
+            ValueError(f"non-finite JSON number: {item}")
+        ),
+    )
+
+
 def _parse_json_mapping_arg(value: str, option_name: str) -> dict[str, object]:
     try:
-        payload = json.loads(value)
-    except json.JSONDecodeError as exc:
+        payload = _strict_json_loads(value)
+    except (json.JSONDecodeError, ValueError) as exc:
         raise SystemExit(f"{option_name} must be a JSON object: {exc}") from exc
     if not isinstance(payload, dict):
         raise SystemExit(f"{option_name} must be a JSON object.")
@@ -121,12 +147,333 @@ def _run_schema_version() -> int:
 
 def _read_json_object(path: str | Path) -> dict[str, object]:
     try:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        payload = _strict_json_loads(
+            Path(path).read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
         raise SystemExit(f"cannot load JSON object {path}: {exc}") from exc
     if not isinstance(payload, dict):
         raise SystemExit(f"JSON artifact must be an object: {path}")
     return payload
+
+
+def _strict_json_object(
+    value: object,
+    *,
+    fields: set[str],
+    context: str,
+) -> dict[str, object]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{context} must be a JSON object")
+    actual = {str(key) for key in value}
+    missing = sorted(fields - actual)
+    unknown = sorted(actual - fields)
+    if missing or unknown:
+        raise ValueError(
+            f"{context} fields are not current: missing={missing}, unknown={unknown}"
+        )
+    return {str(key): item for key, item in value.items()}
+
+
+def _strict_json_array(value: object, *, context: str) -> list[object]:
+    if not isinstance(value, list):
+        raise ValueError(f"{context} must be a JSON array")
+    return value
+
+
+def _load_native_owner_evidence(
+    path: str | Path,
+) -> tuple[tuple[object, ...], tuple[object, ...], tuple[object, ...]]:
+    """Load one exact leaf-owner evidence aggregate without deriving evidence."""
+
+    from .evidence_receipts import (
+        EvidenceReceipt,
+        ReceiptFinding,
+        ReceiptVerificationResult,
+    )
+    from .validation_ownership import ValidationOwnerContract
+
+    payload = _strict_json_object(
+        _read_json_object(path),
+        fields={"contracts", "receipts", "verification_results"},
+        context="native owner evidence",
+    )
+
+    contract_fields = {
+        "owner_id",
+        "command",
+        "input_patterns",
+        "obligation_ids",
+        "projected_inputs",
+        "dependency_owner_ids",
+        "resource_keys",
+        "toolchain_selectors",
+        "environment_selectors",
+        "external_component_bindings",
+        "work_context_artifact_roles",
+        "timeout_seconds",
+        "termination_policy",
+        "required",
+    }
+    component_fields = {"component_id", "fingerprint"}
+    contracts = []
+    for index, raw_contract in enumerate(
+        _strict_json_array(payload["contracts"], context="native owner contracts")
+    ):
+        contract = _strict_json_object(
+            raw_contract,
+            fields=contract_fields,
+            context=f"native owner contract[{index}]",
+        )
+        for name in (
+            "command",
+            "input_patterns",
+            "obligation_ids",
+            "dependency_owner_ids",
+            "resource_keys",
+            "toolchain_selectors",
+            "environment_selectors",
+            "work_context_artifact_roles",
+        ):
+            _strict_json_array(
+                contract[name], context=f"native owner contract[{index}].{name}"
+            )
+        for name in ("projected_inputs", "external_component_bindings"):
+            for component_index, raw_component in enumerate(
+                _strict_json_array(
+                    contract[name],
+                    context=f"native owner contract[{index}].{name}",
+                )
+            ):
+                _strict_json_object(
+                    raw_component,
+                    fields=component_fields,
+                    context=(
+                        f"native owner contract[{index}].{name}"
+                        f"[{component_index}]"
+                    ),
+                )
+        if not isinstance(contract["required"], bool):
+            raise ValueError(
+                f"native owner contract[{index}].required must be a JSON boolean"
+            )
+        contracts.append(ValidationOwnerContract.from_dict(contract))
+
+    receipt_fields = {
+        "schema_version",
+        "receipt_id",
+        "subject_id",
+        "subject_kind",
+        "producer_id",
+        "producer_version",
+        "claim_scope",
+        "command",
+        "working_directory_token",
+        "started_at",
+        "finished_at",
+        "exit_code",
+        "environment_fingerprint",
+        "environment_metadata",
+        "contract_hash",
+        "check_manifest_hash",
+        "suite_map_hash",
+        "input_snapshots",
+        "proof_artifact_id",
+        "proof_artifact_fingerprint",
+        "result_status",
+        "result_fingerprint",
+        "covered_obligations",
+        "required_child_receipts",
+        "consumed_child_receipts",
+        "supersedes_receipt_ids",
+        "skipped_checks",
+        "blockers",
+        "claim_boundary",
+        "metadata",
+    }
+    input_snapshot_fields = {
+        "artifact_id",
+        "path_token",
+        "hash_policy",
+        "raw_sha256",
+        "semantic_sha256",
+        "obligation_ids",
+    }
+    child_requirement_fields = {
+        "receipt_id",
+        "subject_id",
+        "obligation_ids",
+        "eligible_claim_scopes",
+        "expected_receipt_fingerprint",
+    }
+    consumed_child_fields = {"receipt_id", "receipt_fingerprint"}
+    receipts = []
+    for index, raw_receipt in enumerate(
+        _strict_json_array(payload["receipts"], context="native owner receipts")
+    ):
+        receipt = _strict_json_object(
+            raw_receipt,
+            fields=receipt_fields,
+            context=f"native owner receipt[{index}]",
+        )
+        for name in (
+            "command",
+            "input_snapshots",
+            "covered_obligations",
+            "required_child_receipts",
+            "consumed_child_receipts",
+            "supersedes_receipt_ids",
+            "skipped_checks",
+            "blockers",
+        ):
+            _strict_json_array(
+                receipt[name], context=f"native owner receipt[{index}].{name}"
+            )
+        if not isinstance(receipt["environment_metadata"], Mapping):
+            raise ValueError(
+                f"native owner receipt[{index}].environment_metadata must be a JSON object"
+            )
+        if not isinstance(receipt["metadata"], Mapping):
+            raise ValueError(
+                f"native owner receipt[{index}].metadata must be a JSON object"
+            )
+        for nested_index, raw_snapshot in enumerate(receipt["input_snapshots"]):
+            snapshot = _strict_json_object(
+                raw_snapshot,
+                fields=input_snapshot_fields,
+                context=f"native owner receipt[{index}].input_snapshots[{nested_index}]",
+            )
+            _strict_json_array(
+                snapshot["obligation_ids"],
+                context=(
+                    f"native owner receipt[{index}].input_snapshots"
+                    f"[{nested_index}].obligation_ids"
+                ),
+            )
+        for nested_index, raw_requirement in enumerate(
+            receipt["required_child_receipts"]
+        ):
+            requirement = _strict_json_object(
+                raw_requirement,
+                fields=child_requirement_fields,
+                context=(
+                    f"native owner receipt[{index}].required_child_receipts"
+                    f"[{nested_index}]"
+                ),
+            )
+            _strict_json_array(
+                requirement["obligation_ids"],
+                context=(
+                    f"native owner receipt[{index}].required_child_receipts"
+                    f"[{nested_index}].obligation_ids"
+                ),
+            )
+            _strict_json_array(
+                requirement["eligible_claim_scopes"],
+                context=(
+                    f"native owner receipt[{index}].required_child_receipts"
+                    f"[{nested_index}].eligible_claim_scopes"
+                ),
+            )
+        for nested_index, raw_consumed in enumerate(
+            receipt["consumed_child_receipts"]
+        ):
+            _strict_json_object(
+                raw_consumed,
+                fields=consumed_child_fields,
+                context=(
+                    f"native owner receipt[{index}].consumed_child_receipts"
+                    f"[{nested_index}]"
+                ),
+            )
+        receipts.append(EvidenceReceipt.from_dict(receipt))
+
+    verification_fields = {
+        "receipt_id",
+        "receipt_fingerprint",
+        "current",
+        "eligible",
+        "status",
+        "finding_codes",
+        "findings",
+        "satisfied_obligations",
+        "minimum_revalidation",
+    }
+    finding_fields = {"code", "message", "artifact_id", "details"}
+    verifications = []
+    for index, raw_result in enumerate(
+        _strict_json_array(
+            payload["verification_results"],
+            context="native owner verification results",
+        )
+    ):
+        result = _strict_json_object(
+            raw_result,
+            fields=verification_fields,
+            context=f"native owner verification result[{index}]",
+        )
+        for name in (
+            "finding_codes",
+            "findings",
+            "satisfied_obligations",
+            "minimum_revalidation",
+        ):
+            _strict_json_array(
+                result[name],
+                context=f"native owner verification result[{index}].{name}",
+            )
+        if not isinstance(result["current"], bool) or not isinstance(
+            result["eligible"], bool
+        ):
+            raise ValueError(
+                f"native owner verification result[{index}] current and eligible must be JSON booleans"
+            )
+        finding_rows = []
+        for finding_index, raw_finding in enumerate(result["findings"]):
+            finding = _strict_json_object(
+                raw_finding,
+                fields=finding_fields,
+                context=(
+                    f"native owner verification result[{index}].findings"
+                    f"[{finding_index}]"
+                ),
+            )
+            if not isinstance(finding["details"], Mapping):
+                raise ValueError(
+                    f"native owner verification result[{index}].findings"
+                    f"[{finding_index}].details must be a JSON object"
+                )
+            finding_rows.append(
+                ReceiptFinding(
+                    code=str(finding["code"]),
+                    message=str(finding["message"]),
+                    artifact_id=str(finding["artifact_id"]),
+                    details=finding["details"],
+                )
+            )
+        findings = tuple(finding_rows)
+        finding_codes = [finding.code for finding in findings]
+        if result["finding_codes"] != finding_codes:
+            raise ValueError(
+                f"native owner verification result[{index}] finding_codes do not match findings"
+            )
+        verifications.append(
+            ReceiptVerificationResult(
+                receipt_id=str(result["receipt_id"]),
+                receipt_fingerprint=str(result["receipt_fingerprint"]),
+                current=result["current"],
+                eligible=result["eligible"],
+                status=str(result["status"]),
+                findings=findings,
+                satisfied_obligations=tuple(
+                    str(item) for item in result["satisfied_obligations"]
+                ),
+                minimum_revalidation=tuple(
+                    str(item) for item in result["minimum_revalidation"]
+                ),
+            )
+        )
+    return tuple(contracts), tuple(receipts), tuple(verifications)
 
 
 def _emit_payload(payload: dict[str, object], *, as_json: bool) -> None:
@@ -147,6 +494,7 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
         activate_model_revision_set,
         audit_model_authority,
         bootstrap_model_authority,
+        load_observed_model_system,
         rollback_observed_model_system,
     )
     from .model_system_inventory import (
@@ -157,6 +505,20 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
         if args.model_system_action == "audit":
             report = audit_model_authority(args.root)
             _emit_payload(report.to_dict(), as_json=args.json)
+            return 0 if report.ok else 1
+        if args.model_system_action == "plan":
+            from .model_revision_plan import preview_current_model_revision
+
+            report = preview_current_model_revision(
+                args.root,
+                snapshot_id=args.snapshot_id,
+            )
+            payload = (
+                report.to_compact_dict()
+                if args.compact
+                else report.to_dict()
+            )
+            _emit_payload(payload, as_json=args.json)
             return 0 if report.ok else 1
         if args.model_system_action == "bootstrap":
             snapshot = (
@@ -181,15 +543,35 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
                 as_json=args.json,
             )
             return 0
-        if args.model_system_action == "build":
+        if args.model_system_action == "owner-evidence":
+            from .model_revision_owner_evidence import (
+                produce_model_revision_owner_evidence,
+            )
+
+            report = produce_model_revision_owner_evidence(
+                args.root,
+                model_parent_receipt=args.model_parent_receipt,
+                snapshot_id=args.snapshot_id,
+                receipt_root=args.receipt_root or None,
+                output_path=args.output,
+            )
+            _emit_payload(report.to_dict(), as_json=args.json)
+            return 0
+        if args.model_system_action in {"build", "intent-bootstrap"}:
             from .model_intent import (
                 ModelIntentContribution,
                 ModelIntentDisposition,
+            )
+            from .model_intent_authority import (
+                EffectiveIntentTransition,
+                LegacyIntentBootstrapDisposition,
+                build_current_intent_bootstrap_receipt,
             )
             from .model_revision_builder import (
                 build_current_model_revision,
                 load_revision_removal_dispositions,
             )
+            from .model_path_quality import PathQualityResult, PathQualitySubject
 
             dispositions = (
                 load_revision_removal_dispositions(args.removal_dispositions)
@@ -198,11 +580,17 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
             )
             intent_contributions = ()
             intent_dispositions = ()
+            effective_intent_transitions = ()
             if args.intent_inventory:
                 intent_payload = _read_json_object(args.intent_inventory)
-                if set(intent_payload) != {"contributions", "dispositions"}:
+                if set(intent_payload) != {
+                    "contributions",
+                    "dispositions",
+                    "effective_intent_transitions",
+                }:
                     raise ValueError(
-                        "intent inventory must contain exactly contributions and dispositions"
+                        "intent inventory must contain exactly contributions, "
+                        "dispositions, and effective_intent_transitions"
                     )
                 intent_contributions = tuple(
                     ModelIntentContribution.from_dict(item)
@@ -212,9 +600,87 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
                     ModelIntentDisposition.from_dict(item)
                     for item in intent_payload["dispositions"]
                 )
+                effective_intent_transitions = tuple(
+                    EffectiveIntentTransition.from_dict(item)
+                    for item in intent_payload[
+                        "effective_intent_transitions"
+                    ]
+                )
+            current_design_intent_contributions = ()
+            effective_intent_bootstrap_receipt = None
+            if args.model_system_action == "intent-bootstrap":
+                bootstrap_payload = _read_json_object(
+                    args.intent_bootstrap_input
+                )
+                expected_bootstrap_fields = {
+                    "schema",
+                    "receipt_id",
+                    "rationale",
+                    "claim_boundary",
+                    "current_design_contributions",
+                    "legacy_entry_dispositions",
+                }
+                if set(bootstrap_payload) != expected_bootstrap_fields:
+                    missing = tuple(
+                        sorted(expected_bootstrap_fields - set(bootstrap_payload))
+                    )
+                    unknown = tuple(
+                        sorted(set(bootstrap_payload) - expected_bootstrap_fields)
+                    )
+                    raise ValueError(
+                        "intent bootstrap input must contain exactly the current "
+                        f"aggregate fields; missing={missing}; unknown={unknown}"
+                    )
+                if (
+                    bootstrap_payload["schema"]
+                    != MODEL_REVISION_INTENT_BOOTSTRAP_INPUT_SCHEMA
+                ):
+                    raise ValueError(
+                        "intent bootstrap input schema must be "
+                        f"{MODEL_REVISION_INTENT_BOOTSTRAP_INPUT_SCHEMA}"
+                    )
+                current_design_intent_contributions = tuple(
+                    ModelIntentContribution.from_dict(item)
+                    for item in bootstrap_payload[
+                        "current_design_contributions"
+                    ]
+                )
+                legacy_entry_dispositions = tuple(
+                    LegacyIntentBootstrapDisposition.from_dict(item)
+                    for item in bootstrap_payload[
+                        "legacy_entry_dispositions"
+                    ]
+                )
+                _bootstrap_head, bootstrap_base = load_observed_model_system(
+                    args.root
+                )
+                bootstrap_candidate = build_manifest_model_system_snapshot(
+                    args.root,
+                    snapshot_id=args.snapshot_id,
+                    system_id=bootstrap_base.system_id,
+                    subject_lane=bootstrap_base.subject_lane,
+                    lifecycle=bootstrap_base.lifecycle,
+                )
+                effective_intent_bootstrap_receipt = (
+                    build_current_intent_bootstrap_receipt(
+                        args.root,
+                        receipt_id=str(bootstrap_payload["receipt_id"]),
+                        candidate_snapshot=bootstrap_candidate,
+                        current_design_contributions=(
+                            current_design_intent_contributions
+                        ),
+                        rationale=str(bootstrap_payload["rationale"]),
+                        legacy_entry_dispositions=(
+                            legacy_entry_dispositions
+                        ),
+                        claim_boundary=str(
+                            bootstrap_payload["claim_boundary"]
+                        ),
+                    )
+                )
             no_intent_evidence = ()
             if args.no_declared_intent_evidence_fingerprints:
-                evidence_payload = json.loads(
+                evidence_payload = _strict_json_loads(
                     args.no_declared_intent_evidence_fingerprints
                 )
                 if not isinstance(evidence_payload, dict):
@@ -224,6 +690,31 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
                 no_intent_evidence = tuple(
                     (str(role), str(fingerprint))
                     for role, fingerprint in evidence_payload.items()
+                )
+            native_owner_contracts = ()
+            native_owner_receipts = ()
+            native_owner_verification_results = ()
+            if args.native_owner_evidence:
+                (
+                    native_owner_contracts,
+                    native_owner_receipts,
+                    native_owner_verification_results,
+                ) = _load_native_owner_evidence(args.native_owner_evidence)
+            path_quality_subjects = ()
+            path_quality_results = ()
+            if args.path_quality_material:
+                path_quality_payload = _read_json_object(args.path_quality_material)
+                if set(path_quality_payload) != {"subjects", "results"}:
+                    raise ValueError(
+                        "path-quality material must contain exactly subjects and results"
+                    )
+                path_quality_subjects = tuple(
+                    PathQualitySubject.from_dict(item)
+                    for item in path_quality_payload["subjects"]
+                )
+                path_quality_results = tuple(
+                    PathQualityResult.from_dict(item)
+                    for item in path_quality_payload["results"]
                 )
             report = build_current_model_revision(
                 args.root,
@@ -236,6 +727,20 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
                 removal_dispositions=dispositions,
                 intent_contributions=intent_contributions,
                 intent_dispositions=intent_dispositions,
+                effective_intent_transitions=effective_intent_transitions,
+                current_design_intent_contributions=(
+                    current_design_intent_contributions
+                ),
+                effective_intent_bootstrap_receipt=(
+                    effective_intent_bootstrap_receipt
+                ),
+                native_owner_contracts=native_owner_contracts,
+                native_owner_receipts=native_owner_receipts,
+                native_owner_verification_results=(
+                    native_owner_verification_results
+                ),
+                path_quality_subjects=path_quality_subjects,
+                path_quality_results=path_quality_results,
                 no_declared_intent_rationale_id=(
                     args.no_declared_intent_rationale_id
                 ),
@@ -297,7 +802,7 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
             as_json=args.json,
         )
         return 0
-    except (OSError, ValueError, RuntimeError) as exc:
+    except (OSError, ValueError, RuntimeError, SystemExit) as exc:
         _emit_payload(
             {"status": "blocked", "error": str(exc)},
             as_json=args.json,
@@ -432,6 +937,29 @@ def _add_model_system_parsers(
         model_system_action="audit",
     )
 
+    revision_plan = subparsers.add_parser(
+        "model-revision-plan",
+        help=(
+            "Preview the exact base-to-live-candidate revision, affected closure, "
+            "and required native owner routes without writing or running models."
+        ),
+    )
+    revision_plan.add_argument("--root", default=".")
+    revision_plan.add_argument("--snapshot-id", required=True)
+    revision_plan.add_argument(
+        "--compact",
+        action="store_true",
+        help=(
+            "Emit the same decision and identity fingerprints without the "
+            "full entity diff, affected-id, edge, or owner-binding rows."
+        ),
+    )
+    revision_plan.add_argument("--json", action="store_true")
+    revision_plan.set_defaults(
+        handler=_run_model_system_command,
+        model_system_action="plan",
+    )
+
     bootstrap = subparsers.add_parser(
         "model-system-bootstrap",
         help="Establish the first observed model-system authority.",
@@ -453,59 +981,136 @@ def _add_model_system_parsers(
         model_system_action="bootstrap",
     )
 
-    build = subparsers.add_parser(
-        "model-revision-build",
+    owner_evidence = subparsers.add_parser(
+        "model-revision-owner-evidence",
         help=(
-            "Build one accepted current-format revision from an exact-current "
-            "full model-regression parent receipt without activating it."
+            "Recompose one exact-current full model-regression parent into "
+            "distinct current native-owner receipts; never runs regressions "
+            "or activates authority."
         ),
     )
-    build.add_argument("--root", default=".")
-    build.add_argument("--model-parent-receipt", required=True)
-    build.add_argument("--revision-set-id", required=True)
-    build.add_argument("--task-id", required=True)
-    build.add_argument("--snapshot-id", required=True)
-    build.add_argument(
+    owner_evidence.add_argument("--root", default=".")
+    owner_evidence.add_argument("--model-parent-receipt", required=True)
+    owner_evidence.add_argument("--snapshot-id", required=True)
+    owner_evidence.add_argument(
         "--receipt-root",
         default="",
         help="Model owner receipt store; defaults to the project current store.",
     )
-    build.add_argument(
-        "--output-root",
-        default="",
-        help="Model-mesh output root; defaults to .flowguard/model-mesh.",
-    )
-    build.add_argument(
-        "--removal-dispositions",
-        default="",
-        help="Current-schema JSON array covering every removed governed id.",
-    )
-    build.add_argument(
-        "--intent-inventory",
-        default="",
+    owner_evidence.add_argument(
+        "--output",
+        required=True,
         help=(
-            "Current contribution/disposition JSON for this revision. It is "
-            "exclusive with the no-declared-intent rationale fields."
+            "New immutable strict contracts/receipts/verification_results JSON "
+            "bundle for model-revision-build."
         ),
     )
-    build.add_argument("--no-declared-intent-rationale-id", default="")
-    build.add_argument(
-        "--no-declared-intent-evidence-fingerprints",
-        default="",
-        help="JSON object mapping evidence roles to exact sha256 fingerprints.",
+    owner_evidence.add_argument("--json", action="store_true")
+    owner_evidence.set_defaults(
+        handler=_run_model_system_command,
+        model_system_action="owner-evidence",
     )
-    build.add_argument("--no-declared-intent-rationale", default="")
-    build.add_argument(
-        "--decision-reason",
-        default=(
-            "The exact-current terminal-pass full model-regression parent "
-            "receipt covers every affected native owner."
+
+    def add_revision_build_arguments(
+        parser: argparse.ArgumentParser,
+    ) -> None:
+        parser.add_argument("--root", default=".")
+        parser.add_argument("--model-parent-receipt", required=True)
+        parser.add_argument("--revision-set-id", required=True)
+        parser.add_argument("--task-id", required=True)
+        parser.add_argument("--snapshot-id", required=True)
+        parser.add_argument(
+            "--receipt-root",
+            default="",
+            help=(
+                "Model owner receipt store; defaults to the project current store."
+            ),
+        )
+        parser.add_argument(
+            "--output-root",
+            default="",
+            help="Model-mesh output root; defaults to .flowguard/model-mesh.",
+        )
+        parser.add_argument(
+            "--removal-dispositions",
+            default="",
+            help="Current-schema JSON array covering every removed governed id.",
+        )
+        parser.add_argument(
+            "--intent-inventory",
+            default="",
+            help=(
+                "Strict revision-local contributions, dispositions, and "
+                "effective_intent_transitions JSON. It is exclusive with "
+                "the no-declared-intent rationale fields."
+            ),
+        )
+        parser.add_argument(
+            "--native-owner-evidence",
+            default="",
+            help=(
+                "Strict JSON object containing contracts, receipts, and "
+                "verification_results for exact affected native owners. "
+                "When omitted, the revision stays incomplete."
+            ),
+        )
+        parser.add_argument(
+            "--path-quality-material",
+            default="",
+            help=(
+                "Strict JSON object containing current typed subjects and compact "
+                "results for every added or replaced model. When omitted, a "
+                "behavior-changing revision stays incomplete."
+            ),
+        )
+        parser.add_argument("--no-declared-intent-rationale-id", default="")
+        parser.add_argument(
+            "--no-declared-intent-evidence-fingerprints",
+            default="",
+            help="JSON object mapping evidence roles to exact sha256 fingerprints.",
+        )
+        parser.add_argument("--no-declared-intent-rationale", default="")
+        parser.add_argument(
+            "--decision-reason",
+            default=(
+                "The exact-current parent receipt composes exact-current "
+                "terminal-pass leaf receipts supplied by every affected native owner."
+            ),
+        )
+        parser.add_argument("--json", action="store_true")
+
+    build = subparsers.add_parser(
+        "model-revision-build",
+        help=(
+            "Build one current-format revision from an exact-current parent "
+            "receipt and optional exact leaf-owner evidence without activating it."
         ),
     )
-    build.add_argument("--json", action="store_true")
+    add_revision_build_arguments(build)
     build.set_defaults(
         handler=_run_model_system_command,
         model_system_action="build",
+    )
+
+    intent_bootstrap = subparsers.add_parser(
+        "model-revision-intent-bootstrap",
+        help=(
+            "Build the one explicit current-intent migration revision from one "
+            "strict aggregate design-and-legacy-disposition input; never activate it."
+        ),
+    )
+    add_revision_build_arguments(intent_bootstrap)
+    intent_bootstrap.add_argument(
+        "--intent-bootstrap-input",
+        required=True,
+        help=(
+            "Strict aggregate JSON with schema, receipt metadata, every current "
+            "owner design contribution, and every exact legacy disposition."
+        ),
+    )
+    intent_bootstrap.set_defaults(
+        handler=_run_model_system_command,
+        model_system_action="intent-bootstrap",
     )
 
     activate = subparsers.add_parser(
@@ -809,22 +1414,10 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "existing_model_preflight_template_files",
     ),
     FileTemplateCommand(
-        "model-angle-template",
-        "Print or write the open-ended model-angle deliberation template.",
-        "model_angle_deliberation",
-        "model_angle_deliberation_template_files",
-    ),
-    FileTemplateCommand(
         "field-lifecycle-template",
         "Print or write the FieldLifecycleMesh field coverage and replacement disposition template.",
         "field_lifecycle",
         "field_lifecycle_template_files",
-    ),
-    FileTemplateCommand(
-        "model-similarity-template",
-        "Print or write the model similarity consolidation template.",
-        "model_similarity_consolidation",
-        "model_similarity_consolidation_template_files",
     ),
     FileTemplateCommand(
         "risk-evidence-ledger-template",
@@ -861,12 +1454,6 @@ FILE_TEMPLATE_COMMANDS: tuple[FileTemplateCommand, ...] = (
         "Print or write the optional multi-role maintenance workflow template.",
         "maintenance_workflow",
         "maintenance_workflow_template_files",
-    ),
-    FileTemplateCommand(
-        "maintenance-scan-template",
-        "Print or write the FlowGuard maintenance scan router template.",
-        "maintenance_scan",
-        "maintenance_scan_template_files",
     ),
     FileTemplateCommand(
         "topology-hazard-template",
@@ -1301,132 +1888,24 @@ def _run_implementation_inventory_audit_command(args: argparse.Namespace) -> int
     return 0 if report.ok else 1
 
 
-def _blueprint_current_maps(args: argparse.Namespace) -> tuple[dict[str, str], ...]:
-    values: list[dict[str, str]] = []
-    for option, raw in (
-        ("--portable-owner-fingerprints", args.portable_owner_fingerprints),
-        ("--resource-fingerprints", args.resource_fingerprints),
-        ("--oracle-fingerprints", args.oracle_fingerprints),
-    ):
-        parsed = _parse_json_mapping_arg(raw, option)
-        values.append({str(key): str(value) for key, value in parsed.items()})
-    return tuple(values)
-
-
-def _load_and_qualify_blueprint(args: argparse.Namespace):
-    from .implementation_blueprint import (
-        load_model_implementation_binding_report,
-        load_reconstruction_evidence,
-        load_software_blueprint_manifest,
-        qualify_software_blueprint,
-    )
-    from .implementation_inventory import (
-        load_implementation_surface_inventory,
-        review_implementation_surface_inventory,
-    )
-
-    manifest = load_software_blueprint_manifest(args.manifest)
-    binding_report = load_model_implementation_binding_report(args.binding_report)
-    inventory = load_implementation_surface_inventory(args.inventory)
-    inventory_audit = review_implementation_surface_inventory(inventory, root=args.root)
-    if not inventory_audit.ok:
-        raise ValueError("implementation inventory audit is blocked")
-    reconstruction = (
-        load_reconstruction_evidence(args.reconstruction_evidence)
-        if args.reconstruction_evidence
-        else None
-    )
-    portable, resources, oracles = _blueprint_current_maps(args)
-    report = qualify_software_blueprint(
-        manifest,
-        binding_report,
-        implementation_inventory=inventory,
-        reconstruction_evidence=reconstruction,
-        reconstruction_required=args.require_reconstruction,
-        current_observed_snapshot_fingerprint=args.observed_snapshot_fingerprint,
-        current_semantic_mesh_fingerprint=args.semantic_mesh_fingerprint,
-        current_test_inventory_fingerprint=args.test_inventory_fingerprint,
-        current_model_test_alignment_report_fingerprint=(
-            args.model_test_alignment_report_fingerprint
-        ),
-        current_portable_owner_fingerprints=portable,
-        current_resource_fingerprints=resources,
-        current_oracle_fingerprints=oracles,
-    )
-    return manifest, binding_report, inventory, report
-
-
-def _run_model_blueprint_check_command(args: argparse.Namespace) -> int:
-    from .implementation_blueprint import BlueprintValidationError
-
-    try:
-        _manifest, _binding_report, _inventory, report = _load_and_qualify_blueprint(args)
-    except (BlueprintValidationError, OSError, ValueError) as exc:
-        _emit_payload(
-            _blueprint_error_payload("software_blueprint_invalid", exc),
-            as_json=args.json,
-        )
-        return 2
-    _emit_payload(report.to_dict(), as_json=args.json)
-    return 0 if report.ok else 1
-
-
-def _run_model_blueprint_export_command(args: argparse.Namespace) -> int:
-    from .implementation_blueprint import (
-        BlueprintValidationError,
-        project_software_blueprint,
-        write_software_blueprint_projection,
-    )
-
-    try:
-        manifest, binding_report, inventory, report = _load_and_qualify_blueprint(args)
-        if not report.ok:
-            _emit_payload(report.to_dict(), as_json=args.json)
-            return 1
-        projection = project_software_blueprint(
-            manifest,
-            binding_report,
-            implementation_inventory=inventory,
-        )
-        written = write_software_blueprint_projection(projection, args.output)
-    except (BlueprintValidationError, OSError, ValueError) as exc:
-        _emit_payload(
-            _blueprint_error_payload("software_blueprint_export_failed", exc),
-            as_json=args.json,
-        )
-        return 2
-    root = Path(args.output).resolve()
-    payload: dict[str, object] = {
-        "ok": True,
-        "status": "complete",
-        "blueprint_fingerprint": manifest.fingerprint,
-        "projection_fingerprint": projection.fingerprint,
-        "written_paths": [path.relative_to(root).as_posix() for path in written],
-        "reconstruction_status": report.empirical_status,
-        "claim_text": report.claim_text,
-    }
-    _emit_payload(payload, as_json=args.json)
-    return 0
-
-
 def _run_flowguard_self_blueprint_check_command(args: argparse.Namespace) -> int:
     """Build and qualify FlowGuard's current self-blueprint without writing it."""
 
+    from .blueprint_compact_projection import BlueprintCompactProjection
     from .self_blueprint import FlowGuardSelfBlueprintError, build_flowguard_self_blueprint
     from .self_architecture_reduction import (
-        review_flowguard_self_architecture_reduction,
+        build_flowguard_self_architecture_reduction_review,
     )
 
     try:
-        bundle = build_flowguard_self_blueprint(args.root)
-        reduction_report = (
-            review_flowguard_self_architecture_reduction(
-                args.root,
-                self_blueprint=bundle,
-            )
-            if getattr(args, "include_architecture_reduction", False)
-            else None
-        )
+        if getattr(args, "include_architecture_reduction", False):
+            (
+                bundle,
+                reduction_report,
+            ) = build_flowguard_self_architecture_reduction_review(args.root)
+        else:
+            bundle = build_flowguard_self_blueprint(args.root)
+            reduction_report = None
     except (FlowGuardSelfBlueprintError, OSError, ValueError) as exc:
         _emit_payload(
             _blueprint_error_payload("flowguard_self_blueprint_invalid", exc),
@@ -1434,62 +1913,14 @@ def _run_flowguard_self_blueprint_check_command(args: argparse.Namespace) -> int
         )
         return 2
     if args.compact:
-        required_test_ids = set(bundle.test_inventory.required_node_ids)
-        payload = {
-            "ok": bundle.ok,
-            "owner_status": bundle.behavior_report.owner_structure_status,
-            "behavior_status": bundle.behavior_report.behavior_closure_status,
-            "resource_status": (
-                "complete" if bundle.resource_inventory.complete else "incomplete"
-            ),
-            "intent_status": (
-                "complete" if bundle.intent_inventory.complete else "incomplete"
-            ),
-            "static_blueprint_status": bundle.target_system_report.status,
-            "static_readiness": bundle.static_readiness.status,
-            "deepest_proven_layer": (
-                bundle.understanding_summary.deepest_proven_layer
-            ),
-            "first_gap": (
-                bundle.understanding_summary.first_gap.to_dict()
-                if bundle.understanding_summary.first_gap
-                else None
-            ),
-            "gap_count": bundle.understanding_summary.gap_count,
-            "test_nodes_total": len(bundle.test_inventory.nodes),
-            "test_nodes_required": len(required_test_ids),
-            "test_nodes_supporting": (
-                len(bundle.test_inventory.nodes) - len(required_test_ids)
-            ),
-            "real_coverage_edges": len(bundle.behavior_report.coverage_edges),
-            "binding_finding_codes": sorted(
-                {row.code for row in bundle.binding_report.findings}
-            ),
-            "behavior_finding_codes": sorted(
-                {row.code for row in bundle.behavior_report.findings}
-            ),
-            "planned_checker_gaps": sum(
-                row.code
-                in {
-                    "behavior_test_design_missing",
-                    "coverage_oracle_member_missing",
-                    "coverage_test_node_missing",
-                }
-                for row in bundle.behavior_report.findings
-            ),
-            "blueprint_fingerprint": bundle.target_system_report.fingerprint,
-            "self_blueprint_fingerprint": bundle.manifest.fingerprint,
-            "claim_boundary": (
-                "Compact read-only self-blueprint status for current static model depth."
-            ),
-        }
+        payload = BlueprintCompactProjection.self_qualification(bundle)
     else:
         payload = bundle.to_dict()
         payload["self_blueprint_fingerprint"] = bundle.manifest.fingerprint
     if reduction_report is not None:
         payload["composed_self_maintenance_review"] = True
         payload["architecture_reduction_review"] = (
-            _compact_self_architecture_reduction_payload(reduction_report)
+            BlueprintCompactProjection.reduction(reduction_report)
             if args.compact
             else reduction_report.to_dict()
         )
@@ -1497,40 +1928,28 @@ def _run_flowguard_self_blueprint_check_command(args: argparse.Namespace) -> int
             "Both bounded reviews consume one exact in-memory self-blueprint; "
             "no cache or target-system artifact is written."
         )
+    cleanup_release_ready_required = bool(
+        getattr(args, "require_cleanup_release_ready", False)
+    )
+    cleanup_release_ready = bool(
+        reduction_report is not None
+        and getattr(reduction_report, "cleanup_release_ready", False)
+    )
+    if cleanup_release_ready_required:
+        payload["cleanup_release_ready_required"] = True
+        payload["cleanup_release_ready_gate"] = (
+            "pass" if cleanup_release_ready else "blocked"
+        )
     _emit_payload(payload, as_json=args.json)
-    return 0 if bundle.ok and (reduction_report is None or reduction_report.ok) else 1
-
-
-def _compact_self_architecture_reduction_payload(report: Any) -> dict[str, Any]:
-    signal_counts: dict[str, int] = {}
-    disposition_counts: dict[str, int] = {}
-    for candidate in report.candidates:
-        signal = str(candidate.metadata.get("signal", "unclassified"))
-        disposition = str(candidate.metadata.get("disposition", "unresolved"))
-        signal_counts[signal] = signal_counts.get(signal, 0) + 1
-        disposition_counts[disposition] = disposition_counts.get(disposition, 0) + 1
-    return {
-        "schema_version": report.schema_version,
-        "status": report.status,
-        "ok": report.ok,
-        "fingerprint": report.fingerprint,
-        "self_blueprint_fingerprint": report.self_blueprint_fingerprint,
-        "candidate_inventory_fingerprint": report.candidate_inventory_fingerprint,
-        "candidate_count": len(report.candidates),
-        "candidate_counts_by_signal": dict(sorted(signal_counts.items())),
-        "candidate_counts_by_disposition": dict(
-            sorted(disposition_counts.items())
-        ),
-        "denominator_complete": report.denominator_complete,
-        "safe_unapplied_candidate_ids": list(
-            report.safe_unapplied_candidate_ids
-        ),
-        "decision": report.reduction_report.decision,
-        "required_next_routes": list(
-            report.reduction_report.required_next_routes
-        ),
-        "claim_boundary": report.claim_boundary,
-    }
+    return (
+        0
+        if (
+            bundle.ok
+            and (reduction_report is None or reduction_report.ok)
+            and (not cleanup_release_ready_required or cleanup_release_ready)
+        )
+        else 1
+    )
 
 
 def _run_flowguard_self_architecture_reduction_command(
@@ -1538,6 +1957,7 @@ def _run_flowguard_self_architecture_reduction_command(
 ) -> int:
     """Review exact self-blueprint contraction signals without writing code."""
 
+    from .blueprint_compact_projection import BlueprintCompactProjection
     from .self_architecture_reduction import (
         review_flowguard_self_architecture_reduction,
     )
@@ -1553,15 +1973,203 @@ def _run_flowguard_self_architecture_reduction_command(
             as_json=args.json,
         )
         return 2
-    payload = report.to_dict()
-    if args.compact:
-        payload = _compact_self_architecture_reduction_payload(report)
+    payload = (
+        BlueprintCompactProjection.reduction(report)
+        if args.compact
+        else report.to_dict()
+    )
     _emit_payload(payload, as_json=args.json)
     return 0 if report.ok else 1
 
 
-def _run_project_blueprint_audit_command(args: argparse.Namespace) -> int:
-    """Build a declared target-system software blueprint in memory only."""
+def _run_target_system_blueprint_audit_command(args: argparse.Namespace) -> int:
+    """Qualify one frozen target from strict native artifacts only."""
+
+    from .target_native_qualification import (
+        load_target_blueprint_native_report_set,
+        qualify_target_system_from_native_reports,
+    )
+    from .target_system_blueprint import (
+        load_frozen_target_system_evidence,
+        load_target_system_descriptor,
+    )
+
+    try:
+        descriptor = load_target_system_descriptor(args.descriptor)
+        frozen_evidence = load_frozen_target_system_evidence(args.frozen_evidence)
+        native_report_set = load_target_blueprint_native_report_set(
+            args.native_report_set
+        )
+        report = qualify_target_system_from_native_reports(
+            descriptor,
+            frozen_evidence,
+            native_report_set,
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        _emit_payload(
+            _blueprint_error_payload("target_system_blueprint_invalid", exc),
+            as_json=args.json,
+        )
+        return 2
+    _emit_payload(report.to_dict(), as_json=args.json)
+    return 0 if report.ok else 1
+
+
+def _run_target_system_blueprint_export_command(args: argparse.Namespace) -> int:
+    """Materialize the exact audited target through the canonical writer."""
+
+    from .canonical_blueprint_projection import (
+        canonical_target_system_blueprint_projection,
+        verify_materialized_target_system_blueprint_projection,
+    )
+    from .implementation_blueprint import (
+        BlueprintValidationError,
+        write_canonical_blueprint_projection,
+    )
+    from .target_native_qualification import (
+        load_target_blueprint_native_report_set,
+        qualify_target_system_from_native_reports,
+    )
+    from .target_system_blueprint import (
+        load_frozen_target_system_evidence,
+        load_target_system_descriptor,
+    )
+
+    try:
+        descriptor = load_target_system_descriptor(args.descriptor)
+        frozen_evidence = load_frozen_target_system_evidence(args.frozen_evidence)
+        native_report_set = load_target_blueprint_native_report_set(
+            args.native_report_set
+        )
+        report = qualify_target_system_from_native_reports(
+            descriptor,
+            frozen_evidence,
+            native_report_set,
+        )
+        projection = canonical_target_system_blueprint_projection(
+            descriptor,
+            frozen_evidence,
+            native_report_set,
+            report,
+        )
+        written = write_canonical_blueprint_projection(projection, args.output)
+        materialization = verify_materialized_target_system_blueprint_projection(
+            args.output,
+            descriptor,
+            frozen_evidence,
+            native_report_set,
+            report,
+        )
+        if not materialization.ok:
+            raise BlueprintValidationError(
+                "; ".join(finding.message for finding in materialization.findings)
+            )
+    except (BlueprintValidationError, OSError, TypeError, ValueError) as exc:
+        payload = _blueprint_error_payload(
+            "target_system_blueprint_export_failed", exc
+        )
+        payload.update(
+            {
+                "materialization_ok": False,
+                "materialization_status": "blocked",
+                "model_readiness_status": "not_available",
+                "claim_boundary": (
+                    "No target blueprint was materialized after strict input, "
+                    "qualification, projection, or verification failure."
+                ),
+            }
+        )
+        _emit_payload(payload, as_json=args.json)
+        return 2
+
+    output_root = Path(args.output).resolve()
+    first_gap = report.readiness_ledger.first_gap
+    _emit_payload(
+        {
+            "materialization_ok": True,
+            "materialization_status": "complete",
+            "target_system_id": descriptor.target_system_id,
+            "target_profile": descriptor.target_profile,
+            "subject_revision": descriptor.subject_revision,
+            "descriptor_fingerprint": descriptor.fingerprint,
+            "frozen_evidence_fingerprint": frozen_evidence.fingerprint,
+            "native_report_set_fingerprint": native_report_set.fingerprint,
+            "target_blueprint_fingerprint": report.fingerprint,
+            "projection_fingerprint": (
+                materialization.materialization.projection.fingerprint
+            ),
+            "tree_fingerprint": materialization.materialization.tree_fingerprint,
+            "model_readiness_status": report.status,
+            "deepest_proven_layer": report.deepest_proven_layer,
+            "gap_count": report.readiness_ledger.gap_count,
+            "first_gap": (
+                {"gap_id": first_gap.gap_id, **first_gap.to_dict()}
+                if first_gap is not None
+                else None
+            ),
+            "written_paths": [
+                path.relative_to(output_root).as_posix() for path in written
+            ],
+            "generic_claim_boundary": (
+                materialization.materialization.claim_boundary
+            ),
+            "claim_boundary": materialization.claim_boundary,
+        },
+        as_json=args.json,
+    )
+    return 0
+
+
+def _run_affected_blueprint_understanding_command(args: argparse.Namespace) -> int:
+    """Read one normalized affected closure without constructing the target."""
+
+    from .affected_blueprint_reader import (
+        AffectedBlueprintIndex,
+        AffectedBlueprintReadError,
+        read_affected_blueprint_understanding,
+    )
+    from .blueprint_compact_projection import BlueprintCompactProjection
+
+    def load_store(path: str, context: str) -> dict[str, object]:
+        try:
+            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise AffectedBlueprintReadError(
+                f"cannot load {context}: {exc}"
+            ) from exc
+        if not isinstance(payload, Mapping):
+            raise AffectedBlueprintReadError(f"{context} must be a JSON object")
+        return {str(key): value for key, value in payload.items()}
+
+    try:
+        index = AffectedBlueprintIndex.from_dict(
+            load_store(args.index, "affected blueprint index")
+        )
+        shards = load_store(args.shard_store, "affected blueprint shard store")
+        objects = load_store(args.object_store, "affected blueprint object store")
+        result = read_affected_blueprint_understanding(
+            index,
+            affected_ids=args.affected_id,
+            load_shard=shards.__getitem__,
+            load_object=objects.__getitem__,
+        )
+    except (AffectedBlueprintReadError, KeyError, TypeError, ValueError) as exc:
+        _emit_payload(
+            _blueprint_error_payload(
+                "affected_blueprint_understanding_invalid", exc
+            ),
+            as_json=args.json,
+        )
+        return 2
+    _emit_payload(
+        BlueprintCompactProjection.understanding(result),
+        as_json=args.json,
+    )
+    return 0
+
+
+def _load_project_blueprint_bundle(args: argparse.Namespace):
+    """Build one canonical project blueprint from its current native inputs."""
 
     from .implementation_inventory_python import (
         PYTHON_AST_IMPLEMENTATION_ADAPTER_ID,
@@ -1577,21 +2185,32 @@ def _run_project_blueprint_audit_command(args: argparse.Namespace) -> int:
         discover_python_test_file,
     )
 
+    definition, evidence, frozen_target_evidence = load_project_blueprint_document(
+        args.definition
+    )
+    return build_project_blueprint(
+        args.root,
+        definition,
+        evidence,
+        frozen_target_evidence=frozen_target_evidence,
+        discovery_adapters={
+            PYTHON_AST_IMPLEMENTATION_ADAPTER_ID: (
+                discover_python_implementation_surfaces
+            )
+        },
+        test_discovery_adapters={
+            PYTHON_AST_TEST_ADAPTER_ID: discover_python_test_file
+        },
+    )
+
+
+def _run_project_blueprint_audit_command(args: argparse.Namespace) -> int:
+    """Build a declared target-system software blueprint in memory only."""
+
+    from .project_blueprint import ProjectBlueprintError
+
     try:
-        definition, evidence = load_project_blueprint_document(args.definition)
-        bundle = build_project_blueprint(
-            args.root,
-            definition,
-            evidence,
-            discovery_adapters={
-                PYTHON_AST_IMPLEMENTATION_ADAPTER_ID: (
-                    discover_python_implementation_surfaces
-                )
-            },
-            test_discovery_adapters={
-                PYTHON_AST_TEST_ADAPTER_ID: discover_python_test_file
-            },
-        )
+        bundle = _load_project_blueprint_bundle(args)
     except (ProjectBlueprintError, OSError, ValueError) as exc:
         _emit_payload(
             _blueprint_error_payload("project_blueprint_invalid", exc),
@@ -1600,6 +2219,73 @@ def _run_project_blueprint_audit_command(args: argparse.Namespace) -> int:
         return 2
     _emit_payload(bundle.to_dict(), as_json=args.json)
     return 0 if bundle.ok else 1
+
+
+def _run_project_blueprint_export_command(args: argparse.Namespace) -> int:
+    """Write a deterministic projection that preserves depth and explicit gaps."""
+
+    from .implementation_blueprint import (
+        BlueprintValidationError,
+        project_canonical_software_blueprint,
+        verify_materialized_project_blueprint_projection,
+        write_canonical_blueprint_projection,
+    )
+    from .project_blueprint import ProjectBlueprintError
+
+    try:
+        bundle = _load_project_blueprint_bundle(args)
+        if not bundle.canonical_export_ready:
+            _emit_payload(bundle.to_dict(), as_json=args.json)
+            return 1
+        projection = project_canonical_software_blueprint(bundle)
+        written = write_canonical_blueprint_projection(projection, args.output)
+        materialization = verify_materialized_project_blueprint_projection(
+            args.output,
+            bundle,
+        )
+        if not materialization.ok:
+            raise BlueprintValidationError(
+                "; ".join(finding.message for finding in materialization.findings)
+            )
+    except (
+        BlueprintValidationError,
+        ProjectBlueprintError,
+        OSError,
+        ValueError,
+    ) as exc:
+        _emit_payload(
+            _blueprint_error_payload("project_blueprint_export_failed", exc),
+            as_json=args.json,
+        )
+        return 2
+    output_root = Path(args.output).resolve()
+    _emit_payload(
+        {
+            "materialization_ok": True,
+            "materialization_status": "complete",
+            "project_blueprint_fingerprint": bundle.fingerprint,
+            "software_blueprint_fingerprint": bundle.manifest.fingerprint,
+            "projection_fingerprint": (
+                materialization.materialization.projection.fingerprint
+            ),
+            "tree_fingerprint": materialization.materialization.tree_fingerprint,
+            "model_readiness_status": bundle.readiness_ledger.status,
+            "deepest_proven_layer": bundle.deepest_proven_layer,
+            "gap_count": bundle.gap_count,
+            "first_gap": (
+                bundle.first_gap.to_dict() if bundle.first_gap is not None else None
+            ),
+            "written_paths": [
+                path.relative_to(output_root).as_posix() for path in written
+            ],
+            "generic_claim_boundary": (
+                materialization.materialization.claim_boundary
+            ),
+            "claim_boundary": materialization.claim_boundary,
+        },
+        as_json=args.json,
+    )
+    return 0
 
 
 def _run_project_blueprint_candidate_command(args: argparse.Namespace) -> int:
@@ -1923,7 +2609,7 @@ def _add_risk_template_harvest_parser(subparsers: argparse._SubParsersAction[arg
 def _add_risk_template_harvest_review_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser(
         "risk-template-harvest-review",
-        help="Review required template harvest closure after model creation or deepening.",
+        help="Review template harvest only after an explicit reusable-template operation.",
     )
     parser.add_argument(
         "--disposition",
@@ -2008,43 +2694,6 @@ def _add_implementation_blueprint_parsers(
     inventory.add_argument("--json", action="store_true")
     inventory.set_defaults(handler=_run_implementation_inventory_audit_command)
 
-    def add_blueprint_inputs(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--inventory", required=True)
-        parser.add_argument("--root", default=None, help="Optional current source root for inventory freshness.")
-        parser.add_argument("--manifest", required=True)
-        parser.add_argument("--binding-report", required=True)
-        parser.add_argument("--observed-snapshot-fingerprint", required=True)
-        parser.add_argument("--semantic-mesh-fingerprint", required=True)
-        parser.add_argument("--test-inventory-fingerprint", required=True)
-        parser.add_argument(
-            "--model-test-alignment-report-fingerprint", required=True
-        )
-        parser.add_argument("--portable-owner-fingerprints", default="{}")
-        parser.add_argument("--resource-fingerprints", default="{}")
-        parser.add_argument("--oracle-fingerprints", default="{}")
-        parser.add_argument("--reconstruction-evidence", default="")
-        parser.add_argument(
-            "--require-reconstruction",
-            action="store_true",
-            help="Require a supplied passing receipt; never launches reconstruction.",
-        )
-        parser.add_argument("--json", action="store_true")
-
-    check = subparsers.add_parser(
-        "model-blueprint-check",
-        help="Read-only static/empirical blueprint qualification; never rebuilds software.",
-    )
-    add_blueprint_inputs(check)
-    check.set_defaults(handler=_run_model_blueprint_check_command)
-
-    export = subparsers.add_parser(
-        "model-blueprint-export",
-        help="Explicitly write one current deterministic blueprint projection.",
-    )
-    add_blueprint_inputs(export)
-    export.add_argument("--output", required=True)
-    export.set_defaults(handler=_run_model_blueprint_export_command)
-
     self_check = subparsers.add_parser(
         "flowguard-self-blueprint-check",
         help="Read-only audit of FlowGuard's current checked-in self-blueprint.",
@@ -2057,6 +2706,14 @@ def _add_implementation_blueprint_parsers(
         help=(
             "Reuse this exact in-memory self-blueprint for the read-only "
             "architecture-reduction review."
+        ),
+    )
+    self_check.add_argument(
+        "--require-cleanup-release-ready",
+        action="store_true",
+        help=(
+            "Require the composed architecture-reduction review to have no "
+            "unresolved candidate and no authorized cleanup left unapplied."
         ),
     )
     self_check.add_argument("--json", action="store_true")
@@ -2078,11 +2735,125 @@ def _add_implementation_blueprint_parsers(
         handler=_run_flowguard_self_architecture_reduction_command
     )
 
+    target_check = subparsers.add_parser(
+        "target-system-blueprint-audit",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        help=(
+            "Derive one provider-neutral target blueprint from strict frozen "
+            "native artifacts; never runs providers or writes the target."
+        ),
+        description=(
+            "Derive one provider-neutral target blueprint from strict frozen "
+            "native artifacts. FlowGuard computes every layer status; callers "
+            "cannot supply readiness layers or gaps."
+        ),
+    )
+    target_check.add_argument(
+        "--descriptor",
+        required=True,
+        help="Strict current target-system descriptor JSON path.",
+    )
+    target_check.add_argument(
+        "--frozen-evidence",
+        required=True,
+        help="Strict current frozen provider-evidence JSON path.",
+    )
+    target_check.add_argument(
+        "--native-report-set",
+        required=True,
+        help="Strict current native qualification report-set JSON path.",
+    )
+    target_check.add_argument("--json", action="store_true")
+    target_check.set_defaults(handler=_run_target_system_blueprint_audit_command)
+
+    target_export = subparsers.add_parser(
+        "target-system-blueprint-export",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        help=(
+            "Explicitly materialize one provider-neutral target blueprint "
+            "from the same strict native artifacts used by audit."
+        ),
+        description=(
+            "Qualify the strict descriptor, frozen provider evidence, and full "
+            "native report set, then write the same canonical content-addressed "
+            "projection envelope used by project export."
+        ),
+    )
+    target_export.add_argument(
+        "--descriptor",
+        required=True,
+        help="Strict current target-system descriptor JSON path.",
+    )
+    target_export.add_argument(
+        "--frozen-evidence",
+        required=True,
+        help="Strict current frozen provider-evidence JSON path.",
+    )
+    target_export.add_argument(
+        "--native-report-set",
+        required=True,
+        help="Strict current native qualification report-set JSON path.",
+    )
+    target_export.add_argument(
+        "--output",
+        required=True,
+        help="Explicit bounded projection output directory.",
+    )
+    target_export.add_argument("--json", action="store_true")
+    target_export.set_defaults(handler=_run_target_system_blueprint_export_command)
+
+    affected_understanding = subparsers.add_parser(
+        "affected-blueprint-understanding",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        help=(
+            "Read one exact normalized affected neighborhood and its readiness "
+            "ledger without running providers, builders, or validation owners."
+        ),
+        description=(
+            "Read one exact normalized affected neighborhood and its readiness "
+            "ledger without running providers, builders, or validation owners."
+        ),
+    )
+    affected_understanding.add_argument(
+        "--index",
+        required=True,
+        help="Strict current affected-blueprint index JSON path.",
+    )
+    affected_understanding.add_argument(
+        "--shard-store",
+        required=True,
+        help="JSON object mapping exact shard ids to content-addressed payloads.",
+    )
+    affected_understanding.add_argument(
+        "--object-store",
+        required=True,
+        help="JSON object mapping exact object ids to content-addressed payloads.",
+    )
+    affected_understanding.add_argument(
+        "--affected-id",
+        action="append",
+        required=True,
+        help="Exact affected behavior, model, surface, resource, test, or workflow id; repeatable.",
+    )
+    affected_understanding.add_argument("--json", action="store_true")
+    affected_understanding.set_defaults(
+        handler=_run_affected_blueprint_understanding_command
+    )
+
     project_check = subparsers.add_parser(
         "project-blueprint-audit",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         help=(
-            "Read-only provider-neutral project blueprint audit; never writes the target "
-            "or executes a target-system action."
+            "Read-only Python-software convenience adapter for project "
+            "blueprint audit; never writes the target or executes a "
+            "target-system action. Use target-system-blueprint-audit for the "
+            "provider-neutral frozen-native-artifact entry."
+        ),
+        description=(
+            "Read-only Python-software convenience adapter for project "
+            "blueprint audit; never writes the target or executes a "
+            "target-system action. Use target-system-blueprint-audit for the "
+            "provider-neutral frozen-native-artifact entry."
         ),
     )
     project_check.add_argument("--root", required=True, help="Bounded project root.")
@@ -2091,6 +2862,21 @@ def _add_implementation_blueprint_parsers(
     )
     project_check.add_argument("--json", action="store_true")
     project_check.set_defaults(handler=_run_project_blueprint_audit_command)
+
+    project_export = subparsers.add_parser(
+        "project-blueprint-export",
+        help=(
+            "Explicitly materialize the deterministic projection of a "
+            "canonically qualified current project blueprint."
+        ),
+    )
+    project_export.add_argument("--root", required=True, help="Bounded project root.")
+    project_export.add_argument(
+        "--definition", required=True, help="Strict current project-blueprint JSON."
+    )
+    project_export.add_argument("--output", required=True)
+    project_export.add_argument("--json", action="store_true")
+    project_export.set_defaults(handler=_run_project_blueprint_export_command)
 
     candidate = subparsers.add_parser(
         "project-blueprint-candidate",

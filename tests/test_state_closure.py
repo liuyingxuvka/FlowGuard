@@ -20,8 +20,6 @@ from flowguard import (
     RiskProfile,
     StateClosureDimension,
     StateClosurePlan,
-    TemplateHarvestReview,
-    TemplateReuseReview,
     Workflow,
     infer_state_closure_plan,
     review_state_closure,
@@ -48,17 +46,8 @@ def formal_entry_kwargs():
                 adversarial_inputs=("unknown event status",),
                 hard_invariants=("unknowns reject before side effects",),
                 known_bad_cases=("unknown_status_accepted",),
-                template_no_match_reason="state closure gate owns this local input boundary",
                 blindspots=("production adapter replay is outside this unit test",),
             ),
-        ),
-        "template_reuse_review": TemplateReuseReview(
-            no_match_reason="state closure gate owns this local input boundary",
-            searched_layers=("public", "local"),
-        ),
-        "template_harvest_review": TemplateHarvestReview(
-            disposition="not_harvestable",
-            not_harvestable_reason="not_reusable_project_specific",
         ),
         "minimum_model_contract": MinimumModelContract(
             protected_error_classes=("unsafe_unknown_input",),

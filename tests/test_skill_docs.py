@@ -25,11 +25,6 @@ SATELLITE_SKILLS = {
     "flowguard-ui-flow-structure": "ui_flow_structure_protocol.md",
 }
 
-INTERNAL_DEVELOPMENT_PROCESS_ROUTES = {
-    "plan_detailing_compiler",
-    "agent_workflow_rehearsal",
-}
-
 TEMPLATE_HARVEST_SKILLS = SATELLITE_SKILLS.keys() - {"flowguard-existing-model-preflight"}
 
 KERNEL_HANDOFFS = {
@@ -77,6 +72,8 @@ REDUCED_FIELD_PROMPT_FILES = (
     SKILLS_ROOT / "flowguard" / "assets" / "adoption_log_template.md",
 )
 
+MAX_SATELLITE_SKILL_CHARACTERS = 4600
+
 
 class SkillDocsTests(unittest.TestCase):
     def read(self, path: Path) -> str:
@@ -93,7 +90,7 @@ class SkillDocsTests(unittest.TestCase):
             with self.subTest(skill=skill_name):
                 text = self.read(SKILLS_ROOT / skill_name / "SKILL.md")
                 self.assertLessEqual(len(text.splitlines()), 65)
-                self.assertLess(len(text), 3400)
+                self.assertLess(len(text), MAX_SATELLITE_SKILL_CHARACTERS)
 
     def test_representative_first_read_bundles_are_budgeted(self):
         report = review_prompt_bundles(ROOT)
@@ -201,6 +198,118 @@ class SkillDocsTests(unittest.TestCase):
 
         self.assertNotIn("SourceGuard/TraceGuard/WorldGuard/LogicGuard diagrams", kernel)
         self.assertIn("must not flatten other Guard-family edge meanings", evidence)
+
+    def test_kernel_keeps_static_design_execution_and_maturation_vocabulary_exact(self):
+        evidence = self.read(
+            KERNEL_ROOT / "references" / "modeling_evidence_protocol.md"
+        )
+        handoff = self.read(
+            KERNEL_ROOT / "references" / "model_test_alignment_protocol.md"
+        )
+        maturation_spec = self.read(
+            ROOT / "openspec" / "specs" / "model-maturation-iterative" / "spec.md"
+        )
+
+        normalized_evidence = " ".join(evidence.split())
+        self.assertIn(
+            "`not_run` does not erase a complete static design",
+            normalized_evidence,
+        )
+        self.assertIn("blocks only executed/release claims", evidence)
+        combined = f"{evidence}\n{handoff}\n{maturation_spec}"
+        for retired_terminal in (
+            "`progress_stalled`",
+            "`model_closed_for_task`",
+            "`upgrade_required`",
+            "`external_input_required`",
+        ):
+            self.assertNotIn(retired_terminal, combined)
+        for current_terminal in (
+            "`model_maturation_progress_stalled`",
+            "`model_maturation_closed_for_task`",
+            "`model_maturation_upgrade_required`",
+            "`model_maturation_external_input_required`",
+        ):
+            self.assertIn(current_terminal, combined)
+
+    def test_per_model_path_quality_prompts_preserve_owner_depth_and_target_boundaries(self):
+        kernel = self.read(KERNEL_ROOT / "SKILL.md")
+        core = self.read(KERNEL_ROOT / "references" / "modeling_core_protocol.md")
+        evidence = self.read(KERNEL_ROOT / "references" / "modeling_evidence_protocol.md")
+        preflight = self.read(
+            SKILLS_ROOT
+            / "flowguard-existing-model-preflight"
+            / "references"
+            / "existing_model_preflight_protocol.md"
+        )
+        mesh = self.read(
+            SKILLS_ROOT
+            / "flowguard-model-mesh"
+            / "references"
+            / "model_mesh_protocol.md"
+        )
+        reduction = self.read(
+            SKILLS_ROOT
+            / "flowguard-architecture-reduction"
+            / "references"
+            / "architecture_reduction_protocol.md"
+        )
+        alignment = self.read(
+            SKILLS_ROOT
+            / "flowguard-model-test-alignment"
+            / "references"
+            / "model_test_alignment_protocol.md"
+        )
+        test_mesh = self.read(
+            SKILLS_ROOT / "flowguard-test-mesh" / "references" / "test_mesh_protocol.md"
+        )
+        process = self.read(
+            SKILLS_ROOT
+            / "flowguard-development-process-flow"
+            / "references"
+            / "development_process_flow_protocol.md"
+        )
+        optimization = self.read(
+            SKILLS_ROOT
+            / "flowguard-development-process-flow"
+            / "references"
+            / "process_optimization_protocol.md"
+        )
+
+        normalize = lambda text: " ".join(text.split())
+        core_text = normalize(core)
+        preflight_text = normalize(preflight)
+        mesh_text = normalize(mesh)
+        reduction_text = normalize(reduction)
+        alignment_text = normalize(alignment)
+        test_mesh_text = normalize(test_mesh)
+        process_text = normalize(process)
+        optimization_text = normalize(optimization)
+
+        for text in (kernel, core, evidence, preflight, mesh, reduction, alignment, test_mesh, process):
+            self.assertIn("ModelMaturation", text)
+        self.assertIn("Every new or materially changed model", kernel)
+        self.assertIn("`lightweight_path_review(...)`", core_text)
+        self.assertIn("With one clear path and no trigger", core_text)
+        self.assertIn("deep review is admitted only for exact current evidence", core_text)
+        self.assertIn("without a default scalar sum", core_text)
+        self.assertIn("`observed` baseline", core_text)
+        self.assertIn("non-code targets", core_text)
+        self.assertIn("Reimplementation, language translation, or empirical reconstruction", core_text)
+        self.assertIn("adds no public route, CLI, compatibility reader", normalize(kernel))
+        self.assertIn("Missing, stale, unresolved", normalize(evidence))
+        self.assertIn("does not enumerate candidates", preflight_text)
+        self.assertIn("do not copy deep candidates", mesh_text)
+        self.assertIn("does not run a second model optimizer", reduction_text)
+        self.assertIn("ModelMaturation alone owns light/deep path review", alignment_text)
+        self.assertIn("does not create necessity witnesses", test_mesh_text)
+        self.assertIn("owner and complete effective-intent closure", process_text)
+        self.assertIn("ordinary lifecycle contains no reconstruction phase", process_text)
+        self.assertIn("Pareto-dominates every other eligible candidate", optimization_text)
+        self.assertIn("Never claim a scalar minimum", optimization_text)
+        self.assertIn("not a single-model path-quality conclusion", optimization_text)
+        self.assertNotIn("plus their total", optimization_text)
+        self.assertNotIn("unique lowest total", optimization_text)
 
     def test_satellite_diagrams_keep_route_specific_edge_semantics(self):
         expected = {
@@ -583,16 +692,13 @@ class SkillDocsTests(unittest.TestCase):
         topology_model = self.read(ROOT / ".flowguard" / "codex_skill_satellites" / "model.py")
 
         self.assertEqual(sorted(SATELLITE_SKILLS), satellite_names)
-        self.assertIn(f"SATELLITE_COUNT = {len(SATELLITE_SKILLS)}", topology_model)
-        self.assertIn(
-            f"PUBLIC_OWNER_SKILL_COUNT = {len(SATELLITE_SKILLS)}",
-            topology_model,
-        )
-        self.assertIn(
-            f"INTERNAL_ROUTE_COUNT = {len(INTERNAL_DEVELOPMENT_PROCESS_ROUTES)}",
-            topology_model,
-        )
-        self.assertIn("public owner and internal-route", topology_model)
+        self.assertNotIn("SATELLITE_COUNT =", topology_model)
+        self.assertNotIn("PUBLIC_OWNER_SKILL_COUNT =", topology_model)
+        self.assertNotIn("INTERNAL_ROUTE_COUNT =", topology_model)
+        self.assertIn("derived_count = len(canonical_ids)", topology_model)
+        self.assertIn("reported_count=derived_count", topology_model)
+        self.assertIn("FixedCountAssertion", topology_model)
+        self.assertIn("BrokenFixedCountAuthority", topology_model)
         self.assertNotIn("seven satellites", topology_model)
 
     def test_agents_snippet_uses_compact_canonical_route_table(self):

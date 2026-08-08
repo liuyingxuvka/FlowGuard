@@ -12,7 +12,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
+from .model_path_quality import (
+    PathQualityMaterialReview,
+    PathQualityResult,
+    PathQualitySubject,
+    normalize_path_quality_material,
+    path_quality_result_set_fingerprint,
+    review_path_quality_material,
+)
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
 
@@ -62,12 +71,6 @@ ALLOWED_PARENT_ITEM_MODES = OWNING_PARENT_ITEM_MODES | {
 }
 
 
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
-
-
 def _missing(expected: Sequence[str], actual: Sequence[str]) -> tuple[str, ...]:
     return tuple(sorted(set(expected) - set(actual)))
 
@@ -114,6 +117,7 @@ class ChildProofContract:
     """Current child model contract consumed by parent proof."""
 
     child_model_id: str
+    model_fingerprint: str = ""
     evidence_id: str = ""
     evidence_status: str = PROOF_STATUS_PASSED
     evidence_current: bool = True
@@ -134,6 +138,7 @@ class ChildProofContract:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "child_model_id", str(self.child_model_id))
+        object.__setattr__(self, "model_fingerprint", str(self.model_fingerprint))
         object.__setattr__(self, "evidence_id", str(self.evidence_id))
         object.__setattr__(self, "evidence_status", str(self.evidence_status))
         object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
@@ -155,6 +160,7 @@ class ChildProofContract:
     def to_dict(self) -> dict[str, Any]:
         return {
             "child_model_id": self.child_model_id,
+            "model_fingerprint": self.model_fingerprint,
             "evidence_id": self.evidence_id,
             "evidence_status": self.evidence_status,
             "evidence_current": self.evidence_current,
@@ -181,6 +187,7 @@ class ChildReattachmentProof:
 
     child_model_id: str
     consumed_evidence_id: str = ""
+    consumed_path_quality_result_fingerprint: str = ""
     expected_inputs: tuple[str, ...] = ()
     expected_outputs: tuple[str, ...] = ()
     expected_state_owned: tuple[str, ...] = ()
@@ -196,6 +203,11 @@ class ChildReattachmentProof:
     def __post_init__(self) -> None:
         object.__setattr__(self, "child_model_id", str(self.child_model_id))
         object.__setattr__(self, "consumed_evidence_id", str(self.consumed_evidence_id))
+        object.__setattr__(
+            self,
+            "consumed_path_quality_result_fingerprint",
+            str(self.consumed_path_quality_result_fingerprint),
+        )
         object.__setattr__(self, "expected_inputs", _as_tuple(self.expected_inputs))
         object.__setattr__(self, "expected_outputs", _as_tuple(self.expected_outputs))
         object.__setattr__(self, "expected_state_owned", _as_tuple(self.expected_state_owned))
@@ -207,6 +219,9 @@ class ChildReattachmentProof:
         return {
             "child_model_id": self.child_model_id,
             "consumed_evidence_id": self.consumed_evidence_id,
+            "consumed_path_quality_result_fingerprint": (
+                self.consumed_path_quality_result_fingerprint
+            ),
             "expected_inputs": list(self.expected_inputs),
             "expected_outputs": list(self.expected_outputs),
             "expected_state_owned": list(self.expected_state_owned),
@@ -365,6 +380,11 @@ class LayeredBoundaryProofPlan:
     allow_scoped_leaf_exemptions: bool = False
     claim_scope: str = "full"
     rationale: str = ""
+    required_path_quality_model_ids: tuple[str, ...] = ()
+    path_quality_subjects: tuple[PathQualitySubject | Mapping[str, Any], ...] = ()
+    path_quality_results: tuple[PathQualityResult | Mapping[str, Any], ...] = ()
+    path_quality_currentness_id: str = ""
+    path_quality_result_set_fingerprint: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "proof_id", str(self.proof_id))
@@ -381,6 +401,35 @@ class LayeredBoundaryProofPlan:
         object.__setattr__(self, "allowed_shared_risk_classes", _as_tuple(self.allowed_shared_risk_classes))
         object.__setattr__(self, "claim_scope", str(self.claim_scope))
         object.__setattr__(self, "rationale", str(self.rationale))
+        required_models, subjects, results = normalize_path_quality_material(
+            self.required_path_quality_model_ids,
+            self.path_quality_subjects,
+            self.path_quality_results,
+        )
+        result_set_fingerprint = (
+            path_quality_result_set_fingerprint(required_models, subjects, results)
+            if required_models or subjects or results
+            else ""
+        )
+        supplied_result_set_fingerprint = str(self.path_quality_result_set_fingerprint)
+        if (
+            supplied_result_set_fingerprint
+            and supplied_result_set_fingerprint != result_set_fingerprint
+        ):
+            raise ValueError("layered proof path-quality result set fingerprint is stale")
+        object.__setattr__(self, "required_path_quality_model_ids", required_models)
+        object.__setattr__(self, "path_quality_subjects", subjects)
+        object.__setattr__(self, "path_quality_results", results)
+        object.__setattr__(
+            self,
+            "path_quality_currentness_id",
+            str(self.path_quality_currentness_id),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_result_set_fingerprint",
+            result_set_fingerprint,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -401,6 +450,17 @@ class LayeredBoundaryProofPlan:
             "allow_scoped_leaf_exemptions": self.allow_scoped_leaf_exemptions,
             "claim_scope": self.claim_scope,
             "rationale": self.rationale,
+            "required_path_quality_model_ids": list(self.required_path_quality_model_ids),
+            "path_quality_subjects": [
+                subject.to_dict() for subject in self.path_quality_subjects
+            ],
+            "path_quality_results": [
+                result.to_compact_dict() for result in self.path_quality_results
+            ],
+            "path_quality_currentness_id": self.path_quality_currentness_id,
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
         }
 
 
@@ -450,12 +510,30 @@ class LayeredBoundaryProofReport:
     decision: str
     findings: tuple[LayeredBoundaryFinding, ...] = ()
     summary: str = ""
+    path_quality_result_set_fingerprint: str = ""
+    path_quality_verified_model_ids: tuple[str, ...] = ()
+    path_quality_blocked_model_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "proof_id", str(self.proof_id))
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
         object.__setattr__(self, "decision", str(self.decision))
         object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(
+            self,
+            "path_quality_result_set_fingerprint",
+            str(self.path_quality_result_set_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_verified_model_ids",
+            _as_tuple(self.path_quality_verified_model_ids),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_blocked_model_ids",
+            _as_tuple(self.path_quality_blocked_model_ids),
+        )
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -498,6 +576,15 @@ class LayeredBoundaryProofReport:
             "decision": self.decision,
             "findings": [finding.to_dict() for finding in self.findings],
             "summary": self.summary,
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
+            "path_quality_verified_model_ids": list(
+                self.path_quality_verified_model_ids
+            ),
+            "path_quality_blocked_model_ids": list(
+                self.path_quality_blocked_model_ids
+            ),
         }
 
 
@@ -757,6 +844,89 @@ def _reattachment_findings(plan: LayeredBoundaryProofPlan) -> list[LayeredBounda
                     parent_model_id=plan.parent_model_id,
                     child_model_id=proof.child_model_id,
                     metadata=proof.to_dict(),
+                )
+            )
+    return findings
+
+
+def _path_quality_review(plan: LayeredBoundaryProofPlan) -> PathQualityMaterialReview:
+    children = {child.child_model_id: child for child in plan.child_contracts}
+    expected_model_fingerprints = {
+        model_id: children[model_id].model_fingerprint
+        for model_id in plan.required_path_quality_model_ids
+        if model_id in children and children[model_id].model_fingerprint
+    }
+    return review_path_quality_material(
+        plan.required_path_quality_model_ids,
+        plan.path_quality_subjects,
+        plan.path_quality_results,
+        expected_currentness_id=plan.path_quality_currentness_id,
+        expected_model_fingerprints=expected_model_fingerprints,
+        require_exact_currentness=bool(plan.required_path_quality_model_ids),
+        require_exact_model_fingerprints=bool(plan.required_path_quality_model_ids),
+    )
+
+
+def _path_quality_findings(
+    plan: LayeredBoundaryProofPlan,
+    review: PathQualityMaterialReview,
+) -> list[LayeredBoundaryFinding]:
+    findings = [
+        LayeredBoundaryFinding(
+            gap.code,
+            "required child path-quality material is not exact-current and closed",
+            parent_model_id=plan.parent_model_id,
+            child_model_id=gap.model_id,
+            metadata={
+                "path_quality_gap": gap.to_dict(),
+                "path_quality_material": review.to_compact_dict(),
+            },
+        )
+        for gap in review.gaps
+    ]
+    subjects_by_model = {
+        subject.model_id: subject for subject in review.subjects
+    }
+    results_by_subject = {
+        result.subject_fingerprint: result for result in review.results
+    }
+    proofs_by_child = {
+        proof.child_model_id: proof for proof in plan.reattachment_proofs
+    }
+    for model_id in review.required_model_ids:
+        subject = subjects_by_model.get(model_id)
+        result = (
+            results_by_subject.get(subject.fingerprint)
+            if subject is not None
+            else None
+        )
+        proof = proofs_by_child.get(model_id)
+        if proof is None:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "child_reattachment_path_quality_result_missing",
+                    "parent layered proof does not consume this required child path-quality result",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=model_id,
+                )
+            )
+        elif result is None or (
+            proof.consumed_path_quality_result_fingerprint != result.fingerprint
+        ):
+            findings.append(
+                LayeredBoundaryFinding(
+                    "child_reattachment_path_quality_result_stale",
+                    "parent layered proof consumed a missing, stale, or foreign child path-quality result",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=model_id,
+                    metadata={
+                        "expected_result_fingerprint": (
+                            result.fingerprint if result is not None else ""
+                        ),
+                        "consumed_result_fingerprint": (
+                            proof.consumed_path_quality_result_fingerprint
+                        ),
+                    },
                 )
             )
     return findings
@@ -1081,6 +1251,7 @@ def _decision_for_findings(findings: Sequence[LayeredBoundaryFinding]) -> str:
     if not blockers:
         return "layered_boundary_proof_green"
     priority = (
+        ("path_quality_", "path_quality_closure_required"),
         ("parent_coverage_gap", "parent_coverage_gap_blocked"),
         ("unknown_child_owner", "parent_coverage_gap_blocked"),
         ("parent_item_illegal_overlap", "child_disjointness_blocked"),
@@ -1116,6 +1287,9 @@ def review_layered_boundary_proof(plan: LayeredBoundaryProofPlan) -> LayeredBoun
     """Review parent/child/leaf proof closure without running project tests."""
 
     findings: list[LayeredBoundaryFinding] = []
+    path_quality_review = _path_quality_review(plan)
+    path_quality_findings = _path_quality_findings(plan, path_quality_review)
+    findings.extend(path_quality_findings)
     findings.extend(_coverage_findings(plan))
     findings.extend(_duplicate_child_field_findings(
         plan,
@@ -1163,6 +1337,15 @@ def review_layered_boundary_proof(plan: LayeredBoundaryProofPlan) -> LayeredBoun
     findings.extend(_reattachment_findings(plan))
     findings.extend(_leaf_matrix_findings(plan))
 
+    path_quality_consumer_blocked = set(path_quality_review.blocked_model_ids)
+    for finding in path_quality_findings:
+        if finding.child_model_id in path_quality_review.required_model_ids:
+            path_quality_consumer_blocked.add(finding.child_model_id)
+        elif not finding.child_model_id:
+            path_quality_consumer_blocked.update(path_quality_review.required_model_ids)
+    path_quality_consumer_blocked_model_ids = tuple(
+        sorted(path_quality_consumer_blocked)
+    )
     blockers = tuple(finding for finding in findings if finding.severity in {"blocker", "refactor"})
     decision = _decision_for_findings(findings)
     return LayeredBoundaryProofReport(
@@ -1171,6 +1354,21 @@ def review_layered_boundary_proof(plan: LayeredBoundaryProofPlan) -> LayeredBoun
         parent_model_id=plan.parent_model_id,
         decision=decision,
         findings=tuple(findings),
+        path_quality_result_set_fingerprint=(
+            path_quality_review.result_set_fingerprint
+            if (
+                plan.required_path_quality_model_ids
+                or plan.path_quality_subjects
+                or plan.path_quality_results
+            )
+            else ""
+        ),
+        path_quality_verified_model_ids=tuple(
+            model_id
+            for model_id in path_quality_review.verified_model_ids
+            if model_id not in set(path_quality_consumer_blocked_model_ids)
+        ),
+        path_quality_blocked_model_ids=path_quality_consumer_blocked_model_ids,
     )
 
 

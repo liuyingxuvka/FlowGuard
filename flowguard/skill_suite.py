@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from ._normalization import canonical_json_text as _canonical_json
 from .distribution_sync import (
     CONSUMER_RELEASE_MANIFEST,
     OWNERSHIP_MANIFEST_NAME,
@@ -61,10 +62,6 @@ FLOWGUARD_CONTROL_ROOT = ".skillguard"
 
 SUITE_STATUS_PASS = "pass"
 SUITE_STATUS_BLOCKED = "blocked"
-
-
-def _canonical_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _sha256_text(value: str) -> str:

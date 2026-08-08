@@ -2,7 +2,7 @@
 
 FlowGuard Risk Purpose Header
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
-Purpose: review the SummaryReport -> MaintenanceScan -> existing specialist
+Purpose: review the SummaryReport -> route-owned action -> existing specialist
 route handoff before agents use structured next actions for broad claims.
 Guards against: report gaps losing owner-route actions, structured handoffs
 creating a parallel session runner, or broad confidence being accepted before
@@ -40,7 +40,7 @@ class HandoffState:
     summary_gap_seen: bool = False
     owner_route: str = ""
     action_created: bool = False
-    maintenance_scan_seen: bool = False
+    owner_action_bound: bool = False
     specialist_route_seen: bool = False
     owner_proof_seen: bool = False
     final_claim: str = "none"
@@ -56,7 +56,7 @@ class HandoffState:
         return (
             self.summary_gap_seen
             and self.action_created
-            and self.maintenance_scan_seen
+            and self.owner_action_bound
             and self.specialist_route_seen
             and self.owner_proof_seen
             and self.route_is_existing()
@@ -69,7 +69,7 @@ class CorrectRouteHandoff:
         "summary_gap_seen",
         "owner_route",
         "action_created",
-        "maintenance_scan_seen",
+        "owner_action_bound",
         "specialist_route_seen",
         "owner_proof_seen",
         "final_claim",
@@ -119,16 +119,16 @@ class CorrectRouteHandoff:
                 ),
                 label="summary_gap_recorded",
             )
-        elif action == "build_scan_action":
+        elif action == "bind_owner_action":
             if state.summary_gap_seen and state.route_is_existing():
                 emitted = True
                 yield FunctionResult(
-                    HandoffOutput("scan_action_created"),
-                    replace(state, action_created=True, maintenance_scan_seen=True),
-                    label="scan_action_created",
+                    HandoffOutput("owner_action_bound"),
+                    replace(state, action_created=True, owner_action_bound=True),
+                    label="owner_action_bound",
                 )
         elif action == "specialist_route_runs":
-            if state.maintenance_scan_seen:
+            if state.owner_action_bound:
                 emitted = True
                 yield FunctionResult(
                     HandoffOutput("specialist_route_ran"),
@@ -179,12 +179,12 @@ class BrokenSessionRunnerRoute(CorrectRouteHandoff):
         yield from super().apply(input_obj, state)
 
 
-class BrokenNoMaintenanceScan(CorrectRouteHandoff):
-    name = "BrokenNoMaintenanceScan"
-    idempotency = "Broken variant creates an action hint without MaintenanceScan handoff."
+class BrokenNoOwnerActionBinding(CorrectRouteHandoff):
+    name = "BrokenNoOwnerActionBinding"
+    idempotency = "Broken variant creates an action hint without binding it to the selected owner route."
 
     def apply(self, input_obj: HandoffInput, state: HandoffState) -> Iterable[FunctionResult]:
-        if input_obj.action_type == "build_scan_action" and state.summary_gap_seen:
+        if input_obj.action_type == "bind_owner_action" and state.summary_gap_seen:
             yield FunctionResult(
                 HandoffOutput("action_hint_created_without_scan"),
                 replace(state, action_created=True),
@@ -228,10 +228,10 @@ def summary_gap_gets_existing_owner_route(state: HandoffState, trace) -> Invaria
     return InvariantResult.pass_()
 
 
-def action_hint_reaches_maintenance_scan(state: HandoffState, trace) -> InvariantResult:
+def action_hint_reaches_selected_owner(state: HandoffState, trace) -> InvariantResult:
     del trace
-    if state.specialist_route_seen and not state.maintenance_scan_seen:
-        return InvariantResult.fail("specialist route ran without MaintenanceScan handoff")
+    if state.specialist_route_seen and not state.owner_action_bound:
+        return InvariantResult.fail("specialist route ran without a bound route-owned action")
     return InvariantResult.pass_()
 
 
@@ -249,9 +249,9 @@ INVARIANTS = (
         summary_gap_gets_existing_owner_route,
     ),
     Invariant(
-        "action_hint_reaches_maintenance_scan",
-        "Structured action hints should flow through MaintenanceScan before specialist route claims.",
-        action_hint_reaches_maintenance_scan,
+        "action_hint_reaches_selected_owner",
+        "Structured action hints must bind directly to the selected specialist route before its claims.",
+        action_hint_reaches_selected_owner,
     ),
     Invariant(
         "full_claim_requires_owner_proof",
@@ -262,7 +262,7 @@ INVARIANTS = (
 
 EXTERNAL_INPUTS = (
     HandoffInput("summary_conformance_gap"),
-    HandoffInput("build_scan_action"),
+    HandoffInput("bind_owner_action"),
     HandoffInput("specialist_route_runs"),
     HandoffInput("record_owner_proof"),
     HandoffInput("claim_full"),
@@ -282,7 +282,7 @@ def build_correct_workflow() -> Workflow:
 def build_broken_workflows() -> tuple[Workflow, ...]:
     return (
         Workflow((BrokenSessionRunnerRoute(),), name="ai_route_handoff_session_runner"),
-        Workflow((BrokenNoMaintenanceScan(),), name="ai_route_handoff_missing_scan"),
+        Workflow((BrokenNoOwnerActionBinding(),), name="ai_route_handoff_missing_owner_binding"),
         Workflow((BrokenFullClaimWithoutProof(),), name="ai_route_handoff_proof_gap"),
     )
 

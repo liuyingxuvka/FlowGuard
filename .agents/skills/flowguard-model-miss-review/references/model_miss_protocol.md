@@ -1,193 +1,162 @@
 # Bug Repair And Post-Runtime Model-Miss Protocol
 
-Use this protocol for non-trivial bug repairs where a real failure exposes a
-missed behavior class, and when runtime, tests, replay, logs, or manual
-validation expose an issue after FlowGuard previously passed.
+Use this protocol when runtime, tests, replay, logs, manual validation,
+production evidence, or UI operation exposes a missed behavior after a
+FlowGuard claim. A later green command is useful evidence, but it cannot by
+itself close the missed class.
 
-FlowGuard passing is provisional until the modeled change or process is checked
-against production-facing evidence. A later green runtime check by itself does
-not close a known model miss unless the miss has been reviewed.
+If a post-green parent/child route repeatedly returns the same packet,
+rejection, missing-field shape, or no-body shape, model the retry/rejection
+liveness gap, require repair feedback or an explicit blocker, and project the
+affected closure transitions to Model-Test Alignment/TestMesh.
 
-If a user opens a UI after a green FlowGuard claim and the visible behavior is
-wrong, treat the episode as a model miss. Typical UI miss types are
-`evidence_overclaimed` when the prior proof only showed a label or API route,
-and `boundary_missing` when the prior model did not account for the promised
-capability, visible control, field, source-interaction branch, task flow,
-human-operability rule, or UI state update.
+The current repair path is deliberately singular:
 
-If a post-green runtime route repeatedly returns the same packet, rejected
-intent, missing-field shape, or no-body shape without repair feedback or a
-blocking disposition, treat it as a model miss in the parent/child closure
-model. The repair must add the same-class retry/rejection liveness case, not
-only patch the observed packet. That case should be generated as a canonical
-ContractExhaustionMesh case before downstream evidence claims.
+```text
+observed failure
+-> exact behavior commitment + primary owner + blueprint gap
+-> finite canonical relations and ContractExhaustion cases
+-> task-bound ModelMaturation contribution
+-> owner code/test binding and affected topology/parent replay
+-> freshness, risk, and claim-boundary decision
+```
 
-For bug repair work inside an existing modeled system, run Existing Model
-Preflight first so the fix extends the current model boundary instead of
-creating a parallel one.
+Existing Model Preflight owns the initial lookup. It must identify one affected
+behavior plane, reuse the commitment and primary owner that already promise the
+behavior, and preserve other planes only as typed context. When no current
+commitment covers the promise, record `coverage_gap_backfill` and one explicit
+`affected_blueprint_gap_id`; do not create an overlapping owner.
 
-Before backfeed, record whose promise failed: one affected behavior plane,
-affected commitment id when present, primary owner model, evidence-bound error
-signature, and typed related commitments. Search that plane first. Reuse and
-update its existing commitment/owner when it covers the promise; choose
-`coverage_gap_backfill` only when no same-plane promise exists. Multi-plane
-incidents keep one primary miss plus typed related context. Similar symptom
-text across planes is not one recurrence family without an explicit family
-relation and separate plane-local owners.
+For an existing modeled target, current design comes only from the accepted
+revision's complete `CurrentEffectiveIntentView` and the exact binding for the
+affected model owner. The observed bug may prove that this contribution or its
+boundary must change, but a latest revision delta, ancestry scan, root intent,
+text match, or implementation path cannot be treated as the repaired current
+design. The repair contributes a new delta and explicit transition; the next
+accepted complete view remains the only current authority.
+
+Symptom wording is not an ownership rule. Similar text in product runtime,
+agent operation, and development process remains separately owned unless
+current BCL/DNA/topology evidence declares an exact typed relation.
 
 ## Required Steps
 
-1. Reopen the model-first work instead of treating the prior pass, bug report,
+1. Reopen the model-first work rather than treating the prior pass, bug report,
    or failing test as a local patch target.
-2. Classify the miss with one affected behavior plane and one of the practical types:
-   `boundary_missing`, `code_boundary_mismatch`, `state_too_coarse`,
-   `input_branch_missing`, `invariant_too_weak`, or `evidence_overclaimed`.
-3. Preserve the observed failure evidence and backpropagate the root cause into
-   a structured false-negative record when there was any previous green claim:
+2. Preserve the observed evidence and record the previous claim, if any. Name
+   the affected behavior plane, commitment id, primary owner model, stable
+   evidence-bound error signature, and typed related commitment ids.
+3. Classify the miss as `boundary_missing`, `code_boundary_mismatch`,
+   `state_too_coarse`, `input_branch_missing`, `invariant_too_weak`, or
+   `evidence_overclaimed`. Record a plain-language detail without inventing a
+   new formal type for every incident.
+4. Backpropagate the supported root cause into the prior plan/model/test gap:
    previous claim, observed failure, supported cause, `would_have_failed_if`,
-   new plan/model/test item, and closure evidence. If there was no previous
-   claim, record that explicitly instead of inventing one. Bind any error
-   signature to the observed evidence and keep related-plane ids typed rather
-   than combining their promises into the repair row.
-3a. When a bounded diagnosis is needed, derive it from that existing
-    false-negative owner record as a read-only projection. Return one
-    deterministic deletion-minimal conflict and one deletion-minimal positive
-    witness, with a necessity witness for every retained evidence item. Do not
-    claim global minimum-cardinality or uniqueness. A missing positive witness
-    is a visible blocker because a repair that only removes the failure can be
-    vacuous. The projection preserves the owner's decision and cannot close,
-    reopen, or replace the Model-Miss Review.
-4. If the issue belongs in scope, represent the observed issue in executable
-   evidence: scenario, invariant, replay adapter, representative trace, or
-   model boundary note.
-5. If the root cause involves a behavior-bearing field, schema key, config
-   flag, prompt/config field, payload column, or persisted attribute, add
-   `root_cause_field_ids`, `same_class_field_ids`, and `old_field_ids` as
-   needed, then update FieldLifecycleMesh so projection and disposition gaps are
-   explicit.
-6. Add one same-class family seed, finite boundary, or interaction group when
-   practical, then route it through ContractExhaustionMesh to generate
-   canonical bad-case ids, generated combination ids, and coverage receipt ids.
-7. For UI misses, run `review_ui_model_misses(...)` with a record of the prior
-   green claim, why it looked green, the user-observed failure, affected
-   capabilities/controls/fields, same-class capabilities/controls/fields,
-   same-class tests or click evidence, task-flow/human-operability gaps,
-   root-cause backpropagation, and code owner. Missing promised UI
-   capabilities must be listed in `missing_promised_capability_ids`, also
-   listed as affected capabilities, and classified as `boundary_missing` or
-   `evidence_overclaimed`. Same-shape missing load, render, plot, refresh,
-   export, save, open, configure, delete, or generated-output functions should
-   be reviewed as a same-class UI family before closure.
-8. Add current test evidence for the observed regression and for the
-   ContractExhaustionMesh same-class cases. If the miss produced a concrete
-   counterexample trace or known-bad proof, give that trace/proof a stable
-   target id and add target-aware `counterexample_regression` or
-   `known_bad_replay` evidence for the same id. A point regression is necessary
-   but does not close an in-scope miss by itself.
-9. Bind the repaired obligation to the owner code contract that actually
-   implements the behavior. Helper-only, adapter-only, or internal-path tests
-   cannot close a public bug class by themselves.
-10. Run Model-Test Alignment on the repaired model obligation, owner code
-   contracts, `ClosureEvidenceTarget` rows, and the observed,
-   counterexample/known-bad, and contract-exhaustion case test evidence. If the
-   contract-exhaustion validation is too large, slow, layered, stale-prone,
-   background, or release-only, route that hierarchy to TestMesh and report
-   scoped confidence until current child evidence exists.
-11. If the repair adds, replaces, bypasses, or preserves an old/fallback/legacy
-   path or old/replaced/deprecated field, route the compatibility surface
-   through Architecture Reduction when appropriate and record a
-   LegacyPathDisposition or field disposition: deleted, blocked, migrated,
-   delegated to a repaired contract or replacement field, same-contract
-   repaired, or explicitly out of scope with a reason. `unknown` blocks broad
-   closure.
-12. If sibling obligations share the same family-level claim, run
-   obligation-family parity so every sibling has required mechanism evidence
-   from allowed provenance.
-13. Run an analogous defect scan for same-family siblings and caller-supplied
-   related surfaces. Open must-scan candidates block broad closure; should-scan
-   candidates must be covered, assigned to a separate change, or excluded with
-   a concrete reason.
-14. If the same-class miss recurs, or if a high-risk first miss would make a
-   local point fix overclaim full confidence, promote it to a defect-family gate
-   with a model obligation, authority boundary, observed failure,
-   ContractExhaustionMesh case id, generated combination ids, coverage receipt
-   ids, historical holdout, and current proof evidence. The gate is FlowGuard
-   evidence for the existing Model-Miss/Risk Evidence Ledger chain, not a new
-   downstream app skill.
-15. Rerun the relevant model checks and confirm the old weakness is now visible,
-   or deliberately mark the generalized case out of scope.
-16. Validate the repair with the refined model plus the strongest practical
-   production-facing evidence.
-17. If the repair changed a child model under a parent ModelMesh, rerun the
-    affected parent child-reattachment gate. The parent must consume the current
-    child evidence id and confirm the child's inputs, outputs, state ownership,
-    side-effect ownership, and outgoing guarantees still fit the parent flow.
-    If the child emits outputs, runtime path evidence, or retry/rejection
-    handoffs that the parent consumes, rerun the mesh closure model as well and
-    project the affected closure transitions to Model-Test Alignment/TestMesh.
-18. If the miss shows that real code accepted an unmodeled input, emitted an
-    extra output/error/state write/side effect, or failed a declared leaf cell,
-    update the leaf boundary matrix and rerun layered proof. Do not close the
-    miss with only a new ordinary test when the model boundary itself overflowed.
-19. Run `review_model_maturation_loop(...)` over the miss classification,
-    alignment result, mesh/layered proof result, code-boundary observations, and
-    freshness rows. Freeze the task purpose, independent coverage/probe ids and
-    their owner fingerprint before reviewing the candidate. Every required
-    probe carries a pre-observation prediction and falsifier; a resolved item
-    counts only when its current native receipt binds the exact task, candidate,
-    and coverage fingerprint. Preserve the predecessor iteration, candidate,
-    and open-gap identities and require a resolution receipt before any old gap
-    disappears. `model_maturation_upgrade_required` means make another model or
-    evidence iteration, not stop. Resolve state, branch, invariant, same-class,
-    obligation, child-reattachment, or evidence-refresh actions, or terminate
-    only with the exact external input/owner/claim boundary, explicit scope
-    exclusion, evidenced stall, or iteration limit.
-20. Run DevelopmentProcessFlow over the changed plan/model/code/test/docs
-    artifacts so later edits do not stale the repair evidence.
-21. Record `Miss type`, `Root cause backpropagation`, `Generalized case`, field
-    lifecycle/projection/disposition evidence when fields are involved, owner
-    code contract, observed-regression test evidence, target-aware
-    counterexample or known-bad replay evidence, same-class test evidence,
-    family parity result, analogous scan result, legacy path disposition,
-    Model-Test Alignment result, process freshness, and any parent reattachment
-    or defect-family gate decision in adoption evidence and the Risk Evidence
-    Ledger when a prior final claim had one, or explain why no generalized case
-    was added.
+   new model or evidence item, and required closure evidence. If no previous
+   claim existed, say so explicitly.
+5. Bind the repair to one exact `affected_blueprint_gap_id`. The gap must point
+   to the missing or incorrect current behavior boundary, not merely to the
+   file where the symptom appeared.
+6. When bounded diagnosis is useful, derive one deterministic
+   deletion-minimal conflict and one deletion-minimal positive witness from the
+   existing false-negative owner record. Give every retained evidence item a
+   necessity witness. This read-only projection preserves the owner's decision
+   and cannot close or reopen the review.
+7. Represent an in-scope observed issue in executable evidence: a scenario,
+   invariant, replay adapter, representative trace, leaf boundary cell, or
+   model-boundary update. Otherwise record the exact out-of-scope reason.
+8. Declare only the finite affected relations already licensed by current
+   DNA, BCL, or affected-topology identities. Each relation needs a stable id,
+   type, two typed endpoints, and source identities. Pass one
+   `CanonicalRelationHandoff` containing the affected model, code-obligation,
+   test-obligation, and blueprint-gap ids. The carrier does not discover new
+   scope or prove that two surfaces are equivalent.
+9. Route the finite field, state/input, payload, transition, parent/child, or
+   same-class boundary through ContractExhaustionMesh. Materialize stable case
+   ids, generated combination ids or coverage receipt ids, and actionable
+   oracles. An unmaterialized required relation remains a visible gap.
+10. If behavior-bearing fields, schema keys, config or prompt fields, payload
+    columns, or persisted attributes are involved, update FieldLifecycleMesh
+    with root-cause, same-class, and old-field identities. Unknown projection
+    or disposition blocks broad closure.
+11. Add current test evidence for the observed regression and for every
+    required generated case. A concrete counterexample or known-bad proof also
+    needs a stable target id and matching `counterexample_regression` or
+    `known_bad_replay` evidence.
+12. Bind the repaired obligation to the owner code contract that implements
+    the public behavior. Helper-only, adapter-only, or internal-path evidence
+    cannot close a public miss. Run Model-Test Alignment over the model
+    obligation, code contract, closure targets, field projections, and tests.
+    Use TestMesh only when this finite validation is large, slow, layered,
+    stale-prone, background, or release-only.
+13. Emit a task-bound `ModelMaturationCoverageContribution` containing the
+    exact owner, source, coverage ids, probe ids, blueprint gap, and current
+    native receipt. Run the maturation loop with the miss, alignment,
+    code-boundary, mesh, and freshness signals. A gap disappears only through
+    a current resolution receipt binding the same task, candidate, coverage
+    fingerprint, and predecessor identity.
+14. Rerun every affected topology edge. If a child boundary changed, the
+    parent must consume the new child evidence and recheck inputs, outputs,
+    state ownership, side effects, outgoing guarantees, joins, and affected
+    siblings. Child-local green cannot close a parent claim.
+15. Give reachable old, fallback, alternate, replaced, or deprecated paths and
+    fields a direct disposition: deleted, blocked, migrated, delegated to the
+    repaired owner, same-contract repaired, or explicitly scoped with a
+    reason. `unknown` blocks closure.
+16. Run the relevant model checks again and confirm that both the observed
+    weakness and required ContractExhaustion cases are now visible. Validate
+    with the strongest practical production-facing evidence.
+17. Run DevelopmentProcessFlow over the changed plan, model, code, tests, and
+    documents so later edits, peer writes, adapters, or generated artifacts do
+    not silently stale the result.
+18. Project independently verified ModelMaturation evidence into the Risk
+    Evidence Ledger. The risk row consumes the exact maturation evidence id;
+    it does not accept a declared pass or raw mapping as proof.
+
+## UI Misses
+
+For UI failures, run `review_ui_model_misses(...)` and preserve the prior
+claim, why it looked green, the user-observed failure, affected and same-class
+capabilities/controls/fields, task-flow and human-operability gaps, root-cause
+backpropagation, code owner, and real click or implementation evidence.
+Missing promised capabilities belong in `missing_promised_capability_ids` and
+are classified as `boundary_missing` or `evidence_overclaimed`. A label or
+planned control is not proof that the real surface works.
 
 ## What Not To Add By Default
 
-Do not add a hazard registry, upgrade reviewer, default model mesh, full
-coverage matrix, or evidence-level field as the default response to ordinary
-model misses. Use those only when the task already has framework-upgrade or
-broad-capability risk. This does not waive the parent reattachment gate when the
-miss repair changed a child model that an existing parent ModelMesh depends on.
+Do not add a hazard registry, upgrade reviewer, default ModelMesh, or full
+coverage matrix for an ordinary local miss. Activate a specialist only when
+the exact gap requires it. This does not waive parent reattachment when an
+existing parent depends on the changed child.
+
+Do not create a second discovery, relation-scoring, or bug-family authority.
+The current commitment and blueprint select scope, the internal canonical
+relation carrier transports exact edges, ContractExhaustionMesh materializes
+finite cases, and ModelMaturation owns iterative depth.
 
 ## Completion Standard
 
-The bug repair or model miss is closed only when it is classified, represented
-in executable evidence or explicitly out of scope, rerun, validated with
-production-facing evidence, and, for in-scope misses, backed by current
-observed-regression, target-aware counterexample/known-bad replay when present,
-and same-class test evidence in Model-Test Alignment. Root cause must be
-backpropagated into the previous plan/model/test gap when a prior
-claim existed, behavior-bearing fields must be represented in FieldLifecycleMesh
-and projected when relevant, the repaired model obligation must bind to the
-owner code contract, and reachable old/fallback/legacy paths or old fields must
-have a disposition.
-When the miss was repaired in a child model under a parent mesh, the affected
-parent reattachment gate and any required mesh closure model must also pass or
-remain explicit blockers. The model maturation loop must show no open in-scope
-upgrade action for a broad claim. A
-patch plus a later green runtime check, or a patch plus one observed-bug
-regression test, is not enough by itself. A recurring or high-risk same-class
-miss also requires a current defect-family gate or an explicit
-scoped-confidence boundary. A same-shape risk radius scan with open must-scan
-candidates also keeps closure blocked.
-If the prior green claim had a Risk Evidence Ledger row, mark the old proof as
-stale or overclaimed and attach the new same-class evidence, family parity,
-analogous scan status, and defect-family gate status before restoring full
-confidence.
+An in-scope miss is closed only when:
 
-Layered proof misses should be mapped to the broken table before closure:
-parent coverage gap, illegal child overlap, stale child reattachment, missing
-leaf boundary cell, or real-code boundary overflow.
+- the observed failure, prior claim, supported root cause, commitment, primary
+  owner, and blueprint gap are recorded;
+- the repaired model exposes the observed issue and finite generated cases;
+- all required canonical relations are materialized or explicitly scoped;
+- the owner code contract and external tests bind the same obligations and
+  closure targets;
+- relevant fields and old paths have closing dispositions;
+- affected topology and parent evidence have been replayed;
+- ModelMaturation has no open in-scope action for the claim, or the claim is
+  explicitly narrowed;
+- process freshness and the Risk Evidence Ledger consume current verified
+  evidence.
+
+A point patch, one exact regression test, a later green runtime command, or a
+raw relation id cannot satisfy this standard on its own.
+
+Record the miss type, commitment/owner/blueprint-gap ids, root-cause
+backpropagation, canonical relation ids, ContractExhaustion case and receipt
+ids, owner code/test bindings, field and legacy dispositions, ModelMaturation
+evidence id, topology/parent replay, freshness, skipped checks, residual risk,
+and final claim boundary in adoption evidence.

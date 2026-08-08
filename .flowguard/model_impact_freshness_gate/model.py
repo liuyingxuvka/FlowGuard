@@ -33,6 +33,10 @@ from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 @dataclass(frozen=True)
 class UpgradeAction:
     action_type: str
+    observation_scope: str = "invocation_local"
+    complete_observation_count: int = 2
+    semantic_verification_count: int = 1
+    final_identity_freshness_passed: bool = True
 
 
 @dataclass(frozen=True)
@@ -52,6 +56,10 @@ class GateState:
     test_update_reviewed: bool = False
     tests_updated: bool = False
     rerun_current: bool = False
+    observation_scope: str = ""
+    complete_observation_count: int = 0
+    semantic_verification_count: int = 0
+    final_identity_freshness_passed: bool = False
     old_evidence_passed: bool = True
     claim: str = "none"
 
@@ -64,6 +72,10 @@ def _ready_to_accept(state: GateState) -> bool:
             state.model_update_reviewed
             and state.test_update_reviewed
             and state.rerun_current
+            and state.observation_scope == "invocation_local"
+            and state.complete_observation_count == 2
+            and state.semantic_verification_count == 1
+            and state.final_identity_freshness_passed
         )
     if state.classification == "not_impacted":
         if state.direct_upgrade_impact and not state.same_output_proof:
@@ -83,6 +95,10 @@ class CorrectModelImpactFreshnessGate:
         "model_update_reviewed",
         "test_update_reviewed",
         "rerun_current",
+        "observation_scope",
+        "complete_observation_count",
+        "semantic_verification_count",
+        "final_identity_freshness_passed",
         "claim",
     )
     writes = reads
@@ -188,7 +204,21 @@ class CorrectModelImpactFreshnessGate:
             if state.classification == "affected" and state.model_update_reviewed and state.test_update_reviewed:
                 yield FunctionResult(
                     GateOutput("rerun_passed"),
-                    replace(state, rerun_current=True, claim="none"),
+                    replace(
+                        state,
+                        rerun_current=True,
+                        observation_scope=input_obj.observation_scope,
+                        complete_observation_count=(
+                            input_obj.complete_observation_count
+                        ),
+                        semantic_verification_count=(
+                            input_obj.semantic_verification_count
+                        ),
+                        final_identity_freshness_passed=(
+                            input_obj.final_identity_freshness_passed
+                        ),
+                        claim="none",
+                    ),
                     label="rerun_passed",
                 )
                 return
@@ -274,9 +304,18 @@ def accepted_claim_requires_classification_and_current_evidence(state: GateState
     if state.classification == "unknown":
         return InvariantResult.fail("upgrade gate accepted without model impact classification")
     if state.classification == "affected" and not (
-        state.model_update_reviewed and state.test_update_reviewed and state.rerun_current
+        state.model_update_reviewed
+        and state.test_update_reviewed
+        and state.rerun_current
+        and state.observation_scope == "invocation_local"
+        and state.complete_observation_count == 2
+        and state.semantic_verification_count == 1
+        and state.final_identity_freshness_passed
     ):
-        return InvariantResult.fail("affected model accepted without update review and current rerun")
+        return InvariantResult.fail(
+            "affected model accepted without one invocation-local semantic observation "
+            "and one final identity freshness check"
+        )
     if state.classification == "not_impacted" and not state.exact_current_receipt:
         return InvariantResult.fail(
             "not-impacted model accepted without an exact-current receipt"

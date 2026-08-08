@@ -65,6 +65,51 @@ from flowguard import (
     snapshot_bytes,
     verify_model_maturation_receipt,
 )
+from flowguard.model_path_quality import PathQualityResult, PathQualitySubject
+
+
+def resolved_path_quality(model_id, model_fingerprint):
+    def identity(name):
+        return fingerprint_value({"model_id": model_id, "identity": name})
+
+    subject = PathQualitySubject(
+        model_id=model_id,
+        boundary_id=f"behavior:{model_id}",
+        model_fingerprint=model_fingerprint,
+        normalized_facts_fingerprint=identity("normalized-facts"),
+        retained_element_inventory_fingerprint=identity("retained-elements"),
+        purpose_fingerprint=identity("purpose"),
+        intent_fingerprint=identity("intent"),
+        obligation_fingerprint=identity("obligations"),
+        provider_fingerprint=identity("provider"),
+        dependency_fingerprint=identity("dependencies"),
+        code_fingerprint=identity("code"),
+        test_fingerprint=identity("tests"),
+        oracle_fingerprint=identity("oracles"),
+        evidence_fingerprint=identity("evidence"),
+        currentness_id="revision:template-current",
+    )
+    result = PathQualityResult(
+        result_id=f"path-quality:{model_id}",
+        subject_fingerprint=subject.fingerprint,
+        mode="lightweight",
+        trigger_ids=(),
+        finding_ids=(),
+        candidate_ids=(),
+        rewrite_rule_ids=(),
+        conclusion="single_clear_path",
+        unresolved_ids=(),
+        selected_candidate_id="",
+        selected_candidate_lane="",
+        comparison_boundary_id="",
+        candidate_set_fingerprint="",
+        rewrite_set_fingerprint="",
+        necessity_witness_set_fingerprint=identity("necessity-witnesses"),
+        detail_evidence_fingerprint=identity("path-detail"),
+        producer_id="model_maturation:path-quality",
+        currentness_id=subject.currentness_id,
+    )
+    return subject, result
 
 
 def proof_artifact(artifact_id: str, *covered: str) -> ProofArtifactRef:
@@ -105,14 +150,21 @@ def artifacts(code_version: str = "2", test_version: str = "1", requirement_vers
 
 
 def implementation_admission():
+    model_id = "checkout-functional-model"
+    candidate_model_fingerprint = fingerprint_value(
+        {"model_id": model_id, "candidate": "template-current"}
+    )
+    path_quality_subject, path_quality_result = resolved_path_quality(
+        model_id, candidate_model_fingerprint
+    )
     report = ModelMaturationReport(
         ok=True,
         plan_id="plan:checkout",
         evidence_id="maturation:checkout",
         task_id="task:checkout",
-        model_id="checkout-functional-model",
+        model_id=model_id,
         coverage_demand_fingerprint="sha256:demand",
-        candidate_model_fingerprint="sha256:candidate",
+        candidate_model_fingerprint=candidate_model_fingerprint,
         coverage_universe_id="coverage:checkout",
         coverage_universe_fingerprint="sha256:coverage",
         input_fingerprint="sha256:intake",
@@ -120,6 +172,9 @@ def implementation_admission():
         decision=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
         confidence=MODEL_MATURATION_CONFIDENCE_FULL,
         terminal_reason=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
+        required_path_quality_model_ids=(model_id,),
+        path_quality_subjects=(path_quality_subject,),
+        path_quality_results=(path_quality_result,),
         owner_resolution_ids=("resolution:checkout",),
         owner_resolution_fingerprints=("sha256:resolution-checkout",),
         owner_resolution_owner_ids=("model_first_function_flow",),
@@ -176,6 +231,10 @@ def implementation_admission():
                 coverage_universe_fingerprint=report.coverage_universe_fingerprint,
                 input_fingerprint=report.input_fingerprint,
                 evidence_fingerprint=report.evidence_fingerprint,
+                required_path_quality_model_ids=report.required_path_quality_model_ids,
+                path_quality_subjects=report.path_quality_subjects,
+                path_quality_results=report.path_quality_results,
+                path_quality_result_set_fingerprint=report.path_quality_result_set_fingerprint,
                 owner_resolution_ids=report.owner_resolution_ids,
                 owner_resolution_fingerprints=report.owner_resolution_fingerprints,
                 owner_resolution_owner_ids=report.owner_resolution_owner_ids,

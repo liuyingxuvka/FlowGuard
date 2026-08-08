@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .code_structure import CodeStructureRecommendation, review_code_structure_recommendation
 from .export import to_jsonable
 from .hierarchy import (
@@ -39,12 +40,6 @@ STRUCTURE_EVIDENCE_ORDER = {
     EVIDENCE_CONFORMANCE_GREEN: 4,
     EVIDENCE_MESH_GREEN: 5,
 }
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 @dataclass(frozen=True)

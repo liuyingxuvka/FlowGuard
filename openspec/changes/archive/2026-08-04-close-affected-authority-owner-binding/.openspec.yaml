@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-04
+goal: Close the post-regression model-ownership gap before FlowGuard v0.68.7
+  authority activation.

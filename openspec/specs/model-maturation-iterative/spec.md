@@ -47,25 +47,25 @@ advance; changing names or deleting gaps is not progress.
 #### Scenario: No-progress iteration
 - **GIVEN** two consecutive iterations have the same model and open-signal fingerprints
 - **WHEN** maturation is reviewed
-- **THEN** it returns `progress_stalled` and does not report success
+- **THEN** it returns `model_maturation_progress_stalled` and does not report success
 
 #### Scenario: Oscillating iteration
 - **GIVEN** the session returns to an earlier candidate and open-gap fingerprint without new discriminating evidence
 - **WHEN** maturation is reviewed
-- **THEN** it returns `progress_stalled` and preserves the oscillation evidence
+- **THEN** it returns `model_maturation_progress_stalled` and preserves the oscillation evidence
 
 ### Requirement: Terminal reasons are explicit
 
-The report SHALL use `model_closed_for_task` only when every required probe has
+The report SHALL use `model_maturation_closed_for_task` only when every required probe has
 one current terminal native receipt for the exact candidate and no important
-addressable signal remains. `upgrade_required` is non-terminal. External input,
+addressable signal remains. `model_maturation_upgrade_required` is non-terminal. External input,
 justified exclusion, stall, and iteration-limit outcomes SHALL remain visible
 and non-success.
 
 #### Scenario: Exact external blocker
 - **GIVEN** a required observation cannot be obtained with current local tools
 - **WHEN** the iteration is reviewed
-- **THEN** the report names the required input, owner boundary, and affected claim scope as `external_input_required`
+- **THEN** the report names the required input, owner boundary, and affected claim scope as `model_maturation_external_input_required`
 
 #### Scenario: Multi-iteration session reaches the real terminal
 - **GIVEN** an earlier iteration requires a model upgrade and a later linked candidate closes every required probe
@@ -105,15 +105,31 @@ current.
 - **THEN** the change remains blocked as evidence-overclaimed
 
 ### Requirement: Maturation compiles independent pre-code coverage intake
-The maturation owner SHALL accept a current typed intake before or after production implementation and SHALL derive the coverage universe from independently identified task requirements, current-system ownership, unresolved model angles, and only the specialist routes triggered for the task.
+The maturation owner SHALL accept a current typed intake before or after
+production implementation and SHALL derive the coverage universe from
+independently identified task requirements, current-system ownership, typed
+current-owner coverage items, and only the specialist routes triggered for the
+task. The intake SHALL NOT require a separate open-ended model-angle inventory.
 
 #### Scenario: Candidate cannot shrink the denominator
-- **WHEN** a candidate model omits a task, current-system, behavior, field, UI, mesh, test, or angle coverage item supplied by a current independent owner contribution
-- **THEN** maturation MUST keep that item open and MUST NOT report task-local full confidence
+- **WHEN** a candidate model omits a task, current-system, behavior, field, UI,
+  mesh, test, topology, boundary, finite-case, binding, or evidence coverage
+  item supplied by a current independent owner contribution
+- **THEN** maturation MUST keep that item open and MUST NOT report task-local
+  full confidence
 
 #### Scenario: Low-risk task stays narrow
 - **WHEN** a task does not trigger a specialist route
-- **THEN** the intake compiler MUST NOT require that route's unrelated inventory merely for ceremony
+- **THEN** the intake compiler MUST NOT require that route's unrelated
+  inventory merely for ceremony
+
+#### Scenario: Untyped concern has no current owner
+- **WHEN** a suspected coverage concern cannot yet be assigned to a current
+  owner and concrete coverage dimension
+- **THEN** maturation MUST preserve an unknown-coverage item and route owner
+  resolution through ExistingModelPreflight
+- **AND** it MUST NOT create a free-form angle owner or count the concern as
+  covered
 
 ### Requirement: Owner contributions preserve native semantics
 Each maturation contribution SHALL identify its native owner, task, coverage items, current evidence identity, and open signals, while the maturation compiler SHALL merge and deduplicate those contributions without rejudging the specialist's domain semantics.
@@ -128,3 +144,14 @@ The task-local maturation report SHALL expose the task id, model id, candidate f
 #### Scenario: Downstream identity can be checked
 - **WHEN** a maturation result is used by another FlowGuard owner
 - **THEN** that owner MUST be able to verify the exact task, candidate, and coverage identity without relying on prose or self-reported understanding
+
+### Requirement: Maturation closes current model path quality
+ModelMaturation SHALL require one current model-path-quality result for every new or materially changed model in its affected coverage universe. Missing, stale, or unresolved required rows SHALL remain explicit maturation gaps, while a current `single_clear_path` result SHALL satisfy ordinary path review without triggering deep work.
+
+#### Scenario: Required model has current path quality
+- **WHEN** every affected model has a current bounded conclusion and no unresolved row for the claimed boundary
+- **THEN** maturation MAY consume those results with its other owner contributions
+
+#### Scenario: Candidate omits a required model result
+- **WHEN** the independent affected model denominator includes a model with no current path-quality result
+- **THEN** maturation retains the missing row and SHALL NOT report full coverage

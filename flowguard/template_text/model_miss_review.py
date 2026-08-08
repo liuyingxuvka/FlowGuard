@@ -14,22 +14,22 @@ failure.
 
 Guards against:
 - finalizing after a runtime issue without classifying the model miss;
-- treating a user-observed UI failure after a green claim as a local
-  button-only cleanup instead of a model miss;
-- claiming UI repair from label/API proof without preserving same-class
-  controls, click evidence, backpropagation, and code owner;
+- classifying a miss without first looking up the affected behavior plane;
+- attaching a miss to a different plane's commitment or creating a duplicate
+  gap when a same-plane commitment already exists;
 - validating a fix before backpropagating the root cause into the prior
   plan/model/test gap;
 - validating a fix before representing the observed issue in the model;
-- validating a point fix before representing a ContractExhaustionMesh same-class case;
-- validating only the observed bug without contract-exhaustion case evidence;
+- validating a point fix before representing a same-class generalized bad case;
+- validating only the observed bug without same-class test evidence;
+- validating a known-bad or counterexample repair without target-aware
+  owner-code replay evidence;
 - validating without binding the repaired obligation to the owner code
   contract;
 - leaving old, fallback, compatibility, or alternate paths reachable without a
   disposition;
-- returning the same rejected intent, missing-field packet, missing-body packet,
-  or no-delta retry output without repair feedback or an explicit blocker;
-- treating a recurring same-class miss as another ordinary point fix;
+- closing a recurring same-class miss without contributing exact affected
+  relation and case identities to ContractExhaustion and ModelMaturation;
 - using the known bug as the whole model target instead of holdout evidence;
 - treating a later green runtime check as enough to close a known miss.
 
@@ -58,20 +58,29 @@ class State:
     flowguard_passed: bool = False
     runtime_issue_observed: bool = False
     model_miss_classified: bool = False
+    affected_behavior_plane: str = ""
+    affected_commitment_id: str = ""
+    primary_owner_model_id: str = ""
+    affected_blueprint_gap_id: str = ""
+    same_plane_lookup_performed: bool = False
+    coverage_gap_registered: bool = False
     root_cause_backpropagated: bool = False
     issue_represented_in_model: bool = False
     generalized_bad_case_in_scope: bool = True
     generalized_bad_case_represented_in_model: bool = False
     known_bug_used_as_holdout: bool = False
     observed_regression_test_added: bool = False
+    target_aware_replay_evidence_added: bool = False
     same_class_test_evidence_added: bool = False
     owner_code_contract_bound: bool = False
     model_test_alignment_rerun: bool = False
     legacy_path_disposition_in_scope: bool = True
     legacy_path_disposition_recorded: bool = False
     recurring_family_detected: bool = False
-    defect_family_gate_promoted: bool = False
-    defect_family_gate_reviewed: bool = False
+    affected_canonical_relation_ids: tuple[str, ...] = ()
+    affected_contract_case_ids: tuple[str, ...] = ()
+    contract_exhaustion_contribution_emitted: bool = False
+    model_maturation_contribution_emitted: bool = False
     fix_validated_after_refinement: bool = False
     completed: bool = False
 
@@ -79,23 +88,46 @@ class State:
 @dataclass(frozen=True)
 class Event:
     name: str
+    affected_behavior_plane: str = ""
+    affected_commitment_id: str = ""
+    primary_owner_model_id: str = ""
+    affected_blueprint_gap_id: str = ""
+    affected_canonical_relation_ids: tuple[str, ...] = ()
+    affected_contract_case_ids: tuple[str, ...] = ()
+    same_plane_lookup_performed: bool = False
+    coverage_gap_registered: bool = False
 
 
 FLOWGUARD_PASS = Event("flowguard_pass")
 RUNTIME_FAIL = Event("runtime_fail")
-CLASSIFY_MISS = Event("classify_miss")
+CLASSIFY_MISS = Event(
+    "classify_miss",
+    affected_behavior_plane="agent_operation",
+    affected_commitment_id="commitment:flowguard-agent-guidance-route",
+    primary_owner_model_id=".flowguard/minimum_valuable_model_entry/model.py",
+    affected_blueprint_gap_id="blueprint-gap:model-miss-review:guidance-route",
+    same_plane_lookup_performed=True,
+)
 BACKPROPAGATE_ROOT_CAUSE = Event("backpropagate_root_cause")
 REPRESENT_ISSUE = Event("represent_issue")
 REPRESENT_GENERALIZED_BAD_CASE = Event("represent_generalized_bad_case")
 RECORD_KNOWN_BUG_HOLDOUT = Event("record_known_bug_holdout")
 ADD_OBSERVED_REGRESSION_TEST = Event("add_observed_regression_test")
+ADD_TARGET_AWARE_REPLAY_EVIDENCE = Event("add_target_aware_replay_evidence")
 ADD_SAME_CLASS_TEST_EVIDENCE = Event("add_same_class_test_evidence")
 BIND_OWNER_CODE_CONTRACT = Event("bind_owner_code_contract")
 RERUN_MODEL_TEST_ALIGNMENT = Event("rerun_model_test_alignment")
 RECORD_LEGACY_PATH_DISPOSITION = Event("record_legacy_path_disposition")
 MARK_RECURRING_FAMILY = Event("mark_recurring_family")
-PROMOTE_DEFECT_FAMILY_GATE = Event("promote_defect_family_gate")
-REVIEW_DEFECT_FAMILY_GATE = Event("review_defect_family_gate")
+EMIT_CONTRACT_EXHAUSTION_CONTRIBUTION = Event(
+    "emit_contract_exhaustion_contribution",
+    affected_canonical_relation_ids=("relation:shared-owner:model-miss-review",),
+    affected_contract_case_ids=(
+        "case:observed:model-miss-review",
+        "case:same-class:model-miss-review",
+    ),
+)
+EMIT_MODEL_MATURATION_CONTRIBUTION = Event("emit_model_maturation_contribution")
 VALIDATE_FIX = Event("validate_fix")
 FINALIZE = Event("finalize")
 
@@ -106,38 +138,56 @@ class ApplyReviewStep:
         "flowguard_passed",
         "runtime_issue_observed",
         "model_miss_classified",
+        "affected_behavior_plane",
+        "affected_commitment_id",
+        "primary_owner_model_id",
+        "affected_blueprint_gap_id",
+        "same_plane_lookup_performed",
+        "coverage_gap_registered",
         "root_cause_backpropagated",
         "issue_represented_in_model",
         "generalized_bad_case_in_scope",
         "generalized_bad_case_represented_in_model",
         "known_bug_used_as_holdout",
         "observed_regression_test_added",
+        "target_aware_replay_evidence_added",
         "same_class_test_evidence_added",
         "owner_code_contract_bound",
         "model_test_alignment_rerun",
         "legacy_path_disposition_in_scope",
         "legacy_path_disposition_recorded",
         "recurring_family_detected",
-        "defect_family_gate_promoted",
-        "defect_family_gate_reviewed",
+        "affected_canonical_relation_ids",
+        "affected_contract_case_ids",
+        "contract_exhaustion_contribution_emitted",
+        "model_maturation_contribution_emitted",
         "fix_validated_after_refinement",
     )
     writes = (
         "flowguard_passed",
         "runtime_issue_observed",
         "model_miss_classified",
+        "affected_behavior_plane",
+        "affected_commitment_id",
+        "primary_owner_model_id",
+        "affected_blueprint_gap_id",
+        "same_plane_lookup_performed",
+        "coverage_gap_registered",
         "root_cause_backpropagated",
         "issue_represented_in_model",
         "generalized_bad_case_represented_in_model",
         "known_bug_used_as_holdout",
         "observed_regression_test_added",
+        "target_aware_replay_evidence_added",
         "same_class_test_evidence_added",
         "owner_code_contract_bound",
         "model_test_alignment_rerun",
         "legacy_path_disposition_recorded",
         "recurring_family_detected",
-        "defect_family_gate_promoted",
-        "defect_family_gate_reviewed",
+        "affected_canonical_relation_ids",
+        "affected_contract_case_ids",
+        "contract_exhaustion_contribution_emitted",
+        "model_maturation_contribution_emitted",
         "fix_validated_after_refinement",
         "completed",
     )
@@ -164,9 +214,40 @@ class ApplyReviewStep:
             if not state.runtime_issue_observed:
                 yield FunctionResult("classification_not_needed", state, label="blocked")
                 return
+            if input_obj.affected_behavior_plane not in {
+                "product_runtime",
+                "agent_operation",
+                "development_process",
+            }:
+                yield FunctionResult("classification_missing_behavior_plane", state, label="blocked")
+                return
+            if not input_obj.same_plane_lookup_performed:
+                yield FunctionResult("classification_missing_same_plane_lookup", state, label="blocked")
+                return
+            has_existing_owner = bool(
+                input_obj.affected_commitment_id and input_obj.primary_owner_model_id
+            )
+            if not has_existing_owner and not input_obj.coverage_gap_registered:
+                yield FunctionResult("classification_missing_owner_or_gap", state, label="blocked")
+                return
+            if has_existing_owner and input_obj.coverage_gap_registered:
+                yield FunctionResult("classification_duplicate_gap", state, label="blocked")
+                return
+            if not input_obj.affected_blueprint_gap_id:
+                yield FunctionResult("classification_missing_blueprint_gap", state, label="blocked")
+                return
             yield FunctionResult(
                 "model_miss_classified",
-                replace(state, model_miss_classified=True),
+                replace(
+                    state,
+                    model_miss_classified=True,
+                    affected_behavior_plane=input_obj.affected_behavior_plane,
+                    affected_commitment_id=input_obj.affected_commitment_id,
+                    primary_owner_model_id=input_obj.primary_owner_model_id,
+                    affected_blueprint_gap_id=input_obj.affected_blueprint_gap_id,
+                    same_plane_lookup_performed=True,
+                    coverage_gap_registered=input_obj.coverage_gap_registered,
+                ),
                 label="model_miss_classified",
             )
             return
@@ -220,8 +301,18 @@ class ApplyReviewStep:
                 label="observed_regression_test_added",
             )
             return
-        if input_obj.name == "add_same_class_test_evidence":
+        if input_obj.name == "add_target_aware_replay_evidence":
             if not state.observed_regression_test_added:
+                yield FunctionResult("target_aware_replay_evidence_blocked", state, label="blocked")
+                return
+            yield FunctionResult(
+                "target_aware_replay_evidence_added",
+                replace(state, target_aware_replay_evidence_added=True),
+                label="target_aware_replay_evidence_added",
+            )
+            return
+        if input_obj.name == "add_same_class_test_evidence":
+            if not state.target_aware_replay_evidence_added:
                 yield FunctionResult("same_class_test_evidence_blocked", state, label="blocked")
                 return
             yield FunctionResult(
@@ -273,30 +364,63 @@ class ApplyReviewStep:
                 label="recurring_family_detected",
             )
             return
-        if input_obj.name == "promote_defect_family_gate":
+        if input_obj.name == "emit_contract_exhaustion_contribution":
             if not state.recurring_family_detected:
-                yield FunctionResult("defect_family_gate_not_required", state, label="blocked")
+                yield FunctionResult("contract_exhaustion_contribution_not_required", state, label="blocked")
                 return
             if state.generalized_bad_case_in_scope and not state.model_test_alignment_rerun:
-                yield FunctionResult("defect_family_gate_promotion_blocked", state, label="blocked")
+                yield FunctionResult("contract_exhaustion_contribution_blocked", state, label="blocked")
+                return
+            if not state.affected_blueprint_gap_id:
+                yield FunctionResult("contract_exhaustion_missing_blueprint_gap", state, label="blocked")
+                return
+            if not input_obj.affected_canonical_relation_ids:
+                yield FunctionResult("contract_exhaustion_missing_canonical_relations", state, label="blocked")
+                return
+            if not input_obj.affected_contract_case_ids:
+                yield FunctionResult("contract_exhaustion_missing_case_identities", state, label="blocked")
                 return
             yield FunctionResult(
-                "defect_family_gate_promoted",
-                replace(state, defect_family_gate_promoted=True),
-                label="defect_family_gate_promoted",
+                "contract_exhaustion_contribution_emitted",
+                replace(
+                    state,
+                    affected_canonical_relation_ids=input_obj.affected_canonical_relation_ids,
+                    affected_contract_case_ids=input_obj.affected_contract_case_ids,
+                    contract_exhaustion_contribution_emitted=True,
+                ),
+                label="contract_exhaustion_contribution_emitted",
             )
             return
-        if input_obj.name == "review_defect_family_gate":
-            if not state.defect_family_gate_promoted:
-                yield FunctionResult("defect_family_gate_review_blocked", state, label="blocked")
+        if input_obj.name == "emit_model_maturation_contribution":
+            if not state.contract_exhaustion_contribution_emitted:
+                yield FunctionResult("model_maturation_contribution_blocked", state, label="blocked")
                 return
             yield FunctionResult(
-                "defect_family_gate_reviewed",
-                replace(state, defect_family_gate_reviewed=True),
-                label="defect_family_gate_reviewed",
+                "model_maturation_contribution_emitted",
+                replace(state, model_maturation_contribution_emitted=True),
+                label="model_maturation_contribution_emitted",
             )
             return
         if input_obj.name == "validate_fix":
+            if not (
+                state.same_plane_lookup_performed
+                and state.affected_behavior_plane
+                and state.affected_blueprint_gap_id
+                and (
+                    (
+                        state.affected_commitment_id
+                        and state.primary_owner_model_id
+                        and not state.coverage_gap_registered
+                    )
+                    or (
+                        not state.affected_commitment_id
+                        and not state.primary_owner_model_id
+                        and state.coverage_gap_registered
+                    )
+                )
+            ):
+                yield FunctionResult("same_plane_backfeed_validation_blocked", state, label="blocked")
+                return
             if not state.root_cause_backpropagated:
                 yield FunctionResult("root_cause_backpropagation_validation_blocked", state, label="blocked")
                 return
@@ -312,6 +436,9 @@ class ApplyReviewStep:
             if state.generalized_bad_case_in_scope and not state.observed_regression_test_added:
                 yield FunctionResult("observed_regression_test_validation_blocked", state, label="blocked")
                 return
+            if state.generalized_bad_case_in_scope and not state.target_aware_replay_evidence_added:
+                yield FunctionResult("target_aware_replay_evidence_validation_blocked", state, label="blocked")
+                return
             if state.generalized_bad_case_in_scope and not state.same_class_test_evidence_added:
                 yield FunctionResult("same_class_test_evidence_validation_blocked", state, label="blocked")
                 return
@@ -325,9 +452,10 @@ class ApplyReviewStep:
                 yield FunctionResult("legacy_path_disposition_validation_blocked", state, label="blocked")
                 return
             if state.recurring_family_detected and not (
-                state.defect_family_gate_promoted and state.defect_family_gate_reviewed
+                state.contract_exhaustion_contribution_emitted
+                and state.model_maturation_contribution_emitted
             ):
-                yield FunctionResult("defect_family_gate_validation_blocked", state, label="blocked")
+                yield FunctionResult("canonical_contribution_validation_blocked", state, label="blocked")
                 return
             yield FunctionResult(
                 "fix_validated_after_refinement",
@@ -339,8 +467,8 @@ class ApplyReviewStep:
             if state.runtime_issue_observed and not state.fix_validated_after_refinement:
                 yield FunctionResult("finalize_blocked_open_model_miss", state, label="finalize_blocked")
                 return
-            if state.recurring_family_detected and not state.defect_family_gate_reviewed:
-                yield FunctionResult("finalize_blocked_open_defect_family_gate", state, label="finalize_blocked")
+            if state.recurring_family_detected and not state.model_maturation_contribution_emitted:
+                yield FunctionResult("finalize_blocked_open_model_maturation", state, label="finalize_blocked")
                 return
             yield FunctionResult("completed", replace(state, completed=True), label="completed")
             return
@@ -354,6 +482,18 @@ class BrokenFinalizeIgnoresModelMiss(ApplyReviewStep):
                 "completed_without_review",
                 replace(state, completed=True),
                 label="broken_completed_without_review",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
+class BrokenClassifyWithoutSamePlaneLookup(ApplyReviewStep):
+    def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
+        if input_obj.name == "classify_miss":
+            yield FunctionResult(
+                "classified_without_same_plane_lookup",
+                replace(state, model_miss_classified=True),
+                label="broken_classified_without_same_plane_lookup",
             )
             return
         yield from super().apply(input_obj, state)
@@ -428,6 +568,25 @@ class BrokenValidateWithoutSameClassTestEvidence(ApplyReviewStep):
         yield from super().apply(input_obj, state)
 
 
+class BrokenValidateWithoutTargetAwareReplayEvidence(ApplyReviewStep):
+    def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
+        if input_obj.name == "validate_fix" and state.observed_regression_test_added:
+            yield FunctionResult(
+                "validated_without_target_aware_replay_evidence",
+                replace(
+                    state,
+                    same_class_test_evidence_added=True,
+                    owner_code_contract_bound=True,
+                    model_test_alignment_rerun=True,
+                    legacy_path_disposition_recorded=True,
+                    fix_validated_after_refinement=True,
+                ),
+                label="broken_validate_without_target_aware_replay_evidence",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
 class BrokenValidateWithoutOwnerCodeContract(ApplyReviewStep):
     def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
         if input_obj.name == "validate_fix" and state.same_class_test_evidence_added:
@@ -457,23 +616,60 @@ class BrokenValidateWithoutLegacyPathDisposition(ApplyReviewStep):
         yield from super().apply(input_obj, state)
 
 
-class BrokenValidateRecurringWithoutDefectFamilyGate(ApplyReviewStep):
+class BrokenValidateRecurringWithoutCanonicalContributions(ApplyReviewStep):
     def apply(self, input_obj: Event, state: State) -> Iterable[FunctionResult]:
         if input_obj.name == "validate_fix" and state.recurring_family_detected:
             yield FunctionResult(
-                "recurring_family_validated_without_defect_family_gate",
+                "recurring_family_validated_without_canonical_contributions",
                 replace(state, fix_validated_after_refinement=True),
-                label="broken_validate_recurring_without_defect_family_gate",
+                label="broken_validate_recurring_without_canonical_contributions",
             )
             return
         yield from super().apply(input_obj, state)
 
 
 def invariants() -> tuple[Invariant, ...]:
+    def classification_requires_same_plane_backfeed(state: State, _trace) -> InvariantResult:
+        if not state.model_miss_classified:
+            return InvariantResult.pass_()
+        if not state.same_plane_lookup_performed:
+            return InvariantResult.fail("model miss classified before same-plane commitment lookup")
+        if state.affected_behavior_plane not in {
+            "product_runtime",
+            "agent_operation",
+            "development_process",
+        }:
+            return InvariantResult.fail("model miss classification has no valid affected behavior plane")
+        has_existing_owner = bool(
+            state.affected_commitment_id and state.primary_owner_model_id
+        )
+        if not has_existing_owner and not state.coverage_gap_registered:
+            return InvariantResult.fail("model miss classification has neither a same-plane owner nor a registered gap")
+        if has_existing_owner and state.coverage_gap_registered:
+            return InvariantResult.fail("model miss classification duplicates a gap for an existing same-plane owner")
+        if not state.affected_blueprint_gap_id:
+            return InvariantResult.fail("model miss classification has no exact affected blueprint gap")
+        return InvariantResult.pass_()
+
     def completion_requires_review(state: State, _trace) -> InvariantResult:
         if state.completed and state.runtime_issue_observed:
             if not (
                 state.model_miss_classified
+                and state.same_plane_lookup_performed
+                and state.affected_behavior_plane
+                and state.affected_blueprint_gap_id
+                and (
+                    (
+                        state.affected_commitment_id
+                        and state.primary_owner_model_id
+                        and not state.coverage_gap_registered
+                    )
+                    or (
+                        not state.affected_commitment_id
+                        and not state.primary_owner_model_id
+                        and state.coverage_gap_registered
+                    )
+                )
                 and state.root_cause_backpropagated
                 and state.issue_represented_in_model
                 and (
@@ -485,6 +681,7 @@ def invariants() -> tuple[Invariant, ...]:
                     not state.generalized_bad_case_in_scope
                     or (
                         state.observed_regression_test_added
+                        and state.target_aware_replay_evidence_added
                         and state.same_class_test_evidence_added
                         and state.owner_code_contract_bound
                         and state.model_test_alignment_rerun
@@ -497,14 +694,16 @@ def invariants() -> tuple[Invariant, ...]:
                 and (
                     not state.recurring_family_detected
                     or (
-                        state.defect_family_gate_promoted
-                        and state.defect_family_gate_reviewed
+                        state.affected_canonical_relation_ids
+                        and state.affected_contract_case_ids
+                        and state.contract_exhaustion_contribution_emitted
+                        and state.model_maturation_contribution_emitted
                     )
                 )
                 and state.fix_validated_after_refinement
             ):
                 return InvariantResult.fail(
-                    "completed runtime issue without classification, root-cause backpropagation, observed issue model representation, ContractExhaustionMesh case representation, known-bug holdout role, owner code contract, contract-exhaustion case test evidence, legacy path disposition, Model-Test Alignment rerun, recurring defect-family gate when needed, and refined validation"
+                    "completed runtime issue without exact commitment/blueprint-gap classification, root-cause backpropagation, observed issue model representation, same-class generalized bad case representation, known-bug holdout role, owner code contract, target-aware replay evidence, same-class test evidence, legacy path disposition, Model-Test Alignment rerun, canonical ContractExhaustion and ModelMaturation contributions when needed, and refined validation"
                 )
         return InvariantResult.pass_()
 
@@ -524,7 +723,7 @@ def invariants() -> tuple[Invariant, ...]:
             and state.generalized_bad_case_in_scope
             and not state.generalized_bad_case_represented_in_model
         ):
-            return InvariantResult.fail("fix validated as point-fix-only without a ContractExhaustionMesh same-class case")
+            return InvariantResult.fail("fix validated as point-fix-only without a same-class generalized bad case")
         return InvariantResult.pass_()
 
     def fix_validation_requires_known_bug_holdout_role(state: State, _trace) -> InvariantResult:
@@ -542,9 +741,18 @@ def invariants() -> tuple[Invariant, ...]:
         if not state.observed_regression_test_added:
             return InvariantResult.fail("fix validated before adding observed-regression test evidence")
         if not state.same_class_test_evidence_added:
-            return InvariantResult.fail("fix validated before adding ContractExhaustionMesh case test evidence")
+            return InvariantResult.fail("fix validated before adding same-class generalized test evidence")
         if not state.model_test_alignment_rerun:
             return InvariantResult.fail("fix validated before rerunning Model-Test Alignment")
+        return InvariantResult.pass_()
+
+    def fix_validation_requires_target_aware_replay_evidence(state: State, _trace) -> InvariantResult:
+        if (
+            state.fix_validated_after_refinement
+            and state.generalized_bad_case_in_scope
+            and not state.target_aware_replay_evidence_added
+        ):
+            return InvariantResult.fail("fix validated before adding target-aware counterexample/known-bad replay evidence")
         return InvariantResult.pass_()
 
     def fix_validation_requires_owner_code_contract(state: State, _trace) -> InvariantResult:
@@ -565,16 +773,25 @@ def invariants() -> tuple[Invariant, ...]:
             return InvariantResult.fail("fix validated before recording legacy, fallback, or compatibility path disposition")
         return InvariantResult.pass_()
 
-    def recurring_family_requires_defect_family_gate(state: State, _trace) -> InvariantResult:
+    def recurring_family_requires_canonical_contributions(state: State, _trace) -> InvariantResult:
         if not (state.fix_validated_after_refinement and state.recurring_family_detected):
             return InvariantResult.pass_()
-        if not state.defect_family_gate_promoted:
-            return InvariantResult.fail("recurring same-class miss validated before promoting a defect-family gate")
-        if not state.defect_family_gate_reviewed:
-            return InvariantResult.fail("recurring same-class miss validated before reviewing defect-family gate evidence")
+        if not state.affected_canonical_relation_ids:
+            return InvariantResult.fail("recurring same-class miss has no affected canonical relation identities")
+        if not state.affected_contract_case_ids:
+            return InvariantResult.fail("recurring same-class miss has no affected ContractExhaustion case identities")
+        if not state.contract_exhaustion_contribution_emitted:
+            return InvariantResult.fail("recurring same-class miss validated before emitting a ContractExhaustion contribution")
+        if not state.model_maturation_contribution_emitted:
+            return InvariantResult.fail("recurring same-class miss validated before emitting a ModelMaturation contribution")
         return InvariantResult.pass_()
 
     return (
+        Invariant(
+            "classification_requires_same_plane_backfeed",
+            "Model-miss classification first reuses a same-plane commitment or registers a real same-plane gap.",
+            classification_requires_same_plane_backfeed,
+        ),
         Invariant("completion_requires_review", "Runtime issues must be reviewed before completion.", completion_requires_review),
         Invariant(
             "fix_validation_requires_root_cause_backpropagation",
@@ -588,7 +805,7 @@ def invariants() -> tuple[Invariant, ...]:
         ),
         Invariant(
             "fix_validation_requires_generalized_bad_case",
-            "Fix validation requires a ContractExhaustionMesh same-class case when that class is in scope.",
+            "Fix validation requires a same-class generalized bad case when that class is in scope.",
             fix_validation_requires_generalized_bad_case,
         ),
         Invariant(
@@ -598,8 +815,13 @@ def invariants() -> tuple[Invariant, ...]:
         ),
         Invariant(
             "fix_validation_requires_same_class_test_evidence",
-            "Fix validation requires observed regression and ContractExhaustionMesh case evidence aligned to the repaired model.",
+            "Fix validation requires observed regression and same-class test evidence aligned to the repaired model.",
             fix_validation_requires_same_class_test_evidence,
+        ),
+        Invariant(
+            "fix_validation_requires_target_aware_replay_evidence",
+            "Fix validation requires target-aware counterexample or known-bad replay evidence.",
+            fix_validation_requires_target_aware_replay_evidence,
         ),
         Invariant(
             "fix_validation_requires_owner_code_contract",
@@ -612,9 +834,9 @@ def invariants() -> tuple[Invariant, ...]:
             fix_validation_requires_legacy_path_disposition,
         ),
         Invariant(
-            "recurring_family_requires_defect_family_gate",
-            "Recurring same-class misses require a reviewed defect-family gate before validation.",
-            recurring_family_requires_defect_family_gate,
+            "recurring_family_requires_canonical_contributions",
+            "Recurring same-class misses contribute exact canonical relations/cases to ContractExhaustion and ModelMaturation before validation.",
+            recurring_family_requires_canonical_contributions,
         ),
     )
 
@@ -649,13 +871,14 @@ def run_checks():
                 REPRESENT_GENERALIZED_BAD_CASE,
                 RECORD_KNOWN_BUG_HOLDOUT,
                 ADD_OBSERVED_REGRESSION_TEST,
+                ADD_TARGET_AWARE_REPLAY_EVIDENCE,
                 ADD_SAME_CLASS_TEST_EVIDENCE,
                 BIND_OWNER_CODE_CONTRACT,
                 RERUN_MODEL_TEST_ALIGNMENT,
                 RECORD_LEGACY_PATH_DISPOSITION,
                 MARK_RECURRING_FAMILY,
-                PROMOTE_DEFECT_FAMILY_GATE,
-                REVIEW_DEFECT_FAMILY_GATE,
+                EMIT_CONTRACT_EXHAUSTION_CONTRIBUTION,
+                EMIT_MODEL_MATURATION_CONTRIBUTION,
                 VALIDATE_FIX,
                 FINALIZE,
             ),
@@ -668,6 +891,16 @@ def run_checks():
     )
     broken = review_scenarios(
         (
+            scenario(
+                "classify_without_same_plane_lookup",
+                "Broken workflow labels a miss but does not look up the affected plane's existing commitment.",
+                (FLOWGUARD_PASS, RUNTIME_FAIL, CLASSIFY_MISS),
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=("classification_requires_same_plane_backfeed",),
+                ),
+                block=BrokenClassifyWithoutSamePlaneLookup(),
+            ),
             scenario(
                 "finalize_without_review",
                 "Broken workflow finalizes after runtime issue without review.",
@@ -700,7 +933,7 @@ def run_checks():
             ),
             scenario(
                 "point_fix_only_without_generalized_bad_case",
-                "Broken workflow validates only the observed issue and misses a ContractExhaustionMesh same-class case.",
+                "Broken workflow validates only the observed issue and misses a same-class generalized bad case.",
                 (FLOWGUARD_PASS, RUNTIME_FAIL, CLASSIFY_MISS, BACKPROPAGATE_ROOT_CAUSE, REPRESENT_ISSUE, VALIDATE_FIX, FINALIZE),
                 ScenarioExpectation(
                     expected_status="violation",
@@ -728,6 +961,27 @@ def run_checks():
                 block=BrokenValidateWithoutHoldoutRole(),
             ),
             scenario(
+                "validate_without_target_aware_replay_evidence",
+                "Broken workflow has a known-bad proof but does not replay that target through owner code.",
+                (
+                    FLOWGUARD_PASS,
+                    RUNTIME_FAIL,
+                    CLASSIFY_MISS,
+                    BACKPROPAGATE_ROOT_CAUSE,
+                    REPRESENT_ISSUE,
+                    REPRESENT_GENERALIZED_BAD_CASE,
+                    RECORD_KNOWN_BUG_HOLDOUT,
+                    ADD_OBSERVED_REGRESSION_TEST,
+                    VALIDATE_FIX,
+                    FINALIZE,
+                ),
+                ScenarioExpectation(
+                    expected_status="violation",
+                    expected_violation_names=("fix_validation_requires_target_aware_replay_evidence",),
+                ),
+                block=BrokenValidateWithoutTargetAwareReplayEvidence(),
+            ),
+            scenario(
                 "validate_without_same_class_test_evidence",
                 "Broken workflow models the class but only validates the observed bug.",
                 (
@@ -739,6 +993,7 @@ def run_checks():
                     REPRESENT_GENERALIZED_BAD_CASE,
                     RECORD_KNOWN_BUG_HOLDOUT,
                     ADD_OBSERVED_REGRESSION_TEST,
+                    ADD_TARGET_AWARE_REPLAY_EVIDENCE,
                     VALIDATE_FIX,
                     FINALIZE,
                 ),
@@ -760,6 +1015,7 @@ def run_checks():
                     REPRESENT_GENERALIZED_BAD_CASE,
                     RECORD_KNOWN_BUG_HOLDOUT,
                     ADD_OBSERVED_REGRESSION_TEST,
+                    ADD_TARGET_AWARE_REPLAY_EVIDENCE,
                     ADD_SAME_CLASS_TEST_EVIDENCE,
                     VALIDATE_FIX,
                     FINALIZE,
@@ -782,6 +1038,7 @@ def run_checks():
                     REPRESENT_GENERALIZED_BAD_CASE,
                     RECORD_KNOWN_BUG_HOLDOUT,
                     ADD_OBSERVED_REGRESSION_TEST,
+                    ADD_TARGET_AWARE_REPLAY_EVIDENCE,
                     ADD_SAME_CLASS_TEST_EVIDENCE,
                     BIND_OWNER_CODE_CONTRACT,
                     RERUN_MODEL_TEST_ALIGNMENT,
@@ -795,8 +1052,8 @@ def run_checks():
                 block=BrokenValidateWithoutLegacyPathDisposition(),
             ),
             scenario(
-                "validate_recurring_without_defect_family_gate",
-                "Broken workflow treats a recurring same-class miss as another ordinary point fix.",
+                "validate_recurring_without_canonical_contributions",
+                "Broken workflow closes a recurring same-class miss without contributing its exact relations and cases to the canonical owners.",
                 (
                     FLOWGUARD_PASS,
                     RUNTIME_FAIL,
@@ -806,6 +1063,7 @@ def run_checks():
                     REPRESENT_GENERALIZED_BAD_CASE,
                     RECORD_KNOWN_BUG_HOLDOUT,
                     ADD_OBSERVED_REGRESSION_TEST,
+                    ADD_TARGET_AWARE_REPLAY_EVIDENCE,
                     ADD_SAME_CLASS_TEST_EVIDENCE,
                     BIND_OWNER_CODE_CONTRACT,
                     RERUN_MODEL_TEST_ALIGNMENT,
@@ -816,14 +1074,29 @@ def run_checks():
                 ),
                 ScenarioExpectation(
                     expected_status="violation",
-                    expected_violation_names=("recurring_family_requires_defect_family_gate",),
+                    expected_violation_names=("recurring_family_requires_canonical_contributions",),
                 ),
-                block=BrokenValidateRecurringWithoutDefectFamilyGate(),
+                block=BrokenValidateRecurringWithoutCanonicalContributions(),
             ),
         )
     )
     return correct, broken
-'''
+
+
+from flowguard.skill_contract_model import build_skill_contract_model_export
+
+FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
+
+
+def export_contract_model():
+    return build_skill_contract_model_export(
+        skill_id="flowguard-model-miss-review",
+        route_id="model_miss_review",
+        owner_id="model_miss_review",
+        parent_model_id="flowguard.model_first_function_flow",
+        business_intent="Backfeed observed failures to an existing same-plane commitment or register a real coverage gap.",
+        claim_boundary="This projection binds miss classification and backfeed; a proposed fix remains unproven until owner code, tests, replay, and disposition evidence are current.",
+    )'''
 
 MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE = '''"""Run the bug-repair/model-miss review template."""
 
@@ -887,11 +1160,11 @@ issue after a FlowGuard pass.
   are they deleted, blocked, delegated to the repaired contract,
   same-contract repaired, or explicitly out of scope with a reason? Include old
   fields and aliases in the same disposition review.
-- Has this same-class family appeared before, or is it high risk enough to
-  require a defect-family gate rather than another ordinary bug fix?
-- Which defect-family gate records the family id, authority boundary, observed
-  failure, ContractExhaustionMesh case id, generated combination ids, coverage
-  receipt ids, historical holdout, and current proof?
+- Has this same-class failure appeared before, and which exact affected
+  commitment and blueprint-gap id receive the backfeed?
+- Which canonical relation ids and ContractExhaustion case ids receive the
+  bounded contribution, and which ModelMaturation contribution records the
+  resulting increase in model depth?
 - Which refined model checks, runtime checks, and contract-exhaustion cases must
   pass before completion?
 - If the repair changed a child model under a parent ModelMesh, which parent
@@ -907,8 +1180,9 @@ second local point fix close a known model miss by itself. Full closure needs
 root-cause backpropagation when there was a prior claim, FieldLifecycleMesh
 projection for behavior-bearing fields, owner code contract binding,
 ContractExhaustionMesh case evidence, old-path/old-field disposition for reachable old paths or
-fields, and recurring families need a defect-family gate or an explicit
-scoped-confidence boundary.
+fields. Recurring or same-class closure additionally needs exact canonical
+relation/case identities emitted to ContractExhaustion and a corresponding
+ModelMaturation contribution.
 Child-local green is not enough when parent mesh confidence depends on the
 child's input/output/state/side-effect handoff.
 """
@@ -949,13 +1223,18 @@ class MissRepairPlan:
     completed: bool = False
     ui_capability_miss_observed: bool = False
     missing_promised_ui_capability_classified: bool = True
-    same_class_ui_capability_scan_added: bool = True
+    same_class_ui_capability_scope_bound: bool = True
     behavior_lookup_performed: bool = False
     affected_behavior_plane: str = ""
     existing_commitment_reused_or_gap_registered: bool = False
     primary_owner_model_bound: bool = False
     error_signature_evidence_bound: bool = False
     typed_related_context_preserved: bool = True
+    affected_blueprint_gap_id: str = ""
+    affected_canonical_relation_ids: tuple[str, ...] = ()
+    affected_contract_case_ids: tuple[str, ...] = ()
+    contract_exhaustion_contribution_emitted: bool = False
+    model_maturation_contribution_emitted: bool = False
 
 
 @dataclass(frozen=True)
@@ -997,11 +1276,17 @@ def review_compact_model_miss(plan: MissRepairPlan) -> MissRepairReport:
         findings.append("missing_error_signature_evidence_binding")
     if not plan.typed_related_context_preserved:
         findings.append("cross_plane_context_promoted_to_primary")
+    if not plan.affected_blueprint_gap_id:
+        findings.append("missing_affected_blueprint_gap")
+    if not (plan.affected_canonical_relation_ids and plan.affected_contract_case_ids and plan.contract_exhaustion_contribution_emitted):
+        findings.append("missing_contract_exhaustion_contribution")
+    if not plan.model_maturation_contribution_emitted:
+        findings.append("missing_model_maturation_contribution")
     if plan.ui_capability_miss_observed:
         if not plan.missing_promised_ui_capability_classified:
             findings.append("ui_promised_capability_miss_not_classified")
-        if not plan.same_class_ui_capability_scan_added:
-            findings.append("missing_same_class_ui_capability_scan")
+        if not plan.same_class_ui_capability_scope_bound:
+            findings.append("missing_same_class_ui_capability_scope")
     if plan.fix_validated_after_refinement and findings:
         findings.append("fix_validation_requires_root_cause_backpropagation")
     if plan.completed and (findings or not plan.fix_validated_after_refinement):
@@ -1024,6 +1309,10 @@ def correct_plan() -> MissRepairPlan:
         behavior_lookup_performed=True,
         affected_behavior_plane="agent_operation", existing_commitment_reused_or_gap_registered=True,
         primary_owner_model_bound=True, error_signature_evidence_bound=True,
+        affected_blueprint_gap_id="blueprint-gap:model-miss-review:guidance-route",
+        affected_canonical_relation_ids=("relation:shared-owner:model-miss-review",),
+        affected_contract_case_ids=("case:observed:model-miss-review", "case:same-class:model-miss-review"),
+        contract_exhaustion_contribution_emitted=True, model_maturation_contribution_emitted=True,
     )
 
 
@@ -1046,7 +1335,7 @@ def broken_plans() -> tuple[MissRepairPlan, ...]:
             True,
             ui_capability_miss_observed=True,
             missing_promised_ui_capability_classified=False,
-            same_class_ui_capability_scan_added=False,
+            same_class_ui_capability_scope_bound=False,
         ),
         MissRepairPlan("validate_without_behavior_lookup", True, True, True, True, True, True, True, True, True, affected_behavior_plane="agent_operation", existing_commitment_reused_or_gap_registered=True, primary_owner_model_bound=True, error_signature_evidence_bound=True),
         MissRepairPlan("cross_plane_context_used_as_primary", True, True, True, True, True, True, True, True, True, behavior_lookup_performed=True, affected_behavior_plane="agent_operation", existing_commitment_reused_or_gap_registered=True, primary_owner_model_bound=True, error_signature_evidence_bound=True, typed_related_context_preserved=False),
@@ -1067,9 +1356,10 @@ from model import run_checks
 def main() -> int:
     correct, broken = run_checks()
     print(f"{correct.scenario_name}: {'PASS' if correct.ok else 'FAIL'}")
-    print("required gates: root_cause_backpropagated, same_class_test_evidence_added, owner_code_contract_bound")
+    print("required gates: root_cause_backpropagated, affected_blueprint_gap_id, same_class_test_evidence_added, owner_code_contract_bound")
     print("behavior binding: same-plane lookup, existing-commitment reuse or registered gap, owner model, error evidence")
     print("required test/replay: replay_or_negative_check_added, target-aware known-bad/counterexample replay when present")
+    print("canonical growth: contract_exhaustion_contribution_emitted, model_maturation_contribution_emitted")
     print(f"expected violations observed: {sum(not report.ok for report in broken)}")
     for report in broken:
         print(f"- {report.scenario_name}: {', '.join(report.findings)}")
@@ -1099,21 +1389,26 @@ Default closure needs:
 - validation after the refined model/checks.
 - a lightweight behavior-ledger lookup that classifies the failed promise as
   `product_runtime`, `agent_operation`, or `development_process` before
-  similarity matching;
+  canonical relation lookup;
 - reuse of an existing same-plane commitment and its primary owner model; only
   register a coverage gap when no matching promise exists;
+- one exact affected blueprint-gap id for the missing or under-modeled
+  behavior;
+- exact affected canonical relation and ContractExhaustion case ids, followed
+  by one ModelMaturation contribution;
 - bounded error signatures tied to observed evidence, with cross-plane
   commitments retained only as typed related context rather than execution
   instructions;
 - for UI misses where a promised function is absent, classify it as
   `boundary_missing` or `evidence_overclaimed`, record the affected capability
-  ids, scan same-class capabilities/controls/fields, and add current
+  ids, bind the finite same-class capability/control/field scope, and add current
   implementation or test evidence before closure.
 
 Escalate to `model-miss-full-template` when the repair needs generalized bad
 case modeling, known-bug holdout evidence, target-aware counterexample replay,
-legacy path or old-field disposition, recurring defect-family gates,
-parent/child ModelMesh reattachment and closure, TestMesh ownership, or Risk
+legacy path or old-field disposition, recurring canonical ContractExhaustion
+and ModelMaturation contributions, parent/child ModelMesh reattachment and
+closure, TestMesh ownership, or Risk
 Evidence Ledger closure.
 
 If old runtime paths or fields are still reachable, the full route should record

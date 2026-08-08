@@ -1,24 +1,18 @@
 import unittest
 
 import flowguard
+import flowguard.obligation_family as obligation_family_module
 from flowguard import (
-    ANALOGOUS_DISPOSITION_COVERED_CURRENT,
-    ANALOGOUS_DISPOSITION_EXCLUDED_WITH_REASON,
-    ANALOGOUS_DISPOSITION_SEPARATE_CHANGE,
-    ANALOGOUS_SCAN_RADIUS_SHOULD_SCAN,
     FAMILY_CONFIDENCE_BLOCKED,
     FAMILY_CONFIDENCE_FULL,
-    FAMILY_CONFIDENCE_SCOPED,
     FAMILY_EVIDENCE_PROVENANCE_DURABLE_RECONCILIATION,
     FAMILY_EVIDENCE_PROVENANCE_MANUAL_EVENT,
     FAMILY_EVIDENCE_STATUS_PASSED,
-    AnalogousDefectCandidate,
     ObligationFamily,
     ObligationFamilyEvidence,
     ObligationFamilyMember,
     FamilyBadCaseSeed,
     derive_same_class_bad_cases,
-    review_analogous_defect_scan,
     review_obligation_family_parity,
 )
 
@@ -200,6 +194,66 @@ class ObligationFamilyParityTests(unittest.TestCase):
 
         self.assertEqual(["research", "current_node"], [case.member_id for case in cases])
         self.assertTrue(all(case.source_case_id == "material-case-1" for case in cases))
+        self.assertEqual(
+            [
+                "observed-material-miss:research:result_envelope_to_return_event",
+                "observed-material-miss:current_node:result_envelope_to_return_event",
+            ],
+            [case.case_id for case in cases],
+        )
+
+    def test_same_class_bad_case_generation_is_finite_and_declared(self):
+        cases = derive_same_class_bad_cases(
+            family(
+                members=(
+                    ObligationFamilyMember("material"),
+                    ObligationFamilyMember("research"),
+                    ObligationFamilyMember(
+                        "optional_archive",
+                        required=False,
+                        exception_reason="archive is outside the current behavior claim",
+                    ),
+                    ObligationFamilyMember(
+                        "different_mechanism",
+                        required_mechanisms=("another_mechanism",),
+                    ),
+                )
+            ),
+            FamilyBadCaseSeed(
+                "observed-material-miss",
+                family_id="packet-result",
+                source_member_id="material",
+                mechanism_id="result_envelope_to_return_event",
+                failure_mode="joined_result_without_return_event",
+                exclude_member_ids=("research",),
+            ),
+        )
+
+        self.assertEqual((), cases)
+
+    def test_family_review_projects_declared_seed_without_second_scan_report(self):
+        report = review_obligation_family_parity(
+            (family(),),
+            (
+                evidence("material-reconcile", "material"),
+                evidence("research-reconcile", "research"),
+            ),
+            (
+                FamilyBadCaseSeed(
+                    "observed-material-miss",
+                    family_id="packet-result",
+                    source_member_id="material",
+                    mechanism_id="result_envelope_to_return_event",
+                    failure_mode="joined_result_without_return_event",
+                    source_case_id="material-case-1",
+                ),
+            ),
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(1, len(report.derived_bad_cases))
+        self.assertEqual("research", report.derived_bad_cases[0].member_id)
+        self.assertEqual("material-case-1", report.derived_bad_cases[0].source_case_id)
 
     def test_bad_case_seed_carries_cartesian_model_backpropagation_fields(self):
         cases = derive_same_class_bad_cases(
@@ -230,132 +284,32 @@ class ObligationFamilyParityTests(unittest.TestCase):
         )
         self.assertEqual(("contract_coverage:packet-router",), cases[0].coverage_receipt_ids)
 
-    def test_analogous_defect_scan_blocks_unreviewed_must_scan_sibling(self):
-        report = review_analogous_defect_scan(
-            (family(),),
-            FamilyBadCaseSeed(
-                "observed-material-miss",
-                family_id="packet-result",
-                source_member_id="material",
-                mechanism_id="result_envelope_to_return_event",
-                failure_mode="joined_result_without_return_event",
-            ),
-        )
-
-        self.assertFalse(report.ok)
-        self.assertEqual(FAMILY_CONFIDENCE_BLOCKED, report.confidence)
-        self.assertIn("unreviewed_analogous_defect_candidate", [finding.code for finding in report.findings])
-        self.assertEqual(["research"], [candidate.member_id for candidate in report.candidates])
-
-    def test_analogous_defect_scan_full_when_must_scan_sibling_is_covered(self):
-        report = review_analogous_defect_scan(
-            (family(),),
-            FamilyBadCaseSeed(
-                "observed-material-miss",
-                family_id="packet-result",
-                source_member_id="material",
-                mechanism_id="result_envelope_to_return_event",
-                failure_mode="joined_result_without_return_event",
-            ),
-            (
-                AnalogousDefectCandidate(
-                    "observed-material-miss:research:result_envelope_to_return_event:scan",
-                    family_id="packet-result",
-                    member_id="research",
-                    mechanism_id="result_envelope_to_return_event",
-                    failure_mode="joined_result_without_return_event",
-                    disposition=ANALOGOUS_DISPOSITION_COVERED_CURRENT,
-                    evidence_ids=("research-reconciliation-test",),
-                ),
-            ),
-        )
-
-        self.assertTrue(report.ok)
-        self.assertEqual(FAMILY_CONFIDENCE_FULL, report.confidence)
-        self.assertEqual([], [finding.code for finding in report.findings])
-
-    def test_analogous_defect_scan_scopes_extra_radius_separate_change(self):
-        report = review_analogous_defect_scan(
-            (family(),),
-            FamilyBadCaseSeed(
-                "observed-material-miss",
-                family_id="packet-result",
-                source_member_id="material",
-                mechanism_id="result_envelope_to_return_event",
-                failure_mode="joined_result_without_return_event",
-            ),
-            (
-                AnalogousDefectCandidate(
-                    "observed-material-miss:research:result_envelope_to_return_event:scan",
-                    family_id="packet-result",
-                    member_id="research",
-                    mechanism_id="result_envelope_to_return_event",
-                    failure_mode="joined_result_without_return_event",
-                    disposition=ANALOGOUS_DISPOSITION_COVERED_CURRENT,
-                    evidence_ids=("research-reconciliation-test",),
-                ),
-                AnalogousDefectCandidate(
-                    "receipt-ledger-related-surface",
-                    family_id="receipt-ledger",
-                    member_id="ack",
-                    mechanism_id="durable_evidence_to_projection",
-                    radius=ANALOGOUS_SCAN_RADIUS_SHOULD_SCAN,
-                    disposition=ANALOGOUS_DISPOSITION_SEPARATE_CHANGE,
-                    disposition_reason="related evidence-projection surface tracked by separate model-miss change",
-                ),
-            ),
-        )
-
-        self.assertTrue(report.ok)
-        self.assertEqual(FAMILY_CONFIDENCE_SCOPED, report.confidence)
-        self.assertIn(
-            "analogous_scan_candidate_scoped_to_separate_change",
-            [finding.code for finding in report.findings],
-        )
-
-    def test_analogous_defect_scan_scopes_excluded_should_scan_without_blocking(self):
-        report = review_analogous_defect_scan(
-            (family(),),
-            FamilyBadCaseSeed(
-                "observed-material-miss",
-                family_id="packet-result",
-                source_member_id="material",
-                mechanism_id="result_envelope_to_return_event",
-                failure_mode="joined_result_without_return_event",
-                exclude_member_ids=("research",),
-            ),
-            (
-                AnalogousDefectCandidate(
-                    "cache-projection-related-surface",
-                    family_id="cache-projection",
-                    member_id="warm-cache",
-                    mechanism_id="durable_evidence_to_projection",
-                    radius=ANALOGOUS_SCAN_RADIUS_SHOULD_SCAN,
-                    disposition=ANALOGOUS_DISPOSITION_EXCLUDED_WITH_REASON,
-                    disposition_reason="projection route cannot join packet results",
-                ),
-            ),
-        )
-
-        self.assertTrue(report.ok)
-        self.assertEqual(FAMILY_CONFIDENCE_SCOPED, report.confidence)
-        self.assertIn(
-            "analogous_scan_candidate_excluded_from_wider_radius",
-            [finding.code for finding in report.findings],
-        )
-
-    def test_public_api_exports_helper(self):
+    def test_public_api_exports_only_family_and_finite_case_helpers(self):
         for name in (
             "ObligationFamily",
             "ObligationFamilyEvidence",
             "review_obligation_family_parity",
+            "FamilyBadCaseSeed",
+            "DerivedFamilyBadCase",
             "derive_same_class_bad_cases",
-            "AnalogousDefectCandidate",
-            "review_analogous_defect_scan",
         ):
             self.assertIn(name, flowguard.MODELING_HELPER_API)
             self.assertIn(name, flowguard.__all__)
             self.assertTrue(hasattr(flowguard, name), name)
+
+        for retired_name in (
+            "AnalogousDefectCandidate",
+            "AnalogousDefectScanFinding",
+            "AnalogousDefectScanReport",
+            "review_analogous_defect_scan",
+            "ANALOGOUS_SCAN_RADII",
+            "ANALOGOUS_SCAN_DISPOSITIONS",
+        ):
+            self.assertNotIn(retired_name, flowguard.MODELING_HELPER_API)
+            self.assertNotIn(retired_name, flowguard.__all__)
+            self.assertFalse(hasattr(flowguard, retired_name), retired_name)
+            self.assertNotIn(retired_name, obligation_family_module.__all__)
+            self.assertFalse(hasattr(obligation_family_module, retired_name), retired_name)
 
 
 if __name__ == "__main__":

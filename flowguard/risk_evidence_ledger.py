@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
 from .maintenance_obligation import (
     OBLIGATION_STATUS_SCOPED,
@@ -48,7 +49,6 @@ RISK_CONFIDENCE_BLOCKED = "blocked"
 RISK_LEDGER_DECISION_FULL = "risk_evidence_full_confidence"
 RISK_LEDGER_DECISION_SCOPED = "risk_evidence_scoped_confidence"
 
-RISK_GATE_DEFECT_FAMILY = "defect_family"
 RISK_GATE_MODEL_SPLIT = "model_split"
 RISK_GATE_TEST_SPLIT = "test_split"
 RISK_GATE_MODEL_CARTESIAN_COVERAGE = "model_cartesian_coverage"
@@ -58,10 +58,7 @@ RISK_GATE_BEHAVIOR_COMMITMENT_COVERAGE = "behavior_commitment_coverage"
 RISK_GATE_BEHAVIOR_COMMITMENT_CARTESIAN_COVERAGE = "behavior_commitment_cartesian_coverage"
 RISK_GATE_PRIMARY_PATH_AUTHORITY = "primary_path_authority"
 RISK_GATE_PRIMARY_PATH_AUTHORITY_CARTESIAN_COVERAGE = "primary_path_authority_cartesian_coverage"
-RISK_GATE_FAMILY = "family"
-RISK_GATE_ANALOGOUS_SCAN = "analogous_scan"
 RISK_GATE_TOPOLOGY_HAZARD = "topology_hazard"
-RISK_GATE_MODEL_ANGLE_REVIEW = "model_angle_review"
 RISK_GATE_MODEL_MATURATION = "model_maturation"
 RISK_GATE_PARENT_MODEL_EVIDENCE = "parent_model_evidence"
 RISK_GATE_MAINTENANCE_OBLIGATION = "maintenance_obligation"
@@ -84,12 +81,6 @@ NON_PASSING_PROOF_STATUSES = {
     RISK_PROOF_STATUS_PROGRESS_ONLY,
     RISK_PROOF_STATUS_ERROR,
 }
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 @dataclass(frozen=True)
@@ -393,21 +384,12 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "missing_parent_model_evidence",
         "maintenance_obligation_not_current",
         "open_maintenance_obligation",
-        "missing_defect_family_gate",
-        "defect_family_gate_not_current",
-        "defect_family_gate_blocked",
         "missing_family_gate",
         "family_gate_not_current",
         "family_gate_blocked",
-        "missing_analogous_scan",
-        "analogous_scan_not_current",
-        "analogous_scan_blocked",
         "missing_topology_hazard_review",
         "topology_hazard_review_not_current",
         "topology_hazard_review_blocked",
-        "missing_model_angle_review",
-        "model_angle_review_not_current",
-        "model_angle_review_blocked",
         "missing_model_split_gate",
         "model_split_gate_not_current",
         "model_split_gate_blocked",
@@ -448,10 +430,6 @@ def _decision_for(findings: Sequence[RiskEvidenceFinding]) -> tuple[str, str, bo
         "proof_evidence_not_passing",
         "missing_current_passing_proof",
         "internal_path_only_evidence",
-        "defect_family_gate_scoped_confidence",
-        "family_gate_scoped_confidence",
-        "analogous_scan_scoped_confidence",
-        "model_angle_review_scoped_confidence",
         "model_split_gate_scoped_confidence",
         "model_cartesian_coverage_gate_scoped_confidence",
         "contract_coverage_shard_gate_scoped_confidence",
@@ -481,36 +459,6 @@ GATE_CODE_MAP = {
         "required model-maturation result is not closed for the exact task",
         "model-maturation result remains explicitly scoped",
     ),
-    RISK_GATE_DEFECT_FAMILY: (
-        "missing_defect_family_gate",
-        "defect_family_gate_not_current",
-        "defect_family_gate_blocked",
-        "defect_family_gate_scoped_confidence",
-        "required risk has no recurring defect-family gate owner",
-        "required defect-family gate evidence is stale or has not been rerun",
-        "required defect-family gate is blocked",
-        "defect-family gate remains explicitly scoped",
-    ),
-    RISK_GATE_FAMILY: (
-        "missing_family_gate",
-        "family_gate_not_current",
-        "family_gate_blocked",
-        "family_gate_scoped_confidence",
-        "required risk has no obligation-family parity gate owner",
-        "required obligation-family parity gate evidence is stale or has not been rerun",
-        "required obligation-family parity gate is blocked",
-        "obligation-family parity gate remains explicitly scoped",
-    ),
-    RISK_GATE_ANALOGOUS_SCAN: (
-        "missing_analogous_scan",
-        "analogous_scan_not_current",
-        "analogous_scan_blocked",
-        "analogous_scan_scoped_confidence",
-        "required risk has no analogous defect scan owner",
-        "required analogous defect scan evidence is stale or has not been rerun",
-        "required analogous defect scan is blocked",
-        "analogous defect scan remains explicitly scoped",
-    ),
     RISK_GATE_TOPOLOGY_HAZARD: (
         "missing_topology_hazard_review",
         "topology_hazard_review_not_current",
@@ -520,16 +468,6 @@ GATE_CODE_MAP = {
         "required model-topology hazard review evidence is stale or has not been rerun",
         "required model-topology hazard review is blocked",
         "model-topology hazard review remains explicitly scoped",
-    ),
-    RISK_GATE_MODEL_ANGLE_REVIEW: (
-        "missing_model_angle_review",
-        "model_angle_review_not_current",
-        "model_angle_review_blocked",
-        "model_angle_review_scoped_confidence",
-        "required risk has no model-angle deliberation review owner",
-        "required model-angle deliberation evidence is stale or has not been rerun",
-        "required model-angle deliberation review is blocked",
-        "model-angle deliberation remains explicitly scoped",
     ),
     RISK_GATE_MODEL_SPLIT: (
         "missing_model_split_gate",
@@ -1183,16 +1121,12 @@ __all__ = [
     "RISK_CONFIDENCE_SCOPED",
     "RISK_LEDGER_DECISION_FULL",
     "RISK_LEDGER_DECISION_SCOPED",
-    "RISK_GATE_ANALOGOUS_SCAN",
     "RISK_GATE_ARTIFACT_PAYLOAD",
     "RISK_GATE_BEHAVIOR_COMMITMENT_CARTESIAN_COVERAGE",
     "RISK_GATE_BEHAVIOR_COMMITMENT_COVERAGE",
     "RISK_GATE_CONTRACT_COVERAGE_SHARD",
-    "RISK_GATE_DEFECT_FAMILY",
-    "RISK_GATE_FAMILY",
     "RISK_GATE_MAINTENANCE_OBLIGATION",
     "RISK_GATE_MODEL_CARTESIAN_COVERAGE",
-    "RISK_GATE_MODEL_ANGLE_REVIEW",
     "RISK_GATE_MODEL_MATURATION",
     "RISK_GATE_MODEL_SPLIT",
     "RISK_GATE_PARENT_MODEL_EVIDENCE",

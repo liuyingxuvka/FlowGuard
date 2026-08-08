@@ -16,6 +16,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
 from .ui_implementation_evidence import (
     UIImplementationClaimScopeDecision,
@@ -32,12 +33,6 @@ from .ui_implementation_evidence import (
     UI_IMPLEMENTATION_EVIDENCE_VISIBLE_SURFACE,
     review_ui_implementation_claim_scope,
 )
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 def _as_pairs(values: Sequence[tuple[str, str]] | None) -> tuple[tuple[str, str], ...]:

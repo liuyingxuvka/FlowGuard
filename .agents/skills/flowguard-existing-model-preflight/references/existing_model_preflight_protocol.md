@@ -66,15 +66,41 @@ Light mode is enough for early thinking. It should say:
 
 - which existing model boundary seems relevant;
 - which existing responsibility should be reused or extended;
+- the accepted revision/effective-view fingerprints and exact affected-owner
+  intent binding, or the visible current-intent gap;
 - where duplicate-boundary risk might appear;
 - which downstream route is likely.
 
 Light mode should not claim implementation readiness.
 
 Light mode and ordinary full mode remain affected-only. They select the
-current commitment/model/path owner closure and its declared one-hop relations;
-they do not scan the whole repository merely because a software blueprint
-exists.
+current commitment/model/path owner closure and use the normalized blueprint
+index to load only exact affected shards, referenced objects, and required
+ancestors; they do not construct or scan the whole target merely because a
+blueprint exists.
+
+## Path-Quality Lookup And Handoff
+
+For every selected existing model owner, look up the compact current
+path-quality subject/result/detail fingerprints attached to the accepted
+revision. Report its mode, trigger ids, bounded conclusion, unresolved ids,
+producer, and currentness without loading deep candidate or witness bodies.
+Verify that model, purpose, complete effective intent, obligation, provider,
+dependency, code, test, oracle, evidence, retained-element inventory, and
+affected-topology identities still match.
+
+An unchanged result is reusable only when all those identities remain exact.
+A new or materially changed model, a mismatched identity, or a missing/stale/
+unresolved row becomes a typed ModelMaturation handoff. Preflight may report
+the current lightweight structural finding or cross-model relation that
+supplies an exact deep-review trigger, but it does not enumerate candidates,
+compare costs, create necessity witnesses, or decide model path quality.
+
+Keep `observed` current behavior separate from a cleaner `normative_target`.
+The same provider-neutral lookup applies to other programming languages and to
+non-code workflows; a path or Python symbol is never required as semantic
+authority. No preflight lookup launches reconstruction or creates another
+public route, CLI, compatibility reader, or current pointer.
 
 ## Full Mode
 
@@ -90,6 +116,8 @@ possible. A full report should include:
 - `ExistingOwnershipSnapshot` for FunctionBlocks, state, side effects,
   public entrypoints, behavior fields, and responsibilities when models are
   found;
+- accepted revision and effective-view fingerprints, plus the exact active
+  intent contribution ids bound to every selected model owner;
 - layered proof status for parent models with children: evidence id, parent
   coverage, child disjointness, child reattachment, and leaf boundary-matrix
   status;
@@ -109,15 +137,17 @@ unknown or scoped rows explicitly. If external semantics match an existing
 current path, hand that commitment/path to BCL/PPA and recommend reuse or
 extension. A new page, command, or wrapper alone is not a new behavior.
 
-### Explicit whole-software blueprint handoff
+### Explicit whole-target blueprint handoff
 
 Enter this handoff only when the task explicitly claims, exports, or qualifies
-a whole-software blueprint, or when a current release requirement names that
-qualification. Consume the independent implementation inventory rather than
+a whole-target blueprint, or when a current qualification obligation names that
+scope. Consume the frozen profile plan and independent applicable inventory rather than
 deriving the implementation denominator from models, CodeContracts, BCL, or a
 caller-supplied file list. Preserve:
 
-- observed model-system snapshot identity;
+- target descriptor/profile, provider registry/results, and snapshot identities;
+- accepted revision/effective-view identity, complete independent model-owner
+  denominator, exact owner bindings, and any missing or foreign owner ids;
 - implementation inventory id/fingerprint and declared software boundary;
 - exact required, dispositioned, and unresolved file/surface ids;
 - inventory findings including parse, dynamic, adapter, path, and freshness gaps;
@@ -154,8 +184,14 @@ Known-bad variants should fail or be reported:
   an independent current implementation inventory;
 - ordinary affected work widened into a whole-repository inventory scan;
 - static blueprint completeness promoted beyond its exact evidence boundary;
+- a parent, sibling, prior revision, installed projection, or caller-authored
+  flag used to manufacture a missing current path-quality result;
+- deep candidates loaded or compared during ordinary owner lookup;
+- a normative target reported as the current observed path;
 - ArchitectureReduction proposed from size, style, or cost alone without a
   current model/code map and observable behavior-preservation evidence.
+- a legacy revision, latest revision delta, historical concatenation, root
+  intent, or matching words reported as the current affected-owner intent.
 
 ## Output Shape
 
@@ -208,10 +244,13 @@ boundary proof.
 
 ## Authority-first lookup
 
-Begin with `model-system-audit` and the sole observed
-`ModelSystemSnapshot`. A current hit binds logical model id, exact model and
-runner fingerprints, resolved input inventory, purpose closure, subject
-revision, and snapshot fingerprint. Behavior-ledger, path, source, docs, and
+Begin with `model-system-audit`, the sole observed `ModelSystemSnapshot`, and
+its accepted `ModelRevisionSet`. A current hit binds logical model id, exact
+model and runner fingerprints, resolved input inventory, purpose closure,
+subject revision, snapshot fingerprint, accepted revision fingerprint,
+complete effective-view fingerprint, and that model owner's exact active
+intent binding. Whole-target scope also reports the independent owner
+denominator and its missing/foreign binding ids. Behavior-ledger, path, source, docs, and
 OpenSpec discovery may add candidate context, but they cannot independently
 set `evidence_current=true`.
 
@@ -267,12 +306,12 @@ DevelopmentProcessFlow decides implementation admission.
 
 ## Blueprint Layer Contribution
 
-Existing Model Preflight contributes only to `inventory` and `traceability`.
-For explicit whole-software scope it consumes the project definition, the
+Existing Model Preflight contributes only to the inventory and traceability
+owners declared by the frozen target plan. For explicit whole-software scope it consumes the project definition, the
 independent implementation inventory, the complete `ProjectTestInventory`
 embedded in the project blueprint, its current independent source-audit
 fingerprint, current observed
-model/intent lineage, exact owner/path/symbol bindings, and terminal
+model/effective-intent lineage, exact owner/path/symbol bindings, and terminal
 dispositions. It reports the matching and missing ids; it does not derive the
 denominator from models, contracts, BCL rows, or a caller file list.
 
@@ -287,8 +326,10 @@ Whole-software lookup needs an explicit blueprint/export/qualification or
 named release/self-qualification task fact. Ordinary full and light preflight
 stay affected-only. Keep user choice, maturation, and admission separate.
 
-When supplied a `NormalizedBlueprintProjection`, verify its logical fingerprint
-and load only the exact `AffectedBlueprintNeighborhood`. Return referenced
-primary behavior owners and supporting-surface relations as observations.
+When supplied a normalized blueprint index, verify its logical fingerprint and
+use `AffectedBlueprintReader` to load only exact affected shards, referenced
+objects, and ancestors. Return referenced primary behavior owners and
+supporting-surface relations as observations. Do not accept a small result
+derived after a whole bundle was already materialized.
 Missing shared objects or a fingerprint mismatch blocks; Preflight never fills
 in a missing `BehaviorBlockContract`, resource, intent, oracle, or test row.

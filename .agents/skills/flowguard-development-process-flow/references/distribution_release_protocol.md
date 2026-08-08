@@ -12,9 +12,10 @@ are separate evidence domains. A pass in one cannot stand in for another.
 For bounded-system capability delivery, native API/CLI and benchmark evidence
 must precede prompt/skill activation.
 
-When a release explicitly claims software-blueprint closure, freeze the
-observed model-system snapshot, implementation inventory, binding report,
-resource/oracle manifest, deterministic projection, and static qualification
+When a release explicitly claims target-blueprint closure, freeze the target
+descriptor/profile, layer plan, provider results/registry/snapshot, observed
+authority, applicable inventory, binding/topology, resource/intent/oracle,
+model-test design/execution, deterministic projection, and qualification
 identities as separate domains. Releasing or installing a projection proves
 only the declared distribution boundary.
 
@@ -33,11 +34,12 @@ verifies the actual current inventory.
 
 ## Frozen Final Gate
 
-Finish version, documentation, OpenSpec lifecycle, model authority, consumer
-projection, installation parity, and affected validation before the one final
-full gate. Freeze source, toolchain, impact plan, inventory, and exactly one
-execution owner. Receipt consumers verify the immutable parent; they do not
-rerun it.
+Finish version, documentation, OpenSpec lifecycle, model authority, accepted
+revision plus complete effective-intent view, consumer projection, installation
+parity, and affected validation before the one final full gate. Freeze source,
+toolchain, impact plan, model-owner denominator/bindings, transition/bootstrap
+identity where applicable, inventory, and exactly one execution owner. Receipt
+consumers verify the immutable parent; they do not rerun it.
 
 `ValidationInputManifest` binds what each validation owner consumed.
 `ReleaseTreeManifest` separately binds every tag path, mode, and blob. A
@@ -51,8 +53,9 @@ entire descendant process tree is zero before any retry.
 
 ## Claim Boundary
 
-Return source, installation, consumer projection, Git, tag, and Release status
-separately. Missing or stale distribution evidence blocks distribution/release
+Return source, model-authority/effective-intent, installation, consumer
+projection, Git, tag, and Release status separately. Missing or stale distribution evidence blocks distribution/release
 confidence but does not retroactively invalidate unrelated source-only facts.
-For a blueprint release, also report the static blueprint status, deepest
-proven layer, first gap, and exact model/code/test/topology identities.
+For a blueprint release, also report target/profile, every ordered layer
+status, deepest proven layer, first gap, complete gap count, and exact
+model/implementation/test/topology/provider identities.

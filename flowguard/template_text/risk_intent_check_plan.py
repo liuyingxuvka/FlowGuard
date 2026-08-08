@@ -41,8 +41,6 @@ from flowguard import (
     RiskIntent,
     RiskProfile,
     SkippedCheck,
-    TemplateHarvestReview,
-    TemplateReuseReview,
     Workflow,
     run_model_first_checks,
 )
@@ -113,7 +111,6 @@ def risk_profile() -> RiskProfile:
             adversarial_inputs=("same item repeated", "invalid item request"),
             hard_invariants=("one acceptance per item",),
             known_bad_cases=("retry_accepts_same_item_twice",),
-            used_template_ids=("side_effect_at_most_once",),
             blindspots=("real storage isolation requires a conformance replay adapter"),
         ),
         confidence_goal="model_level",
@@ -142,15 +139,6 @@ def build_check_plan() -> FlowGuardCheckPlan:
         ),
         max_sequence_length=2,
         risk_profile=risk_profile(),
-        template_reuse_review=TemplateReuseReview(
-            used_template_ids=("side_effect_at_most_once",),
-            searched_layers=("public", "local"),
-            match_template_ids=("side_effect_at_most_once",),
-        ),
-        template_harvest_review=TemplateHarvestReview(
-            disposition="duplicate_linked",
-            linked_template_ids=("side_effect_at_most_once",),
-        ),
         minimum_model_contract=MinimumModelContract(
             protected_error_classes=("duplicate_side_effect", "invalid_completion"),
             modeled_state=("accepted_ids",),
@@ -177,7 +165,6 @@ def run_checks():
 
 RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE = '''"""Run the Risk Intent + CheckPlan template."""
 
-from flowguard import maintenance_scan_plan_from_summary_report, review_maintenance_scan
 from model import risk_profile, run_checks
 
 
@@ -185,15 +172,6 @@ def main() -> int:
     print(f"risk_intent: {risk_profile().modeled_boundary}")
     report = run_checks()
     print(report.format_text())
-    print()
-    scan = review_maintenance_scan(
-        maintenance_scan_plan_from_summary_report(
-            report,
-            plan_id="risk-intent-summary-bridge",
-            claim_scope="done",
-        )
-    )
-    print(scan.format_text())
     return 0 if report.overall_status in {"pass", "pass_with_gaps"} else 1
 
 
@@ -215,8 +193,6 @@ Record:
 - state and side effects that must be visible;
 - completion evidence;
 - known-bad cases that should fail on broken models, with current proof;
-- public/local template ids used, or a no-match reason;
-- template harvest closure: written, merged, duplicate-linked, or an accepted not-harvestable reason;
 - adversarial inputs or retries;
 - hard invariants;
 - blindspots.
@@ -225,8 +201,8 @@ Record:
 
 This template reports model-level confidence only. Add conformance replay or
 equivalent real-code evidence before claiming production confidence.
-The run script also shows how to bridge the summary report into MaintenanceScan
-so route-owned gaps remain visible as scoped or required follow-up actions.
+Use the summary report's typed findings to bind any remaining gap directly to
+its existing owner route as a scoped or required follow-up action.
 """
 
 __all__ = [

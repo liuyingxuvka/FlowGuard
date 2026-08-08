@@ -54,7 +54,15 @@ from flowguard import (
 )
 from flowguard.development_process_flow import (
     IMPLEMENTATION_ADMISSION_NOT_REQUESTED,
+    PATH_QUALITY_PHASE_ACTIVATION,
+    PATH_QUALITY_PHASE_AFFECTED_VALIDATION,
+    PATH_QUALITY_PHASE_CANDIDATE_REVISION,
+    PATH_QUALITY_PHASE_DEEP_REVIEW,
+    PATH_QUALITY_PHASE_IMPLEMENTATION,
+    PATH_QUALITY_PHASE_LIGHTWEIGHT_REVIEW,
+    PATH_QUALITY_PHASE_OWNER_INTENT_CLOSURE,
     USER_EXECUTION_CHOICE_DIRECT,
+    ModelPathQualityProcessStep,
 )
 from tests._maturation_receipt_support import verified_maturation
 
@@ -97,6 +105,200 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
             task_id="task:one",
             evidence_id="maturation:task",
             gap="gap:one",
+        )
+
+    @staticmethod
+    def _path_quality_process_plan(
+        *,
+        deep: bool = False,
+        refresh: bool = True,
+        activation_fingerprint: str | None = None,
+        owner_precedes_review: bool = True,
+    ) -> DevelopmentProcessPlan:
+        model_id = "model:planner"
+        before = "sha256:" + "1" * 64
+        after = "sha256:" + "2" * 64
+        actions = [ProcessAction("close-owner-intent")]
+        actions.append(
+            ProcessAction(
+                "review-light-before",
+                order_after=("close-owner-intent",) if owner_precedes_review else (),
+            )
+        )
+        steps = [
+            ModelPathQualityProcessStep(
+                "close-owner-intent",
+                PATH_QUALITY_PHASE_OWNER_INTENT_CLOSURE,
+                (model_id,),
+            ),
+            ModelPathQualityProcessStep(
+                "review-light-before",
+                PATH_QUALITY_PHASE_LIGHTWEIGHT_REVIEW,
+                (model_id,),
+                ((model_id, before),),
+            ),
+        ]
+        implementation_dependency = "review-light-before"
+        if deep:
+            actions.append(
+                ProcessAction(
+                    "review-deep-before",
+                    order_after=("review-light-before",),
+                )
+            )
+            steps.append(
+                ModelPathQualityProcessStep(
+                    "review-deep-before",
+                    PATH_QUALITY_PHASE_DEEP_REVIEW,
+                    (model_id,),
+                    ((model_id, before),),
+                )
+            )
+            implementation_dependency = "review-deep-before"
+        actions.extend(
+            (
+                ProcessAction(
+                    "implement",
+                    order_after=(implementation_dependency,),
+                ),
+                ProcessAction("validate-affected", order_after=("implement",)),
+            )
+        )
+        steps.extend(
+            (
+                ModelPathQualityProcessStep(
+                    "implement",
+                    PATH_QUALITY_PHASE_IMPLEMENTATION,
+                    (model_id,),
+                    invalidated_model_ids=(model_id,),
+                ),
+                ModelPathQualityProcessStep(
+                    "validate-affected",
+                    PATH_QUALITY_PHASE_AFFECTED_VALIDATION,
+                    (model_id,),
+                    invalidated_model_ids=(model_id,),
+                ),
+            )
+        )
+        candidate_dependency = "validate-affected"
+        current = before
+        if refresh:
+            actions.append(
+                ProcessAction(
+                    "review-light-after",
+                    order_after=("validate-affected",),
+                )
+            )
+            steps.append(
+                ModelPathQualityProcessStep(
+                    "review-light-after",
+                    PATH_QUALITY_PHASE_LIGHTWEIGHT_REVIEW,
+                    (model_id,),
+                    ((model_id, after),),
+                )
+            )
+            candidate_dependency = "review-light-after"
+            current = after
+            if deep:
+                actions.append(
+                    ProcessAction(
+                        "review-deep-after",
+                        order_after=("review-light-after",),
+                    )
+                )
+                steps.append(
+                    ModelPathQualityProcessStep(
+                        "review-deep-after",
+                        PATH_QUALITY_PHASE_DEEP_REVIEW,
+                        (model_id,),
+                        ((model_id, after),),
+                    )
+                )
+                candidate_dependency = "review-deep-after"
+        actions.extend(
+            (
+                ProcessAction("build-candidate", order_after=(candidate_dependency,)),
+                ProcessAction("activate-current", order_after=("build-candidate",)),
+            )
+        )
+        steps.extend(
+            (
+                ModelPathQualityProcessStep(
+                    "build-candidate",
+                    PATH_QUALITY_PHASE_CANDIDATE_REVISION,
+                    (model_id,),
+                    ((model_id, current),),
+                ),
+                ModelPathQualityProcessStep(
+                    "activate-current",
+                    PATH_QUALITY_PHASE_ACTIVATION,
+                    (model_id,),
+                    ((model_id, activation_fingerprint or current),),
+                ),
+            )
+        )
+        return DevelopmentProcessPlan(
+            "path-quality-lifecycle",
+            actions=tuple(actions),
+            path_quality_required_model_ids=(model_id,),
+            path_quality_deep_triggered_model_ids=(model_id,) if deep else (),
+            path_quality_steps=tuple(steps),
+        )
+
+    def test_path_quality_lifecycle_orders_compact_review_and_refresh(self):
+        report = review_development_process_flow(
+            self._path_quality_process_plan()
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+
+    def test_deep_path_review_is_conditional_but_current_when_triggered(self):
+        report = review_development_process_flow(
+            self._path_quality_process_plan(deep=True)
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(
+            2,
+            sum(
+                step.phase == PATH_QUALITY_PHASE_DEEP_REVIEW
+                for step in self._path_quality_process_plan(deep=True).path_quality_steps
+            ),
+        )
+
+    def test_path_quality_change_requires_affected_refresh(self):
+        report = review_development_process_flow(
+            self._path_quality_process_plan(refresh=False)
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "path_quality_refresh_after_change_missing",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_activation_consumes_latest_exact_path_quality_result(self):
+        report = review_development_process_flow(
+            self._path_quality_process_plan(
+                activation_fingerprint="sha256:" + "3" * 64
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "path_quality_activation_result_stale",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_path_review_cannot_precede_owner_and_intent_closure(self):
+        report = review_development_process_flow(
+            self._path_quality_process_plan(owner_precedes_review=False)
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "path_quality_review_before_owner_intent_closure",
+            {finding.code for finding in report.findings},
         )
 
     def test_implementation_admission_keeps_sufficiency_separate_from_permission(self):

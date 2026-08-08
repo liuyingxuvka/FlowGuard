@@ -755,8 +755,6 @@ def review_template_reuse(review: TemplateReuseReview | Mapping[str, Any] | None
 
 def review_minimum_model_contract(
     contract: MinimumModelContract | Mapping[str, Any] | None,
-    *,
-    template_reuse_review: TemplateReuseReview | Mapping[str, Any] | None = None,
 ) -> MinimumModelReviewReport:
     """Review the minimum valuable model fields."""
 
@@ -776,8 +774,6 @@ def review_minimum_model_contract(
         findings.append("missing_completion_evidence")
     if not normalized.known_bad_cases:
         findings.append("missing_known_bad_case")
-    reuse = review_template_reuse(template_reuse_review)
-    findings.extend(reuse.findings)
     status = "pass" if not findings else "blocked"
     return MinimumModelReviewReport(
         ok=not findings,
@@ -894,7 +890,7 @@ def review_known_bad_proofs(
 def review_template_harvest_closure(
     review: TemplateHarvestReview | Mapping[str, Any] | None,
 ) -> MinimumModelReviewReport:
-    """Review whether new/deepened model work closed the template harvest loop."""
+    """Review closure for an explicitly triggered reusable-template operation."""
 
     if review is None:
         return MinimumModelReviewReport(

@@ -37,11 +37,11 @@ class ModelSystemInventoryTests(unittest.TestCase):
         self.assertFalse(snapshot.unresolved_gap_ids)
         self.assertTrue(snapshot.coverage.complete)
         inventory = inspect_manifest_model_inventory(root)
-        self.assertEqual(65, len(inventory.declared_ids))
+        self.assertEqual(51, len(inventory.declared_ids))
         self.assertEqual(inventory.declared_ids, inventory.materialized_ids)
         self.assertEqual(inventory.required_ids, inventory.covered_ids)
         self.assertFalse(inventory.missing_ids)
-        self.assertEqual(65, len(snapshot.model_instances))
+        self.assertEqual(len(inventory.declared_ids), len(snapshot.model_instances))
         model_dimension = next(
             item
             for item in snapshot.coverage.dimensions
@@ -67,6 +67,37 @@ class ModelSystemInventoryTests(unittest.TestCase):
         self.assertTrue(
             {"refines", "consumes", "validates", "implements", "invokes", "affects"}
             <= {relation.kind for relation in snapshot.relations}
+        )
+        inventory_roots = tuple(
+            item
+            for item in snapshot.owner_artifact_refs
+            if item.endpoint_kind == "source_owner"
+            and item.endpoint_id.startswith("inventory:")
+        )
+        self.assertEqual(1, len(inventory_roots))
+        self.assertEqual(
+            "authoritative_model_system",
+            inventory_roots[0].owner_route,
+        )
+        inventory_derived = tuple(
+            item
+            for item in snapshot.owner_artifact_refs
+            if item.endpoint_kind in {"source_owner", "test_evidence", "runtime_entry"}
+            and item is not inventory_roots[0]
+            and item.owner_route == "affected_authority_inventory"
+        )
+        self.assertTrue(inventory_derived)
+        self.assertTrue(
+            {"source_owner", "test_evidence", "runtime_entry"}
+            <= {item.endpoint_kind for item in inventory_derived}
+        )
+        self.assertTrue(
+            all(
+                endpoint.owner_route != "affected_authority_inventory"
+                for relation in snapshot.relations
+                for endpoint in (relation.source, relation.target)
+                if endpoint.endpoint_kind == "model_instance"
+            )
         )
         self.assertEqual("flowguard.model_system_snapshot.v2", snapshot.schema)
         self.assertTrue(
@@ -129,6 +160,8 @@ class ModelSystemInventoryTests(unittest.TestCase):
             root = Path(directory)
             model_paths = {}
             runner_paths = {}
+            intent_paths = {}
+            (root / "docs").mkdir()
             for model_id in ("alpha", "beta"):
                 model_dir = root / ".flowguard" / model_id
                 model_dir.mkdir(parents=True)
@@ -140,6 +173,11 @@ class ModelSystemInventoryTests(unittest.TestCase):
                 )
                 runner_paths[model_id].write_text(
                     "print('ok')\n",
+                    encoding="utf-8",
+                )
+                intent_paths[model_id] = root / "docs" / f"{model_id}.md"
+                intent_paths[model_id].write_text(
+                    f"{model_id} intent\n",
                     encoding="utf-8",
                 )
 
@@ -169,7 +207,7 @@ class ModelSystemInventoryTests(unittest.TestCase):
                             "This fixture proves only local model input "
                             "identity isolation inside a temporary project."
                         ),
-                        evidence_check_ids=(f"check:{model_id}",),
+                        evidence_check_ids=(f"check:model-regression:{model_id}",),
                         model_sha256=file_fingerprint(model_paths[model_id]),
                         runner_sha256=file_fingerprint(runner_paths[model_id]),
                     )
@@ -191,6 +229,7 @@ class ModelSystemInventoryTests(unittest.TestCase):
                                 f".flowguard/{model_id}/model.py",
                                 f".flowguard/{model_id}/run_checks.py",
                             ],
+                            "intent_source_inputs": [f"docs/{model_id}.md"],
                             "expected_artifacts": [],
                             "exclusion_reason": "",
                             "purpose_closure": purpose.to_dict(),
@@ -244,6 +283,27 @@ class ModelSystemInventoryTests(unittest.TestCase):
             self.assertNotEqual(before.subject_revision, after.subject_revision)
             self.assertNotEqual(before.fingerprint, after.fingerprint)
 
+            intent_paths["alpha"].write_text(
+                "alpha intent changed\n",
+                encoding="utf-8",
+            )
+            intent_after = build_manifest_model_system_snapshot(
+                root,
+                snapshot_id="snapshot:local-identity",
+            )
+            intent_after_by_id = {
+                item.logical_model_id: item
+                for item in intent_after.model_instances
+            }
+            self.assertNotEqual(
+                after_by_id["alpha"].fingerprint,
+                intent_after_by_id["alpha"].fingerprint,
+            )
+            self.assertEqual(
+                after_by_id["beta"].fingerprint,
+                intent_after_by_id["beta"].fingerprint,
+            )
+
             runner_paths["beta"].unlink()
             incomplete = build_manifest_model_system_snapshot(
                 root,
@@ -292,7 +352,10 @@ class ModelSystemInventoryTests(unittest.TestCase):
                     "This fixture proves only manifest-to-purpose and "
                     "commitment relation assembly inside a temporary project."
                 ),
-                evidence_check_ids=("check:owner",),
+                evidence_check_ids=(
+                    "check:model-regression:owner",
+                    "check:owner",
+                ),
                 model_sha256=file_fingerprint(model_path),
                 runner_sha256=file_fingerprint(runner_path),
             )

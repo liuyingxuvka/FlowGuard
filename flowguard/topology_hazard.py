@@ -13,7 +13,10 @@ import json
 from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Any, Iterable, Mapping, Sequence
 
-from ._normalization import unique_strings as _unique
+from ._normalization import (
+    nonempty_string_sequence as _as_tuple,
+    unique_strings as _unique,
+)
 from .export import to_jsonable
 
 
@@ -86,7 +89,6 @@ TOPOLOGY_ROUTE_MODEL_TEST_ALIGNMENT = "model_test_alignment"
 TOPOLOGY_ROUTE_RISK_LEDGER = "risk_evidence_ledger"
 TOPOLOGY_ROUTE_DEVELOPMENT_PROCESS = "development_process_flow"
 TOPOLOGY_ROUTE_ARCHITECTURE_REDUCTION = "architecture_reduction"
-TOPOLOGY_ROUTE_MODEL_SIMILARITY = "model_similarity_consolidation"
 
 TOPOLOGY_HARD_DISPOSITIONS = {
     TOPOLOGY_DISPOSITION_MODEL_PATCH,
@@ -99,12 +101,6 @@ TOPOLOGY_HARD_DISPOSITIONS = {
 }
 
 TOPOLOGY_BROAD_CLAIMS = {"done", "release", "publish", "production", "full", "archive"}
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _type_name(value: Any) -> str:
@@ -1138,7 +1134,6 @@ def derive_topology_hazard_candidates(digest: TopologyDigest) -> tuple[TopologyH
                     disposition=TOPOLOGY_DISPOSITION_COMPATIBILITY_DECISION,
                     required_routes=(
                         TOPOLOGY_ROUTE_ARCHITECTURE_REDUCTION,
-                        TOPOLOGY_ROUTE_MODEL_SIMILARITY,
                         TOPOLOGY_ROUTE_RISK_LEDGER,
                     ),
                     confidence_effect=TOPOLOGY_CONFIDENCE_SCOPED,
@@ -1403,7 +1398,6 @@ __all__ = [
     "TOPOLOGY_ROUTE_ARCHITECTURE_REDUCTION",
     "TOPOLOGY_ROUTE_DEVELOPMENT_PROCESS",
     "TOPOLOGY_ROUTE_MODEL_MATURATION",
-    "TOPOLOGY_ROUTE_MODEL_SIMILARITY",
     "TOPOLOGY_ROUTE_MODEL_TEST_ALIGNMENT",
     "TOPOLOGY_ROUTE_RISK_LEDGER",
     "TOPOLOGY_SEVERITY_BLOCKER",

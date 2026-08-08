@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
 
 
@@ -65,12 +66,6 @@ _PROCESS_OPTIMIZATION_REASONS = {
     "material_rework_risk",
     "diagnostic_boundary_choice",
 }
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 def _dedupe(values: Sequence[str]) -> tuple[str, ...]:

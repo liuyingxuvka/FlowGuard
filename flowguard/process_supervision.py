@@ -7,10 +7,11 @@ set is empty after normal exit or bounded termination.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 import ctypes
 from ctypes import wintypes
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -20,7 +21,8 @@ import time
 from typing import Any, Mapping, Sequence
 
 
-TERMINAL_ARTIFACT_SCHEMA = "flowguard.supervised_command_terminal.v1"
+TERMINAL_ARTIFACT_SCHEMA = "flowguard.supervised_command_terminal.v2"
+_SUPERVISION_ATTESTATION_KEY = os.urandom(32)
 
 
 @dataclass(frozen=True)
@@ -40,12 +42,21 @@ class SupervisedCommandResult:
     termination_stage: str
     cleanup_confirmed: bool
     descendant_process_ids: tuple[int, ...]
+    root_process_id: int | None = None
+    root_process_running: bool = False
+    containment_query_succeeded: bool = True
+    contained_process_ids_before_cleanup: tuple[int, ...] = ()
+    _producer_attestation: str = field(default="", repr=False, compare=False)
 
     @property
     def ok(self) -> bool:
         return (
-            self.exit_code == 0
+            _is_authentic_supervised_result(self)
+            and self.exit_code == 0
             and self.cleanup_confirmed
+            and not self.root_process_running
+            and self.containment_query_succeeded
+            and not self.descendant_process_ids
             and self.terminal_reason == "process_exit"
             and not self.timed_out
             and not self.cancelled
@@ -69,6 +80,12 @@ class SupervisedCommandResult:
             "interrupted": self.interrupted,
             "termination_stage": self.termination_stage,
             "cleanup_confirmed": self.cleanup_confirmed,
+            "root_process_id": self.root_process_id,
+            "root_process_running": self.root_process_running,
+            "containment_query_succeeded": self.containment_query_succeeded,
+            "contained_process_ids_before_cleanup": list(
+                self.contained_process_ids_before_cleanup
+            ),
             "descendant_process_ids": list(self.descendant_process_ids),
             "status": "pass" if self.ok else "blocked",
             "claim_boundary": (
@@ -76,6 +93,59 @@ class SupervisedCommandResult:
                 "terminal process-tree state. It does not prove command semantics."
             ),
         }
+
+
+def _attestation_payload(result: SupervisedCommandResult) -> bytes:
+    return json.dumps(
+        {
+            "command": list(result.command),
+            "cwd": result.cwd,
+            "episode_token": result.episode_token,
+            "started_at_epoch": result.started_at_epoch,
+            "finished_at_epoch": result.finished_at_epoch,
+            "exit_code": result.exit_code,
+            "stdout_sha256": hashlib.sha256(result.stdout.encode("utf-8")).hexdigest(),
+            "stderr_sha256": hashlib.sha256(result.stderr.encode("utf-8")).hexdigest(),
+            "terminal_reason": result.terminal_reason,
+            "timed_out": result.timed_out,
+            "cancelled": result.cancelled,
+            "interrupted": result.interrupted,
+            "termination_stage": result.termination_stage,
+            "cleanup_confirmed": result.cleanup_confirmed,
+            "descendant_process_ids": list(result.descendant_process_ids),
+            "root_process_id": result.root_process_id,
+            "root_process_running": result.root_process_running,
+            "containment_query_succeeded": result.containment_query_succeeded,
+            "contained_process_ids_before_cleanup": list(
+                result.contained_process_ids_before_cleanup
+            ),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
+def _attest_supervised_result(
+    result: SupervisedCommandResult,
+) -> SupervisedCommandResult:
+    attestation = hmac.new(
+        _SUPERVISION_ATTESTATION_KEY,
+        _attestation_payload(result),
+        hashlib.sha256,
+    ).hexdigest()
+    return replace(result, _producer_attestation=attestation)
+
+
+def _is_authentic_supervised_result(result: SupervisedCommandResult) -> bool:
+    if not result._producer_attestation:
+        return False
+    expected = hmac.new(
+        _SUPERVISION_ATTESTATION_KEY,
+        _attestation_payload(result),
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(result._producer_attestation, expected)
 
 
 def _episode_token(
@@ -279,14 +349,45 @@ def _contained_process_ids(
     return _posix_group_process_ids(group_id)
 
 
-def _wait_for_contained_exit(
+def _descendant_process_ids(
+    contained_process_ids: tuple[int, ...] | None,
+    root_process_id: int | None,
+) -> tuple[int, ...] | None:
+    """Return true descendants, excluding a transiently retained root PID."""
+
+    if contained_process_ids is None:
+        return None
+    return tuple(
+        process_id
+        for process_id in contained_process_ids
+        if root_process_id is None or process_id != root_process_id
+    )
+
+
+def _tree_blocking_process_ids(
+    contained_process_ids: tuple[int, ...] | None,
+    process: subprocess.Popen[str],
+) -> tuple[int, ...] | None:
+    descendants = _descendant_process_ids(contained_process_ids, process.pid)
+    if descendants is None:
+        return None
+    if process.poll() is None:
+        return tuple(sorted(set((*descendants, process.pid))))
+    return descendants
+
+
+def _wait_for_tree_exit(
     job: _WindowsJob,
     group_id: int | None,
+    process: subprocess.Popen[str],
     timeout_seconds: float,
 ) -> tuple[int, ...] | None:
     deadline = time.monotonic() + max(0.0, timeout_seconds)
     while True:
-        process_ids = _contained_process_ids(job, group_id)
+        process_ids = _tree_blocking_process_ids(
+            _contained_process_ids(job, group_id),
+            process,
+        )
         if process_ids is None or not process_ids:
             return process_ids
         remaining = deadline - time.monotonic()
@@ -414,19 +515,20 @@ def run_supervised(
                     process.communicate(timeout=max(1.0, grace_seconds))
                 except (OSError, subprocess.TimeoutExpired):
                     pass
-                _wait_for_contained_exit(
+                _wait_for_tree_exit(
                     job,
                     group_id,
+                    process,
                     max(1.0, grace_seconds),
                 )
             raise
 
         observed_before_cleanup = _contained_process_ids(job, group_id)
-        descendants_before_cleanup = (
-            ()
-            if observed_before_cleanup is None
-            else observed_before_cleanup
+        descendants_before_cleanup_raw = _descendant_process_ids(
+            observed_before_cleanup,
+            process.pid if process is not None else None,
         )
+        descendants_before_cleanup = descendants_before_cleanup_raw or ()
         abnormal = timed_out or cancelled or interrupted
         root_running = process is not None and process.poll() is None
         orphaned_descendants = (
@@ -449,23 +551,27 @@ def run_supervised(
                 process,
                 group_id,
             )
-            remaining_ids = observed_before_cleanup
+            remaining_ids = _tree_blocking_process_ids(
+                observed_before_cleanup,
+                process,
+            )
             if graceful_requested:
-                remaining_ids = _wait_for_contained_exit(
+                remaining_ids = _wait_for_tree_exit(
                     job,
                     group_id,
+                    process,
                     grace_seconds,
                 )
             if (
-                process.poll() is None
-                or remaining_ids is None
+                remaining_ids is None
                 or bool(remaining_ids)
             ):
                 stage = "force_kill"
                 _force_kill_tree(process, job, group_id)
-                _wait_for_contained_exit(
+                _wait_for_tree_exit(
                     job,
                     group_id,
+                    process,
                     max(1.0, grace_seconds),
                 )
 
@@ -479,25 +585,22 @@ def run_supervised(
                     pass
 
         observed_descendants = _contained_process_ids(job, group_id)
-        descendants = (
-            ()
-            if observed_descendants is None
-            else observed_descendants
+        descendant_query = _descendant_process_ids(
+            observed_descendants,
+            process.pid if process is not None else None,
         )
+        descendants = descendant_query or ()
+        root_process_running = process is not None and process.poll() is None
         cleanup_confirmed = (
             observed_descendants is not None
+            and not root_process_running
             and not descendants
         )
-        if process is not None and process.poll() is None:
-            cleanup_confirmed = False
-            descendants = tuple(
-                sorted(set(descendants + (process.pid,)))
-            )
         exit_code = process.returncode if process is not None else None
         if not cleanup_confirmed:
             reason = "cleanup_unconfirmed"
         finished = time.time()
-        return SupervisedCommandResult(
+        result = SupervisedCommandResult(
             command=tuple(str(item) for item in command),
             cwd=str(root),
             episode_token=episode,
@@ -513,7 +616,14 @@ def run_supervised(
             termination_stage=stage,
             cleanup_confirmed=cleanup_confirmed,
             descendant_process_ids=descendants,
+            root_process_id=process.pid if process is not None else None,
+            root_process_running=root_process_running,
+            containment_query_succeeded=observed_descendants is not None,
+            contained_process_ids_before_cleanup=(
+                observed_before_cleanup or ()
+            ),
         )
+        return _attest_supervised_result(result)
     finally:
         job.close()
 

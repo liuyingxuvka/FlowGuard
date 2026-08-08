@@ -12,8 +12,6 @@ from .risk import RiskIntent, RiskProfile
 from .risk_templates import (
     KnownBadProof,
     MinimumModelContract,
-    TemplateHarvestReview,
-    TemplateReuseReview,
 )
 from .runner import run_model_first_checks
 from .scenario import run_exact_sequence
@@ -380,7 +378,6 @@ def _build_plan(
         adversarial_inputs=_input_type_names(case_inputs),
         hard_invariants=invariant_names or ("model_check_status",),
         known_bad_cases=known_bad_cases,
-        template_no_match_reason="repository self-model runner uses project-specific maintenance evidence",
         blindspots=("production conformance is validated by the surrounding test suite when required",),
     )
     return FlowGuardCheckPlan(
@@ -395,14 +392,6 @@ def _build_plan(
             modeled_boundary=f"{modeled_boundary}:{case.name}",
             risk_classes=tuple(risk_classes),
             risk_intent=risk_intent,
-        ),
-        template_reuse_review=TemplateReuseReview(
-            no_match_reason="repository self-model runner uses project-specific maintenance evidence",
-            searched_layers=("public", "local"),
-        ),
-        template_harvest_review=TemplateHarvestReview(
-            disposition="not_harvestable",
-            not_harvestable_reason="not_reusable_project_specific",
         ),
         minimum_model_contract=MinimumModelContract(
             protected_error_classes=(case_error,),
@@ -446,7 +435,7 @@ def _summary_observed_ok(
     model_section = sections.get("model_check")
     if model_section is None or model_section.status != "pass":
         return False
-    for section_name in ("minimum_model_review", "known_bad_proof", "template_harvest_review"):
+    for section_name in ("minimum_model_review", "known_bad_proof"):
         section = sections.get(section_name)
         if section is None or section.status in BLOCKING_STATUSES:
             return False

@@ -1,20 +1,17 @@
 # FieldLifecycleMesh Protocol
 
-FieldLifecycleMesh is the FlowGuard route for field-level coverage. It exists
-because field-heavy changes can be too detailed for the main behavior model,
-but still too important to leave as informal notes.
+FieldLifecycleMesh gives field-heavy changes exact coverage without bloating the
+main behavior model or leaving details as informal notes.
 
 ## Trigger
 
-Use FieldLifecycleMesh when a task touches:
+Use it when a task touches:
 
-- payload, schema, API, config, prompt/config, persisted, UI state, or runtime
-  state fields;
-- field additions, removals, renames, migrations, aliases, defaults, fallback
-  fields, wrappers, or compatibility fields;
-- bug repairs whose root cause is a missing, stale, mis-projected, or
-  old-field behavior branch;
-- replacement work where the user did not explicitly request compatibility.
+- payload, schema, API, config, prompt, persisted, UI, or runtime-state fields;
+- additions, removals, renames, migrations, aliases, defaults, fallbacks,
+  wrappers, or compatibility fields;
+- bug repair rooted in a missing, stale, mis-projected, or old-field branch;
+- replacement without explicit compatibility intent.
 
 Skip only when no field, schema key, config flag, prompt/config field, persisted
 attribute, payload column, or public field-like surface is in scope.
@@ -23,29 +20,31 @@ attribute, payload column, or public field-like surface is in scope.
 
 Collect:
 
-- the field boundary, independently discovered field ids, immutable inventory
+- field boundary, independently discovered ids, immutable inventory
   revision/fingerprint, and discovery evidence;
-- parent groups such as entity, payload, schema, config, public entrypoint, or
-  prompt/config surface;
+- parent groups such as entity, payload, schema, config, entrypoint, or prompt;
 - leaf rows for every discovered field;
 - one owner, exact locations, role, lifecycle, behavior impacts, readers,
   writers, default semantics, absence/null semantics, serialization semantics,
   privacy classification, and content fingerprint;
 - exactly one `modeled`, `delegated`, or `scoped` coverage disposition;
 - projection rows for behavior-bearing fields;
-- every field id or grouped source id whose readers reach an ordinary UI adapter, view model, display, text, or output boundary;
+- each field/group whose reader reaches an ordinary UI adapter, view model,
+  display, text, or output boundary;
 - old-field disposition and evidence refs for old, replaced, deprecated,
   alias, fallback, or compatibility-like fields.
 
 ## Parent And Leaf Shape
 
-The parent field model keeps the high-level view small. Leaf rows carry the full
-inventory. A behavior model should include only fields that affect routing,
-state, permissions, side effects, schema, replay, migration, or external
-contracts. Presentation-only or metadata fields can stay out of the high-level
-model if the leaf row records why.
+The parent stays small; leaf rows carry the full inventory. Put only routing,
+state, permission, effect, schema, replay, migration, or external-contract
+fields in the behavior model. Presentation/metadata fields may stay out when
+their leaf rows say why.
 
-FieldLifecycleMesh accounts fields and identifies the UI candidate boundary; it does not decide UI admission. Hand every field with an ordinary UI reader, or a justified grouped set of source ids, to the `ui_flow_structure` owner regardless of source role. Do not force fields with no ordinary-UI reader into a UI plan, and do not add an audience or role taxonomy here.
+FieldLifecycleMesh accounts fields and finds UI candidates; it does not decide
+UI admission. Hand each ordinary-UI-readable field, or justified source-id
+group, to `ui_flow_structure` regardless of source role. Do not force other
+fields into a UI plan or add audience/role taxonomy here.
 
 ## Default Replacement Policy
 
@@ -54,21 +53,19 @@ default. Valid closing dispositions are deleted, blocked, migrated, delegated to
 the replacement field, same-contract repaired, explicitly preserved, or
 out-of-scope with reason. Unknown disposition blocks full confidence.
 
-Explicit preservation requires compatibility intent plus current evidence, such
-as public API compatibility, old data migration, or externally promised schema
-support.
+Preservation requires compatibility intent and current evidence such as public
+API, old-data migration, or promised-schema support.
 
 ## Handoffs
 
 FieldLifecycleMesh does not prove behavior alone. Send:
 
-- projections to Model-Test Alignment as model obligations and owner code
-  contracts;
+- projections to Model-Test Alignment as obligations and owner code contracts;
 - all ordinary-UI-reader candidates to UI Flow Structure as field ids or grouped source ids for `UIContentVisibilityPlan`; UI Flow Structure alone selects `user_visible`, `user_on_demand`, or `internal` and proves ordinary-surface behavior;
 - reader/writer/owner maps to Code Structure Recommendation;
 - old field disposition to Legacy Path Disposition and Architecture Reduction;
 - field root cause ids and same-class field ids to Model-Miss Review;
-- field lifecycle, projection, replacement, and bug-repair closure artifacts to
+- lifecycle, projection, replacement, and bug-repair closure artifacts to
   DevelopmentProcessFlow;
 - current field lifecycle evidence to Closure Contract for broad claims.
 
@@ -91,14 +88,12 @@ A field lifecycle review is complete when:
 
 ## Model-system revision binding
 
-The observed snapshot binds the current field inventory owner artifact, not
-only a free-form hash. A target or experiment keeps its added, removed,
-renamed, migrated, replaced, externalized, state-bearing, and side-effect
-fields in its own candidate snapshot. Every field/side-effect diff must appear
-in the revision set's affected closure with one owner and old-field
-disposition. Activation blocks on unaccounted fields; rollback blocks until
-restore, compensation, or irreversible forward-repair disposition is
-evidenced.
+The observed snapshot binds the current inventory owner artifact, not a
+free-form hash. A target/experiment keeps added, removed, renamed, migrated,
+replaced, externalized, state-bearing, and side-effect fields in its candidate
+snapshot. Every field/effect diff enters the revision's affected closure with
+one owner and old-field disposition. Unaccounted fields block activation;
+rollback needs evidenced restore, compensation, or irreversible forward repair.
 
 When triggered, emit a current-evidence maturation contribution for field
 inventory, lifecycle, projections, dispositions, readers/writers, and gaps.

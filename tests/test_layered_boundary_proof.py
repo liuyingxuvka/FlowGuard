@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import replace
 
 from flowguard import (
     ChildProofContract,
@@ -11,6 +12,56 @@ from flowguard import (
     ProofArtifactRef,
     review_layered_boundary_proof,
 )
+from flowguard.model_path_quality import (
+    PathQualityResult,
+    PathQualitySubject,
+    canonical_fingerprint,
+)
+
+
+def path_fp(value):
+    return canonical_fingerprint({"value": value})
+
+
+def path_quality(currentness_id="snapshot:current"):
+    owner = PathQualitySubject(
+        model_id="validate-submit",
+        boundary_id="boundary:validate-submit",
+        model_fingerprint=path_fp("model:validate-submit"),
+        normalized_facts_fingerprint=path_fp("facts:validate-submit"),
+        retained_element_inventory_fingerprint=path_fp("retained:validate-submit"),
+        purpose_fingerprint=path_fp("purpose:validate-submit"),
+        intent_fingerprint=path_fp("intent:validate-submit"),
+        obligation_fingerprint=path_fp("obligations:validate-submit"),
+        provider_fingerprint=path_fp("provider:validate-submit"),
+        dependency_fingerprint=path_fp("dependencies:validate-submit"),
+        code_fingerprint=path_fp("code:validate-submit"),
+        test_fingerprint=path_fp("tests:validate-submit"),
+        oracle_fingerprint=path_fp("oracles:validate-submit"),
+        evidence_fingerprint=path_fp("evidence:validate-submit"),
+        currentness_id=currentness_id,
+    )
+    result = PathQualityResult(
+        result_id="path-quality:validate-submit",
+        subject_fingerprint=owner.fingerprint,
+        mode="lightweight",
+        trigger_ids=(),
+        finding_ids=(),
+        candidate_ids=(),
+        rewrite_rule_ids=(),
+        conclusion="single_clear_path",
+        unresolved_ids=(),
+        selected_candidate_id="",
+        selected_candidate_lane="",
+        comparison_boundary_id="",
+        candidate_set_fingerprint="",
+        rewrite_set_fingerprint="",
+        necessity_witness_set_fingerprint=path_fp("witnesses:validate-submit"),
+        detail_evidence_fingerprint=path_fp("detail:validate-submit"),
+        producer_id="model_maturation",
+        currentness_id=currentness_id,
+    )
+    return owner, result
 
 
 def cell(**overrides):
@@ -108,6 +159,100 @@ def codes(report):
 
 
 class LayeredBoundaryProofTests(unittest.TestCase):
+    def test_layered_proof_consumes_exact_current_child_path_quality(self):
+        owner, result = path_quality()
+        report = review_layered_boundary_proof(
+            plan(
+                child_contracts=(
+                    child(model_fingerprint=owner.model_fingerprint),
+                ),
+                reattachment_proofs=(
+                    reattachment(
+                        consumed_path_quality_result_fingerprint=result.fingerprint,
+                    ),
+                ),
+                required_path_quality_model_ids=(owner.model_id,),
+                path_quality_subjects=(owner,),
+                path_quality_results=(result,),
+                path_quality_currentness_id=owner.currentness_id,
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual((owner.model_id,), report.path_quality_verified_model_ids)
+        self.assertEqual((), report.path_quality_blocked_model_ids)
+        self.assertTrue(report.path_quality_result_set_fingerprint)
+
+    def test_layered_proof_blocks_unresolved_and_normative_path_quality(self):
+        owner, clean_result = path_quality()
+        normative = replace(
+            clean_result,
+            mode="deep",
+            trigger_ids=("explicit_request",),
+            candidate_ids=("observed", "target"),
+            conclusion="preferred_within_candidates",
+            selected_candidate_id="target",
+            selected_candidate_lane="normative_target",
+            comparison_boundary_id="boundary:named",
+            candidate_set_fingerprint=path_fp("candidate-set"),
+        )
+        cases = (
+            (
+                replace(
+                    clean_result,
+                    conclusion="unresolved",
+                    unresolved_ids=("gap:path-quality",),
+                ),
+                "path_quality_result_unresolved",
+            ),
+            (normative, "path_quality_normative_target_not_observed"),
+        )
+        for result, expected_code in cases:
+            with self.subTest(expected_code=expected_code):
+                report = review_layered_boundary_proof(
+                    plan(
+                        child_contracts=(
+                            child(model_fingerprint=owner.model_fingerprint),
+                        ),
+                        reattachment_proofs=(
+                            reattachment(
+                                consumed_path_quality_result_fingerprint=result.fingerprint,
+                            ),
+                        ),
+                        required_path_quality_model_ids=(owner.model_id,),
+                        path_quality_subjects=(owner,),
+                        path_quality_results=(result,),
+                        path_quality_currentness_id=owner.currentness_id,
+                    )
+                )
+
+                self.assertFalse(report.ok)
+                self.assertIn(expected_code, codes(report))
+                self.assertEqual((owner.model_id,), report.path_quality_blocked_model_ids)
+
+    def test_layered_proof_rejects_foreign_parent_consumption(self):
+        owner, result = path_quality()
+        report = review_layered_boundary_proof(
+            plan(
+                child_contracts=(
+                    child(model_fingerprint=owner.model_fingerprint),
+                ),
+                reattachment_proofs=(
+                    reattachment(
+                        consumed_path_quality_result_fingerprint=path_fp("foreign-result"),
+                    ),
+                ),
+                required_path_quality_model_ids=(owner.model_id,),
+                path_quality_subjects=(owner,),
+                path_quality_results=(result,),
+                path_quality_currentness_id=owner.currentness_id,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("child_reattachment_required", report.decision)
+        self.assertIn("child_reattachment_path_quality_result_stale", codes(report))
+
     def test_green_layered_proof_can_continue(self):
         report = review_layered_boundary_proof(plan())
 

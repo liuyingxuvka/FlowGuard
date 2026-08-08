@@ -165,9 +165,14 @@ class SkillPromptParityTests(unittest.TestCase):
                 check = checks_by_id[binding["check_id"]]
                 self.assertEqual("command", check["kind"])
                 python_paths = tuple(
-                    token.replace("\\", "/")
+                    normalized
                     for token in (str(check["command"]), *(str(value) for value in check.get("args", ())))
-                    if token.endswith(".py") and (token.startswith("tests/") or token.startswith(".flowguard/"))
+                    if (normalized := token.replace("\\", "/").split("::", 1)[0]).endswith(".py")
+                    and (
+                        normalized.startswith("tests/")
+                        or normalized.startswith(".flowguard/")
+                        or normalized.startswith("scripts/")
+                    )
                 )
                 with self.subTest(skill=skill_id, check_id=check["check_id"]):
                     self.assertTrue(python_paths)

@@ -6,7 +6,6 @@ import hashlib
 import inspect
 import json
 import marshal
-import os
 import re
 import sqlite3
 import sys
@@ -15,6 +14,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
+from ._runtime_progress import (
+    progress_disabled_by_environment as _progress_disabled_by_environment,
+    progress_thresholds as _progress_thresholds,
+)
 from .core import InvariantResult
 from .export import to_jsonable
 from .loop import GraphEdge
@@ -175,22 +178,6 @@ def _invariant_name(invariant: Any) -> str:
 
 def _invariant_description(invariant: Any) -> str:
     return str(getattr(invariant, "description", ""))
-
-
-def _progress_disabled_by_environment() -> bool:
-    value = os.environ.get("FLOWGUARD_PROGRESS")
-    return value is not None and value.strip().lower() in {"0", "false", "no", "off"}
-
-
-def _progress_thresholds(total_work: int, progress_steps: int) -> tuple[tuple[int, int], ...]:
-    if total_work < 1 or progress_steps < 1:
-        return ()
-    thresholds: dict[int, int] = {}
-    for step in range(1, progress_steps + 1):
-        threshold = max(1, (total_work * step + progress_steps - 1) // progress_steps)
-        percent = min(100, (step * 100) // progress_steps)
-        thresholds[threshold] = percent
-    return tuple(sorted(thresholds.items()))
 
 
 def _coerce_edge(state: Any, raw: GraphEdge | tuple[str, Any]) -> GraphEdge:

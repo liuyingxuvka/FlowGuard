@@ -9,6 +9,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ApiSurfaceTests(unittest.TestCase):
+    def test_compiler_owned_blueprint_results_are_not_public_constructors(self):
+        self.assertFalse(hasattr(flowguard, "BlueprintLayerResult"))
+        self.assertFalse(hasattr(flowguard, "BlueprintManifestQualificationReport"))
+        self.assertFalse(hasattr(flowguard, "TargetSystemBlueprintReport"))
+        retired_manifest_report = "SoftwareBlueprint" + "QualificationReport"
+        self.assertFalse(hasattr(flowguard, retired_manifest_report))
+        self.assertNotIn(retired_manifest_report, flowguard.IMPLEMENTATION_BLUEPRINT_API)
+        self.assertNotIn(
+            "BlueprintManifestQualificationReport",
+            flowguard.IMPLEMENTATION_BLUEPRINT_API,
+        )
+
     def test_process_optimization_is_compact_api_of_existing_development_process_route(self):
         self.assertNotIn("development_process_strategy", flowguard.FLOWGUARD_ROUTE_API)
         process_api = flowguard.FLOWGUARD_ROUTE_API["development_process_flow"]
@@ -108,7 +120,7 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertTrue(set(flowguard.AGENT_DEFAULT_API).issubset(public_first_read_names))
 
     def test_implementation_blueprint_api_exposes_behavior_readiness_and_self_reduction(self):
-        expected = {
+        existing_blueprint_api = {
             "BehaviorBlockContract",
             "BehaviorCaseContract",
             "BehaviorCoverageEdge",
@@ -129,15 +141,125 @@ class ApiSurfaceTests(unittest.TestCase):
             "review_behavior_blueprint",
             "review_static_blueprint_readiness",
             "normalize_behavior_blueprint",
-            "load_affected_behavior_neighborhood",
+            "materialize_behavior_blueprint_shards",
             "generate_candidate_blueprint",
             "SelfArchitectureReductionReview",
             "review_flowguard_self_architecture_reduction",
         }
+        affected_reader_api = {
+            "AFFECTED_BLUEPRINT_READER_SCHEMA",
+            "AffectedBlueprintReadError",
+            "AffectedBlueprintReadResult",
+            "AffectedBlueprintReader",
+            "ObjectLoader",
+            "ShardLoader",
+            "read_affected_blueprint",
+        }
+        compact_projection_api = {
+            "BLUEPRINT_COMPACT_PROJECTION_SCHEMA",
+            "BlueprintCompactProjection",
+            "compact_reduction_projection",
+            "compact_self_qualification_projection",
+            "compact_understanding_projection",
+        }
+        canonical_target_projection_api = {
+            "TARGET_SYSTEM_BLUEPRINT_MATERIALIZATION_CLAIM_BOUNDARY",
+            "TARGET_SYSTEM_BLUEPRINT_PROJECTION_KINDS",
+            "TargetSystemBlueprintMaterializationVerification",
+            "canonical_target_system_blueprint_projection",
+            "verify_materialized_target_system_blueprint_projection",
+        }
+        canonical_projection_kernel_api = {
+            "CANONICAL_BLUEPRINT_MATERIALIZATION_CLAIM_BOUNDARY",
+            "PROJECT_BLUEPRINT_MATERIALIZATION_CLAIM_BOUNDARY",
+            "CanonicalBlueprintMaterialization",
+            "CanonicalBlueprintProjection",
+            "ProjectBlueprintMaterializationVerification",
+            "load_canonical_blueprint_projection",
+            "serialize_canonical_blueprint_projection",
+            "verify_blueprint_projection",
+            "verify_materialized_project_blueprint_projection",
+            "write_canonical_blueprint_projection",
+        }
+        self_reduction_inventory_api = {
+            "SELF_REDUCTION_DISPOSITIONS",
+            "SELF_REDUCTION_UNIVERSE_SCHEMA",
+            "SelfReductionUniverse",
+            "SelfReductionUniverseError",
+            "SelfReductionUniverseMember",
+            "derive_self_reduction_universe",
+        }
+        target_profile_and_evidence_api = {
+            "CANONICAL_NON_CODE_WORKFLOW_LAYER_PLAN",
+            "CANONICAL_SOFTWARE_LAYER_PLAN",
+            "FROZEN_TARGET_SYSTEM_EVIDENCE_SCHEMA",
+            "NON_CODE_WORKFLOW_LAYER_ORDER",
+            "NON_CODE_WORKFLOW_TARGET_PROFILE",
+            "SOFTWARE_BLUEPRINT_LAYER_ORDER",
+            "SOFTWARE_TARGET_PROFILE",
+            "TARGET_SYSTEM_LAYER_PLAN_SCHEMA",
+            "FrozenTargetSystemEvidence",
+            "TargetSystemLayerPlan",
+            "load_frozen_target_system_evidence",
+            "load_target_system_layer_plan",
+            "load_target_system_provider_registry",
+            "load_target_system_provider_result",
+            "load_target_system_snapshot",
+            "serialize_frozen_target_system_evidence",
+            "serialize_target_system_layer_plan",
+            "serialize_target_system_provider_registry",
+            "serialize_target_system_provider_result",
+            "serialize_target_system_snapshot",
+        }
+        target_native_qualification_api = {
+            "TARGET_NATIVE_INTENT_SOURCE_KINDS",
+            "TARGET_NATIVE_MEMBER_KINDS",
+            "TARGET_NATIVE_MEMBER_ROLES",
+            "TARGET_NATIVE_MEMBER_STATUSES",
+            "TARGET_NATIVE_QUALIFICATION_SCHEMA",
+            "TargetBlueprintNativeReportSet",
+            "TargetNativeMember",
+            "TargetNativeModelRef",
+            "load_target_blueprint_native_report_set",
+            "qualify_target_system_from_native_reports",
+            "serialize_target_blueprint_native_report_set",
+        }
+        typed_topology_api = {
+            "BlueprintTopologyPort",
+            "BlueprintTopologyPortMapping",
+            "BlueprintTopologyProgressContract",
+        }
+        project_qualification_api = {
+            "build_project_blueprint",
+            "collect_project_blueprint_provider_results",
+            "freeze_project_blueprint_evidence",
+            "load_project_blueprint_document",
+            "prepare_project_blueprint",
+            "project_blueprint_document",
+        }
+        expected = set().union(
+            existing_blueprint_api,
+            affected_reader_api,
+            compact_projection_api,
+            canonical_target_projection_api,
+            canonical_projection_kernel_api,
+            self_reduction_inventory_api,
+            target_profile_and_evidence_api,
+            target_native_qualification_api,
+            typed_topology_api,
+            project_qualification_api,
+        )
         self.assertTrue(expected.issubset(set(flowguard.IMPLEMENTATION_BLUEPRINT_API)))
         for name in expected:
             self.assertIn(name, flowguard.__all__)
             self.assertTrue(hasattr(flowguard, name), name)
+        self.assertNotIn("compile_target_system_blueprint", flowguard.__all__)
+        self.assertNotIn("SoftwareBlueprintProjection", flowguard.__all__)
+        self.assertNotIn("serialize_software_blueprint_projection", flowguard.__all__)
+        self.assertNotIn("write_software_blueprint_projection", flowguard.__all__)
+        self.assertNotIn("ProjectBlueprintPreparation", flowguard.__all__)
+        self.assertNotIn("qualify_project_blueprint", flowguard.__all__)
+        self.assertFalse(hasattr(flowguard, "compile_target_system_blueprint"))
 
     def test_agent_default_api_is_compact_first_read_surface(self):
         self.assertLessEqual(len(flowguard.AGENT_DEFAULT_API), 24)
@@ -203,6 +325,42 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("FunctionResult", flowguard.CORE_API)
         self.assertNotIn("run_model_first_checks", flowguard.CORE_API)
 
+    def test_retired_analogous_scan_is_absent_from_public_api(self):
+        for retired_name in (
+            "AnalogousDefectCandidate",
+            "AnalogousDefectScanFinding",
+            "AnalogousDefectScanReport",
+            "review_analogous_defect_scan",
+            "ANALOGOUS_SCAN_RADII",
+            "ANALOGOUS_SCAN_DISPOSITIONS",
+            "CONTRACT_MUTATION_ANALOGOUS_DEFECT",
+        ):
+            self.assertNotIn(retired_name, flowguard.MODELING_HELPER_API)
+            self.assertNotIn(retired_name, flowguard.REPORTING_HELPER_API)
+            self.assertNotIn(retired_name, flowguard.CONTRACT_EXHAUSTION_MESH_API)
+            self.assertNotIn(retired_name, flowguard.__all__)
+            self.assertFalse(hasattr(flowguard, retired_name), retired_name)
+
+    def test_contract_exhaustion_uses_direct_current_relation_and_same_class_names(self):
+        self.assertEqual("same_class_case", flowguard.CONTRACT_MUTATION_SAME_CLASS_CASE)
+        self.assertEqual(
+            "unmaterialized_relation_id",
+            flowguard.CONTRACT_MUTATION_UNMATERIALIZED_RELATION_ID,
+        )
+        for current_name in (
+            "CONTRACT_MUTATION_SAME_CLASS_CASE",
+            "CONTRACT_MUTATION_UNMATERIALIZED_RELATION_ID",
+        ):
+            self.assertIn(current_name, flowguard.CONTRACT_EXHAUSTION_MESH_API)
+            self.assertTrue(hasattr(flowguard, current_name))
+        for retired_name in (
+            "CONTRACT_MUTATION_ANALOGOUS_DEFECT",
+            "CONTRACT_MUTATION_UNMATERIALIZED_SIMILARITY_ID",
+        ):
+            self.assertNotIn(retired_name, flowguard.CONTRACT_EXHAUSTION_MESH_API)
+            self.assertNotIn(retired_name, flowguard.__all__)
+            self.assertFalse(hasattr(flowguard, retired_name))
+
     def test_runner_and_internal_evidence_are_not_core(self):
         self.assertIn("RiskIntent", flowguard.REPORTING_HELPER_API)
         self.assertIn("KnownBadProof", flowguard.MODELING_HELPER_API)
@@ -211,12 +369,16 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("RiskEvidenceProof", flowguard.REPORTING_HELPER_API)
         self.assertIn("RiskEvidenceRow", flowguard.REPORTING_HELPER_API)
         self.assertIn("review_risk_evidence_ledger", flowguard.REPORTING_HELPER_API)
-        self.assertIn("DefectFamilyCase", flowguard.REPORTING_HELPER_API)
-        self.assertIn("DefectFamilyEvidence", flowguard.REPORTING_HELPER_API)
-        self.assertIn("DefectFamilyGate", flowguard.REPORTING_HELPER_API)
-        self.assertIn("DefectFamilyGatePlan", flowguard.REPORTING_HELPER_API)
-        self.assertIn("DefectFamilyGateReport", flowguard.REPORTING_HELPER_API)
-        self.assertIn("review_defect_family_gates", flowguard.REPORTING_HELPER_API)
+        for retired_name in (
+            "DefectFamilyCase",
+            "DefectFamilyEvidence",
+            "DefectFamilyGate",
+            "DefectFamilyGatePlan",
+            "DefectFamilyGateReport",
+            "review_defect_family_gates",
+        ):
+            self.assertNotIn(retired_name, flowguard.REPORTING_HELPER_API)
+            self.assertFalse(hasattr(flowguard, retired_name))
         self.assertIn("TestResultReuseTicket", flowguard.REPORTING_HELPER_API)
         self.assertIn("coerce_test_result_reuse_ticket", flowguard.REPORTING_HELPER_API)
         self.assertIn("test_result_reuse_gap_codes", flowguard.REPORTING_HELPER_API)
@@ -227,13 +389,16 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("MaintenanceObligation", flowguard.REPORTING_HELPER_API)
         self.assertIn("MaintenanceObligationReport", flowguard.REPORTING_HELPER_API)
         self.assertIn("build_maintenance_obligation_report", flowguard.REPORTING_HELPER_API)
-        self.assertIn("MaintenanceScanPlan", flowguard.REPORTING_HELPER_API)
-        self.assertIn("MaintenanceAction", flowguard.REPORTING_HELPER_API)
-        self.assertIn("review_maintenance_scan", flowguard.REPORTING_HELPER_API)
-        self.assertIn("maintenance_scan_plan_from_summary_report", flowguard.REPORTING_HELPER_API)
-        self.assertIn("maintenance_scan_template_files", flowguard.EVIDENCE_API)
-        self.assertNotIn("review_maintenance_scan", flowguard.CORE_API)
-        self.assertNotIn("maintenance_scan_plan_from_summary_report", flowguard.CORE_API)
+        for retired_name in (
+            "MaintenanceScanPlan",
+            "MaintenanceAction",
+            "review_maintenance_scan",
+            "maintenance_scan_plan_from_summary_report",
+            "maintenance_scan_template_files",
+        ):
+            self.assertNotIn(retired_name, flowguard.REPORTING_HELPER_API)
+            self.assertNotIn(retired_name, flowguard.EVIDENCE_API)
+            self.assertFalse(hasattr(flowguard, retired_name))
         self.assertIn("ArtifactUpgradeItem", flowguard.REPORTING_HELPER_API)
         self.assertIn("ArtifactUpgradeReport", flowguard.REPORTING_HELPER_API)
         self.assertIn("review_artifact_upgrades", flowguard.REPORTING_HELPER_API)
@@ -258,11 +423,15 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("review_code_structure_recommendation", flowguard.MODELING_HELPER_API)
         self.assertIn("existing_model_preflight_from_project", flowguard.MODELING_HELPER_API)
         self.assertNotIn("existing_model_preflight_from_project", flowguard.CORE_API)
-        self.assertIn("ModelAngleDeliberation", flowguard.MODELING_HELPER_API)
-        self.assertIn("ModelAngleReviewReport", flowguard.MODELING_HELPER_API)
-        self.assertIn("review_model_angle_deliberations", flowguard.MODELING_HELPER_API)
-        self.assertIn("model_angle_deliberation_template_files", flowguard.EVIDENCE_API)
-        self.assertNotIn("review_model_angle_deliberations", flowguard.CORE_API)
+        for retired_name in (
+            "ModelAngleDeliberation",
+            "ModelAngleReviewReport",
+            "review_model_angle_deliberations",
+            "model_angle_deliberation_template_files",
+        ):
+            self.assertNotIn(retired_name, flowguard.MODELING_HELPER_API)
+            self.assertNotIn(retired_name, flowguard.EVIDENCE_API)
+            self.assertFalse(hasattr(flowguard, retired_name))
         self.assertIn("RouteProfile", flowguard.MODELING_HELPER_API)
         self.assertIn("AIMaintenanceProfile", flowguard.MODELING_HELPER_API)
         self.assertIn("FieldLayerProfile", flowguard.MODELING_HELPER_API)
@@ -437,21 +606,25 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("transition_coverage_to_code_contracts", flowguard.MODELING_HELPER_API)
         self.assertIn("transition_coverage_to_model_obligations", flowguard.MODELING_HELPER_API)
         self.assertIn("ui_interaction_model_to_transition_coverage", flowguard.MODELING_HELPER_API)
-        self.assertIn("ModelSignature", flowguard.MODELING_HELPER_API)
-        self.assertIn("ModelSimilarityPlan", flowguard.MODELING_HELPER_API)
-        self.assertIn("ModelSimilarityRelation", flowguard.MODELING_HELPER_API)
-        self.assertIn("ModelSimilarityReport", flowguard.MODELING_HELPER_API)
-        self.assertIn("ModelSimilarityMaintenanceGroup", flowguard.MODELING_HELPER_API)
-        self.assertIn("ModelSimilarityChangeImpact", flowguard.MODELING_HELPER_API)
-        self.assertIn("ModelSimilarityTestObligation", flowguard.MODELING_HELPER_API)
-        self.assertIn("ModelSimilarityCodeObligation", flowguard.MODELING_HELPER_API)
-        self.assertIn("SimilarityHandoff", flowguard.MODELING_HELPER_API)
-        self.assertIn("model_signature_minimal", flowguard.MODELING_HELPER_API)
-        self.assertIn("model_signature_maintenance", flowguard.MODELING_HELPER_API)
-        self.assertIn("model_similarity_plan_for_changed_member", flowguard.MODELING_HELPER_API)
-        self.assertIn("review_model_similarity_consolidation", flowguard.MODELING_HELPER_API)
-        self.assertIn("RELATION_SAME_FAMILY_VARIANT", flowguard.MODELING_HELPER_API)
-        self.assertIn("RECOMMEND_ROUTE_ARCHITECTURE_REDUCTION", flowguard.MODELING_HELPER_API)
+        for retired_name in (
+            "ModelSignature",
+            "ModelSimilarityPlan",
+            "ModelSimilarityRelation",
+            "ModelSimilarityReport",
+            "ModelSimilarityMaintenanceGroup",
+            "ModelSimilarityChangeImpact",
+            "ModelSimilarityTestObligation",
+            "ModelSimilarityCodeObligation",
+            "SimilarityHandoff",
+            "model_signature_minimal",
+            "model_signature_maintenance",
+            "model_similarity_plan_for_changed_member",
+            "review_model_similarity_consolidation",
+            "RELATION_SAME_FAMILY_VARIANT",
+            "RECOMMEND_ROUTE_ARCHITECTURE_REDUCTION",
+        ):
+            self.assertNotIn(retired_name, flowguard.MODELING_HELPER_API)
+            self.assertFalse(hasattr(flowguard, retired_name))
         self.assertIn("ChildBoundaryChangeSummary", flowguard.MODELING_HELPER_API)
         self.assertIn("summarize_child_boundary_change", flowguard.MODELING_HELPER_API)
         self.assertIn("LayeredBoundaryProofPlan", flowguard.MODELING_HELPER_API)
@@ -475,6 +648,9 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("CompatibilitySurfaceClassification", flowguard.MODELING_HELPER_API)
         self.assertIn("ArchitectureReductionCandidate", flowguard.MODELING_HELPER_API)
         self.assertIn("ArchitectureReductionPlan", flowguard.MODELING_HELPER_API)
+        self.assertIn("ArchitectureReductionStepAssessment", flowguard.MODELING_HELPER_API)
+        self.assertIn("ArchitectureReductionStepCost", flowguard.MODELING_HELPER_API)
+        self.assertIn("STEP_ACTION_EXPLICIT_ON_DEMAND", flowguard.MODELING_HELPER_API)
         self.assertIn("review_architecture_reduction", flowguard.MODELING_HELPER_API)
         self.assertIn("COMPATIBILITY_SURFACE_PRUNE_CANDIDATE", flowguard.MODELING_HELPER_API)
         self.assertIn("COMPATIBILITY_ACTION_COLLECT_EVIDENCE", flowguard.MODELING_HELPER_API)
@@ -638,12 +814,9 @@ class ApiSurfaceTests(unittest.TestCase):
             "evidence_field_structure",
             "primary_path_authority",
             "agent_workflow_rehearsal",
-            "model_similarity_consolidation",
             "model_maturation_loop",
             "plan_detailing_compiler",
             "maintenance_obligation_memory",
-            "maintenance_scan_router",
-            "model_angle_deliberation",
             "development_process_simulator",
             "flowguard_closure_contract",
             "risk_evidence_ledger",
@@ -688,14 +861,11 @@ class ApiSurfaceTests(unittest.TestCase):
             "existing_model_preflight",
             "behavior_commitment_ledger",
             "primary_path_authority",
-            "model_angle_deliberation",
             "model_maturation_loop",
             "risk_template_library",
-            "maintenance_scan_router",
             "maintenance_obligation_memory",
             "field_lifecycle_mesh",
             "contract_exhaustion_mesh",
-            "model_similarity_consolidation",
             "architecture_reduction",
             "code_structure_recommendation",
             "structure_mesh_maintenance",
@@ -776,7 +946,8 @@ class ApiSurfaceTests(unittest.TestCase):
 
         miss = profiles["model_miss_review"]
         self.assertIn("combination case id", miss.minimal_inputs)
-        self.assertIn("interaction group upgrade", miss.outputs)
+        self.assertIn("ContractExhaustion case contributions", miss.outputs)
+        self.assertIn("ModelMaturation result", miss.outputs)
         self.assertIn("coverage receipt", miss.outputs)
 
     def test_contract_exhaustion_api_exports_coverage_universe_helpers(self):
@@ -845,12 +1016,12 @@ class ApiSurfaceTests(unittest.TestCase):
 
     def test_route_completeness_blocks_internal_public_exposure(self):
         profiles = flowguard.default_flowguard_route_profiles()
-        api_groups = tuple(flowguard.FLOWGUARD_ROUTE_API) + ("model_angle_deliberation",)
+        api_groups = tuple(flowguard.FLOWGUARD_ROUTE_API) + ("risk_template_library",)
 
         findings = flowguard.route_graph_completeness_findings(profiles, api_groups)
 
         self.assertIn("internal_route_exposed_publicly", {finding.code for finding in findings})
-        self.assertIn("model_angle_deliberation", {finding.owner_route for finding in findings})
+        self.assertIn("risk_template_library", {finding.owner_route for finding in findings})
 
     def test_field_layer_profiles_are_entry_only_and_preserve_expansion(self):
         layers = flowguard.default_field_layer_profiles()
@@ -882,12 +1053,12 @@ class ApiSurfaceTests(unittest.TestCase):
             self.assertNotIn(name, flowguard.REPORTING_HELPER_API)
             self.assertFalse(hasattr(flowguard, name), name)
 
-    def test_similarity_handoff_replaces_repeated_downstream_fields(self):
+    def test_canonical_relation_handoff_replaces_repeated_downstream_fields(self):
         for cls, removed in (
             (
                 flowguard.ExistingModelPreflight,
                 {
-                    "similarity_relation_ids",
+                    "relation_ids",
                     "similarity_maintenance_group_ids",
                     "similarity_change_impact_ids",
                     "impacted_similarity_model_ids",
@@ -897,28 +1068,28 @@ class ApiSurfaceTests(unittest.TestCase):
             (
                 flowguard.CodeStructureRecommendation,
                 {
-                    "similarity_relation_ids",
+                    "relation_ids",
                     "similarity_maintenance_group_ids",
-                    "similarity_code_obligation_ids",
+                    "relation_code_obligation_ids",
                 },
             ),
             (
                 flowguard.ModelTestAlignmentPlan,
                 {
-                    "similarity_relation_ids",
+                    "relation_ids",
                     "similarity_maintenance_group_ids",
-                    "similarity_test_obligation_ids",
-                    "same_family_similarity_relation_ids",
+                    "relation_test_obligation_ids",
+                    "same_family_relation_ids",
                     "evidence_duplicate_relation_ids",
                 },
             ),
             (
                 flowguard.ArchitectureReductionCandidate,
-                {"similarity_relation_ids", "similarity_code_obligation_ids"},
+                {"relation_ids", "relation_code_obligation_ids"},
             ),
         ):
             field_names = {field.name for field in fields(cls)}
-            self.assertIn("similarity_handoff", field_names)
+            self.assertIn("canonical_relation_handoff", field_names)
             self.assertTrue(removed.isdisjoint(field_names), cls.__name__)
 
     def test_api_docs_are_route_first_before_flat_helper_index(self):
@@ -937,6 +1108,81 @@ class ApiSurfaceTests(unittest.TestCase):
             flowguard.MODEL_SYSTEM_AUTHORITY_API,
         )
         self.assertTrue(callable(flowguard.build_current_model_revision))
+
+    def test_model_authority_api_exposes_current_effective_intent_contract(self):
+        expected = {
+            "CurrentEffectiveIntentView",
+            "EffectiveIntentTransition",
+            "EffectiveIntentOwnerBinding",
+            "EffectiveIntentBootstrapReceipt",
+            "LegacyIntentBootstrapDisposition",
+            "build_current_intent_bootstrap_receipt",
+            "build_current_effective_intent_view",
+            "bootstrap_current_effective_intent_view",
+            "validate_current_effective_intent_refinement",
+            "validate_current_effective_intent_view",
+            "load_current_accepted_revision_set",
+            "ModelRevisionPlan",
+            "preview_current_model_revision",
+        }
+
+        self.assertTrue(expected.issubset(flowguard.MODEL_SYSTEM_AUTHORITY_API))
+        for name in expected:
+            self.assertIn(name, flowguard.__all__, name)
+            self.assertTrue(hasattr(flowguard, name), name)
+
+        implementation_only = {
+            "LegacyIntentAuditEntry",
+            "derive_effective_intent_owner_bindings",
+            "fold_effective_intent_contributions",
+            "_bootstrap_source_audit",
+            "_load_accepted_revision_set",
+        }
+        self.assertTrue(
+            implementation_only.isdisjoint(flowguard.MODEL_SYSTEM_AUTHORITY_API)
+        )
+        for name in implementation_only:
+            self.assertFalse(hasattr(flowguard, name), name)
+
+    def test_model_authority_docs_name_current_intent_and_cli_surfaces(self):
+        text = (ROOT / "docs" / "api_surface.md").read_text(encoding="utf-8")
+        for name in (
+            "CurrentEffectiveIntentView",
+            "EffectiveIntentTransition",
+            "EffectiveIntentOwnerBinding",
+            "EffectiveIntentBootstrapReceipt",
+            "LegacyIntentBootstrapDisposition",
+            "build_current_intent_bootstrap_receipt",
+            "build_current_effective_intent_view",
+            "bootstrap_current_effective_intent_view",
+            "validate_current_effective_intent_refinement",
+            "validate_current_effective_intent_view",
+            "load_current_accepted_revision_set",
+            "ModelRevisionPlan",
+            "preview_current_model_revision",
+            "model-system-bootstrap",
+            "model-revision-intent-bootstrap",
+            "model-system-audit",
+            "model-revision-plan",
+            "model-revision-owner-evidence",
+            "model-revision-build",
+            "model-revision-activate",
+            "model-revision-rollback",
+        ):
+            self.assertIn(name, text)
+        normalized = " ".join(text.split())
+        self.assertIn(
+            "software, services, workflows, agents, pipelines, and mixed systems",
+            normalized,
+        )
+        self.assertIn(
+            "`model-system-bootstrap` establishes generation-one observed authority",
+            normalized,
+        )
+        self.assertIn(
+            "`model-revision-intent-bootstrap` moves an existing generation-one or legacy v4 lineage into its first cumulative v5 intent view",
+            normalized,
+        )
 
     def test_public_all_is_derived_from_api_groups_and_supplement(self):
         expected_supplement = (
@@ -961,11 +1207,8 @@ class ApiSurfaceTests(unittest.TestCase):
             "FLOWGUARD_SELF_MAINTENANCE_ROUTE_API",
             "FIELD_LIFECYCLE_MESH_API",
             "MAINTENANCE_OBLIGATION_MEMORY_API",
-            "MAINTENANCE_SCAN_ROUTE_API",
-            "MODEL_ANGLE_DELIBERATION_API",
             "MODEL_MESH_ROUTE_API",
             "MODEL_MISS_REVIEW_ROUTE_API",
-            "MODEL_SIMILARITY_ROUTE_API",
             "MODEL_TEST_ALIGNMENT_ROUTE_API",
             "MODEL_IMPACT_FRESHNESS_API",
             "MODEL_MATURATION_API",

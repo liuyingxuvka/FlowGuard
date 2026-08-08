@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
 
+from ._hashing import sha256_bytes as _sha256_bytes
 
 OBJECT_SCHEMA = "flowguard.evidence_object.v1"
 RUN_SCHEMA = "flowguard.evidence_run.v1"
@@ -42,10 +43,6 @@ class EvidenceLifecycleError(ValueError):
 
 def _canonical_bytes(payload: Mapping[str, Any]) -> bytes:
     return (json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
-
-
-def _sha256_bytes(value: bytes) -> str:
-    return "sha256:" + hashlib.sha256(value).hexdigest()
 
 
 def _sha256_file(path: Path) -> str:

@@ -29,11 +29,8 @@
       "args": [
         "-m",
         "pytest",
-        "tests/test_development_process_strategy.py",
-        "tests/test_development_process_strategy_benchmark.py",
         "tests/test_development_process_flow.py",
         "tests/test_development_process_simulator.py",
-        "tests/test_process_optimization_zero_residuals.py",
         "-q"
       ],
       "check_id": "check:flowguard-development-process-flow:native-authority",
@@ -41,8 +38,7 @@
       "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
-        "obligation:flowguard-development-process-flow:native-authority",
-        "obligation:flowguard-development-process-flow:process-strategy-equivalence"
+        "obligation:flowguard-development-process-flow:native-authority"
       ],
       "cwd_token": "repository_root",
       "depends_on_check_ids": [],
@@ -60,6 +56,18 @@
         },
         {
           "kind": "path",
+          "path": ".flowguard/development_process_flow/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/development_process_flow.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_contract_model.py"
+        },
+        {
+          "kind": "path",
           "path": "tests/test_development_process_flow.py"
         },
         {
@@ -67,12 +75,85 @@
           "path": "tests/test_development_process_simulator.py"
         },
         {
-          "kind": "role",
-          "role": "runtime_source"
+          "kind": "path",
+          "path": ".agents/skills/flowguard-development-process-flow/references/development_process_flow_protocol.md"
         },
         {
-          "kind": "role",
-          "role": "documentation_model"
+          "kind": "path",
+          "path": ".agents/skills/flowguard-development-process-flow/references/failure_triage_protocol.md"
+        }
+      ],
+      "kind": "command",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard-development-process-flow",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:native-authority",
+      "timeout_seconds": 300
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_development_process_strategy.py",
+        "tests/test_development_process_strategy_benchmark.py",
+        "tests/test_process_optimization_zero_residuals.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard-development-process-flow:process-strategy-equivalence",
+      "command": "python",
+      "coverage_rationale": "The strategy owner proves hard-equivalent candidate selection, bounded comparison, and zero residual duplicate paths without executing unrelated release or distribution tests.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard-development-process-flow:process-strategy-equivalence"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard-development-process-flow:process-strategy-equivalence",
+      "evidence_subject_id": "subject:flowguard-development-process-flow:process-strategy-equivalence",
+      "execution_owner_id": "owner:check:flowguard-development-process-flow:process-strategy-equivalence",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_strategy/active_change_baseline.json"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_strategy/architecture_reduction.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_strategy/code_structure.json"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_strategy/contract_exhaustion.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_strategy/field_lifecycle.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_strategy/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_strategy/preflight.json"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_strategy/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/development_process_strategy.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/_development_process_strategy_review.py"
         },
         {
           "kind": "path",
@@ -89,20 +170,142 @@
         {
           "kind": "path",
           "path": ".agents/skills/flowguard-development-process-flow/references/process_optimization_protocol.md"
-        },
-        {
-          "kind": "path",
-          "path": ".agents/skills/flowguard-development-process-flow/references/failure_triage_protocol.md"
-        },
-        {
-          "kind": "role",
-          "role": "test_dev"
         }
       ],
       "kind": "command",
       "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-development-process-flow",
-      "semantic_check_id": "semantic:check:flowguard-development-process-flow:native-authority",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:process-strategy-equivalence",
+      "timeout_seconds": 300
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_distribution_sync.py::AuthorProjectionSyncTests",
+        "-q"
+      ],
+      "check_id": "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+      "command": "python",
+      "coverage_rationale": "The author-shadow owner proves exact-role admission, peer-path preservation, atomic activation or rollback, and current-source enforcement through the focused author projection test class.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard-development-process-flow:author-shadow-sync-atomic-currentness"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+      "evidence_subject_id": "subject:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+      "execution_owner_id": "owner:check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_flow/model.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/distribution_sync.py"
+        },
+        {
+          "kind": "path",
+          "path": "scripts/install_flowguard_skills.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_distribution_sync.py"
+        },
+        {
+          "kind": "path",
+          "path": ".agents/skills/flowguard-development-process-flow/references/distribution_release_protocol.md"
+        }
+      ],
+      "kind": "command",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard-development-process-flow",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+      "timeout_seconds": 300
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_model_regression_manifest.py::ModelRegressionManifestTests::test_full_run_uses_one_initial_and_one_final_source_observation",
+        "tests/test_validation_owner_execution.py::test_final_currentness_drift_publishes_no_receipt_or_proof",
+        "tests/test_skill_native_checks.py::SkillNativeCheckTests::test_receipt_binds_every_declared_native_command_input",
+        "tests/test_skill_native_checks.py::SkillNativeCheckTests::test_resume_reuses_only_an_exact_current_terminal_pass",
+        "tests/test_full_validation_composition.py::FullValidationCompositionTests::test_native_receipts_use_a_store_separate_from_validation_lifecycle",
+        "-q"
+      ],
+      "check_id": "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+      "command": "python",
+      "coverage_rationale": "The validation-observation owner proves one initial and one final complete observation, zero per-leaf rediscovery, one receipt reconciliation, and fail-closed final currentness through two exact tests.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard-development-process-flow:validation-observation-bounded-currentness"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+      "evidence_subject_id": "subject:flowguard-development-process-flow:validation-observation-bounded-currentness",
+      "execution_owner_id": "owner:check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/development_process_flow/model.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_regressions.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/validation_owner_execution.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/validation_ownership.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/skill_native_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "scripts/run_flowguard_skill_native_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "scripts/check_flowguard_skill_suite.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_regression_manifest.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_validation_owner_execution.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_skill_native_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_full_validation_composition.py"
+        }
+      ],
+      "kind": "command",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard-development-process-flow",
+      "semantic_check_id": "semantic:check:flowguard-development-process-flow:validation-observation-bounded-currentness",
       "timeout_seconds": 300
     },
     {
@@ -179,7 +382,15 @@
       "input_selectors": [
         {
           "kind": "path",
+          "path": "examples/plan_detailing_compiler/__init__.py"
+        },
+        {
+          "kind": "path",
           "path": "examples/plan_detailing_compiler/model.py"
+        },
+        {
+          "kind": "path",
+          "path": "examples/plan_detailing_compiler/run_review.py"
         },
         {
           "kind": "path",
@@ -274,7 +485,15 @@
       "input_selectors": [
         {
           "kind": "path",
+          "path": "examples/flowguard_agent_workflow_rehearsal/__init__.py"
+        },
+        {
+          "kind": "path",
           "path": "examples/flowguard_agent_workflow_rehearsal/model.py"
+        },
+        {
+          "kind": "path",
+          "path": "examples/flowguard_agent_workflow_rehearsal/run_review.py"
         },
         {
           "kind": "path",
@@ -320,7 +539,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "The route proves current lifecycle ordering, read-only WorkContext planning identity, lightweight inactive optimization, bounded hard-equivalent process choice when activated, post-change routing, and independent source/shadow/formal/install/skill/Git freshness; provider execution/status proof, sibling semantics, global optimality, and external publication authority remain separate.",
+  "claim_boundary": "The route proves current lifecycle ordering, read-only WorkContext planning identity, lightweight inactive optimization, bounded hard-equivalent process choice when activated, post-change routing, and independent source, consumer projection, installed package, installed skill, model authority, OpenSpec, Git commit, tag, and GitHub Release freshness; provider execution/status proof, sibling semantics, global optimality, and the external hosts' own publication authority remain separate.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -328,6 +547,8 @@
         "obligation:flowguard-development-process-flow:plane-boundary",
         "obligation:flowguard-development-process-flow:native-authority",
         "obligation:flowguard-development-process-flow:process-strategy-equivalence",
+        "obligation:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "obligation:flowguard-development-process-flow:validation-observation-bounded-currentness",
         "obligation:flowguard-development-process-flow:evidence-closure",
         "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
         "obligation:flowguard-development-process-flow:plan-detailing:native-authority",
@@ -371,10 +592,13 @@
     "claim_boundary": "flowguard-development-process-flow owns every check's domain meaning; SkillGuard only reconciles the exact current declared-check inventory and terminal receipts in one fixed enforced closure.",
     "enforcement_level": "enforced",
     "integration_mode": "native-integrated",
-    "native_check_ids": [
-      "check:flowguard-development-process-flow:plane-boundary",
-      "check:flowguard-development-process-flow:native-authority",
-      "check:flowguard-development-process-flow:evidence-closure",
+      "native_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
       "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
       "check:flowguard-development-process-flow:plan-detailing:native-authority",
       "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
@@ -390,11 +614,14 @@
       "route:agent_workflow_rehearsal"
     ],
     "profile_id": "profile:flowguard-development-process-flow:fixed-enforced-declared-check-supervision",
-    "provider_runtime": {
-      "provider_id": "skillguard-local-provider",
-      "readiness_check_ids": [
-        "check:flowguard-development-process-flow:native-authority",
-        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+      "provider_runtime": {
+        "provider_id": "skillguard-local-provider",
+        "readiness_check_ids": [
+          "check:flowguard-development-process-flow:native-authority",
+          "check:flowguard-development-process-flow:process-strategy-equivalence",
+          "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+          "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+          "check:flowguard-development-process-flow:plan-detailing:native-authority",
         "check:flowguard-development-process-flow:agent-workflow:native-authority"
       ],
       "required_capability_ids": [
@@ -424,9 +651,23 @@
     "tests/test_development_process_simulator.py",
     ".flowguard/development_process_strategy",
     "flowguard/development_process_strategy.py",
+    "flowguard/_development_process_strategy_review.py",
     "tests/test_development_process_strategy.py",
     "tests/test_development_process_strategy_benchmark.py",
     "tests/test_process_optimization_zero_residuals.py",
+    "flowguard/distribution_sync.py",
+    "scripts/install_flowguard_skills.py",
+    "tests/test_distribution_sync.py",
+    "flowguard/model_regressions.py",
+    "flowguard/validation_owner_execution.py",
+    "flowguard/validation_ownership.py",
+    "flowguard/skill_native_checks.py",
+    "scripts/run_flowguard_skill_native_checks.py",
+    "scripts/check_flowguard_skill_suite.py",
+    "tests/test_model_regression_manifest.py",
+    "tests/test_validation_owner_execution.py",
+    "tests/test_skill_native_checks.py",
+    "tests/test_full_validation_composition.py",
     "examples/plan_detailing_compiler",
     "flowguard/plan_detailing.py",
     "tests/test_plan_detailing.py",
@@ -462,6 +703,21 @@
     {
       "authority": "target-native",
       "check_id": "check:flowguard-development-process-flow:native-authority",
+      "owner_id": "development_process_flow"
+    },
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard-development-process-flow:process-strategy-equivalence",
+      "owner_id": "development_process_flow"
+    },
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+      "owner_id": "development_process_flow"
+    },
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
       "owner_id": "development_process_flow"
     },
     {
@@ -515,7 +771,10 @@
         "summary": "Run the existing lifecycle simulator with a zero-ceremony inactive path, conditional hard-equivalent process optimization, continue/rework, peer-write, install, and background-liveness gates."
       },
       "check_ids": [
-        "check:flowguard-development-process-flow:native-authority"
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness"
       ],
       "output_artifact_ids": [],
       "step_id": "step:flowguard-development-process-flow:execute"

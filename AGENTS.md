@@ -21,7 +21,7 @@ Project record: `.flowguard/project.toml`; machine log: `.flowguard/adoption_log
 
 <!-- flowguard-rule:project.rendered_versions -->
 
-Current adoption record: FlowGuard check-engine version: `0.68.6`; FlowGuard schema version: `1.0`.
+Current adoption record: FlowGuard check-engine version: `0.68.7`; FlowGuard schema version: `1.0`.
 
 <!-- flowguard-rule:project.preflight_version_gate -->
 
@@ -37,7 +37,7 @@ Only the sole content-addressed `observed_implementation` head is current; targe
 
 <!-- flowguard-rule:model_system.revision_transaction -->
 
-Change model authority only through one accepted `ModelRevisionSet`; persist evidence before the pointer, and restore/compensate effects before rollback.
+Change model authority only through one accepted `ModelRevisionSet`; keep the revision-local delta distinct from its complete `CurrentEffectiveIntentView`, bind every current model owner exactly, persist evidence before the pointer, and restore/compensate effects before rollback.
 
 <!-- flowguard-rule:lifecycle.default_replacement -->
 

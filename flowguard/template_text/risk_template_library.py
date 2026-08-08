@@ -36,6 +36,7 @@ from flowguard import (
     harvest_risk_template_candidate,
     review_minimum_model_contract,
     review_template_harvest_closure,
+    review_template_reuse,
     search_risk_templates,
 )
 
@@ -113,10 +114,8 @@ def harvest_closure_review():
 def run_checks():
     return (
         search_public_templates(),
-        review_minimum_model_contract(
-            minimum_contract(),
-            template_reuse_review=template_reuse_review(),
-        ),
+        review_minimum_model_contract(minimum_contract()),
+        review_template_reuse(template_reuse_review()),
         candidate_harvest(write=False),
         *harvest_closure_review(),
     )
@@ -128,17 +127,19 @@ from model import run_checks
 
 
 def main() -> int:
-    search, review, harvest, harvest_review, closure = run_checks()
+    search, review, reuse, harvest, harvest_review, closure = run_checks()
     print(search.format_text())
     print()
     print(review.format_text())
+    print()
+    print(reuse.format_text())
     print()
     print(harvest.format_text())
     print()
     print(harvest_review.format_text())
     print()
     print(closure.format_text())
-    return 0 if search.matches and review.ok and review.status == "pass" and harvest.ok and closure.ok else 1
+    return 0 if search.matches and review.ok and reuse.ok and harvest.ok and closure.ok else 1
 
 
 if __name__ == "__main__":

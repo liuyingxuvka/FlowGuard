@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -33,6 +34,7 @@ from .behavior_plane import (
     BCL_PLANE_UNCLASSIFIED,
 )
 from .schema import SCHEMA_VERSION
+from .source_identity import canonical_source_bytes, source_file_fingerprint
 from .model_authority import SUBJECT_LANES, SUBJECT_NORMATIVE_TARGET
 from .primary_path_authority import (
     PPA_CONFIDENCE_BLOCKED,
@@ -48,6 +50,10 @@ from .primary_path_authority import (
 
 BEHAVIOR_COMMITMENT_ROUTE_ID = "behavior_commitment_ledger"
 BEHAVIOR_COMMITMENT_ORACLE_ID = "behavior_commitment_coverage_must_block"
+
+BCL_SOURCE_FILE_AGGREGATE_SCHEMA = "flowguard.behavior-source-file-aggregate.v1"
+BCL_SOURCE_INVENTORY_SCHEMA = "flowguard.behavior-source-inventory.v1"
+BCL_LIVE_SOURCE_IDENTITY_METADATA_KEY = "live_source_identity"
 
 BCL_SCOPE_ROUTINE = "routine"
 BCL_SCOPE_DONE = "done"
@@ -226,6 +232,19 @@ BCL_SOURCE_AUTHORITY_ROLES = (
     BCL_SOURCE_AUTHORITY_HISTORICAL,
 )
 
+BCL_SOURCE_CLASSIFICATION_EXTERNAL_NORMATIVE_CONTRACT = "external_normative_contract"
+BCL_SOURCE_CLASSIFICATION_OBSERVED_EXTERNAL_BEHAVIOR = "observed_external_behavior"
+BCL_SOURCE_CLASSIFICATION_IMPLEMENTATION = "implementation"
+BCL_SOURCE_CLASSIFICATION_TEST = "test"
+BCL_SOURCE_CLASSIFICATION_GENERATED_EVIDENCE = "generated_evidence"
+BCL_SOURCE_CLASSIFICATIONS = (
+    BCL_SOURCE_CLASSIFICATION_EXTERNAL_NORMATIVE_CONTRACT,
+    BCL_SOURCE_CLASSIFICATION_OBSERVED_EXTERNAL_BEHAVIOR,
+    BCL_SOURCE_CLASSIFICATION_IMPLEMENTATION,
+    BCL_SOURCE_CLASSIFICATION_TEST,
+    BCL_SOURCE_CLASSIFICATION_GENERATED_EVIDENCE,
+)
+
 BCL_DISPOSITION_MODELED = "modeled"
 BCL_DISPOSITION_DELEGATED = "delegated"
 BCL_DISPOSITION_SCOPED = "scoped"
@@ -367,6 +386,7 @@ class BehaviorSourceSurface:
     inventory_revision: str = ""
     discovery_evidence_ids: tuple[str, ...] = ()
     source_authority_role: str = BCL_SOURCE_AUTHORITY_NORMATIVE
+    source_classification: str = BCL_SOURCE_CLASSIFICATION_EXTERNAL_NORMATIVE_CONTRACT
     declared_semantics_fingerprint: str = ""
     coverage_disposition: str = BCL_DISPOSITION_MODELED
     delegated_owner_inventory_id: str = ""
@@ -376,8 +396,8 @@ class BehaviorSourceSurface:
     business_intent_ids: tuple[str, ...] = ()
     primary_path_id: str = ""
     delegates_to_primary_path: bool = False
-    similarity_relation_ids: tuple[str, ...] = ()
-    similarity_obligation_ids: tuple[str, ...] = ()
+    canonical_relation_ids: tuple[str, ...] = ()
+    relation_obligation_ids: tuple[str, ...] = ()
     freshness_state: str = BCL_SOURCE_FRESHNESS_UNCHECKED
     in_scope: bool = True
     scoped_out_reason: str = ""
@@ -404,6 +424,14 @@ class BehaviorSourceSurface:
             self,
             "source_authority_role",
             str(self.source_authority_role or BCL_SOURCE_AUTHORITY_NORMATIVE),
+        )
+        object.__setattr__(
+            self,
+            "source_classification",
+            str(
+                self.source_classification
+                or BCL_SOURCE_CLASSIFICATION_EXTERNAL_NORMATIVE_CONTRACT
+            ),
         )
         object.__setattr__(
             self,
@@ -434,8 +462,8 @@ class BehaviorSourceSurface:
         object.__setattr__(self, "business_intent_ids", _as_tuple(self.business_intent_ids))
         object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
         object.__setattr__(self, "delegates_to_primary_path", bool(self.delegates_to_primary_path))
-        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
-        object.__setattr__(self, "similarity_obligation_ids", _as_tuple(self.similarity_obligation_ids))
+        object.__setattr__(self, "canonical_relation_ids", _as_tuple(self.canonical_relation_ids))
+        object.__setattr__(self, "relation_obligation_ids", _as_tuple(self.relation_obligation_ids))
         object.__setattr__(
             self,
             "freshness_state",
@@ -451,6 +479,19 @@ class BehaviorSourceSurface:
     def has_scoped_disposition(self) -> bool:
         return bool(self.scoped_out_reason and self.owner and self.validation_boundary and self.rationale)
 
+    def licenses_external_commitment(self, commitment_id: str = "") -> bool:
+        """Return whether this row is current normative authority for a commitment."""
+
+        return bool(
+            self.in_scope
+            and self.freshness_state == BCL_SOURCE_FRESHNESS_CURRENT
+            and self.source_classification
+            == BCL_SOURCE_CLASSIFICATION_EXTERNAL_NORMATIVE_CONTRACT
+            and self.source_authority_role == BCL_SOURCE_AUTHORITY_NORMATIVE
+            and self.coverage_disposition == BCL_DISPOSITION_MODELED
+            and (not commitment_id or commitment_id in self.commitment_ids)
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "surface_id": self.surface_id,
@@ -463,6 +504,7 @@ class BehaviorSourceSurface:
             "inventory_revision": self.inventory_revision,
             "discovery_evidence_ids": list(self.discovery_evidence_ids),
             "source_authority_role": self.source_authority_role,
+            "source_classification": self.source_classification,
             "declared_semantics_fingerprint": self.declared_semantics_fingerprint,
             "coverage_disposition": self.coverage_disposition,
             "delegated_owner_inventory_id": self.delegated_owner_inventory_id,
@@ -472,8 +514,8 @@ class BehaviorSourceSurface:
             "business_intent_ids": list(self.business_intent_ids),
             "primary_path_id": self.primary_path_id,
             "delegates_to_primary_path": self.delegates_to_primary_path,
-            "similarity_relation_ids": list(self.similarity_relation_ids),
-            "similarity_obligation_ids": list(self.similarity_obligation_ids),
+            "canonical_relation_ids": list(self.canonical_relation_ids),
+            "relation_obligation_ids": list(self.relation_obligation_ids),
             "freshness_state": self.freshness_state,
             "in_scope": self.in_scope,
             "scoped_out_reason": self.scoped_out_reason,
@@ -856,8 +898,8 @@ class BehaviorCommitment:
     side_effects: tuple[str, ...] = ()
     variant_of_business_intent_id: str = ""
     external_differences: tuple[BehaviorExternalDifference | Mapping[str, Any], ...] = ()
-    similarity_relation_ids: tuple[str, ...] = ()
-    similarity_obligation_ids: tuple[str, ...] = ()
+    canonical_relation_ids: tuple[str, ...] = ()
+    relation_obligation_ids: tuple[str, ...] = ()
     surface_delegation_only: bool = False
     source_surface_ids: tuple[str, ...] = ()
     source_refs: tuple[str, ...] = ()
@@ -900,8 +942,8 @@ class BehaviorCommitment:
             "external_differences",
             tuple(_coerce_external_difference(item) for item in self.external_differences),
         )
-        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
-        object.__setattr__(self, "similarity_obligation_ids", _as_tuple(self.similarity_obligation_ids))
+        object.__setattr__(self, "canonical_relation_ids", _as_tuple(self.canonical_relation_ids))
+        object.__setattr__(self, "relation_obligation_ids", _as_tuple(self.relation_obligation_ids))
         object.__setattr__(self, "surface_delegation_only", bool(self.surface_delegation_only))
         object.__setattr__(self, "source_surface_ids", _as_tuple(self.source_surface_ids))
         object.__setattr__(self, "source_refs", _as_tuple(self.source_refs))
@@ -978,8 +1020,8 @@ class BehaviorCommitment:
             "side_effects": list(self.side_effects),
             "variant_of_business_intent_id": self.variant_of_business_intent_id,
             "external_differences": [item.to_dict() for item in self.external_differences],
-            "similarity_relation_ids": list(self.similarity_relation_ids),
-            "similarity_obligation_ids": list(self.similarity_obligation_ids),
+            "canonical_relation_ids": list(self.canonical_relation_ids),
+            "relation_obligation_ids": list(self.relation_obligation_ids),
             "surface_delegation_only": self.surface_delegation_only,
             "source_surface_ids": list(self.source_surface_ids),
             "source_refs": list(self.source_refs),
@@ -1367,6 +1409,555 @@ def _finding(
     )
 
 
+@dataclass(frozen=True)
+class BehaviorSourceFileIdentity:
+    """One repository-bounded file identity used by a BCL source surface."""
+
+    path: str
+    content_fingerprint: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "path": self.path,
+            "content_fingerprint": self.content_fingerprint,
+        }
+
+
+@dataclass(frozen=True)
+class BehaviorSourceSurfaceLiveIdentity:
+    """Resolved, current physical identity for one authored source surface."""
+
+    surface_id: str
+    source_ref: str
+    members: tuple[BehaviorSourceFileIdentity, ...]
+    content_fingerprint: str
+
+    @property
+    def member_paths(self) -> tuple[str, ...]:
+        return tuple(member.path for member in self.members)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "surface_id": self.surface_id,
+            "source_ref": self.source_ref,
+            "members": [member.to_dict() for member in self.members],
+            "content_fingerprint": self.content_fingerprint,
+        }
+
+
+@dataclass(frozen=True)
+class BehaviorSourceInventoryAuditReport:
+    """Read-only comparison between stored BCL identities and current files."""
+
+    ok: bool
+    project_root: str
+    live_inventory_fingerprint: str
+    live_inventory_revision: str
+    live_discovery_evidence_id: str
+    surface_identities: tuple[BehaviorSourceSurfaceLiveIdentity, ...] = ()
+    findings: tuple[BehaviorCommitmentFinding, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "project_root": self.project_root,
+            "live_inventory_fingerprint": self.live_inventory_fingerprint,
+            "live_inventory_revision": self.live_inventory_revision,
+            "live_discovery_evidence_id": self.live_discovery_evidence_id,
+            "surface_identities": [item.to_dict() for item in self.surface_identities],
+            "findings": [finding.to_dict() for finding in self.findings],
+        }
+
+
+_WINDOWS_DRIVE_PATH = re.compile(r"^[A-Za-z]:[/\\]")
+_GLOB_MAGIC = frozenset("*?[")
+_LIVE_SOURCE_RESOLUTION_CODES = frozenset(
+    {
+        "source_surface_ref_missing",
+        "source_surface_ref_unsafe",
+        "source_surface_glob_empty",
+        "source_surface_glob_unbounded",
+        "source_surface_anchor_missing",
+        "source_surface_member_duplicate",
+    }
+)
+
+
+def _canonical_sha256(value: Any) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _path_is_within_root(path: Path, root: Path) -> bool:
+    return path == root or root in path.parents
+
+
+def _source_ref_path_and_anchor(token: str) -> tuple[str, str]:
+    path_text, separator, anchor = token.partition("#")
+    return path_text.strip().replace("\\", "/"), anchor.strip() if separator else ""
+
+
+def _source_ref_path_is_unsafe(path_text: str) -> bool:
+    if not path_text or path_text.startswith(("/", "//")):
+        return True
+    if _WINDOWS_DRIVE_PATH.match(path_text):
+        return True
+    return ".." in Path(path_text).parts
+
+
+def _source_glob_has_fixed_directory_prefix(path_text: str) -> bool:
+    parts = tuple(part for part in path_text.split("/") if part not in ("", "."))
+    first_glob_index = next(
+        (
+            index
+            for index, part in enumerate(parts)
+            if any(character in part for character in _GLOB_MAGIC)
+        ),
+        -1,
+    )
+    return first_glob_index >= 1
+
+
+def _source_anchor_exists(path: Path, anchor: str) -> bool:
+    if not anchor:
+        return True
+    try:
+        text = canonical_source_bytes(path).decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    expected = " ".join(anchor.casefold().split())
+    for line in text.splitlines():
+        candidate = line.strip()
+        if candidate.startswith("#"):
+            candidate = candidate.lstrip("#").strip()
+        if " ".join(candidate.casefold().split()) == expected:
+            return True
+    return False
+
+
+def _resolve_behavior_source_surface(
+    project_root: Path,
+    surface: BehaviorSourceSurface,
+) -> tuple[BehaviorSourceSurfaceLiveIdentity, tuple[BehaviorCommitmentFinding, ...]]:
+    findings: list[BehaviorCommitmentFinding] = []
+    resolved_by_path: dict[str, Path] = {}
+    member_source_token: dict[str, str] = {}
+    tokens = tuple(part.strip() for part in surface.source_ref.split(";") if part.strip())
+    if not tokens:
+        findings.append(
+            _finding(
+                "source_surface_ref_missing",
+                "source surface has no repository source reference",
+                surface_id=surface.surface_id,
+            )
+        )
+
+    for token in tokens:
+        path_text, anchor = _source_ref_path_and_anchor(token)
+        if _source_ref_path_is_unsafe(path_text):
+            findings.append(
+                _finding(
+                    "source_surface_ref_unsafe",
+                    "source reference must remain inside the declared project root",
+                    surface_id=surface.surface_id,
+                    metadata={"source_ref_token": token},
+                )
+            )
+            continue
+
+        has_glob = any(character in path_text for character in _GLOB_MAGIC)
+        if has_glob:
+            if not _source_glob_has_fixed_directory_prefix(path_text):
+                findings.append(
+                    _finding(
+                        "source_surface_glob_unbounded",
+                        "source glob must have a fixed directory prefix before its first wildcard",
+                        surface_id=surface.surface_id,
+                        metadata={"source_ref_token": token},
+                    )
+                )
+                continue
+            try:
+                candidates = tuple(path for path in project_root.glob(path_text) if path.is_file())
+            except (OSError, ValueError):
+                candidates = ()
+            if not candidates:
+                findings.append(
+                    _finding(
+                        "source_surface_glob_empty",
+                        "bounded source glob resolves to no current files",
+                        surface_id=surface.surface_id,
+                        metadata={"source_ref_token": token},
+                    )
+                )
+                continue
+        else:
+            candidate = project_root / path_text
+            if not candidate.exists() or not candidate.is_file():
+                findings.append(
+                    _finding(
+                        "source_surface_ref_missing",
+                        "source reference does not resolve to a current file",
+                        surface_id=surface.surface_id,
+                        metadata={"source_ref_token": token},
+                    )
+                )
+                continue
+            candidates = (candidate,)
+
+        for candidate in candidates:
+            try:
+                resolved = candidate.resolve(strict=True)
+            except OSError:
+                findings.append(
+                    _finding(
+                        "source_surface_ref_missing",
+                        "source reference cannot be resolved to a current file",
+                        surface_id=surface.surface_id,
+                        metadata={"source_ref_token": token},
+                    )
+                )
+                continue
+            if not _path_is_within_root(resolved, project_root):
+                findings.append(
+                    _finding(
+                        "source_surface_ref_unsafe",
+                        "source reference resolves outside the declared project root",
+                        surface_id=surface.surface_id,
+                        metadata={"source_ref_token": token},
+                    )
+                )
+                continue
+            relative = resolved.relative_to(project_root).as_posix()
+            if relative in resolved_by_path:
+                findings.append(
+                    _finding(
+                        "source_surface_member_duplicate",
+                        "source surface resolves the same physical member more than once",
+                        surface_id=surface.surface_id,
+                        metadata={
+                            "source_ref_token": token,
+                            "first_source_ref_token": member_source_token[relative],
+                            "resolved_path": relative,
+                        },
+                    )
+                )
+                continue
+            resolved_by_path[relative] = resolved
+            member_source_token[relative] = token
+            if anchor and not _source_anchor_exists(resolved, anchor):
+                findings.append(
+                    _finding(
+                        "source_surface_anchor_missing",
+                        "source reference anchor is absent from the current file",
+                        surface_id=surface.surface_id,
+                        metadata={
+                            "source_ref_token": token,
+                            "resolved_path": relative,
+                            "anchor": anchor,
+                        },
+                    )
+                )
+
+    members = tuple(
+        BehaviorSourceFileIdentity(relative, source_file_fingerprint(resolved_by_path[relative]))
+        for relative in sorted(resolved_by_path)
+    )
+    if len(members) == 1:
+        content_fingerprint = members[0].content_fingerprint
+    elif members:
+        content_fingerprint = _canonical_sha256(
+            {
+                "schema_version": BCL_SOURCE_FILE_AGGREGATE_SCHEMA,
+                "members": [member.to_dict() for member in members],
+            }
+        )
+    else:
+        content_fingerprint = ""
+    return (
+        BehaviorSourceSurfaceLiveIdentity(
+            surface_id=surface.surface_id,
+            source_ref=surface.source_ref,
+            members=members,
+            content_fingerprint=content_fingerprint,
+        ),
+        tuple(findings),
+    )
+
+
+def _live_source_inventory_payload(
+    identities: Sequence[BehaviorSourceSurfaceLiveIdentity],
+) -> dict[str, Any]:
+    return {
+        "schema_version": BCL_SOURCE_INVENTORY_SCHEMA,
+        "surfaces": [
+            {
+                "surface_id": identity.surface_id,
+                "source_ref": identity.source_ref,
+                "members": [member.to_dict() for member in identity.members],
+                "content_fingerprint": identity.content_fingerprint,
+            }
+            for identity in sorted(identities, key=lambda item: item.surface_id)
+        ],
+    }
+
+
+def audit_behavior_commitment_source_inventory(
+    ledger: BehaviorCommitmentLedger | Mapping[str, Any],
+    project_root: str | Path,
+) -> BehaviorSourceInventoryAuditReport:
+    """Read current source files and compare them with stored BCL identities."""
+
+    normalized = behavior_commitment_ledger_from_mapping(ledger)
+    root = Path(project_root).resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError("behavior commitment project root must be a directory")
+
+    findings: list[BehaviorCommitmentFinding] = []
+    identities: list[BehaviorSourceSurfaceLiveIdentity] = []
+    for surface in normalized.source_surfaces:
+        identity, resolution_findings = _resolve_behavior_source_surface(root, surface)
+        identities.append(identity)
+        findings.extend(resolution_findings)
+        if identity.content_fingerprint != surface.content_fingerprint:
+            findings.append(
+                _finding(
+                    "source_surface_content_fingerprint_stale",
+                    "stored source fingerprint does not match current canonical file content",
+                    surface_id=surface.surface_id,
+                    metadata={
+                        "stored_fingerprint": surface.content_fingerprint,
+                        "live_fingerprint": identity.content_fingerprint,
+                    },
+                )
+            )
+        stored_identity = surface.metadata.get(BCL_LIVE_SOURCE_IDENTITY_METADATA_KEY, {})
+        stored_members = ()
+        if isinstance(stored_identity, Mapping):
+            stored_members = _as_tuple(stored_identity.get("member_paths", ()))
+        if stored_members != identity.member_paths:
+            findings.append(
+                _finding(
+                    "source_surface_membership_stale",
+                    "stored source membership does not match the current direct, composite, or glob expansion",
+                    surface_id=surface.surface_id,
+                    metadata={
+                        "stored_member_paths": list(stored_members),
+                        "live_member_paths": list(identity.member_paths),
+                    },
+                )
+            )
+
+    resolution_blocked = any(finding.code in _LIVE_SOURCE_RESOLUTION_CODES for finding in findings)
+    inventory_fingerprint = ""
+    inventory_revision = ""
+    discovery_evidence_id = ""
+    if not resolution_blocked:
+        inventory_fingerprint = _canonical_sha256(
+            _live_source_inventory_payload(identities)
+        )
+        digest = inventory_fingerprint.removeprefix("sha256:")
+        inventory_revision = f"source-inventory:{digest}"
+        discovery_evidence_id = f"source-inventory-discovery:{digest}"
+
+        for surface in normalized.source_surfaces:
+            if surface.inventory_revision != inventory_revision:
+                findings.append(
+                    _finding(
+                        "source_surface_inventory_revision_live_stale",
+                        "source row inventory revision does not match the live inventory",
+                        surface_id=surface.surface_id,
+                        metadata={
+                            "stored_revision": surface.inventory_revision,
+                            "live_revision": inventory_revision,
+                        },
+                    )
+                )
+            if surface.discovery_evidence_ids != (discovery_evidence_id,):
+                findings.append(
+                    _finding(
+                        "source_surface_discovery_evidence_live_stale",
+                        "source row discovery evidence does not identify the live inventory",
+                        surface_id=surface.surface_id,
+                        metadata={
+                            "stored_evidence_ids": list(surface.discovery_evidence_ids),
+                            "live_evidence_id": discovery_evidence_id,
+                        },
+                    )
+                )
+        if normalized.source_inventory_fingerprint != inventory_fingerprint:
+            findings.append(
+                _finding(
+                    "source_inventory_fingerprint_stale",
+                    "stored source inventory fingerprint does not match all live surface identities",
+                    metadata={
+                        "stored_fingerprint": normalized.source_inventory_fingerprint,
+                        "live_fingerprint": inventory_fingerprint,
+                    },
+                )
+            )
+        if normalized.source_inventory_revision != inventory_revision:
+            findings.append(
+                _finding(
+                    "source_inventory_revision_stale",
+                    "stored source inventory revision does not match the live inventory",
+                    metadata={
+                        "stored_revision": normalized.source_inventory_revision,
+                        "live_revision": inventory_revision,
+                    },
+                )
+            )
+        if normalized.source_inventory_evidence_ids != (discovery_evidence_id,):
+            findings.append(
+                _finding(
+                    "source_inventory_evidence_stale",
+                    "stored discovery evidence does not identify the live inventory",
+                    metadata={
+                        "stored_evidence_ids": list(normalized.source_inventory_evidence_ids),
+                        "live_evidence_id": discovery_evidence_id,
+                    },
+                )
+            )
+
+    return BehaviorSourceInventoryAuditReport(
+        ok=not findings,
+        project_root=root.as_posix(),
+        live_inventory_fingerprint=inventory_fingerprint,
+        live_inventory_revision=inventory_revision,
+        live_discovery_evidence_id=discovery_evidence_id,
+        surface_identities=tuple(identities),
+        findings=tuple(findings),
+    )
+
+
+def refresh_behavior_commitment_source_inventory(
+    ledger: BehaviorCommitmentLedger | Mapping[str, Any],
+    project_root: str | Path,
+) -> BehaviorCommitmentLedger:
+    """Return a refreshed ledger without writing files or changing authored semantics."""
+
+    normalized = behavior_commitment_ledger_from_mapping(ledger)
+    audit = audit_behavior_commitment_source_inventory(normalized, project_root)
+    resolution_findings = tuple(
+        finding for finding in audit.findings if finding.code in _LIVE_SOURCE_RESOLUTION_CODES
+    )
+    if resolution_findings:
+        details = ", ".join(
+            f"{finding.surface_id or '<inventory>'}:{finding.code}"
+            for finding in resolution_findings
+        )
+        raise ValueError(f"behavior commitment source inventory cannot refresh: {details}")
+
+    identity_by_id = {identity.surface_id: identity for identity in audit.surface_identities}
+    refreshed_surfaces = []
+    for surface in normalized.source_surfaces:
+        identity = identity_by_id[surface.surface_id]
+        metadata = dict(surface.metadata)
+        metadata[BCL_LIVE_SOURCE_IDENTITY_METADATA_KEY] = {
+            "schema_version": BCL_SOURCE_FILE_AGGREGATE_SCHEMA,
+            "member_paths": list(identity.member_paths),
+        }
+        refreshed_surfaces.append(
+            replace(
+                surface,
+                content_fingerprint=identity.content_fingerprint,
+                inventory_revision=audit.live_inventory_revision,
+                discovery_evidence_ids=(audit.live_discovery_evidence_id,),
+                freshness_state=BCL_SOURCE_FRESHNESS_CURRENT,
+                metadata=metadata,
+            )
+        )
+    return replace(
+        normalized,
+        source_surfaces=tuple(refreshed_surfaces),
+        source_inventory_revision=audit.live_inventory_revision,
+        source_inventory_fingerprint=audit.live_inventory_fingerprint,
+        source_inventory_evidence_ids=(audit.live_discovery_evidence_id,),
+    )
+
+
+def _review_source_classification(
+    surface: BehaviorSourceSurface,
+    findings: list[BehaviorCommitmentFinding],
+) -> None:
+    """Keep physical source type separate from its authority participation."""
+
+    if surface.source_classification not in BCL_SOURCE_CLASSIFICATIONS:
+        findings.append(
+            _finding(
+                "source_surface_classification_invalid",
+                "expected source item must be classified as an external normative contract, observed external behavior, implementation, test, or generated evidence",
+                surface_id=surface.surface_id,
+            )
+        )
+        return
+    if (
+        surface.source_classification
+        == BCL_SOURCE_CLASSIFICATION_EXTERNAL_NORMATIVE_CONTRACT
+        and surface.source_authority_role != BCL_SOURCE_AUTHORITY_NORMATIVE
+    ):
+        findings.append(
+            _finding(
+                "source_surface_classification_role_mismatch",
+                "an external normative contract must use the normative authority role",
+                surface_id=surface.surface_id,
+            )
+        )
+    elif (
+        surface.source_classification
+        == BCL_SOURCE_CLASSIFICATION_OBSERVED_EXTERNAL_BEHAVIOR
+        and surface.source_authority_role != BCL_SOURCE_AUTHORITY_OBSERVED
+    ):
+        findings.append(
+            _finding(
+                "source_surface_classification_role_mismatch",
+                "observed external behavior must use the observed authority role",
+                surface_id=surface.surface_id,
+            )
+        )
+    elif (
+        surface.source_classification
+        in {
+            BCL_SOURCE_CLASSIFICATION_IMPLEMENTATION,
+            BCL_SOURCE_CLASSIFICATION_TEST,
+            BCL_SOURCE_CLASSIFICATION_GENERATED_EVIDENCE,
+        }
+        and surface.source_authority_role
+        not in {
+            BCL_SOURCE_AUTHORITY_SUPPORTING,
+            BCL_SOURCE_AUTHORITY_HISTORICAL,
+        }
+    ):
+        findings.append(
+            _finding(
+                "source_surface_classification_role_mismatch",
+                "implementation, test, and generated evidence may be supporting or historical evidence but cannot be normative or observed external authority",
+                surface_id=surface.surface_id,
+            )
+        )
+    if (
+        surface.source_classification
+        in {
+            BCL_SOURCE_CLASSIFICATION_IMPLEMENTATION,
+            BCL_SOURCE_CLASSIFICATION_TEST,
+            BCL_SOURCE_CLASSIFICATION_GENERATED_EVIDENCE,
+        }
+        and surface.coverage_disposition == BCL_DISPOSITION_MODELED
+    ):
+        findings.append(
+            _finding(
+                "source_surface_non_contract_authority_forbidden",
+                "implementation, test, and generated evidence cannot license an external behavior commitment; bind them through blueprint and native evidence inventories",
+                surface_id=surface.surface_id,
+            )
+        )
+
+
 def _review_complete_source_identity(
     surface: BehaviorSourceSurface,
     ledger: BehaviorCommitmentLedger,
@@ -1444,6 +2035,7 @@ def _review_complete_source_identity(
                 surface_id=surface.surface_id,
             )
         )
+    _review_source_classification(surface, findings)
     if surface.coverage_disposition not in BCL_COVERAGE_DISPOSITIONS:
         findings.append(
             _finding(
@@ -1503,11 +2095,20 @@ def _review_complete_source_identity(
 
 def review_behavior_commitment_ledger(
     ledger: BehaviorCommitmentLedger | Mapping[str, Any],
+    *,
+    project_root: str | Path | None = None,
 ) -> BehaviorCommitmentCoverageReport:
-    """Review a project/work-package behavior commitment ledger."""
+    """Review a ledger and optionally bind source freshness to a live project root."""
 
     ledger = behavior_commitment_ledger_from_mapping(ledger)
     findings: list[BehaviorCommitmentFinding] = []
+    if project_root is not None:
+        findings.extend(
+            audit_behavior_commitment_source_inventory(
+                ledger,
+                project_root,
+            ).findings
+        )
 
     if not ledger.ledger_id:
         findings.append(_finding("ledger_missing_id", "ledger must name a stable id"))
@@ -1712,9 +2313,13 @@ def review_behavior_commitment_ledger(
             _review_complete_source_identity(surface, ledger, findings)
         target = (
             normative_by_intent
-            if surface.source_authority_role == BCL_SOURCE_AUTHORITY_NORMATIVE
+            if surface.source_classification
+            == BCL_SOURCE_CLASSIFICATION_EXTERNAL_NORMATIVE_CONTRACT
+            and surface.source_authority_role == BCL_SOURCE_AUTHORITY_NORMATIVE
             else observed_by_intent
-            if surface.source_authority_role == BCL_SOURCE_AUTHORITY_OBSERVED
+            if surface.source_classification
+            == BCL_SOURCE_CLASSIFICATION_OBSERVED_EXTERNAL_BEHAVIOR
+            and surface.source_authority_role == BCL_SOURCE_AUTHORITY_OBSERVED
             else None
         )
         if target is not None and surface.declared_semantics_fingerprint:
@@ -1864,6 +2469,8 @@ def _review_surface(
     *,
     stable_identity_required: bool = False,
 ) -> None:
+    if not stable_identity_required:
+        _review_source_classification(surface, findings)
     if not surface.in_scope:
         if not surface.has_scoped_disposition():
             findings.append(
@@ -2092,6 +2699,26 @@ def _review_commitment(
                     commitment_id=commitment.commitment_id,
                     surface_id=surface_id,
                     metadata={"commitment": commitment.to_dict(), "surface": surface_by_id[surface_id].to_dict()},
+                )
+            )
+    if ledger.broad_claim() or ledger.require_complete_source_inventory:
+        normative_surface_ids = tuple(
+            surface_id
+            for surface_id in commitment.source_surface_ids
+            if surface_id in surface_by_id
+            and surface_by_id[surface_id].licenses_external_commitment(
+                commitment.commitment_id
+            )
+        )
+        if not normative_surface_ids:
+            findings.append(
+                _finding(
+                    "commitment_current_normative_source_missing",
+                    "broad commitment coverage requires a current external normative contract; observed behavior, implementation, tests, and generated evidence cannot license the promise",
+                    commitment_id=commitment.commitment_id,
+                    metadata={
+                        "source_surface_ids": list(commitment.source_surface_ids),
+                    },
                 )
             )
     if not commitment.primary_owner_model_id:
@@ -2410,6 +3037,18 @@ def default_behavior_commitment_axes(
         ContractAxis("actor_kind", model_id=model_id, values=BCL_ACTOR_KINDS, source_route=BEHAVIOR_COMMITMENT_ROUTE_ID),
         ContractAxis("source_kind", model_id=model_id, values=BCL_SOURCE_KINDS, source_route=BEHAVIOR_COMMITMENT_ROUTE_ID),
         ContractAxis(
+            "source_classification",
+            model_id=model_id,
+            values=BCL_SOURCE_CLASSIFICATIONS,
+            source_route=BEHAVIOR_COMMITMENT_ROUTE_ID,
+        ),
+        ContractAxis(
+            "source_authority_participation",
+            model_id=model_id,
+            values=BCL_SOURCE_AUTHORITY_ROLES,
+            source_route=BEHAVIOR_COMMITMENT_ROUTE_ID,
+        ),
+        ContractAxis(
             "source_mapping_state",
             model_id=model_id,
             values=("mapped", "source_surface_missing_commitment", "commitment_missing_source_ref", "not_bidirectional"),
@@ -2519,6 +3158,18 @@ def default_behavior_commitment_interaction_groups(
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
         ),
         ContractInteractionGroup(
+            "source_classification_authority",
+            model_id=model_id,
+            axis_ids=(
+                "source_classification",
+                "source_authority_participation",
+                "source_mapping_state",
+            ),
+            required_routes=routes + ("implementation_blueprint", "test_mesh_maintenance"),
+            max_combinations=max_combinations,
+            oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
+        ),
+        ContractInteractionGroup(
             "single_owner_evidence",
             model_id=model_id,
             axis_ids=("commitment_kind", "owner_state", "evidence_state"),
@@ -2610,7 +3261,7 @@ def default_behavior_commitment_interaction_groups(
             "delegate_surface_not_commitment",
             model_id=model_id,
             axis_ids=("surface_authority_role", "source_mapping_state", "primary_path_binding_shape"),
-            required_routes=routes + (PRIMARY_PATH_ROUTE_ID, "model_similarity_consolidation"),
+            required_routes=routes + (PRIMARY_PATH_ROUTE_ID,),
             max_combinations=max_combinations,
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
         ),
@@ -2818,6 +3469,12 @@ __all__ = [
     "BCL_SOURCE_AUTHORITY_ROLES",
     "BCL_SOURCE_AUTHORITY_SUPPORTING",
     "BCL_SOURCE_CLI",
+    "BCL_SOURCE_CLASSIFICATION_EXTERNAL_NORMATIVE_CONTRACT",
+    "BCL_SOURCE_CLASSIFICATION_GENERATED_EVIDENCE",
+    "BCL_SOURCE_CLASSIFICATION_IMPLEMENTATION",
+    "BCL_SOURCE_CLASSIFICATION_OBSERVED_EXTERNAL_BEHAVIOR",
+    "BCL_SOURCE_CLASSIFICATION_TEST",
+    "BCL_SOURCE_CLASSIFICATIONS",
     "BCL_SOURCE_CODE",
     "BCL_SOURCE_DOC",
     "BCL_SOURCE_FRESHNESS_CHANGED",
@@ -2825,6 +3482,9 @@ __all__ = [
     "BCL_SOURCE_FRESHNESS_MISSING",
     "BCL_SOURCE_FRESHNESS_STATES",
     "BCL_SOURCE_FRESHNESS_UNCHECKED",
+    "BCL_SOURCE_FILE_AGGREGATE_SCHEMA",
+    "BCL_SOURCE_INVENTORY_SCHEMA",
+    "BCL_LIVE_SOURCE_IDENTITY_METADATA_KEY",
     "BCL_SOURCE_FIELD",
     "BCL_SOURCE_KINDS",
     "BCL_SOURCE_WORK_CONTEXT",
@@ -2851,6 +3511,10 @@ __all__ = [
     "BehaviorLookupBinding",
     "BehaviorPathAuthorityBinding",
     "BehaviorSourceSurface",
+    "BehaviorSourceFileIdentity",
+    "BehaviorSourceSurfaceLiveIdentity",
+    "BehaviorSourceInventoryAuditReport",
+    "audit_behavior_commitment_source_inventory",
     "behavior_commitment_contract_exhaustion_plan",
     "behavior_commitment_ledger_fingerprint",
     "behavior_commitment_ledger_from_mapping",
@@ -2862,6 +3526,7 @@ __all__ = [
     "default_behavior_commitment_coverage_universe",
     "default_behavior_commitment_interaction_groups",
     "load_behavior_commitment_ledger",
+    "refresh_behavior_commitment_source_inventory",
     "review_behavior_commitment_ledger",
     "write_behavior_commitment_ledger",
 ]

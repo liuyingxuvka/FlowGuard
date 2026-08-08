@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .evidence_receipts import (
     EvidenceReceipt,
     ReceiptVerificationContext,
@@ -33,6 +34,14 @@ from .hierarchy import (
     OWNERSHIP_SHARED_KERNEL,
 )
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
+from .model_path_quality import (
+    PathQualityMaterialReview,
+    PathQualityResult,
+    PathQualitySubject,
+    normalize_path_quality_material,
+    path_quality_result_set_fingerprint,
+    review_path_quality_material,
+)
 from .test_reuse import (
     TestResultReuseTicket,
     coerce_test_result_reuse_ticket,
@@ -80,12 +89,6 @@ _DIAGNOSTIC_BOUNDARIES = {"targeted", "declared_complete", "budgeted"}
 _COVERAGE_DISPOSITIONS = {"modeled", "delegated", "scoped"}
 
 
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
-
-
 @dataclass(frozen=True)
 class TestPartitionItem:
     """One parent test partition owned by a child suite/script or parent gate."""
@@ -103,6 +106,7 @@ class TestPartitionItem:
     native_owner_id: str = ""
     required_native_evidence_ids: tuple[str, ...] = ()
     planning_context_only: bool = False
+    model_id: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "item_id", str(self.item_id))
@@ -128,6 +132,7 @@ class TestPartitionItem:
             "planning_context_only",
             bool(self.planning_context_only),
         )
+        object.__setattr__(self, "model_id", str(self.model_id))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -144,6 +149,7 @@ class TestPartitionItem:
                 self.required_native_evidence_ids
             ),
             "planning_context_only": self.planning_context_only,
+            "model_id": self.model_id,
         }
 
 
@@ -205,6 +211,10 @@ class TestSuiteEvidence:
     receipt_verification_context: ReceiptVerificationContext | None = None
     receipt_verification: ReceiptVerificationResult | None = None
     receipt_producer_id: str = ""
+    path_quality_model_fingerprints: Mapping[str, str] = field(default_factory=dict)
+    path_quality_subject_fingerprints: Mapping[str, str] = field(default_factory=dict)
+    path_quality_result_fingerprints: Mapping[str, str] = field(default_factory=dict)
+    path_quality_currentness_ids: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "suite_id", str(self.suite_id))
@@ -263,6 +273,23 @@ class TestSuiteEvidence:
         ):
             raise TypeError("receipt_verification_context must be a ReceiptVerificationContext")
         object.__setattr__(self, "receipt_producer_id", str(self.receipt_producer_id))
+        for name in (
+            "path_quality_model_fingerprints",
+            "path_quality_subject_fingerprints",
+            "path_quality_result_fingerprints",
+            "path_quality_currentness_ids",
+        ):
+            object.__setattr__(
+                self,
+                name,
+                {
+                    str(key): str(value)
+                    for key, value in sorted(
+                        dict(getattr(self, name)).items(),
+                        key=lambda item: str(item[0]),
+                    )
+                },
+            )
 
     def is_release_only(self) -> bool:
         return self.release_required or self.layer == TEST_LAYER_RELEASE
@@ -456,6 +483,18 @@ class TestSuiteEvidence:
                 else None
             ),
             "receipt_producer_id": self.receipt_producer_id,
+            "path_quality_model_fingerprints": dict(
+                self.path_quality_model_fingerprints
+            ),
+            "path_quality_subject_fingerprints": dict(
+                self.path_quality_subject_fingerprints
+            ),
+            "path_quality_result_fingerprints": dict(
+                self.path_quality_result_fingerprints
+            ),
+            "path_quality_currentness_ids": dict(
+                self.path_quality_currentness_ids
+            ),
         }
 
 
@@ -524,6 +563,12 @@ class TestMeshPlan:
     scoped_inventory_item_reasons: Mapping[str, str] = field(default_factory=dict)
     require_complete_inventory: bool = False
     require_final_receipts: bool = False
+    required_path_quality_model_ids: tuple[str, ...] = ()
+    path_quality_subjects: tuple[PathQualitySubject | Mapping[str, Any], ...] = ()
+    path_quality_results: tuple[PathQualityResult | Mapping[str, Any], ...] = ()
+    path_quality_currentness_id: str = ""
+    current_model_fingerprints: Mapping[str, str] = field(default_factory=dict)
+    path_quality_result_set_fingerprint: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_suite_id", str(self.parent_suite_id))
@@ -570,6 +615,46 @@ class TestMeshPlan:
         )
         object.__setattr__(self, "require_complete_inventory", bool(self.require_complete_inventory))
         object.__setattr__(self, "require_final_receipts", bool(self.require_final_receipts))
+        required_models, subjects, results = normalize_path_quality_material(
+            self.required_path_quality_model_ids,
+            self.path_quality_subjects,
+            self.path_quality_results,
+        )
+        result_set_fingerprint = (
+            path_quality_result_set_fingerprint(required_models, subjects, results)
+            if required_models or subjects or results
+            else ""
+        )
+        supplied_result_set_fingerprint = str(self.path_quality_result_set_fingerprint)
+        if (
+            supplied_result_set_fingerprint
+            and supplied_result_set_fingerprint != result_set_fingerprint
+        ):
+            raise ValueError("test mesh path-quality result set fingerprint is stale")
+        object.__setattr__(self, "required_path_quality_model_ids", required_models)
+        object.__setattr__(self, "path_quality_subjects", subjects)
+        object.__setattr__(self, "path_quality_results", results)
+        object.__setattr__(
+            self,
+            "path_quality_currentness_id",
+            str(self.path_quality_currentness_id),
+        )
+        object.__setattr__(
+            self,
+            "current_model_fingerprints",
+            {
+                str(key): str(value)
+                for key, value in sorted(
+                    dict(self.current_model_fingerprints).items(),
+                    key=lambda item: str(item[0]),
+                )
+            },
+        )
+        object.__setattr__(
+            self,
+            "path_quality_result_set_fingerprint",
+            result_set_fingerprint,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -601,6 +686,18 @@ class TestMeshPlan:
             "scoped_inventory_item_reasons": to_jsonable(dict(self.scoped_inventory_item_reasons)),
             "require_complete_inventory": self.require_complete_inventory,
             "require_final_receipts": self.require_final_receipts,
+            "required_path_quality_model_ids": list(self.required_path_quality_model_ids),
+            "path_quality_subjects": [
+                subject.to_dict() for subject in self.path_quality_subjects
+            ],
+            "path_quality_results": [
+                result.to_compact_dict() for result in self.path_quality_results
+            ],
+            "path_quality_currentness_id": self.path_quality_currentness_id,
+            "current_model_fingerprints": dict(self.current_model_fingerprints),
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
         }
 
 
@@ -649,6 +746,9 @@ class TestMeshReport:
     covered_inventory_item_ids: tuple[str, ...] = ()
     scoped_inventory_item_ids: tuple[str, ...] = ()
     missing_inventory_item_ids: tuple[str, ...] = ()
+    path_quality_result_set_fingerprint: str = ""
+    path_quality_verified_model_ids: tuple[str, ...] = ()
+    path_quality_blocked_model_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_suite_id", str(self.parent_suite_id))
@@ -671,6 +771,21 @@ class TestMeshReport:
             self,
             "missing_inventory_item_ids",
             _as_tuple(self.missing_inventory_item_ids),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_result_set_fingerprint",
+            str(self.path_quality_result_set_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_verified_model_ids",
+            _as_tuple(self.path_quality_verified_model_ids),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_blocked_model_ids",
+            _as_tuple(self.path_quality_blocked_model_ids),
         )
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
@@ -721,6 +836,15 @@ class TestMeshReport:
             "covered_inventory_item_ids": list(self.covered_inventory_item_ids),
             "scoped_inventory_item_ids": list(self.scoped_inventory_item_ids),
             "missing_inventory_item_ids": list(self.missing_inventory_item_ids),
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
+            "path_quality_verified_model_ids": list(
+                self.path_quality_verified_model_ids
+            ),
+            "path_quality_blocked_model_ids": list(
+                self.path_quality_blocked_model_ids
+            ),
             "summary": self.summary,
         }
 
@@ -737,6 +861,10 @@ def _decision_for_findings(findings: Sequence[TestMeshFinding]) -> str:
     blockers = _blocker_findings(findings)
     if not blockers:
         return "test_mesh_green_can_continue"
+    if any(
+        finding.code.startswith("path_quality_") for finding in blockers
+    ):
+        return "path_quality_test_evidence_required"
     priority = [
         ("test_inventory_revision_missing", "test_inventory_required"),
         ("test_inventory_required_items_missing", "test_inventory_required"),
@@ -1592,10 +1720,179 @@ def _leaf_matrix_evidence_findings(plan: TestMeshPlan) -> list[TestMeshFinding]:
     return findings
 
 
+def _path_quality_review(plan: TestMeshPlan) -> PathQualityMaterialReview:
+    return review_path_quality_material(
+        plan.required_path_quality_model_ids,
+        plan.path_quality_subjects,
+        plan.path_quality_results,
+        expected_currentness_id=plan.path_quality_currentness_id,
+        expected_model_fingerprints=plan.current_model_fingerprints,
+        require_exact_currentness=bool(plan.required_path_quality_model_ids),
+        require_exact_model_fingerprints=bool(plan.required_path_quality_model_ids),
+    )
+
+
+def _path_quality_findings(
+    plan: TestMeshPlan,
+    review: PathQualityMaterialReview,
+) -> tuple[list[TestMeshFinding], tuple[str, ...]]:
+    findings = [
+        TestMeshFinding(
+            gap.code,
+            "required model path-quality material is not exact-current and closed",
+            item_id=gap.model_id,
+            metadata={
+                "path_quality_gap": gap.to_dict(),
+                "path_quality_material": review.to_compact_dict(),
+            },
+        )
+        for gap in review.gaps
+    ]
+    subjects_by_model = {
+        subject.model_id: subject for subject in review.subjects
+    }
+    results_by_subject = {
+        result.subject_fingerprint: result for result in review.results
+    }
+    suites_by_id: dict[str, list[TestSuiteEvidence]] = {}
+    for suite in plan.child_suites:
+        suites_by_id.setdefault(suite.suite_id, []).append(suite)
+        declared_model_ids = (
+            set(suite.path_quality_model_fingerprints)
+            | set(suite.path_quality_subject_fingerprints)
+            | set(suite.path_quality_result_fingerprints)
+            | set(suite.path_quality_currentness_ids)
+        )
+        for model_id in sorted(declared_model_ids - set(review.required_model_ids)):
+            findings.append(
+                TestMeshFinding(
+                    "path_quality_test_binding_foreign_model",
+                    "test suite path-quality binding names a model outside the required denominator",
+                    suite_id=suite.suite_id,
+                    item_id=model_id,
+                )
+            )
+
+    consumer_blocked: set[str] = set(review.blocked_model_ids)
+    for model_id in review.required_model_ids:
+        subject = subjects_by_model.get(model_id)
+        result = (
+            results_by_subject.get(subject.fingerprint)
+            if subject is not None
+            else None
+        )
+        partition_items = tuple(
+            item for item in plan.partition_items if item.model_id == model_id
+        )
+        if not partition_items:
+            findings.append(
+                TestMeshFinding(
+                    "path_quality_test_partition_missing",
+                    "required model has no explicit test partition bound to its path-quality result",
+                    item_id=model_id,
+                )
+            )
+            consumer_blocked.add(model_id)
+            continue
+        exact_current_owner_found = False
+        for item in partition_items:
+            owners = tuple(suites_by_id.get(item.owner_suite_id, ()))
+            if len(owners) != 1:
+                findings.append(
+                    TestMeshFinding(
+                        "path_quality_test_suite_owner_missing_or_ambiguous",
+                        "path-quality test partition lacks one exact child-suite owner",
+                        suite_id=item.owner_suite_id,
+                        item_id=item.item_id,
+                    )
+                )
+                consumer_blocked.add(model_id)
+                continue
+            suite = owners[0]
+            exact = bool(
+                subject is not None
+                and result is not None
+                and suite.has_current_pass()
+                and suite.background_complete()
+                and suite.path_quality_model_fingerprints.get(model_id)
+                == subject.model_fingerprint
+                and suite.path_quality_subject_fingerprints.get(model_id)
+                == subject.fingerprint
+                and suite.path_quality_result_fingerprints.get(model_id)
+                == result.fingerprint
+                and suite.path_quality_currentness_ids.get(model_id)
+                == subject.currentness_id
+                == plan.path_quality_currentness_id
+            )
+            if exact:
+                exact_current_owner_found = True
+                continue
+            comparisons = (
+                (
+                    "path_quality_test_model_fingerprint_mismatch",
+                    suite.path_quality_model_fingerprints.get(model_id, ""),
+                    subject.model_fingerprint if subject is not None else "",
+                ),
+                (
+                    "path_quality_test_subject_fingerprint_mismatch",
+                    suite.path_quality_subject_fingerprints.get(model_id, ""),
+                    subject.fingerprint if subject is not None else "",
+                ),
+                (
+                    "path_quality_test_result_fingerprint_mismatch",
+                    suite.path_quality_result_fingerprints.get(model_id, ""),
+                    result.fingerprint if result is not None else "",
+                ),
+                (
+                    "path_quality_test_currentness_mismatch",
+                    suite.path_quality_currentness_ids.get(model_id, ""),
+                    subject.currentness_id if subject is not None else "",
+                ),
+            )
+            for code, actual, expected in comparisons:
+                if actual == expected and actual:
+                    continue
+                findings.append(
+                    TestMeshFinding(
+                        code,
+                        "test suite evidence does not consume the exact current model path-quality identity",
+                        suite_id=suite.suite_id,
+                        item_id=item.item_id,
+                        metadata={
+                            "model_id": model_id,
+                            "expected": expected,
+                            "actual": actual,
+                        },
+                    )
+                )
+            consumer_blocked.add(model_id)
+        if not exact_current_owner_found:
+            findings.append(
+                TestMeshFinding(
+                    "path_quality_test_evidence_missing",
+                    "required model has no current passing test owner bound to its exact path-quality result",
+                    item_id=model_id,
+                )
+            )
+            consumer_blocked.add(model_id)
+    if any(
+        finding.code == "path_quality_test_binding_foreign_model"
+        for finding in findings
+    ):
+        consumer_blocked.update(review.required_model_ids)
+    return findings, tuple(sorted(consumer_blocked))
+
+
 def review_test_mesh(plan: TestMeshPlan) -> TestMeshReport:
     """Review a test hierarchy without running the tests."""
 
-    findings = _partition_findings(plan)
+    path_quality_review = _path_quality_review(plan)
+    path_quality_findings, path_quality_blocked_model_ids = _path_quality_findings(
+        plan,
+        path_quality_review,
+    )
+    findings = list(path_quality_findings)
+    findings.extend(_partition_findings(plan))
     inventory_values = _inventory_findings(plan)
     findings.extend(inventory_values[0])
     findings.extend(_target_split_derivation_findings(plan))
@@ -1633,6 +1930,21 @@ def review_test_mesh(plan: TestMeshPlan) -> TestMeshReport:
         covered_inventory_item_ids=inventory_values[1],
         scoped_inventory_item_ids=inventory_values[2],
         missing_inventory_item_ids=inventory_values[3],
+        path_quality_result_set_fingerprint=(
+            path_quality_review.result_set_fingerprint
+            if (
+                plan.required_path_quality_model_ids
+                or plan.path_quality_subjects
+                or plan.path_quality_results
+            )
+            else ""
+        ),
+        path_quality_verified_model_ids=tuple(
+            model_id
+            for model_id in path_quality_review.verified_model_ids
+            if model_id not in set(path_quality_blocked_model_ids)
+        ),
+        path_quality_blocked_model_ids=path_quality_blocked_model_ids,
     )
 
 

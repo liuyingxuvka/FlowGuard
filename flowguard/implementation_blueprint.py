@@ -10,17 +10,26 @@ repository scanner unnecessarily.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import cached_property
+import hashlib
 import json
+import os
 from pathlib import Path
 from pathlib import PurePosixPath
+import shutil
+import stat
+import tempfile
 from typing import Any, Iterable, Mapping, Sequence
+import uuid
+import warnings
 
+from ._normalization import unique_sorted_strings as _tuple
 from .evidence_receipts import fingerprint_value
 from .export import to_jsonable
 from .portable_model import canonical_json_bytes
 
 
-BLUEPRINT_SCHEMA_VERSION = "1.0"
+BLUEPRINT_SCHEMA_VERSION = "1.2"
 
 STATIC_COMPLETE = "complete"
 STATIC_INCOMPLETE = "incomplete"
@@ -28,19 +37,6 @@ STATIC_STALE = "stale"
 STATIC_BLOCKED = "blocked"
 STATIC_STATUSES = frozenset(
     {STATIC_COMPLETE, STATIC_INCOMPLETE, STATIC_STALE, STATIC_BLOCKED}
-)
-
-RECONSTRUCTION_NOT_RUN = "not_run"
-RECONSTRUCTION_PASS = "pass"
-RECONSTRUCTION_FAIL = "fail"
-RECONSTRUCTION_BLOCKED = "blocked"
-RECONSTRUCTION_STATUSES = frozenset(
-    {
-        RECONSTRUCTION_NOT_RUN,
-        RECONSTRUCTION_PASS,
-        RECONSTRUCTION_FAIL,
-        RECONSTRUCTION_BLOCKED,
-    }
 )
 
 SEMANTIC_DIMENSIONS = frozenset(
@@ -73,7 +69,6 @@ BLUEPRINT_LAYER_INDEPENDENT_SEMANTICS = "independent_semantics"
 BLUEPRINT_LAYER_MODEL_CODE_TEST = "model_code_test"
 BLUEPRINT_LAYER_RESOURCE_ORACLE = "resource_oracle"
 BLUEPRINT_LAYER_STATIC = "static_blueprint"
-BLUEPRINT_LAYER_EMPIRICAL = "empirical_reconstruction"
 BLUEPRINT_LAYER_IDS = (
     BLUEPRINT_LAYER_INVENTORY,
     BLUEPRINT_LAYER_TRACEABILITY,
@@ -81,7 +76,6 @@ BLUEPRINT_LAYER_IDS = (
     BLUEPRINT_LAYER_MODEL_CODE_TEST,
     BLUEPRINT_LAYER_RESOURCE_ORACLE,
     BLUEPRINT_LAYER_STATIC,
-    BLUEPRINT_LAYER_EMPIRICAL,
 )
 RELATION_KINDS = frozenset(
     {
@@ -123,10 +117,6 @@ _SECRET_KEY_FRAGMENTS = ("password", "secret", "private_key", "access_token")
 
 class BlueprintValidationError(ValueError):
     """Raised when data cannot form a bounded canonical blueprint."""
-
-
-def _tuple(values: Iterable[str]) -> tuple[str, ...]:
-    return tuple(sorted({str(value) for value in values if str(value)}))
 
 
 def _pairs(values: Mapping[str, str] | Iterable[tuple[str, str]]) -> tuple[tuple[str, str], ...]:
@@ -201,6 +191,9 @@ class SemanticSpecReference:
     owner_id: str
     artifact_id: str
     artifact_fingerprint: str
+    source_id: str
+    source_owner_id: str
+    source_content_fingerprint: str
     covered_model_element_ids: tuple[str, ...]
     covered_dimensions: tuple[str, ...]
     semantics: tuple[tuple[str, str], ...]
@@ -230,7 +223,15 @@ class SemanticSpecReference:
         if unknown:
             raise BlueprintValidationError(f"unknown semantic dimensions: {sorted(unknown)}")
         if not all(
-            (self.semantic_spec_id, self.owner_id, self.artifact_id, self.artifact_fingerprint)
+            (
+                self.semantic_spec_id,
+                self.owner_id,
+                self.artifact_id,
+                self.artifact_fingerprint,
+                self.source_id,
+                self.source_owner_id,
+                self.source_content_fingerprint,
+            )
         ):
             raise BlueprintValidationError("semantic specification identity is incomplete")
         semantic_payload = dict(self.semantics)
@@ -250,6 +251,9 @@ class SemanticSpecReference:
             "owner_id": self.owner_id,
             "artifact_id": self.artifact_id,
             "artifact_fingerprint": self.artifact_fingerprint,
+            "source_id": self.source_id,
+            "source_owner_id": self.source_owner_id,
+            "source_content_fingerprint": self.source_content_fingerprint,
             "covered_model_element_ids": list(self.covered_model_element_ids),
             "covered_dimensions": list(self.covered_dimensions),
             "semantics": dict(self.semantics),
@@ -268,6 +272,9 @@ class OracleReference:
     owner_id: str
     artifact_id: str
     artifact_fingerprint: str
+    source_id: str
+    source_owner_id: str
+    source_content_fingerprint: str
     covered_model_element_ids: tuple[str, ...]
     covered_dimensions: tuple[str, ...]
     semantics: tuple[tuple[str, str], ...]
@@ -281,7 +288,17 @@ class OracleReference:
         unknown = set(self.covered_dimensions) - SEMANTIC_DIMENSIONS
         if unknown:
             raise BlueprintValidationError(f"unknown oracle dimensions: {sorted(unknown)}")
-        if not all((self.oracle_id, self.owner_id, self.artifact_id, self.artifact_fingerprint)):
+        if not all(
+            (
+                self.oracle_id,
+                self.owner_id,
+                self.artifact_id,
+                self.artifact_fingerprint,
+                self.source_id,
+                self.source_owner_id,
+                self.source_content_fingerprint,
+            )
+        ):
             raise BlueprintValidationError("oracle identity is incomplete")
         oracle_payload = dict(self.semantics)
         missing = set(self.covered_dimensions) - set(oracle_payload)
@@ -300,6 +317,9 @@ class OracleReference:
             "owner_id": self.owner_id,
             "artifact_id": self.artifact_id,
             "artifact_fingerprint": self.artifact_fingerprint,
+            "source_id": self.source_id,
+            "source_owner_id": self.source_owner_id,
+            "source_content_fingerprint": self.source_content_fingerprint,
             "covered_model_element_ids": list(self.covered_model_element_ids),
             "covered_dimensions": list(self.covered_dimensions),
             "semantics": dict(self.semantics),
@@ -318,6 +338,8 @@ class BlueprintResourceReference:
     artifact_id: str
     purpose: str
     lifecycle_role: str
+    consuming_behavior_ids: tuple[str, ...]
+    consuming_model_ids: tuple[str, ...]
     disposition: str = "current"
     artifact_fingerprint: str | None = None
     rationale: str | None = None
@@ -350,6 +372,10 @@ class BlueprintResourceReference:
                 "external or scoped resource requires an explicit rationale"
             )
         object.__setattr__(self, "semantics", _pairs(self.semantics))
+        object.__setattr__(
+            self, "consuming_behavior_ids", _tuple(self.consuming_behavior_ids)
+        )
+        object.__setattr__(self, "consuming_model_ids", _tuple(self.consuming_model_ids))
         if self.disposition == "current" and not self.semantics:
             raise BlueprintValidationError(
                 "current resource requires source-independent blueprint semantics"
@@ -365,6 +391,8 @@ class BlueprintResourceReference:
             "artifact_id": self.artifact_id,
             "purpose": self.purpose,
             "lifecycle_role": self.lifecycle_role,
+            "consuming_behavior_ids": list(self.consuming_behavior_ids),
+            "consuming_model_ids": list(self.consuming_model_ids),
             "disposition": self.disposition,
             "artifact_fingerprint": self.artifact_fingerprint,
             "rationale": self.rationale,
@@ -380,9 +408,13 @@ class BlueprintResourceReference:
 class ModelImplementationBinding:
     binding_id: str
     model_element_id: str
+    model_obligation_ids: tuple[str, ...]
     implementation_surface_id: str
     relation_kind: str
     owner_contract_id: str
+    implementation_source_id: str
+    implementation_owner_id: str
+    implementation_content_fingerprint: str
     semantic_spec_ids: tuple[str, ...]
     oracle_ids: tuple[str, ...]
     required_dimensions: tuple[str, ...] = ("input", "output", "error")
@@ -399,6 +431,7 @@ class ModelImplementationBinding:
         if self.relation_kind not in RELATION_KINDS:
             raise BlueprintValidationError(f"unknown binding relation: {self.relation_kind}")
         for name in (
+            "model_obligation_ids",
             "semantic_spec_ids",
             "oracle_ids",
             "required_dimensions",
@@ -414,12 +447,19 @@ class ModelImplementationBinding:
         unknown = set(self.required_dimensions) - SEMANTIC_DIMENSIONS
         if unknown:
             raise BlueprintValidationError(f"unknown required dimensions: {sorted(unknown)}")
+        if not self.model_obligation_ids:
+            raise BlueprintValidationError(
+                "binding requires at least one exact model obligation identity"
+            )
         if not all(
             (
                 self.binding_id,
                 self.model_element_id,
                 self.implementation_surface_id,
                 self.owner_contract_id,
+                self.implementation_source_id,
+                self.implementation_owner_id,
+                self.implementation_content_fingerprint,
             )
         ):
             raise BlueprintValidationError("binding identity is incomplete")
@@ -428,9 +468,13 @@ class ModelImplementationBinding:
         return {
             "binding_id": self.binding_id,
             "model_element_id": self.model_element_id,
+            "model_obligation_ids": list(self.model_obligation_ids),
             "implementation_surface_id": self.implementation_surface_id,
             "relation_kind": self.relation_kind,
             "owner_contract_id": self.owner_contract_id,
+            "implementation_source_id": self.implementation_source_id,
+            "implementation_owner_id": self.implementation_owner_id,
+            "implementation_content_fingerprint": self.implementation_content_fingerprint,
             "semantic_spec_ids": list(self.semantic_spec_ids),
             "oracle_ids": list(self.oracle_ids),
             "required_dimensions": list(self.required_dimensions),
@@ -492,7 +536,7 @@ class ModelImplementationBindingReport:
             "status": self.status,
         }
 
-    @property
+    @cached_property
     def fingerprint(self) -> str:
         return _fingerprinted(self.to_dict())
 
@@ -508,9 +552,18 @@ class ModelImplementationBindingReport:
 
     @property
     def model_obligation_ids(self) -> tuple[str, ...]:
-        """All model obligations required by this closure report."""
+        """Exact obligations owned by direct implementation bindings.
 
-        return self.required_model_element_ids
+        Supporting bindings keep the same obligation identities for
+        traceability, but they do not become a second implementation owner.
+        """
+
+        return _tuple(
+            obligation_id
+            for binding in self.bindings
+            if binding.relation_kind != "supports"
+            for obligation_id in binding.model_obligation_ids
+        )
 
     @property
     def semantic_spec_ids(self) -> tuple[str, ...]:
@@ -535,8 +588,9 @@ def _surface_id(surface: Any) -> str:
 
 def _surface_requires_binding(surface: Any) -> bool:
     disposition = str(_value(surface, "disposition", ""))
-    terminal = disposition in {"generated", "external", "scoped_out", "dead_retire"}
-    return not terminal and bool(
+    if disposition:
+        return disposition == "model_implementation"
+    return bool(
         _value(surface, "behavior_bearing", False)
         or _value(surface, "externally_meaningful", False)
         or _value(surface, "public", False)
@@ -587,7 +641,6 @@ def review_model_implementation_bindings(
             surface_id
             for surface_id, surface in surface_by_id.items()
             if _surface_requires_binding(surface)
-            or str(_value(surface, "disposition", "")) == "model_implementation"
         }
     else:
         required_surfaces = set(_tuple(required_implementation_surface_ids))
@@ -619,6 +672,13 @@ def review_model_implementation_bindings(
                 "blocked",
             )
         )
+
+    bindings_by_surface: dict[str, list[ModelImplementationBinding]] = {}
+    for binding in ordered_bindings:
+        bindings_by_surface.setdefault(
+            binding.implementation_surface_id,
+            [],
+        ).append(binding)
 
     if current_semantic_spec_fingerprints is not None:
         for reference in ordered_specs:
@@ -671,6 +731,16 @@ def review_model_implementation_bindings(
                     "blocked",
                 )
             )
+    declared_primary_models = set(primary_by_model) - required_models
+    if declared_primary_models:
+        findings.append(
+            BlueprintFinding(
+                "declared_model_element_unobserved",
+                "Primary model declarations are absent from the independent required-model denominator.",
+                tuple(sorted(declared_primary_models)),
+                "blocked",
+            )
+        )
 
     bound_surface_ids = {binding.implementation_surface_id for binding in ordered_bindings}
     for surface_id in sorted(required_surfaces - bound_surface_ids):
@@ -680,6 +750,45 @@ def review_model_implementation_bindings(
                 "Behavior-bearing implementation surface has no model or owner binding.",
                 (surface_id,),
                 "blocked",
+            )
+        )
+    declared_primary_surfaces = {
+        binding.implementation_surface_id
+        for binding in ordered_bindings
+        if binding.primary and not binding.delegating
+    } - required_surfaces
+    if declared_primary_surfaces:
+        findings.append(
+            BlueprintFinding(
+                "declared_implementation_surface_unobserved",
+                "Primary implementation bindings are absent from the independent required-surface denominator.",
+                tuple(sorted(declared_primary_surfaces)),
+                "blocked",
+            )
+        )
+
+    referenced_spec_ids = {
+        spec_id for binding in ordered_bindings for spec_id in binding.semantic_spec_ids
+    }
+    declared_spec_ids = set(spec_by_id) - referenced_spec_ids
+    if declared_spec_ids:
+        findings.append(
+            BlueprintFinding(
+                "declared_semantic_spec_unobserved",
+                "Semantic specifications are declared but no observed binding consumes them.",
+                tuple(sorted(declared_spec_ids)),
+            )
+        )
+    referenced_oracle_ids = {
+        oracle_id for binding in ordered_bindings for oracle_id in binding.oracle_ids
+    }
+    declared_oracle_ids = set(oracle_by_id) - referenced_oracle_ids
+    if declared_oracle_ids:
+        findings.append(
+            BlueprintFinding(
+                "declared_oracle_unobserved",
+                "Oracles are declared but no observed binding consumes them.",
+                tuple(sorted(declared_oracle_ids)),
             )
         )
 
@@ -695,6 +804,47 @@ def review_model_implementation_bindings(
                 )
             )
             continue
+
+        if binding.relation_kind == "supports":
+            owner_surface_id = str(
+                _value(
+                    surface,
+                    "owning_surface_id",
+                    _value(surface, "supporting_owner_surface_id", ""),
+                )
+            )
+            owner_bindings = tuple(
+                candidate
+                for candidate in bindings_by_surface.get(owner_surface_id, ())
+                if candidate.relation_kind != "supports"
+                and candidate.model_element_id == binding.model_element_id
+                and candidate.owner_contract_id == binding.owner_contract_id
+            )
+            if len(owner_bindings) != 1:
+                findings.append(
+                    BlueprintFinding(
+                        "supporting_obligation_owner_missing",
+                        "Supporting binding does not resolve to one exact direct behavior obligation owner.",
+                        (binding.binding_id, owner_surface_id),
+                        "blocked",
+                    )
+                )
+            elif (
+                binding.model_obligation_ids
+                != owner_bindings[0].model_obligation_ids
+            ):
+                findings.append(
+                    BlueprintFinding(
+                        "supporting_obligation_mismatch",
+                        "Supporting binding obligation identities differ from its exact direct behavior owner.",
+                        (
+                            binding.binding_id,
+                            owner_bindings[0].binding_id,
+                            *binding.model_obligation_ids,
+                        ),
+                        "blocked",
+                    )
+                )
 
         missing_specs = set(binding.semantic_spec_ids) - set(spec_by_id)
         missing_oracles = set(binding.oracle_ids) - set(oracle_by_id)
@@ -784,28 +934,6 @@ def review_model_implementation_bindings(
                     (binding.binding_id, *missing_semantics),
                 )
             )
-        independent_dimensions: set[str] = set()
-        for spec_id in binding.semantic_spec_ids:
-            reference = spec_by_id.get(spec_id)
-            if (
-                reference
-                and reference.authority_kind
-                in {
-                    SEMANTIC_AUTHORITY_DECLARED_BEHAVIOR,
-                    SEMANTIC_AUTHORITY_IMPORTED_MODEL,
-                }
-                and binding.model_element_id in reference.covered_model_element_ids
-            ):
-                independent_dimensions.update(reference.covered_dimensions)
-        missing_independent = required_dimensions - independent_dimensions
-        if missing_independent:
-            findings.append(
-                BlueprintFinding(
-                    "source_observation_not_independent",
-                    "Production-source observations cannot independently certify intended semantics.",
-                    (binding.binding_id, *missing_independent),
-                )
-            )
         if missing_oracle_dimensions:
             findings.append(
                 BlueprintFinding(
@@ -826,6 +954,122 @@ def review_model_implementation_bindings(
                 ),
             )
         )
+        if (
+            not current_surface_fp
+            or binding.implementation_content_fingerprint != current_surface_fp
+        ):
+            findings.append(
+                BlueprintFinding(
+                    "implementation_source_identity_mismatch",
+                    "Binding implementation source content does not match the current observed surface.",
+                    (
+                        binding.binding_id,
+                        binding.implementation_source_id,
+                        binding.implementation_surface_id,
+                    ),
+                    "stale" if current_surface_fp else "blocked",
+                )
+            )
+        observed_owner_id = str(_value(surface, "owner_id", ""))
+        if observed_owner_id and observed_owner_id != binding.implementation_owner_id:
+            findings.append(
+                BlueprintFinding(
+                    "implementation_source_owner_mismatch",
+                    "Binding implementation owner differs from the independently observed surface owner.",
+                    (
+                        binding.binding_id,
+                        binding.implementation_owner_id,
+                        observed_owner_id,
+                    ),
+                    "blocked",
+                )
+            )
+
+        referenced_specs = tuple(
+            reference
+            for spec_id in binding.semantic_spec_ids
+            if (reference := spec_by_id.get(spec_id)) is not None
+        )
+        referenced_oracles = tuple(
+            reference
+            for oracle_id in binding.oracle_ids
+            if (reference := oracle_by_id.get(oracle_id)) is not None
+        )
+        implementation_identity = (
+            binding.implementation_source_id,
+            binding.implementation_owner_id,
+            binding.implementation_content_fingerprint,
+        )
+        certifies_surface_semantics = binding.relation_kind != "supports"
+        for reference in referenced_specs:
+            semantic_identity = (
+                reference.source_id,
+                reference.source_owner_id,
+                reference.source_content_fingerprint,
+            )
+            if certifies_surface_semantics and (
+                semantic_identity == implementation_identity
+                or reference.source_id == binding.implementation_source_id
+                or reference.source_content_fingerprint
+                == binding.implementation_content_fingerprint
+            ):
+                findings.append(
+                    BlueprintFinding(
+                        "semantic_source_not_independent",
+                        "Semantic specification source identity overlaps the implementation source identity.",
+                        (
+                            binding.binding_id,
+                            reference.semantic_spec_id,
+                            reference.source_id,
+                            reference.source_owner_id,
+                        ),
+                        "blocked",
+                    )
+                )
+        for reference in referenced_oracles:
+            oracle_identity = (
+                reference.source_id,
+                reference.source_owner_id,
+                reference.source_content_fingerprint,
+            )
+            if certifies_surface_semantics and (
+                oracle_identity == implementation_identity
+                or reference.source_id == binding.implementation_source_id
+                or reference.source_content_fingerprint
+                == binding.implementation_content_fingerprint
+            ):
+                findings.append(
+                    BlueprintFinding(
+                        "oracle_source_not_independent",
+                        "Oracle source identity overlaps the implementation source identity.",
+                        (
+                            binding.binding_id,
+                            reference.oracle_id,
+                            reference.source_id,
+                            reference.source_owner_id,
+                        ),
+                        "blocked",
+                    )
+                )
+        for spec_reference in referenced_specs:
+            for oracle_reference in referenced_oracles:
+                if (
+                    spec_reference.source_id == oracle_reference.source_id
+                    or spec_reference.source_content_fingerprint
+                    == oracle_reference.source_content_fingerprint
+                ):
+                    findings.append(
+                        BlueprintFinding(
+                            "semantic_oracle_source_not_independent",
+                            "Semantic and oracle sources must retain distinct source and content identities.",
+                            (
+                                binding.binding_id,
+                                spec_reference.semantic_spec_id,
+                                oracle_reference.oracle_id,
+                            ),
+                            "blocked",
+                        )
+                    )
         if binding.implementation_fingerprint and current_surface_fp and (
             binding.implementation_fingerprint != current_surface_fp
         ):
@@ -1021,38 +1265,9 @@ class SoftwareBlueprintManifest:
             "excluded_source_ids": list(self.excluded_source_ids),
         }
 
-    @property
+    @cached_property
     def fingerprint(self) -> str:
         return _fingerprinted(self.to_dict())
-
-
-@dataclass(frozen=True)
-class ReconstructionEvidence:
-    receipt_id: str
-    blueprint_fingerprint: str
-    environment_fingerprint: str
-    isolated_environment: bool
-    source_access_policy: str
-    covered_oracle_ids: tuple[str, ...]
-    evidence_fingerprint: str
-    status: str
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "covered_oracle_ids", _tuple(self.covered_oracle_ids))
-        if self.status not in {RECONSTRUCTION_PASS, RECONSTRUCTION_FAIL, RECONSTRUCTION_BLOCKED}:
-            raise BlueprintValidationError("a supplied reconstruction receipt cannot be not_run")
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "receipt_id": self.receipt_id,
-            "blueprint_fingerprint": self.blueprint_fingerprint,
-            "environment_fingerprint": self.environment_fingerprint,
-            "isolated_environment": self.isolated_environment,
-            "source_access_policy": self.source_access_policy,
-            "covered_oracle_ids": list(self.covered_oracle_ids),
-            "evidence_fingerprint": self.evidence_fingerprint,
-            "status": self.status,
-        }
 
 
 @dataclass(frozen=True)
@@ -1065,8 +1280,7 @@ class BlueprintLayerResult:
     def __post_init__(self) -> None:
         if self.layer_id not in BLUEPRINT_LAYER_IDS:
             raise BlueprintValidationError(f"unknown blueprint layer: {self.layer_id}")
-        allowed = RECONSTRUCTION_STATUSES if self.layer_id == BLUEPRINT_LAYER_EMPIRICAL else STATIC_STATUSES
-        if self.status not in allowed:
+        if self.status not in STATIC_STATUSES:
             raise BlueprintValidationError(
                 f"invalid status for blueprint layer {self.layer_id}: {self.status}"
             )
@@ -1082,38 +1296,67 @@ class BlueprintLayerResult:
         }
 
 
+_BLUEPRINT_MANIFEST_QUALIFICATION_TOKEN = object()
+_BLUEPRINT_MANIFEST_QUALIFICATION_CLAIM_BOUNDARY = (
+    "Static manifest identity, inventory, traceability, independent-semantics "
+    "references, model-code-test bindings, resources, oracles, and current-"
+    "fingerprint consistency only; this child report does not establish canonical "
+    "target-system readiness, sufficient understanding, executed evidence, "
+    "implementation admission, or release readiness."
+)
+
+
 @dataclass(frozen=True)
-class SoftwareBlueprintQualificationReport:
+class BlueprintManifestQualificationReport:
     blueprint_id: str
     blueprint_fingerprint: str
-    static_status: str
-    empirical_status: str
+    static_manifest_status: str
+    layers: tuple[BlueprintLayerResult, ...]
     static_findings: tuple[BlueprintFinding, ...] = ()
-    empirical_findings: tuple[BlueprintFinding, ...] = ()
-    reconstruction_required: bool = False
-    layers: tuple[BlueprintLayerResult, ...] = ()
+    _derivation_token: object = field(
+        default=None,
+        repr=False,
+        compare=False,
+        kw_only=True,
+    )
 
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "static_findings", tuple(self.static_findings))
-        object.__setattr__(self, "empirical_findings", tuple(self.empirical_findings))
-        object.__setattr__(self, "layers", tuple(self.layers))
-        layer_ids = tuple(layer.layer_id for layer in self.layers)
-        if layer_ids and layer_ids != BLUEPRINT_LAYER_IDS:
-            raise BlueprintValidationError("blueprint qualification layers are not exact-current")
+    @classmethod
+    def _derived(cls, **values: Any) -> "BlueprintManifestQualificationReport":
+        """Build the bounded child report from the private manifest qualifier."""
 
-    @property
-    def ok(self) -> bool:
-        return self.static_status == STATIC_COMPLETE and (
-            not self.reconstruction_required or self.empirical_status == RECONSTRUCTION_PASS
+        return cls(
+            _derivation_token=_BLUEPRINT_MANIFEST_QUALIFICATION_TOKEN,
+            **values,
         )
 
+    def __post_init__(self) -> None:
+        if self._derivation_token is not _BLUEPRINT_MANIFEST_QUALIFICATION_TOKEN:
+            raise BlueprintValidationError(
+                "blueprint manifest qualification is derived by the private qualifier"
+            )
+        if not self.blueprint_id or not self.blueprint_fingerprint:
+            raise BlueprintValidationError(
+                "blueprint manifest qualification identity is incomplete"
+            )
+        if self.static_manifest_status not in STATIC_STATUSES:
+            raise BlueprintValidationError(
+                "blueprint manifest qualification status is invalid"
+            )
+        object.__setattr__(self, "static_findings", tuple(self.static_findings))
+        object.__setattr__(self, "layers", tuple(self.layers))
+        layer_ids = tuple(layer.layer_id for layer in self.layers)
+        if layer_ids != BLUEPRINT_LAYER_IDS:
+            raise BlueprintValidationError(
+                "blueprint manifest qualification layers are not exact-current"
+            )
+
     @property
-    def claim_text(self) -> str:
-        if self.static_status == STATIC_COMPLETE and self.empirical_status == RECONSTRUCTION_NOT_RUN:
-            return "blueprint complete; reconstruction not run"
-        if self.static_status == STATIC_COMPLETE and self.empirical_status == RECONSTRUCTION_PASS:
-            return "blueprint complete; reconstruction verified"
-        return f"blueprint {self.static_status}; reconstruction {self.empirical_status}"
+    def static_manifest_ready(self) -> bool:
+        return self.static_manifest_status == STATIC_COMPLETE
+
+    @property
+    def claim_boundary(self) -> str:
+        return _BLUEPRINT_MANIFEST_QUALIFICATION_CLAIM_BOUNDARY
 
     def layer_status(self, layer_id: str) -> str:
         for layer in self.layers:
@@ -1124,7 +1367,7 @@ class SoftwareBlueprintQualificationReport:
     @property
     def deepest_proven_layer(self) -> str:
         deepest = "none"
-        for layer_id in BLUEPRINT_LAYER_IDS[:-1]:
+        for layer_id in BLUEPRINT_LAYER_IDS:
             if self.layer_status(layer_id) != STATIC_COMPLETE:
                 break
             deepest = layer_id
@@ -1134,51 +1377,24 @@ class SoftwareBlueprintQualificationReport:
         return {
             "blueprint_id": self.blueprint_id,
             "blueprint_fingerprint": self.blueprint_fingerprint,
-            "static_status": self.static_status,
-            "empirical_status": self.empirical_status,
+            "static_manifest_status": self.static_manifest_status,
+            "static_manifest_ready": self.static_manifest_ready,
             "static_findings": [finding.to_dict() for finding in self.static_findings],
-            "empirical_findings": [finding.to_dict() for finding in self.empirical_findings],
-            "reconstruction_required": self.reconstruction_required,
             "layers": [layer.to_dict() for layer in self.layers],
             "deepest_proven_layer": self.deepest_proven_layer,
-            "ok": self.ok,
-            "claim_text": self.claim_text,
+            "claim_boundary": self.claim_boundary,
         }
-
-    def to_static_dict(self) -> dict[str, Any]:
-        """Project ordinary static qualification without specialist execution state."""
-
-        return {
-            "blueprint_id": self.blueprint_id,
-            "blueprint_fingerprint": self.blueprint_fingerprint,
-            "static_status": self.static_status,
-            "static_findings": [finding.to_dict() for finding in self.static_findings],
-            "layers": [
-                layer.to_dict()
-                for layer in self.layers
-                if layer.layer_id != BLUEPRINT_LAYER_EMPIRICAL
-            ],
-            "deepest_proven_layer": self.deepest_proven_layer,
-            "ok": self.static_status == STATIC_COMPLETE,
-            "claim_text": f"blueprint {self.static_status}",
-        }
-
-    @property
-    def static_fingerprint(self) -> str:
-        return _fingerprinted(self.to_static_dict())
 
     @property
     def fingerprint(self) -> str:
         return _fingerprinted(self.to_dict())
 
 
-def qualify_software_blueprint(
+def _qualify_blueprint_manifest(
     manifest: SoftwareBlueprintManifest,
     binding_report: ModelImplementationBindingReport,
     *,
     implementation_inventory: Any | None = None,
-    reconstruction_evidence: ReconstructionEvidence | None = None,
-    reconstruction_required: bool = False,
     current_observed_snapshot_fingerprint: str | None = None,
     current_semantic_mesh_fingerprint: str | None = None,
     current_test_inventory_fingerprint: str | None = None,
@@ -1186,8 +1402,8 @@ def qualify_software_blueprint(
     current_portable_owner_fingerprints: Mapping[str, str] | None = None,
     current_resource_fingerprints: Mapping[str, str] | None = None,
     current_oracle_fingerprints: Mapping[str, str] | None = None,
-) -> SoftwareBlueprintQualificationReport:
-    """Qualify static closure without implicitly scheduling reconstruction."""
+) -> BlueprintManifestQualificationReport:
+    """Derive bounded static-manifest consistency; never whole readiness."""
 
     static_findings = list(binding_report.findings)
     if implementation_inventory is not None:
@@ -1326,6 +1542,35 @@ def qualify_software_blueprint(
                         "stale",
                     )
                 )
+    for resource_item in manifest.resources:
+        if resource_item.disposition != "current":
+            continue
+        missing_consumer_kinds: list[str] = []
+        if not resource_item.consuming_behavior_ids:
+            missing_consumer_kinds.append("behavior")
+        if not resource_item.consuming_model_ids:
+            missing_consumer_kinds.append("model")
+        if missing_consumer_kinds:
+            static_findings.append(
+                BlueprintFinding(
+                    "resource_consumer_binding_missing",
+                    "Current blueprint resource lacks exact consuming behavior or model identities.",
+                    (resource_item.resource_id, *missing_consumer_kinds),
+                    "blocked",
+                )
+            )
+        unknown_model_consumers = set(resource_item.consuming_model_ids) - set(
+            binding_report.required_model_element_ids
+        )
+        if unknown_model_consumers:
+            static_findings.append(
+                BlueprintFinding(
+                    "resource_model_consumer_unobserved",
+                    "Resource references model consumers absent from the current binding denominator.",
+                    (resource_item.resource_id, *tuple(sorted(unknown_model_consumers))),
+                    "blocked",
+                )
+            )
     oracle_ids = {oracle.oracle_id for oracle in manifest.oracles}
     missing_oracle_ids = set(manifest.required_oracle_ids) - oracle_ids
     if missing_oracle_ids:
@@ -1352,69 +1597,8 @@ def qualify_software_blueprint(
                 )
 
     static_status = _status_from_findings(static_findings)
-    empirical_findings: list[BlueprintFinding] = []
-    empirical_status = RECONSTRUCTION_NOT_RUN
-    if reconstruction_evidence is not None:
-        empirical_status = reconstruction_evidence.status
-        if reconstruction_evidence.blueprint_fingerprint != manifest.fingerprint:
-            empirical_status = RECONSTRUCTION_BLOCKED
-            empirical_findings.append(
-                BlueprintFinding(
-                    "reconstruction_blueprint_mismatch",
-                    "Reconstruction receipt belongs to a different blueprint fingerprint.",
-                    (reconstruction_evidence.receipt_id,),
-                    "blocked",
-                )
-            )
-        if not reconstruction_evidence.isolated_environment:
-            empirical_status = RECONSTRUCTION_BLOCKED
-            empirical_findings.append(
-                BlueprintFinding(
-                    "reconstruction_not_isolated",
-                    "Reconstruction evidence does not declare an isolated environment.",
-                    (reconstruction_evidence.receipt_id,),
-                    "blocked",
-                )
-            )
-        if not reconstruction_evidence.source_access_policy:
-            empirical_status = RECONSTRUCTION_BLOCKED
-            empirical_findings.append(
-                BlueprintFinding(
-                    "source_access_policy_missing",
-                    "Reconstruction evidence lacks its source-access policy.",
-                    (reconstruction_evidence.receipt_id,),
-                    "blocked",
-                )
-            )
-        missing_covered = set(manifest.required_oracle_ids) - set(
-            reconstruction_evidence.covered_oracle_ids
-        )
-        if missing_covered:
-            empirical_status = RECONSTRUCTION_BLOCKED
-            empirical_findings.append(
-                BlueprintFinding(
-                    "reconstruction_oracle_coverage_missing",
-                    "Reconstruction evidence omits required oracles.",
-                    tuple(missing_covered),
-                    "blocked",
-                )
-            )
-        if not reconstruction_evidence.environment_fingerprint or not reconstruction_evidence.evidence_fingerprint:
-            empirical_status = RECONSTRUCTION_BLOCKED
-            empirical_findings.append(
-                BlueprintFinding(
-                    "reconstruction_evidence_identity_missing",
-                    "Reconstruction environment or evidence fingerprint is missing.",
-                    (reconstruction_evidence.receipt_id,),
-                    "blocked",
-                )
-            )
-
     ordered_static_findings = tuple(
         sorted(static_findings, key=lambda item: (item.severity, item.code, item.member_ids))
-    )
-    ordered_empirical_findings = tuple(
-        sorted(empirical_findings, key=lambda item: (item.severity, item.code, item.member_ids))
     )
 
     inventory_codes = {
@@ -1430,7 +1614,9 @@ def qualify_software_blueprint(
         "duplicate_binding_identity",
         "missing_primary_implementation",
         "duplicate_primary_implementation",
+        "declared_model_element_unobserved",
         "unbound_behavior_surface",
+        "declared_implementation_surface_unobserved",
         "missing_inventory_surface",
         "orphan_supporting_surface",
         "stale_implementation_binding",
@@ -1441,7 +1627,12 @@ def qualify_software_blueprint(
     semantic_codes = {
         "missing_semantic_reference",
         "semantic_dimensions_incomplete",
-        "source_observation_not_independent",
+        "semantic_source_not_independent",
+        "oracle_source_not_independent",
+        "semantic_oracle_source_not_independent",
+        "declared_semantic_spec_unobserved",
+        "implementation_source_identity_mismatch",
+        "implementation_source_owner_mismatch",
         "stale_semantic_specification",
         "stale_semantic_mesh",
         "stale_observed_model_snapshot",
@@ -1455,11 +1646,14 @@ def qualify_software_blueprint(
     }
     resource_codes = {
         "missing_oracle_reference",
+        "declared_oracle_unobserved",
         "oracle_dimensions_incomplete",
         "stale_oracle_reference",
         "required_resource_missing",
         "required_resource_kind_missing",
         "stale_resource_reference",
+        "resource_consumer_binding_missing",
+        "resource_model_consumer_unobserved",
         "required_oracle_missing",
         "stale_portable_owner",
     }
@@ -1485,23 +1679,14 @@ def qualify_software_blueprint(
             tuple(item.code for item in ordered_static_findings),
             tuple(member for item in ordered_static_findings for member in item.member_ids),
         ),
-        BlueprintLayerResult(
-            BLUEPRINT_LAYER_EMPIRICAL,
-            empirical_status,
-            tuple(item.code for item in ordered_empirical_findings),
-            tuple(member for item in ordered_empirical_findings for member in item.member_ids),
-        ),
     )
 
-    return SoftwareBlueprintQualificationReport(
+    return BlueprintManifestQualificationReport._derived(
         blueprint_id=manifest.blueprint_id,
         blueprint_fingerprint=manifest.fingerprint,
-        static_status=static_status,
-        empirical_status=empirical_status,
-        static_findings=ordered_static_findings,
-        empirical_findings=ordered_empirical_findings,
-        reconstruction_required=reconstruction_required,
+        static_manifest_status=static_status,
         layers=layers,
+        static_findings=ordered_static_findings,
     )
 
 
@@ -1528,7 +1713,7 @@ def derive_affected_blueprint_neighborhood(
     bindings: Sequence[ModelImplementationBinding],
     *,
     changed_member_ids: Iterable[str],
-    resource_ids: Iterable[str] = (),
+    resources: Sequence[BlueprintResourceReference],
 ) -> AffectedBlueprintNeighborhood:
     """Compute the smallest transitive binding neighborhood for changed identities."""
 
@@ -1547,6 +1732,14 @@ def derive_affected_blueprint_neighborhood(
                 *binding.consumer_surface_ids,
             }
         )
+    for resource in resources:
+        groups.append(
+            {
+                resource.resource_id,
+                *resource.consuming_behavior_ids,
+                *resource.consuming_model_ids,
+            }
+        )
     advanced = True
     while advanced:
         advanced = False
@@ -1554,7 +1747,7 @@ def derive_affected_blueprint_neighborhood(
             if closure.intersection(group) and not group.issubset(closure):
                 closure.update(group)
                 advanced = True
-    resource_set = set(_tuple(resource_ids))
+    resource_set = {resource.resource_id for resource in resources}
     return AffectedBlueprintNeighborhood(
         changed_member_ids=_tuple(changed),
         affected_binding_ids=_tuple(binding.binding_id for binding in bindings if binding.binding_id in closure),
@@ -1562,7 +1755,7 @@ def derive_affected_blueprint_neighborhood(
         affected_implementation_surface_ids=_tuple(binding.implementation_surface_id for binding in bindings if binding.implementation_surface_id in closure),
         affected_semantic_spec_ids=_tuple(spec_id for binding in bindings for spec_id in binding.semantic_spec_ids if spec_id in closure),
         affected_oracle_ids=_tuple(oracle_id for binding in bindings for oracle_id in binding.oracle_ids if oracle_id in closure),
-        affected_resource_ids=_tuple(resource_set.intersection(changed)),
+        affected_resource_ids=_tuple(resource_set.intersection(closure)),
     )
 
 
@@ -1607,7 +1800,7 @@ class BlueprintShard:
 
 
 @dataclass(frozen=True)
-class SoftwareBlueprintProjection:
+class CanonicalBlueprintProjection:
     blueprint_fingerprint: str
     shards: tuple[BlueprintShard, ...]
     reused_shard_ids: tuple[str, ...] = ()
@@ -1648,8 +1841,32 @@ def _make_shard(kind: str, members: Sequence[Any]) -> BlueprintShard:
     digest = fingerprint_value(list(payload))
     member_ids: list[str] = []
     for row in payload:
+        explicit_member_ids = row.get("member_ids", ())
+        if isinstance(explicit_member_ids, (list, tuple)):
+            member_ids.extend(
+                str(member_id) for member_id in explicit_member_ids if str(member_id)
+            )
         for key in (
-            "binding_id", "semantic_spec_id", "oracle_id", "resource_id", "blueprint_id"
+            "binding_id",
+            "semantic_spec_id",
+            "oracle_id",
+            "behavior_block_id",
+            "case_id",
+            "contribution_id",
+            "resource_id",
+            "test_node_id",
+            "node_id",
+            "relation_id",
+            "provider_id",
+            "model_element_id",
+            "member_id",
+            "object_id",
+            "behavior_shard_id",
+            "inventory_id",
+            "report_id",
+            "evidence_id",
+            "blueprint_id",
+            "readiness_kind",
         ):
             if row.get(key):
                 member_ids.append(str(row[key]))
@@ -1664,58 +1881,301 @@ def _make_shard(kind: str, members: Sequence[Any]) -> BlueprintShard:
     )
 
 
-def project_software_blueprint(
-    manifest: SoftwareBlueprintManifest,
-    binding_report: ModelImplementationBindingReport,
-    *,
-    implementation_inventory: Any,
-    previous_projection: SoftwareBlueprintProjection | None = None,
-    affected_neighborhood: AffectedBlueprintNeighborhood | None = None,
-) -> SoftwareBlueprintProjection:
-    """Create a canonical projection, reusing exact unaffected content shards."""
+PROJECT_BLUEPRINT_PROJECTION_KINDS = (
+    "affected_index",
+    "behavior_model",
+    "behavior_shards",
+    "bindings",
+    "identity",
+    "implementation_inventory",
+    "implementation_inventory_audit",
+    "intent_lineage",
+    "model_test_alignment",
+    "normalized_index",
+    "oracles",
+    "project_definition",
+    "project_evidence",
+    "provider_evidence",
+    "readiness",
+    "resources",
+    "semantics",
+    "shared_objects",
+    "test_inventory",
+    "topology",
+)
 
-    inventory_fingerprint = str(
-        _value(
-            implementation_inventory,
-            "inventory_fingerprint",
-            _value(implementation_inventory, "fingerprint", ""),
-        )
-    )
-    if inventory_fingerprint != manifest.inventory_fingerprint:
+
+def project_canonical_software_blueprint(
+    project_bundle: Any,
+    *,
+    previous_projection: CanonicalBlueprintProjection | None = None,
+    affected_neighborhood: AffectedBlueprintNeighborhood | None = None,
+) -> CanonicalBlueprintProjection:
+    """Project every portable layer of one exact project-blueprint snapshot."""
+
+    from .project_blueprint import ProjectBlueprintBundle
+
+    if not isinstance(project_bundle, ProjectBlueprintBundle):
         raise BlueprintValidationError(
-            "blueprint projection inventory does not match the manifest fingerprint"
+            "canonical project export requires the exact typed project blueprint bundle"
         )
-    candidates = (
-        _make_shard("identity", (manifest,)),
-        _make_shard("inventory", (implementation_inventory,)),
-        _make_shard("bindings", binding_report.bindings),
-        _make_shard("semantics", binding_report.semantic_specs),
-        _make_shard("oracles", manifest.oracles),
-        _make_shard("resources", manifest.resources),
-        _make_shard("gaps", binding_report.findings),
+    if not project_bundle.canonical_export_ready:
+        raise BlueprintValidationError(
+            "canonical project blueprint is missing export layers: "
+            + ", ".join(project_bundle.canonical_export_blockers)
+        )
+    assert project_bundle.definition is not None
+    assert project_bundle.project_evidence is not None
+    assert project_bundle.frozen_target_evidence is not None
+    assert project_bundle.behavior_report is not None
+    assert project_bundle.model_test_alignment_report is not None
+    assert project_bundle.topology_report is not None
+    assert project_bundle.resource_inventory is not None
+    assert project_bundle.intent_inventory is not None
+    assert project_bundle.normalized_projection is not None
+    assert project_bundle.normalized_affected_index is not None
+    assert project_bundle.test_inventory is not None
+    assert project_bundle.static_readiness is not None
+    assert project_bundle.target_system_report is not None
+
+    identity = {
+        "schema_version": BLUEPRINT_SCHEMA_VERSION,
+        "blueprint_id": project_bundle.manifest.blueprint_id,
+        "projection_kind": "project_blueprint",
+        "blueprint_fingerprint": project_bundle.fingerprint,
+        "project_blueprint_fingerprint": project_bundle.fingerprint,
+        "child_fingerprints": dict(project_bundle.canonical_child_fingerprints),
+        "software_manifest_fingerprint": project_bundle.manifest.fingerprint,
+        "software_manifest": project_bundle.manifest.to_dict(),
+        "target_blueprint_fingerprint": project_bundle.target_system_report.fingerprint,
+        "subject_revision": (
+            project_bundle.target_system_report.descriptor.subject_revision
+        ),
+    }
+    binding_report = {
+        "report_id": project_bundle.manifest.binding_report_id,
+        "report_fingerprint": project_bundle.binding_report.fingerprint,
+        "member_ids": [
+            project_bundle.manifest.binding_report_id,
+            *(binding.binding_id for binding in project_bundle.binding_report.bindings),
+            *project_bundle.binding_report.required_model_element_ids,
+            *project_bundle.binding_report.required_implementation_surface_ids,
+        ],
+        "report": project_bundle.binding_report.to_dict(),
+    }
+    behavior_shards = tuple(
+        dict(reference_shard)
+        for _shard_id, reference_shard in project_bundle.normalized_shards
     )
-    old_by_kind = {
-        shard.kind: shard for shard in previous_projection.shards
-    } if previous_projection is not None else {}
-    affected = set(affected_neighborhood.all_member_ids) if affected_neighborhood else set()
+    shared_objects = tuple(
+        {"object_id": object_id, "value": value}
+        for object_id, value in project_bundle.normalized_shared_objects
+    )
+    readiness = (
+        {
+            "readiness_kind": "static_manifest_qualification",
+            **project_bundle.qualification.to_dict(),
+        },
+        {"readiness_kind": "static_blueprint", **project_bundle.static_readiness.to_dict()},
+        {"readiness_kind": "target_system", **project_bundle.target_system_report.to_dict()},
+        {"readiness_kind": "ledger", **project_bundle.readiness_ledger.to_dict()},
+        {
+            "readiness_kind": "understanding",
+            **(
+                project_bundle.understanding_summary.to_dict()
+                if project_bundle.understanding_summary is not None
+                else {}
+            ),
+        },
+    )
+    candidates = (
+        _make_shard("identity", (identity,)),
+        _make_shard("project_definition", (project_bundle.definition,)),
+        _make_shard("project_evidence", (project_bundle.project_evidence,)),
+        _make_shard("provider_evidence", (project_bundle.frozen_target_evidence,)),
+        _make_shard("implementation_inventory", (project_bundle.inventory,)),
+        _make_shard(
+            "implementation_inventory_audit",
+            (project_bundle.implementation_inventory_audit,),
+        ),
+        _make_shard("bindings", (binding_report,)),
+        _make_shard("semantics", project_bundle.binding_report.semantic_specs),
+        _make_shard("oracles", project_bundle.binding_report.oracles),
+        _make_shard(
+            "behavior_model",
+            (project_bundle.behavior_report.to_normalized_reference_dict(),),
+        ),
+        _make_shard("behavior_shards", behavior_shards),
+        _make_shard("topology", (project_bundle.topology_report,)),
+        _make_shard(
+            "model_test_alignment",
+            (project_bundle.model_test_alignment_report,),
+        ),
+        _make_shard("test_inventory", (project_bundle.test_inventory,)),
+        _make_shard("resources", (project_bundle.resource_inventory,)),
+        _make_shard("intent_lineage", (project_bundle.intent_inventory,)),
+        _make_shard("normalized_index", (project_bundle.normalized_projection,)),
+        _make_shard(
+            "affected_index",
+            (project_bundle.normalized_affected_index,),
+        ),
+        _make_shard("shared_objects", shared_objects),
+        _make_shard("readiness", readiness),
+    )
+    kinds = tuple(sorted(shard.kind for shard in candidates))
+    expected_kinds = tuple(sorted(PROJECT_BLUEPRINT_PROJECTION_KINDS))
+    if kinds != expected_kinds:
+        raise BlueprintValidationError(
+            "canonical project projection kinds are not exact-current"
+        )
+
+    old_by_kind = (
+        {shard.kind: shard for shard in previous_projection.shards}
+        if previous_projection is not None
+        else {}
+    )
+    affected = (
+        set(affected_neighborhood.all_member_ids)
+        if affected_neighborhood is not None
+        else set()
+    )
     shards: list[BlueprintShard] = []
     reused: list[str] = []
     regenerated: list[str] = []
     for candidate in candidates:
         previous = old_by_kind.get(candidate.kind)
         category_affected = bool(affected.intersection(candidate.member_ids))
-        if previous is not None and previous.content_fingerprint == candidate.content_fingerprint and not category_affected:
+        if (
+            previous is not None
+            and previous.content_fingerprint == candidate.content_fingerprint
+            and not category_affected
+        ):
             shards.append(previous)
             reused.append(previous.shard_id)
         else:
             shards.append(candidate)
             regenerated.append(candidate.shard_id)
-    return SoftwareBlueprintProjection(
-        blueprint_fingerprint=manifest.fingerprint,
+    return CanonicalBlueprintProjection(
+        blueprint_fingerprint=project_bundle.fingerprint,
         shards=tuple(shards),
         reused_shard_ids=_tuple(reused),
         regenerated_shard_ids=_tuple(regenerated),
         affected_member_ids=_tuple(affected),
+    )
+
+
+PROJECT_BLUEPRINT_MATERIALIZATION_CLAIM_BOUNDARY = (
+    "the exact ProjectBlueprintBundle identity and its canonical child fingerprints "
+    "are rebound to all exact-current project shards; readiness remains the bundle result"
+)
+
+
+@dataclass(frozen=True)
+class ProjectBlueprintMaterializationVerification:
+    ok: bool
+    status: str
+    materialization: CanonicalBlueprintMaterialization
+    findings: tuple[BlueprintFinding, ...] = ()
+    claim_boundary: str = PROJECT_BLUEPRINT_MATERIALIZATION_CLAIM_BOUNDARY
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "materialization_ok": self.ok,
+            "materialization_status": self.status,
+            "projection_fingerprint": self.materialization.projection.fingerprint,
+            "tree_fingerprint": self.materialization.tree_fingerprint,
+            "generic_claim_boundary": self.materialization.claim_boundary,
+            "claim_boundary": self.claim_boundary,
+            "findings": [finding.to_dict() for finding in self.findings],
+        }
+
+
+def verify_materialized_project_blueprint_projection(
+    output_root: str | Path,
+    project_bundle: Any,
+) -> ProjectBlueprintMaterializationVerification:
+    """Rebind a generic disk projection to one exact project bundle."""
+
+    expected = project_canonical_software_blueprint(project_bundle)
+    materialization = load_canonical_blueprint_projection(output_root)
+    actual = materialization.projection
+    findings: list[BlueprintFinding] = []
+    actual_by_kind = {shard.kind: shard for shard in actual.shards}
+    expected_by_kind = {shard.kind: shard for shard in expected.shards}
+    if tuple(sorted(actual_by_kind)) != tuple(
+        sorted(PROJECT_BLUEPRINT_PROJECTION_KINDS)
+    ):
+        findings.append(
+            BlueprintFinding(
+                "project_projection_kind_set_mismatch",
+                "Materialized project projection does not have the exact current shard set.",
+                tuple(sorted(actual_by_kind)),
+                "blocked",
+            )
+        )
+    if actual.blueprint_fingerprint != project_bundle.fingerprint:
+        findings.append(
+            BlueprintFinding(
+                "project_projection_blueprint_rebind_mismatch",
+                "Projection envelope does not match the exact project bundle identity.",
+                severity="blocked",
+            )
+        )
+    if actual.fingerprint != expected.fingerprint:
+        findings.append(
+            BlueprintFinding(
+                "project_projection_manifest_rebind_mismatch",
+                "Materialized project manifest does not match the exact bundle projection.",
+                severity="blocked",
+            )
+        )
+
+    identity = actual_by_kind.get("identity")
+    identity_payload = (
+        identity.payload[0]
+        if identity is not None and len(identity.payload) == 1
+        else None
+    )
+    expected_children = dict(project_bundle.canonical_child_fingerprints)
+    if not isinstance(identity_payload, Mapping) or any(
+        (
+            identity_payload.get("projection_kind") != "project_blueprint",
+            identity_payload.get("blueprint_fingerprint")
+            != project_bundle.fingerprint,
+            identity_payload.get("project_blueprint_fingerprint")
+            != project_bundle.fingerprint,
+            identity_payload.get("child_fingerprints") != expected_children,
+        )
+    ):
+        findings.append(
+            BlueprintFinding(
+                "project_projection_identity_rebind_mismatch",
+                "Project identity shard is not derived from the exact bundle children.",
+                severity="blocked",
+            )
+        )
+
+    for kind in ("bindings", "semantics", "oracles", "readiness"):
+        actual_shard = actual_by_kind.get(kind)
+        expected_shard = expected_by_kind.get(kind)
+        if (
+            actual_shard is None
+            or expected_shard is None
+            or actual_shard.to_dict() != expected_shard.to_dict()
+        ):
+            findings.append(
+                BlueprintFinding(
+                    f"project_projection_{kind}_rebind_mismatch",
+                    f"Project {kind} shard is not derived from the exact bundle child reports.",
+                    (kind,),
+                    "blocked",
+                )
+            )
+    return ProjectBlueprintMaterializationVerification(
+        ok=not findings,
+        status="complete" if not findings else "blocked",
+        materialization=materialization,
+        findings=tuple(findings),
     )
 
 
@@ -1728,7 +2188,7 @@ class BlueprintProjectionVerification:
 
 
 def verify_blueprint_projection(
-    projection: SoftwareBlueprintProjection,
+    projection: CanonicalBlueprintProjection,
     *,
     expected_blueprint_fingerprint: str | None = None,
     expected_projection_fingerprint: str | None = None,
@@ -1833,387 +2293,6 @@ def verify_blueprint_projection(
     )
 
 
-def _strict_payload(
-    value: Any,
-    *,
-    context: str,
-    required: frozenset[str],
-    optional: frozenset[str] = frozenset(),
-) -> dict[str, Any]:
-    if not isinstance(value, Mapping):
-        raise BlueprintValidationError(f"{context} must be a JSON object")
-    data = {str(key): item for key, item in value.items()}
-    missing = required - set(data)
-    unexpected = set(data) - required - optional
-    if missing or unexpected:
-        raise BlueprintValidationError(
-            f"{context} fields are not current: missing={sorted(missing)}, "
-            f"unexpected={sorted(unexpected)}"
-        )
-    return data
-
-
-def _require_blueprint_schema(data: Mapping[str, Any], *, context: str) -> None:
-    if data.get("schema_version") != BLUEPRINT_SCHEMA_VERSION:
-        raise BlueprintValidationError(
-            f"{context} requires schema_version {BLUEPRINT_SCHEMA_VERSION!r}"
-        )
-
-
-def _finding_from_dict(value: Any) -> BlueprintFinding:
-    data = _strict_payload(
-        value,
-        context="blueprint finding",
-        required=frozenset({"code", "message", "member_ids", "severity"}),
-    )
-    return BlueprintFinding(
-        code=str(data["code"]),
-        message=str(data["message"]),
-        member_ids=tuple(str(item) for item in data["member_ids"]),
-        severity=str(data["severity"]),
-    )
-
-
-def _semantic_spec_from_dict(value: Any) -> SemanticSpecReference:
-    data = _strict_payload(
-        value,
-        context="semantic specification reference",
-        required=frozenset(
-            {
-                "semantic_spec_id",
-                "owner_id",
-                "artifact_id",
-                "artifact_fingerprint",
-                "covered_model_element_ids",
-                "covered_dimensions",
-                "semantics",
-                "authority_kind",
-                "provenance_fingerprints",
-            }
-        ),
-    )
-    provenance = data["provenance_fingerprints"]
-    if not isinstance(provenance, Mapping):
-        raise BlueprintValidationError(
-            "semantic specification provenance fingerprints must be a JSON object"
-        )
-    return SemanticSpecReference(
-        semantic_spec_id=str(data["semantic_spec_id"]),
-        owner_id=str(data["owner_id"]),
-        artifact_id=str(data["artifact_id"]),
-        artifact_fingerprint=str(data["artifact_fingerprint"]),
-        covered_model_element_ids=tuple(
-            str(item) for item in data["covered_model_element_ids"]
-        ),
-        covered_dimensions=tuple(str(item) for item in data["covered_dimensions"]),
-        semantics=tuple(
-            (str(key), str(item))
-            for key, item in _strict_payload(
-                data["semantics"],
-                context="semantic specification semantics",
-                required=frozenset(str(item) for item in data["covered_dimensions"]),
-            ).items()
-        ),
-        authority_kind=str(data["authority_kind"]),
-        provenance_fingerprints=tuple(
-            (str(key), str(item)) for key, item in provenance.items()
-        ),
-    )
-
-
-def _oracle_from_dict(value: Any) -> OracleReference:
-    data = _strict_payload(
-        value,
-        context="oracle reference",
-        required=frozenset(
-            {
-                "oracle_id",
-                "owner_id",
-                "artifact_id",
-                "artifact_fingerprint",
-                "covered_model_element_ids",
-                "covered_dimensions",
-                "semantics",
-            }
-        ),
-    )
-    return OracleReference(
-        oracle_id=str(data["oracle_id"]),
-        owner_id=str(data["owner_id"]),
-        artifact_id=str(data["artifact_id"]),
-        artifact_fingerprint=str(data["artifact_fingerprint"]),
-        covered_model_element_ids=tuple(
-            str(item) for item in data["covered_model_element_ids"]
-        ),
-        covered_dimensions=tuple(str(item) for item in data["covered_dimensions"]),
-        semantics=tuple(
-            (str(key), str(item))
-            for key, item in _strict_payload(
-                data["semantics"],
-                context="oracle semantics",
-                required=frozenset(str(item) for item in data["covered_dimensions"]),
-            ).items()
-        ),
-    )
-
-
-def _resource_from_dict(value: Any) -> BlueprintResourceReference:
-    data = _strict_payload(
-        value,
-        context="blueprint resource reference",
-        required=frozenset(
-            {
-                "resource_id",
-                "kind",
-                "owner_id",
-                "artifact_id",
-                "purpose",
-                "lifecycle_role",
-                "disposition",
-                "artifact_fingerprint",
-                "rationale",
-                "semantics",
-            }
-        ),
-    )
-    semantics = data["semantics"]
-    if not isinstance(semantics, Mapping):
-        raise BlueprintValidationError("resource semantics must be a JSON object")
-    return BlueprintResourceReference(
-        resource_id=str(data["resource_id"]),
-        kind=str(data["kind"]),
-        owner_id=str(data["owner_id"]),
-        artifact_id=str(data["artifact_id"]),
-        purpose=str(data["purpose"]),
-        lifecycle_role=str(data["lifecycle_role"]),
-        disposition=str(data["disposition"]),
-        artifact_fingerprint=(
-            None
-            if data["artifact_fingerprint"] is None
-            else str(data["artifact_fingerprint"])
-        ),
-        rationale=None if data["rationale"] is None else str(data["rationale"]),
-        semantics=tuple((str(key), str(item)) for key, item in semantics.items()),
-    )
-
-
-def _binding_from_dict(value: Any) -> ModelImplementationBinding:
-    data = _strict_payload(
-        value,
-        context="model implementation binding",
-        required=frozenset(
-            {
-                "binding_id",
-                "model_element_id",
-                "implementation_surface_id",
-                "relation_kind",
-                "owner_contract_id",
-                "semantic_spec_ids",
-                "oracle_ids",
-                "required_dimensions",
-                "consumer_surface_ids",
-                "test_evidence_ids",
-                "test_evidence_fingerprints",
-                "primary",
-                "delegating",
-                "model_fingerprint",
-                "implementation_fingerprint",
-                "owner_contract_fingerprint",
-            }
-        ),
-    )
-    return ModelImplementationBinding(
-        binding_id=str(data["binding_id"]),
-        model_element_id=str(data["model_element_id"]),
-        implementation_surface_id=str(data["implementation_surface_id"]),
-        relation_kind=str(data["relation_kind"]),
-        owner_contract_id=str(data["owner_contract_id"]),
-        semantic_spec_ids=tuple(str(item) for item in data["semantic_spec_ids"]),
-        oracle_ids=tuple(str(item) for item in data["oracle_ids"]),
-        required_dimensions=tuple(str(item) for item in data["required_dimensions"]),
-        consumer_surface_ids=tuple(str(item) for item in data["consumer_surface_ids"]),
-        test_evidence_ids=tuple(str(item) for item in data["test_evidence_ids"]),
-        test_evidence_fingerprints=tuple(
-            (str(key), str(item))
-            for key, item in _strict_payload(
-                data["test_evidence_fingerprints"],
-                context="binding test evidence fingerprints",
-                required=frozenset(str(item) for item in data["test_evidence_ids"]),
-            ).items()
-        ),
-        primary=bool(data["primary"]),
-        delegating=bool(data["delegating"]),
-        model_fingerprint=(
-            None if data["model_fingerprint"] is None else str(data["model_fingerprint"])
-        ),
-        implementation_fingerprint=(
-            None
-            if data["implementation_fingerprint"] is None
-            else str(data["implementation_fingerprint"])
-        ),
-        owner_contract_fingerprint=(
-            None
-            if data["owner_contract_fingerprint"] is None
-            else str(data["owner_contract_fingerprint"])
-        ),
-    )
-
-
-def model_implementation_binding_report_from_dict(
-    value: Any,
-) -> ModelImplementationBindingReport:
-    required = frozenset(
-        {
-            "schema_version",
-            "inventory_id",
-            "inventory_fingerprint",
-            "required_model_element_ids",
-            "required_implementation_surface_ids",
-            "bound_model_element_ids",
-            "bound_implementation_surface_ids",
-            "implementation_surface_ids",
-            "model_obligation_ids",
-            "semantic_spec_ids",
-            "oracle_ids",
-            "test_evidence_ids",
-            "bindings",
-            "semantic_specs",
-            "oracles",
-            "findings",
-            "status",
-        }
-    )
-    data = _strict_payload(value, context="binding report", required=required)
-    _require_blueprint_schema(data, context="binding report")
-    report = ModelImplementationBindingReport(
-        inventory_id=str(data["inventory_id"]),
-        inventory_fingerprint=str(data["inventory_fingerprint"]),
-        required_model_element_ids=tuple(
-            str(item) for item in data["required_model_element_ids"]
-        ),
-        required_implementation_surface_ids=tuple(
-            str(item) for item in data["required_implementation_surface_ids"]
-        ),
-        bound_model_element_ids=tuple(
-            str(item) for item in data["bound_model_element_ids"]
-        ),
-        bound_implementation_surface_ids=tuple(
-            str(item) for item in data["bound_implementation_surface_ids"]
-        ),
-        bindings=tuple(_binding_from_dict(item) for item in data["bindings"]),
-        semantic_specs=tuple(
-            _semantic_spec_from_dict(item) for item in data["semantic_specs"]
-        ),
-        oracles=tuple(_oracle_from_dict(item) for item in data["oracles"]),
-        findings=tuple(_finding_from_dict(item) for item in data["findings"]),
-        status=str(data["status"]),
-    )
-    derived = {
-        "implementation_surface_ids": list(report.implementation_surface_ids),
-        "model_obligation_ids": list(report.model_obligation_ids),
-        "semantic_spec_ids": list(report.semantic_spec_ids),
-        "oracle_ids": list(report.oracle_ids),
-        "test_evidence_ids": list(report.test_evidence_ids),
-    }
-    for key, expected in derived.items():
-        if data[key] != expected:
-            raise BlueprintValidationError(f"binding report derived field mismatch: {key}")
-    return report
-
-
-def software_blueprint_manifest_from_dict(value: Any) -> SoftwareBlueprintManifest:
-    data = _strict_payload(
-        value,
-        context="software blueprint manifest",
-        required=frozenset(
-            {
-                "schema_version",
-                "blueprint_id",
-                "observed_snapshot_id",
-                "observed_snapshot_fingerprint",
-                "inventory_id",
-                "inventory_fingerprint",
-                "binding_report_id",
-                "binding_report_fingerprint",
-                "semantic_mesh_id",
-                "semantic_mesh_fingerprint",
-                "test_inventory_id",
-                "test_inventory_fingerprint",
-                "model_test_alignment_report_id",
-                "model_test_alignment_report_fingerprint",
-                "portable_owner_fingerprints",
-                "resources",
-                "oracles",
-                "required_resource_ids",
-                "required_resource_kinds",
-                "required_oracle_ids",
-                "excluded_source_ids",
-            }
-        ),
-    )
-    _require_blueprint_schema(data, context="software blueprint manifest")
-    portable = data["portable_owner_fingerprints"]
-    if not isinstance(portable, Mapping):
-        raise BlueprintValidationError("portable owner fingerprints must be a JSON object")
-    return SoftwareBlueprintManifest(
-        blueprint_id=str(data["blueprint_id"]),
-        observed_snapshot_id=str(data["observed_snapshot_id"]),
-        observed_snapshot_fingerprint=str(data["observed_snapshot_fingerprint"]),
-        inventory_id=str(data["inventory_id"]),
-        inventory_fingerprint=str(data["inventory_fingerprint"]),
-        binding_report_id=str(data["binding_report_id"]),
-        binding_report_fingerprint=str(data["binding_report_fingerprint"]),
-        semantic_mesh_id=str(data["semantic_mesh_id"]),
-        semantic_mesh_fingerprint=str(data["semantic_mesh_fingerprint"]),
-        test_inventory_id=str(data["test_inventory_id"]),
-        test_inventory_fingerprint=str(data["test_inventory_fingerprint"]),
-        model_test_alignment_report_id=str(data["model_test_alignment_report_id"]),
-        model_test_alignment_report_fingerprint=str(
-            data["model_test_alignment_report_fingerprint"]
-        ),
-        portable_owner_fingerprints=tuple(
-            (str(key), str(item)) for key, item in portable.items()
-        ),
-        resources=tuple(_resource_from_dict(item) for item in data["resources"]),
-        oracles=tuple(_oracle_from_dict(item) for item in data["oracles"]),
-        required_resource_ids=tuple(str(item) for item in data["required_resource_ids"]),
-        required_resource_kinds=tuple(
-            str(item) for item in data["required_resource_kinds"]
-        ),
-        required_oracle_ids=tuple(str(item) for item in data["required_oracle_ids"]),
-        excluded_source_ids=tuple(str(item) for item in data["excluded_source_ids"]),
-    )
-
-
-def reconstruction_evidence_from_dict(value: Any) -> ReconstructionEvidence:
-    data = _strict_payload(
-        value,
-        context="reconstruction evidence",
-        required=frozenset(
-            {
-                "receipt_id",
-                "blueprint_fingerprint",
-                "environment_fingerprint",
-                "isolated_environment",
-                "source_access_policy",
-                "covered_oracle_ids",
-                "evidence_fingerprint",
-                "status",
-            }
-        ),
-    )
-    return ReconstructionEvidence(
-        receipt_id=str(data["receipt_id"]),
-        blueprint_fingerprint=str(data["blueprint_fingerprint"]),
-        environment_fingerprint=str(data["environment_fingerprint"]),
-        isolated_environment=bool(data["isolated_environment"]),
-        source_access_policy=str(data["source_access_policy"]),
-        covered_oracle_ids=tuple(str(item) for item in data["covered_oracle_ids"]),
-        evidence_fingerprint=str(data["evidence_fingerprint"]),
-        status=str(data["status"]),
-    )
-
-
 def _load_json_blueprint(path: str | Path, *, context: str) -> dict[str, Any]:
     try:
         value = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -2224,28 +2303,8 @@ def _load_json_blueprint(path: str | Path, *, context: str) -> dict[str, Any]:
     return value
 
 
-def load_model_implementation_binding_report(
-    path: str | Path,
-) -> ModelImplementationBindingReport:
-    return model_implementation_binding_report_from_dict(
-        _load_json_blueprint(path, context="binding report")
-    )
-
-
-def load_software_blueprint_manifest(path: str | Path) -> SoftwareBlueprintManifest:
-    return software_blueprint_manifest_from_dict(
-        _load_json_blueprint(path, context="software blueprint manifest")
-    )
-
-
-def load_reconstruction_evidence(path: str | Path) -> ReconstructionEvidence:
-    return reconstruction_evidence_from_dict(
-        _load_json_blueprint(path, context="reconstruction evidence")
-    )
-
-
-def serialize_software_blueprint_projection(
-    projection: SoftwareBlueprintProjection,
+def serialize_canonical_blueprint_projection(
+    projection: CanonicalBlueprintProjection,
 ) -> dict[str, bytes]:
     """Return canonical projection files without writing them."""
 
@@ -2268,49 +2327,497 @@ def serialize_software_blueprint_projection(
     return files
 
 
-def write_software_blueprint_projection(
-    projection: SoftwareBlueprintProjection,
+CANONICAL_BLUEPRINT_MATERIALIZATION_CLAIM_BOUNDARY = (
+    "exact-current directory ownership, manifest shape, and content-addressed "
+    "shard integrity only; target identity and readiness require a target-owned rebind"
+)
+
+
+@dataclass(frozen=True)
+class _ProjectionTreeSnapshot:
+    exists: bool
+    directories: tuple[str, ...]
+    files: tuple[tuple[str, str], ...]
+
+    @property
+    def fingerprint(self) -> str:
+        return fingerprint_value(
+            {
+                "exists": self.exists,
+                "directories": list(self.directories),
+                "files": [list(row) for row in self.files],
+            }
+        )
+
+
+@dataclass(frozen=True)
+class CanonicalBlueprintMaterialization:
+    """Strict current-schema disk projection with a bounded generic claim."""
+
+    projection: CanonicalBlueprintProjection
+    materialized_shards: tuple[tuple[str, Mapping[str, Any]], ...]
+    tree_fingerprint: str
+    verification: BlueprintProjectionVerification
+    claim_boundary: str = CANONICAL_BLUEPRINT_MATERIALIZATION_CLAIM_BOUNDARY
+
+    def materialized_shard_map(self) -> dict[str, Mapping[str, Any]]:
+        return dict(self.materialized_shards)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "materialization_ok": self.verification.ok,
+            "materialization_status": self.verification.status,
+            "claim_boundary": self.claim_boundary,
+            "blueprint_fingerprint": self.projection.blueprint_fingerprint,
+            "projection_fingerprint": self.projection.fingerprint,
+            "tree_fingerprint": self.tree_fingerprint,
+        }
+
+
+def _path_exists_no_follow(path: Path) -> bool:
+    return os.path.lexists(os.fspath(path))
+
+
+def _is_reparse_stat(value: os.stat_result) -> bool:
+    file_attributes = getattr(value, "st_file_attributes", 0)
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return stat.S_ISLNK(value.st_mode) or bool(file_attributes & reparse_flag)
+
+
+def _projection_tree_snapshot(root: Path) -> _ProjectionTreeSnapshot:
+    if not _path_exists_no_follow(root):
+        return _ProjectionTreeSnapshot(False, (), ())
+    try:
+        root_stat = os.lstat(root)
+    except OSError as exc:
+        raise BlueprintValidationError(
+            f"cannot inspect canonical projection root: {exc}"
+        ) from exc
+    if _is_reparse_stat(root_stat):
+        raise BlueprintValidationError(
+            "canonical projection tree cannot contain a reparse point"
+        )
+    if not stat.S_ISDIR(root_stat.st_mode):
+        raise BlueprintValidationError(
+            "canonical projection root must be a directory"
+        )
+
+    directories: list[str] = []
+    files: list[tuple[str, str]] = []
+    pending: list[tuple[Path, str]] = [(root, "")]
+    try:
+        while pending:
+            directory, prefix = pending.pop()
+            with os.scandir(directory) as iterator:
+                entries = sorted(iterator, key=lambda entry: entry.name)
+            for entry in entries:
+                relative = f"{prefix}/{entry.name}" if prefix else entry.name
+                relative = PurePosixPath(relative).as_posix()
+                entry_stat = entry.stat(follow_symlinks=False)
+                if _is_reparse_stat(entry_stat):
+                    raise BlueprintValidationError(
+                        "canonical projection tree cannot contain a reparse point: "
+                        + relative
+                    )
+                if stat.S_ISDIR(entry_stat.st_mode):
+                    directories.append(relative)
+                    pending.append((Path(entry.path), relative))
+                    continue
+                if not stat.S_ISREG(entry_stat.st_mode):
+                    raise BlueprintValidationError(
+                        "canonical projection tree contains an unsupported entry: "
+                        + relative
+                    )
+                content = Path(entry.path).read_bytes()
+                after_read = os.lstat(entry.path)
+                if _is_reparse_stat(after_read) or not stat.S_ISREG(
+                    after_read.st_mode
+                ):
+                    raise BlueprintValidationError(
+                        "canonical projection file changed type while inspected: "
+                        + relative
+                    )
+                files.append((relative, "sha256:" + hashlib.sha256(content).hexdigest()))
+    except BlueprintValidationError:
+        raise
+    except OSError as exc:
+        raise BlueprintValidationError(
+            f"cannot inspect canonical projection tree: {exc}"
+        ) from exc
+    return _ProjectionTreeSnapshot(
+        True,
+        tuple(sorted(directories)),
+        tuple(sorted(files)),
+    )
+
+
+def _owned_directory_paths(relative_files: Iterable[str]) -> tuple[str, ...]:
+    directories: set[str] = set()
+    for relative in relative_files:
+        for parent in PurePosixPath(relative).parents:
+            if parent != PurePosixPath("."):
+                directories.add(parent.as_posix())
+    return tuple(sorted(directories))
+
+
+def _expected_projection_snapshot(files: Mapping[str, bytes]) -> _ProjectionTreeSnapshot:
+    return _ProjectionTreeSnapshot(
+        True,
+        _owned_directory_paths(files),
+        tuple(
+            sorted(
+                (
+                    relative,
+                    "sha256:" + hashlib.sha256(content).hexdigest(),
+                )
+                for relative, content in files.items()
+            )
+        ),
+    )
+
+
+def _require_exact_projection_tree(
+    snapshot: _ProjectionTreeSnapshot,
+    expected_relative_files: Iterable[str],
+    *,
+    context: str,
+) -> None:
+    expected_files = tuple(sorted(expected_relative_files))
+    actual_files = tuple(relative for relative, _digest in snapshot.files)
+    expected_directories = _owned_directory_paths(expected_files)
+    if actual_files != expected_files or snapshot.directories != expected_directories:
+        raise BlueprintValidationError(
+            f"{context} contains unowned, missing, or non-canonical entries"
+        )
+
+
+def load_canonical_blueprint_projection(
     output_root: str | Path,
-) -> tuple[Path, ...]:
-    """Explicitly materialize and verify one bounded canonical projection."""
+) -> CanonicalBlueprintMaterialization:
+    """Load and verify one exact-current canonical projection from disk.
 
-    root = Path(output_root).resolve()
-    files = serialize_software_blueprint_projection(projection)
-    written: list[Path] = []
-    for relative, content in sorted(files.items()):
-        target = (root / PurePosixPath(relative)).resolve()
-        if target != root and root not in target.parents:
-            raise BlueprintValidationError("blueprint output path escapes its projection root")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(content)
-        written.append(target)
+    This generic check deliberately does not license target identity, target
+    readiness, or understanding-depth claims.  A target-specific compiler must
+    rebind those claims to its typed inputs after this check succeeds.
+    """
 
+    requested_root = Path(output_root)
+    snapshot = _projection_tree_snapshot(requested_root)
+    if not snapshot.exists:
+        raise BlueprintValidationError("canonical projection root does not exist")
+    manifest_path = requested_root / "manifest.json"
+    manifest = _load_json_blueprint(
+        manifest_path,
+        context="canonical projection manifest",
+    )
+    if set(manifest) != {
+        "schema_version",
+        "blueprint_fingerprint",
+        "shards",
+        "projection_fingerprint",
+    } or manifest.get("schema_version") != BLUEPRINT_SCHEMA_VERSION:
+        raise BlueprintValidationError(
+            "canonical projection manifest is not exact-current"
+        )
+    rows = manifest.get("shards")
+    if not isinstance(rows, list):
+        raise BlueprintValidationError("canonical projection shard manifest is invalid")
+
+    expected_relative_files = {"manifest.json"}
+    shards: list[BlueprintShard] = []
     materialized: dict[str, Mapping[str, Any]] = {}
-    shard_root = root / "shards"
-    existing_shards = sorted(shard_root.glob("*.json")) if shard_root.exists() else []
-    expected_paths = {shard.relative_path for shard in projection.shards}
-    for target in existing_shards:
-        relative = target.relative_to(root).as_posix()
-        materialized[relative] = _load_json_blueprint(target, context="projection shard")
-    if set(materialized) != expected_paths:
-        raise BlueprintValidationError("materialized projection contains missing or stale shards")
+    manifest_row_keys = {
+        "shard_id",
+        "kind",
+        "relative_path",
+        "member_ids",
+        "content_fingerprint",
+    }
+    shard_file_keys = {
+        "schema_version",
+        "shard_id",
+        "kind",
+        "relative_path",
+        "member_ids",
+        "payload",
+        "content_fingerprint",
+    }
+    for row in rows:
+        if not isinstance(row, Mapping) or set(row) != manifest_row_keys:
+            raise BlueprintValidationError(
+                "canonical projection shard manifest row is not exact-current"
+            )
+        relative = row.get("relative_path")
+        if not isinstance(relative, str) or not relative:
+            raise BlueprintValidationError(
+                "canonical projection shard path is invalid"
+            )
+        relative_path = PurePosixPath(relative)
+        if (
+            relative_path.is_absolute()
+            or ".." in relative_path.parts
+            or not relative_path.parts
+            or ":" in relative_path.parts[0]
+            or relative.startswith(("\\", "//"))
+        ):
+            raise BlueprintValidationError(
+                "canonical projection shard path escapes its projection root"
+            )
+        if relative in expected_relative_files:
+            raise BlueprintValidationError(
+                "canonical projection shard path is duplicated"
+            )
+        expected_relative_files.add(relative)
+        shard_value = _load_json_blueprint(
+            requested_root / relative_path,
+            context="canonical projection shard",
+        )
+        if set(shard_value) != shard_file_keys or (
+            shard_value.get("schema_version") != BLUEPRINT_SCHEMA_VERSION
+        ):
+            raise BlueprintValidationError(
+                "canonical projection shard is not exact-current"
+            )
+        for key in manifest_row_keys:
+            if shard_value.get(key) != row.get(key):
+                raise BlueprintValidationError(
+                    "canonical projection shard metadata disagrees with its manifest"
+                )
+        payload = shard_value.get("payload")
+        member_ids = shard_value.get("member_ids")
+        if not isinstance(payload, list) or not isinstance(member_ids, list):
+            raise BlueprintValidationError(
+                "canonical projection shard payload is invalid"
+            )
+        shard = BlueprintShard(
+            shard_id=str(shard_value["shard_id"]),
+            kind=str(shard_value["kind"]),
+            relative_path=relative,
+            member_ids=tuple(str(member_id) for member_id in member_ids),
+            payload=tuple(payload),
+            content_fingerprint=str(shard_value["content_fingerprint"]),
+        )
+        shards.append(shard)
+        materialized[relative] = shard_value
+
+    _require_exact_projection_tree(
+        snapshot,
+        expected_relative_files,
+        context="canonical projection tree",
+    )
+    projection = CanonicalBlueprintProjection(
+        blueprint_fingerprint=str(manifest.get("blueprint_fingerprint", "")),
+        shards=tuple(shards),
+    )
+    expected_manifest = {
+        **projection.manifest_dict(),
+        "projection_fingerprint": projection.fingerprint,
+    }
+    if manifest != expected_manifest:
+        raise BlueprintValidationError(
+            "canonical projection manifest identity is inconsistent"
+        )
     verification = verify_blueprint_projection(
         projection,
         expected_blueprint_fingerprint=projection.blueprint_fingerprint,
-        expected_projection_fingerprint=projection.fingerprint,
+        expected_projection_fingerprint=str(manifest["projection_fingerprint"]),
         materialized_shards=materialized,
     )
     if not verification.ok:
         raise BlueprintValidationError(
             "; ".join(finding.message for finding in verification.findings)
         )
-    return tuple(written)
+    final_snapshot = _projection_tree_snapshot(requested_root)
+    if final_snapshot != snapshot:
+        raise BlueprintValidationError(
+            "canonical projection changed while it was being verified"
+        )
+    return CanonicalBlueprintMaterialization(
+        projection=projection,
+        materialized_shards=tuple(sorted(materialized.items())),
+        tree_fingerprint=final_snapshot.fingerprint,
+        verification=verification,
+    )
+
+
+def _validated_existing_projection_snapshot(root: Path) -> _ProjectionTreeSnapshot:
+    snapshot = _projection_tree_snapshot(root)
+    if not snapshot.exists or (not snapshot.directories and not snapshot.files):
+        return snapshot
+    materialization = load_canonical_blueprint_projection(root)
+    final_snapshot = _projection_tree_snapshot(root)
+    if final_snapshot.fingerprint != materialization.tree_fingerprint:
+        raise BlueprintValidationError(
+            "existing canonical projection changed after verification"
+        )
+    return final_snapshot
+
+
+def _cleanup_owned_tree(path: Path, *, context: str) -> bool:
+    if not _path_exists_no_follow(path):
+        return True
+    try:
+        shutil.rmtree(path)
+    except OSError as exc:
+        warnings.warn(
+            f"{context} cleanup did not complete; preserved at {path}: {exc}",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        return False
+    return True
+
+
+def _restore_previous_projection(
+    *,
+    root: Path,
+    backup: Path,
+    expected_snapshot: _ProjectionTreeSnapshot,
+    owned_collision_snapshot: _ProjectionTreeSnapshot | None = None,
+) -> None:
+    collision: Path | None = None
+    collision_is_owned = False
+    if _path_exists_no_follow(root):
+        try:
+            current = _projection_tree_snapshot(root)
+        except BlueprintValidationError:
+            current = None
+        if current is not None and not current.directories and not current.files:
+            root.rmdir()
+        else:
+            collision = root.parent / f".{root.name}.rollback-collision-{uuid.uuid4().hex}"
+            os.replace(root, collision)
+            collision_is_owned = (
+                current is not None
+                and owned_collision_snapshot is not None
+                and current == owned_collision_snapshot
+            )
+    os.replace(backup, root)
+    restored = _validated_existing_projection_snapshot(root)
+    if restored != expected_snapshot:
+        raise BlueprintValidationError(
+            "previous canonical projection could not be restored exactly"
+        )
+    if collision is not None:
+        if collision_is_owned:
+            _cleanup_owned_tree(collision, context="failed activation")
+        else:
+            warnings.warn(
+                "a concurrent output-root collision was preserved at " + str(collision),
+                RuntimeWarning,
+                stacklevel=3,
+            )
+
+
+def write_canonical_blueprint_projection(
+    projection: CanonicalBlueprintProjection,
+    output_root: str | Path,
+) -> tuple[Path, ...]:
+    """Stage, revalidate, and failure-atomically activate one projection."""
+
+    requested_root = Path(output_root)
+    if _path_exists_no_follow(requested_root):
+        requested_stat = os.lstat(requested_root)
+        if _is_reparse_stat(requested_stat):
+            raise BlueprintValidationError(
+                "blueprint output root cannot be a reparse point"
+            )
+    root = requested_root.resolve()
+    if root.parent == root:
+        raise BlueprintValidationError("blueprint output root is too broad")
+    root.parent.mkdir(parents=True, exist_ok=True)
+    initial_root_snapshot = _validated_existing_projection_snapshot(root)
+
+    files = serialize_canonical_blueprint_projection(projection)
+    expected_staging_snapshot = _expected_projection_snapshot(files)
+    staging = Path(
+        tempfile.mkdtemp(prefix=f".{root.name}.staging-", dir=root.parent)
+    ).resolve()
+    backup = root.parent / f".{root.name}.backup-{uuid.uuid4().hex}"
+    root_moved = False
+    try:
+        for relative, content in sorted(files.items()):
+            target = (staging / PurePosixPath(relative)).resolve()
+            if target != staging and staging not in target.parents:
+                raise BlueprintValidationError(
+                    "blueprint output path escapes its projection root"
+                )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content)
+
+        staged = load_canonical_blueprint_projection(staging)
+        staged_snapshot = _projection_tree_snapshot(staging)
+        if (
+            staged.projection.fingerprint != projection.fingerprint
+            or staged_snapshot != expected_staging_snapshot
+        ):
+            raise BlueprintValidationError(
+                "staged canonical projection does not match its exact serialized input"
+            )
+
+        current_root_snapshot = _validated_existing_projection_snapshot(root)
+        if current_root_snapshot != initial_root_snapshot:
+            raise BlueprintValidationError(
+                "existing canonical projection changed before activation"
+            )
+        current_staging_snapshot = _projection_tree_snapshot(staging)
+        if current_staging_snapshot != staged_snapshot:
+            raise BlueprintValidationError(
+                "staged canonical projection changed before activation"
+            )
+
+        if initial_root_snapshot.exists:
+            os.replace(root, backup)
+            root_moved = True
+            moved_snapshot = _validated_existing_projection_snapshot(backup)
+            if moved_snapshot != initial_root_snapshot:
+                raise BlueprintValidationError(
+                    "existing canonical projection changed during activation"
+                )
+        final_staging_snapshot = _projection_tree_snapshot(staging)
+        if final_staging_snapshot != staged_snapshot:
+            raise BlueprintValidationError(
+                "staged canonical projection changed at the activation boundary"
+            )
+        os.replace(staging, root)
+    except Exception as error:
+        rollback_error: Exception | None = None
+        if root_moved and _path_exists_no_follow(backup):
+            try:
+                _restore_previous_projection(
+                    root=root,
+                    backup=backup,
+                    expected_snapshot=initial_root_snapshot,
+                    owned_collision_snapshot=(
+                        staged_snapshot if "staged_snapshot" in locals() else None
+                    ),
+                )
+                root_moved = False
+            except Exception as exc:  # preserve backup on any incomplete rollback
+                rollback_error = exc
+        _cleanup_owned_tree(staging, context="staged projection")
+        if rollback_error is not None:
+            raise BlueprintValidationError(
+                f"canonical projection activation failed ({error}); "
+                f"rollback is incomplete and the prior tree is preserved at {backup}: "
+                f"{rollback_error}"
+            ) from rollback_error
+        raise
+
+    if root_moved:
+        _cleanup_owned_tree(backup, context="activated projection backup")
+
+    return tuple(root / relative for relative in sorted(files))
 
 
 __all__ = [
     "AffectedBlueprintNeighborhood",
     "BLUEPRINT_SCHEMA_VERSION",
+    "CANONICAL_BLUEPRINT_MATERIALIZATION_CLAIM_BOUNDARY",
+    "PROJECT_BLUEPRINT_MATERIALIZATION_CLAIM_BOUNDARY",
     "BlueprintFinding",
+    "CanonicalBlueprintMaterialization",
+    "CanonicalBlueprintProjection",
     "BlueprintProjectionVerification",
     "BlueprintResourceReference",
     "BlueprintShard",
@@ -2318,22 +2825,16 @@ __all__ = [
     "ModelImplementationBinding",
     "ModelImplementationBindingReport",
     "OracleReference",
-    "ReconstructionEvidence",
     "SemanticSpecReference",
     "SoftwareBlueprintManifest",
-    "SoftwareBlueprintProjection",
-    "SoftwareBlueprintQualificationReport",
     "derive_affected_blueprint_neighborhood",
-    "load_model_implementation_binding_report",
-    "load_reconstruction_evidence",
-    "load_software_blueprint_manifest",
-    "model_implementation_binding_report_from_dict",
-    "project_software_blueprint",
-    "qualify_software_blueprint",
-    "reconstruction_evidence_from_dict",
+    "load_canonical_blueprint_projection",
+    "PROJECT_BLUEPRINT_PROJECTION_KINDS",
+    "ProjectBlueprintMaterializationVerification",
+    "project_canonical_software_blueprint",
     "review_model_implementation_bindings",
-    "serialize_software_blueprint_projection",
-    "software_blueprint_manifest_from_dict",
+    "serialize_canonical_blueprint_projection",
     "verify_blueprint_projection",
-    "write_software_blueprint_projection",
+    "verify_materialized_project_blueprint_projection",
+    "write_canonical_blueprint_projection",
 ]

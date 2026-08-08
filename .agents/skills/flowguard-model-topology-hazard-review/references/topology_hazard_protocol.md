@@ -1,20 +1,19 @@
 # Model Topology Hazard Review Protocol
 
-Use this route when a FlowGuard model appears locally green but its shape may
-imply future-use risk. Start from topology, not a fixed checklist.
+Use this route when a locally green FlowGuard model's shape may imply future-use
+risk. Start from topology, not a fixed checklist.
 
 ## Trigger
 
 Create or update a review when:
 
-- broad done, release, publish, archive, production, or full-confidence claims
-  depend on a model that only proved local paths;
+- broad done/release/publish/archive/production/full-confidence claims rely on
+  a model that proved only local paths;
 - the topology contains repeatable side effects, shared state writers, external
   confirmation boundaries, broad terminal states, old/new compatibility paths,
   migration/history surfaces, duplicate or conflicting business paths,
   unproven important business paths, or parent/child compression;
-- a model pass and ordinary tests pass but an experienced engineer would still
-  ask what future real use could expose;
+- model and ordinary tests pass but future real use may expose more;
 - state-closure, model-test alignment, model maturation, process freshness, or
   risk ledger evidence points to a hidden model-shape hazard.
 
@@ -23,10 +22,10 @@ Unanchored concerns stay as observations and cannot block confidence.
 
 ## Input Checklist
 
-Use grouped rows instead of blank field lists:
+Use grouped rows, not blank field lists:
 
 - usage intent: local/CLI/library/plugin/service/release/migration, final claim,
-  history or compatibility possibility, compatibility policy, and goal;
+  history/compatibility possibility and policy, and goal;
 - topology digest: state nodes, input nodes, block nodes, workflow edges,
   reads/writes, side effects, external boundaries, terminal nodes, old/new
   paths, business path identities, parent/child links, and landmark ids;
@@ -34,16 +33,15 @@ Use grouped rows instead of blank field lists:
   preconditions, expected terminal, state writes, side effects, equivalent
   paths, exclusive paths, superseded old paths, compatibility disposition,
   source labels, and evidence ids;
-- candidate hazards: anchor ids, rationale from topology shape, future failure
-  mode, affected state/edge/side effect/terminal/boundary, disposition,
-  required routes, handled/scoped status, and proof ids.
+- candidate hazards: anchor ids, topology rationale, future failure, affected
+  state/edge/effect/terminal/boundary, disposition, required routes,
+  handled/scoped status, and proof ids.
 
 ## Review Rules
 
-Every hard hazard must name a concrete topology anchor. Valid anchors include a
-state, edge, side-effect edge, terminal/success node, compatibility path,
-business path, external boundary, shared writer, or parent/child compression
-landmark.
+Every hard hazard names a concrete state, edge, side-effect edge,
+terminal/success node, compatibility/business path, external boundary, shared
+writer, or parent/child compression landmark.
 
 Classify dispositions:
 
@@ -54,20 +52,19 @@ Classify dispositions:
   process confidence;
 - Architecture Reduction plus ledger when old/new compatibility paths need a
   preserve, migrate, block, delete, or latest-schema-first decision;
-- Architecture Reduction plus Model Similarity when two business paths do the
-  same useful job;
+- Architecture Reduction with exact CanonicalRelation evidence when two
+  business paths do the same useful job;
 - Model Maturation plus Model-Test Alignment when business paths conflict or
   lack path-specific evidence;
 - scoped out only with a concrete reason.
-Anchored hazards that remain scoped or unresolved should become maintenance
-obligations so later scans can reopen the owner route when the same model,
+Scoped or unresolved anchored hazards become maintenance obligations so
+DevelopmentProcessFlow can reopen the affected owner when its model,
 entrypoint, or artifact changes.
 
 ## Prompt Template
 
-Use `references/templates/topology_hazard_prompt_template.md` only when a fresh
-AI review needs scaffolding. Ordinary route use should follow the checklist
-above and the public helper APIs.
+Use `references/templates/topology_hazard_prompt_template.md` only to scaffold
+a fresh AI review; ordinary use follows this checklist and public helper APIs.
 
 ## Completion Standard
 
@@ -99,8 +96,7 @@ descriptive route metadata into an executable fairness pass.
 
 Topology-anchored cross-model event, retry-identity, shared-writer/resource,
 commit/emit/ack atomicity, cache-authority, external-confirmation, or finite
-delivery hazards may become proposed bounded-interaction seeds. Each seed names
-its exact model/transition/binding/resource/property anchors and references a
-property owner already resolved by BCL or Existing Model Preflight; otherwise
-it emits `owner_missing`. Topology review never appoints the owner and never
-labels an unexecuted seed as a system-composition finding.
+delivery hazards may seed bounded interactions. Each seed names exact
+model/transition/binding/resource/property anchors and a property owner already
+resolved by BCL or Existing Model Preflight, else emits `owner_missing`.
+Topology review neither appoints owners nor calls unexecuted seeds findings.

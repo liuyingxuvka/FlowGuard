@@ -9,10 +9,7 @@ from flowguard import (
     DuplicateBoundaryRisk,
     ExistingModelPreflight,
     ExistingOwnershipSnapshot,
-    MODEL_ANGLE_ACTION_EXTEND_EXISTING,
-    MODEL_ANGLE_ROUTE_MODEL_MATURATION,
     ModelContextHit,
-    ModelAngleDeliberation,
     ProofArtifactRef,
     REUSE_DECISION_ADD_CHILD_MODEL,
     REUSE_DECISION_EXTEND_EXISTING,
@@ -307,11 +304,13 @@ class ExistingModelPreflightTests(unittest.TestCase):
         )
 
     def test_commitment_owner_logical_id_matches(self):
-        report = self.owner_projection_report("router-flow", model_hit())
-        self.assertNotIn(
-            "behavior_lookup_owner_model_not_projected",
-            {finding.code for finding in report.findings},
-        )
+        for owner_id in ("router-flow", "model:router-flow"):
+            with self.subTest(owner_id=owner_id):
+                report = self.owner_projection_report(owner_id, model_hit())
+                self.assertNotIn(
+                    "behavior_lookup_owner_model_not_projected",
+                    {finding.code for finding in report.findings},
+                )
 
     def test_commitment_owner_fingerprint_matches(self):
         report = self.owner_projection_report(
@@ -380,15 +379,49 @@ class ExistingModelPreflightTests(unittest.TestCase):
                         purpose_closure_fingerprint=f"sha256:purpose-{model_id}",
                     )
                 )
+            exact_relation = SimpleNamespace(
+                relation_id="relation:token-guidance-commitment",
+                kind="realizes",
+                evidence_fingerprints=("sha256:relation-token-guidance",),
+                source=SimpleNamespace(
+                    endpoint_kind="model_instance",
+                    endpoint_id="token_guidance",
+                    fingerprint="sha256:token_guidance",
+                    owner_route="token_guidance",
+                ),
+                target=SimpleNamespace(
+                    endpoint_kind="behavior_commitment",
+                    endpoint_id="commitment:token-guidance",
+                    fingerprint="sha256:commitment-token-guidance",
+                    owner_route="behavior_commitment_ledger",
+                ),
+            )
             snapshot = SimpleNamespace(
                 fingerprint="sha256:snapshot",
                 subject_revision="source-inventory:test",
                 unresolved_gap_ids=(),
                 model_instances=tuple(instances),
                 root_instance_fingerprints=("sha256:unrelated_ui",),
-                relations=(),
+                relations=(exact_relation,),
             )
             authority = SimpleNamespace(ok=True, status="pass")
+            lookup = SimpleNamespace(
+                status="performed",
+                selected_plane="agent_operation",
+                primary_hits=(
+                    BehaviorCommitmentHit(
+                        "commitment:token-guidance",
+                        "agent_operation",
+                        "token_guidance",
+                        100,
+                    ),
+                ),
+                related_hits=(),
+                candidate_hits=(),
+                plane_ambiguity=False,
+                ledger_fingerprint="sha256:ledger",
+            )
+            (model_root / "behavior_commitment_ledger").mkdir()
 
             with (
                 patch(
@@ -398,6 +431,10 @@ class ExistingModelPreflightTests(unittest.TestCase):
                 patch(
                     "flowguard.existing_model_preflight.load_observed_model_system",
                     return_value=(None, snapshot),
+                ),
+                patch(
+                    "flowguard.existing_model_preflight.query_behavior_commitments_from_path",
+                    return_value=lookup,
                 ),
             ):
                 light = existing_model_preflight_from_project(
@@ -422,8 +459,101 @@ class ExistingModelPreflightTests(unittest.TestCase):
                 tuple(item.model_id for item in light.relevant_models),
             )
             self.assertEqual((), light.relevant_models[0].function_blocks)
+            self.assertEqual(
+                ("relation:token-guidance-commitment",),
+                light.canonical_relation_handoff.relation_ids,
+            )
             self.assertTrue(full.relevant_models[0].function_blocks)
             self.assertEqual(3, len(broad.relevant_models))
+
+    def test_blocked_modeled_lookup_never_uses_root_lexical_or_file_fallback(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            model_dir = root / ".flowguard" / "router"
+            model_dir.mkdir(parents=True)
+            model_path = model_dir / "model.py"
+            model_path.write_text(
+                '"""FlowGuard Purpose: router behavior."""\nclass RouteTask: pass\n',
+                encoding="utf-8",
+            )
+            (root / ".flowguard" / "behavior_commitment_ledger").mkdir()
+            (root / ".flowguard" / "project.toml").write_text(
+                "[model_authority]\n",
+                encoding="utf-8",
+            )
+            instance = SimpleNamespace(
+                logical_model_id="router",
+                model_path=model_path.relative_to(root).as_posix(),
+                fingerprint="sha256:router",
+                purpose_closure_fingerprint="sha256:purpose-router",
+            )
+            snapshot = SimpleNamespace(
+                fingerprint="sha256:snapshot",
+                subject_revision="source-inventory:test",
+                unresolved_gap_ids=(),
+                model_instances=(instance,),
+                root_instance_fingerprints=("sha256:router",),
+                relations=(),
+            )
+            authority = SimpleNamespace(ok=True, status="pass")
+            blocked_lookup = SimpleNamespace(
+                status="blocked",
+                selected_plane="",
+                primary_hits=(),
+                related_hits=(),
+                candidate_hits=(),
+                plane_ambiguity=False,
+                ledger_fingerprint="",
+            )
+
+            with (
+                patch(
+                    "flowguard.existing_model_preflight.audit_model_authority",
+                    return_value=authority,
+                ),
+                patch(
+                    "flowguard.existing_model_preflight.load_observed_model_system",
+                    return_value=(None, snapshot),
+                ),
+                patch(
+                    "flowguard.existing_model_preflight.query_behavior_commitments_from_path",
+                    return_value=blocked_lookup,
+                ),
+            ):
+                preflight = existing_model_preflight_from_project(
+                    root,
+                    "Change router RouteTask",
+                    changed_paths=(".flowguard/router/model.py",),
+                    downstream_routes=("development_process_flow",),
+                )
+
+            report = review_existing_model_preflight(preflight)
+            self.assertEqual("blocked", preflight.behavior_lookup_status)
+            self.assertEqual((), preflight.relevant_models)
+            self.assertEqual("modeled_current", preflight.grounding_state)
+            self.assertFalse(report.ok)
+            codes = {finding.code for finding in report.findings}
+            self.assertIn("behavior_lookup_not_current", codes)
+            self.assertIn("modeled_current_owner_unresolved", codes)
+
+            retired_fallback_report = review_existing_model_preflight(
+                ExistingModelPreflight(
+                    "retired-fallback-status",
+                    "Do not revive the historical fallback lookup state",
+                    mode="light",
+                    model_search_performed=True,
+                    search_paths=(".flowguard",),
+                    behavior_lookup_required=True,
+                    behavior_lookup_status="fallback",
+                    reuse_decision=REUSE_DECISION_NO_MODEL_FOUND,
+                    no_model_found_reason="Exact current owner lookup is blocked.",
+                    rationale="Repository matches are not current ownership.",
+                )
+            )
+            self.assertIn(
+                "invalid_behavior_lookup_status",
+                {finding.code for finding in retired_fallback_report.findings},
+            )
 
     def test_stale_or_mutable_work_context_is_scoped_gap(self):
         context = {
@@ -488,7 +618,7 @@ class ExistingModelPreflightTests(unittest.TestCase):
                     function_block_owners=(("SubmitOrder", "orders.submit.model"),),
                 ),
                 reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
-                downstream_routes=("model_similarity_consolidation", "primary_path_authority"),
+                downstream_routes=("primary_path_authority",),
                 rationale="All same-intent surfaces reuse the registered commitment and path.",
                 affected_business_intent_id="intent:submit-order",
                 selected_commitment_id="commitment:submit-order",
@@ -521,7 +651,7 @@ class ExistingModelPreflightTests(unittest.TestCase):
                     function_block_owners=(("SubmitOrder", "orders.submit.model"),),
                 ),
                 reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
-                downstream_routes=("model_similarity_consolidation",),
+                downstream_routes=("primary_path_authority",),
                 rationale="A complete same-intent inventory is required.",
                 affected_business_intent_id="intent:submit-order",
                 selected_commitment_id="commitment:submit-order",
@@ -601,10 +731,10 @@ class ExistingModelPreflightTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual("full_existing_model_preflight_can_continue", report.decision)
 
-    def test_full_preflight_consumes_resolved_model_angle_review(self):
+    def test_retired_review_and_fallback_inputs_are_absent(self):
         preflight = ExistingModelPreflight(
-            "router-model-angle",
-            "Extend AI route behavior",
+            "router-current-relations",
+            "Extend current router behavior",
             mode="full",
             model_search_performed=True,
             search_paths=(".flowguard/router",),
@@ -614,84 +744,42 @@ class ExistingModelPreflightTests(unittest.TestCase):
                 state_owners=(("pending_tasks", "router-flow"),),
             ),
             reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
-            downstream_routes=("model_maturation_loop",),
-            rationale="The router model owns the behavior, but the candidate angle was reviewed.",
-            model_angle_review_required=True,
-            model_angle_deliberations=(
-                ModelAngleDeliberation(
-                    "angle:ai-routing",
-                    "AI route imagination",
-                    current_model_sees="Existing preflight sees route ownership.",
-                    current_model_misses="It may miss whether a new model angle is needed.",
-                    failure_if_ignored="The agent can stay inside a too-narrow route.",
-                    candidate_action=MODEL_ANGLE_ACTION_EXTEND_EXISTING,
-                    existing_model_ids=("existing_model_preflight",),
-                    proposed_model_boundary="Add open-ended candidate model-angle rows.",
-                    resolved=True,
-                    owner_route_hint=MODEL_ANGLE_ROUTE_MODEL_MATURATION,
-                    evidence_needed=("angle:ai-routing",),
-                    owner_evidence=ProofArtifactRef(
-                        "proof:ai-routing",
-                        producer_route=MODEL_ANGLE_ROUTE_MODEL_MATURATION,
-                        command="python -m pytest tests/test_existing_model_preflight.py",
-                        result_path=".flowguard/evidence/existing-model-preflight.json",
-                        result_status="passed",
-                        exit_code=0,
-                        started_at="2026-08-02T00:00:00+00:00",
-                        finished_at="2026-08-02T00:00:01+00:00",
-                        subject_id="model:router-model",
-                        subject_fingerprint="sha256:router-model",
-                        artifact_fingerprints={"model": "sha256:router-model"},
-                        covered_obligation_ids=("angle:ai-routing",),
-                    ),
-                    subject_fingerprints={"model": "sha256:router-model"},
-                ),
-            ),
+            downstream_routes=("development_process_flow",),
+            rationale="The exact current router owner carries the change.",
+            canonical_relation_handoff={
+                "relations": ({
+                    "relation_id": "relation:router-to-dispatch",
+                    "relation_type": "depends_on",
+                    "source_endpoint_kind": "model",
+                    "source_endpoint_id": "router-flow",
+                    "target_endpoint_kind": "code_boundary",
+                    "target_endpoint_id": "dispatch",
+                    "source_ids": ("semantic-mesh:router-current",),
+                },),
+                "evidence_current": True,
+            },
         )
 
         report = review_existing_model_preflight(preflight)
 
         self.assertTrue(report.ok, report.format_text())
-        self.assertEqual("full_existing_model_preflight_can_continue", report.decision)
-
-    def test_full_preflight_blocks_unresolved_model_angle_review(self):
-        preflight = ExistingModelPreflight(
-            "router-model-angle-open",
-            "Extend AI route behavior",
-            mode="full",
-            model_search_performed=True,
-            search_paths=(".flowguard/router",),
-            relevant_models=(model_hit(),),
-            ownership_snapshot=ExistingOwnershipSnapshot(
-                function_block_owners=(("RouteTask", "router-flow"),),
-                state_owners=(("pending_tasks", "router-flow"),),
-            ),
-            reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
-            downstream_routes=("model_maturation_loop",),
-            rationale="The router model owns the behavior, but a candidate angle remains open.",
-            model_angle_review_required=True,
-            model_angle_deliberations=(
-                ModelAngleDeliberation(
-                    "angle:ai-routing",
-                    "AI route imagination",
-                    current_model_sees="Existing preflight sees route ownership.",
-                    current_model_misses="It may miss whether a new model angle is needed.",
-                    failure_if_ignored="The agent can stay inside a too-narrow route.",
-                    candidate_action=MODEL_ANGLE_ACTION_EXTEND_EXISTING,
-                    existing_model_ids=("existing_model_preflight",),
-                    proposed_model_boundary="Add open-ended candidate model-angle rows.",
-                    resolved=False,
-                ),
-            ),
-        )
-
-        report = review_existing_model_preflight(preflight)
-
-        self.assertFalse(report.ok)
-        self.assertEqual("model_angle_review_blocked", report.decision)
-        self.assertIn(
-            "model_angle_unresolved_required_model_angle",
-            {finding.code for finding in report.findings},
+        field_names = set(ExistingModelPreflight.__dataclass_fields__)
+        serialized = preflight.to_dict()
+        for retired_field in (
+            "model_angle_review_required",
+            "model_angle_deliberations",
+            "model_angle_gap_ids",
+            "similarity_review_required",
+            "behavior_lookup_reason",
+        ):
+            self.assertNotIn(retired_field, field_names)
+            self.assertNotIn(retired_field, serialized)
+        self.assertEqual(
+            ["relation:router-to-dispatch"],
+            [
+                relation["relation_id"]
+                for relation in serialized["canonical_relation_handoff"]["relations"]
+            ],
         )
 
     def test_behavior_field_requires_field_lifecycle_ownership(self):
@@ -936,10 +1024,20 @@ class ExistingModelPreflightTests(unittest.TestCase):
             report = review_existing_model_preflight(preflight)
 
             self.assertFalse(report.ok, report.format_text())
-            self.assertEqual(REUSE_DECISION_REUSE_EXISTING, preflight.reuse_decision)
+            self.assertEqual(REUSE_DECISION_NO_MODEL_FOUND, preflight.reuse_decision)
+            self.assertEqual("adoption_candidate", preflight.grounding_state)
+            self.assertFalse(preflight.existing_modeled_system)
+            self.assertFalse(preflight.authority_required)
             self.assertEqual(("RouteTask",), preflight.relevant_models[0].function_blocks)
             self.assertFalse(preflight.relevant_models[0].evidence_current)
-            self.assertEqual("blocked", preflight.authority_status)
+            self.assertEqual("adoption_candidate", preflight.relevant_models[0].evidence_tier)
+            self.assertIsNone(preflight.ownership_snapshot)
+            self.assertEqual("not_adopted", preflight.authority_status)
+            self.assertEqual("adoption_candidate", report.decision)
+            self.assertIn(
+                "adoption_candidate_not_current",
+                {finding.code for finding in report.findings},
+            )
             self.assertIn(".flowguard", preflight.search_paths)
 
     def test_project_inventory_helper_records_no_model_found(self):
@@ -956,8 +1054,10 @@ class ExistingModelPreflightTests(unittest.TestCase):
 
             self.assertFalse(report.ok, report.format_text())
             self.assertEqual(REUSE_DECISION_NO_MODEL_FOUND, preflight.reuse_decision)
-            self.assertEqual("blocked", preflight.authority_status)
-            self.assertIn("No relevant FlowGuard model files", preflight.no_model_found_reason)
+            self.assertEqual("not_adopted", preflight.authority_status)
+            self.assertEqual("adoption_candidate", preflight.grounding_state)
+            self.assertEqual("adoption_candidate", report.decision)
+            self.assertIn("No validated current model authority", preflight.no_model_found_reason)
 
 
 if __name__ == "__main__":

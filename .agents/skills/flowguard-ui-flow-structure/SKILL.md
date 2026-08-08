@@ -6,19 +6,21 @@ description: Use for UI admission, surfaces, behavior, structure, operability, e
 # FlowGuard UI Flow Structure
 
 ## Purpose
-Admit content, model UI event x state behavior, and prove runnable visible surface evidence.
+Admit content, model UI event x state, and prove runnable visible surfaces.
 
 ## Entrypoint Scope
-This standalone FlowGuard satellite skill owns `ui_flow_structure` (`public_owner`) admission/UI evidence, not styling or code structure.
+This standalone FlowGuard satellite skill owns `ui_flow_structure`
+(`public_owner`) UI admission/evidence, not styling or code structure.
 
 ## Local Material Routing
-Read `references/ui_flow_structure_protocol.md` for surface, interaction, journey, structure, text hierarchy, human, implementation, and geometry.
+Read `references/ui_flow_structure_protocol.md` for surface, journey,
+structure, text hierarchy, operability, evidence, and geometry.
 
 ## Entrypoint Acceptance Map
 Accept admission, UI state/task/control coverage, and current evidence; block leaks, blindspots, or stale proof.
 
 ## Use When
-- Use for UI content, controls, surfaces, tasks, runnable/layout evidence, hierarchy, or product-wide interaction language.
+- Use for UI content, controls, tasks, runnable evidence, hierarchy, or product language.
 
 ## Do Not Use When
 - Do not style first, invent roles, or treat observation as permission; return non-UI work to `flowguard`.
@@ -39,7 +41,10 @@ Accept admission, UI state/task/control coverage, and current evidence; block le
 - Every reachable enabled action needs control -> event -> owner -> function -> UI update -> evidence, pure-UI disposition, or blindspot.
 - Missing inventory/item fingerprints, discovery evidence, unmapped visible items, and conflicting modeled/blindspot dispositions block complete UI coverage.
 - Repeated surfaces for one intent reuse its commitment, path, and semantic grammar. Presentation exceptions never change intent, path, visibility, or result.
-- Design evidence cannot prove runnable UI; source, recovery, freshness, and harvest gaps stay explicit.
+- Runnable UI needs current source/recovery/freshness evidence; design alone
+  cannot prove it.
+- Only explicit reuse/publication or proven cross-project use
+  triggers strict `risk_template_library` closure.
 - Planning context becomes UI behavior only through explicit behavior-source admission.
 
 ## Output Requirements

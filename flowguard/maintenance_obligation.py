@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
-from ._normalization import unique_strings as _unique
+from ._normalization import (
+    nonempty_string_sequence as _as_tuple,
+    unique_strings as _unique,
+)
 from .export import to_jsonable
 
 
@@ -32,12 +35,6 @@ OBLIGATION_STRENGTHS = (
 OBLIGATION_CONFIDENCE_FULL = "full"
 OBLIGATION_CONFIDENCE_SCOPED = "scoped"
 OBLIGATION_CONFIDENCE_BLOCKED = "blocked"
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values if str(value))
 
 
 def _slug(value: str) -> str:
@@ -275,37 +272,6 @@ def obligations_from_finding_ledger(ledger: Any) -> tuple[MaintenanceObligation,
     return tuple(obligations)
 
 
-def obligation_from_maintenance_action(action: Any, *, source_route: str = "maintenance_scan_router") -> MaintenanceObligation:
-    strength = str(getattr(action, "strength", "") or OBLIGATION_STRENGTH_REQUIRED)
-    if strength not in OBLIGATION_STRENGTHS:
-        strength = OBLIGATION_STRENGTH_REQUIRED
-    resolved = bool(getattr(action, "resolved", False))
-    evidence_ids = tuple(getattr(action, "owner_evidence_ids", ()) or ())
-    status = OBLIGATION_STATUS_RESOLVED if resolved else OBLIGATION_STATUS_OPEN
-    route_id = str(getattr(action, "route_id", "") or "")
-    reason_code = str(getattr(action, "reason_code", "") or "maintenance_action")
-    return MaintenanceObligation(
-        obligation_id=str(getattr(action, "action_id", "") or f"{route_id}:{reason_code}"),
-        owner_route=route_id,
-        reason_code=reason_code,
-        source_route=source_route,
-        status=status,
-        strength=strength,
-        artifact_ids=tuple(getattr(action, "artifact_ids", ()) or ()),
-        evidence_ids=evidence_ids,
-        required_input_kinds=tuple(getattr(action, "required_input_kinds", ()) or ()),
-        proof_gap_codes=tuple(getattr(action, "proof_gap_codes", ()) or ()),
-        claim_effect=str(getattr(action, "claim_effect", "") or ""),
-        suggested_commands=tuple(getattr(action, "suggested_commands", ()) or ()),
-        message=str(getattr(action, "message", "") or ""),
-        metadata={"maintenance_action": getattr(action, "to_dict", lambda: repr(action))()},
-    )
-
-
-def obligations_from_maintenance_actions(actions: Iterable[Any]) -> tuple[MaintenanceObligation, ...]:
-    return tuple(obligation_from_maintenance_action(action) for action in actions)
-
-
 def obligation_from_maturation_finding(finding: Any) -> MaintenanceObligation:
     signal_id = str(getattr(finding, "signal_id", "") or "")
     model_id = str(getattr(finding, "model_id", "") or "")
@@ -372,9 +338,7 @@ __all__ = [
     "build_maintenance_obligation_report",
     "coerce_maintenance_obligation",
     "obligation_from_finding_ledger_entry",
-    "obligation_from_maintenance_action",
     "obligation_from_maturation_finding",
     "obligations_from_finding_ledger",
-    "obligations_from_maintenance_actions",
     "obligations_from_maturation_findings",
 ]

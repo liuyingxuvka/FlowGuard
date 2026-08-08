@@ -12,6 +12,7 @@ from __future__ import annotations
 __test__ = False
 
 from dataclasses import dataclass
+from functools import cached_property
 import json
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping, Sequence
@@ -862,7 +863,7 @@ class ProjectTestInventory:
     def required_node_ids(self) -> tuple[str, ...]:
         return tuple(test_node_id(item) for item in self.required_pytest_nodeids)
 
-    @property
+    @cached_property
     def inventory_fingerprint(self) -> str:
         return canonical_identity(self._identity_payload())
 

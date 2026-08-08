@@ -4,21 +4,20 @@
 This capability defines FlowGuard's Model Miss Test Evidence Closure behavior and the evidence required to use it safely in AI-agent maintenance workflows.
 ## Requirements
 ### Requirement: Model miss closure requires same-class test evidence
-FlowGuard SHALL block full closure for an in-scope post-runtime model miss
-unless the repaired model obligation has current passing test evidence for the
-observed failure and same-class generalized coverage.
+FlowGuard SHALL block full closure for an in-scope post-runtime model miss unless the repaired model obligation has current passing test evidence for the observed ContractExhaustionMesh case and every required finite same-class case in the canonical affected relation set.
 
 #### Scenario: Observed and same-class evidence close the miss
-- **WHEN** a repaired in-scope model-miss obligation names both an observed
-  failure regression and same-class generalized test evidence
-- **THEN** Model-Test Alignment SHALL allow green alignment for that obligation
-  when both evidence rows are current, passing, and externally scoped
+- **WHEN** a repaired in-scope model-miss obligation names the canonical observed case id and all required finite same-class case ids
+- **THEN** Model-Test Alignment SHALL allow green alignment for that obligation only when each case has current passing evidence bound to the same model obligation and owner code contract
 
 #### Scenario: Exact regression only is insufficient
-- **WHEN** a repaired in-scope model-miss obligation has only a current passing
-  test for the observed failure
-- **THEN** Model-Test Alignment SHALL report missing same-class test evidence
-  and SHALL NOT return full green alignment
+- **WHEN** a repaired in-scope model-miss obligation has only current passing evidence for the observed case
+- **THEN** Model-Test Alignment SHALL report the missing canonical same-class case ids
+- **AND** it SHALL NOT return full green alignment
+
+#### Scenario: No canonical related case is required
+- **WHEN** ContractExhaustionMesh proves that the bounded relation set contains no additional required same-class member for the declared claim
+- **THEN** closure records that finite result without manufacturing an artificial sibling or scan obligation
 
 ### Requirement: Model-Test Alignment represents model-miss closure roles
 FlowGuard SHALL let model obligations and test evidence declare model-miss
@@ -68,30 +67,6 @@ expanding Model-Test Alignment into a hierarchy.
 - **THEN** the workflow SHALL report scoped routine confidence and SHALL NOT
   claim full release confidence
 
-### Requirement: Recurring model misses promote to a defect-family gate
-FlowGuard SHALL require an artifact-backed defect-family gate when the same
-same-class model-miss family recurs or when the miss is high risk enough that a
-local point fix would overclaim final confidence.
-
-#### Scenario: Recurring family without promotion is blocked
-- **WHEN** a same-class model miss has occurred more than once and no
-  defect-family gate has been promoted
-- **THEN** FlowGuard SHALL report the recurring miss as blocked and SHALL NOT
-  allow full confidence for the affected family
-
-#### Scenario: Promoted family has current artifact-backed proof
-- **WHEN** a promoted defect family names a model obligation, authority
-  boundary, observed failure case, same-class generalized case, historical
-  holdout case, current external passing proof evidence, and a current proof
-  artifact reference
-- **THEN** FlowGuard SHALL allow the defect-family gate to pass
-
-#### Scenario: Declaration-only evidence is insufficient
-- **WHEN** a promoted defect family only has caller-declared passing evidence
-  without proof artifact binding
-- **THEN** FlowGuard SHALL keep the defect-family gate blocked in strict
-  closure mode
-
 ### Requirement: Model miss closure includes legacy path disposition
 FlowGuard SHALL block full closure for a repaired model miss until every
 in-scope old, alternate, replay, or recovery path is proven deleted, blocked,
@@ -102,22 +77,6 @@ out of scope.
 - **WHEN** a repaired child path has current same-class evidence but an old
   route path remains reachable with unknown disposition
 - **THEN** model-miss closure SHALL remain blocked
-
-### Requirement: Risk Evidence Ledger consumes defect-family gates
-FlowGuard SHALL let final risk rows require a current defect-family gate before
-the row can support full confidence.
-
-#### Scenario: Required defect-family gate is missing
-- **WHEN** a final confidence row requires a defect-family gate but does not
-  name one
-- **THEN** the Risk Evidence Ledger SHALL block full confidence with a visible
-  defect-family finding
-
-#### Scenario: Defect-family gate is scoped
-- **WHEN** the defect-family gate is current but has explicit scoped-confidence
-  reasons
-- **THEN** the Risk Evidence Ledger SHALL downgrade the final claim to scoped
-  confidence rather than silently allowing a full claim
 
 ### Requirement: Bug repair closure binds model, code, and tests
 For an in-scope bug repair, FlowGuard SHALL block broad closure unless the
@@ -156,27 +115,49 @@ recovery paths, or compatibility adapters.
 - **THEN** full bug repair closure remains blocked
 
 ### Requirement: Combination misses promote interaction groups
-Model-miss closure SHALL promote observed combination-type misses into
-ContractExhaustionMesh interaction groups and generated combination case ids
-before broad repair confidence can be restored.
+Model-miss closure SHALL project observed combination-type misses into ContractExhaustionMesh interaction groups and stable generated combination case ids before broad repair confidence can be restored.
 
 #### Scenario: Point fix omits interaction group
-- **WHEN** an observed miss depends on more than one model axis or on a child
-  axis plus a parent consumption axis
+- **WHEN** an observed miss depends on more than one model axis or on a child axis plus a parent consumption axis
 - **AND** the repair adds only the observed regression test
 - **THEN** model-miss closure reports missing interaction-group coverage
 
+#### Scenario: Recurring or high-risk combination miss is deepened
+- **WHEN** a combination miss recurs or requires broader confidence
+- **THEN** the canonical interaction group names the affected model ids, root-cause dimensions, observed combination case id, required generated case ids, and current evidence
+- **AND** ModelMaturation consumes that finite case result without creating a separate family gate
+
 #### Scenario: Combination miss feeds bug family gate
-- **WHEN** a recurring or high-risk miss is promoted to a defect-family gate
-- **THEN** the gate names the affected model ids, root-cause dimensions,
-  interaction group id, observed combination case id, and generated case ids
+- **WHEN** a caller attempts to send a combination miss to a retired bug-family gate
+- **THEN** FlowGuard MUST reject that parallel authority and route the exact observed seed to ContractExhaustionMesh and ModelMaturation
+- **AND** the canonical interaction-group and case identities remain the only finite closure path
 
-### Requirement: Bug families deepen models instead of replacing coverage
-Bug-family and same-class closure SHALL provide seeds and family gates for
-ContractExhaustionMesh instead of acting as independent canonical coverage.
+### Requirement: Model miss closure follows one exact blueprint-gap chain
+Every in-scope model miss SHALL resolve the exact behavior plane, commitment, blueprint block, primary model owner, owner code contract, and observed failure before closure work begins. Model Miss Review SHALL emit one typed blueprint gap and observed-problem seed; ContractExhaustionMesh SHALL own the finite observed, same-class, combination, and holdout case identities and their oracles; ModelMaturation SHALL own the model-depth response; Model-Test Alignment SHALL bind the accepted model, owner code, and current test evidence; and replay SHALL cover the canonical affected topology. The chain SHALL produce one current maturation result for final risk review.
 
-#### Scenario: Same-class note lacks generated cases
-- **WHEN** a bug-family claim names only an abstract same-class note
-- **AND** no generated combination case ids or coverage receipt ids exist
-- **THEN** closure remains incomplete for the affected model family
+#### Scenario: Exact miss chain closes with current evidence
+- **WHEN** an observed miss resolves to one current blueprint owner and its canonical affected relations
+- **THEN** ContractExhaustionMesh creates or reuses stable case ids and executable oracles for the observed and required finite related cases
+- **AND** the accepted model update, owner code contract, current test bindings, and affected-topology replay all reference those case ids before ModelMaturation emits closure
+
+#### Scenario: Owner or relation boundary is unresolved
+- **WHEN** the current blueprint cannot resolve the affected owner, commitment, code contract, or bounded relation set
+- **THEN** the miss remains a visible model-depth or ownership gap
+- **AND** FlowGuard MUST NOT substitute a guessed family, free-form analogous scan, or caller-declared completion gate
+
+#### Scenario: A miss recurs or is high risk
+- **WHEN** an observed miss recurs or its impact requires more than a point regression
+- **THEN** the same blueprint owner and ContractExhaustionMesh case universe are deepened with the required finite sibling, interaction, boundary, and historical-holdout cases
+- **AND** no separate DefectFamily authority or gate is created
+
+### Requirement: Risk Evidence Ledger consumes the canonical maturation result
+Risk Evidence Ledger SHALL consume the one current ModelMaturation result together with its exact ContractExhaustionMesh case ids, model-code-test bindings, replay evidence, scoped gaps, and subject identity. It MUST NOT require or accept a parallel defect-family or analogous-scan gate for the same miss.
+
+#### Scenario: Canonical miss result is complete
+- **WHEN** the current maturation result binds the observed miss, required finite cases, owner model, owner code contract, current test evidence, replay scope, and all scoped dispositions
+- **THEN** Risk Evidence Ledger MAY use that result within its declared claim boundary
+
+#### Scenario: Canonical miss result is missing or scoped
+- **WHEN** the maturation result is missing, stale, blocked, or explicitly scoped
+- **THEN** Risk Evidence Ledger preserves that state and MUST NOT upgrade it through a second family gate or scan receipt
 

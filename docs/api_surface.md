@@ -15,12 +15,16 @@ formal runner = deterministic finite model checks plus evidence gates
 The formal minimum useful entry for new or deepened models is:
 
 ```text
-risky boundary -> RiskIntent -> template search/no-match
--> Input x State -> Set(Output x State)
+risky boundary -> RiskIntent -> Input x State -> Set(Output x State)
 -> MinimumModelContract + KnownBadProof
 -> FlowGuardCheckPlan -> run_model_first_checks
--> inspect counterexample/gaps -> close template harvest
+-> inspect counterexample/gaps
 ```
+
+Template work is a separate route-scoped operation. It enters this flow only
+when the caller explicitly requests template reuse/publication or current
+executable evidence identifies a bounded stable pattern intended for use
+outside the target project.
 
 The deterministic finite exploration engine remains an internal execution
 primitive. It is no longer the agent-default public entry for non-trivial model
@@ -33,8 +37,7 @@ hierarchy, process, release, or evidence risk.
 It keeps the normal path short:
 
 - formal model-first entry: `RiskIntent`, `RiskProfile`,
-  `FlowGuardCheckPlan`, `MinimumModelContract`, `KnownBadProof`,
-  `TemplateReuseReview`, `TemplateHarvestReview`, and
+  `FlowGuardCheckPlan`, `MinimumModelContract`, `KnownBadProof`, and
   `run_model_first_checks`;
 - core modeling primitives: `Workflow`, `Invariant`, and `FunctionResult`;
 - route selection: `FLOWGUARD_ROUTE_API`,
@@ -71,13 +74,30 @@ is `python -m flowguard portable-system-check`.
 ## Model System Authority API
 
 `MODEL_SYSTEM_AUTHORITY_API` is the small public authority surface for an
-existing modeled project. It exposes `ModelSystemSnapshot`,
+existing modeled project. FlowGuard itself is implemented as a Python runtime,
+but this authority model can describe software, services, workflows, agents,
+pipelines, and mixed systems in any implementation language. A target-specific
+provider supplies observation and native evidence; it does not change the
+authority contract.
+
+The stable current-intent cohort is `CurrentEffectiveIntentView`,
+`EffectiveIntentTransition`, `EffectiveIntentOwnerBinding`,
+`EffectiveIntentBootstrapReceipt`, `LegacyIntentBootstrapDisposition`,
+`build_current_intent_bootstrap_receipt()`,
+`bootstrap_current_effective_intent_view()`,
+`build_current_effective_intent_view()`,
+`validate_current_effective_intent_view()`,
+`validate_current_effective_intent_refinement()`, and
+`load_current_accepted_revision_set()`. The stable read-only planning cohort is
+`ModelRevisionPlan` and `preview_current_model_revision()`.
+
+The remaining authority cohort includes `ModelSystemSnapshot`,
 `ModelInstanceRef`, `ModelAuthorityHead`, `CoverageUniverse`,
 `ModelRevisionSet`, `build_model_instance_ref()`,
 `build_manifest_model_system_snapshot()`, `audit_model_authority()`,
 `load_observed_model_system()`, `bootstrap_model_authority()`,
 `build_current_model_revision()`, `activate_model_revision_set()`, and
-`rollback_model_revision_set()`.
+`rollback_observed_model_system()`.
 
 Use this cohort to distinguish the one observed implementation snapshot from
 normative targets and counterfactual experiments. The observed head is a
@@ -87,15 +107,32 @@ passes affected-closure and evidence checks and is activated pointer-last
 under the shared project-manifest lock. Operational rollback restores or
 compensates implementation effects before moving authority.
 
+Each revision keeps two different intent records. Its revision-local delta
+says what this revision adds, replaces, or retires. Its cumulative
+`CurrentEffectiveIntentView` says what the complete modeled system currently
+means after that delta. The current view must bind every independently derived
+current model owner exactly once, reverify every active intent source, and
+record each prior contribution as retained, superseded, or retired. The first
+v5 current view uses one explicit, ancestry-audited bootstrap receipt; later
+revisions refine that accepted view directly. Historical revision deltas are
+evidence about how the system changed, not a substitute current view.
+
 `build_current_model_revision()` accepts only one current-schema terminal-pass
 full model-regression parent receipt whose exact child receipts independently
 verify against the current manifest, inputs, obligations, toolchain, and
 environment. It derives the canonical diff and affected closure, writes one
 content-addressed candidate/revision pair, and never activates authority. The
 corresponding thin command-line surfaces are
-`model-system-bootstrap`, `model-system-audit`,
+`model-system-bootstrap`, `model-revision-intent-bootstrap`,
+`model-system-audit`,
+`model-revision-plan`, `model-revision-owner-evidence`,
 `model-revision-build`, `model-revision-activate`, and
-`model-revision-rollback`. They preserve the
+`model-revision-rollback`. These are two separate bootstrap boundaries:
+`model-system-bootstrap` establishes generation-one observed authority for a
+new modeled project, while `model-revision-intent-bootstrap` moves an existing
+generation-one or legacy v4 lineage into its first cumulative v5 intent view.
+Ordinary accepted v5 changes use build, refinement validation, and activation.
+These commands preserve the
 existing ModelMesh, preflight, behavior-commitment, field-lifecycle,
 model-test-alignment, TestMesh, and DevelopmentProcessFlow ownership; this API
 does not create another modeling route.
@@ -163,7 +200,14 @@ owners with plane-first read-only lookup (`BehaviorLookupQuery`,
 `query_behavior_commitments_from_path()`) rather than adding a route. The BCL
 surface also exports `BehaviorLookupBinding`, `BehaviorCommitmentRelation`,
 plane/actor/relation/role constants, canonical ledger load/write helpers, and
-the ledger fingerprint. Exact external purposes keep one stable
+the ledger fingerprint. `audit_behavior_commitment_source_inventory()` is the
+read-only current-file gate; `refresh_behavior_commitment_source_inventory()`
+is its pure, no-write physical-identity refresh. Direct, anchored,
+semicolon-composite, and fixed-directory-prefixed glob refs share one canonical
+newline-aware file identity and one versioned physical aggregate instead of
+trusting stored `freshness_state`; unsafe, prefix-free, empty, missing-anchor,
+and duplicate-member refs fail visibly. Authored ownership and declared
+semantics remain outside that physical aggregate. Exact external purposes keep one stable
 `business_intent_id`, one active commitment, and one singular
 `primary_path_id`; repeated UI/API/CLI/adapter surfaces delegate to that
 authority.
@@ -241,41 +285,31 @@ For AI agents, route groups are the normal discovery surface:
   for vague ideas, short plans, and AI-generated outlines that need explicit
   source, scope, state, side effect, step, receipt, validation, rework,
   human-question, and claim rows.
-- `MODEL_SIMILARITY_ROUTE_API` is an internal feeder for ExistingModelPreflight,
-  ArchitectureReduction, and Model-Test Alignment when similar A/B/C workflow
-  maintenance, shared kernels, adapter variants, sibling tests, duplicate
-  business paths, path-terminal divergence, or false friends affect the owner
-  route.
+- `CanonicalRelation` and `CanonicalRelationHandoff` are internal direct-current
+  carriers for exact DNA/BCL/topology edges that an existing owner has already
+  declared. They do not form a route, search for related code, infer scope, or
+  make a completion decision.
 - `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`,
   `MODEL_TEST_ALIGNMENT_ROUTE_API`, and `ARCHITECTURE_REDUCTION_ROUTE_API`
-  consume `SimilarityHandoff` when model similarity drives their work.
+  consume `CanonicalRelationHandoff` when an exact declared relation affects
+  their work.
   `MODEL_TEST_ALIGNMENT_ROUTE_API` also exposes transition coverage matrix
   helpers for turning modeled transitions into direct test-evidence
   obligations. Python source-audit execution lives in
   `flowguard.model_test_alignment_source`, while the original
   `flowguard.model_test_alignment` and top-level `flowguard` imports remain
   compatibility facades.
-- `MAINTENANCE_SCAN_ROUTE_API` is an internal DevelopmentProcessFlow post-change
-  scan helper for FlowGuard-managed
-  project work that needs to surface model/code/test drift, stale evidence,
-  skipped candidate routes, duplicate/conflicting/unproven business paths, old
-  business-path disposition gaps, or split/reduction pressure before a broad
-  claim.
-  `maintenance_scan_plan_from_summary_report(...)` bridges structured
-  SummaryReport gaps into that same router without making the runner a new
-  workflow engine.
 - `MAINTENANCE_OBLIGATION_MEMORY_API` is the shared memory object used by
-  summary reports, maintenance scan, model maturation, and risk ledger so
-  unresolved route-owned gaps can be inherited without a separate debt scan.
-- `MODEL_ANGLE_DELIBERATION_API` is the open-ended pre-route review for asking
-  what model angle the current boundary may miss before an agent trusts a
-  fixed route. It records the candidate angle, what the current model sees and
-  misses, the failure if ignored, and whether to reuse, extend, split, create,
-  scope, defer, or ask for human review.
-- `RISK_TEMPLATE_LIBRARY_API` is the public/local reusable risk-template route
-  for searching packaged templates, using a portable per-machine local library,
-  reviewing template reuse, harvesting local candidate templates from minimum
-  valuable models, and closing template harvest before complete model claims.
+  summary reports, DevelopmentProcessFlow, ModelMaturation, and Risk Evidence
+  Ledger so unresolved gaps remain attached to their existing owner instead of
+  becoming a separate scan or debt authority.
+- `RISK_TEMPLATE_LIBRARY_API` is the single public/local reusable risk-template
+  route. It runs only for an explicit reuse/publication request or current
+  executable evidence of a bounded stable pattern intended for use outside the
+  target project. Once triggered, it strictly searches packaged and portable
+  per-machine local templates, records exact reuse or reviewed no-match, and
+  closes template harvest before that template operation is complete. Ordinary
+  modeling, repair, maintenance, cleanup, and release do not inherit this gate.
 - `FIELD_LIFECYCLE_MESH_API` is the field-governance layer for changes where
   fields carry behavior, routing, permissions, schema, replay, migration, or
   external-contract meaning. High-level models project important fields into
@@ -307,9 +341,11 @@ inventory.
 - public starter templates for basic models, Risk Intent check plans,
   risk-template library use, model-miss reviews, closure-contract reviews, and
   recurring maintenance workflows;
-- risk template helpers such as `search_risk_templates()`,
+- route-scoped risk template helpers such as `search_risk_templates()`,
   `review_minimum_model_contract()`, `harvest_risk_template_candidate()`,
-  `TemplateHarvestReview`, and `review_template_harvest_closure()`;
+  `TemplateHarvestReview`, and `review_template_harvest_closure()`; these are
+  strict after the conditional template route is admitted, not universal model
+  completion gates;
 - scenario review and `ScenarioMatrixBuilder`;
 - deterministic counterexample minimization;
 - optional domain packs such as `DeduplicationPack`, `CachePack`, `RetryPack`,
@@ -392,7 +428,8 @@ inventory.
   `ObservableArchitectureContract`, `CompatibilitySurfaceClassification`,
   `ArchitectureReductionCandidate`, `ArchitectureReductionTrigger`,
   `TargetArchitectureAction`,
-  `ArchitectureReductionPlan`, `ArchitectureReductionReport`, and
+  `ArchitectureReductionPlan`, `ArchitectureReductionReport`,
+  `ArchitectureReductionStepAssessment`, `ArchitectureReductionStepCost`, and
   `review_architecture_reduction()` for reviewing whether an existing modeled
   implementation can be contracted without changing declared observable
   behavior, classifying compatibility surfaces such as old aliases, migration
@@ -400,26 +437,18 @@ inventory.
   classifying merge/collapse/remove/keep-facade candidates, keeping completed
   or historical candidates out of the active ready queue, and handing target
   structure actions to Code Structure Recommendation or StructureMesh before
-  production code is edited.
-- optional model-similarity consolidation helpers such as
-  `model_signature_minimal()`, `model_signature_maintenance()`,
-  `model_similarity_plan_for_changed_member()`, `SimilarityHandoff`,
-  `ModelSignature`,
-  `ModelSimilarityEvidence`, `ModelSimilarityRelation`,
-  `ModelSimilarityMaintenanceGroup`, `ModelSimilarityChangeImpact`,
-  `ModelSimilarityTestObligation`, `ModelSimilarityCodeObligation`,
-  `ModelSimilarityPlan`, `ModelSimilarityReport`, and
-  `review_model_similarity_consolidation()` for comparing structured model
-  signatures, classifying typed relations such as same workflow, family
-  variant, shared kernel, duplicate boundary, adapter-only difference, evidence
-  duplicate, false friend, and unrelated, deriving maintenance groups,
-  changed-sibling review obligations, shared/variant test obligations, and
-  shared-kernel/adapter/duplicate-boundary code obligations, and handing
-  reviewable next-route advice through one typed handoff to Existing Model
-  Preflight, ModelMesh,
-  Architecture Reduction, Code Structure Recommendation, StructureMesh,
-  Model-Test Alignment, or manual review without merging models or rewriting
-  code automatically.
+  production code is edited. Retained routes are also reviewed internally:
+  each modeled step is classified as `retain`, `merge`, `delegate`, `remove`,
+  `explicit_on_demand`, or `unresolved` from the same caller and responsibility
+  inventory. Operation, invocation, payload-byte, and estimated-token measures
+  order the review queue only; they never replace equivalence, replacement,
+  trigger, or safety/evidence-owner proof.
+- internal canonical-relation carrier helpers: `CanonicalRelation`,
+  `CanonicalRelationHandoff`, the current relation-type constants, and
+  `normalize_canonical_relation_handoff()`. A route owner supplies exact
+  relation ids, typed endpoints, and source identities; ContractExhaustionMesh
+  can materialize finite relation cases. These helpers do not compare arbitrary
+  pairs, discover affected scope, select ownership, or prove a code change.
 - model-test alignment helpers such as `ModelObligation`,
   `ClosureEvidenceTarget`, `CodeContract`, `TestEvidence`,
   `ModelTestAlignmentPlan`, and `review_model_test_alignment()` for directly
@@ -468,12 +497,11 @@ inventory.
   `review_obligation_family_parity()` for checking that related obligations
   have the same required mechanism coverage from allowed provenance sources
   before a family-level claim is promoted to full confidence. For bug-repair
-  workflows, `AnalogousDefectCandidate` and
-  `review_analogous_defect_scan()` record where the same failure shape might
-  recur before broad closure is claimed. These helpers declare or scan the
-  family surface; canonical same-class bad-case coverage should flow through
-  ContractExhaustionMesh so each sibling case has a stable case id, oracle, and
-  MTA/TestMesh/Risk Ledger handoff.
+  workflows, the owner must declare the finite affected relations and route
+  them through ContractExhaustionMesh so every required sibling case has a
+  stable id, oracle, and MTA/TestMesh/Risk Ledger handoff. Obligation-family
+  parity may check an already-declared shared claim; it does not discover the
+  family or expand scope.
 - optional model maturation helpers such as `TaskFacts`,
   `TaskCoverageDemand`, `ModelMaturationSignal`, `ModelMaturationPlan`,
   `ModelMaturationIteration`, `ModelMaturationReport`,
@@ -484,14 +512,6 @@ inventory.
   a broad FlowGuard claim is made. `ModelMaturationReceiptRef` and
   `verify_model_maturation_receipt()` keep receipt publication separate from
   independent currentness verification; raw mappings do not carry authority.
-- optional model-angle deliberation helpers such as
-  `ModelAngleDeliberation`, `ModelAngleReviewReport`, and
-  `review_model_angle_deliberations()` for preserving open-ended AI reasoning
-  before one route is trusted. Rows are not limited to known FlowGuard routes:
-  they may name any meaningful missing angle, then hand that angle to the
-  owner route that can produce evidence. Existing Model Preflight, Maintenance
-  Scan, Risk Evidence Ledger, and Closure Contract can consume unresolved
-  model-angle gaps before broad confidence.
 - optional FlowGuard self-maintenance helpers such as `RouteProfile`,
   `AIMaintenanceProfile`, `FieldLayerProfile`,
   `SelfMaintenanceChildReport`, `SelfMaintenancePlan`,
@@ -561,9 +581,10 @@ inventory.
   implementation work in current FlowGuard model ownership before creating a
   new boundary. Full preflight records layered proof evidence id, parent
   coverage, child disjointness, child reattachment, leaf boundary-matrix
-  status for parent models with child models, and optional model-similarity
-  relation evidence when reuse, family variant, shared-kernel, or false-friend
-  decisions depend on cross-model comparison. For field-bearing changes it
+  status for parent models with child models, and optional canonical relation
+  evidence when current DNA/BCL/topology identities already establish an
+  affected sibling, shared owner/mechanism, duplicate boundary, adapter-only
+  edge, or false friend. For field-bearing changes it
   also records behavior field ids, field owners, existing field lifecycle
   model ids, and unresolved field lifecycle gaps before downstream work starts.
 - optional UI Flow Structure helpers such as `UIContentVisibilityItem`,
@@ -685,20 +706,21 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   with explicit preconditions, a `why_not_modeled` explanation, invalidation
   conditions, rationale, and checks
 - `RiskIntent`, `RiskProfile`, `FlowGuardCheckPlan`,
-  `MinimumModelContract`, `KnownBadProof`, `TemplateReuseReview`,
-  `TemplateHarvestReview`, and `review_known_bad_proofs`
+  `MinimumModelContract`, `KnownBadProof`, and `review_known_bad_proofs`
+- route-scoped `TemplateReuseReview` and `TemplateHarvestReview` for an
+  explicitly admitted `risk_template_library` operation
 - `RiskEvidenceRow`, `RiskEvidenceProof`, `RiskEvidenceLedgerPlan`,
   `RiskEvidenceLedgerReport`, and `review_risk_evidence_ledger()` for the final
   confidence ledger that connects user risks to FlowGuard model obligations,
-  optional public code contracts, obligation-family gates, analogous defect
-  scans, recurring defect-family gates, model/test split gates, UI
+  optional public code contracts, finite ContractExhaustion coverage,
+  independently verified ModelMaturation evidence, model/test split gates, UI
   implementation, real-surface, functional-chain, source-baseline interaction, and
-  done-claim gates, artifact-payload gates, model-angle deliberation
-  evidence, remembered maintenance obligations, and current proof evidence
+  done-claim gates, artifact-payload gates, remembered owner-route maintenance
+  obligations, and current proof evidence
 - `MaintenanceObligation`, `MaintenanceObligationReport`, and
   `build_maintenance_obligation_report()` for preserving unresolved
-  route-owned gaps as future scan/ledger inputs without making them a separate
-  skill route
+  route-owned gaps as DevelopmentProcessFlow/ledger inputs without making them
+  a separate discovery or skill route
 - `ProofArtifactRef`, `proof_artifact_gap_codes()`, and proof-artifact status
   constants for binding declared evidence rows to concrete result paths,
   fingerprints, exit status, current route evidence, obligation coverage, and
@@ -708,10 +730,11 @@ Reporting helpers help an AI agent explain what was checked and what was not:
   still count as current evidence when the command, test source, tested
   artifact, dependency, environment, result fingerprint, and coverage scope
   have not changed
-- `DefectFamilyGate`, `DefectFamilyEvidence`, `DefectFamilyGatePlan`,
-  `DefectFamilyGateReport`, and `review_defect_family_gates()` for promoting
-  recurring or high-risk same-class model misses into a reusable FlowGuard gate
-  before a broad final-confidence claim
+- `ModelMaturationReceiptRef`, `VerifiedModelMaturation`,
+  `verify_model_maturation_receipt()`, and
+  `model_maturation_to_risk_evidence_gate()` for carrying the exact task-bound
+  model-depth result into the final ledger without trusting raw mappings or
+  self-declared status
 - `LegacyPathDisposition` and `review_legacy_path_dispositions()` for blocking
   closure when an old route remains executable with an unknown, unproved, or
   out-of-scope-without-reason disposition
@@ -787,13 +810,10 @@ Evidence APIs are used to keep FlowGuard itself honest:
   `model_test_alignment_full_template_files()`,
   `code_structure_recommendation_template_files()`,
   `existing_model_preflight_template_files()`,
-  `model_angle_deliberation_template_files()`,
   `field_lifecycle_template_files()`,
-  `model_similarity_consolidation_template_files()`,
   `plan_detailing_template_files()`,
   `risk_evidence_ledger_template_files()`,
   `development_process_flow_template_files()`,
-  `maintenance_scan_template_files()`,
   `project_adoption_template_files()`, `model_miss_review_full_template_files()`,
   `ui_flow_structure_full_template_files()`, `test_mesh_template_files()`,
   `structure_mesh_template_files()`, `closure_contract_template_files()`, and
@@ -813,11 +833,11 @@ The package exports lightweight grouping constants:
 - route-scoped discovery groups such as `FLOWGUARD_ROUTE_API`,
   `TEMPLATE_STRUCTURE_API`, `EVIDENCE_FIELD_STRUCTURE_API`,
   `FLOWGUARD_SELF_MAINTENANCE_ROUTE_API`,
-  `MODEL_SIMILARITY_ROUTE_API`, `ARCHITECTURE_REDUCTION_ROUTE_API`,
+  `ARCHITECTURE_REDUCTION_ROUTE_API`,
   `CODE_STRUCTURE_RECOMMENDATION_ROUTE_API`,
-  `MODEL_TEST_ALIGNMENT_ROUTE_API`, `MODEL_ANGLE_DELIBERATION_API`,
+  `MODEL_TEST_ALIGNMENT_ROUTE_API`, `MODEL_MISS_REVIEW_ROUTE_API`,
   `MAINTENANCE_OBLIGATION_MEMORY_API`,
-  `MAINTENANCE_SCAN_ROUTE_API`, and `PLAN_DETAILING_ROUTE_API`
+  `MODEL_MATURATION_LOOP_API`, and `PLAN_DETAILING_ROUTE_API`
 - `CORE_API`
 - `REPORTING_HELPER_API`
 - `EVIDENCE_API`
@@ -835,11 +855,9 @@ route helpers when they clarify a real risk, reduce repetitive code, or improve
 reporting honesty. In an existing modeled system, use Existing Model Preflight to
 look up current model responsibilities, FunctionBlocks, state owners,
 side-effect owners, and public entrypoints before proposing new ownership or a
-parallel workflow. Before trusting that one existing route is enough, record
-model-angle deliberation when the task may need a different viewpoint: what the
-current model sees, what it misses, what fails if ignored, and whether the
-answer is reuse, extend, child model, new model, scoped/deferred, or human
-review. When model obligations and tests both exist, use Model-Test
+parallel workflow. Bind uncertainty to an explicit preflight or blueprint gap
+and route that gap to its evidence owner; do not create an open-ended parallel
+decision record. When model obligations and tests both exist, use Model-Test
 Alignment to compare them directly before claiming coverage agreement; when
 code contracts are supplied, also bind each model obligation to the external
 code surface and require tests to prove that external contract rather than only
@@ -857,10 +875,12 @@ contract and the same target id. When related obligations are being treated as
 one family-level promise, add `ObligationFamily` and
 `ObligationFamilyEvidence` rows so missing sibling mechanisms or wrong
 provenance keep the alignment report scoped or blocked. When a post-green bug
-shows a reusable failure shape, declare the same-class family seed, project it
-through ContractExhaustionMesh, and feed those canonical case ids plus any
-`review_analogous_defect_scan()` status into the final ledger before claiming
-full closure. When a code contract is supposed to be a
+exposes a missing class, bind the exact commitment, primary owner, and
+blueprint gap; declare finite canonical relations from current
+DNA/BCL/topology evidence; project them through ContractExhaustionMesh; emit a
+task-bound ModelMaturation contribution; and feed verified maturation,
+generated cases, and owner code/test evidence into the final ledger before
+claiming full closure. When a code contract is supposed to be a
 closed boundary, add `CodeBoundaryContract` and `CodeBoundaryObservation` rows
 and run `review_code_boundary_conformance()` so forbidden inputs, unknown
 accepted inputs, extra outputs, extra errors, extra state writes, and extra
@@ -877,10 +897,10 @@ separately and consume that route evidence before claiming broad parent
 confidence. For
 large model or validation meshes, record the target split derivation from the
 FlowGuard source model before trusting parent/child ownership and evidence.
-After non-trivial FlowGuard-managed work, run or construct a maintenance scan
-with `review_maintenance_scan()` when changed artifacts, remembered maintenance
-obligations, skipped routes, stale evidence, or structure/reduction signals may
-require another owner route.
+After non-trivial FlowGuard-managed work, let DevelopmentProcessFlow compare
+changed artifacts directly with remembered owner-route obligations, skipped
+checks, stale evidence, and structure/reduction signals, then reopen only the
+exact affected owner routes.
 When parent confidence claims whole-flow closure, add a
 mesh closure model so root entries, child outputs, joins, terminal
 dispositions, repeated-input repair feedback, blocker/progress tokens, and
@@ -904,10 +924,13 @@ When the incoming work is still a vague idea or thin plan, run
 WorkflowStepContracts, DevelopmentProcessFlow, or AgentWorkflowRehearsal as
 needed; do not treat the plan-detail pass as implementation proof.
 Use Code Structure Recommendation for direct pre-code architecture
-recommendations. Use Architecture Reduction when an existing implementation has
-repeated handlers, adapters, modules, branches, or validation layers and the
-goal is behavior-preserving code contraction; it should produce a review and
-handoff, not rewrite production code. Use UI Flow Structure when a UI's controls, state transitions,
+recommendations. Use Architecture Reduction when an existing implementation
+has repeated or historical handlers, adapters, modules, branches, validation
+layers, or product behaviors whose current-DNA necessity must be decided.
+Ordinary contraction still requires observable equivalence or proven facade
+delegation; intentional behavior retirement instead requires a complete
+current responsibility and consumer disposition. The route should produce a
+review and handoff, not rewrite production code. Use UI Flow Structure when a UI's controls, state transitions,
 navigation, regions, overlays, menu levels, information displays,
 duplicate/redundant content, overlapping controls, or parent/child hierarchy
 need a reviewed UI interaction model before layout and visual implementation;
@@ -952,7 +975,27 @@ intentionally absent from product UI and test-evidence projection.
 `IMPLEMENTATION_BLUEPRINT_API` exposes the provider-neutral
 `TargetSystemDescriptor`, provider declaration/registry/result, frozen
 `TargetSystemSnapshot`, canonical compiler, compact understanding projection,
-and the project-specialized blueprint builder. Python AST and pytest are
+`canonical_target_system_blueprint_projection`, and the project-specialized
+blueprint builder. The canonical target projection returns the existing
+`CanonicalBlueprintProjection` envelope and reuses its `BlueprintShard`, writer,
+and verifier; it preserves the exact descriptor, frozen evidence, native report
+set, and qualification/readiness result rather than creating another export
+authority.
+The bounded `BlueprintManifestQualificationReport` is compiler-owned internal
+data and is therefore absent from `IMPLEMENTATION_BLUEPRINT_API` and the root
+package API. Its `static_manifest_status` and `static_manifest_ready` fields
+describe only static manifest consistency; project and target readiness remain
+the public owners of whole readiness and implementation admission.
+The shared disk kernel exposes `CanonicalBlueprintProjection`,
+`serialize_canonical_blueprint_projection`,
+`write_canonical_blueprint_projection`, and
+`load_canonical_blueprint_projection`. The loader's result names its bounded
+claim: exact current directory/manifest/content integrity only. Target and
+project semantic verifiers separately rebind identity and readiness to their
+typed compiler inputs; generic content verification is never described as
+sufficient model understanding.
+
+Python AST and pytest are
 software observation providers, not a core language gate. The cohort also
 contains the strict project document loader, independent implementation inventory,
 behavior-block contracts, resource and intent inventories, static blueprint
@@ -1000,4 +1043,14 @@ derives module-size, repeated-shape, route, branch, adapter, wrapper/facade,
 helper, and repeated-validation candidates independently from the exact self
 blueprint, binds the complete candidate denominator to a fingerprint, and routes
 unproved candidates to StructureMesh and ModelTestAlignment. It never treats
-size or similarity as equivalence proof and never edits source code.
+size or shape resemblance as equivalence proof and never edits source code.
+The same observed inventory and reverse caller index also feed step-level
+assessments, so repeated scans, reflections, evidence projections,
+fingerprints, and token-facing payload materializations do not require a
+second whole-project scan. A high-cost step remains retained or unresolved if
+it still uniquely owns a safety rule or final evidence responsibility.
+`SelfReductionEvidenceNeighborhood` and
+`SelfReductionEvidenceNeighborhoodCatalog` store an identical candidate test,
+coverage, dimension, and current-receipt neighborhood once. Candidate-local
+observable contracts bind one exact catalog fingerprint and resolve fail-closed;
+proof records remain self-contained.

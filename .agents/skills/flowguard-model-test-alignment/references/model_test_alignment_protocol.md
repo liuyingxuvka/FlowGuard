@@ -62,7 +62,7 @@ For every in-scope obligation, emit one row containing:
 6. freshness and exact proof artifact identity.
 
 Full confidence requires every obligation to have one owner contract and
-current same-plane evidence. Opaque family/similarity ids do not count unless
+current same-plane evidence. Opaque family/canonical-relation ids do not count unless
 their actual member obligations are enumerated.
 
 ## Model-Purpose Gate
@@ -72,6 +72,32 @@ task-specific protected failures and claim boundary. Bind the exact candidate
 to native good, per-failure bad, oracle, and current evidence. Reusable types
 are not permanently single-purpose, and only declared FlowGuard checks may
 support completion claims.
+
+## Path-Quality Evidence Binding
+
+For each affected new or materially changed model, consume the exact compact
+`PathQualitySubject` and `PathQualityResult` from ModelMaturation. Verify that
+the subject's model, purpose, effective intent, obligation, provider,
+dependency, code, test, oracle, evidence, retained-element inventory, and
+currentness fingerprints match the alignment row and accepted revision.
+
+Bind every hard-semantic dimension affected by a proposed rewrite and every
+retained-element `NecessityWitness` to the same current model owner, primary
+`CodeContract`, exact test/native member, executable oracle, and terminal
+evidence, or to one explicit scoped disposition. Test or runtime evidence may
+support a witness only under its native owner; the model element's existence,
+path-quality self-description, compact result, parent receipt, or copied suite
+receipt cannot license it.
+
+This route verifies bindings and current evidence. ModelMaturation alone owns
+light/deep path review, candidate comparison, Pareto dominance, and bounded
+path-quality conclusions. Keep a behavior-changing candidate in
+`normative_target`; never align it as current `observed` implementation before
+code, topology, tests, and evidence match. Missing, stale, unresolved,
+cross-owner, aggregate-only, or normative-as-observed rows remain exact gaps.
+The same binding shape applies to non-Python software and non-code workflows;
+use their native implementation/resource/verification owners without
+fabricating code or pytest members.
 
 ## Source Audit
 
@@ -157,6 +183,11 @@ After any model, contract, primary-path, test, verifier, or inventory change,
 invalidate only the rows that consume the changed identity, refresh their
 evidence, and preserve unaffected current rows by exact fingerprint.
 
+A path-quality subject/result/detail identity change follows the same rule and
+also reopens any alignment row that supplies one of its hard-semantic
+obligations or necessity witnesses. Exact unchanged rows remain reusable; no
+deep review is implied by reuse alone.
+
 ## `model_code_test` Blueprint Layer
 
 This route owns row-level `model_code_test` alignment. In explicit
@@ -184,11 +215,27 @@ layer. User choice, maturation, and implementation admission remain separate.
 
 Canonical blueprint alignment separates `BehaviorCaseContract`,
 `BehaviorCoverageEdge`, and `CoverageExecutionEvidence`. Every static edge
-names an exact behavior block, primary surface, semantic rule, portable
-binding, concrete literal or symbolic-contract owner-declared case, oracle,
+names an exact behavior block, its block-local implementation surface and
+portable input/output/state binding, concrete literal or symbolic-contract
+owner-declared case, source-case lineage, semantic rule, oracle,
 accepted dimension checker design, and its current pytest/native-check owner.
+For an existing modeled target, the behavior's intent reference must be active
+in the accepted revision's complete `CurrentEffectiveIntentView` and licensed
+by the exact binding for that behavior's model owner. A latest delta, history
+fold, root intent, textual similarity, or implementation path cannot fill an
+empty or cross-owner intent row.
 A delegated assertion helper counts only
 through an explicit current acyclic call graph that terminates at real oracle
 members. Placeholder cases, generated test ids, owner-wide receipts, and
 full-suite receipts cannot be copied to satisfy unrelated blocks; execution
 remains a separate `not_run|pass|fail|blocked` fact.
+
+For every executed `pass`, verify the existing receipt and verification result
+against the row's exact producer owner, subject, covered coverage/test/native
+member, model and implementation fingerprints, inputs, toolchain, environment,
+terminal result, currentness, and eligibility. A validation-parent receipt is
+only parent evidence. The same leaf receipt identity cannot appear under two
+native owners; one owner's receipt may cover several of that owner's affected
+members only through one exact merged owner reference. Multi-owner integration
+is shareable only when explicitly typed and its complete owner/member set is
+declared.

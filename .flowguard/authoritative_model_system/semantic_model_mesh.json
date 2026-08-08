@@ -1,20 +1,35 @@
 {
-  "schema_version": "flowguard.semantic_self_mesh.v1",
+  "schema_version": "flowguard.semantic_self_mesh.v3",
   "mesh_id": "flowguard-whole-system-understanding-v1",
   "claim_scope": "whole_current_flowguard_model_universe",
-  "derivation_base_snapshot_path": ".flowguard/model-mesh/snapshots/cdbd494cc5c9d68609a480e1d755b666b2f32146597e60d367aec6b46e8bd6e1.json",
-  "derivation_base_snapshot_fingerprint": "sha256:cdbd494cc5c9d68609a480e1d755b666b2f32146597e60d367aec6b46e8bd6e1",
-  "candidate_added_model_ids": [
-    "implementation_blueprint"
+  "derivation_base_snapshot_path": ".flowguard/model-mesh/snapshots/36aca0a93c42800d7abc84054f1f39524b4b37bf8313911e585e0f45e468836a.json",
+  "derivation_base_snapshot_fingerprint": "sha256:36aca0a93c42800d7abc84054f1f39524b4b37bf8313911e585e0f45e468836a",
+  "current_manifest_path": ".flowguard/model-regression-manifest.json",
+  "observed_base_added_model_ids": [],
+  "observed_base_removed_model_ids": [
+    "ai_surface_streamlining",
+    "legacy_compatibility_cleanup",
+    "maintenance_scan_router",
+    "model_angle_deliberation",
+    "model_similarity_consolidation",
+    "openspec_archive_cleanup",
+    "readme_positioning_20260602",
+    "reduce_architecture_surface",
+    "release_visibility_process",
+    "risk_purpose_header",
+    "simplify_field_schema",
+    "simplify_flowguard_structure",
+    "structure_surface_simplification",
+    "template_harvest_closure"
   ],
-  "declared_model_count": 65,
-  "semantic_universe_fingerprint": "sha256:4d6baac9a6cc91d61ef50cd0e4e13420cbfcadacd0bd5e9abc83c40423bad2bd",
-  "semantic_disposition_fingerprint": "sha256:c803937307f762101642b99625cfc1aca8f0541f095f4f55ecbf7673eb820584",
-  "semantic_relation_fingerprint": "sha256:a6f04653297f22913d3c772803479fce81a8bce77dd34d0a4076a1db165d897b",
+  "declared_model_count": 51,
+  "semantic_universe_fingerprint": "sha256:cf78187656ef0f81d2698a9625f7edb4ee465f00ea0b108ac8bc35cf555b803c",
+  "semantic_disposition_fingerprint": "sha256:4bbe8a5d2c1087d24892c610985951d64ca6dace340b30f1238ff28d7155bb07",
+  "semantic_relation_fingerprint": "sha256:d2f926f1ed7a418fc256e9c7e7ae637281ae65daf8c3244fdd0f294f850592f5",
   "semantic_model_status": "candidate_defined_not_verified",
   "whole_system_completion_claim": "not_licensed_until_current_terminal_evidence",
   "currentness_owner": "authoritative_model_system_revision",
-  "claim_boundary": "This artifact semantically classifies the exact declared model universe. It is a candidate topology, not a current completion receipt. Whole-system understanding additionally requires current native semantic checks, exact validation evidence, verified maturation, and an accepted model revision set. It licenses no claims outside the declared model-system boundary.",
+  "claim_boundary": "This artifact semantically classifies the exact current model-regression manifest universe and records the observed-base added and removed diff independently. It is a candidate topology, not a current completion receipt. Whole-system understanding additionally requires current native semantic checks, exact validation evidence, verified maturation, and an accepted model revision set. It licenses no claims outside the declared model-system boundary.",
   "allowed_dispositions": [
     "connected",
     "intentional_leaf",
@@ -52,7 +67,7 @@
     }
   ],
   "required_terminal_evidence": [
-    "check:model-regression:authoritative-model-system",
+    "check:model-regression:authoritative_model_system",
     "check:model-regression:model-mesh-closure-model",
     "check:model-regression:self-maintenance-mesh",
     "receipt:model-regressions:full-current-universe",
@@ -63,783 +78,736 @@
     {
       "model_id": "adversarial_scenario_synthesis",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:model-mesh-and-composition",
-        "semantic-parent:behavior-contracts-and-evidence"
-      ],
       "consumer_ids": [
         "model:model_test_code_alignment",
         "model:test_evidence_mesh"
       ],
-      "rationale": "Generates finite hostile scenarios that strengthen contract and test obligations without owning the final sufficiency decision."
+      "rationale": "Generates finite hostile scenarios that strengthen contract and test obligations without owning the final sufficiency decision.",
+      "structural_parent_id": "semantic-parent:model-mesh-and-composition",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:behavior-contracts-and-evidence"
+      ]
     },
     {
       "model_id": "ai_entry_surface_reduction",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:agent-guidance-and-skills"
-      ],
       "consumer_ids": [
         "model:codex_skill_satellites",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Defines the bounded AI entry surface and feeds the maintained skill suite and self-maintenance route."
+      "rationale": "Defines the bounded AI entry surface and feeds the maintained skill suite and self-maintenance route.",
+      "structural_parent_id": "semantic-parent:agent-guidance-and-skills",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "ai_route_handoffs",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:agent-guidance-and-skills"
-      ],
       "consumer_ids": [
         "model:codex_skill_satellites",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Makes specialist route handoffs explicit so route selection does not silently lose an owner or claim boundary."
-    },
-    {
-      "model_id": "ai_surface_streamlining",
-      "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:agent-guidance-and-skills"
-      ],
-      "consumer_ids": [
-        "model:ai_entry_surface_reduction"
-      ],
-      "rationale": "Supplies surface simplification evidence to the canonical AI entry model rather than creating a second entry authority."
+      "rationale": "Makes specialist route handoffs explicit so route selection does not silently lose an owner or claim boundary.",
+      "structural_parent_id": "semantic-parent:agent-guidance-and-skills",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "architecture_reduction",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:architecture-and-lifecycle"
-      ],
       "consumer_ids": [
         "model:development_process_flow",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Owns evidence-backed behavior-preserving contraction decisions consumed by the development and self-maintenance process."
+      "rationale": "Owns evidence-backed behavior-preserving contraction decisions consumed by the development and self-maintenance process.",
+      "structural_parent_id": "semantic-parent:architecture-and-lifecycle",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "authoritative_model_system",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:authority-and-understanding"
-      ],
       "consumer_ids": [
+        "model:implementation_blueprint",
         "model:self_maintenance_mesh",
         "claim:whole-flowguard-self-understanding"
       ],
-      "rationale": "Owns the sole observed model-system head and the atomic revision boundary for any whole-system understanding claim."
+      "rationale": "Owns the sole observed model-system head, the complete current-effective-intent view, and the atomic revision boundary consumed by the implementation blueprint and any whole-system understanding claim.",
+      "structural_parent_id": "semantic-parent:authority-and-understanding",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "behavior_commitment_ledger",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:behavior-contracts-and-evidence"
-      ],
       "consumer_ids": [
         "model:authoritative_model_system",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Provides the independent externally observable behavior inventory needed to prevent model-only self-confirmation."
+      "rationale": "Provides the independent externally observable behavior inventory needed to prevent model-only self-confirmation.",
+      "structural_parent_id": "semantic-parent:behavior-contracts-and-evidence",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "bounded_system_composition_benchmark",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:model-mesh-and-composition"
-      ],
       "consumer_ids": [
         "model:compositional_verification_kernel",
         "model:hierarchical_model_mesh"
       ],
-      "rationale": "Supplies bounded interaction evidence and truncation classification to the composition and hierarchy owners."
+      "rationale": "Supplies bounded interaction evidence and truncation classification to the composition and hierarchy owners.",
+      "structural_parent_id": "semantic-parent:model-mesh-and-composition",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "code_boundary_conformance",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:behavior-contracts-and-evidence"
-      ],
       "consumer_ids": [
         "model:model_test_code_alignment"
       ],
-      "rationale": "Checks external code-boundary conformance and delegates the model-contract-test coverage decision to alignment."
+      "rationale": "Checks external code-boundary conformance and delegates the model-contract-test coverage decision to alignment.",
+      "structural_parent_id": "semantic-parent:behavior-contracts-and-evidence",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "codex_skill_satellites",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:agent-guidance-and-skills"
-      ],
       "consumer_ids": [
         "model:self_maintenance_mesh",
         "claim:flowguard-release-readiness"
       ],
-      "rationale": "Models the maintained FlowGuard skill suite whose current consumer projection is required by self-maintenance and release."
+      "rationale": "Models the maintained FlowGuard skill suite whose current consumer projection is required by self-maintenance and release.",
+      "structural_parent_id": "semantic-parent:agent-guidance-and-skills",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "compositional_verification_kernel",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:model-mesh-and-composition"
-      ],
       "consumer_ids": [
         "model:hierarchical_model_mesh",
         "model:model_mesh_closure_model"
       ],
-      "rationale": "Owns portable refinement and finite system composition semantics consumed by hierarchy and whole-flow closure."
+      "rationale": "Owns portable refinement and finite system composition semantics consumed by hierarchy and whole-flow closure.",
+      "structural_parent_id": "semantic-parent:model-mesh-and-composition",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "contract_source_audit",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:behavior-contracts-and-evidence"
-      ],
       "consumer_ids": [
         "model:model_test_code_alignment",
         "model:behavior_commitment_ledger"
       ],
-      "rationale": "Audits contract sources so alignment and the behavior ledger do not rely on helper-only or unowned declarations."
+      "rationale": "Audits contract sources so alignment and the behavior ledger do not rely on helper-only or unowned declarations.",
+      "structural_parent_id": "semantic-parent:behavior-contracts-and-evidence",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "default_replacement_field_lifecycle",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:architecture-and-lifecycle"
-      ],
       "consumer_ids": [
         "model:development_process_flow",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Owns direct-current field replacement and old-path disposition across architecture and self-maintenance changes."
+      "rationale": "Owns direct-current field replacement and old-path disposition across architecture and self-maintenance changes.",
+      "structural_parent_id": "semantic-parent:architecture-and-lifecycle",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "development_process_flow",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:development-release-and-adoption",
-        "semantic-parent:authority-and-understanding"
-      ],
       "consumer_ids": [
         "model:self_maintenance_mesh",
         "claim:flowguard-release-readiness"
       ],
-      "rationale": "Orders modeling, implementation, evidence freshness, synchronization, and release while preserving specialist ownership."
+      "rationale": "Orders modeling, implementation, evidence freshness, synchronization, and release while preserving specialist ownership.",
+      "structural_parent_id": "semantic-parent:development-release-and-adoption",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:authority-and-understanding"
+      ]
     },
     {
       "model_id": "development_process_strategy",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:development-release-and-adoption"
-      ],
       "consumer_ids": [
         "model:development_process_flow"
       ],
-      "rationale": "Provides conditional route-comparison evidence only when the development process has a real optimization trigger."
+      "rationale": "Provides conditional route-comparison evidence only when the development process has a real optimization trigger.",
+      "structural_parent_id": "semantic-parent:development-release-and-adoption",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "existing_model_preflight",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:authority-and-understanding"
-      ],
       "consumer_ids": [
-        "model:task_coverage_demand",
-        "model:model_similarity_consolidation"
+        "model:task_coverage_demand"
       ],
-      "rationale": "Locates current ownership and unresolved surfaces before task demand is compiled without claiming sufficiency itself."
+      "rationale": "Locates current ownership and unresolved surfaces before task demand is compiled without claiming sufficiency itself.",
+      "structural_parent_id": "semantic-parent:authority-and-understanding",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "field_prompt_reduction",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:architecture-and-lifecycle"
-      ],
       "consumer_ids": [
         "model:default_replacement_field_lifecycle"
       ],
-      "rationale": "Provides prompt-field contraction evidence to the lifecycle owner and cannot close a field change on prompt text alone."
+      "rationale": "Provides prompt-field contraction evidence to the lifecycle owner and cannot close a field change on prompt text alone.",
+      "structural_parent_id": "semantic-parent:architecture-and-lifecycle",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "flowguard_closure_contract",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:authority-and-understanding"
-      ],
       "consumer_ids": [
         "model:self_maintenance_mesh",
         "claim:whole-flowguard-self-understanding"
       ],
-      "rationale": "Checks terminal identity and material consistency after maturation, admission, and risk have made their owned decisions."
+      "rationale": "Checks terminal identity and material consistency after maturation, admission, and risk have made their owned decisions.",
+      "structural_parent_id": "semantic-parent:authority-and-understanding",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "guard_closure_contract",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:behavior-contracts-and-evidence"
-      ],
       "consumer_ids": [
         "model:flowguard_closure_contract"
       ],
-      "rationale": "Supplies the generic clean-closure boundary consumed by the FlowGuard-specific terminal contract."
+      "rationale": "Supplies the generic clean-closure boundary consumed by the FlowGuard-specific terminal contract.",
+      "structural_parent_id": "semantic-parent:behavior-contracts-and-evidence",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "guidance_compression",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:agent-guidance-and-skills"
-      ],
       "consumer_ids": [
         "model:codex_skill_satellites"
       ],
-      "rationale": "Compresses guidance while preserving hard gates and delegates distribution authority to the skill-suite model."
+      "rationale": "Compresses guidance while preserving hard gates and delegates distribution authority to the skill-suite model.",
+      "structural_parent_id": "semantic-parent:agent-guidance-and-skills",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "harden_ui_content_visibility_validation",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:ui-and-human-operability"
-      ],
       "consumer_ids": [
         "model:ui_flow_structure_skill",
         "model:ui_human_operability_gate"
       ],
-      "rationale": "Supplies current content-admission and visibility evidence to UI flow and human-operability owners."
+      "rationale": "Supplies current content-admission and visibility evidence to UI flow and human-operability owners.",
+      "structural_parent_id": "semantic-parent:ui-and-human-operability",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "harden_ui_real_surface_validation",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:ui-and-human-operability"
-      ],
       "consumer_ids": [
         "model:ui_flow_structure_skill",
         "model:ui_human_operability_gate"
       ],
-      "rationale": "Supplies runnable real-surface evidence so UI declarations cannot be promoted from source inspection alone."
+      "rationale": "Supplies runnable real-surface evidence so UI declarations cannot be promoted from source inspection alone.",
+      "structural_parent_id": "semantic-parent:ui-and-human-operability",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "hierarchical_model_mesh",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:model-mesh-and-composition"
-      ],
       "consumer_ids": [
         "model:model_mesh_closure_model",
         "model:authoritative_model_system"
       ],
-      "rationale": "Owns semantic parent-child topology, dispositions, reattachment, and affected siblings for whole-flow claims."
+      "rationale": "Owns semantic parent-child topology, dispositions, reattachment, and affected siblings for whole-flow claims.",
+      "structural_parent_id": "semantic-parent:model-mesh-and-composition",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "implementation_blueprint",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:authority-and-understanding",
-        "semantic-parent:behavior-contracts-and-evidence",
-        "semantic-parent:architecture-and-lifecycle"
-      ],
       "consumer_ids": [
         "model:authoritative_model_system",
         "model:architecture_reduction",
         "model:model_test_code_alignment",
         "claim:whole-flowguard-self-understanding"
       ],
-      "rationale": "Owns the independent implementation inventory, bidirectional model-code semantics, resource and intent lineage, exact model-test alignment, and static blueprint status consumed by self-understanding and release contraction review."
-    },
-    {
-      "model_id": "legacy_compatibility_cleanup",
-      "disposition": "delegated_or_supporting",
-      "parent_ids": [
+      "rationale": "Owns the independent implementation inventory, bidirectional model-code semantics, resource and intent lineage, exact model-test alignment, and static blueprint status consumed by self-understanding and release contraction review.",
+      "structural_parent_id": "semantic-parent:authority-and-understanding",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:behavior-contracts-and-evidence",
         "semantic-parent:architecture-and-lifecycle"
-      ],
-      "consumer_ids": [
-        "model:default_replacement_field_lifecycle",
-        "model:architecture_reduction"
-      ],
-      "rationale": "Proves retired compatibility paths are disposed rather than retained as alternate current authority."
+      ]
     },
     {
       "model_id": "maintenance_obligation_memory",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:development-release-and-adoption"
-      ],
       "consumer_ids": [
-        "model:maintenance_scan_router"
+        "model:development_process_flow"
       ],
-      "rationale": "Preserves explicit maintenance obligations for the scan router without owning execution or completion."
-    },
-    {
-      "model_id": "maintenance_scan_router",
-      "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:development-release-and-adoption"
-      ],
-      "consumer_ids": [
-        "model:development_process_flow",
-        "model:self_maintenance_mesh"
-      ],
-      "rationale": "Routes post-change scan findings to exact specialist owners and keeps skipped or unmapped work visible."
+      "rationale": "Preserves explicit maintenance obligations for the development process without owning execution or completion.",
+      "structural_parent_id": "semantic-parent:development-release-and-adoption",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "mesh_target_split_derivation",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:model-mesh-and-composition"
-      ],
       "consumer_ids": [
         "model:hierarchical_model_mesh"
       ],
-      "rationale": "Derives model partitions from source behavior and supplies them to the hierarchy owner instead of splitting by count."
+      "rationale": "Derives model partitions from source behavior and supplies them to the hierarchy owner instead of splitting by count.",
+      "structural_parent_id": "semantic-parent:model-mesh-and-composition",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "minimum_valuable_model_entry",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:agent-guidance-and-skills"
-      ],
       "consumer_ids": [
         "model:ai_entry_surface_reduction",
         "model:task_coverage_demand"
       ],
-      "rationale": "Defines a lightweight but evidence-honest entry that feeds bounded AI routing and task coverage."
-    },
-    {
-      "model_id": "model_angle_deliberation",
-      "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:agent-guidance-and-skills"
-      ],
-      "consumer_ids": [
-        "model:ai_entry_surface_reduction",
-        "model:task_coverage_demand"
-      ],
-      "rationale": "Surfaces materially different modeling angles before the canonical entry and coverage owners decide scope."
+      "rationale": "Defines a lightweight but evidence-honest entry that feeds bounded AI routing and task coverage.",
+      "structural_parent_id": "semantic-parent:agent-guidance-and-skills",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "model_impact_freshness_gate",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:authority-and-understanding",
-        "semantic-parent:model-mesh-and-composition"
-      ],
       "consumer_ids": [
         "model:authoritative_model_system",
         "model:development_process_flow"
       ],
-      "rationale": "Maps changes to affected model and evidence owners and blocks unknown impact rather than expanding to run-all."
+      "rationale": "Maps changes to affected model and evidence owners and blocks unknown impact rather than expanding to run-all.",
+      "structural_parent_id": "semantic-parent:authority-and-understanding",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:model-mesh-and-composition"
+      ]
     },
     {
       "model_id": "model_maturation_loop",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:authority-and-understanding"
-      ],
       "consumer_ids": [
         "model:development_process_flow",
         "model:flowguard_closure_contract",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Solely decides task-bound understanding sufficiency from exact demanded-owner evidence and current receipts."
+      "rationale": "Solely decides task-bound understanding sufficiency from exact demanded-owner evidence and current receipts.",
+      "structural_parent_id": "semantic-parent:authority-and-understanding",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "model_mesh_closure_model",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:model-mesh-and-composition",
-        "semantic-parent:authority-and-understanding"
-      ],
       "consumer_ids": [
         "model:authoritative_model_system",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Models the finite transfer path from facts through semantic mesh, maturation, admission, risk, and terminal closure."
+      "rationale": "Models the finite transfer path from facts through semantic mesh, maturation, admission, risk, and terminal closure.",
+      "structural_parent_id": "semantic-parent:model-mesh-and-composition",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:authority-and-understanding"
+      ]
     },
     {
       "model_id": "model_miss_review",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:model-mesh-and-composition"
-      ],
       "consumer_ids": [
         "model:model_maturation_loop",
-        "model:maintenance_scan_router"
+        "model:model_test_code_alignment"
       ],
-      "rationale": "Backfeeds post-green observed misses into the owning model and maturation path without creating new authority."
-    },
-    {
-      "model_id": "model_similarity_consolidation",
-      "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:model-mesh-and-composition"
-      ],
-      "consumer_ids": [
-        "model:existing_model_preflight",
-        "model:hierarchical_model_mesh"
-      ],
-      "rationale": "Identifies duplicate or related model boundaries and delegates ownership decisions to preflight and hierarchy."
+      "rationale": "Backfeeds post-green observed misses into maturation and exact model-code-test alignment without creating new authority.",
+      "structural_parent_id": "semantic-parent:model-mesh-and-composition",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "model_test_code_alignment",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:behavior-contracts-and-evidence"
-      ],
       "consumer_ids": [
         "model:model_maturation_loop",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Binds model obligations to one external code contract and current same-plane test evidence for maturation."
+      "rationale": "Binds model obligations to one external code contract and current same-plane test evidence for maturation.",
+      "structural_parent_id": "semantic-parent:behavior-contracts-and-evidence",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "model_topology_hazard_review",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:model-mesh-and-composition"
-      ],
       "consumer_ids": [
         "model:model_maturation_loop",
-        "model:maintenance_scan_router"
+        "model:development_process_flow"
       ],
-      "rationale": "Supplies topology-grounded future-use hazards and residual risks to maturation and post-change routing."
+      "rationale": "Supplies topology-grounded future-use hazards and residual risks to maturation and the development process.",
+      "structural_parent_id": "semantic-parent:model-mesh-and-composition",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "model_visibility",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:authority-and-understanding"
-      ],
       "consumer_ids": [
         "model:existing_model_preflight",
         "model:user_facing_model_diagrams"
       ],
-      "rationale": "Makes current models and their claim boundaries visible to preflight and user-facing model explanations."
-    },
-    {
-      "model_id": "openspec_archive_cleanup",
-      "disposition": "intentional_leaf",
-      "parent_ids": [
-        "semantic-parent:development-release-and-adoption"
-      ],
-      "consumer_ids": [
-        "model:development_process_flow"
-      ],
-      "rationale": "Owns the bounded cleanup of completed OpenSpec artifacts and intentionally terminates at process evidence."
+      "rationale": "Makes current models and their claim boundaries visible to preflight and user-facing model explanations.",
+      "structural_parent_id": "semantic-parent:authority-and-understanding",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "plan_detailing_compiler",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:development-release-and-adoption"
-      ],
       "consumer_ids": [
         "model:development_process_flow"
       ],
-      "rationale": "Compiles rough plans into structured process rows while leaving execution and freshness ownership upstream."
+      "rationale": "Compiles rough plans into structured process rows while leaving execution and freshness ownership upstream.",
+      "structural_parent_id": "semantic-parent:development-release-and-adoption",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "primary_path_authority",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:behavior-contracts-and-evidence"
-      ],
       "consumer_ids": [
         "model:behavior_commitment_ledger",
         "model:model_test_code_alignment"
       ],
-      "rationale": "Selects one externally successful path for path-sensitive commitments and prevents alternate automatic success."
+      "rationale": "Selects one externally successful path for path-sensitive commitments and prevents alternate automatic success.",
+      "structural_parent_id": "semantic-parent:behavior-contracts-and-evidence",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "project_adoption_version_gate",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:development-release-and-adoption"
-      ],
       "consumer_ids": [
         "model:development_process_flow",
         "claim:flowguard-release-readiness"
       ],
-      "rationale": "Guards package and project adoption currentness without confusing installed, source, or author-maintenance identity."
-    },
-    {
-      "model_id": "readme_positioning_20260602",
-      "disposition": "intentional_leaf",
-      "parent_ids": [
-        "semantic-parent:development-release-and-adoption"
-      ],
-      "consumer_ids": [
-        "model:release_visibility_process"
-      ],
-      "rationale": "Owns the bounded public positioning claim and terminates by handing validated documentation evidence to release."
-    },
-    {
-      "model_id": "reduce_architecture_surface",
-      "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:architecture-and-lifecycle"
-      ],
-      "consumer_ids": [
-        "model:architecture_reduction"
-      ],
-      "rationale": "Supplies a concrete surface-contraction candidate to the architecture-reduction decision owner."
-    },
-    {
-      "model_id": "release_visibility_process",
-      "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:development-release-and-adoption"
-      ],
-      "consumer_ids": [
-        "model:development_process_flow",
-        "claim:flowguard-release-readiness"
-      ],
-      "rationale": "Joins release documentation, visibility, assets, and publication evidence under the staged development owner."
-    },
-    {
-      "model_id": "risk_purpose_header",
-      "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:authority-and-understanding"
-      ],
-      "consumer_ids": [
-        "model:flowguard_closure_contract",
-        "model:self_maintenance_mesh"
-      ],
-      "rationale": "Carries explicit protected failures and claim boundaries into risk and terminal self-maintenance closure."
+      "rationale": "Guards package and project adoption currentness without confusing installed, source, or author-maintenance identity.",
+      "structural_parent_id": "semantic-parent:development-release-and-adoption",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "runtime_gateway_adoption",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:behavior-contracts-and-evidence",
-        "semantic-parent:development-release-and-adoption"
-      ],
       "consumer_ids": [
         "model:project_adoption_version_gate",
         "model:runtime_path_evidence"
       ],
-      "rationale": "Supplies runtime entry adoption evidence to project currentness and executable-path evidence owners."
+      "rationale": "Supplies runtime entry adoption evidence to project currentness and executable-path evidence owners.",
+      "structural_parent_id": "semantic-parent:behavior-contracts-and-evidence",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:development-release-and-adoption"
+      ]
     },
     {
       "model_id": "runtime_path_evidence",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:behavior-contracts-and-evidence"
-      ],
       "consumer_ids": [
         "model:model_test_code_alignment",
         "model:test_evidence_mesh"
       ],
-      "rationale": "Binds public and delegated runtime paths to current executable observations used by alignment and test evidence."
+      "rationale": "Binds public and delegated runtime paths to current executable observations used by alignment and test evidence.",
+      "structural_parent_id": "semantic-parent:behavior-contracts-and-evidence",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "self_maintenance_mesh",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:authority-and-understanding",
-        "semantic-parent:development-release-and-adoption"
-      ],
       "consumer_ids": [
         "model:authoritative_model_system",
         "claim:flowguard-release-readiness"
       ],
-      "rationale": "Consumes the complete understanding chain, skill receipts, validation owners, sync, and release-state evidence."
-    },
-    {
-      "model_id": "simplify_field_schema",
-      "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:architecture-and-lifecycle"
-      ],
-      "consumer_ids": [
-        "model:default_replacement_field_lifecycle"
-      ],
-      "rationale": "Supplies direct-current schema simplification evidence and leaves field disposition with the lifecycle owner."
-    },
-    {
-      "model_id": "simplify_flowguard_structure",
-      "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:architecture-and-lifecycle"
-      ],
-      "consumer_ids": [
-        "model:structure_refactor_mesh",
-        "model:architecture_reduction"
-      ],
-      "rationale": "Supplies a whole-package simplification candidate to structure and behavior-preserving reduction owners."
+      "rationale": "Consumes the complete understanding chain, skill receipts, validation owners, sync, and release-state evidence.",
+      "structural_parent_id": "semantic-parent:authority-and-understanding",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:development-release-and-adoption"
+      ]
     },
     {
       "model_id": "skill_kernel_modularization",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:architecture-and-lifecycle",
-        "semantic-parent:agent-guidance-and-skills"
-      ],
       "consumer_ids": [
         "model:structure_refactor_mesh",
         "model:codex_skill_satellites"
       ],
-      "rationale": "Supplies modular kernel boundaries to structural parity and maintained skill-consumer projection checks."
+      "rationale": "Supplies modular kernel boundaries to structural parity and maintained skill-consumer projection checks.",
+      "structural_parent_id": "semantic-parent:architecture-and-lifecycle",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:agent-guidance-and-skills"
+      ]
     },
     {
       "model_id": "state_closure_gate",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:model-mesh-and-composition",
-        "semantic-parent:behavior-contracts-and-evidence"
-      ],
       "consumer_ids": [
         "model:model_mesh_closure_model",
         "model:flowguard_closure_contract"
       ],
-      "rationale": "Rejects unknown or pending terminal state and feeds finite mesh and FlowGuard closure owners."
+      "rationale": "Rejects unknown or pending terminal state and feeds finite mesh and FlowGuard closure owners.",
+      "structural_parent_id": "semantic-parent:model-mesh-and-composition",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:behavior-contracts-and-evidence"
+      ]
     },
     {
       "model_id": "structure_refactor_mesh",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:architecture-and-lifecycle"
-      ],
       "consumer_ids": [
         "model:development_process_flow",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Owns facade, dependency, configuration, and behavior parity for large structural splits and contractions."
-    },
-    {
-      "model_id": "structure_surface_simplification",
-      "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:architecture-and-lifecycle"
-      ],
-      "consumer_ids": [
-        "model:structure_refactor_mesh",
-        "model:architecture_reduction"
-      ],
-      "rationale": "Supplies public-surface simplification evidence to the structure and architecture reduction owners."
+      "rationale": "Owns facade, dependency, configuration, and behavior parity for large structural splits and contractions.",
+      "structural_parent_id": "semantic-parent:architecture-and-lifecycle",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "task_coverage_demand",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:authority-and-understanding"
-      ],
       "consumer_ids": [
         "model:model_maturation_loop",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Compiles the independent minimum fact denominator and explicit owner demands consumed by maturation."
+      "rationale": "Compiles the independent minimum fact denominator and explicit owner demands consumed by maturation.",
+      "structural_parent_id": "semantic-parent:authority-and-understanding",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "task_local_prediction_replay",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:authority-and-understanding",
-        "semantic-parent:model-mesh-and-composition"
-      ],
       "consumer_ids": [
         "model:model_maturation_loop",
         "model:authoritative_model_system"
       ],
-      "rationale": "Supplies independent prediction and replay evidence without replacing the preserved base or current authority."
-    },
-    {
-      "model_id": "template_harvest_closure",
-      "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:development-release-and-adoption"
-      ],
-      "consumer_ids": [
-        "model:template_public_release"
-      ],
-      "rationale": "Ensures reusable template findings are harvested or explicitly closed before a public template release."
+      "rationale": "Supplies independent prediction and replay evidence without replacing the preserved base or current authority.",
+      "structural_parent_id": "semantic-parent:authority-and-understanding",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:model-mesh-and-composition"
+      ]
     },
     {
       "model_id": "template_public_release",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:development-release-and-adoption"
-      ],
       "consumer_ids": [
-        "model:release_visibility_process",
         "model:development_process_flow"
       ],
-      "rationale": "Owns public template packaging and delegates final repository publication to release and process owners."
+      "rationale": "Owns public template packaging and delegates final repository publication directly to the DevelopmentProcessFlow owner.",
+      "structural_parent_id": "semantic-parent:development-release-and-adoption",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "test_evidence_mesh",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:behavior-contracts-and-evidence"
-      ],
       "consumer_ids": [
         "model:model_test_code_alignment",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Owns layered test partitions, exact execution receipts, reuse, and non-pass visibility consumed by alignment."
+      "rationale": "Owns layered test partitions, exact execution receipts, reuse, and non-pass visibility consumed by alignment.",
+      "structural_parent_id": "semantic-parent:behavior-contracts-and-evidence",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "ui_flow_structure_skill",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:ui-and-human-operability",
-        "semantic-parent:agent-guidance-and-skills"
-      ],
       "consumer_ids": [
         "model:codex_skill_satellites",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Owns complete UI interaction structure and projects its current route into the maintained skill suite."
+      "rationale": "Owns complete UI interaction structure and projects its current route into the maintained skill suite.",
+      "structural_parent_id": "semantic-parent:ui-and-human-operability",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:agent-guidance-and-skills"
+      ]
     },
     {
       "model_id": "ui_human_operability_gate",
       "disposition": "connected",
-      "parent_ids": [
-        "semantic-parent:ui-and-human-operability"
-      ],
       "consumer_ids": [
         "model:ui_flow_structure_skill",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Requires real human-operable controls, recovery, and terminal journeys before broad UI claims."
+      "rationale": "Requires real human-operable controls, recovery, and terminal journeys before broad UI claims.",
+      "structural_parent_id": "semantic-parent:ui-and-human-operability",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "user_facing_model_diagrams",
       "disposition": "intentional_leaf",
-      "parent_ids": [
-        "semantic-parent:agent-guidance-and-skills"
-      ],
       "consumer_ids": [
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Owns bounded explanatory diagrams and intentionally hands their currentness to self-maintenance rather than runtime."
+      "rationale": "Owns bounded explanatory diagrams and intentionally hands their currentness to self-maintenance rather than runtime.",
+      "structural_parent_id": "semantic-parent:agent-guidance-and-skills",
+      "cross_boundary_parent_ids": []
     },
     {
       "model_id": "validation_evidence_gates",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:behavior-contracts-and-evidence",
-        "semantic-parent:development-release-and-adoption"
-      ],
       "consumer_ids": [
         "model:test_evidence_mesh",
         "model:development_process_flow"
       ],
-      "rationale": "Classifies terminal, stale, skipped, and progress-only evidence for the test and development-process owners."
+      "rationale": "Classifies terminal, stale, skipped, and progress-only evidence for the test and development-process owners.",
+      "structural_parent_id": "semantic-parent:behavior-contracts-and-evidence",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:development-release-and-adoption"
+      ]
     },
     {
       "model_id": "work_context",
       "disposition": "delegated_or_supporting",
-      "parent_ids": [
-        "semantic-parent:development-release-and-adoption"
-      ],
       "consumer_ids": [
         "model:development_process_flow",
         "model:self_maintenance_mesh"
       ],
-      "rationale": "Projects external planning artifacts read-only into process context without importing provider execution authority."
+      "rationale": "Projects external planning artifacts read-only into process context without importing provider execution authority.",
+      "structural_parent_id": "semantic-parent:development-release-and-adoption",
+      "cross_boundary_parent_ids": []
+    }
+  ],
+  "feedback_progress_contracts": [
+    {
+      "relation_id": "topology:architecture_reduction:model-obligation:development_process_flow",
+      "contract_id": "progress:architecture-development-child-receipts",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "current_child_model_receipts",
+      "evidence_model_ids": [
+        "architecture_reduction",
+        "development_process_flow"
+      ],
+      "rationale": "Each contraction-to-development iteration refreshes the affected child receipts, reaches no further delta, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:architecture_reduction:model-obligation:self_maintenance_mesh",
+      "contract_id": "progress:architecture-maintenance-child-receipts",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "current_child_model_receipts",
+      "evidence_model_ids": [
+        "architecture_reduction",
+        "self_maintenance_mesh"
+      ],
+      "rationale": "Each contraction-to-maintenance iteration refreshes the affected child receipts, reaches no further delta, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:authoritative_model_system:model-obligation:implementation_blueprint",
+      "contract_id": "progress:authority-blueprint-generation",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "accepted_model_authority_activation",
+      "evidence_model_ids": [],
+      "rationale": "Each authority-to-blueprint cycle consumes one exact accepted generation, reaches a no-delta terminal state, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:authoritative_model_system:model-obligation:self_maintenance_mesh",
+      "contract_id": "progress:self-maintenance-authority-generation",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "accepted_model_authority_activation",
+      "evidence_model_ids": [],
+      "rationale": "Each maintenance cycle ends by accepting one exact generation, reaching no-delta completion, or exposing a terminal blocker."
+    },
+    {
+      "relation_id": "topology:development_process_flow:model-obligation:self_maintenance_mesh",
+      "contract_id": "progress:development-maintenance-child-receipts",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "current_child_model_receipts",
+      "evidence_model_ids": [
+        "development_process_flow",
+        "self_maintenance_mesh"
+      ],
+      "rationale": "Each development-to-maintenance iteration refreshes the affected child receipts, reaches no further delta, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:flowguard_closure_contract:model-obligation:self_maintenance_mesh",
+      "contract_id": "progress:closure-maintenance-child-receipts",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "current_child_model_receipts",
+      "evidence_model_ids": [
+        "flowguard_closure_contract",
+        "self_maintenance_mesh"
+      ],
+      "rationale": "Each closure-to-maintenance iteration refreshes the affected child receipts, reaches no further delta, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:implementation_blueprint:model-obligation:architecture_reduction",
+      "contract_id": "progress:blueprint-architecture-child-receipts",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "current_child_model_receipts",
+      "evidence_model_ids": [
+        "implementation_blueprint",
+        "architecture_reduction"
+      ],
+      "rationale": "Each blueprint-to-contraction iteration refreshes the affected child receipts, reaches no further delta, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:implementation_blueprint:model-obligation:authoritative_model_system",
+      "contract_id": "progress:authority-blueprint-generation",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "accepted_model_authority_activation",
+      "evidence_model_ids": [],
+      "rationale": "Each blueprint-to-authority cycle advances one exact accepted generation, reaches a no-delta terminal state, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:implementation_blueprint:model-obligation:model_test_code_alignment",
+      "contract_id": "progress:blueprint-alignment-child-receipts",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "current_child_model_receipts",
+      "evidence_model_ids": [
+        "implementation_blueprint",
+        "model_test_code_alignment"
+      ],
+      "rationale": "Each blueprint-to-alignment iteration refreshes the affected child receipts, reaches no further delta, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:model_maturation_loop:model-obligation:development_process_flow",
+      "contract_id": "progress:maturation-development-child-receipts",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "current_child_model_receipts",
+      "evidence_model_ids": [
+        "model_maturation_loop",
+        "development_process_flow"
+      ],
+      "rationale": "Each maturation-to-development iteration refreshes the affected child receipts, reaches a terminal maturation decision, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:model_maturation_loop:model-obligation:flowguard_closure_contract",
+      "contract_id": "progress:maturation-closure-child-receipts",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "current_child_model_receipts",
+      "evidence_model_ids": [
+        "model_maturation_loop",
+        "flowguard_closure_contract"
+      ],
+      "rationale": "Each maturation-to-closure iteration refreshes the affected child receipts, reaches a terminal maturation decision, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:model_maturation_loop:model-obligation:self_maintenance_mesh",
+      "contract_id": "progress:maturation-maintenance-child-receipts",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "current_child_model_receipts",
+      "evidence_model_ids": [
+        "model_maturation_loop",
+        "self_maintenance_mesh"
+      ],
+      "rationale": "Each maturation-to-maintenance iteration refreshes the affected child receipts, reaches a terminal maturation decision, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:model_test_code_alignment:model-obligation:model_maturation_loop",
+      "contract_id": "progress:alignment-maturation-child-receipts",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "current_child_model_receipts",
+      "evidence_model_ids": [
+        "model_test_code_alignment",
+        "model_maturation_loop"
+      ],
+      "rationale": "Each alignment-to-maturation iteration refreshes the affected child receipts, reaches no further alignment gap, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:model_test_code_alignment:model-obligation:self_maintenance_mesh",
+      "contract_id": "progress:alignment-maintenance-child-receipts",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "current_child_model_receipts",
+      "evidence_model_ids": [
+        "model_test_code_alignment",
+        "self_maintenance_mesh"
+      ],
+      "rationale": "Each alignment-to-maintenance iteration refreshes the affected child receipts, reaches no further alignment gap, or exposes a visible blocker."
+    },
+    {
+      "relation_id": "topology:self_maintenance_mesh:model-obligation:authoritative_model_system",
+      "contract_id": "progress:self-maintenance-authority-generation",
+      "contract_kind": "progress_measure",
+      "evidence_source_kind": "accepted_model_authority_activation",
+      "evidence_model_ids": [],
+      "rationale": "Each authority feedback cycle advances the accepted generation exactly once, terminates at no delta, or remains visibly blocked."
     }
   ]
 }

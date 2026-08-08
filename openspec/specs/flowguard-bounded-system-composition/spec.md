@@ -137,7 +137,7 @@ FlowGuard SHALL include payment/order retry identity, permission-revocation/cach
 - **WHEN** all benchmark cases pass their expected outcomes
 - **THEN** the claim boundary reports coverage of those finite families and does not claim arbitrary future system correctness
 
-### Requirement: Bounded software blueprints account for reconstruction resources
+### Requirement: Bounded software blueprints account for all required resources
 A bounded software blueprint SHALL identify required build, runtime, dependency, configuration, schema, data, asset, migration, external-service, and verification resources with current fingerprints or explicit external/scoped dispositions. Environment-variable semantics may be declared, but secrets SHALL NOT be embedded.
 
 #### Scenario: Required build input is absent

@@ -35,47 +35,26 @@ The minimum valuable model SHALL include the state, side effects, completion evi
 - **WHEN** a known-bad case is listed but no executable proof shows it is caught
 - **THEN** FlowGuard MUST block formal model confidence
 
-### Requirement: Template reuse review is part of model creation
-The minimum valuable model path SHALL perform a template reuse review before model generation, preserve the result in the check plan or adoption evidence, and complete with a harvest closure review after new or materially deepened modeling.
+### Requirement: Minimum formal entry is complete without template search
+The minimum valuable model entry SHALL require protected errors, explicit state and effects, completion evidence, executable known-bad proof, and current model/code/test bindings. It SHALL NOT require template search, no-match rationale, or harvest closure unless a separate template-reuse/publication trigger applies.
 
-#### Scenario: Template was used
-- **WHEN** a matching public or local template is used
-- **THEN** the model intent or check plan records the used template id
+#### Scenario: Ordinary minimum model is complete
+- **WHEN** the model satisfies its DNA contract and executable known-bad proof without a template-reuse trigger
+- **THEN** FlowGuard may grant the model's bounded formal confidence without template search or harvest evidence
 
-#### Scenario: Template was not used
-- **WHEN** no matching template is used
-- **THEN** the model intent or check plan records a no-match reason
+#### Scenario: FlowGuard's own minimum-entry model still requires template work
+- **WHEN** the current `minimum_valuable_model_entry` self model rejects an otherwise complete ordinary model because template search, no-match, or harvest was not run
+- **THEN** self-authority qualification MUST fail because the executable DNA contradicts the current minimum-entry contract
+- **AND** the self model SHALL be repaired directly rather than hidden behind a prompt-only exception
 
-#### Scenario: Model closes harvest loop
-- **WHEN** an AI creates or materially deepens a minimum valuable model
-- **THEN** the check plan or adoption evidence records template harvest closure as written, merged, duplicate-linked, or not-harvestable with an accepted reason
-
-#### Scenario: Missing harvest closure blocks formal confidence
-- **WHEN** a new or materially deepened formal model has no harvest closure review
-- **THEN** FlowGuard MUST block formal model confidence
-
-### Requirement: Self-owned model runners use the formal entry
-FlowGuard's current repository-owned `.flowguard` model runner scripts SHALL
-use a formal `FlowGuardCheckPlan`-based entry rather than calling
-`Explorer(...)` as the script-level evidence path.
+### Requirement: Self-owned model runners use canonical formal evidence
+FlowGuard-owned model runners SHALL use the formal check-plan entry with risk intent, the minimum model contract, current known-bad proof, and the exact route-specific evidence required by the model.
 
 #### Scenario: Correct self-model consumes known-bad proof
-- **WHEN** a `.flowguard` runner claims a correct self-model supports
-  maintenance confidence
-- **THEN** the runner MUST build a check plan with Risk Intent, minimum model
-  contract, template reuse/no-match evidence, harvest closure, and current
-  known-bad proof rows
+- **WHEN** a self-owned runner claims maintenance confidence
+- **THEN** it MUST prove the declared bad cases are rejected and consume current route-specific evidence
+- **AND** template evidence is required only when the runner declares a separate template-reuse/publication obligation
 
-#### Scenario: Bad self-model is actually caught
-- **WHEN** a `.flowguard` runner declares an expected-bad workflow or explicit
-  handled-bad label
-- **THEN** the runner MUST prove that the bad case failed, was rejected, or was
-  otherwise caught before the correct model consumes the proof
-
-#### Scenario: Internal Explorer remains internal
+#### Scenario: Internal finite explorer is used
 - **WHEN** the formal runner explores finite states
-- **THEN** `Explorer` MAY remain the internal engine behind
-  `run_model_first_checks(...)`
-- **AND** current `.flowguard` runner scripts MUST NOT call `Explorer(...)`
-  directly as their public evidence entry
-
+- **THEN** the finite explorer may remain an internal engine and MUST NOT become an alternate public evidence entry

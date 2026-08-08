@@ -252,19 +252,6 @@ Closure Contract SHALL require self-maintenance child reports to include owner g
 - **WHEN** any self-maintenance child report is partial, blocked, downgraded, stale, or skipped
 - **THEN** Closure Contract SHALL preserve it as a maintenance obligation rather than converting it into pass evidence
 
-### Requirement: Closure consumes model-angle review evidence
-FlowGuard Closure Contract SHALL consume model-angle review evidence when broad
-confidence depends on an agent's open-ended model sufficiency review.
-
-#### Scenario: Required model-angle evidence is missing
-- **WHEN** closure requires model-angle review evidence
-- **AND** no current model-angle report or closure evidence row is supplied
-- **THEN** closure MUST block full FlowGuard confidence
-
-#### Scenario: Model-angle evidence is scoped or blocked
-- **WHEN** supplied model-angle evidence reports scoped, blocked, stale, or unresolved required angles
-- **THEN** closure MUST downgrade or block the broad claim according to that evidence
-
 ### Requirement: Closure consumes field lifecycle and replacement evidence
 FlowGuard Closure Contract SHALL consume current field lifecycle, field
 projection, old-field disposition, old-path disposition, model-code-test
@@ -393,3 +380,30 @@ ClosureContract SHALL validate final identity continuity, required material pres
 #### Scenario: All upstream decisions agree
 - **WHEN** exact identities match, required materials are present, terminal evidence verifies, and RiskLedger is terminal
 - **THEN** closure preserves the RiskLedger confidence and reports integrity success without recomputation
+
+### Requirement: Closure consumes maturation and current-owner coverage evidence
+FlowGuard Closure Contract SHALL consume an exact current ModelMaturation
+decision and current evidence from every required affected owner when broad
+confidence depends on understanding sufficiency. Closure SHALL validate those
+identities and terminal states without creating an independent sufficiency
+review or rejudging the owner evidence.
+
+#### Scenario: Required maturation evidence is missing
+- **WHEN** broad closure requires understanding sufficiency
+- **AND** no exact current accepted ModelMaturation evidence covers the task and
+  selected owner closure
+- **THEN** closure MUST block full FlowGuard confidence
+
+#### Scenario: A required current-owner coverage item is open
+- **WHEN** maturation or an affected owner reports a required coverage item as
+  missing, scoped, blocked, stale, skipped, not run, progress-only, or
+  unresolved
+- **THEN** closure MUST preserve that exact state and downgrade or block the
+  broad claim
+
+#### Scenario: Maturation and owner evidence are current
+- **WHEN** the exact task, source, owner closure, model, code, test, topology,
+  and evidence identities match the accepted maturation decision
+- **THEN** closure MAY consume the terminal evidence subject to its remaining
+  closure requirements
+- **AND** it MUST NOT require a separate model-angle report

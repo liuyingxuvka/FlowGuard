@@ -9,7 +9,10 @@ Guards against:
 - using a light discussion note for implementation or proposal work that needs
   full preflight evidence;
 - allowing duplicate state, side-effect, entrypoint, or responsibility
-  ownership without a reuse/new-boundary rationale.
+  ownership without a reuse/new-boundary rationale;
+- accepting an affected read with a stale index fingerprint, missing objects or
+  ancestors, a hidden whole-builder call, or no derived understanding status;
+- widening into whole-target qualification without an explicit request.
 
 Use before editing:
 global FlowGuard routing, Codex skill prompts, model-grounding helper APIs, or
@@ -54,6 +57,13 @@ class ChangeIdea:
     inventory_scope: str = "selected_owner_closure"
     selected_model_count: int = 1
     materialized_model_count: int = 1
+    blueprint_scope: str = "affected"
+    affected_index_fingerprint_current: bool = True
+    affected_objects_complete: bool = True
+    affected_ancestors_complete: bool = True
+    affected_reader_used_without_whole_builder: bool = True
+    affected_understanding_derived: bool = True
+    whole_qualification_explicitly_requested: bool = False
 
 
 @dataclass(frozen=True)
@@ -81,6 +91,13 @@ class ClassifiedNeed:
     inventory_scope: str = "selected_owner_closure"
     selected_model_count: int = 1
     materialized_model_count: int = 1
+    blueprint_scope: str = "affected"
+    affected_index_fingerprint_current: bool = True
+    affected_objects_complete: bool = True
+    affected_ancestors_complete: bool = True
+    affected_reader_used_without_whole_builder: bool = True
+    affected_understanding_derived: bool = True
+    whole_qualification_explicitly_requested: bool = False
 
 
 @dataclass(frozen=True)
@@ -144,6 +161,10 @@ class State:
     over_materialized: tuple[str, ...] = ()
     maturation_handoff_emitted: tuple[str, ...] = ()
     implementation_readiness_inferred: tuple[str, ...] = ()
+    affected_reader_required: tuple[str, ...] = ()
+    affected_reader_verified: tuple[str, ...] = ()
+    whole_qualification_required: tuple[str, ...] = ()
+    whole_qualification_explicit: tuple[str, ...] = ()
 
 
 FULL_ACTIONS = {"implementation", "proposal", "restructure", "high_risk_change"}
@@ -174,6 +195,8 @@ class ClassifyNeed:
         "skipped",
         "lookup_required",
         "selected_inventory_required",
+        "affected_reader_required",
+        "whole_qualification_required",
     )
     accepted_input_type = ChangeIdea
     input_description = "existing-system change idea"
@@ -219,6 +242,16 @@ class ClassifyNeed:
             )
             if input_obj.inventory_scope == "selected_owner_closure"
             else state.selected_inventory_required,
+            affected_reader_required=_add_once(
+                state.affected_reader_required, input_obj.task_id
+            )
+            if input_obj.blueprint_scope == "affected"
+            else state.affected_reader_required,
+            whole_qualification_required=_add_once(
+                state.whole_qualification_required, input_obj.task_id
+            )
+            if input_obj.blueprint_scope == "whole"
+            else state.whole_qualification_required,
         )
         yield FunctionResult(
             ClassifiedNeed(
@@ -245,6 +278,13 @@ class ClassifyNeed:
                 input_obj.inventory_scope,
                 input_obj.selected_model_count,
                 input_obj.materialized_model_count,
+                input_obj.blueprint_scope,
+                input_obj.affected_index_fingerprint_current,
+                input_obj.affected_objects_complete,
+                input_obj.affected_ancestors_complete,
+                input_obj.affected_reader_used_without_whole_builder,
+                input_obj.affected_understanding_derived,
+                input_obj.whole_qualification_explicitly_requested,
             ),
             new_state,
             label=f"classified_{level}_preflight",
@@ -264,6 +304,8 @@ class SearchExistingModels:
         "selected_inventory_bounded",
         "over_materialized",
         "maturation_handoff_emitted",
+        "affected_reader_verified",
+        "whole_qualification_explicit",
     )
     accepted_input_type = (ClassifiedNeed, SkippedNeed)
     input_description = "ClassifiedNeed or SkippedNeed"
@@ -297,6 +339,58 @@ class SearchExistingModels:
                 label="blocked_invalid_inventory_scope",
             )
             return
+        if input_obj.blueprint_scope not in {"affected", "whole"}:
+            yield FunctionResult(
+                BlockedNeed(input_obj.task_id, "invalid_blueprint_scope"),
+                replace(state, blocked=_add_once(state.blocked, input_obj.task_id)),
+                label="blocked_invalid_blueprint_scope",
+            )
+            return
+        if input_obj.blueprint_scope == "whole" and not (
+            input_obj.whole_qualification_explicitly_requested
+        ):
+            yield FunctionResult(
+                BlockedNeed(input_obj.task_id, "whole_qualification_not_explicitly_requested"),
+                replace(state, blocked=_add_once(state.blocked, input_obj.task_id)),
+                label="blocked_implicit_whole_qualification",
+            )
+            return
+        if input_obj.blueprint_scope == "affected":
+            if not input_obj.affected_index_fingerprint_current:
+                yield FunctionResult(
+                    BlockedNeed(input_obj.task_id, "affected_index_fingerprint_stale"),
+                    replace(state, blocked=_add_once(state.blocked, input_obj.task_id)),
+                    label="blocked_affected_index_fingerprint",
+                )
+                return
+            if not input_obj.affected_objects_complete:
+                yield FunctionResult(
+                    BlockedNeed(input_obj.task_id, "affected_object_missing"),
+                    replace(state, blocked=_add_once(state.blocked, input_obj.task_id)),
+                    label="blocked_affected_object_missing",
+                )
+                return
+            if not input_obj.affected_ancestors_complete:
+                yield FunctionResult(
+                    BlockedNeed(input_obj.task_id, "affected_ancestor_missing"),
+                    replace(state, blocked=_add_once(state.blocked, input_obj.task_id)),
+                    label="blocked_affected_ancestor_missing",
+                )
+                return
+            if not input_obj.affected_reader_used_without_whole_builder:
+                yield FunctionResult(
+                    BlockedNeed(input_obj.task_id, "affected_path_invoked_whole_builder"),
+                    replace(state, blocked=_add_once(state.blocked, input_obj.task_id)),
+                    label="blocked_affected_whole_builder",
+                )
+                return
+            if not input_obj.affected_understanding_derived:
+                yield FunctionResult(
+                    BlockedNeed(input_obj.task_id, "affected_understanding_not_derived"),
+                    replace(state, blocked=_add_once(state.blocked, input_obj.task_id)),
+                    label="blocked_affected_understanding_missing",
+                )
+                return
         if (
             input_obj.inventory_scope == "selected_owner_closure"
             and input_obj.materialized_model_count > input_obj.selected_model_count
@@ -378,6 +472,17 @@ class SearchExistingModels:
             )
             if input_obj.inventory_scope == "selected_owner_closure"
             else state.selected_inventory_bounded,
+            affected_reader_verified=_add_once(
+                state.affected_reader_verified, input_obj.task_id
+            )
+            if input_obj.blueprint_scope == "affected"
+            else state.affected_reader_verified,
+            whole_qualification_explicit=_add_once(
+                state.whole_qualification_explicit, input_obj.task_id
+            )
+            if input_obj.blueprint_scope == "whole"
+            and input_obj.whole_qualification_explicitly_requested
+            else state.whole_qualification_explicit,
         )
         if input_obj.required_level == "full":
             grounded_state = replace(
@@ -565,6 +670,70 @@ class BrokenPreflightAsImplementationReadiness(SearchExistingModels):
             yield result
 
 
+class BrokenAcceptsUnverifiedBlueprintScope(SearchExistingModels):
+    name = "BrokenAcceptsUnverifiedBlueprintScope"
+    idempotency = (
+        "Broken variant masks one affected-reader or whole-scope failure and "
+        "routes as if the evidence were verified."
+    )
+
+    def apply(
+        self, input_obj: ClassifiedNeed | SkippedNeed, state: State
+    ) -> Iterable[FunctionResult]:
+        if isinstance(input_obj, SkippedNeed):
+            yield FunctionResult(input_obj, state, label="preflight_skip_carried_forward")
+            return
+        if not input_obj.affected_index_fingerprint_current:
+            label = "broken_accepts_affected_index_fingerprint_drift"
+        elif not input_obj.affected_objects_complete:
+            label = "broken_accepts_missing_affected_object"
+        elif not input_obj.affected_ancestors_complete:
+            label = "broken_accepts_missing_affected_ancestor"
+        elif not input_obj.affected_reader_used_without_whole_builder:
+            label = "broken_accepts_affected_whole_builder"
+        elif not input_obj.affected_understanding_derived:
+            label = "broken_accepts_missing_affected_understanding"
+        else:
+            label = "broken_accepts_implicit_whole_qualification"
+        masked = replace(
+            input_obj,
+            affected_index_fingerprint_current=True,
+            affected_objects_complete=True,
+            affected_ancestors_complete=True,
+            affected_reader_used_without_whole_builder=True,
+            affected_understanding_derived=True,
+            whole_qualification_explicitly_requested=True,
+        )
+        for result in super().apply(masked, state):
+            if isinstance(result.output, GroundedNeed):
+                projected_state = result.state
+                if input_obj.blueprint_scope == "affected":
+                    projected_state = replace(
+                        projected_state,
+                        affected_reader_verified=tuple(
+                            value
+                            for value in projected_state.affected_reader_verified
+                            if value != input_obj.task_id
+                        ),
+                    )
+                if input_obj.blueprint_scope == "whole":
+                    projected_state = replace(
+                        projected_state,
+                        whole_qualification_explicit=tuple(
+                            value
+                            for value in projected_state.whole_qualification_explicit
+                            if value != input_obj.task_id
+                        ),
+                    )
+                yield FunctionResult(
+                    result.output,
+                    projected_state,
+                    label=label,
+                )
+                continue
+            yield result
+
+
 def terminal_predicate(current_output, state: State, trace) -> bool:
     del state, trace
     return isinstance(current_output, (RouteSelected, BlockedNeed))
@@ -685,6 +854,41 @@ def preflight_does_not_claim_implementation_readiness(
     return InvariantResult.pass_()
 
 
+def affected_preflight_requires_verified_content_addressed_read(
+    state: State, trace
+) -> InvariantResult:
+    del trace
+    bad = tuple(
+        sorted(
+            (set(state.route_selected) & set(state.affected_reader_required))
+            - set(state.affected_reader_verified)
+        )
+    )
+    if bad:
+        return InvariantResult.fail(
+            "affected preflight selected a route without a current index fingerprint, "
+            f"complete objects/ancestors, and compact understanding: {bad!r}"
+        )
+    return InvariantResult.pass_()
+
+
+def whole_qualification_requires_explicit_request(
+    state: State, trace
+) -> InvariantResult:
+    del trace
+    bad = tuple(
+        sorted(
+            (set(state.route_selected) & set(state.whole_qualification_required))
+            - set(state.whole_qualification_explicit)
+        )
+    )
+    if bad:
+        return InvariantResult.fail(
+            f"whole-target qualification was routed without an explicit request: {bad!r}"
+        )
+    return InvariantResult.pass_()
+
+
 INVARIANTS = (
     Invariant(
         "no_route_without_grounding",
@@ -735,6 +939,16 @@ INVARIANTS = (
         "preflight_does_not_claim_implementation_readiness",
         "Owner lookup and reuse routing do not prove task-level understanding.",
         preflight_does_not_claim_implementation_readiness,
+    ),
+    Invariant(
+        "affected_preflight_requires_verified_content_addressed_read",
+        "Affected preflight verifies the index fingerprint, exact objects and ancestors, and derives compact understanding without a whole builder.",
+        affected_preflight_requires_verified_content_addressed_read,
+    ),
+    Invariant(
+        "whole_qualification_requires_explicit_request",
+        "Whole-target qualification is a separately and explicitly requested scope.",
+        whole_qualification_requires_explicit_request,
     ),
 )
 
@@ -822,6 +1036,49 @@ EXTERNAL_INPUTS = (
         selected_model_count=1,
         materialized_model_count=3,
     ),
+    ChangeIdea(
+        "affected-index-fingerprint-drift",
+        True,
+        action_class="implementation",
+        affected_index_fingerprint_current=False,
+    ),
+    ChangeIdea(
+        "affected-object-missing",
+        True,
+        action_class="implementation",
+        affected_objects_complete=False,
+    ),
+    ChangeIdea(
+        "affected-ancestor-missing",
+        True,
+        action_class="implementation",
+        affected_ancestors_complete=False,
+    ),
+    ChangeIdea(
+        "affected-whole-builder-invoked",
+        True,
+        action_class="implementation",
+        affected_reader_used_without_whole_builder=False,
+    ),
+    ChangeIdea(
+        "affected-understanding-not-derived",
+        True,
+        action_class="implementation",
+        affected_understanding_derived=False,
+    ),
+    ChangeIdea(
+        "whole-qualification-implicit",
+        True,
+        action_class="proposal",
+        blueprint_scope="whole",
+    ),
+    ChangeIdea(
+        "whole-qualification-explicit",
+        True,
+        action_class="proposal",
+        blueprint_scope="whole",
+        whole_qualification_explicitly_requested=True,
+    ),
 )
 
 
@@ -861,6 +1118,7 @@ __all__ = [
     "INVARIANTS",
     "MAX_SEQUENCE_LENGTH",
     "BrokenBypassSearch",
+    "BrokenAcceptsUnverifiedBlueprintScope",
     "BrokenIgnoresSurfaceInventory",
     "BrokenLightForFull",
     "BrokenPromotesRelatedPlane",

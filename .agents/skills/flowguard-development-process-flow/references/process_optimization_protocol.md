@@ -45,11 +45,41 @@ The decision lists its current evidence ids. Candidate comparison, isolation,
 repair relations, ownership, and revalidation references must all resolve
 within that current evidence boundary.
 
-Prefer evidence-backed lower repeated work, duplicated validation,
-coordination, or side-effect exposure. Qualitative or estimated comparison may
-support `preferred within declared candidates`. Only measured costs across an
-exhausted named finite set may support `minimum within that finite set`.
-Never claim a global optimum.
+Each candidate declares one ordered `step_ids` list and an acyclic
+`dependency_edges` graph. The declared order must be a real linearization of
+every edge; an acyclic graph with a contradictory list is ineligible. Bind each
+step to its artifact reads, writes, invalidations, validations, execution
+owner, protected side effects, and comparable effort. A measured candidate
+also binds every step cost to current cost evidence; a missing step cost or
+evidence blocks measured comparison instead of becoming zero.
+
+For the declared hard-equivalent set, derive the six visible dimensions
+`invalidated_output`, `repeated_write`, `repeated_validation`, `coordination`,
+`side_effect_exposure`, and `effort` as a vector. Missing values are not zero;
+mixed comparison bases or incomplete vectors are ineligible for comparison.
+Select only one candidate that Pareto-dominates every other eligible candidate.
+When equal candidates or trade-offs remain, return the non-dominated ids and
+keep selection unresolved. Declaration/lexical order, an unexplained scalar
+sum, and caller preference cannot break that boundary.
+
+Reject a candidate that fails hard equivalence, currentness, dependency,
+step-metadata, cost, or evidence admission and expose its exact rejection
+findings. A rejected non-selected alternative does not block selection from
+the remaining valid hard-equivalent set. Block when every candidate is
+rejected, the candidate-set identity is untrustworthy, or the caller points to
+an invalid or higher-cost candidate.
+
+For a unique selected candidate, emit a model-derived rationale naming the
+candidate and each comparable dimension. Preserve caller rationale separately
+as context; it neither selects the candidate nor substitutes for the derived
+Pareto explanation. A selected result without that explanation is blocked.
+
+Qualitative or measured evidence supports only a Pareto-dominating process
+candidate within the declared hard-equivalent set. Never claim a scalar
+minimum or unrestricted global optimum. This process-order comparison is not a
+single-model path-quality conclusion: ModelMaturation owns model-path
+`single_clear_path`, finite-set minimum, non-dominated, and local-
+irreducibility vocabulary under its own exact evidence boundary.
 
 ## Repair And Revalidation
 

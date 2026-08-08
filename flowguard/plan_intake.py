@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
 from .risk_evidence_ledger import (
     RISK_CONFIDENCE_BLOCKED,
@@ -34,6 +35,22 @@ PLAN_INTAKE_DECISION_BLOCKED = "plan_intake_blocked"
 PLAN_INTAKE_CONFIDENCE_FULL = RISK_CONFIDENCE_FULL
 PLAN_INTAKE_CONFIDENCE_SCOPED = RISK_CONFIDENCE_SCOPED
 PLAN_INTAKE_CONFIDENCE_BLOCKED = RISK_CONFIDENCE_BLOCKED
+
+
+def _normalize_plan_report(instance: Any) -> None:
+    """Normalize the fields shared by plan-intake result records."""
+
+    object.__setattr__(instance, "plan_id", str(instance.plan_id))
+    object.__setattr__(instance, "decision", str(instance.decision))
+    object.__setattr__(instance, "confidence", str(instance.confidence))
+    object.__setattr__(instance, "findings", tuple(instance.findings))
+    if not instance.summary:
+        status = "OK" if instance.ok else "BLOCKED"
+        object.__setattr__(
+            instance,
+            "summary",
+            f"{status}: plan={instance.plan_id} decision={instance.decision} findings={len(instance.findings)}",
+        )
 
 ADAPTER_CONFORMANCE_DECISION_FULL = "evidence_adapter_conformance_full_confidence"
 ADAPTER_CONFORMANCE_DECISION_SCOPED = "evidence_adapter_conformance_scoped_confidence"
@@ -159,12 +176,6 @@ LOSSY_RAW_CLASSIFICATIONS = {
     RISK_PROOF_STATUS_ERROR,
     RISK_PROOF_STATUS_FAILED,
 }
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 @dataclass(frozen=True)
@@ -368,17 +379,7 @@ class PlanIntakeCompletenessReport:
     summary: str = ""
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "plan_id", str(self.plan_id))
-        object.__setattr__(self, "decision", str(self.decision))
-        object.__setattr__(self, "confidence", str(self.confidence))
-        object.__setattr__(self, "findings", tuple(self.findings))
-        if not self.summary:
-            status = "OK" if self.ok else "BLOCKED"
-            object.__setattr__(
-                self,
-                "summary",
-                f"{status}: plan={self.plan_id} decision={self.decision} findings={len(self.findings)}",
-            )
+        _normalize_plan_report(self)
 
     def blocker_count(self) -> int:
         return sum(1 for finding in self.findings if finding.severity == "blocker")
@@ -994,17 +995,7 @@ class FalseNegativeBackpropagationReport:
     summary: str = ""
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "plan_id", str(self.plan_id))
-        object.__setattr__(self, "decision", str(self.decision))
-        object.__setattr__(self, "confidence", str(self.confidence))
-        object.__setattr__(self, "findings", tuple(self.findings))
-        if not self.summary:
-            status = "OK" if self.ok else "BLOCKED"
-            object.__setattr__(
-                self,
-                "summary",
-                f"{status}: plan={self.plan_id} decision={self.decision} findings={len(self.findings)}",
-            )
+        _normalize_plan_report(self)
 
     def blocker_count(self) -> int:
         return sum(1 for finding in self.findings if finding.severity == "blocker")

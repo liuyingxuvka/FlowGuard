@@ -33,26 +33,25 @@ recommending implementation structure.
   recommending the structure
 
 ### Requirement: Recommendations include ownership boundaries
-Code structure recommendation SHALL identify target modules, orchestration
-responsibility, function-block ownership, state ownership, side-effect
-ownership, facade or public entrypoint plans, validation boundaries, rationale,
-and any model-similarity maintenance handoff that drives shared-kernel or
-adapter ownership.
+Code structure recommendation SHALL identify target modules, orchestration responsibility, function-block ownership, state ownership, side-effect ownership, facade or public entrypoint plans, validation boundaries, rationale, and any canonical relation handoff that materially informs shared-kernel, adapter, duplicate-boundary, or separate-owner decisions.
 
 #### Scenario: Complete recommendation
 - **WHEN** a recommendation is produced
-- **THEN** it includes module owners for function blocks, state fields, side
-  effects, public entrypoints, and validation evidence
+- **THEN** it includes module owners for function blocks, state fields, side effects, public entrypoints, and validation evidence
 
 #### Scenario: Avoid mechanical over-splitting
 - **WHEN** multiple related FunctionBlocks belong in one cohesive module
 - **THEN** the recommendation may group them and records the grouping rationale
 
+#### Scenario: Canonical relation informs shared modules
+- **WHEN** a recommendation derives shared-kernel or adapter ownership from a current canonical relation
+- **THEN** it MUST record the relation id, exact endpoints, source authority, and currentness
+- **AND** it MUST materialize the relation into concrete code-owner and validation-boundary decisions rather than repeat scalar relation fields
+
 #### Scenario: Similarity handoff drives shared modules
-- **WHEN** a recommendation derives shared-kernel or adapter ownership from
-  model-similarity review
-- **THEN** it MUST consume a `SimilarityHandoff` that names the relevant code
-  obligations instead of repeated scalar similarity id fields
+- **WHEN** a caller supplies a retired similarity handoff as authority for shared modules
+- **THEN** Code Structure Recommendation MUST reject that retired authority
+- **AND** it MAY derive shared modules only from exact current ownership and a bounded canonical relation handoff
 
 ### Requirement: Code structure consumes field owners
 Code Structure Recommendation SHALL consume field lifecycle reader, writer,
@@ -71,29 +70,6 @@ modules or facades.
 - **THEN** the target structure recommendation MUST expose the facade or
   adapter boundary and route public-entrypoint parity to StructureMesh when
   required
-
-### Requirement: Similarity-derived target structure
-Code Structure Recommendation SHALL be able to consume shared-kernel,
-family-variant, symmetric-flow, and adapter-only model-similarity relations
-when deriving target modules, facades, variant adapters, effect owners, and
-validation boundaries.
-
-#### Scenario: Shared kernel relation derives modules
-- **WHEN** a code-structure recommendation cites a shared-kernel
-  model-similarity relation
-- **THEN** the recommendation identifies the shared kernel owner, variant or
-  directional adapter owners, public facade owner, and validation boundaries
-
-#### Scenario: Similarity maintenance group cites code obligation
-- **WHEN** a code-structure recommendation uses a similarity maintenance group
-  to derive shared-kernel or adapter ownership
-- **THEN** the recommendation records the maintenance group ids and code
-  obligation ids that named the shared kernel, adapter owners, and code paths
-
-#### Scenario: False friend blocks shared module recommendation
-- **WHEN** a model-similarity relation is classified as false friend
-- **THEN** Code Structure Recommendation does not use that relation to derive a
-  shared module without a separate manual-review route
 
 ### Requirement: Implementation-ready structure is bound to admitted scope
 Code Structure Recommendation MAY produce an early model-derived architecture recommendation before implementation admission, but it SHALL call a recommendation implementation-ready only when its task, source model, candidate, coverage universe, and allowed artifact scope match a current DevelopmentProcessFlow admission.
@@ -116,4 +92,20 @@ When a code-structure recommendation supports a software-blueprint claim, it SHA
 #### Scenario: Model revision changes
 - **WHEN** the model-element universe changes after recommendation
 - **THEN** the recommendation and its reverse coverage obligations become stale
+
+### Requirement: Canonical-relation-derived target structure
+Code Structure Recommendation SHALL consume bounded canonical relation handoffs when current blueprint, behavior commitment, ownership, or topology evidence establishes shared-kernel, family-variant, symmetric-flow, adapter-only, same-intent, duplicate-boundary, or false-friend structure. The recommendation owner SHALL derive modules, facades, adapters, effect owners, and validation boundaries; the relation carrier SHALL NOT make that decision.
+
+#### Scenario: Shared mechanism relation derives modules
+- **WHEN** a current canonical relation establishes shared mechanism or same-intent behavior across exact endpoints
+- **THEN** the recommendation identifies the shared owner, variant or directional adapter owners, public facade owner, and validation boundaries
+- **AND** it preserves the relation id and source authority as provenance
+
+#### Scenario: Adapter-only or duplicate-boundary relation is present
+- **WHEN** a canonical relation identifies adapter-only variance or overlapping ownership
+- **THEN** the recommendation binds each endpoint to a concrete target module, facade, adapter, or Architecture Reduction handoff
+
+#### Scenario: False friend blocks a shared module
+- **WHEN** a canonical relation records different intent, behavior plane, or false-friend evidence
+- **THEN** Code Structure Recommendation MUST NOT derive a shared owner from wording or shape alone
 

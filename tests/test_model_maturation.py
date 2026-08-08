@@ -45,6 +45,114 @@ from flowguard import (
     compile_task_coverage_demand,
 )
 from flowguard.__main__ import main
+from flowguard.model_path_quality import (
+    NecessityWitness,
+    PathQualitySubject,
+    canonical_fingerprint,
+    derive_retained_elements,
+    lightweight_path_review,
+    normalized_model_facts_fingerprint,
+)
+
+
+RETIRED_DISCOVERY_OWNER_IDS = (
+    "model_angle",
+    "maintenance_scan",
+    "model_similarity",
+    "analogous_scan",
+    "defect_family",
+)
+
+MODEL_BASE_FP = canonical_fingerprint({"model": "base-1"})
+MODEL_CANDIDATE_FP = canonical_fingerprint({"model": "candidate-1"})
+MODEL_CANDIDATE_2_FP = canonical_fingerprint({"model": "candidate-2"})
+MODEL_CANDIDATE_3_FP = canonical_fingerprint({"model": "candidate-3"})
+COMPILE_CANDIDATE_FP = canonical_fingerprint({"model": "candidate-compile"})
+
+
+def _path_quality(model_id: str, model_fingerprint: str, currentness_id: str):
+    identity = lambda name: canonical_fingerprint(
+        {"model_id": model_id, "identity": name}
+    )
+    facts = {
+        "states": (
+            {"id": "start", "initial": True},
+            {"id": "done", "terminal": True},
+        ),
+        "transitions": (
+            {
+                "id": "finish",
+                "source": "start",
+                "target": "done",
+                "trigger": "request",
+                "guard": "authorized",
+                "outputs": ("result",),
+                "effects": ("emit_result",),
+            },
+        ),
+        "fields": (),
+        "function_blocks": (),
+        "outputs": ({"id": "result", "terminal": True},),
+        "validations": (
+            {
+                "id": "validate-result",
+                "obligation_id": "obligation:result",
+                "oracle_id": "oracle:result",
+                "subject_fingerprint": identity("validation-subject"),
+                "evidence_boundary_id": "boundary:result",
+            },
+        ),
+        "owners": (
+            {
+                "id": f"owner:{model_id}",
+                "intent_id": f"intent:{model_id}",
+                "boundary_id": f"behavior:{model_id}",
+                "current": True,
+            },
+        ),
+    }
+    retained = tuple(derive_retained_elements(facts))
+    active_obligation_ids = tuple(
+        sorted(f"obligation:{element_id}" for element_id, _kind in retained)
+    )
+    subject = PathQualitySubject(
+        model_id=model_id,
+        boundary_id=f"behavior:{model_id}",
+        model_fingerprint=model_fingerprint,
+        normalized_facts_fingerprint=normalized_model_facts_fingerprint(facts),
+        retained_element_inventory_fingerprint=canonical_fingerprint(dict(retained)),
+        purpose_fingerprint=identity("purpose"),
+        intent_fingerprint=identity("intent"),
+        obligation_fingerprint=canonical_fingerprint(list(active_obligation_ids)),
+        provider_fingerprint=identity("provider"),
+        dependency_fingerprint=identity("dependencies"),
+        code_fingerprint=identity("code"),
+        test_fingerprint=identity("tests"),
+        oracle_fingerprint=identity("oracles"),
+        evidence_fingerprint=identity("evidence"),
+        currentness_id=currentness_id,
+    )
+    witnesses = tuple(
+        NecessityWitness(
+            witness_id=f"witness:{element_id}",
+            subject_fingerprint=subject.fingerprint,
+            element_id=element_id,
+            element_kind=element_kind,
+            obligation_id=f"obligation:{element_id}",
+            counterexample_id=f"counterexample:{element_id}",
+            oracle_id=f"oracle:{element_id}",
+            evidence_fingerprint=identity(f"witness:{element_id}"),
+            evidence_currentness_id=currentness_id,
+        )
+        for element_id, element_kind in retained
+    )
+    result = lightweight_path_review(
+        subject,
+        facts,
+        necessity_witnesses=witnesses,
+        active_obligation_ids=active_obligation_ids,
+    )
+    return subject, result
 
 
 def _fingerprint(value):
@@ -82,11 +190,24 @@ def _plan(**overrides):
         "coverage_source_refs": ("model:checkout@base-1", "code-map:checkout@code-1"),
         "coverage_ids": ("checkout.failure",),
         "required_probe_ids": ("probe.checkout.failure",),
-        "base_model_fingerprint": "model-base-1",
-        "candidate_model_fingerprint": "model-candidate-1",
+        "base_model_fingerprint": MODEL_BASE_FP,
+        "candidate_model_fingerprint": MODEL_CANDIDATE_FP,
         "evidence_fingerprint": "evidence-1",
     }
     values.update(overrides)
+    if "required_path_quality_model_ids" not in values:
+        subject, result = _path_quality(
+            str(values["model_id"]),
+            str(values["candidate_model_fingerprint"]),
+            f"maturation:{values['task_id']}",
+        )
+        values.update(
+            {
+                "required_path_quality_model_ids": (str(values["model_id"]),),
+                "path_quality_subjects": (subject,),
+                "path_quality_results": (result,),
+            }
+        )
     plan = ModelMaturationPlan(**values)
     if "coverage_universe_fingerprint" not in overrides:
         plan = replace(plan, coverage_universe_fingerprint=plan.expected_coverage_fingerprint())
@@ -278,7 +399,7 @@ class ModelMaturationTests(unittest.TestCase):
                     contribution,
                     evidence_ref=canonical_proof,
                     owner_resolution=resolution,
-                    candidate_model_fingerprint="candidate-compile",
+                    candidate_model_fingerprint=COMPILE_CANDIDATE_FP,
                     subject_fingerprints=dict(canonical_proof.artifact_fingerprints),
                 )
             )
@@ -290,11 +411,26 @@ class ModelMaturationTests(unittest.TestCase):
             "model_id": "submit-model",
             "risk_id": "risk-submit",
             "base_model_fingerprint": "base-compile",
-            "candidate_model_fingerprint": "candidate-compile",
+            "candidate_model_fingerprint": COMPILE_CANDIDATE_FP,
             "coverage_demand": demand,
             "contributions": tuple(canonical),
         }
         values.update(overrides)
+        if "required_path_quality_model_ids" not in values:
+            subject, result = _path_quality(
+                str(values["model_id"]),
+                str(values["candidate_model_fingerprint"]),
+                f"maturation:{values['task_id']}",
+            )
+            values.update(
+                {
+                    "required_path_quality_model_ids": (
+                        str(values["model_id"]),
+                    ),
+                    "path_quality_subjects": (subject,),
+                    "path_quality_results": (result,),
+                }
+            )
         return ModelMaturationIntake(**values)
 
     def test_pre_code_intake_compiles_independent_coverage_and_exact_evidence(self):
@@ -328,10 +464,16 @@ class ModelMaturationTests(unittest.TestCase):
         )
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual(report.coverage_demand_fingerprint, plan.coverage_demand_fingerprint)
-        self.assertEqual(report.candidate_model_fingerprint, "candidate-compile")
+        self.assertEqual(report.candidate_model_fingerprint, COMPILE_CANDIDATE_FP)
 
     def test_missing_or_stale_contribution_remains_an_open_gap(self):
-        for owner in ("behavior", "model_angle", "ui", "field", "test"):
+        for owner in (
+            "behavior",
+            *RETIRED_DISCOVERY_OWNER_IDS,
+            "ui",
+            "field",
+            "test",
+        ):
             with self.subTest(owner=owner):
                 missing_plan = compile_model_maturation_plan(
                     self._intake(
@@ -362,6 +504,14 @@ class ModelMaturationTests(unittest.TestCase):
             {"requirement:submit", "demand:existing_model_preflight"},
         )
         self.assertFalse(any(source.startswith("ui:") for source in plan.coverage_source_refs))
+        for retired_owner in RETIRED_DISCOVERY_OWNER_IDS:
+            with self.subTest(retired_owner=retired_owner):
+                self.assertFalse(
+                    any(retired_owner in coverage_id for coverage_id in plan.coverage_ids)
+                )
+                self.assertFalse(
+                    any(retired_owner in source for source in plan.coverage_source_refs)
+                )
 
     def test_duplicate_contribution_identity_is_rejected(self):
         with self.assertRaises(ValueError):
@@ -383,6 +533,135 @@ class ModelMaturationTests(unittest.TestCase):
         self.assertEqual(report.decision, MODEL_MATURATION_DECISION_CLOSED_FOR_TASK)
         self.assertEqual(report.terminal_reason, MODEL_MATURATION_DECISION_CLOSED_FOR_TASK)
         self.assertEqual(report.iteration_record.native_receipt_fingerprints, ("receipt-fingerprint-1",))
+
+    def test_path_quality_denominator_and_exact_current_result_are_required(self):
+        plan = _plan()
+        missing_denominator = replace(
+            plan,
+            required_path_quality_model_ids=(),
+            path_quality_subjects=(),
+            path_quality_results=(),
+            path_quality_result_set_fingerprint="",
+        )
+        report = review_model_maturation_loop(missing_denominator)
+        self.assertIn(
+            "missing_path_quality_denominator",
+            {finding.code for finding in report.findings},
+        )
+
+        missing_result = replace(
+            plan,
+            path_quality_results=(),
+            path_quality_result_set_fingerprint="",
+        )
+        report = review_model_maturation_loop(missing_result)
+        self.assertIn(
+            "path_quality_result_missing",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_stale_unresolved_or_foreign_path_quality_cannot_close(self):
+        plan = _plan()
+        subject = plan.path_quality_subjects[0]
+        result = plan.path_quality_results[0]
+        unresolved = lightweight_path_review(
+            subject,
+            {
+                "states": (
+                    {"id": "start", "initial": True},
+                    {"id": "done", "terminal": True},
+                ),
+                "transitions": (
+                    {
+                        "id": "finish",
+                        "source": "start",
+                        "target": "done",
+                        "trigger": "finish",
+                        "outputs": ("result",),
+                    },
+                ),
+                "outputs": ({"id": "result", "terminal": True},),
+            },
+            explicit_deep_request=True,
+        )
+        cases = (
+            (replace(result, current=False), "path_quality_result_stale"),
+            (
+                replace(result, currentness_id="maturation:foreign"),
+                "path_quality_currentness_mismatch",
+            ),
+            (unresolved, "path_quality_unresolved"),
+            (
+                replace(
+                    result,
+                    mode="deep",
+                    trigger_ids=("explicit_request",),
+                    candidate_ids=("candidate:observed", "candidate:target"),
+                    conclusion="preferred_within_candidates",
+                    selected_candidate_id="candidate:target",
+                    selected_candidate_lane="normative_target",
+                    comparison_boundary_id="boundary:declared-candidates",
+                    candidate_set_fingerprint=canonical_fingerprint(
+                        {"candidate_ids": ["candidate:observed", "candidate:target"]}
+                    ),
+                ),
+                "path_quality_normative_target_not_observed",
+            ),
+        )
+        for path_result, expected in cases:
+            with self.subTest(expected=expected):
+                candidate = replace(
+                    plan,
+                    path_quality_results=(path_result,),
+                    path_quality_result_set_fingerprint="",
+                )
+                report = review_model_maturation_loop(candidate)
+                self.assertFalse(report.ok)
+                self.assertIn(
+                    expected,
+                    {finding.code for finding in report.findings},
+                )
+
+        stale_subject, stale_result = _path_quality(
+            plan.model_id,
+            canonical_fingerprint({"model": "stale-candidate"}),
+            subject.currentness_id,
+        )
+        stale_plan = replace(
+            plan,
+            path_quality_subjects=(stale_subject,),
+            path_quality_results=(stale_result,),
+            path_quality_result_set_fingerprint="",
+        )
+        stale_report = review_model_maturation_loop(stale_plan)
+        self.assertIn(
+            "path_quality_subject_model_stale",
+            {finding.code for finding in stale_report.findings},
+        )
+
+    def test_path_quality_result_changes_iteration_input_identity(self):
+        first_plan = _plan()
+        first = review_model_maturation_loop(
+            replace(first_plan, signals=(_verified_signal(first_plan),))
+        )
+        changed_result = replace(
+            first_plan.path_quality_results[0],
+            producer_id="model_maturation:independent-review",
+        )
+        second_plan = replace(
+            first_plan,
+            path_quality_results=(changed_result,),
+            path_quality_result_set_fingerprint="",
+        )
+        second = review_model_maturation_loop(
+            replace(second_plan, signals=(_verified_signal(second_plan),))
+        )
+        self.assertTrue(first.ok and second.ok)
+        self.assertNotEqual(
+            first.path_quality_result_set_fingerprint,
+            second.path_quality_result_set_fingerprint,
+        )
+        self.assertNotEqual(first.input_fingerprint, second.input_fingerprint)
 
     def test_raw_hand_filled_signal_cannot_close_broad_maturation(self):
         plan = _plan(_strong_material=False)
@@ -502,10 +781,10 @@ class ModelMaturationTests(unittest.TestCase):
         second_plan = _plan(
             iteration=1,
             prior_iteration_fingerprint=first.iteration_record.fingerprint(),
-            prior_candidate_fingerprint="model-candidate-1",
+            prior_candidate_fingerprint=MODEL_CANDIDATE_FP,
             prior_gap_fingerprints=first.open_gap_fingerprints,
-            base_model_fingerprint="model-candidate-1",
-            candidate_model_fingerprint="model-candidate-2",
+            base_model_fingerprint=MODEL_CANDIDATE_FP,
+            candidate_model_fingerprint=MODEL_CANDIDATE_2_FP,
             evidence_fingerprint="evidence-2",
         )
         second_signal = _verified_signal(
@@ -526,10 +805,10 @@ class ModelMaturationTests(unittest.TestCase):
         second_plan = _plan(
             iteration=1,
             prior_iteration_fingerprint=first.iteration_record.fingerprint(),
-            prior_candidate_fingerprint="model-candidate-1",
+            prior_candidate_fingerprint=MODEL_CANDIDATE_FP,
             prior_gap_fingerprints=first.open_gap_fingerprints,
-            base_model_fingerprint="model-candidate-1",
-            candidate_model_fingerprint="model-candidate-2",
+            base_model_fingerprint=MODEL_CANDIDATE_FP,
+            candidate_model_fingerprint=MODEL_CANDIDATE_2_FP,
             prior_evidence_fingerprint="evidence-1",
             evidence_fingerprint="evidence-2",
         )
@@ -558,10 +837,10 @@ class ModelMaturationTests(unittest.TestCase):
         second = _plan(
             iteration=1,
             prior_iteration_fingerprint=first.iteration_record.fingerprint(),
-            prior_candidate_fingerprint="model-candidate-1",
+            prior_candidate_fingerprint=MODEL_CANDIDATE_FP,
             prior_gap_fingerprints=first.open_gap_fingerprints,
-            base_model_fingerprint="model-candidate-1",
-            candidate_model_fingerprint="model-candidate-2",
+            base_model_fingerprint=MODEL_CANDIDATE_FP,
+            candidate_model_fingerprint=MODEL_CANDIDATE_2_FP,
             evidence_fingerprint="evidence-2",
         )
         wrong = _gap_receipt(second, gap, task_id="another-task")
@@ -585,10 +864,10 @@ class ModelMaturationTests(unittest.TestCase):
         second = _plan(
             iteration=1,
             prior_iteration_fingerprint=first.iteration_record.fingerprint(),
-            prior_candidate_fingerprint="model-candidate-1",
+            prior_candidate_fingerprint=MODEL_CANDIDATE_FP,
             prior_gap_fingerprints=first.open_gap_fingerprints,
-            base_model_fingerprint="model-candidate-1",
-            candidate_model_fingerprint="model-candidate-1",
+            base_model_fingerprint=MODEL_CANDIDATE_FP,
+            candidate_model_fingerprint=MODEL_CANDIDATE_FP,
             prior_evidence_fingerprint="evidence-1",
             evidence_fingerprint="evidence-2",
         )
@@ -630,10 +909,10 @@ class ModelMaturationTests(unittest.TestCase):
             required_probe_ids=probes,
             iteration=1,
             prior_iteration_fingerprint=first.iteration_record.fingerprint(),
-            prior_candidate_fingerprint="model-candidate-1",
+            prior_candidate_fingerprint=MODEL_CANDIDATE_FP,
             prior_gap_fingerprints=first.open_gap_fingerprints,
-            base_model_fingerprint="model-candidate-1",
-            candidate_model_fingerprint="model-candidate-2",
+            base_model_fingerprint=MODEL_CANDIDATE_FP,
+            candidate_model_fingerprint=MODEL_CANDIDATE_2_FP,
             prior_evidence_fingerprint="evidence-1",
             evidence_fingerprint="evidence-2",
         )
@@ -664,10 +943,10 @@ class ModelMaturationTests(unittest.TestCase):
         second_plan = _plan(
             iteration=1,
             prior_iteration_fingerprint=first.iteration_record.fingerprint(),
-            prior_candidate_fingerprint="model-candidate-1",
+            prior_candidate_fingerprint=MODEL_CANDIDATE_FP,
             prior_gap_fingerprints=first.open_gap_fingerprints,
-            base_model_fingerprint="model-candidate-1",
-            candidate_model_fingerprint="model-candidate-2",
+            base_model_fingerprint=MODEL_CANDIDATE_FP,
+            candidate_model_fingerprint=MODEL_CANDIDATE_2_FP,
             prior_evidence_fingerprint="evidence-1",
             evidence_fingerprint="evidence-2",
         )
@@ -685,10 +964,10 @@ class ModelMaturationTests(unittest.TestCase):
         third_plan = _plan(
             iteration=2,
             prior_iteration_fingerprint=second.iteration_record.fingerprint(),
-            prior_candidate_fingerprint="model-candidate-2",
+            prior_candidate_fingerprint=MODEL_CANDIDATE_2_FP,
             prior_gap_fingerprints=second.open_gap_fingerprints,
-            base_model_fingerprint="model-candidate-2",
-            candidate_model_fingerprint="model-candidate-3",
+            base_model_fingerprint=MODEL_CANDIDATE_2_FP,
+            candidate_model_fingerprint=MODEL_CANDIDATE_3_FP,
             prior_evidence_fingerprint="evidence-2",
             evidence_fingerprint="evidence-3",
         )
@@ -715,10 +994,10 @@ class ModelMaturationTests(unittest.TestCase):
         second = _plan(
             iteration=1,
             prior_iteration_fingerprint="wrong-predecessor",
-            prior_candidate_fingerprint="model-candidate-1",
+            prior_candidate_fingerprint=MODEL_CANDIDATE_FP,
             prior_gap_fingerprints=first.open_gap_fingerprints,
             base_model_fingerprint="wrong-base",
-            candidate_model_fingerprint="model-candidate-2",
+            candidate_model_fingerprint=MODEL_CANDIDATE_2_FP,
             signals=(_open_signal(),),
         )
         session = review_model_maturation_session((first_plan, second))
@@ -733,10 +1012,10 @@ class ModelMaturationTests(unittest.TestCase):
             task_purpose="a different task was substituted",
             iteration=1,
             prior_iteration_fingerprint=first.iteration_record.fingerprint(),
-            prior_candidate_fingerprint="model-candidate-1",
+            prior_candidate_fingerprint=MODEL_CANDIDATE_FP,
             prior_gap_fingerprints=first.open_gap_fingerprints,
-            base_model_fingerprint="model-candidate-1",
-            candidate_model_fingerprint="model-candidate-2",
+            base_model_fingerprint=MODEL_CANDIDATE_FP,
+            candidate_model_fingerprint=MODEL_CANDIDATE_2_FP,
             signals=(_open_signal(),),
         )
         session = review_model_maturation_session((first_plan, second))
@@ -747,10 +1026,10 @@ class ModelMaturationTests(unittest.TestCase):
         common = {
             "iteration": 1,
             "prior_iteration_fingerprint": first.iteration_record.fingerprint(),
-            "prior_candidate_fingerprint": "model-candidate-1",
+            "prior_candidate_fingerprint": MODEL_CANDIDATE_FP,
             "prior_gap_fingerprints": first.open_gap_fingerprints,
-            "base_model_fingerprint": "model-candidate-1",
-            "candidate_model_fingerprint": "model-candidate-1",
+            "base_model_fingerprint": MODEL_CANDIDATE_FP,
+            "candidate_model_fingerprint": MODEL_CANDIDATE_FP,
             "prior_evidence_fingerprint": "evidence-1",
             "evidence_fingerprint": "evidence-1",
             "signals": (_open_signal(),),
@@ -766,7 +1045,7 @@ class ModelMaturationTests(unittest.TestCase):
         first = review_model_maturation_loop(_plan(signals=(_open_signal(),)))
         repeated_state = _fingerprint(
             {
-                "candidate": "model-candidate-1",
+                "candidate": MODEL_CANDIDATE_FP,
                 "evidence": "evidence-1",
                 "open_gaps": sorted(first.open_gap_fingerprints),
             }
@@ -775,11 +1054,11 @@ class ModelMaturationTests(unittest.TestCase):
             _plan(
                 iteration=1,
                 prior_iteration_fingerprint=first.iteration_record.fingerprint(),
-                prior_candidate_fingerprint="model-candidate-1",
+                prior_candidate_fingerprint=MODEL_CANDIDATE_FP,
                 prior_gap_fingerprints=first.open_gap_fingerprints,
                 prior_state_fingerprints=(repeated_state,),
-                base_model_fingerprint="model-candidate-1",
-                candidate_model_fingerprint="model-candidate-1",
+                base_model_fingerprint=MODEL_CANDIDATE_FP,
+                candidate_model_fingerprint=MODEL_CANDIDATE_FP,
                 prior_evidence_fingerprint="evidence-1",
                 evidence_fingerprint="evidence-1",
                 signals=(_open_signal(),),

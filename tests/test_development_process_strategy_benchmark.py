@@ -70,6 +70,7 @@ def _candidate(
     mode: str = "sequential",
 ) -> ProcessOptimizationCandidate:
     isolation = mode == "safe_parallel"
+    trace_evidence = f"evidence:trace:{trace.trace_id}"
     return ProcessOptimizationCandidate(
         trace.trace_id,
         "contract:trace",
@@ -83,6 +84,28 @@ def _candidate(
         step_ids=("diagnose", "repair"),
         validation_requirement_ids=("revalidate",),
         dependency_edges=(("diagnose", "repair"), ("repair", "revalidate")),
+        step_artifact_reads=(("diagnose", "artifact:source"),),
+        step_artifact_writes=(
+            ("diagnose", "artifact:finding"),
+            ("repair", "artifact:patch"),
+        ),
+        step_validation_ids=(("repair", "revalidate"),),
+        step_execution_owner_ids=(
+            ("diagnose", trace.authority_ids[0]),
+            ("repair", trace.authority_ids[0]),
+        ),
+        step_side_effect_ids=(("repair", trace.side_effect_ids[0]),),
+        step_effort_costs=(
+            ("diagnose", float(trace.check_runs)),
+            (
+                "repair",
+                float(trace.repair_rounds + trace.revalidation_rounds + trace.handoffs),
+            ),
+        ),
+        step_effort_evidence_ids=(
+            ("diagnose", trace_evidence),
+            ("repair", trace_evidence),
+        ),
         diagnostic_boundary=boundary,
         execution_mode=mode,
         dependency_isolation_evidence_ids=("evidence:dependency-isolation",) if isolation else (),
@@ -90,7 +113,7 @@ def _candidate(
         side_effect_isolation_evidence_ids=("evidence:side-effect-isolation",) if isolation else (),
         execution_owner_isolation_evidence_ids=("evidence:owner-isolation",) if isolation else (),
         comparison_basis="measured",
-        comparison_evidence_ids=(f"evidence:trace:{trace.trace_id}",),
+        comparison_evidence_ids=(trace_evidence,),
     )
 
 

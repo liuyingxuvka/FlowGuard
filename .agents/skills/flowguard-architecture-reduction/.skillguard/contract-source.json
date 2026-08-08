@@ -30,6 +30,14 @@
         "-m",
         "pytest",
         "tests/test_architecture_reduction.py",
+        "tests/test_self_reduction_inventory.py",
+        "tests/test_self_architecture_reduction.py",
+        "tests/test_self_blueprint.py",
+        "tests/test_blueprint_compact_projection.py",
+        "tests/test_validation_owner_execution.py",
+        "tests/test_validation_execution_ownership.py",
+        "tests/test_evidence_receipts.py",
+        "tests/test_process_supervision.py",
         "-q"
       ],
       "check_id": "check:flowguard-architecture-reduction:native-authority",
@@ -58,6 +66,70 @@
           "path": "tests/test_architecture_reduction.py"
         },
         {
+          "kind": "path",
+          "path": "flowguard/self_reduction_inventory.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/self_architecture_reduction.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/self_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/blueprint_compact_projection.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/validation_owner_execution.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/validation_ownership.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/evidence_receipts.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/process_supervision.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_self_reduction_inventory.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_self_architecture_reduction.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_self_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_blueprint_compact_projection.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_validation_owner_execution.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_validation_execution_ownership.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_evidence_receipts.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_process_supervision.py"
+        },
+        {
           "kind": "role",
           "role": "runtime_source"
         },
@@ -74,7 +146,7 @@
       "maintenance_unit_id": "unit:flowguard-suite",
       "member_skill_id": "flowguard-architecture-reduction",
       "semantic_check_id": "semantic:check:flowguard-architecture-reduction:native-authority",
-      "timeout_seconds": 300
+      "timeout_seconds": 900
     },
     {
       "check_id": "check:flowguard-architecture-reduction:evidence-closure",
@@ -101,7 +173,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "The review classifies the complete expected current contraction inventory and delegation proof; it does not change code or prove post-refactor parity.",
+  "claim_boundary": "The review classifies the complete expected current architecture inventory by current DNA necessity as retain, contract-equivalent, retire-behavior-with-complete-current-proof, or unresolved, and classifies internal steps of retained routes as retain, merge, delegate, remove, explicit_on_demand, or unresolved from the same current inventory. Implementation retain requires one candidate-independent current necessity witness binding accepted intent, exact behavior/model/code ownership, source-independent semantics, resolved consumers or an active external commitment, and model-code-test evidence; the BCL is reviewed once and an external commitment counts only when it binds the exact current primary model, the same blueprint owner contract, and current test evidence. Structural ids, public roles, historical-looking names, tests alone, and candidate identity cannot manufacture necessity or semantic difference. Step contraction requires complete callers, equivalence or replacement proof, and exact post-action safety/evidence owners; measured operations, payload, tokens, and invocations prioritize review only and never authorize deletion. Ordinary contraction requires current observable equivalence or facade delegation; intentional behavior retirement requires one complete exact-current responsibility proof with zero alias, compatibility, fallback, alternate runtime authority, or orphaned protection. Candidate proof is accepted only through one exact-current canonical aggregate validation-owner receipt discovered by the read-only audit or produced by one explicit finite batch; the review does not change code or prove post-change parity.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -184,7 +256,23 @@
     ".flowguard/architecture_reduction",
     "flowguard/architecture_reduction.py",
     "flowguard/skill_contract_model.py",
-    "tests/test_architecture_reduction.py"
+    "flowguard/self_reduction_inventory.py",
+    "flowguard/self_architecture_reduction.py",
+    "flowguard/validation_owner_execution.py",
+    "flowguard/validation_ownership.py",
+    "flowguard/evidence_receipts.py",
+    "flowguard/process_supervision.py",
+    "flowguard/self_blueprint.py",
+    "flowguard/blueprint_compact_projection.py",
+    "tests/test_architecture_reduction.py",
+    "tests/test_self_reduction_inventory.py",
+    "tests/test_self_architecture_reduction.py",
+    "tests/test_validation_owner_execution.py",
+    "tests/test_validation_execution_ownership.py",
+    "tests/test_evidence_receipts.py",
+    "tests/test_process_supervision.py",
+    "tests/test_self_blueprint.py",
+    "tests/test_blueprint_compact_projection.py"
   ],
   "integration_mode": "native-integrated",
   "judgment_rubrics": [],
@@ -233,7 +321,7 @@
     {
       "action": {
         "kind": "inventory",
-        "summary": "Inventory the observable contract, current model/code map, exact intent/path authority, and complete reduction candidate set."
+        "summary": "Inventory the current DNA goal, observable behavior, Behavior Commitment Ledger, model/code/test/interface ownership, consumers, negative cases, complete affected necessity universe, and retained-route internal steps from one reusable caller and responsibility inventory; review the BCL once, accept an external promise only with the exact current primary model, same blueprint owner contract, and current test evidence, and build one candidate-independent current necessity witness per retained implementation member; treat historical-looking names and public roles as discovery only, and never use structural ids, historical existence, tests alone, or cost as retain or removal evidence."
       },
       "check_ids": [
         "check:flowguard-architecture-reduction:plane-boundary"
@@ -244,7 +332,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Run the existing architecture-reduction owner to classify every candidate, proof status, facade, and target action."
+        "summary": "Run the existing architecture-reduction owner to classify each surface as retain, contract-equivalent, retire-behavior-with-complete-current-proof, or unresolved and each retained-route internal step as retain, merge, delegate, remove, explicit_on_demand, or unresolved; compare normalized source-independent semantics, materialize name-related candidates only from exact multi-surface relations, discover proof from the canonical aggregate store, and let cost evidence order attention without contributing readiness."
       },
       "check_ids": [
         "check:flowguard-architecture-reduction:native-authority"
@@ -255,7 +343,7 @@
     {
       "action": {
         "kind": "verifier",
-        "summary": "Reject omitted candidates, opaque similarity, stale proof, or independent-success facades and return typed downstream handoffs."
+        "summary": "Reject omitted responsibilities or internal steps, history-only or id-only retention, public-role-only authority, singleton lexical candidates, partial semantic repeats, candidate-dependent necessity, cost-only removal, incomplete callers, missing equivalence/replacement/on-demand triggers, orphaned safety or evidence owners, injected or duplicate proof authority, duplicate whole-target scans, behavior-changing ordinary contraction, stale or incomplete retirement proof, surviving alias/compatibility/fallback paths, opaque relations, or independent-success facades, and return typed downstream handoffs."
       },
       "check_ids": [
         "check:flowguard-architecture-reduction:evidence-closure"

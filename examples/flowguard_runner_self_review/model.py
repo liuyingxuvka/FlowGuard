@@ -16,8 +16,6 @@ from flowguard import (
     RiskProfile,
     Scenario,
     ScenarioExpectation,
-    TemplateHarvestReview,
-    TemplateReuseReview,
     Workflow,
     review_scenarios,
     run_model_first_checks,
@@ -414,7 +412,6 @@ def run_runner_self_check_summary():
                 adversarial_inputs=("direct explorer path", "happy-path-only runner",),
                 hard_invariants=("direct explorer cannot be formal entry",),
                 known_bad_cases=("direct_explorer_claims_flowguard_complete",),
-                template_no_match_reason="self-review architecture case is project-specific",
                 blindspots=("production package installation is checked separately",),
             ),
             skipped_checks=(
@@ -424,10 +421,6 @@ def run_runner_self_check_summary():
                     "status": "not_feasible",
                 },
             ),
-        ),
-        template_reuse_review=TemplateReuseReview(
-            no_match_reason="self-review architecture case is project-specific",
-            searched_layers=("public", "local"),
         ),
         minimum_model_contract=MinimumModelContract(
             protected_error_classes=("thin_model_overclaim",),
@@ -445,10 +438,6 @@ def run_runner_self_check_summary():
                 observed_failure="helper runner self-review rejects thin direct completion claim",
                 evidence_id="scenario:direct_explorer_claims_flowguard_complete",
             ),
-        ),
-        template_harvest_review=TemplateHarvestReview(
-            disposition="not_harvestable",
-            not_harvestable_reason="not_reusable_project_specific",
         ),
         scenario_matrix_config={"max_scenarios": 4},
     )

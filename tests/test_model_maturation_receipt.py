@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -17,6 +18,11 @@ from flowguard.model_maturation import (
     MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
     ModelMaturationReport,
 )
+from flowguard.model_path_quality import (
+    PathQualityResult,
+    PathQualitySubject,
+    canonical_fingerprint,
+)
 from flowguard.model_maturation_receipt import (
     MODEL_MATURATION_RECEIPT_CLAIM_SCOPE,
     ModelMaturationReceiptPublication,
@@ -29,8 +35,58 @@ from flowguard.model_maturation_receipt import (
 from flowguard.__main__ import main
 
 
+def _path_quality_material(model_id: str, model_fingerprint: str):
+    identity = lambda name: canonical_fingerprint(
+        {"model_id": model_id, "identity": name}
+    )
+    subject = PathQualitySubject(
+        model_id=model_id,
+        boundary_id=f"behavior:{model_id}",
+        model_fingerprint=model_fingerprint,
+        normalized_facts_fingerprint=identity("normalized-facts"),
+        retained_element_inventory_fingerprint=identity("retained-elements"),
+        purpose_fingerprint=identity("purpose"),
+        intent_fingerprint=identity("intent"),
+        obligation_fingerprint=identity("obligations"),
+        provider_fingerprint=identity("provider"),
+        dependency_fingerprint=identity("dependencies"),
+        code_fingerprint=identity("code"),
+        test_fingerprint=identity("tests"),
+        oracle_fingerprint=identity("oracles"),
+        evidence_fingerprint=identity("evidence"),
+        currentness_id="revision:receipt",
+    )
+    result = PathQualityResult(
+        result_id=f"path-quality:{model_id}",
+        subject_fingerprint=subject.fingerprint,
+        mode="lightweight",
+        trigger_ids=(),
+        finding_ids=(),
+        candidate_ids=(),
+        rewrite_rule_ids=(),
+        conclusion="single_clear_path",
+        unresolved_ids=(),
+        selected_candidate_id="",
+        selected_candidate_lane="",
+        comparison_boundary_id="",
+        candidate_set_fingerprint="",
+        rewrite_set_fingerprint="",
+        necessity_witness_set_fingerprint=identity("necessity-witnesses"),
+        detail_evidence_fingerprint=identity("path-detail"),
+        producer_id="model_maturation:path-quality",
+        currentness_id=subject.currentness_id,
+    )
+    return subject, result
+
+
 class ModelMaturationReceiptTests(unittest.TestCase):
     def setUp(self) -> None:
+        candidate_fingerprint = canonical_fingerprint(
+            {"candidate": "model:receipt"}
+        )
+        subject, path_result = _path_quality_material(
+            "model:receipt", candidate_fingerprint
+        )
         self.report = ModelMaturationReport(
             ok=True,
             plan_id="plan:receipt",
@@ -42,11 +98,14 @@ class ModelMaturationReceiptTests(unittest.TestCase):
             coverage_demand_fingerprint="sha256:demand",
             coverage_universe_fingerprint="sha256:coverage",
             base_model_fingerprint="sha256:base",
-            candidate_model_fingerprint="sha256:candidate",
+            candidate_model_fingerprint=candidate_fingerprint,
             evidence_fingerprint="sha256:evidence",
             evidence_id="evidence:maturation",
             terminal_reason=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
             input_fingerprint="sha256:input",
+            required_path_quality_model_ids=("model:receipt",),
+            path_quality_subjects=(subject,),
+            path_quality_results=(path_result,),
             owner_resolution_ids=("resolution:receipt",),
             owner_resolution_fingerprints=("sha256:resolution-receipt",),
             owner_resolution_owner_ids=("model_first_function_flow",),
@@ -100,6 +159,14 @@ class ModelMaturationReceiptTests(unittest.TestCase):
             "coverage_universe_fingerprint": self.report.coverage_universe_fingerprint,
             "input_fingerprint": self.report.input_fingerprint,
             "evidence_fingerprint": self.report.evidence_fingerprint,
+            "required_path_quality_model_ids": (
+                self.report.required_path_quality_model_ids
+            ),
+            "path_quality_subjects": self.report.path_quality_subjects,
+            "path_quality_results": self.report.path_quality_results,
+            "path_quality_result_set_fingerprint": (
+                self.report.path_quality_result_set_fingerprint
+            ),
             "owner_resolution_ids": self.report.owner_resolution_ids,
             "owner_resolution_fingerprints": self.report.owner_resolution_fingerprints,
             "owner_resolution_owner_ids": self.report.owner_resolution_owner_ids,
@@ -173,6 +240,70 @@ class ModelMaturationReceiptTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "canonical owner resolution"):
             build_model_maturation_receipt(weak, self.publication)
 
+    def test_full_receipt_rejects_unresolved_or_normative_path_quality(self) -> None:
+        current = self.report.path_quality_results[0]
+        invalid_results = (
+            replace(
+                current,
+                conclusion="unresolved",
+                unresolved_ids=("gap:path-quality",),
+            ),
+            replace(
+                current,
+                mode="deep",
+                trigger_ids=("explicit_request",),
+                candidate_ids=("candidate:observed", "candidate:target"),
+                conclusion="preferred_within_candidates",
+                selected_candidate_id="candidate:target",
+                selected_candidate_lane="normative_target",
+                comparison_boundary_id="boundary:declared-candidates",
+                candidate_set_fingerprint=canonical_fingerprint(
+                    {"candidate_ids": ["candidate:observed", "candidate:target"]}
+                ),
+            ),
+        )
+        for invalid in invalid_results:
+            with self.subTest(conclusion=invalid.conclusion):
+                report = ModelMaturationReport(
+                    **{
+                        **self.report.__dict__,
+                        "path_quality_results": (invalid,),
+                        "path_quality_result_fingerprints": (),
+                        "path_quality_result_set_fingerprint": "",
+                    }
+                )
+                with self.assertRaisesRegex(ValueError, "path-quality closure"):
+                    build_model_maturation_receipt(report, self.publication)
+
+    def test_verifier_rejects_foreign_path_quality_material(self) -> None:
+        with TemporaryDirectory() as directory:
+            output = Path(directory)
+            receipt = build_model_maturation_receipt(self.report, self.publication)
+            save_evidence_receipt(receipt, output_directory=output)
+            subject = replace(
+                self.report.path_quality_subjects[0],
+                code_fingerprint=canonical_fingerprint({"code": "foreign"}),
+            )
+            result = replace(
+                self.report.path_quality_results[0],
+                subject_fingerprint=subject.fingerprint,
+            )
+            verification = verify_model_maturation_receipt(
+                ModelMaturationReceiptRef(receipt.receipt_id, receipt.fingerprint),
+                self._contexts(
+                    output,
+                    path_quality_subjects=(subject,),
+                    path_quality_results=(result,),
+                    path_quality_result_set_fingerprint="",
+                ),
+                output_directory=output,
+            )
+        self.assertIsNone(verification.verified_maturation)
+        self.assertIn(
+            "maturation_path_quality_subjects_mismatch",
+            verification.semantic_finding_codes,
+        )
+
     def test_stale_snapshot_produces_no_verified_projection(self) -> None:
         with TemporaryDirectory() as directory:
             output = Path(directory)
@@ -197,6 +328,14 @@ class ModelMaturationReceiptTests(unittest.TestCase):
                 coverage_universe_fingerprint=base.coverage_universe_fingerprint,
                 input_fingerprint=base.input_fingerprint,
                 evidence_fingerprint=base.evidence_fingerprint,
+                required_path_quality_model_ids=(
+                    base.required_path_quality_model_ids
+                ),
+                path_quality_subjects=base.path_quality_subjects,
+                path_quality_results=base.path_quality_results,
+                path_quality_result_set_fingerprint=(
+                    base.path_quality_result_set_fingerprint
+                ),
                 owner_resolution_ids=base.owner_resolution_ids,
                 owner_resolution_fingerprints=base.owner_resolution_fingerprints,
                 owner_resolution_owner_ids=base.owner_resolution_owner_ids,
@@ -233,6 +372,14 @@ class ModelMaturationReceiptTests(unittest.TestCase):
                     coverage_universe_fingerprint=base.coverage_universe_fingerprint,
                     input_fingerprint=base.input_fingerprint,
                     evidence_fingerprint=base.evidence_fingerprint,
+                    required_path_quality_model_ids=(
+                        base.required_path_quality_model_ids
+                    ),
+                    path_quality_subjects=base.path_quality_subjects,
+                    path_quality_results=base.path_quality_results,
+                    path_quality_result_set_fingerprint=(
+                        base.path_quality_result_set_fingerprint
+                    ),
                     owner_resolution_ids=base.owner_resolution_ids,
                     owner_resolution_fingerprints=base.owner_resolution_fingerprints,
                     owner_resolution_owner_ids=base.owner_resolution_owner_ids,
@@ -289,6 +436,19 @@ class ModelMaturationReceiptTests(unittest.TestCase):
                     "coverage_universe_fingerprint": context.coverage_universe_fingerprint,
                     "input_fingerprint": context.input_fingerprint,
                     "evidence_fingerprint": context.evidence_fingerprint,
+                    "required_path_quality_model_ids": list(
+                        context.required_path_quality_model_ids
+                    ),
+                    "path_quality_subjects": [
+                        item.to_dict() for item in context.path_quality_subjects
+                    ],
+                    "path_quality_results": [
+                        item.to_compact_dict()
+                        for item in context.path_quality_results
+                    ],
+                    "path_quality_result_set_fingerprint": (
+                        context.path_quality_result_set_fingerprint
+                    ),
                     "owner_resolution_ids": list(context.owner_resolution_ids),
                     "owner_resolution_fingerprints": list(context.owner_resolution_fingerprints),
                     "owner_resolution_owner_ids": list(context.owner_resolution_owner_ids),

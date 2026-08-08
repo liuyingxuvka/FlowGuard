@@ -15,7 +15,13 @@ Never select by keyword score or declaration order. A narrow entry reduces initi
 
 ### Minimum Valuable Model
 
-After selecting the kernel, state the protected failure and claim boundary, reuse a current public/local risk template when applicable, model each block as `Input x State -> Set(Output x State)`, include state, side effects, completion evidence, and a known-bad case, then run the declared checks and inspect counterexamples.
+After selecting the kernel, state the protected failure and claim boundary,
+model each block as `Input x State -> Set(Output x State)`, include state, side
+effects, completion evidence, and a known-bad case, then run the declared checks
+and inspect counterexamples. A current public/local risk template is consulted
+only when the user explicitly requests template reuse/publication or current
+executable evidence identifies a bounded stable pattern intended for use
+outside the target project.
 
 If a broad claim, prediction, Model Miss, ambiguity, high-impact gap, or addressable native gap appears, load only its reference and continue model-predict-validate-revise work. Finish only at route-native closure or an explicit external, scoped, stalled, or bounded terminal. Never ask the model to self-rate understanding; derive `TaskCoverageDemand`, close its triggered rows, and independently verify the canonical maturation receipt.
 
@@ -27,7 +33,7 @@ Clear ownership routes directly to the matching peer:
 | --- | --- |
 | existing model/commitment ownership | `flowguard-existing-model-preflight` |
 | broad external promise inventory | `flowguard-behavior-commitment-ledger` |
-| behavior-preserving contraction | `flowguard-architecture-reduction` |
+| current-DNA necessity, equivalent contraction, or evidence-bound behavior retirement | `flowguard-architecture-reduction` |
 | pre-code module/function ownership | `flowguard-code-structure-recommendation` |
 | finite bad-case/Cartesian coverage | `flowguard-contract-exhaustion-mesh` |
 | staged work, freshness, sync, release | `flowguard-development-process-flow` |
@@ -49,11 +55,16 @@ Read the selected skill's `Local Material Routing`. Its first protocol owns rout
 ### Hard Gates
 
 - Require the real FlowGuard check engine and current AGENTS/project record. Use `project-audit`; use full `project-upgrade` when installed/current versions differ. Never build a fake replacement.
-- Existing currentness comes only from the sole observed snapshot. A target or experiment needs one accepted `ModelRevisionSet` before it becomes observed authority.
+- Existing currentness comes only from the sole observed snapshot and its accepted `ModelRevisionSet`. Keep the revision-local delta distinct from the complete `CurrentEffectiveIntentView`, require every current model owner to have one exact effective-intent binding, and never use history, a root intent, or the latest delta as a current fallback.
 - Before model change, freeze task-specific protected failures/boundary and bind native good, bad-per-failure, oracle, and current evidence. Reusable types are not fixed-purpose; there is no weak mode or fallback.
 - Broad behavior uses the current Behavior Commitment Ledger and Primary Path Authority where path-sensitive. Replacements dispose old fields, aliases, wrappers, and alternate success paths.
 - Missing, failed, stale, skipped, `not_run`, progress-only, or scoped evidence cannot support broad done/release confidence. Risk Evidence Ledger and route-native closure remain required when triggered.
-- New or materially deepened reusable models require template harvest closure through `risk-template-harvest-review`.
+- Ordinary modeling, repair, maintenance, cleanup, and release do not require
+  template search, no-match prose, or harvest evidence. If explicit
+  reuse/publication scope or current executable cross-project-pattern evidence
+  triggers the single `risk_template_library` route, its search/review remains
+  strict and template harvest closure through `risk-template-harvest-review`
+  is required.
 - Plans, peer writes, affected revalidation, sync, install, Git, and release freshness remain owned by DevelopmentProcessFlow; progress is not completion.
 
 For adoption, run target-owned `project-adopt` or `project-upgrade`, then rerun affected model and test owners. Source, package, installed skills, local repository, Git, tag, and release are separate evidence domains.

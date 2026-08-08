@@ -20,6 +20,15 @@ python scripts/check_flowguard_skill_suite.py --root . --skillguard all --json
 
 It checks the canonical inventory, generated-contract parity, and all 15 SkillGuard static/contract/depth results. Its own claim boundary is structural: native receipts and the evidence-bound parent closure remain separate gates.
 
+Native execution uses an explicit `--resume` operation. It independently
+reconstructs every selected member's current command, complete declared input
+set, producer, contract, manifest, suite inventory, obligations, toolchain,
+environment, proof, and result identities. Only a terminal-pass full receipt
+with an exact match is reported as `reuse_current`; every missing or stale
+member executes its declared owner. The terminal report keeps separate
+`executed_members` and `reused_members` counts. This is an execution command,
+not a read-only receipt audit.
+
 Current native and parent receipts belong under:
 
 ```text
@@ -165,9 +174,20 @@ classified, control, and unclassified byte totals; cleanup should not proceed
 while unclassified bytes remain. Validation never calls these persistent
 cleanup operations automatically.
 
-## Install, Check, Parity, And Uninstall
+## Author Sync, Install, Check, Parity, And Uninstall
 
-Set `CODEX_HOME` to the target Codex home. Set `FLOWGUARD_SHADOW` only when comparing a shadow workspace.
+Set `CODEX_HOME` to the target Codex home. Set
+`FLOWGUARD_AUTHOR_SHADOW_SKILLS` to the exact `.agents/skills` directory of an
+explicit maintainer workspace. The author shadow is a managed skill tree, not
+a second whole-repository copy.
+
+Preview and then synchronize the author shadow without touching surrounding
+peer-owned repository files:
+
+```powershell
+python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --dry-run --json
+python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --json
+```
 
 Preview an install without writing:
 
@@ -197,7 +217,7 @@ they do not read the author suite map or a project-local copy.
 Compare canonical source, formal-repository, shadow-workspace, and installed trees:
 
 ```powershell
-python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_SHADOW\.agents\skills --installed $env:CODEX_HOME\skills --json
+python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --installed $env:CODEX_HOME\skills --json
 ```
 
 Preview and then perform a safe uninstall:
@@ -210,6 +230,11 @@ python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOM
 Lifecycle guarantees:
 
 - A repeated unchanged install is idempotent.
+- `author-sync` accepts only an explicit author-shadow skill root, never
+  `CODEX_HOME`; it changes only the declared 15 members and its ownership
+  record, and rolls back an incomplete activation.
+- `install` independently projects the clean `consumer_distribution`; it does
+  not convert installed consumers into author source.
 - `check` and `parity` are read-only and therefore do not accept `--dry-run`.
 - The target ownership record is `<skills-root>/.flowguard-skill-suite-ownership.json`.
 - Uninstall removes only installer-owned files that still match their installed hash.
@@ -224,10 +249,33 @@ A distribution pass proves file-tree parity and ownership safety. It does not pr
 
 ## Release Closure
 
-FlowGuard v0.68.6 is source-only. Bind local release readiness to the exact
+FlowGuard v0.68.7 is source-only. Bind local release readiness to the exact
 current ten-owner parent receipt and its frozen validation-input and release
 tree manifests. The verifier only reads and compares identities; it never
 starts a validation producer:
+
+The parent producer creates one immutable validation observation for its own
+invocation. It resolves and semantically verifies each exact-current child once,
+reuses those typed results for all declared sibling and aggregate subsets, and
+then performs one fresh source-identity comparison after native producers end.
+New leaf receipts are published from those exact fresh owner contexts without
+per-leaf source rebuilding or receipt-store scans, and their identities are
+reconciled once before parent or revision-bundle publication. If any governed source, owner, receipt,
+dependency, toolchain, environment, or child identity changed, publication is
+blocked. If the final comparison did not run, currentness is `not_run`. The
+observation is never a persistent cache or cross-invocation authority, and a
+matching final boundary does not repeat unchanged child semantic validation or
+add a third repository scan.
+
+Before that final parent owner starts, freeze one accepted v5 model revision
+for the same source identity. Its revision-local delta and cumulative
+`CurrentEffectiveIntentView` are separate inputs: the latter must reverify every
+active intent source and bind the exact current 51-owner self-model denominator
+once per owner. The model-regression manifest, compiled self-blueprint,
+behavior-commitment ledger, generated field inventory, public API/docs, and
+accepted revision must all describe that same frozen source. A one-time intent
+bootstrap receipt or a later refinement receipt is model-authority evidence;
+neither replaces any of the ten validation-owner receipts.
 
 ```powershell
 python scripts/verify_flowguard_release.py --root . --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
@@ -237,14 +285,14 @@ After committing, verify the immutable local tag against the parent-bound
 release tree:
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.6 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.7 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
 ```
 
 After pushing the tag and creating an asset-free GitHub Release, verify the
 peeled remote tag and release metadata:
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.6 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.7 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
 ```
 
 The published phase reuses the local checks and additionally requires the
@@ -299,6 +347,13 @@ python scripts/check_flowguard_skill_suite.py --root . --skillguard all --json
 ```
 
 它核对 canonical inventory、生成合同一致性，以及 15 项 SkillGuard static/contract/depth 结果。它自己的声明边界是“结构通过”；原生回执和证据绑定的父闭环仍是独立 gate。
+
+原生执行通过显式 `--resume` 操作组合当前证据。它会独立重建每个选中成员的
+当前命令、完整声明输入集合、生产者、合同、清单、套件 inventory、义务、工具链、
+环境、证明和结果身份；只有完整匹配的终态 full-pass 回执才会标记为
+`reuse_current`，缺失或失效的成员必须执行自己的声明负责人。终态报告分别给出
+`executed_members` 和 `reused_members`。这是可能执行缺失工作的执行命令，不是
+只读回执审计。
 
 当前原生回执和父级回执放在：
 
@@ -420,9 +475,18 @@ root 下一个精确 quarantine，而且 current/pin replay 必须继续有效�
 unclassified 字节，存在未分类字节时不得开始清理。普通验证永远不会自动调用这些
 持久清理操作。
 
-### 安装、检查、对比与卸载
+### 作者同步、安装、检查、对比与卸载
 
-把 `CODEX_HOME` 指向目标 Codex home；只有比较 shadow workspace 时才需要 `FLOWGUARD_SHADOW`。
+把 `CODEX_HOME` 指向目标 Codex home；把
+`FLOWGUARD_AUTHOR_SHADOW_SKILLS` 指向一个明确作者工作区的
+`.agents/skills`。作者 shadow 是受管理的技能树，不是第二份整仓副本。
+
+先预览，再同步作者 shadow；周围由其他 AI 拥有的仓库文件不会被触碰：
+
+```powershell
+python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --dry-run --json
+python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --json
+```
 
 先预览安装：
 
@@ -440,7 +504,7 @@ python scripts/install_flowguard_skills.py check --source . --codex-home $env:CO
 比较 canonical source、formal repository、shadow workspace 和 installed tree：
 
 ```powershell
-python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_SHADOW\.agents\skills --installed $env:CODEX_HOME\skills --json
+python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --installed $env:CODEX_HOME\skills --json
 ```
 
 先预览，再安全卸载：
@@ -453,6 +517,11 @@ python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOM
 生命周期保证：
 
 - 对未变化内容重复 install 是幂等的。
+- `author-sync` 只接受明确的作者 shadow skill root，绝不使用
+  `CODEX_HOME`；它只改声明的 15 个成员和自己的 ownership record，激活不完整时
+  会整体回滚。
+- `install` 独立生成干净的 `consumer_distribution`，不会把已安装 consumer
+  变成作者源码。
 - `check` 和 `parity` 只读，所以不接受 `--dry-run`。
 - 目标 ownership 文件是 `<skills-root>/.flowguard-skill-suite-ownership.json`。
 - uninstall 只删除 installer-owned 且仍匹配安装 hash 的文件。
@@ -464,9 +533,25 @@ Distribution pass 只证明文件树一致性和 ownership 安全。它不证明
 
 ### 发布闭环
 
-FlowGuard v0.68.6 只发布源码。本地发布结论必须绑定当前 10 个验证负责人组成的
+FlowGuard v0.68.7 只发布源码。本地发布结论必须绑定当前 10 个验证负责人组成的
 精确父回执，以及父回执冻结的验证输入清单和发布树清单。验证器只读取并比对
 身份，不会启动任何验证生产者：
+
+父验证负责人只在本次调用中建立一份不可变的验证观察：每个精确当前的 child
+只解析并做一次语义验证，后续兄弟步骤和多个聚合只引用这份观察中的精确子集；
+所有原生生产者结束后，只做一次新的源码/负责人“身份是否变化”比较；新增 child
+回执直接使用这次最终观察中的负责人上下文批量发布，不为每个 child 重建源码身份
+或单独扫描回执库，随后统一对账一次新增回执。任何源码、负责人、回执、依赖、
+工具链、环境或 child 身份发生变化都会阻止发布；最终源码比较或回执对账没有运行
+时，当前性必须是 `not_run`。这份观察不是持久缓存，也不能跨调用成为权威；身份
+完全一致时，不再重复没有变化的 child 语义验证，也不增加第三次整库源码扫描。
+
+最终父验证负责人开始之前，还必须为同一个源码身份冻结并接受一份 v5 模型修订。
+这份修订里的本轮局部变化与累积 `CurrentEffectiveIntentView` 是两个不同输入；
+完整当前意图必须重新核实每个有效来源，并对本版精确的 51 个自模型负责人逐一
+绑定。模型回归清单、编译后的自蓝图、行为承诺账本、生成的字段清单、公开 API/
+文档和已接受修订必须全部描述同一个冻结源码。一次性的意图 bootstrap 回执或
+后续 refinement 回执属于模型权威证据，不能代替十个验证负责人的任何一份回执。
 
 ```powershell
 python scripts/verify_flowguard_release.py --root . --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
@@ -475,13 +560,13 @@ python scripts/verify_flowguard_release.py --root . --phase local-candidate --pa
 提交完成后，先把本地不可变 tag 与父回执绑定的发布树进行比较：
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.6 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.7 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
 ```
 
 推送 tag 并创建零资产 GitHub Release 后，再验证剥离后的远端 tag 和 Release 元数据：
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.6 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.7 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
 ```
 
 published 阶段会重新检查本地条件，并要求远端 tag 指向同一提交、Release 已发布且不是 draft、资产列表为空。若发布后验证失败，应发布新的修正版，不能移动已有 tag。

@@ -8,8 +8,14 @@ intentionally does not read TestMesh, StructureMesh, or ModelMesh reports.
 
 from __future__ import annotations
 from dataclasses import dataclass, field, replace
+from functools import cached_property
 from typing import Any, Mapping, Sequence
 
+from ._normalization import (
+    string_sequence as _as_tuple,
+    string_set as _tuple_set,
+    unique_sorted_strings as _unique_sorted,
+)
 from .behavior_plane import BCL_BEHAVIOR_PLANES
 from .evidence_receipts import (
     EvidenceReceipt,
@@ -20,7 +26,22 @@ from .evidence_receipts import (
     verified_receipt_binding_gap_codes,
 )
 from .export import to_jsonable
-from .model_similarity import SimilarityHandoff, normalize_similarity_handoff
+from .model_path_quality import (
+    PathQualityMaterialReview,
+    PathQualityResult,
+    PathQualitySubject,
+    normalize_path_quality_material,
+    path_quality_result_set_fingerprint,
+    review_path_quality_material,
+)
+from .canonical_relation import (
+    RELATION_AFFECTED_SIBLING,
+    RELATION_SAME_INTENT,
+    RELATION_SHARED_MECHANISM,
+    RELATION_SHARED_OWNER,
+    CanonicalRelationHandoff,
+    normalize_canonical_relation_handoff,
+)
 from .obligation_family import (
     ObligationFamily,
     ObligationFamilyEvidence,
@@ -134,20 +155,6 @@ SIDE_EFFECT_CALL_PREFIXES = (
 )
 
 
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
-
-
-def _tuple_set(values: Sequence[str]) -> set[str]:
-    return {str(value) for value in values}
-
-
-def _unique_sorted(values: Sequence[str]) -> tuple[str, ...]:
-    return tuple(sorted({str(value) for value in values if str(value)}))
-
-
 @dataclass(frozen=True)
 class ClosureEvidenceTarget:
     """One concrete bad-case or closure target that test evidence must replay."""
@@ -210,9 +217,9 @@ class ModelObligation:
     business_intent_id: str = ""
     behavior_commitment_id: str = ""
     primary_path_id: str = ""
-    similarity_relation_ids: tuple[str, ...] = ()
-    similarity_test_obligation_ids: tuple[str, ...] = ()
-    similarity_impacted_model_ids: tuple[str, ...] = ()
+    relation_ids: tuple[str, ...] = ()
+    relation_test_obligation_ids: tuple[str, ...] = ()
+    relation_impacted_model_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "obligation_id", str(self.obligation_id))
@@ -245,16 +252,16 @@ class ModelObligation:
         object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
         object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
         object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
-        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(self, "relation_ids", _as_tuple(self.relation_ids))
         object.__setattr__(
             self,
-            "similarity_test_obligation_ids",
-            _as_tuple(self.similarity_test_obligation_ids),
+            "relation_test_obligation_ids",
+            _as_tuple(self.relation_test_obligation_ids),
         )
         object.__setattr__(
             self,
-            "similarity_impacted_model_ids",
-            _as_tuple(self.similarity_impacted_model_ids),
+            "relation_impacted_model_ids",
+            _as_tuple(self.relation_impacted_model_ids),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -283,9 +290,9 @@ class ModelObligation:
             "business_intent_id": self.business_intent_id,
             "behavior_commitment_id": self.behavior_commitment_id,
             "primary_path_id": self.primary_path_id,
-            "similarity_relation_ids": list(self.similarity_relation_ids),
-            "similarity_test_obligation_ids": list(self.similarity_test_obligation_ids),
-            "similarity_impacted_model_ids": list(self.similarity_impacted_model_ids),
+            "relation_ids": list(self.relation_ids),
+            "relation_test_obligation_ids": list(self.relation_test_obligation_ids),
+            "relation_impacted_model_ids": list(self.relation_impacted_model_ids),
         }
 
 
@@ -310,8 +317,8 @@ class CodeContract:
     business_intent_id: str = ""
     behavior_commitment_id: str = ""
     primary_path_id: str = ""
-    similarity_relation_ids: tuple[str, ...] = ()
-    similarity_code_obligation_ids: tuple[str, ...] = ()
+    relation_ids: tuple[str, ...] = ()
+    relation_code_obligation_ids: tuple[str, ...] = ()
     delegates_to_code_contract_id: str = ""
     delegation_evidence_id: str = ""
     delegation_evidence_current: bool = False
@@ -335,11 +342,11 @@ class CodeContract:
         object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
         object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
         object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
-        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(self, "relation_ids", _as_tuple(self.relation_ids))
         object.__setattr__(
             self,
-            "similarity_code_obligation_ids",
-            _as_tuple(self.similarity_code_obligation_ids),
+            "relation_code_obligation_ids",
+            _as_tuple(self.relation_code_obligation_ids),
         )
         object.__setattr__(self, "delegates_to_code_contract_id", str(self.delegates_to_code_contract_id))
         object.__setattr__(self, "delegation_evidence_id", str(self.delegation_evidence_id))
@@ -369,8 +376,8 @@ class CodeContract:
             "business_intent_id": self.business_intent_id,
             "behavior_commitment_id": self.behavior_commitment_id,
             "primary_path_id": self.primary_path_id,
-            "similarity_relation_ids": list(self.similarity_relation_ids),
-            "similarity_code_obligation_ids": list(self.similarity_code_obligation_ids),
+            "relation_ids": list(self.relation_ids),
+            "relation_code_obligation_ids": list(self.relation_code_obligation_ids),
             "delegates_to_code_contract_id": self.delegates_to_code_contract_id,
             "delegation_evidence_id": self.delegation_evidence_id,
             "delegation_evidence_current": self.delegation_evidence_current,
@@ -497,6 +504,11 @@ class TestEvidence:
     business_intent_id: str = ""
     behavior_commitment_id: str = ""
     primary_path_id: str = ""
+    model_id: str = ""
+    model_fingerprint: str = ""
+    path_quality_subject_fingerprint: str = ""
+    path_quality_result_fingerprint: str = ""
+    path_quality_currentness_id: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "evidence_id", str(self.evidence_id))
@@ -537,6 +549,23 @@ class TestEvidence:
         object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
         object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
         object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
+        object.__setattr__(self, "model_id", str(self.model_id))
+        object.__setattr__(self, "model_fingerprint", str(self.model_fingerprint))
+        object.__setattr__(
+            self,
+            "path_quality_subject_fingerprint",
+            str(self.path_quality_subject_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_result_fingerprint",
+            str(self.path_quality_result_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_currentness_id",
+            str(self.path_quality_currentness_id),
+        )
 
     def has_current_pass(self) -> bool:
         if self.result_status not in PASSING_STATUSES or not self.evidence_current:
@@ -652,6 +681,15 @@ class TestEvidence:
             "business_intent_id": self.business_intent_id,
             "behavior_commitment_id": self.behavior_commitment_id,
             "primary_path_id": self.primary_path_id,
+            "model_id": self.model_id,
+            "model_fingerprint": self.model_fingerprint,
+            "path_quality_subject_fingerprint": (
+                self.path_quality_subject_fingerprint
+            ),
+            "path_quality_result_fingerprint": (
+                self.path_quality_result_fingerprint
+            ),
+            "path_quality_currentness_id": self.path_quality_currentness_id,
         }
 
 
@@ -1179,7 +1217,7 @@ class ModelTestAlignmentPlan:
     source_audit_reports: tuple[Any, ...] = ()
     field_lifecycle_reports: tuple[Any, ...] = ()
     field_lifecycle_projections: tuple[Any, ...] = ()
-    similarity_handoff: SimilarityHandoff | Mapping[str, Any] | None = None
+    canonical_relation_handoff: CanonicalRelationHandoff | Mapping[str, Any] | None = None
     require_proof_artifacts: bool = False
     require_runtime_path_evidence: bool = False
     require_source_audit: bool = False
@@ -1187,9 +1225,15 @@ class ModelTestAlignmentPlan:
     allow_orphan_code_contracts: bool = False
     require_stable_authority_ids: bool = False
     require_behavior_plane_binding: bool = False
-    scoped_similarity_reasons: Mapping[str, str] = field(default_factory=dict)
+    scoped_relation_reasons: Mapping[str, str] = field(default_factory=dict)
     require_implementation_blueprint: bool = False
     implementation_binding_report: Any | None = None
+    model_fingerprint: str = ""
+    required_path_quality_model_ids: tuple[str, ...] = ()
+    path_quality_subjects: tuple[PathQualitySubject | Mapping[str, Any], ...] = ()
+    path_quality_results: tuple[PathQualityResult | Mapping[str, Any], ...] = ()
+    path_quality_currentness_id: str = ""
+    path_quality_result_set_fingerprint: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_id", str(self.model_id))
@@ -1248,7 +1292,11 @@ class ModelTestAlignmentPlan:
         object.__setattr__(self, "source_audit_reports", tuple(self.source_audit_reports))
         object.__setattr__(self, "field_lifecycle_reports", tuple(self.field_lifecycle_reports))
         object.__setattr__(self, "field_lifecycle_projections", tuple(self.field_lifecycle_projections))
-        object.__setattr__(self, "similarity_handoff", normalize_similarity_handoff(self.similarity_handoff))
+        object.__setattr__(
+            self,
+            "canonical_relation_handoff",
+            normalize_canonical_relation_handoff(self.canonical_relation_handoff),
+        )
         object.__setattr__(self, "require_source_audit", bool(self.require_source_audit))
         object.__setattr__(self, "require_stable_authority_ids", bool(self.require_stable_authority_ids))
         object.__setattr__(
@@ -1258,13 +1306,43 @@ class ModelTestAlignmentPlan:
         )
         object.__setattr__(
             self,
-            "scoped_similarity_reasons",
-            {str(key): str(value) for key, value in dict(self.scoped_similarity_reasons).items()},
+            "scoped_relation_reasons",
+            {str(key): str(value) for key, value in dict(self.scoped_relation_reasons).items()},
         )
         object.__setattr__(
             self,
             "require_implementation_blueprint",
             bool(self.require_implementation_blueprint),
+        )
+        object.__setattr__(self, "model_fingerprint", str(self.model_fingerprint))
+        required_models, subjects, results = normalize_path_quality_material(
+            self.required_path_quality_model_ids,
+            self.path_quality_subjects,
+            self.path_quality_results,
+        )
+        result_set_fingerprint = (
+            path_quality_result_set_fingerprint(required_models, subjects, results)
+            if required_models or subjects or results
+            else ""
+        )
+        supplied_result_set_fingerprint = str(self.path_quality_result_set_fingerprint)
+        if (
+            supplied_result_set_fingerprint
+            and supplied_result_set_fingerprint != result_set_fingerprint
+        ):
+            raise ValueError("model-test alignment path-quality result set is stale")
+        object.__setattr__(self, "required_path_quality_model_ids", required_models)
+        object.__setattr__(self, "path_quality_subjects", subjects)
+        object.__setattr__(self, "path_quality_results", results)
+        object.__setattr__(
+            self,
+            "path_quality_currentness_id",
+            str(self.path_quality_currentness_id),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_result_set_fingerprint",
+            result_set_fingerprint,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -1296,8 +1374,8 @@ class ModelTestAlignmentPlan:
                 projection.to_dict() if hasattr(projection, "to_dict") else to_jsonable(projection)
                 for projection in self.field_lifecycle_projections
             ],
-            "similarity_handoff": self.similarity_handoff.to_dict()
-            if self.similarity_handoff
+            "canonical_relation_handoff": self.canonical_relation_handoff.to_dict()
+            if self.canonical_relation_handoff
             else None,
             "require_proof_artifacts": self.require_proof_artifacts,
             "require_runtime_path_evidence": self.require_runtime_path_evidence,
@@ -1306,12 +1384,24 @@ class ModelTestAlignmentPlan:
             "allow_orphan_code_contracts": self.allow_orphan_code_contracts,
             "require_stable_authority_ids": self.require_stable_authority_ids,
             "require_behavior_plane_binding": self.require_behavior_plane_binding,
-            "scoped_similarity_reasons": to_jsonable(dict(self.scoped_similarity_reasons)),
+            "scoped_relation_reasons": to_jsonable(dict(self.scoped_relation_reasons)),
             "require_implementation_blueprint": self.require_implementation_blueprint,
             "implementation_binding_report": (
                 self.implementation_binding_report.to_dict()
                 if hasattr(self.implementation_binding_report, "to_dict")
                 else to_jsonable(self.implementation_binding_report)
+            ),
+            "model_fingerprint": self.model_fingerprint,
+            "required_path_quality_model_ids": list(self.required_path_quality_model_ids),
+            "path_quality_subjects": [
+                subject.to_dict() for subject in self.path_quality_subjects
+            ],
+            "path_quality_results": [
+                result.to_compact_dict() for result in self.path_quality_results
+            ],
+            "path_quality_currentness_id": self.path_quality_currentness_id,
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
             ),
         }
 
@@ -1375,9 +1465,13 @@ class ModelCodeTestBindingRow:
     business_intent_id: str = ""
     behavior_commitment_id: str = ""
     primary_path_id: str = ""
-    similarity_relation_ids: tuple[str, ...] = ()
-    similarity_test_obligation_ids: tuple[str, ...] = ()
-    similarity_code_obligation_ids: tuple[str, ...] = ()
+    relation_ids: tuple[str, ...] = ()
+    relation_test_obligation_ids: tuple[str, ...] = ()
+    relation_code_obligation_ids: tuple[str, ...] = ()
+    model_fingerprint: str = ""
+    path_quality_subject_fingerprint: str = ""
+    path_quality_result_fingerprint: str = ""
+    path_quality_currentness_id: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_obligation_id", str(self.model_obligation_id))
@@ -1409,16 +1503,32 @@ class ModelCodeTestBindingRow:
         object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
         object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
         object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
-        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
+        object.__setattr__(self, "relation_ids", _as_tuple(self.relation_ids))
         object.__setattr__(
             self,
-            "similarity_test_obligation_ids",
-            _as_tuple(self.similarity_test_obligation_ids),
+            "relation_test_obligation_ids",
+            _as_tuple(self.relation_test_obligation_ids),
         )
         object.__setattr__(
             self,
-            "similarity_code_obligation_ids",
-            _as_tuple(self.similarity_code_obligation_ids),
+            "relation_code_obligation_ids",
+            _as_tuple(self.relation_code_obligation_ids),
+        )
+        object.__setattr__(self, "model_fingerprint", str(self.model_fingerprint))
+        object.__setattr__(
+            self,
+            "path_quality_subject_fingerprint",
+            str(self.path_quality_subject_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_result_fingerprint",
+            str(self.path_quality_result_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_currentness_id",
+            str(self.path_quality_currentness_id),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -1445,9 +1555,17 @@ class ModelCodeTestBindingRow:
             "business_intent_id": self.business_intent_id,
             "behavior_commitment_id": self.behavior_commitment_id,
             "primary_path_id": self.primary_path_id,
-            "similarity_relation_ids": list(self.similarity_relation_ids),
-            "similarity_test_obligation_ids": list(self.similarity_test_obligation_ids),
-            "similarity_code_obligation_ids": list(self.similarity_code_obligation_ids),
+            "relation_ids": list(self.relation_ids),
+            "relation_test_obligation_ids": list(self.relation_test_obligation_ids),
+            "relation_code_obligation_ids": list(self.relation_code_obligation_ids),
+            "model_fingerprint": self.model_fingerprint,
+            "path_quality_subject_fingerprint": (
+                self.path_quality_subject_fingerprint
+            ),
+            "path_quality_result_fingerprint": (
+                self.path_quality_result_fingerprint
+            ),
+            "path_quality_currentness_id": self.path_quality_currentness_id,
         }
 
 
@@ -1468,6 +1586,9 @@ class ModelTestAlignmentReport:
     implementation_semantic_spec_ids: tuple[str, ...] = ()
     implementation_oracle_ids: tuple[str, ...] = ()
     summary: str = ""
+    path_quality_result_set_fingerprint: str = ""
+    path_quality_verified_model_ids: tuple[str, ...] = ()
+    path_quality_blocked_model_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_id", str(self.model_id))
@@ -1493,6 +1614,21 @@ class ModelTestAlignmentReport:
             _unique_sorted(self.implementation_semantic_spec_ids),
         )
         object.__setattr__(self, "implementation_oracle_ids", _unique_sorted(self.implementation_oracle_ids))
+        object.__setattr__(
+            self,
+            "path_quality_result_set_fingerprint",
+            str(self.path_quality_result_set_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_verified_model_ids",
+            _unique_sorted(self.path_quality_verified_model_ids),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_blocked_model_ids",
+            _unique_sorted(self.path_quality_blocked_model_ids),
+        )
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -1504,7 +1640,7 @@ class ModelTestAlignmentReport:
     def blocker_count(self) -> int:
         return sum(1 for finding in self.findings if finding.severity == "blocker")
 
-    @property
+    @cached_property
     def fingerprint(self) -> str:
         """Return the report's own stable identity.
 
@@ -1567,6 +1703,15 @@ class ModelTestAlignmentReport:
             "implementation_surface_ids": list(self.implementation_surface_ids),
             "implementation_semantic_spec_ids": list(self.implementation_semantic_spec_ids),
             "implementation_oracle_ids": list(self.implementation_oracle_ids),
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
+            "path_quality_verified_model_ids": list(
+                self.path_quality_verified_model_ids
+            ),
+            "path_quality_blocked_model_ids": list(
+                self.path_quality_blocked_model_ids
+            ),
             "findings": [finding.to_dict() for finding in self.findings],
             "binding_rows": [row.to_dict() for row in self.binding_rows],
             "summary": self.summary,
@@ -1801,6 +1946,17 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
     if not blockers:
         return "model_test_alignment_green"
     priority = [
+        ("path_quality_subject_missing", "path_quality_closure_required"),
+        ("path_quality_result_missing", "path_quality_closure_required"),
+        ("path_quality_result_stale", "path_quality_closure_required"),
+        ("path_quality_result_currentness_mismatch", "path_quality_closure_required"),
+        ("path_quality_result_unresolved", "path_quality_closure_required"),
+        ("path_quality_normative_target_not_observed", "path_quality_closure_required"),
+        ("test_evidence_model_binding_missing", "path_quality_evidence_binding_required"),
+        ("test_evidence_model_binding_mismatch", "path_quality_evidence_binding_required"),
+        ("test_evidence_path_quality_subject_mismatch", "path_quality_evidence_binding_required"),
+        ("test_evidence_path_quality_result_mismatch", "path_quality_evidence_binding_required"),
+        ("test_evidence_path_quality_currentness_mismatch", "path_quality_evidence_binding_required"),
         ("duplicate_model_obligation", "invalid_alignment_plan"),
         ("duplicate_code_contract", "invalid_alignment_plan"),
         ("missing_code_contract", "missing_code_contract"),
@@ -1906,6 +2062,8 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("test_overclaims_model_confidence", "test_overclaims_model_confidence"),
     ]
     codes = {finding.code for finding in blockers}
+    if any(code.startswith("path_quality_") for code in codes):
+        return "path_quality_closure_required"
     for code, decision in priority:
         if code in codes:
             return decision
@@ -3420,72 +3578,72 @@ def _behavior_plane_findings(
     return findings
 
 
-def _similarity_materialization_findings(
+def _canonical_relation_materialization_findings(
     plan: ModelTestAlignmentPlan,
 ) -> list[ModelTestAlignmentFinding]:
-    handoff = plan.similarity_handoff
+    handoff = plan.canonical_relation_handoff
     if handoff is None:
         return []
     findings: list[ModelTestAlignmentFinding] = []
-    scoped = set(plan.scoped_similarity_reasons)
-    for item_id, reason in plan.scoped_similarity_reasons.items():
+    scoped = set(plan.scoped_relation_reasons)
+    for item_id, reason in plan.scoped_relation_reasons.items():
         if not reason:
             findings.append(
                 ModelTestAlignmentFinding(
-                    "similarity_scoped_reason_missing",
-                    "scoped similarity materialization requires a reason",
-                    metadata={"similarity_id": item_id},
+                    "relation_scoped_reason_missing",
+                    "scoped canonical relation materialization requires a reason",
+                    metadata={"relation_id": item_id},
                 )
             )
     if not handoff.evidence_current:
         findings.append(
             ModelTestAlignmentFinding(
-                "stale_similarity_handoff",
-                "model-similarity handoff evidence is stale",
+                "stale_canonical_relation_handoff",
+                "canonical relation handoff evidence is stale",
                 metadata=handoff.to_dict(),
             )
         )
-    if handoff.unresolved_gaps:
+    if handoff.gap_ids:
         findings.append(
             ModelTestAlignmentFinding(
-                "similarity_handoff_unresolved_gap",
-                "model-similarity handoff still contains unresolved gaps",
+                "canonical_relation_handoff_unresolved_gap",
+                "canonical relation handoff still contains unresolved gaps",
                 metadata=handoff.to_dict(),
             )
         )
     materialized_relations = {
         relation_id
         for obligation in plan.obligations
-        for relation_id in obligation.similarity_relation_ids
+        for relation_id in obligation.relation_ids
     } | {
         relation_id
         for contract in plan.code_contracts
-        for relation_id in contract.similarity_relation_ids
+        for relation_id in contract.relation_ids
     }
     materialized_test_obligations = {
         obligation.obligation_id for obligation in plan.obligations
     } | {
         item_id
         for obligation in plan.obligations
-        for item_id in obligation.similarity_test_obligation_ids
+        for item_id in obligation.relation_test_obligation_ids
     }
     materialized_code_obligations = {
         contract.code_contract_id for contract in plan.code_contracts
     } | {
         item_id
         for contract in plan.code_contracts
-        for item_id in contract.similarity_code_obligation_ids
+        for item_id in contract.relation_code_obligation_ids
     }
     materialized_models = {plan.model_id} | {
         model_id
         for obligation in plan.obligations
-        for model_id in obligation.similarity_impacted_model_ids
+        for model_id in obligation.relation_impacted_model_ids
     }
     checks = (
-        (handoff.relation_ids, materialized_relations, "unmaterialized_similarity_relation_id"),
-        (handoff.test_obligation_ids, materialized_test_obligations, "unmaterialized_similarity_test_obligation_id"),
-        (handoff.code_obligation_ids, materialized_code_obligations, "unmaterialized_similarity_code_obligation_id"),
-        (handoff.impacted_model_ids, materialized_models, "unmaterialized_similarity_impacted_model_id"),
+        (handoff.relation_ids, materialized_relations, "unmaterialized_canonical_relation_id"),
+        (handoff.test_obligation_ids, materialized_test_obligations, "unmaterialized_relation_test_obligation_id"),
+        (handoff.code_obligation_ids, materialized_code_obligations, "unmaterialized_relation_code_obligation_id"),
+        (handoff.affected_model_ids, materialized_models, "unmaterialized_relation_impacted_model_id"),
     )
     for expected_ids, materialized_ids, code in checks:
         for item_id in expected_ids:
@@ -3494,8 +3652,8 @@ def _similarity_materialization_findings(
             findings.append(
                 ModelTestAlignmentFinding(
                     code,
-                    "model-similarity handoff id is not materialized as a concrete alignment row",
-                    metadata={"similarity_id": item_id, "handoff": handoff.to_dict()},
+                    "model-canonical relation handoff id is not materialized as a concrete alignment row",
+                    metadata={"relation_id": item_id, "handoff": handoff.to_dict()},
                 )
             )
     return findings
@@ -3953,26 +4111,52 @@ def _binding_source_audit_decision(
     return "source_audit_green"
 
 
-def _binding_gap_codes(
+def _binding_gap_code_index(
     findings: Sequence[ModelTestAlignmentFinding],
+) -> tuple[
+    dict[str, tuple[str, ...]],
+    dict[str, tuple[str, ...]],
+    dict[str, tuple[str, ...]],
+]:
+    """Index blocker codes once for all model/code/test binding rows."""
+
+    by_obligation: dict[str, set[str]] = {}
+    by_contract: dict[str, set[str]] = {}
+    by_evidence: dict[str, set[str]] = {}
+    for finding in findings:
+        if finding.severity != "blocker":
+            continue
+        if finding.obligation_id:
+            by_obligation.setdefault(finding.obligation_id, set()).add(finding.code)
+        if finding.code_contract_id:
+            by_contract.setdefault(finding.code_contract_id, set()).add(finding.code)
+        if finding.evidence_id:
+            by_evidence.setdefault(finding.evidence_id, set()).add(finding.code)
+    return (
+        {key: tuple(sorted(values)) for key, values in by_obligation.items()},
+        {key: tuple(sorted(values)) for key, values in by_contract.items()},
+        {key: tuple(sorted(values)) for key, values in by_evidence.items()},
+    )
+
+
+def _binding_gap_codes(
+    gap_code_index: tuple[
+        Mapping[str, Sequence[str]],
+        Mapping[str, Sequence[str]],
+        Mapping[str, Sequence[str]],
+    ],
     *,
     obligation_id: str,
     contract_ids: Sequence[str],
     evidence_ids: Sequence[str],
 ) -> tuple[str, ...]:
-    contract_id_set = set(contract_ids)
-    evidence_id_set = set(evidence_ids)
-    codes: list[str] = []
-    for finding in findings:
-        if finding.severity != "blocker":
-            continue
-        if finding.obligation_id and finding.obligation_id == obligation_id:
-            codes.append(finding.code)
-        elif finding.code_contract_id and finding.code_contract_id in contract_id_set:
-            codes.append(finding.code)
-        elif finding.evidence_id and finding.evidence_id in evidence_id_set:
-            codes.append(finding.code)
-    return _unique_sorted(codes)
+    by_obligation, by_contract, by_evidence = gap_code_index
+    codes = set(by_obligation.get(obligation_id, ()))
+    for contract_id in contract_ids:
+        codes.update(by_contract.get(contract_id, ()))
+    for evidence_id in evidence_ids:
+        codes.update(by_evidence.get(evidence_id, ()))
+    return tuple(sorted(codes))
 
 
 def _binding_rows(
@@ -3985,13 +4169,14 @@ def _binding_rows(
     contracts_by_obligation = _code_contracts_by_obligation(code_contracts_by_id, obligations_by_id)
     rows: list[ModelCodeTestBindingRow] = []
     field_projections = _field_lifecycle_projection_rows(plan)
+    gap_code_index = _binding_gap_code_index(findings)
     for obligation_id, obligation in obligations_by_id.items():
         if not obligation.required:
             continue
         owner_contracts = tuple(contracts_by_obligation.get(obligation_id, ()))
         if not owner_contracts:
             gap_codes = _binding_gap_codes(
-                findings,
+                gap_code_index,
                 obligation_id=obligation_id,
                 contract_ids=(),
                 evidence_ids=(),
@@ -4007,8 +4192,8 @@ def _binding_rows(
                     business_intent_id=obligation.business_intent_id,
                     behavior_commitment_id=obligation.behavior_commitment_id,
                     primary_path_id=obligation.primary_path_id,
-                    similarity_relation_ids=obligation.similarity_relation_ids,
-                    similarity_test_obligation_ids=obligation.similarity_test_obligation_ids,
+                    relation_ids=obligation.relation_ids,
+                    relation_test_obligation_ids=obligation.relation_test_obligation_ids,
                 )
             )
             continue
@@ -4069,12 +4254,13 @@ def _binding_rows(
                 evidence_ids,
             )
             gap_codes = _binding_gap_codes(
-                findings,
+                gap_code_index,
                 obligation_id=obligation_id,
                 contract_ids=contract_ids,
                 evidence_ids=evidence_ids,
             )
             if locked_evidence:
+                path_quality_evidence = locked_evidence[0]
                 rows.append(
                     ModelCodeTestBindingRow(
                         model_obligation_id=obligation_id,
@@ -4099,11 +4285,21 @@ def _binding_rows(
                         business_intent_id=obligation.business_intent_id,
                         behavior_commitment_id=obligation.behavior_commitment_id,
                         primary_path_id=obligation.primary_path_id,
-                        similarity_relation_ids=_unique_sorted(
-                            obligation.similarity_relation_ids + contract.similarity_relation_ids
+                        relation_ids=_unique_sorted(
+                            obligation.relation_ids + contract.relation_ids
                         ),
-                        similarity_test_obligation_ids=obligation.similarity_test_obligation_ids,
-                        similarity_code_obligation_ids=contract.similarity_code_obligation_ids,
+                        relation_test_obligation_ids=obligation.relation_test_obligation_ids,
+                        relation_code_obligation_ids=contract.relation_code_obligation_ids,
+                        model_fingerprint=path_quality_evidence.model_fingerprint,
+                        path_quality_subject_fingerprint=(
+                            path_quality_evidence.path_quality_subject_fingerprint
+                        ),
+                        path_quality_result_fingerprint=(
+                            path_quality_evidence.path_quality_result_fingerprint
+                        ),
+                        path_quality_currentness_id=(
+                            path_quality_evidence.path_quality_currentness_id
+                        ),
                     )
                 )
             else:
@@ -4131,11 +4327,11 @@ def _binding_rows(
                         business_intent_id=obligation.business_intent_id,
                         behavior_commitment_id=obligation.behavior_commitment_id,
                         primary_path_id=obligation.primary_path_id,
-                        similarity_relation_ids=_unique_sorted(
-                            obligation.similarity_relation_ids + contract.similarity_relation_ids
+                        relation_ids=_unique_sorted(
+                            obligation.relation_ids + contract.relation_ids
                         ),
-                        similarity_test_obligation_ids=obligation.similarity_test_obligation_ids,
-                        similarity_code_obligation_ids=contract.similarity_code_obligation_ids,
+                        relation_test_obligation_ids=obligation.relation_test_obligation_ids,
+                        relation_code_obligation_ids=contract.relation_code_obligation_ids,
                     )
                 )
     return tuple(rows)
@@ -4502,13 +4698,140 @@ def _implementation_blueprint_findings(
     return findings
 
 
+def _path_quality_review(plan: ModelTestAlignmentPlan) -> PathQualityMaterialReview:
+    expected_model_fingerprints = (
+        {plan.model_id: plan.model_fingerprint}
+        if plan.model_fingerprint and plan.model_id in plan.required_path_quality_model_ids
+        else {}
+    )
+    return review_path_quality_material(
+        plan.required_path_quality_model_ids,
+        plan.path_quality_subjects,
+        plan.path_quality_results,
+        expected_currentness_id=plan.path_quality_currentness_id,
+        expected_model_fingerprints=expected_model_fingerprints,
+        require_exact_currentness=bool(plan.required_path_quality_model_ids),
+        require_exact_model_fingerprints=bool(plan.required_path_quality_model_ids),
+    )
+
+
+def _path_quality_findings(
+    plan: ModelTestAlignmentPlan,
+    review: PathQualityMaterialReview,
+) -> list[ModelTestAlignmentFinding]:
+    findings = [
+        ModelTestAlignmentFinding(
+            gap.code,
+            "required model path-quality material is not exact-current and closed",
+            metadata={
+                "model_id": gap.model_id,
+                "path_quality_gap": gap.to_dict(),
+                "path_quality_material": review.to_compact_dict(),
+            },
+        )
+        for gap in review.gaps
+    ]
+    if review.required_model_ids and review.required_model_ids != (plan.model_id,):
+        findings.append(
+            ModelTestAlignmentFinding(
+                "path_quality_alignment_denominator_foreign_model",
+                "one Model-Test Alignment plan may close path quality only for its exact model",
+                metadata={
+                    "model_id": plan.model_id,
+                    "required_model_ids": list(review.required_model_ids),
+                },
+            )
+        )
+
+    subject = next(
+        (item for item in review.subjects if item.model_id == plan.model_id),
+        None,
+    )
+    result = (
+        next(
+            (
+                item
+                for item in review.results
+                if item.subject_fingerprint == subject.fingerprint
+            ),
+            None,
+        )
+        if subject is not None
+        else None
+    )
+    if plan.model_id not in review.required_model_ids:
+        return findings
+    for evidence in plan.test_evidence:
+        if not evidence.has_current_pass():
+            continue
+        if not evidence.model_id or not evidence.model_fingerprint:
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "test_evidence_model_binding_missing",
+                    "current passing test evidence does not name the exact model and model fingerprint it covers",
+                    evidence_id=evidence.evidence_id,
+                )
+            )
+        elif (
+            evidence.model_id != plan.model_id
+            or subject is None
+            or evidence.model_fingerprint != subject.model_fingerprint
+        ):
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "test_evidence_model_binding_mismatch",
+                    "current passing test evidence is bound to a foreign or stale model",
+                    evidence_id=evidence.evidence_id,
+                    metadata=evidence.to_dict(),
+                )
+            )
+        if (
+            subject is None
+            or evidence.path_quality_subject_fingerprint != subject.fingerprint
+        ):
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "test_evidence_path_quality_subject_mismatch",
+                    "current passing test evidence does not consume the exact current path-quality subject",
+                    evidence_id=evidence.evidence_id,
+                )
+            )
+        if (
+            result is None
+            or evidence.path_quality_result_fingerprint != result.fingerprint
+        ):
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "test_evidence_path_quality_result_mismatch",
+                    "current passing test evidence does not consume the exact current path-quality result",
+                    evidence_id=evidence.evidence_id,
+                )
+            )
+        if (
+            subject is None
+            or evidence.path_quality_currentness_id != subject.currentness_id
+            or evidence.path_quality_currentness_id != plan.path_quality_currentness_id
+        ):
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "test_evidence_path_quality_currentness_mismatch",
+                    "current passing test evidence has a missing, stale, or foreign path-quality currentness identity",
+                    evidence_id=evidence.evidence_id,
+                )
+            )
+    return findings
+
+
 def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignmentReport:
     """Review explicit model obligations against code contracts and test evidence."""
 
+    path_quality_review = _path_quality_review(plan)
     field_lifecycle_findings = _field_lifecycle_findings(plan)
     plan = _plan_with_field_lifecycle_projections(plan)
     obligations_by_id, findings = _obligation_index(plan)
     findings = field_lifecycle_findings + findings
+    path_quality_findings = _path_quality_findings(plan, path_quality_review)
+    findings.extend(path_quality_findings)
     code_contracts_by_id, code_contract_findings = _code_contract_index(plan)
     findings.extend(code_contract_findings)
     findings.extend(_code_contract_findings(plan, obligations_by_id, code_contracts_by_id))
@@ -4565,37 +4888,37 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
         )
         findings.extend(_family_findings_as_alignment_findings(family_report.findings))
         findings.extend(_family_alignment_findings(plan))
-    findings.extend(_similarity_materialization_findings(plan))
+    findings.extend(_canonical_relation_materialization_findings(plan))
     findings.extend(_implementation_blueprint_findings(plan))
-    similarity_handoff = plan.similarity_handoff
-    same_family_relation_ids = similarity_handoff.same_family_relation_ids if similarity_handoff else ()
-    similarity_maintenance_group_ids = similarity_handoff.maintenance_group_ids if similarity_handoff else ()
-    similarity_test_obligation_ids = similarity_handoff.test_obligation_ids if similarity_handoff else ()
-    evidence_duplicate_relation_ids = similarity_handoff.evidence_duplicate_relation_ids if similarity_handoff else ()
+    canonical_relation_handoff = plan.canonical_relation_handoff
+    same_family_relation_ids = (
+        canonical_relation_handoff.relation_ids_of_type(
+            RELATION_SAME_INTENT,
+            RELATION_SHARED_OWNER,
+            RELATION_SHARED_MECHANISM,
+            RELATION_AFFECTED_SIBLING,
+        )
+        if canonical_relation_handoff
+        else ()
+    )
+    relation_group_ids = canonical_relation_handoff.relation_group_ids if canonical_relation_handoff else ()
+    relation_test_obligation_ids = canonical_relation_handoff.test_obligation_ids if canonical_relation_handoff else ()
     if same_family_relation_ids and not plan.obligation_families:
         findings.append(
             ModelTestAlignmentFinding(
-                "missing_similarity_family_evidence",
-                "same-family model-similarity relations require obligation-family evidence or an explicit scoped family plan",
-                metadata={"similarity_relation_ids": list(same_family_relation_ids)},
+                "missing_relation_family_evidence",
+                "same-family canonical relations require obligation-family evidence or an explicit scoped family plan",
+                metadata={"relation_ids": list(same_family_relation_ids)},
             )
         )
-    if similarity_maintenance_group_ids and not (
-        similarity_test_obligation_ids or plan.obligation_families
+    if relation_group_ids and not (
+        relation_test_obligation_ids or plan.obligation_families
     ):
         findings.append(
             ModelTestAlignmentFinding(
-                "missing_similarity_test_obligations",
-                "similarity maintenance groups require shared and variant test obligations or obligation-family evidence before a broad maintenance claim",
-                metadata={"similarity_maintenance_group_ids": list(similarity_maintenance_group_ids)},
-            )
-        )
-    if evidence_duplicate_relation_ids and not (plan.test_evidence or plan.family_evidence):
-        findings.append(
-            ModelTestAlignmentFinding(
-                "evidence_duplicate_without_alignment_evidence",
-                "evidence-duplicate similarity relations require test or family evidence to prove the shared scope",
-                metadata={"similarity_relation_ids": list(evidence_duplicate_relation_ids)},
+                "missing_relation_test_obligations",
+                "canonical relation groups require test obligations or obligation-family evidence before a broad maintenance claim",
+                metadata={"relation_group_ids": list(relation_group_ids)},
             )
         )
     passing_by_obligation = _passing_evidence_by_obligation(plan, obligations_by_id)
@@ -4638,6 +4961,30 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
         ),
         implementation_oracle_ids=tuple(
             getattr(plan.implementation_binding_report, "oracle_ids", ())
+        ),
+        path_quality_result_set_fingerprint=(
+            path_quality_review.result_set_fingerprint
+            if (
+                plan.required_path_quality_model_ids
+                or plan.path_quality_subjects
+                or plan.path_quality_results
+            )
+            else ""
+        ),
+        path_quality_verified_model_ids=(
+            ()
+            if path_quality_findings
+            else path_quality_review.verified_model_ids
+        ),
+        path_quality_blocked_model_ids=tuple(
+            sorted(
+                set(path_quality_review.blocked_model_ids)
+                | (
+                    set(path_quality_review.required_model_ids)
+                    if path_quality_findings
+                    else set()
+                )
+            )
         ),
     )
 

@@ -777,12 +777,10 @@ def build_manifest_model_system_snapshot(
             source_record = surfaces_by_id.get(component.source_surface_id)
             if source_record is None:
                 issues.append("source_surface_missing")
-            elif (
-                str(source_record.get("source_ref", "")) != component.primary_source_owner
-                or component.behavior_commitment_id
-                not in _string_values(source_record.get("commitment_ids"))
+            elif component.behavior_commitment_id not in _string_values(
+                source_record.get("commitment_ids")
             ):
-                issues.append("source_surface_owner_mismatch")
+                issues.append("source_surface_commitment_mismatch")
             declared_relation_types = set(component.relation_types)
             actual_relation_types = {
                 "implements",

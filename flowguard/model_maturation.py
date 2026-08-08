@@ -13,12 +13,18 @@ import hashlib
 import json
 from typing import Any, Mapping, Sequence
 
-from ._normalization import unique_strings as _unique
+from ._normalization import string_sequence as _as_tuple, unique_strings as _unique
 from .export import to_jsonable
 from .maintenance_obligation import (
     MaintenanceObligation,
     coerce_maintenance_obligation,
     obligations_from_maturation_findings,
+)
+from .model_path_quality import (
+    PathQualityResult,
+    PathQualitySubject,
+    normalize_path_quality_material,
+    path_quality_result_set_fingerprint,
 )
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref
 from .task_coverage_demand import (
@@ -36,8 +42,8 @@ MODEL_MATURATION_DECISION_SCOPE_EXCLUDED = "model_maturation_scope_excluded"
 MODEL_MATURATION_DECISION_UPGRADE_REQUIRED = "model_maturation_upgrade_required"
 MODEL_MATURATION_DECISION_BLOCKED = "model_maturation_blocked"
 
-MODEL_MATURATION_PLAN_SCHEMA_VERSION = "flowguard.model-maturation-plan.v2"
-MODEL_MATURATION_INTAKE_SCHEMA_VERSION = "flowguard.model-maturation-intake.v1"
+MODEL_MATURATION_PLAN_SCHEMA_VERSION = "flowguard.model-maturation-plan.v3"
+MODEL_MATURATION_INTAKE_SCHEMA_VERSION = "flowguard.model-maturation-intake.v2"
 MODEL_MATURATION_RECEIPT_STATUS_PASS = "pass"
 
 MODEL_MATURATION_CONFIDENCE_FULL = "full"
@@ -132,12 +138,6 @@ MODEL_MATURATION_ACTIONS_BY_SIGNAL = {
         MATURITY_ACTION_ADD_CODE_BOUNDARY_OBSERVATION,
     ),
 }
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 def _stable_fingerprint(value: object) -> str:
@@ -626,6 +626,9 @@ class ModelMaturationIntake:
     candidate_model_fingerprint: str
     coverage_demand: TaskCoverageDemand
     contributions: tuple[ModelMaturationCoverageContribution, ...] = ()
+    required_path_quality_model_ids: tuple[str, ...] = ()
+    path_quality_subjects: tuple[PathQualitySubject, ...] = ()
+    path_quality_results: tuple[PathQualityResult, ...] = ()
     schema_version: str = MODEL_MATURATION_INTAKE_SCHEMA_VERSION
     iteration: int = 0
     max_iterations: int = 8
@@ -700,6 +703,18 @@ class ModelMaturationIntake:
                 f"{sorted(foreign_resolution_owners)}"
             )
         object.__setattr__(self, "contributions", contributions)
+        required_models, subjects, results = normalize_path_quality_material(
+            self.required_path_quality_model_ids,
+            self.path_quality_subjects,
+            self.path_quality_results,
+        )
+        object.__setattr__(
+            self,
+            "required_path_quality_model_ids",
+            required_models,
+        )
+        object.__setattr__(self, "path_quality_subjects", subjects)
+        object.__setattr__(self, "path_quality_results", results)
         object.__setattr__(self, "iteration", max(0, int(self.iteration)))
         object.__setattr__(self, "max_iterations", max(1, int(self.max_iterations)))
         object.__setattr__(self, "prior_gap_fingerprints", _as_tuple(self.prior_gap_fingerprints))
@@ -774,6 +789,11 @@ def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMatura
         risk_id=intake.risk_id,
         task_id=intake.task_id,
         task_purpose=intake.task_purpose,
+        required_path_quality_model_ids=(
+            intake.required_path_quality_model_ids
+        ),
+        path_quality_subjects=intake.path_quality_subjects,
+        path_quality_results=intake.path_quality_results,
         coverage_universe_id=intake.coverage_demand.demand_id,
         coverage_demand_fingerprint=intake.coverage_demand.fingerprint,
         coverage_owner="task_coverage_demand",
@@ -975,6 +995,8 @@ class ModelMaturationIteration:
     candidate_model_fingerprint: str
     coverage_fingerprint: str
     input_fingerprint: str
+    required_path_quality_model_ids: tuple[str, ...] = ()
+    path_quality_result_set_fingerprint: str = ""
     predecessor_iteration_fingerprint: str = ""
     open_gap_fingerprints: tuple[str, ...] = ()
     resolved_gap_fingerprints: tuple[str, ...] = ()
@@ -994,6 +1016,16 @@ class ModelMaturationIteration:
         object.__setattr__(self, "candidate_model_fingerprint", str(self.candidate_model_fingerprint))
         object.__setattr__(self, "coverage_fingerprint", str(self.coverage_fingerprint))
         object.__setattr__(self, "input_fingerprint", str(self.input_fingerprint))
+        object.__setattr__(
+            self,
+            "required_path_quality_model_ids",
+            tuple(sorted(_as_tuple(self.required_path_quality_model_ids))),
+        )
+        object.__setattr__(
+            self,
+            "path_quality_result_set_fingerprint",
+            str(self.path_quality_result_set_fingerprint),
+        )
         object.__setattr__(self, "predecessor_iteration_fingerprint", str(self.predecessor_iteration_fingerprint))
         object.__setattr__(self, "open_gap_fingerprints", _as_tuple(self.open_gap_fingerprints))
         object.__setattr__(self, "resolved_gap_fingerprints", _as_tuple(self.resolved_gap_fingerprints))
@@ -1014,6 +1046,12 @@ class ModelMaturationIteration:
             "candidate_model_fingerprint": self.candidate_model_fingerprint,
             "coverage_fingerprint": self.coverage_fingerprint,
             "input_fingerprint": self.input_fingerprint,
+            "required_path_quality_model_ids": list(
+                self.required_path_quality_model_ids
+            ),
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
             "predecessor_iteration_fingerprint": self.predecessor_iteration_fingerprint,
             "open_gap_fingerprints": list(self.open_gap_fingerprints),
             "resolved_gap_fingerprints": list(self.resolved_gap_fingerprints),
@@ -1036,6 +1074,12 @@ class ModelMaturationIteration:
             "candidate_model_fingerprint": self.candidate_model_fingerprint,
             "coverage_fingerprint": self.coverage_fingerprint,
             "input_fingerprint": self.input_fingerprint,
+            "required_path_quality_model_ids": list(
+                self.required_path_quality_model_ids
+            ),
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
             "predecessor_iteration_fingerprint": self.predecessor_iteration_fingerprint,
             "open_gap_fingerprints": list(self.open_gap_fingerprints),
             "resolved_gap_fingerprints": list(self.resolved_gap_fingerprints),
@@ -1129,6 +1173,10 @@ class ModelMaturationPlan:
     signals: tuple[ModelMaturationSignal, ...] = ()
     task_id: str = ""
     task_purpose: str = ""
+    required_path_quality_model_ids: tuple[str, ...] = ()
+    path_quality_subjects: tuple[PathQualitySubject, ...] = ()
+    path_quality_results: tuple[PathQualityResult, ...] = ()
+    path_quality_result_set_fingerprint: str = ""
     coverage_universe_id: str = ""
     coverage_demand_fingerprint: str = ""
     coverage_universe_fingerprint: str = ""
@@ -1160,6 +1208,37 @@ class ModelMaturationPlan:
         object.__setattr__(self, "signals", tuple(self.signals))
         object.__setattr__(self, "task_id", str(self.task_id))
         object.__setattr__(self, "task_purpose", str(self.task_purpose))
+        required_models, subjects, results = normalize_path_quality_material(
+            self.required_path_quality_model_ids,
+            self.path_quality_subjects,
+            self.path_quality_results,
+        )
+        expected_path_quality_fingerprint = path_quality_result_set_fingerprint(
+            required_models,
+            subjects,
+            results,
+        )
+        supplied_path_quality_fingerprint = str(
+            self.path_quality_result_set_fingerprint
+        )
+        if (
+            supplied_path_quality_fingerprint
+            and supplied_path_quality_fingerprint
+            != expected_path_quality_fingerprint
+        ):
+            raise ValueError("path-quality result-set fingerprint is stale")
+        object.__setattr__(
+            self,
+            "required_path_quality_model_ids",
+            required_models,
+        )
+        object.__setattr__(self, "path_quality_subjects", subjects)
+        object.__setattr__(self, "path_quality_results", results)
+        object.__setattr__(
+            self,
+            "path_quality_result_set_fingerprint",
+            expected_path_quality_fingerprint,
+        )
         object.__setattr__(self, "coverage_universe_id", str(self.coverage_universe_id))
         object.__setattr__(self, "coverage_demand_fingerprint", str(self.coverage_demand_fingerprint))
         object.__setattr__(self, "coverage_universe_fingerprint", str(self.coverage_universe_fingerprint))
@@ -1214,6 +1293,8 @@ class ModelMaturationPlan:
         allowed = {
             "plan_id", "schema_version", "model_id", "risk_id", "signals",
             "task_id", "task_purpose", "coverage_universe_id",
+            "required_path_quality_model_ids", "path_quality_subjects",
+            "path_quality_results", "path_quality_result_set_fingerprint",
             "coverage_demand_fingerprint", "coverage_universe_fingerprint", "coverage_owner",
             "coverage_source_refs", "coverage_ids", "required_probe_ids",
             "iteration", "max_iterations", "prior_gap_fingerprints",
@@ -1243,6 +1324,14 @@ class ModelMaturationPlan:
             signals=tuple(ModelMaturationSignal.from_dict(item) for item in signals if isinstance(item, Mapping)),
             task_id=str(value.get("task_id", "")),
             task_purpose=str(value.get("task_purpose", "")),
+            required_path_quality_model_ids=tuple(
+                value.get("required_path_quality_model_ids", ())
+            ),
+            path_quality_subjects=tuple(value.get("path_quality_subjects", ())),
+            path_quality_results=tuple(value.get("path_quality_results", ())),
+            path_quality_result_set_fingerprint=str(
+                value.get("path_quality_result_set_fingerprint", "")
+            ),
             coverage_universe_id=str(value.get("coverage_universe_id", "")),
             coverage_demand_fingerprint=str(value.get("coverage_demand_fingerprint", "")),
             coverage_universe_fingerprint=str(value.get("coverage_universe_fingerprint", "")),
@@ -1282,6 +1371,18 @@ class ModelMaturationPlan:
             "signals": [signal.to_dict() for signal in self.signals],
             "task_id": self.task_id,
             "task_purpose": self.task_purpose,
+            "required_path_quality_model_ids": list(
+                self.required_path_quality_model_ids
+            ),
+            "path_quality_subjects": [
+                item.to_dict() for item in self.path_quality_subjects
+            ],
+            "path_quality_results": [
+                item.to_compact_dict() for item in self.path_quality_results
+            ],
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
             "coverage_universe_id": self.coverage_universe_id,
             "coverage_demand_fingerprint": self.coverage_demand_fingerprint,
             "coverage_universe_fingerprint": self.coverage_universe_fingerprint,
@@ -1340,6 +1441,12 @@ class ModelMaturationReport:
     maintenance_obligations: tuple[MaintenanceObligation, ...] = ()
     summary: str = ""
     task_id: str = ""
+    required_path_quality_model_ids: tuple[str, ...] = ()
+    path_quality_subjects: tuple[PathQualitySubject, ...] = ()
+    path_quality_results: tuple[PathQualityResult, ...] = ()
+    path_quality_subject_fingerprints: tuple[str, ...] = ()
+    path_quality_result_fingerprints: tuple[str, ...] = ()
+    path_quality_result_set_fingerprint: str = ""
     coverage_universe_id: str = ""
     coverage_demand_fingerprint: str = ""
     coverage_universe_fingerprint: str = ""
@@ -1375,6 +1482,56 @@ class ModelMaturationReport:
         )
         object.__setattr__(self, "summary", str(self.summary))
         object.__setattr__(self, "task_id", str(self.task_id))
+        required_models, subjects, results = normalize_path_quality_material(
+            self.required_path_quality_model_ids,
+            self.path_quality_subjects,
+            self.path_quality_results,
+        )
+        subject_fingerprints = tuple(sorted(item.fingerprint for item in subjects))
+        result_fingerprints = tuple(sorted(item.fingerprint for item in results))
+        supplied_subject_fingerprints = tuple(
+            sorted(_as_tuple(self.path_quality_subject_fingerprints))
+        )
+        supplied_result_fingerprints = tuple(
+            sorted(_as_tuple(self.path_quality_result_fingerprints))
+        )
+        if (
+            supplied_subject_fingerprints
+            and supplied_subject_fingerprints != subject_fingerprints
+        ):
+            raise ValueError("maturation report path-quality subject fingerprints are stale")
+        if (
+            supplied_result_fingerprints
+            and supplied_result_fingerprints != result_fingerprints
+        ):
+            raise ValueError("maturation report path-quality result fingerprints are stale")
+        expected_result_set_fingerprint = path_quality_result_set_fingerprint(
+            required_models,
+            subjects,
+            results,
+        )
+        supplied_result_set_fingerprint = str(
+            self.path_quality_result_set_fingerprint
+        )
+        if (
+            supplied_result_set_fingerprint
+            and supplied_result_set_fingerprint != expected_result_set_fingerprint
+        ):
+            raise ValueError("maturation report path-quality result set is stale")
+        object.__setattr__(self, "required_path_quality_model_ids", required_models)
+        object.__setattr__(self, "path_quality_subjects", subjects)
+        object.__setattr__(self, "path_quality_results", results)
+        object.__setattr__(
+            self, "path_quality_subject_fingerprints", subject_fingerprints
+        )
+        object.__setattr__(
+            self, "path_quality_result_fingerprints", result_fingerprints
+        )
+        object.__setattr__(
+            self,
+            "path_quality_result_set_fingerprint",
+            expected_result_set_fingerprint,
+        )
         object.__setattr__(self, "coverage_universe_id", str(self.coverage_universe_id))
         object.__setattr__(self, "coverage_demand_fingerprint", str(self.coverage_demand_fingerprint))
         object.__setattr__(
@@ -1421,6 +1578,24 @@ class ModelMaturationReport:
             "maintenance_obligations": [obligation.to_dict() for obligation in self.maintenance_obligations],
             "summary": self.summary,
             "task_id": self.task_id,
+            "required_path_quality_model_ids": list(
+                self.required_path_quality_model_ids
+            ),
+            "path_quality_subjects": [
+                item.to_dict() for item in self.path_quality_subjects
+            ],
+            "path_quality_results": [
+                item.to_compact_dict() for item in self.path_quality_results
+            ],
+            "path_quality_subject_fingerprints": list(
+                self.path_quality_subject_fingerprints
+            ),
+            "path_quality_result_fingerprints": list(
+                self.path_quality_result_fingerprints
+            ),
+            "path_quality_result_set_fingerprint": (
+                self.path_quality_result_set_fingerprint
+            ),
             "coverage_universe_id": self.coverage_universe_id,
             "coverage_demand_fingerprint": self.coverage_demand_fingerprint,
             "coverage_universe_fingerprint": self.coverage_universe_fingerprint,
@@ -1527,6 +1702,12 @@ def _iteration_for(
         candidate_model_fingerprint=plan.candidate_model_fingerprint,
         coverage_fingerprint=plan.coverage_universe_fingerprint,
         input_fingerprint=input_fingerprint,
+        required_path_quality_model_ids=(
+            plan.required_path_quality_model_ids
+        ),
+        path_quality_result_set_fingerprint=(
+            plan.path_quality_result_set_fingerprint
+        ),
         predecessor_iteration_fingerprint=plan.prior_iteration_fingerprint,
         open_gap_fingerprints=tuple(sorted(set(open_gap_fingerprints))),
         resolved_gap_fingerprints=tuple(sorted(set(resolved_gap_fingerprints))),
@@ -1559,6 +1740,7 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
     verified_coverage_ids: set[str] = set()
     represented_coverage_ids: set[str] = set()
     seen_probe_ids: set[str] = set()
+    verified_path_quality_model_ids: set[str] = set()
 
     required_text = {
         "missing_plan_id": plan.plan_id,
@@ -1692,6 +1874,125 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
             findings.append(_plan_finding("missing_prior_candidate", "a later iteration requires the preceding candidate identity"))
         elif plan.base_model_fingerprint != plan.prior_candidate_fingerprint:
             findings.append(_plan_finding("candidate_chain_mismatch", "the current base model is not the preceding candidate"))
+
+    required_path_quality_ids = set(plan.required_path_quality_model_ids)
+    subjects_by_model = {
+        subject.model_id: subject for subject in plan.path_quality_subjects
+    }
+    results_by_subject = {
+        result.subject_fingerprint: result
+        for result in plan.path_quality_results
+    }
+    if not required_path_quality_ids:
+        findings.append(
+            _plan_finding(
+                "missing_path_quality_denominator",
+                "task-local maturation requires an independent path-quality model denominator",
+                action=MATURITY_ACTION_ADD_MODEL_OBLIGATION,
+            )
+        )
+    missing_subject_ids = sorted(
+        required_path_quality_ids - set(subjects_by_model)
+    )
+    extra_subject_ids = sorted(set(subjects_by_model) - required_path_quality_ids)
+    for model_id in missing_subject_ids:
+        findings.append(
+            _plan_finding(
+                "path_quality_subject_missing",
+                f"required model {model_id} has no current path-quality subject",
+                action=MATURITY_ACTION_REFRESH_EVIDENCE,
+            )
+        )
+    for model_id in extra_subject_ids:
+        findings.append(
+            _plan_finding(
+                "path_quality_subject_extra",
+                f"path-quality subject {model_id} is outside the required denominator",
+                action=MATURITY_ACTION_REFRESH_EVIDENCE,
+            )
+        )
+    expected_subject_fingerprints = {
+        subjects_by_model[model_id].fingerprint
+        for model_id in required_path_quality_ids
+        if model_id in subjects_by_model
+    }
+    for subject_fingerprint in sorted(
+        expected_subject_fingerprints - set(results_by_subject)
+    ):
+        findings.append(
+            _plan_finding(
+                "path_quality_result_missing",
+                f"required path-quality subject {subject_fingerprint} has no result",
+                action=MATURITY_ACTION_REFRESH_EVIDENCE,
+            )
+        )
+    for subject_fingerprint in sorted(
+        set(results_by_subject) - expected_subject_fingerprints
+    ):
+        findings.append(
+            _plan_finding(
+                "path_quality_result_extra",
+                f"path-quality result {subject_fingerprint} has no required current subject",
+                action=MATURITY_ACTION_REFRESH_EVIDENCE,
+            )
+        )
+    for model_id in sorted(required_path_quality_ids):
+        subject = subjects_by_model.get(model_id)
+        if subject is None:
+            continue
+        if (
+            model_id == plan.model_id
+            and subject.model_fingerprint
+            != plan.candidate_model_fingerprint
+        ):
+            findings.append(
+                _plan_finding(
+                    "path_quality_subject_model_stale",
+                    f"path-quality subject {model_id} is not bound to the current candidate model",
+                    action=MATURITY_ACTION_REFRESH_EVIDENCE,
+                )
+            )
+            continue
+        result = results_by_subject.get(subject.fingerprint)
+        if result is None:
+            continue
+        if not result.current:
+            findings.append(
+                _plan_finding(
+                    "path_quality_result_stale",
+                    f"path-quality result for {model_id} is not current",
+                    action=MATURITY_ACTION_REFRESH_EVIDENCE,
+                )
+            )
+        elif result.currentness_id != subject.currentness_id:
+            findings.append(
+                _plan_finding(
+                    "path_quality_currentness_mismatch",
+                    f"path-quality result for {model_id} has a foreign currentness identity",
+                    action=MATURITY_ACTION_REFRESH_EVIDENCE,
+                )
+            )
+        elif result.conclusion == "unresolved" or result.unresolved_ids:
+            findings.append(
+                _plan_finding(
+                    "path_quality_unresolved",
+                    f"path-quality result for {model_id} retains unresolved ids",
+                    action=MATURITY_ACTION_ADD_MODEL_OBLIGATION,
+                )
+            )
+        elif result.selected_candidate_lane == "normative_target":
+            findings.append(
+                _plan_finding(
+                    "path_quality_normative_target_not_observed",
+                    (
+                        f"path-quality result for {model_id} selects a normative "
+                        "target that has not yet become the observed candidate"
+                    ),
+                    action=MATURITY_ACTION_REFRESH_EVIDENCE,
+                )
+            )
+        else:
+            verified_path_quality_model_ids.add(model_id)
     for finding in findings:
         recommended_actions.append(finding.action or MATURITY_ACTION_ADD_MODEL_OBLIGATION)
         open_gap_fingerprints.append(_contract_gap(finding.code))
@@ -1956,7 +2257,13 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
         finding for finding in blockers
         if finding.code not in {"external_input_required"}
     ]
-    if not current and not blockers and not scoped_ids and len(verified_coverage_ids) == len(set(plan.coverage_ids)):
+    if (
+        not current
+        and not blockers
+        and not scoped_ids
+        and len(verified_coverage_ids) == len(set(plan.coverage_ids))
+        and verified_path_quality_model_ids == required_path_quality_ids
+    ):
         decision = MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
         confidence = MODEL_MATURATION_CONFIDENCE_FULL
         ok = True
@@ -2018,6 +2325,20 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
         scoped_signal_ids=scoped_ids,
         summary=summary,
         task_id=plan.task_id,
+        required_path_quality_model_ids=(
+            plan.required_path_quality_model_ids
+        ),
+        path_quality_subjects=plan.path_quality_subjects,
+        path_quality_results=plan.path_quality_results,
+        path_quality_subject_fingerprints=tuple(
+            item.fingerprint for item in plan.path_quality_subjects
+        ),
+        path_quality_result_fingerprints=tuple(
+            item.fingerprint for item in plan.path_quality_results
+        ),
+        path_quality_result_set_fingerprint=(
+            plan.path_quality_result_set_fingerprint
+        ),
         coverage_universe_id=plan.coverage_universe_id,
         coverage_demand_fingerprint=plan.coverage_demand_fingerprint,
         coverage_universe_fingerprint=plan.coverage_universe_fingerprint,

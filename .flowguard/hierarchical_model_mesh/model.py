@@ -45,6 +45,23 @@ class HierarchyCase:
     sibling_rerun_on_shared_dependency_drift: bool = True
     background_completion_evidence: bool = True
     release_sync_checks: bool = True
+    root_sentinel_present: bool = True
+    root_sentinel_unique: bool = True
+    structural_parent_unique: bool = True
+    cross_boundary_support_non_structural: bool = True
+    full_parent_receipt_composition_only: bool = True
+    child_receipt_coverage_exact: bool = True
+    child_receipts_exact_current: bool = True
+    child_receipts_owner_bound: bool = True
+    child_receipts_distinct: bool = True
+    feedback_relation_classification_complete: bool = True
+    feedback_progress_contract_present: bool = True
+    retry_progress_contract_present: bool = True
+    repair_progress_contract_present: bool = True
+    feedback_progress_contract_exact_current: bool = True
+    feedback_progress_evidence_exact_current: bool = True
+    checked_in_declaration_not_child_currentness: bool = True
+    checked_in_declaration_not_progress_currentness: bool = True
 
 
 @dataclass(frozen=True)
@@ -70,6 +87,23 @@ class HierarchyPlan:
     sibling_rerun_on_shared_dependency_drift: bool = False
     background_completion_evidence: bool = False
     release_sync_checks: bool = False
+    root_sentinel_present: bool = False
+    root_sentinel_unique: bool = False
+    structural_parent_unique: bool = False
+    cross_boundary_support_non_structural: bool = False
+    full_parent_receipt_composition_only: bool = False
+    child_receipt_coverage_exact: bool = False
+    child_receipts_exact_current: bool = False
+    child_receipts_owner_bound: bool = False
+    child_receipts_distinct: bool = False
+    feedback_relation_classification_complete: bool = False
+    feedback_progress_contract_present: bool = False
+    retry_progress_contract_present: bool = False
+    repair_progress_contract_present: bool = False
+    feedback_progress_contract_exact_current: bool = False
+    feedback_progress_evidence_exact_current: bool = False
+    checked_in_declaration_not_child_currentness: bool = False
+    checked_in_declaration_not_progress_currentness: bool = False
 
 
 GOOD_PLAN = HierarchyCase("good_hierarchical_mesh_plan")
@@ -103,6 +137,74 @@ BROKEN_SIBLING_STALE_AFTER_SHARED_DRIFT = HierarchyCase(
 )
 BROKEN_BACKGROUND_OVERCLAIM = HierarchyCase("broken_background_overclaim", background_completion_evidence=False)
 BROKEN_RELEASE_SYNC_OMITTED = HierarchyCase("broken_release_sync_omitted", release_sync_checks=False)
+BROKEN_MISSING_ROOT_SENTINEL = HierarchyCase(
+    "broken_missing_root_sentinel",
+    root_sentinel_present=False,
+)
+BROKEN_DUPLICATE_ROOT_SENTINEL = HierarchyCase(
+    "broken_duplicate_root_sentinel",
+    root_sentinel_unique=False,
+)
+BROKEN_SECOND_STRUCTURAL_PARENT = HierarchyCase(
+    "broken_second_structural_parent",
+    structural_parent_unique=False,
+)
+BROKEN_CROSS_BOUNDARY_AS_PARENT = HierarchyCase(
+    "broken_cross_boundary_as_parent",
+    cross_boundary_support_non_structural=False,
+)
+BROKEN_PARENT_RECEIPT_AS_CHILD_RECEIPTS = HierarchyCase(
+    "broken_parent_receipt_as_child_receipts",
+    full_parent_receipt_composition_only=False,
+)
+BROKEN_CHILD_RECEIPT_COVERAGE = HierarchyCase(
+    "broken_child_receipt_coverage",
+    child_receipt_coverage_exact=False,
+)
+BROKEN_STALE_CHILD_RECEIPT = HierarchyCase(
+    "broken_stale_child_receipt",
+    child_receipts_exact_current=False,
+)
+BROKEN_FOREIGN_CHILD_RECEIPT = HierarchyCase(
+    "broken_foreign_child_receipt",
+    child_receipts_owner_bound=False,
+)
+BROKEN_DUPLICATE_CHILD_RECEIPT = HierarchyCase(
+    "broken_duplicate_child_receipt",
+    child_receipts_distinct=False,
+)
+BROKEN_INCOMPLETE_FEEDBACK_RELATION_CLASSIFICATION = HierarchyCase(
+    "broken_incomplete_feedback_relation_classification",
+    feedback_relation_classification_complete=False,
+)
+BROKEN_MISSING_FEEDBACK_PROGRESS = HierarchyCase(
+    "broken_missing_feedback_progress",
+    feedback_progress_contract_present=False,
+)
+BROKEN_MISSING_RETRY_PROGRESS = HierarchyCase(
+    "broken_missing_retry_progress",
+    retry_progress_contract_present=False,
+)
+BROKEN_MISSING_REPAIR_PROGRESS = HierarchyCase(
+    "broken_missing_repair_progress",
+    repair_progress_contract_present=False,
+)
+BROKEN_STALE_FEEDBACK_PROGRESS_CONTRACT = HierarchyCase(
+    "broken_stale_feedback_progress_contract",
+    feedback_progress_contract_exact_current=False,
+)
+BROKEN_STALE_FEEDBACK_PROGRESS = HierarchyCase(
+    "broken_stale_feedback_progress",
+    feedback_progress_evidence_exact_current=False,
+)
+BROKEN_DECLARATION_SELF_CERTIFIES_CHILD = HierarchyCase(
+    "broken_declaration_self_certifies_child",
+    checked_in_declaration_not_child_currentness=False,
+)
+BROKEN_DECLARATION_SELF_CERTIFIES_PROGRESS = HierarchyCase(
+    "broken_declaration_self_certifies_progress",
+    checked_in_declaration_not_progress_currentness=False,
+)
 
 
 class EvaluateHierarchyPlan:
@@ -130,6 +232,23 @@ class EvaluateHierarchyPlan:
         "sibling_rerun_on_shared_dependency_drift",
         "background_completion_evidence",
         "release_sync_checks",
+        "root_sentinel_present",
+        "root_sentinel_unique",
+        "structural_parent_unique",
+        "cross_boundary_support_non_structural",
+        "full_parent_receipt_composition_only",
+        "child_receipt_coverage_exact",
+        "child_receipts_exact_current",
+        "child_receipts_owner_bound",
+        "child_receipts_distinct",
+        "feedback_relation_classification_complete",
+        "feedback_progress_contract_present",
+        "retry_progress_contract_present",
+        "repair_progress_contract_present",
+        "feedback_progress_contract_exact_current",
+        "feedback_progress_evidence_exact_current",
+        "checked_in_declaration_not_child_currentness",
+        "checked_in_declaration_not_progress_currentness",
     )
     accepted_input_type = HierarchyCase
     input_description = "hierarchical mesh rollout case"
@@ -159,6 +278,23 @@ class EvaluateHierarchyPlan:
             sibling_rerun_on_shared_dependency_drift=input_obj.sibling_rerun_on_shared_dependency_drift,
             background_completion_evidence=input_obj.background_completion_evidence,
             release_sync_checks=input_obj.release_sync_checks,
+            root_sentinel_present=input_obj.root_sentinel_present,
+            root_sentinel_unique=input_obj.root_sentinel_unique,
+            structural_parent_unique=input_obj.structural_parent_unique,
+            cross_boundary_support_non_structural=input_obj.cross_boundary_support_non_structural,
+            full_parent_receipt_composition_only=input_obj.full_parent_receipt_composition_only,
+            child_receipt_coverage_exact=input_obj.child_receipt_coverage_exact,
+            child_receipts_exact_current=input_obj.child_receipts_exact_current,
+            child_receipts_owner_bound=input_obj.child_receipts_owner_bound,
+            child_receipts_distinct=input_obj.child_receipts_distinct,
+            feedback_relation_classification_complete=input_obj.feedback_relation_classification_complete,
+            feedback_progress_contract_present=input_obj.feedback_progress_contract_present,
+            retry_progress_contract_present=input_obj.retry_progress_contract_present,
+            repair_progress_contract_present=input_obj.repair_progress_contract_present,
+            feedback_progress_contract_exact_current=input_obj.feedback_progress_contract_exact_current,
+            feedback_progress_evidence_exact_current=input_obj.feedback_progress_evidence_exact_current,
+            checked_in_declaration_not_child_currentness=input_obj.checked_in_declaration_not_child_currentness,
+            checked_in_declaration_not_progress_currentness=input_obj.checked_in_declaration_not_progress_currentness,
         )
         return (
             FunctionResult(
@@ -315,6 +451,123 @@ def background_and_release_evidence_required(state: HierarchyPlan, _trace: objec
     return _pass()
 
 
+def structural_parenthood_is_unique_and_typed(
+    state: HierarchyPlan, _trace: object
+) -> InvariantResult:
+    if _empty(state):
+        return _pass()
+    if not state.root_sentinel_present:
+        return _fail(
+            "structural_parenthood_is_unique_and_typed",
+            "the topology has no node that declares the root sentinel",
+        )
+    if not state.root_sentinel_unique:
+        return _fail(
+            "structural_parenthood_is_unique_and_typed",
+            "more than one topology node declares the root sentinel",
+        )
+    if not state.structural_parent_unique:
+        return _fail(
+            "structural_parenthood_is_unique_and_typed",
+            "one child model has more than one structural parent",
+        )
+    if not state.cross_boundary_support_non_structural:
+        return _fail(
+            "structural_parenthood_is_unique_and_typed",
+            "a cross-boundary support relation is being counted as a second structural parent",
+        )
+    return _pass()
+
+
+def child_receipts_are_exact_current_owner_bound_and_distinct(
+    state: HierarchyPlan, _trace: object
+) -> InvariantResult:
+    if _empty(state):
+        return _pass()
+    if not state.full_parent_receipt_composition_only:
+        return _fail(
+            "child_receipts_are_exact_current_owner_bound_and_distinct",
+            "a full parent receipt is being reused as proof for individual child models",
+        )
+    if not state.child_receipt_coverage_exact:
+        return _fail(
+            "child_receipts_are_exact_current_owner_bound_and_distinct",
+            "the exact declared child-model set is not covered by one receipt per child",
+        )
+    if not state.child_receipts_exact_current:
+        return _fail(
+            "child_receipts_are_exact_current_owner_bound_and_distinct",
+            "a missing, stale, scoped, foreign-revision, or non-terminal child receipt was accepted",
+        )
+    if not state.child_receipts_owner_bound:
+        return _fail(
+            "child_receipts_are_exact_current_owner_bound_and_distinct",
+            "a child receipt does not bind the exact child model and execution owner",
+        )
+    if not state.child_receipts_distinct:
+        return _fail(
+            "child_receipts_are_exact_current_owner_bound_and_distinct",
+            "the same receipt identity is projected into more than one child-model evidence slot",
+        )
+    return _pass()
+
+
+def feedback_loops_require_current_progress_contracts(
+    state: HierarchyPlan, _trace: object
+) -> InvariantResult:
+    if _empty(state):
+        return _pass()
+    if not state.feedback_relation_classification_complete:
+        return _fail(
+            "feedback_loops_require_current_progress_contracts",
+            "feedback, retry, and repair relations are not completely classified into the bounded feedback graph",
+        )
+    if not state.feedback_progress_contract_present:
+        return _fail(
+            "feedback_loops_require_current_progress_contracts",
+            "an explicit feedback SCC has no declared progress contract",
+        )
+    if not state.retry_progress_contract_present:
+        return _fail(
+            "feedback_loops_require_current_progress_contracts",
+            "a retry SCC has no declared progress contract",
+        )
+    if not state.repair_progress_contract_present:
+        return _fail(
+            "feedback_loops_require_current_progress_contracts",
+            "a repair SCC has no declared progress contract",
+        )
+    if not state.feedback_progress_contract_exact_current:
+        return _fail(
+            "feedback_loops_require_current_progress_contracts",
+            "a typed feedback, retry, or repair SCC uses a stale, foreign, or cross-revision progress contract",
+        )
+    if not state.feedback_progress_evidence_exact_current:
+        return _fail(
+            "feedback_loops_require_current_progress_contracts",
+            "a typed feedback, retry, or repair SCC has missing, stale, foreign, or progress-only progress evidence",
+        )
+    return _pass()
+
+
+def checked_in_declarations_cannot_self_certify_currentness(
+    state: HierarchyPlan, _trace: object
+) -> InvariantResult:
+    if _empty(state):
+        return _pass()
+    if not state.checked_in_declaration_not_child_currentness:
+        return _fail(
+            "checked_in_declarations_cannot_self_certify_currentness",
+            "the checked-in topology declaration is being used as its own child-evidence freshness proof",
+        )
+    if not state.checked_in_declaration_not_progress_currentness:
+        return _fail(
+            "checked_in_declarations_cannot_self_certify_currentness",
+            "the checked-in progress declaration is being used as its own current progress evidence",
+        )
+    return _pass()
+
+
 INVARIANTS = (
     Invariant(
         "partition_map_and_multilevel_mesh_exist",
@@ -366,6 +619,26 @@ INVARIANTS = (
         "Background validation and release synchronization need concrete evidence.",
         background_and_release_evidence_required,
     ),
+    Invariant(
+        "structural_parenthood_is_unique_and_typed",
+        "The topology has exactly one root sentinel; each child has one structural parent; cross-boundary support remains non-structural.",
+        structural_parenthood_is_unique_and_typed,
+    ),
+    Invariant(
+        "child_receipts_are_exact_current_owner_bound_and_distinct",
+        "A full parent receipt proves composition while every child keeps exact-current, owner-bound, distinct evidence.",
+        child_receipts_are_exact_current_owner_bound_and_distinct,
+    ),
+    Invariant(
+        "feedback_loops_require_current_progress_contracts",
+        "Feedback relation classification is complete, and every feedback, retry, or repair SCC has a current progress contract and current evidence.",
+        feedback_loops_require_current_progress_contracts,
+    ),
+    Invariant(
+        "checked_in_declarations_cannot_self_certify_currentness",
+        "Checked-in semantic declarations cannot prove their own child or progress currentness.",
+        checked_in_declarations_cannot_self_certify_currentness,
+    ),
 )
 
 
@@ -408,6 +681,15 @@ SCENARIOS = (
         "A complete hierarchical mesh rollout plan passes.",
         GOOD_PLAN,
         _expect_ok("complete plan passes", labels=("good_hierarchical_mesh_plan",)),
+    ),
+    scenario(
+        "good_typed_current_topology_evidence_passes",
+        "One root sentinel, one structural parent per child, complete feedback classification, distinct child receipts, and current feedback, retry, and repair progress evidence pass together.",
+        HierarchyCase("good_typed_current_topology_evidence"),
+        _expect_ok(
+            "typed current topology evidence passes",
+            labels=("good_typed_current_topology_evidence",),
+        ),
     ),
     scenario(
         "semantic_topology_trigger_required",
@@ -501,6 +783,159 @@ SCENARIOS = (
         "Release must include local install, shadow workspace, Git, and GitHub synchronization.",
         BROKEN_RELEASE_SYNC_OMITTED,
         _expect_violation("release sync omission fails", ("background_and_release_evidence_required",)),
+    ),
+    scenario(
+        "topology_requires_one_root_sentinel",
+        "A topology with zero root-sentinel nodes is rejected by the same root-cardinality invariant as a duplicate root.",
+        BROKEN_MISSING_ROOT_SENTINEL,
+        _expect_violation(
+            "missing root sentinel fails",
+            ("structural_parenthood_is_unique_and_typed",),
+        ),
+    ),
+    scenario(
+        "topology_rejects_two_root_sentinels",
+        "A topology with two root-sentinel nodes is rejected by the same root-cardinality invariant as a missing root.",
+        BROKEN_DUPLICATE_ROOT_SENTINEL,
+        _expect_violation(
+            "duplicate root sentinel fails",
+            ("structural_parenthood_is_unique_and_typed",),
+        ),
+    ),
+    scenario(
+        "one_child_cannot_have_two_structural_parents",
+        "A child model has exactly one structural parent in the hierarchy.",
+        BROKEN_SECOND_STRUCTURAL_PARENT,
+        _expect_violation(
+            "a second structural parent fails",
+            ("structural_parenthood_is_unique_and_typed",),
+        ),
+    ),
+    scenario(
+        "cross_boundary_support_cannot_masquerade_as_parent",
+        "Cross-boundary support may connect models but cannot become another structural parent.",
+        BROKEN_CROSS_BOUNDARY_AS_PARENT,
+        _expect_violation(
+            "cross-boundary support promoted to parent fails",
+            ("structural_parenthood_is_unique_and_typed",),
+        ),
+    ),
+    scenario(
+        "full_parent_receipt_cannot_replace_declared_child_receipts",
+        "A full parent receipt proves only the exact declared-child composition; each child still needs its own receipt.",
+        BROKEN_PARENT_RECEIPT_AS_CHILD_RECEIPTS,
+        _expect_violation(
+            "parent receipt copied into child slots fails",
+            ("child_receipts_are_exact_current_owner_bound_and_distinct",),
+        ),
+    ),
+    scenario(
+        "every_declared_child_needs_one_receipt",
+        "The receipt coverage set must equal the exact declared child-model set.",
+        BROKEN_CHILD_RECEIPT_COVERAGE,
+        _expect_violation(
+            "missing child receipt coverage fails",
+            ("child_receipts_are_exact_current_owner_bound_and_distinct",),
+        ),
+    ),
+    scenario(
+        "stale_child_receipt_cannot_reattach",
+        "A child receipt must remain exact-current at the governed revision.",
+        BROKEN_STALE_CHILD_RECEIPT,
+        _expect_violation(
+            "stale child receipt fails",
+            ("child_receipts_are_exact_current_owner_bound_and_distinct",),
+        ),
+    ),
+    scenario(
+        "foreign_owner_child_receipt_cannot_reattach",
+        "A receipt for another child or execution owner cannot fill the current child slot.",
+        BROKEN_FOREIGN_CHILD_RECEIPT,
+        _expect_violation(
+            "foreign owner child receipt fails",
+            ("child_receipts_are_exact_current_owner_bound_and_distinct",),
+        ),
+    ),
+    scenario(
+        "child_receipt_identities_must_be_distinct",
+        "Two child evidence slots cannot share one receipt identity.",
+        BROKEN_DUPLICATE_CHILD_RECEIPT,
+        _expect_violation(
+            "duplicate child receipt identity fails",
+            ("child_receipts_are_exact_current_owner_bound_and_distinct",),
+        ),
+    ),
+    scenario(
+        "feedback_relation_classification_must_be_complete",
+        "Feedback, retry, and repair relation kinds must all be classified into the bounded feedback graph.",
+        BROKEN_INCOMPLETE_FEEDBACK_RELATION_CLASSIFICATION,
+        _expect_violation(
+            "incomplete feedback relation classification fails",
+            ("feedback_loops_require_current_progress_contracts",),
+        ),
+    ),
+    scenario(
+        "feedback_loop_requires_progress_contract",
+        "An explicit feedback SCC needs an explicit finite-progress contract.",
+        BROKEN_MISSING_FEEDBACK_PROGRESS,
+        _expect_violation(
+            "missing feedback progress contract fails",
+            ("feedback_loops_require_current_progress_contracts",),
+        ),
+    ),
+    scenario(
+        "retry_loop_requires_progress_contract",
+        "A retry SCC needs an explicit finite-progress contract.",
+        BROKEN_MISSING_RETRY_PROGRESS,
+        _expect_violation(
+            "missing retry progress contract fails",
+            ("feedback_loops_require_current_progress_contracts",),
+        ),
+    ),
+    scenario(
+        "repair_loop_requires_progress_contract",
+        "A repair SCC needs an explicit finite-progress contract.",
+        BROKEN_MISSING_REPAIR_PROGRESS,
+        _expect_violation(
+            "missing repair progress contract fails",
+            ("feedback_loops_require_current_progress_contracts",),
+        ),
+    ),
+    scenario(
+        "feedback_loop_rejects_stale_progress_evidence",
+        "A declared feedback, retry, or repair progress contract remains unproved when its evidence is stale or missing.",
+        BROKEN_STALE_FEEDBACK_PROGRESS,
+        _expect_violation(
+            "stale feedback progress evidence fails",
+            ("feedback_loops_require_current_progress_contracts",),
+        ),
+    ),
+    scenario(
+        "feedback_loop_rejects_stale_progress_contract",
+        "A feedback, retry, or repair contract from another topology revision cannot prove current progress.",
+        BROKEN_STALE_FEEDBACK_PROGRESS_CONTRACT,
+        _expect_violation(
+            "stale feedback progress contract fails",
+            ("feedback_loops_require_current_progress_contracts",),
+        ),
+    ),
+    scenario(
+        "checked_in_semantic_declaration_cannot_certify_child_currentness",
+        "A semantic declaration describes topology but cannot certify its own child evidence.",
+        BROKEN_DECLARATION_SELF_CERTIFIES_CHILD,
+        _expect_violation(
+            "self-certified child currentness fails",
+            ("checked_in_declarations_cannot_self_certify_currentness",),
+        ),
+    ),
+    scenario(
+        "checked_in_semantic_declaration_cannot_certify_progress_currentness",
+        "A progress declaration needs independently produced current evidence.",
+        BROKEN_DECLARATION_SELF_CERTIFIES_PROGRESS,
+        _expect_violation(
+            "self-certified progress currentness fails",
+            ("checked_in_declarations_cannot_self_certify_currentness",),
+        ),
     ),
 )
 

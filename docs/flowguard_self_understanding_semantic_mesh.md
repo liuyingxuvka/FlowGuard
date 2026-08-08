@@ -1,6 +1,6 @@
 # FlowGuard whole-system semantic self mesh
 
-FlowGuard's current observed model universe contains 64 executable models. The
+FlowGuard's current candidate model universe contains 51 executable models. The
 semantic self mesh does more than inventory their names: every model has one of
 four dispositions, at least one semantic parent, at least one consumer, and a
 plain-language rationale. The machine-readable authority is
@@ -16,7 +16,7 @@ accepted model revision set.
 flowchart LR
     A["Observed request, model, surface, and lifecycle facts"] --> B["TaskCoverageDemand"]
     B --> C["One resolution per demanded owner"]
-    C --> D["64-model semantic parent mesh"]
+    C --> D["Current 51-model semantic parent mesh"]
     D --> E["Verified model maturation"]
     E --> F["Separate implementation admission"]
     F --> G["Risk decision"]
@@ -30,25 +30,25 @@ flowchart LR
 
 | Disposition | Count | Meaning |
 |---|---:|---|
-| `connected` | 27 | Participates directly in a cross-model understanding, validation, maintenance, or release path. |
-| `delegated_or_supporting` | 34 | Owns a bounded specialist result that another declared model consumes. |
-| `intentional_leaf` | 3 | Ends at a deliberate bounded artifact and hands its result to a current parent. |
-| `scoped_out` | 0 | No member of the current 64-model universe is silently omitted from this whole-system candidate. |
+| `connected` | 26 | Participates directly in a cross-model understanding, validation, maintenance, or release path. |
+| `delegated_or_supporting` | 24 | Owns a bounded specialist result that another declared model consumes. |
+| `intentional_leaf` | 1 | Ends at a deliberate bounded artifact and hands its result to a current parent. |
+| `scoped_out` | 0 | No member of the current 51-model universe is silently omitted from this whole-system candidate. |
 
-The 64 models are organized into seven semantic parents:
+The 51 models are organized into seven semantic parents:
 
 | Semantic parent | Primary members | Count by primary parent |
 |---|---|---:|
 | Authority and understanding | authority, preflight, demand, maturation, freshness, risk, closure | 10 |
-| Model mesh and composition | hierarchy, partitions, refinement, composition, misses, hazards, replay | 10 |
+| Model mesh and composition | hierarchy, partitions, refinement, composition, misses, hazards, replay | 9 |
 | Behavior contracts and evidence | commitments, primary paths, contract alignment, runtime and test evidence | 10 |
-| Architecture and lifecycle | structure, reduction, fields, schema replacement, compatibility disposal | 10 |
-| Agent guidance and skills | AI entry, handoffs, guidance, skill suite, diagrams | 8 |
-| Development, release, and adoption | process, context, maintenance routing, adoption, templates, docs, release | 12 |
+| Architecture and lifecycle | structure, reduction, fields, schema replacement, compatibility disposal | 5 |
+| Agent guidance and skills | AI entry, handoffs, guidance, skill suite, diagrams | 6 |
+| Development, release, and adoption | process, context, maintenance routing, adoption, templates, docs, release | 7 |
 | UI and human operability | UI flow, content visibility, real surface, operability | 4 |
 
 Models may have a second parent when their output genuinely crosses a boundary;
-that is why the relation total is 189 rather than simply 64. The JSON records
+that is why the relation total is larger than the model count. The JSON records
 every parent and consumer edge explicitly.
 
 ## What the native model rejects
@@ -56,7 +56,7 @@ every parent and consumer edge explicitly.
 The authoritative model and the whole-flow closure model contain direct bad
 cases for these failures:
 
-- all 64 names are present, but semantic dispositions or parent/consumer edges
+- all current names are present, but semantic dispositions or parent/consumer edges
   are absent;
 - only a locally green five-model slice is supplied for a whole-system claim;
 - the derivation-base or semantic-mesh fingerprint is empty;

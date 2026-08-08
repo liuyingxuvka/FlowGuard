@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from ._normalization import canonical_json_text as _canonical_json
 
 TARGET_KIND_SKILL = "skill"
 TARGET_KIND_INTERNAL_ROUTE = "internal_route"
@@ -135,11 +136,8 @@ INTERNAL_ROUTE_OWNERS: Mapping[str, str] = {
     "template_structure": "model_first_function_flow",
     "evidence_field_structure": "development_process_flow",
     "primary_path_authority": "behavior_commitment_ledger",
-    "model_angle_deliberation": "existing_model_preflight",
-    "model_similarity_consolidation": "existing_model_preflight",
     "model_maturation_loop": "model_first_function_flow",
     "risk_template_library": "model_first_function_flow",
-    "maintenance_scan_router": "development_process_flow",
     "maintenance_obligation_memory": "model_first_function_flow",
     "development_process_simulator": "development_process_flow",
     "agent_workflow_rehearsal": "development_process_flow",
@@ -165,10 +163,6 @@ EXTERNAL_ACTION_TARGETS = frozenset(
 
 class LegacyRouteHandoffError(ValueError):
     """Raised when a historical bare-string handoff reaches the typed API."""
-
-
-def _canonical_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def _sha256(value: Any) -> str:
@@ -317,7 +311,6 @@ DEFAULT_ROUTE_CYCLE_LIVENESS = (
         (
             "development_process_flow",
             "flowguard_closure_contract",
-            "maintenance_scan_router",
             "model_test_alignment",
             "risk_evidence_ledger",
             "structure_mesh_maintenance",
@@ -328,15 +321,6 @@ DEFAULT_ROUTE_CYCLE_LIVENESS = (
         "closure_accepted",
         "blocked_no_evidence_delta",
         3,
-    ),
-    RouteCycleLiveness(
-        "existing_model_similarity_rework",
-        ("existing_model_preflight", "model_similarity_consolidation"),
-        "reviewed model signatures and recorded disposition ids",
-        "a new signature review or a changed reuse/split/consolidate disposition",
-        "model_owner_selected",
-        "blocked_unchanged_model_evidence",
-        2,
     ),
 )
 

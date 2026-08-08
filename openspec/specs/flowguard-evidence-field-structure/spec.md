@@ -5,21 +5,21 @@
 Define one direct-current lightweight evidence schema whose removed,
 historical, fixture-only, and route-specific fields remain outside ordinary
 runtime constructors.
-
 ## Requirements
-
 ### Requirement: Lightweight evidence gate structures
 FlowGuard SHALL provide one current lightweight evidence gate and detail shape
 for broad evidence models. Duplicate legacy input concepts, removed flat gate
-fields, old AutoSplit process metrics, and strict-adapter fixture-only fields
-MUST be rejected by current constructors and APIs rather than converted,
-defaulted, aliased, or accepted as a second success path.
+fields, old AutoSplit process metrics, standalone analogous-scan gate fields,
+and strict-adapter fixture-only fields MUST be rejected by current constructors
+and APIs rather than converted, defaulted, aliased, or accepted as a second
+success path.
 
 #### Scenario: Risk evidence gates can be grouped
-- **WHEN** a risk evidence row needs model, test, family, or analogous-scan gate
-  state
+- **WHEN** a risk evidence row needs model, test, finite same-class,
+  canonical-maturation, or contract-exhaustion gate state
 - **THEN** that state is represented by the current reusable gate object and
-  removed flat gate fields are rejected
+  bound to the current native owner evidence
+- **AND** removed flat or analogous-scan gate fields are rejected
 
 #### Scenario: Process evidence details can be grouped
 - **WHEN** process evidence includes command status, background status, or mesh

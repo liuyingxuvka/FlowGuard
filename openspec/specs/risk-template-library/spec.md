@@ -31,18 +31,6 @@ override.
 - **WHEN** `FLOWGUARD_TEMPLATE_LIBRARY_ROOT` is set
 - **THEN** FlowGuard reads and writes local templates under that directory
 
-### Requirement: Template search uses public and local layers
-FlowGuard SHALL search packaged public templates and the per-machine local
-library before a model creation or model deepening flow generates a new model.
-
-#### Scenario: Search reports matched layers
-- **WHEN** public and local templates both match a query
-- **THEN** the search result identifies which matches came from packaged public templates and which came from the local library
-
-#### Scenario: No match is explicit
-- **WHEN** no template matches the current risk
-- **THEN** the template reuse review records an explicit no-match reason instead of silently skipping reuse
-
 ### Requirement: Local template harvest creates candidate risk cards
 FlowGuard SHALL harvest a local candidate template only from reusable model evidence that includes a protected error class, required state or side effects, completion evidence, a known-bad case, and model-instance proof that the known-bad case was caught.
 
@@ -67,38 +55,18 @@ known-bad cases.
 - **WHEN** two templates have similar words but protect different error classes
 - **THEN** FlowGuard keeps them separate and records the reason as a false-friend rationale when supplied
 
-### Requirement: Template harvest closure is mandatory after reusable modeling
-FlowGuard SHALL require a template harvest closure review after any new or materially deepened model before formal FlowGuard completion confidence.
+### Requirement: Template search and harvest are conditional reuse operations
+The risk-template library SHALL run only when a caller explicitly requests template reuse/publication or when current model evidence identifies a bounded, stable pattern intended for use outside the target project. Ordinary modeling and maintenance MUST NOT be blocked by missing search, no-match, harvest, merge, or not-harvestable dispositions.
 
-#### Scenario: New model writes reusable candidate
-- **WHEN** a new model exposes a reusable protected error class with state or side effects, completion evidence, a known-bad case, and known-bad proof
-- **THEN** the harvest closure review records disposition `written` and the written local template id
+#### Scenario: Explicit reuse request is present
+- **WHEN** a caller asks to reuse or publish a risk template
+- **THEN** the library searches the declared public and local layers and records exact match or no-match evidence
 
-#### Scenario: Deepened model strengthens existing template
-- **WHEN** a materially deepened model adds a known-bad case, required evidence, or state/side-effect requirement to an existing reusable risk pattern
-- **THEN** the harvest closure review records disposition `merged` and the affected template id
+#### Scenario: Reusable pattern is discovered during modeling
+- **WHEN** a current model plus executable known-bad proof demonstrates a stable cross-project pattern and the task includes template publication scope
+- **THEN** the library may create or merge one candidate with provenance and privacy checks
 
-#### Scenario: Existing template already covers the model
-- **WHEN** public or local template search finds a template that already covers the new or deepened model pattern
-- **THEN** the harvest closure review may record disposition `duplicate_linked` with the linked template id instead of writing a duplicate local card
-
-#### Scenario: Harvest is skipped with accepted reason
-- **WHEN** a model is not reusable enough to harvest
-- **THEN** the harvest closure review records disposition `not_harvestable` and one accepted reason
-
-#### Scenario: Missing closure blocks formal confidence
-- **WHEN** a new or deepened formal model has no harvest closure review
-- **THEN** FlowGuard reports a blocking template harvest closure gap before formal completion confidence
-
-### Requirement: Not-harvestable reasons are bounded
-FlowGuard SHALL accept only concrete not-harvestable reasons so agents cannot
-replace harvest closure with vague prose.
-
-#### Scenario: Vague skip reason is rejected
-- **WHEN** a harvest closure review uses `not_harvestable` without an accepted reason
-- **THEN** FlowGuard reports an unsupported or missing not-harvestable reason
-
-#### Scenario: Human deferral remains explicit
-- **WHEN** the user explicitly asks not to write a local candidate template
-- **THEN** FlowGuard may record `human_deferred` as the not-harvestable reason
+#### Scenario: Ordinary project model has no template work
+- **WHEN** neither trigger is present
+- **THEN** FlowGuard completes the bounded model workflow without a template-library result and records no artificial skipped or no-match gate
 

@@ -7,6 +7,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
+from .model_path_quality import PathQualityResult, PathQualitySubject
 from .portable_model import (
     PortableModel,
     PortableTemporalObligation,
@@ -16,6 +17,7 @@ from .portable_model import (
     canonical_json_bytes,
     validate_portable_model,
 )
+from .portable_path_quality import path_quality_binding_errors
 
 
 PORTABLE_CHECK_STATUSES = ("pass", "fail", "blocked", "invalid")
@@ -118,17 +120,25 @@ class PortableCheckReport:
     blockers: tuple[str, ...] = ()
     skipped_checks: tuple[str, ...] = ()
     residual_risk: tuple[str, ...] = ()
+    path_quality_result: PathQualityResult | None = field(default=None, compare=False)
     claim_boundary: str = (
         "The report covers only the explicit finite portable graph and declared obligations; "
         "domain truth and production implementation conformance require separate evidence."
     )
+
+    def __post_init__(self) -> None:
+        if self.path_quality_result is not None and not isinstance(
+            self.path_quality_result,
+            PathQualityResult,
+        ):
+            raise TypeError("path_quality_result must be a PathQualityResult or None")
 
     @property
     def ok(self) -> bool:
         return self.status == "pass"
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "artifact_type": "flowguard_portable_check_report",
             "status": self.status,
             "ok": self.ok,
@@ -142,6 +152,9 @@ class PortableCheckReport:
             "residual_risk": list(self.residual_risk),
             "claim_boundary": self.claim_boundary,
         }
+        if self.path_quality_result is not None:
+            payload["path_quality_result"] = self.path_quality_result.to_compact_dict()
+        return payload
 
     def to_json_text(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent, sort_keys=True)
@@ -159,6 +172,8 @@ class PortableCheckReport:
             lines.append(f"- {finding.finding_id}: {finding.message}")
         if self.blockers:
             lines.append("blockers: " + "; ".join(self.blockers))
+        if self.path_quality_result is not None:
+            lines.append(f"path_quality: {self.path_quality_result.conclusion}")
         lines.append(f"claim_boundary: {self.claim_boundary}")
         return "\n".join(lines)
 
@@ -468,6 +483,8 @@ def check_portable_model(
     model: PortableModel,
     *,
     max_states: int = 10000,
+    path_quality_subject: PathQualitySubject | None = None,
+    path_quality_result: PathQualityResult | None = None,
 ) -> PortableCheckReport:
     errors = validate_portable_model(model)
     if errors:
@@ -479,12 +496,25 @@ def check_portable_model(
                 PortableFinding("portable_model_invalid", error) for error in errors
             ),
         )
+    binding_errors = path_quality_binding_errors(
+        path_quality_subject,
+        path_quality_result,
+        portable_model=model,
+    )
+    if binding_errors:
+        return PortableCheckReport(
+            status="blocked",
+            model_id=model.model_id,
+            model_fingerprint=model.fingerprint,
+            blockers=tuple(f"path_quality_binding:{error}" for error in binding_errors),
+        )
     if max_states <= 0:
         return PortableCheckReport(
             status="blocked",
             model_id=model.model_id,
             model_fingerprint=model.fingerprint,
             blockers=("max_states must be positive",),
+            path_quality_result=path_quality_result,
         )
     reachable_states, reachable_edges, truncated = _reachable(model, max_states=max_states)
     if truncated:
@@ -493,6 +523,7 @@ def check_portable_model(
             model_id=model.model_id,
             model_fingerprint=model.fingerprint,
             blockers=("reachable graph exceeded max_states",),
+            path_quality_result=path_quality_result,
         )
     reachable = set(reachable_states)
     findings: list[PortableFinding] = []
@@ -614,9 +645,21 @@ def check_portable_model(
         findings=tuple(findings),
         counterexamples=tuple(counterexamples),
         checked_obligation_ids=tuple(checked),
-        residual_risk=(
-            "Portable token names and state payloads are declarations; their domain truth is not inferred.",
+        residual_risk=tuple(
+            item
+            for item in (
+                "Portable token names and state payloads are declarations; their domain truth is not inferred.",
+                (
+                    "The current path-quality result is unresolved; ModelMaturation or authority "
+                    "decides whether that row is required for a broader claim."
+                    if path_quality_result is not None
+                    and path_quality_result.conclusion == "unresolved"
+                    else ""
+                ),
+            )
+            if item
         ),
+        path_quality_result=path_quality_result,
     )
 
 

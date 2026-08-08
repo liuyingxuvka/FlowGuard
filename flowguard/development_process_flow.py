@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .behavior_plane import (
     BCL_BEHAVIOR_PLANES,
     BCL_PLANE_DEVELOPMENT_PROCESS,
@@ -108,11 +109,32 @@ USER_EXECUTION_CHOICES = {
     USER_EXECUTION_CHOICE_NO_CODE,
 }
 
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
+PATH_QUALITY_PHASE_OWNER_INTENT_CLOSURE = "owner_intent_closure"
+PATH_QUALITY_PHASE_LIGHTWEIGHT_REVIEW = "lightweight_review"
+PATH_QUALITY_PHASE_DEEP_REVIEW = "deep_review"
+PATH_QUALITY_PHASE_IMPLEMENTATION = "behavior_sensitive_implementation"
+PATH_QUALITY_PHASE_AFFECTED_VALIDATION = "affected_validation"
+PATH_QUALITY_PHASE_CANDIDATE_REVISION = "candidate_revision"
+PATH_QUALITY_PHASE_ACTIVATION = "current_activation"
+PATH_QUALITY_PROCESS_PHASES = frozenset(
+    {
+        PATH_QUALITY_PHASE_OWNER_INTENT_CLOSURE,
+        PATH_QUALITY_PHASE_LIGHTWEIGHT_REVIEW,
+        PATH_QUALITY_PHASE_DEEP_REVIEW,
+        PATH_QUALITY_PHASE_IMPLEMENTATION,
+        PATH_QUALITY_PHASE_AFFECTED_VALIDATION,
+        PATH_QUALITY_PHASE_CANDIDATE_REVISION,
+        PATH_QUALITY_PHASE_ACTIVATION,
+    }
+)
+_PATH_QUALITY_RESULT_PHASES = frozenset(
+    {
+        PATH_QUALITY_PHASE_LIGHTWEIGHT_REVIEW,
+        PATH_QUALITY_PHASE_DEEP_REVIEW,
+        PATH_QUALITY_PHASE_CANDIDATE_REVISION,
+        PATH_QUALITY_PHASE_ACTIVATION,
+    }
+)
 
 
 def _as_version_mapping(values: Mapping[str, Any] | None) -> dict[str, str]:
@@ -308,6 +330,90 @@ class ProcessAction:
             "work_context_artifact_ids": list(self.work_context_artifact_ids),
             "work_context_read_only": self.work_context_read_only,
             "description": self.description,
+        }
+
+
+@dataclass(frozen=True)
+class ModelPathQualityProcessStep:
+    """One DPF ordering reference to an existing action.
+
+    The record carries only exact compact identities and invalidation scope.
+    ModelMaturation remains the owner of path-quality judgment.
+    """
+
+    action_id: str
+    phase: str
+    model_ids: tuple[str, ...]
+    result_fingerprints: tuple[tuple[str, str], ...] = ()
+    invalidated_model_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        action_id = str(self.action_id).strip()
+        if not action_id:
+            raise ValueError("path-quality process step requires action_id")
+        object.__setattr__(self, "action_id", action_id)
+        phase = str(self.phase).strip()
+        if phase not in PATH_QUALITY_PROCESS_PHASES:
+            raise ValueError(f"unknown path-quality process phase: {phase}")
+        object.__setattr__(self, "phase", phase)
+        model_ids = tuple(sorted({str(value) for value in self.model_ids if str(value)}))
+        if not model_ids:
+            raise ValueError("path-quality process step requires model_ids")
+        object.__setattr__(self, "model_ids", model_ids)
+        rows: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for model_id, fingerprint in self.result_fingerprints:
+            model_id = str(model_id)
+            fingerprint = str(fingerprint)
+            if model_id in seen:
+                raise ValueError(
+                    "path-quality process result fingerprints require unique model ids"
+                )
+            if model_id not in model_ids:
+                raise ValueError(
+                    "path-quality process result references a model outside the step"
+                )
+            if not (
+                fingerprint.startswith("sha256:")
+                and len(fingerprint) == 71
+                and all(char in "0123456789abcdef" for char in fingerprint[7:])
+            ):
+                raise ValueError(
+                    "path-quality process result requires a canonical sha256 fingerprint"
+                )
+            seen.add(model_id)
+            rows.append((model_id, fingerprint))
+        rows.sort()
+        if phase in _PATH_QUALITY_RESULT_PHASES:
+            if tuple(model_id for model_id, _fingerprint in rows) != model_ids:
+                raise ValueError(
+                    "path-quality review, candidate, and activation steps require "
+                    "one exact result fingerprint per model"
+                )
+        elif rows:
+            raise ValueError(
+                "only path-quality review, candidate, and activation steps carry results"
+            )
+        object.__setattr__(self, "result_fingerprints", tuple(rows))
+        invalidated = tuple(
+            sorted({str(value) for value in self.invalidated_model_ids if str(value)})
+        )
+        if not set(invalidated).issubset(model_ids):
+            raise ValueError(
+                "path-quality invalidation scope must stay inside the step model ids"
+            )
+        object.__setattr__(self, "invalidated_model_ids", invalidated)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "action_id": self.action_id,
+            "phase": self.phase,
+            "model_ids": list(self.model_ids),
+            "result_fingerprints": [
+                {"model_id": model_id, "fingerprint": fingerprint}
+                for model_id, fingerprint in self.result_fingerprints
+            ],
+            "invalidated_model_ids": list(self.invalidated_model_ids),
         }
 
 
@@ -826,6 +932,9 @@ class DevelopmentProcessPlan:
     validation_receipt_root: str = ""
     require_distribution_evidence: bool = False
     distribution_evidence: DistributionEvidence | None = None
+    path_quality_required_model_ids: tuple[str, ...] = ()
+    path_quality_deep_triggered_model_ids: tuple[str, ...] = ()
+    path_quality_steps: tuple[ModelPathQualityProcessStep, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "process_id", str(self.process_id))
@@ -877,6 +986,40 @@ class DevelopmentProcessPlan:
             self.distribution_evidence, DistributionEvidence
         ):
             raise TypeError("distribution_evidence must be typed owner evidence")
+        required_models = tuple(
+            sorted(
+                {
+                    str(value)
+                    for value in self.path_quality_required_model_ids
+                    if str(value)
+                }
+            )
+        )
+        deep_models = tuple(
+            sorted(
+                {
+                    str(value)
+                    for value in self.path_quality_deep_triggered_model_ids
+                    if str(value)
+                }
+            )
+        )
+        if not set(deep_models).issubset(required_models):
+            raise ValueError(
+                "deep-triggered path-quality models must belong to the required denominator"
+            )
+        steps = tuple(self.path_quality_steps)
+        if any(not isinstance(step, ModelPathQualityProcessStep) for step in steps):
+            raise TypeError(
+                "path_quality_steps must use ModelPathQualityProcessStep"
+            )
+        object.__setattr__(
+            self, "path_quality_required_model_ids", required_models
+        )
+        object.__setattr__(
+            self, "path_quality_deep_triggered_model_ids", deep_models
+        )
+        object.__setattr__(self, "path_quality_steps", steps)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -910,6 +1053,15 @@ class DevelopmentProcessPlan:
                 if self.distribution_evidence is not None
                 else None
             ),
+            "path_quality_required_model_ids": list(
+                self.path_quality_required_model_ids
+            ),
+            "path_quality_deep_triggered_model_ids": list(
+                self.path_quality_deep_triggered_model_ids
+            ),
+            "path_quality_steps": [
+                step.to_dict() for step in self.path_quality_steps
+            ],
         }
 
 
@@ -1127,6 +1279,14 @@ def _decision_for_findings(findings: Sequence[ProcessFlowFinding]) -> str:
         ("unknown_evidence_reference", "process_reference_blocked"),
         ("unknown_validation_requirement", "process_reference_blocked"),
         ("out_of_order_process_step", "process_order_blocked"),
+        ("path_quality_process_order_cycle", "process_order_blocked"),
+        ("path_quality_review_before_owner_intent_closure", "process_order_blocked"),
+        ("path_quality_implementation_before_review", "process_order_blocked"),
+        ("path_quality_deep_review_before_implementation_missing", "process_order_blocked"),
+        ("path_quality_refresh_after_change_missing", "revalidation_required"),
+        ("path_quality_deep_review_stale_after_refresh", "revalidation_required"),
+        ("path_quality_candidate_result_stale", "revalidation_required"),
+        ("path_quality_activation_result_stale", "revalidation_required"),
         ("duplicate_artifact_id", "process_registry_blocked"),
         ("stale_evidence_after_artifact_change", "revalidation_required"),
         ("test_changed_after_test_pass", "revalidation_required"),
@@ -1994,6 +2154,312 @@ def _distribution_evidence_findings(
     return []
 
 
+def _path_quality_process_findings(
+    plan: DevelopmentProcessPlan,
+) -> list[ProcessFlowFinding]:
+    """Validate DPF ordering without re-evaluating path quality.
+
+    The path-quality result remains ModelMaturation-owned.  This review only
+    proves that an exact compact result was produced and refreshed in the
+    declared lifecycle before the candidate and activation steps consumed it.
+    """
+
+    required_models = plan.path_quality_required_model_ids
+    deep_models = set(plan.path_quality_deep_triggered_model_ids)
+    steps = plan.path_quality_steps
+    if not required_models and not deep_models and not steps:
+        return []
+    findings: list[ProcessFlowFinding] = []
+    if not required_models:
+        return [
+            ProcessFlowFinding(
+                "path_quality_process_denominator_missing",
+                "path-quality lifecycle steps require one explicit affected-model denominator",
+            )
+        ]
+
+    actions_by_id: dict[str, ProcessAction] = {}
+    duplicate_action_ids: set[str] = set()
+    action_positions: dict[str, int] = {}
+    for index, action in enumerate(plan.actions):
+        if action.action_id in actions_by_id:
+            duplicate_action_ids.add(action.action_id)
+        else:
+            actions_by_id[action.action_id] = action
+            action_positions[action.action_id] = index
+    for action_id in sorted(duplicate_action_ids):
+        findings.append(
+            ProcessFlowFinding(
+                "path_quality_process_action_ambiguous",
+                "a path-quality lifecycle action id is duplicated",
+                action_id=action_id,
+            )
+        )
+
+    step_action_ids = tuple(step.action_id for step in steps)
+    if len(step_action_ids) != len(set(step_action_ids)):
+        findings.append(
+            ProcessFlowFinding(
+                "path_quality_process_step_duplicated",
+                "one development action cannot claim multiple path-quality phases",
+            )
+        )
+    required_set = set(required_models)
+    for step in steps:
+        if step.action_id not in actions_by_id:
+            findings.append(
+                ProcessFlowFinding(
+                    "path_quality_process_action_unknown",
+                    "path-quality lifecycle step references an unknown process action",
+                    action_id=step.action_id,
+                    metadata=step.to_dict(),
+                )
+            )
+        unknown_models = tuple(sorted(set(step.model_ids) - required_set))
+        if unknown_models:
+            findings.append(
+                ProcessFlowFinding(
+                    "path_quality_process_model_outside_denominator",
+                    "path-quality lifecycle step references a model outside the affected denominator",
+                    action_id=step.action_id,
+                    metadata={"model_ids": list(unknown_models)},
+                )
+            )
+
+    predecessor_cache: dict[str, frozenset[str]] = {}
+    cycle_action_ids: set[str] = set()
+
+    def predecessors(action_id: str, stack: tuple[str, ...] = ()) -> frozenset[str]:
+        if action_id in predecessor_cache:
+            return predecessor_cache[action_id]
+        if action_id in stack:
+            cycle_action_ids.update((*stack, action_id))
+            return frozenset()
+        action = actions_by_id.get(action_id)
+        if action is None:
+            return frozenset()
+        values: set[str] = set()
+        for dependency in action.order_after:
+            values.add(dependency)
+            values.update(predecessors(dependency, (*stack, action_id)))
+        result = frozenset(values)
+        predecessor_cache[action_id] = result
+        return result
+
+    for action_id in actions_by_id:
+        predecessors(action_id)
+    if cycle_action_ids:
+        findings.append(
+            ProcessFlowFinding(
+                "path_quality_process_order_cycle",
+                "path-quality lifecycle order contains a dependency cycle",
+                metadata={"action_ids": sorted(cycle_action_ids)},
+            )
+        )
+
+    def comes_after(later: ModelPathQualityProcessStep, earlier: ModelPathQualityProcessStep) -> bool:
+        return earlier.action_id in predecessors(later.action_id)
+
+    def ordered(rows: Sequence[ModelPathQualityProcessStep]) -> tuple[ModelPathQualityProcessStep, ...]:
+        return tuple(
+            sorted(rows, key=lambda row: action_positions.get(row.action_id, 10**9))
+        )
+
+    for model_id in required_models:
+        model_steps = tuple(step for step in steps if model_id in step.model_ids)
+        by_phase = {
+            phase: ordered(
+                tuple(step for step in model_steps if step.phase == phase)
+            )
+            for phase in PATH_QUALITY_PROCESS_PHASES
+        }
+        closures = by_phase[PATH_QUALITY_PHASE_OWNER_INTENT_CLOSURE]
+        light_reviews = by_phase[PATH_QUALITY_PHASE_LIGHTWEIGHT_REVIEW]
+        deep_reviews = by_phase[PATH_QUALITY_PHASE_DEEP_REVIEW]
+        implementations = by_phase[PATH_QUALITY_PHASE_IMPLEMENTATION]
+        validations = by_phase[PATH_QUALITY_PHASE_AFFECTED_VALIDATION]
+        candidates = by_phase[PATH_QUALITY_PHASE_CANDIDATE_REVISION]
+        activations = by_phase[PATH_QUALITY_PHASE_ACTIVATION]
+
+        required_singletons = (
+            ("owner_intent_closure", closures),
+            ("candidate_revision", candidates),
+            ("current_activation", activations),
+        )
+        for phase, rows in required_singletons:
+            if len(rows) != 1:
+                findings.append(
+                    ProcessFlowFinding(
+                        "path_quality_process_phase_cardinality_invalid",
+                        f"model {model_id} requires exactly one {phase} step",
+                        metadata={
+                            "model_id": model_id,
+                            "phase": phase,
+                            "action_ids": [row.action_id for row in rows],
+                        },
+                    )
+                )
+        if not light_reviews:
+            findings.append(
+                ProcessFlowFinding(
+                    "path_quality_lightweight_review_missing",
+                    f"model {model_id} has no lightweight path-quality review",
+                    metadata={"model_id": model_id},
+                )
+            )
+        if not closures or not light_reviews or not candidates or not activations:
+            continue
+
+        first_light = light_reviews[0]
+        if not comes_after(first_light, closures[0]):
+            findings.append(
+                ProcessFlowFinding(
+                    "path_quality_review_before_owner_intent_closure",
+                    f"model {model_id} path review is not ordered after owner and intent closure",
+                    action_id=first_light.action_id,
+                    metadata={"model_id": model_id},
+                )
+            )
+
+        for implementation in implementations:
+            earlier_lights = tuple(
+                row for row in light_reviews if comes_after(implementation, row)
+            )
+            if not earlier_lights:
+                findings.append(
+                    ProcessFlowFinding(
+                        "path_quality_implementation_before_review",
+                        f"model {model_id} implementation is not ordered after lightweight review",
+                        action_id=implementation.action_id,
+                        metadata={"model_id": model_id},
+                    )
+                )
+            if model_id in deep_models:
+                earlier_deep = tuple(
+                    row for row in deep_reviews if comes_after(implementation, row)
+                )
+                if not earlier_deep:
+                    findings.append(
+                        ProcessFlowFinding(
+                            "path_quality_deep_review_before_implementation_missing",
+                            f"deep-triggered model {model_id} has no deep review before implementation",
+                            action_id=implementation.action_id,
+                            metadata={"model_id": model_id},
+                        )
+                    )
+
+        invalidations = tuple(
+            step for step in model_steps if model_id in step.invalidated_model_ids
+        )
+        for invalidation in invalidations:
+            later_lights = tuple(
+                row for row in light_reviews if comes_after(row, invalidation)
+            )
+            if not later_lights:
+                findings.append(
+                    ProcessFlowFinding(
+                        "path_quality_refresh_after_change_missing",
+                        f"model {model_id} changed after review without a later lightweight refresh",
+                        action_id=invalidation.action_id,
+                        metadata={"model_id": model_id},
+                    )
+                )
+
+        candidate = candidates[0]
+        activation = activations[0]
+        quality_steps = ordered((*light_reviews, *deep_reviews))
+        if model_id in deep_models and not deep_reviews:
+            findings.append(
+                ProcessFlowFinding(
+                    "path_quality_deep_review_missing",
+                    f"deep-triggered model {model_id} has no deep review",
+                    metadata={"model_id": model_id},
+                )
+            )
+        if model_id in deep_models and light_reviews and deep_reviews:
+            latest_light = light_reviews[-1]
+            if not any(comes_after(row, latest_light) for row in deep_reviews):
+                findings.append(
+                    ProcessFlowFinding(
+                        "path_quality_deep_review_stale_after_refresh",
+                        f"deep-triggered model {model_id} was refreshed without a later deep review",
+                        metadata={"model_id": model_id},
+                    )
+                )
+        for quality_step in quality_steps:
+            if not comes_after(candidate, quality_step):
+                findings.append(
+                    ProcessFlowFinding(
+                        "path_quality_candidate_before_review_closure",
+                        f"model {model_id} candidate revision precedes a required path review",
+                        action_id=candidate.action_id,
+                        metadata={"model_id": model_id},
+                    )
+                )
+                break
+        if implementations:
+            if not validations or not all(
+                any(comes_after(validation, implementation) for validation in validations)
+                for implementation in implementations
+            ):
+                findings.append(
+                    ProcessFlowFinding(
+                        "path_quality_affected_validation_missing",
+                        f"model {model_id} lacks affected validation after implementation",
+                        metadata={"model_id": model_id},
+                    )
+                )
+            elif not all(comes_after(candidate, row) for row in validations):
+                findings.append(
+                    ProcessFlowFinding(
+                        "path_quality_candidate_before_affected_validation",
+                        f"model {model_id} candidate revision precedes affected validation",
+                        action_id=candidate.action_id,
+                        metadata={"model_id": model_id},
+                    )
+                )
+        if not comes_after(activation, candidate):
+            findings.append(
+                ProcessFlowFinding(
+                    "path_quality_activation_before_candidate",
+                    f"model {model_id} activation is not ordered after its candidate revision",
+                    action_id=activation.action_id,
+                    metadata={"model_id": model_id},
+                )
+            )
+
+        current_quality_steps = tuple(
+            row
+            for row in quality_steps
+            if comes_after(candidate, row)
+        )
+        latest_quality = current_quality_steps[-1] if current_quality_steps else None
+        if latest_quality is None:
+            continue
+        expected_fingerprint = dict(latest_quality.result_fingerprints)[model_id]
+        candidate_fingerprint = dict(candidate.result_fingerprints)[model_id]
+        activation_fingerprint = dict(activation.result_fingerprints)[model_id]
+        if candidate_fingerprint != expected_fingerprint:
+            findings.append(
+                ProcessFlowFinding(
+                    "path_quality_candidate_result_stale",
+                    f"model {model_id} candidate does not consume the latest path-quality result",
+                    action_id=candidate.action_id,
+                    metadata={"model_id": model_id},
+                )
+            )
+        if activation_fingerprint != expected_fingerprint:
+            findings.append(
+                ProcessFlowFinding(
+                    "path_quality_activation_result_stale",
+                    f"model {model_id} activation does not consume the latest path-quality result",
+                    action_id=activation.action_id,
+                    metadata={"model_id": model_id},
+                )
+            )
+    return findings
+
+
 def _ambiguous_policy_findings(
     plan: DevelopmentProcessPlan,
     artifacts: Mapping[str, ProcessArtifact],
@@ -2110,6 +2576,7 @@ def review_development_process_flow(plan: DevelopmentProcessPlan) -> Development
     findings.extend(_work_context_findings(plan))
     findings.extend(_behavior_plane_boundary_findings(plan))
     findings.extend(_validate_references(plan, artifacts))
+    findings.extend(_path_quality_process_findings(plan))
     stale_by_evidence: dict[str, dict[str, tuple[str, str]]] = {}
     for evidence in plan.evidence:
         stale_reasons = _evidence_stale_reasons(plan, artifacts, evidence)
@@ -2173,6 +2640,14 @@ __all__ = [
     "USER_EXECUTION_CHOICE_DIRECT",
     "USER_EXECUTION_CHOICE_MODEL_FIRST",
     "USER_EXECUTION_CHOICE_NO_CODE",
+    "PATH_QUALITY_PHASE_OWNER_INTENT_CLOSURE",
+    "PATH_QUALITY_PHASE_LIGHTWEIGHT_REVIEW",
+    "PATH_QUALITY_PHASE_DEEP_REVIEW",
+    "PATH_QUALITY_PHASE_IMPLEMENTATION",
+    "PATH_QUALITY_PHASE_AFFECTED_VALIDATION",
+    "PATH_QUALITY_PHASE_CANDIDATE_REVISION",
+    "PATH_QUALITY_PHASE_ACTIVATION",
+    "PATH_QUALITY_PROCESS_PHASES",
     "PROCESS_ARTIFACT_ADAPTER",
     "PROCESS_ARTIFACT_PROCESS_OPTIMIZATION",
     "PROCESS_ARTIFACT_CODE",
@@ -2232,6 +2707,7 @@ __all__ = [
     "ImplementationAdmissionPlan",
     "ImplementationAdmissionReport",
     "ImplementationAuthorization",
+    "ModelPathQualityProcessStep",
     "ProcessAction",
     "ProcessArtifact",
     "ProcessEvidence",

@@ -1,0 +1,65 @@
+{
+  "contributions": [
+    {
+      "schema": "flowguard.model_intent_contribution.v1",
+      "contribution_id": "intent:repair-per-behavior-block-binding-v0.68.7-final",
+      "source_kind": "requirement",
+      "source_ref": "openspec/specs/software-blueprint-readiness/spec.md",
+      "source_fingerprint": "sha256:2e7b809cf3fe28117f335c30e7d4544d8ef6ead776b0f23186f595bdc0cee802",
+      "subject_lane": "normative_target",
+      "subject_role": "requirement",
+      "lifecycle_state": "candidate",
+      "decision_state": "accepted",
+      "logical_model_id": "model:implementation_blueprint",
+      "unresolved_owner_id": "",
+      "supersedes_contribution_ids": [],
+      "conflicts_with_contribution_ids": [],
+      "target_obligation_ids": [],
+      "target_state_ids": [],
+      "target_transition_ids": [],
+      "target_invariant_ids": [],
+      "target_relation_ids": [
+        "relation:model-realizes-purpose:harden_ui_content_visibility_validation",
+        "relation:model-realizes-purpose:implementation_blueprint",
+        "relation:model-realizes-purpose:model_test_code_alignment"
+      ],
+      "desired_terminal_state_ids": [],
+      "target_output_ids": [],
+      "declared_consumer_ids": [
+        "model:harden_ui_content_visibility_validation",
+        "model:implementation_blueprint",
+        "model:model_test_code_alignment"
+      ],
+      "effective_revision": "release:v0.68.7",
+      "rationale": "The final clarified software-blueprint requirements bind the current observed model snapshot to every accepted intent, project every accepted realized owner, bind exact intent-source and expectation identities to behavior semantics, keep structural aggregates and helpers supporting unless independently contracted, and separate exact coverage ownership and planned checkers from terminal leaf evidence.",
+      "work_context_id": "",
+      "work_context_fingerprint": "",
+      "native_owner_id": "",
+      "fingerprint": "sha256:19ee7659b5a38bbb9aaeeec6003a04dde80adc63cf25442c732c4eccac04990c"
+    }
+  ],
+  "dispositions": [
+    {
+      "schema": "flowguard.model_intent_disposition.v1",
+      "contribution_id": "intent:repair-per-behavior-block-binding-v0.68.7-final",
+      "contribution_fingerprint": "sha256:19ee7659b5a38bbb9aaeeec6003a04dde80adc63cf25442c732c4eccac04990c",
+      "disposition": "accepted",
+      "changed_obligation_ids": [],
+      "changed_state_ids": [],
+      "changed_transition_ids": [],
+      "changed_invariant_ids": [],
+      "changed_relation_ids": [
+        "relation:model-realizes-purpose:harden_ui_content_visibility_validation",
+        "relation:model-realizes-purpose:implementation_blueprint",
+        "relation:model-realizes-purpose:model_test_code_alignment"
+      ],
+      "scoped_gap_ids": [],
+      "conflict_ids": [],
+      "unresolved_effect_ids": [],
+      "unreachable_terminal_state_ids": [],
+      "unconsumed_output_ids": [],
+      "reason": "These three exact changed relations are the final modeled effects of current observed-snapshot intent lineage, per-behavior evidence ownership, and the affected UI content-visibility validation sibling for the v0.68.7 candidate.",
+      "fingerprint": "sha256:14ae99a113390943bbf868b9922fee5521abd7fade9427264e7a7e371fec0c1c"
+    }
+  ]
+}

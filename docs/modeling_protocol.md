@@ -79,9 +79,9 @@ Before changing files, separate three situations:
 - `development_process_flow`: a non-trivial FlowGuard-managed project change is
   ending or changing direction and the agent must check whether changed
   artifacts, remembered maintenance obligations, stale evidence, skipped
-  candidate routes, or split/reduction signals require an owner route. Let
-  DevelopmentProcessFlow consume the maintenance scan signal; do not treat the
-  scan helper as model/test/replay validation or final confidence.
+  checks, or split/reduction signals require an owner route.
+  DevelopmentProcessFlow consumes those typed inputs directly and reopens only
+  their exact owners; it does not delegate this decision to another scanner.
 - `risk_evidence_ledger`: a final done, release, publish, or full-confidence
   claim depends on whether user risks are linked to model obligations, owner
   code contracts, and current proof evidence. Use this boundary after the
@@ -102,10 +102,10 @@ Before changing files, separate three situations:
   evidence, but RiskEvidenceLedger remains the final broad-confidence owner.
   Treat the closure chain as intrinsic support, not as a direct route mode:
   required
-  plan/risk intake, model ownership, same-class miss evidence when relevant,
-  obligation-family parity when related obligations share a confidence claim,
-  ContractExhaustionMesh case ids and analogous defect scan when a post-green
-  miss exposes a reusable failure shape, model-test/code alignment, mesh or boundary proof when relevant,
+  plan/risk intake, model ownership, exact commitment and blueprint-gap
+  identity for a model miss, finite canonical relations and
+  ContractExhaustionMesh case ids, task-bound ModelMaturation evidence,
+  model-test/code alignment, affected topology/parent replay when relevant,
   evidence freshness, Risk Evidence Ledger, and typed claim-chain support must
   be current or the claim stays partial/scoped.
 
@@ -142,7 +142,7 @@ Keep the API surface boundary clear:
   and `Workflow`;
 - formal model-first entry uses `FlowGuardCheckPlan`,
   `run_model_first_checks`, `RiskIntent`, `MinimumModelContract`,
-  `KnownBadProof`, template reuse/no-match review, and template harvest closure;
+  and `KnownBadProof`;
 - reporting helpers explain gaps and skipped work, but warnings are not hard
   failures;
 - evidence and benchmark helpers are mainly for FlowGuard maintenance and
@@ -263,14 +263,15 @@ Before saying a task is fully validated, release-ready, done, or safe to
 publish, build or update a risk evidence ledger for the important user-facing
 risks. Each row should name the risk, the owning FlowGuard model obligation, the
 public code contract when that matters, and the proof evidence IDs that are
-current. If a same-class model miss is recurring or high risk, the row should
-also name the current defect-family gate and whether that gate is full, scoped,
-partial, or blocked.
+current. If the risk follows a model miss, the row should also name the exact
+commitment, blueprint gap, generated ContractExhaustion coverage, and
+independently verified ModelMaturation evidence id.
 If the risk depends on several related obligations being equivalently covered,
 the row should also name the current obligation-family gate and whether that
 gate is full, scoped, partial, or blocked.
-If the risk follows a model miss, the row should also name the analogous defect
-scan and whether same-shape candidates are covered, scoped, or blocked.
+The affected scope comes from declared current DNA/BCL/topology relations; an
+unmaterialized required relation remains blocked rather than triggering a free
+repository-wide search.
 
 Use `review_risk_evidence_ledger(...)` to make these gaps explicit:
 
@@ -527,11 +528,6 @@ Answer these questions before creating or editing the model:
 
 - Which failure modes are we trying to prevent?
 - Which protected error class should this model make impossible or visible?
-- Which public packaged or local per-machine risk templates match this risk?
-  Record used template ids, or record a no-match reason.
-- How will this model record template harvest closure after validation: write a local
-  candidate, merge an existing template, duplicate-link an existing template,
-  or record an accepted not-harvestable reason?
 - What protected harms would happen if those failures slipped through?
 - Which state fields, side effects, confirmations, durable records, or external
   commitments must be modeled or the failure would be invisible?
@@ -547,16 +543,21 @@ The first/default model should be a minimum valuable model, not a happy-path
 stub. It can stay small, but it needs state, side effects or completion
 evidence, and at least one known-bad case with current proof that the broken
 variant fails unless the claim is explicitly scoped.
-Search packaged public templates and the per-machine local template library
-before generating a new or materially deepened model. Before a complete claim,
-record template harvest closure: write a local candidate, merge an existing template,
-duplicate-link an existing template, or record an accepted not-harvestable
-reason. Missing closure means the model is not fully done.
+
+Template reuse/publication is a separate conditional operation. Enter the
+single strict `risk_template_library` route only when the user explicitly asks
+for template reuse/publication or current executable evidence identifies a
+bounded stable pattern intended for use outside the target project. Then ask
+which packaged public or per-machine local templates match, record exact used
+ids or a reviewed no-match, and close harvest by writing, merging,
+duplicate-linking, or recording an accepted not-harvestable reason. Ordinary
+modeling, repair, maintenance, cleanup, and release do not search templates or
+create no-match/harvest records merely to finish.
 
 Put the brief into `RiskProfile` through a `RiskIntent` or equivalent
 `risk_intent` mapping, bind the minimum model contract and known-bad proof on
 the `FlowGuardCheckPlan`, and run `run_model_first_checks(plan)`. Direct
-Direct finite engine calls remain internal execution primitives, not the formal
+finite engine calls remain internal execution primitives, not the formal
 entry for non-trivial model creation.
 
 ## 1. Identify External Inputs
@@ -730,8 +731,7 @@ does not change report semantics. Use plan progress settings or
 `FLOWGUARD_PROGRESS=0` when a strict environment requires no progress output.
 
 Put the intended coverage boundary in `RiskProfile`, create a
-`FlowGuardCheckPlan`, bind the minimum model contract, known-bad proof, template
-reuse/no-match review, and harvest closure, then call
+`FlowGuardCheckPlan`, bind the minimum model contract and known-bad proof, then call
 `run_model_first_checks(plan)`. The runner performs the minimum model review,
 known-bad proof review, audit, automatic state/input closure review, optional
 scenario scaffolding, finite model run, counterexample minimization, scenario review,
@@ -853,72 +853,63 @@ When this happens:
 4. Backpropagate the root cause into the previous plan/model/test gap when a
    prior green claim existed: previous claim, observed failure, supported cause,
    `would_have_failed_if`, new plan/model/test item, and closure evidence.
-5. If the issue belongs in scope, represent it as executable evidence: scenario,
-   invariant, replay adapter, representative trace, or a model boundary update
-   for the observed issue, plus one same-class family seed or finite boundary
-   routed through ContractExhaustionMesh when practical.
-6. If the miss involves a field, schema key, config flag, prompt/config field,
-   payload column, or persisted attribute, run or update FieldLifecycleMesh so
-   the root-cause field, ContractExhaustionMesh field cases, and any old/replaced field are
+5. Bind the failed promise to one affected commitment, its primary owner, and
+   one `affected_blueprint_gap_id`. Reuse the current owner when it covers the
+   promise; create a coverage gap only when none does.
+6. If the issue belongs in scope, represent it as executable evidence: a
+   scenario, invariant, replay adapter, representative trace, leaf cell, or
+   model-boundary update. Declare only finite affected relations licensed by
+   current DNA/BCL/topology source identities, pass them through one
+   `CanonicalRelationHandoff`, and materialize them through
+   ContractExhaustionMesh as stable case, combination, coverage-receipt, and
+   oracle identities. An unmaterialized required relation stays open.
+7. If the miss involves a field, schema key, config or prompt field, payload
+   column, or persisted attribute, run or update FieldLifecycleMesh so the
+   root-cause field, generated field cases, and any old or replaced field are
    visible.
-7. Add current test evidence for the observed regression, any concrete
-   counterexample or known-bad replay target, and the contract-exhaustion case,
-   then run Model-Test Alignment to verify the repaired obligation, owner code
-   contract, closure target, and tests cover the same behavior. A single
-   observed-bug regression test is not full closure. Behavior-bearing field
-   projections should feed the same alignment rows.
-   When sibling obligations make the same family-level claim, add family parity
-   rows so every sibling has the required mechanism and allowed provenance.
-   Also run an analogous defect scan when the miss shape may recur outside the
-   observed member.
-8. If old, fallback, compatibility, alternate paths, or old fields remain
-   reachable, record whether they are deleted, blocked, migrated, delegated to
-   a repaired contract or replacement field, same-contract repaired, or
-   explicitly out of scope with a reason.
-   If several useful business routes remain, also record each route's
-   `BusinessPathIdentity` so duplicate, conflicting, unproven, or legacy
-   business paths can route through topology, similarity, runtime evidence, and
-   risk ledger checks.
-9. If contract-exhaustion coverage is large, slow, layered, background, or release-only,
-   route the validation hierarchy to TestMesh and report scoped confidence
-   until current child evidence exists.
-10. If the same-class miss has recurred, or if the first miss is high risk enough
-   that a local point fix would overclaim full confidence, promote it to a
-   defect-family gate with a model obligation, authority boundary, observed
-   failure case, ContractExhaustionMesh case id, historical holdout case, current
-   family parity status and analogous scan status when related obligations are
-   in scope, and current proof evidence.
-11. Rerun the relevant model checks and confirm the old weakness plus the
-   ContractExhaustionMesh case is now visible, or deliberately out of scope.
-12. Validate the repair with the refined model plus the strongest practical
-   production-facing evidence.
-13. If the repair changed a child model under a parent ModelMesh, rerun the
-   affected parent reattachment gate and keep the miss open until the parent
-   consumes current child evidence.
-14. If the child boundary changed, keep the miss open until ModelMesh has
-    propagated the boundary review upward and reviewed affected sibling models
-    or recorded why none are affected.
-15. Run the model maturation loop over the miss classification, alignment rows,
-    mesh rows, and freshness rows. If it reports state, branch, invariant,
-    same-class, child reattachment, or obligation gaps, upgrade the model or
-    keep the final claim scoped.
+8. Add current test evidence for the observed regression, every required
+   generated case, and any concrete counterexample or known-bad replay target.
+   Run Model-Test Alignment to verify that the repaired obligation, owner code
+   contract, closure target, and external tests cover the same behavior. A
+   single observed regression is not full closure.
+9. If old, fallback, alternate paths, or old fields remain reachable, record
+   whether they are deleted, blocked, migrated, delegated to the repaired
+   contract or replacement field, same-contract repaired, or explicitly out of
+   scope with a reason. Record important `BusinessPathIdentity` values so
+   topology, runtime, and risk checks can bind the exact useful route.
+10. If the finite validation is large, slow, layered, background, or
+    release-only, route it through TestMesh and report scoped confidence until
+    current child evidence exists.
+11. Emit a task-bound ModelMaturation contribution with exact owner, coverage,
+    probe, blueprint-gap, candidate, and native-receipt identities. Run the
+    maturation loop over the miss, alignment, code-boundary, mesh, and
+    freshness signals. Resolve every required gap through a current receipt or
+    keep the claim scoped.
+12. Rerun the relevant model checks and confirm that both the observed weakness
+    and required ContractExhaustion cases are visible, or explicitly out of
+    scope. Validate the repair with the strongest practical production-facing
+    evidence.
+13. If a child boundary changed, rerun the affected topology and parent
+    reattachment gates. The parent must consume current child evidence and
+    recheck inputs, outputs, state ownership, side effects, joins, outgoing
+    guarantees, and affected siblings.
+14. Run DevelopmentProcessFlow over changed plan, model, code, test, and
+    documentation artifacts so later edits and peer writes cannot silently
+    reuse stale evidence.
+15. Project independently verified ModelMaturation evidence into the Risk
+    Evidence Ledger and record the commitment/owner/blueprint-gap ids,
+    canonical relation and generated case ids, code/test bindings, lifecycle
+    dispositions, topology/parent replay, freshness, skipped checks, residual
+    blindspots, and final claim boundary in adoption evidence.
 16. Do not use a background long-running check as closure until final artifacts
     and exit status exist; progress output is only liveness.
-17. Record `Miss type`, `Root cause backpropagation`, `Generalized case`, field
-    lifecycle/projection/disposition evidence when fields are involved, owner
-    code contract, observed-regression test evidence, target-aware
-    counterexample/known-bad replay evidence, same-class test evidence, legacy
-    path disposition, family parity result, analogous scan result,
-    Model-Test Alignment result, and any parent reattachment or defect-family
-    gate decision in the adoption log, or the reason no generalized case was
-    added, along with rerun commands, skipped checks, and residual blindspots.
 
-A later green runtime check or one observed-bug regression test does not close
-a known model miss by itself. The miss is closed only when it has been
-classified, represented in the model or explicitly recorded as outside the
-modeled risk, and backed by current same-class test evidence when the miss is
-in scope. A recurring or high-risk miss additionally stays open until the
-defect-family gate is current or the remaining gap is explicitly scoped.
+A later green runtime check, point patch, one observed regression, or raw
+relation id does not close a known model miss. An in-scope miss closes only
+when its exact commitment and blueprint gap, finite generated cases, owner
+code/test binding, relevant lifecycle dispositions, affected topology replay,
+task-bound ModelMaturation result, freshness, and risk evidence are current;
+otherwise the remaining boundary stays explicit.
 
 ## 14. Run Scenario Sandbox Review
 
@@ -1070,7 +1061,7 @@ an improvement idea. Only structural problems such as a workflow with no blocks
 should be treated as audit errors.
 
 Use a `FlowGuardSummaryReport` when you need to present minimum-model,
-known-bad proof, template harvest, model check, audit, scenario review,
+known-bad proof, model check, audit, scenario review,
 progress, contract, conformance, and skipped/not-run sections together. If
 the finite model check passes but a formal gate blocks or audit warns, the overall status
 should not be treated as plain `pass`. If production conformance is not run,
@@ -1085,10 +1076,10 @@ scope. A point rule is acceptable only after the ledger shows it is the right
 repair rather than the first visible patch.
 
 `FlowGuardSummaryReport.maintenance_obligations` turns non-pass gaps into
-route-owned memory. Future maintenance scans should pass relevant prior
-obligations as `prior_obligations`; anchored open items that touch changed
-artifacts reopen their owner route, while unanchored observations remain
-visible memory rather than hard gates.
+route-owned memory. DevelopmentProcessFlow compares relevant prior obligations
+directly with changed artifacts; anchored open items reopen their exact owner
+route, while unanchored observations remain visible memory rather than hard
+gates.
 
 Do not report model-level confidence as production confidence unless
 conformance replay or another production-facing evidence source supports that
@@ -1100,18 +1091,21 @@ Recommended low-friction agent flow:
 2. Start with the smallest inspectable boundary that still exposes the customer
    risk.
 3. Declare `RiskProfile` with a minimum valuable `RiskIntent`.
-4. Bind `MinimumModelContract`, current `KnownBadProof`, template reuse/no-match
-   review, and template harvest closure.
-5. Use standard property factories or domain packs when they fit.
-6. Run `run_model_first_checks()`.
-7. Inspect the finding ledger before choosing a repair path for framework
+4. Bind `MinimumModelContract` and current `KnownBadProof`.
+5. If and only if template reuse/publication was explicitly requested or
+   current executable evidence proves a bounded stable pattern intended for
+   use outside the target project, run the strict `risk_template_library`
+   search/review/harvest path.
+6. Use standard property factories or domain packs when they fit.
+7. Run `run_model_first_checks()`.
+8. Inspect the finding ledger before choosing a repair path for framework
    upgrades, live failures, or model misses.
-8. Inspect minimized counterexamples if any.
-9. Treat `pass_with_gaps`, `blocked`, skipped, stale, or `not_run` sections as
+9. Inspect minimized counterexamples if any.
+10. Treat `pass_with_gaps`, `blocked`, skipped, stale, or `not_run` sections as
    claim boundaries.
-10. Do not claim production conformance unless conformance replay or equivalent
+11. Do not claim production conformance unless conformance replay or equivalent
    real-code evidence exists.
-11. Record skipped checks; skipped is not pass.
+12. Record skipped checks; skipped is not pass.
 
 For older adopted repositories, run project upgrade before relying on existing
 FlowGuard files. FlowGuard's runtime path is latest-schema-first: old artifacts
@@ -1122,8 +1116,10 @@ reviews should not keep accepting obsolete fields, aliases, or wrappers.
 
 - A minimum valuable Risk Intent names failure modes, protected error classes,
   protected harms, model-critical state and side effects, completion evidence,
-  adversarial inputs, known-bad cases, hard invariants, used public/local
-  templates or a no-match reason, and blindspots.
+  adversarial inputs, known-bad cases, hard invariants, and blindspots.
+- When the separate template route is triggered, its exact reuse/no-match
+  review and template harvest closure are current. When it is not triggered,
+  their absence is not a gap.
 - The model includes current known-bad proof evidence showing a representative
   broken path fails for the protected error class.
 - If no model existed before FlowGuard applied, an AI-created model script now

@@ -163,9 +163,11 @@ confidence is claimed.
 ```
 
 Route a contraction candidate to ArchitectureReduction only when the current
-inventory/code map and model-derived observable contract identify a specific
-behavior-preserving simplification, its proof status is explicit, and its next
-StructureMesh/lifecycle validation owner is named. StructureMesh does not use
+independent-universe member, inventory/code/caller/test map, and model-derived
+observable contract identify a specific behavior-preserving simplification,
+current equivalence or facade-delegation proof is exact, and its target action
+and next StructureMesh/lifecycle validation owner are named. Similarity, size,
+or same-origin evidence is not proof-ready. StructureMesh does not use
 ArchitectureReduction as generic cleanup or as evidence that its partition is
 complete.
 

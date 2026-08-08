@@ -111,43 +111,12 @@ Risk Evidence Ledger SHALL let a risk row require a current family parity gate b
 - **THEN** the ledger reports scoped confidence
 - **AND** if scoped confidence is not allowed, the ledger blocks the claim.
 
-### Requirement: Risk rows can require analogous defect scan gates
-
-Risk Evidence Ledger SHALL let a risk row require a current analogous defect scan before full confidence is granted after a model miss.
-
-#### Scenario: Missing analogous scan blocks confidence
-- **WHEN** a required risk row declares that an analogous defect scan is required
-- **AND** no analogous scan id is present
-- **THEN** the ledger reports a missing analogous scan finding.
-
-#### Scenario: Blocked analogous scan blocks confidence
-- **WHEN** a required risk row references an analogous defect scan with blocked confidence
-- **THEN** the ledger blocks full confidence for that risk.
-
-#### Scenario: Scoped analogous scan remains scoped
-- **WHEN** a required risk row references an analogous defect scan with scoped or partial confidence
-- **THEN** the ledger reports scoped confidence
-- **AND** if scoped confidence is not allowed, the ledger blocks the claim.
-
 ### Requirement: Self-maintenance final claim boundary
 Risk Evidence Ledger SHALL surface self-maintenance gaps, stale evidence, unsupported route claims, install sync gaps, shadow workspace gaps, and local git limitations before final broad confidence.
 
 #### Scenario: Install sync not verified
 - **WHEN** source changes are complete but editable install, import path, metadata version, feature availability, or shadow workspace sync is not verified
 - **THEN** the ledger SHALL block or scope the final release/install confidence claim
-
-### Requirement: Risk ledger consumes model-angle evidence
-Risk Evidence Ledger SHALL consume model-angle review evidence when a final
-claim relies on the agent having considered additional model angles.
-
-#### Scenario: Model-angle review is required but unnamed
-- **WHEN** a risk row requires model-angle review
-- **AND** no model-angle evidence id is named
-- **THEN** the ledger MUST report missing model-angle review before full confidence
-
-#### Scenario: Model-angle review is not current or not full
-- **WHEN** a named model-angle review is stale, scoped, partial, or blocked
-- **THEN** the ledger MUST keep the claim scoped or blocked rather than treating the review as full evidence
 
 ### Requirement: Risk ledger consumes relevant open maintenance obligations
 Risk Evidence Ledger SHALL consider relevant unresolved maintenance obligations
@@ -450,3 +419,14 @@ RiskLedger SHALL be the sole owner that combines verified maturation, residual r
 #### Scenario: Maturation closes with an unresolved bounded risk
 - **WHEN** the exact maturation receipt is current but a risk required for a broad claim remains unresolved
 - **THEN** RiskLedger withholds full confidence and records the bounded or blocked scope
+
+### Requirement: Model-miss confidence consumes one canonical maturation result
+After a model miss, RiskEvidenceLedger SHALL consume the exact affected commitment, canonical ContractExhaustion observed/same-class case set, updated model/code/test bindings, affected-topology replay, and one current ModelMaturation result. It MUST NOT require separate analogous-scan or model-angle evidence for the same closure claim.
+
+#### Scenario: Model miss is fully repaired
+- **WHEN** the canonical miss path has current owner, finite cases, executable oracles, updated bindings, replay evidence, and maturation result
+- **THEN** the ledger evaluates that single result for the bounded claim
+
+#### Scenario: Legacy parallel gate remains required
+- **WHEN** a risk row still requires an independent analogous-scan or model-angle gate for the same miss
+- **THEN** ledger schema/currentness validation reports duplicate legacy responsibility

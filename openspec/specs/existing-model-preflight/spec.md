@@ -88,28 +88,12 @@ changed paths, and optional downstream routes.
   schema
 
 ### Requirement: Self-maintenance preflight handoff
-Existing model preflight SHALL feed the self-maintenance mesh before new FlowGuard route boundaries are added.
+Existing Model Preflight SHALL feed exact current owner, duplicate-boundary, same-intent surface, and canonical relation findings to the existing self-maintenance owners before a new FlowGuard route boundary is added.
 
 #### Scenario: Similar existing route exists
-- **WHEN** the preflight finds a similar existing model, route, or maintenance group
-- **THEN** it SHALL recommend reuse, extension, child model, or duplicate-boundary review before creating a new self-maintenance boundary
-
-### Requirement: Existing model preflight consumes model angle deliberation
-Existing Model Preflight SHALL consume model-angle deliberation rows when a
-task requires open-ended review of whether one model is enough.
-
-#### Scenario: Required deliberation is missing
-- **WHEN** a full preflight marks model-angle review as required
-- **AND** no deliberation rows are supplied
-- **THEN** preflight MUST report a blocking model-angle gap before broad confidence
-
-#### Scenario: Deliberation row has unresolved gap
-- **WHEN** a deliberation row reports an unresolved required angle, missing disposition rationale, or human-review question
-- **THEN** preflight MUST keep that gap visible and route downstream work without claiming the current model is sufficient
-
-#### Scenario: Deliberation supports continuation
-- **WHEN** each required model angle is reused, extended, created, scoped, deferred, or sent to human review with sufficient rationale
-- **THEN** preflight MAY continue with scoped or full confidence according to the row decisions and evidence
+- **WHEN** preflight resolves a current route, owner, or canonical relation that can carry the requested responsibility
+- **THEN** it SHALL recommend reuse, extension, child model, or Architecture Reduction before creating a new boundary
+- **AND** it SHALL NOT create or require a similarity maintenance group
 
 ### Requirement: Existing model preflight includes field ownership
 Existing model preflight SHALL include field lifecycle model ownership and
@@ -126,56 +110,6 @@ payloads, persisted data, prompts, or configuration surfaces.
   covers them
 - **THEN** preflight MUST report a field model gap and route the work to create
   or extend field lifecycle coverage
-
-### Requirement: Similarity evidence in full preflight
-Full Existing Model Preflight SHALL be able to consume current model-similarity
-relations before deciding to reuse, extend, add a child model, create a family
-variant, extract a shared kernel, route to Architecture Reduction, or keep a
-new boundary separate.
-
-#### Scenario: Similarity relation supports reuse decision
-- **WHEN** a full preflight includes a current model-similarity relation that
-  recommends reuse or extension of an existing model boundary
-- **THEN** the preflight review may use that relation as reuse rationale while
-  preserving the downstream route requirements
-
-#### Scenario: Required similarity evidence is missing
-- **WHEN** a full preflight declares that model similarity review is required
-  for the boundary decision but does not include current similarity relation
-  evidence
-- **THEN** the preflight review reports a blocking similarity-evidence finding
-
-#### Scenario: False friend keeps boundaries separate
-- **WHEN** a full preflight includes a false-friend model-similarity relation
-- **THEN** the preflight may keep the proposed boundary separate only if the
-  false-friend rationale remains visible in the report
-
-#### Scenario: Similarity maintenance group preserves sibling review
-- **WHEN** a full preflight includes model-similarity relations for a changed
-  workflow that belongs to a maintenance group
-- **THEN** the preflight records the maintenance group ids, change-impact ids,
-  and impacted sibling model ids before claiming the existing boundary review
-  covered all similar workflows
-
-### Requirement: ExistingModelPreflight consumes angle and similarity helpers
-ExistingModelPreflight SHALL consume model-angle deliberation rows and
-model-similarity relations as structured evidence before it decides reuse,
-extension, child-model creation, shared-kernel extraction, ArchitectureReduction
-handoff, or separate-boundary creation.
-
-#### Scenario: Model angle is required
-- **WHEN** the current model may be too narrow for the task
-- **THEN** ExistingModelPreflight MUST include angle rows or report a
-  model-angle gap
-- **AND** the angle helper MUST NOT be selected as a separate public first stop
-
-#### Scenario: Model similarity is required
-- **WHEN** the task resembles another model, workflow, sibling test, shared
-  kernel, adapter, or business path
-- **THEN** ExistingModelPreflight MUST include similarity relation evidence or
-  report a similarity-evidence gap
-- **AND** the similarity helper MUST NOT be selected as a separate public first
-  stop
 
 ### Requirement: Preflight output names downstream owner
 ExistingModelPreflight SHALL name the downstream public owner route that must
@@ -356,14 +290,6 @@ Preflight output SHALL record lookup status, primary behavior plane, primary com
 - **WHEN** a development-process commitment governs the selected agent operation
 - **THEN** preflight SHALL show it as governing context rather than a second primary operation
 
-### Requirement: Missing ledger fallback remains explicit
-Existing Model Preflight MAY use its current project inventory scan when commitment lookup is missing, not applicable, or blocked, but SHALL preserve that status and confidence boundary.
-
-#### Scenario: Ledger missing but models exist
-- **WHEN** no canonical ledger can be loaded and path inventory finds relevant models
-- **THEN** preflight SHALL return `fallback` lookup status with the model hits
-- **AND** SHALL NOT claim that registered behavior commitments were searched successfully
-
 ### Requirement: Plane ambiguity blocks unsafe consolidation
 Preflight SHALL NOT choose one cross-plane owner solely from shared words when the primary behavior plane remains ambiguous.
 
@@ -428,11 +354,11 @@ Existing Model Preflight SHALL reconcile a commitment owner against the observed
 A full Existing Model Preflight result SHALL mean that the current bounded owner/model map and duplicate-boundary risks are understood; it SHALL NOT by itself claim task-local model sufficiency or implementation permission.
 
 #### Scenario: Full preflight precedes open maturation gaps
-- **WHEN** preflight is full but triggered owner contributions or model angles remain unresolved
+- **WHEN** preflight is full but triggered current-owner coverage contributions or typed coverage gaps remain unresolved
 - **THEN** downstream maturation MUST remain open and implementation admission MUST NOT infer readiness from the preflight decision
 
 ### Requirement: Preflight contributes current-system coverage to maturation
-Existing Model Preflight SHALL project its selected current owners, expected same-intent surfaces, state/field/effect/entrypoint responsibilities, mesh boundaries, and unresolved angle gaps as typed task-local maturation coverage contributions.
+Existing Model Preflight SHALL project its selected current owners, expected same-intent surfaces, state/field/effect/entrypoint responsibilities, mesh boundaries, and unresolved current-owner coverage gaps as typed task-local maturation coverage contributions.
 
 #### Scenario: Current surface omitted by candidate
 - **WHEN** preflight independently identifies an in-scope current surface that the candidate maturation input omits
@@ -466,3 +392,37 @@ Existing-model preflight SHALL request and preserve the independently discovered
 #### Scenario: Whole-software blueprint requested
 - **WHEN** the task explicitly requests blueprint closure or export
 - **THEN** preflight includes the independent inventory identity and every unresolved implementation surface in its downstream handoff
+
+### Requirement: Modeled targets use exact ownership and unmodeled targets use explicit adoption discovery
+Existing Model Preflight SHALL resolve current modeled targets only from the validated observed authority, exact affected blueprint ids, behavior commitments, and canonical relations. A target with no current DNA MAY enter explicit adoption candidate discovery, but candidate paths MUST remain non-authoritative and MUST NOT support an understanding or implementation-readiness claim.
+
+#### Scenario: Current modeled target has an exact owner
+- **WHEN** the validated observed authority maps the requested behavior or changed surface to an exact owner closure
+- **THEN** preflight returns that closure and its canonical affected relations without lexical owner guessing or root-model substitution
+
+#### Scenario: Modeled lookup is blocked
+- **WHEN** behavior commitment or affected-owner resolution is missing, stale, ambiguous, or blocked
+- **THEN** preflight preserves the blocker and MUST NOT change the result to fallback based on filename, token, class-name, or repository search matches
+
+#### Scenario: Target has no adopted DNA
+- **WHEN** a target has no validated current model authority
+- **THEN** preflight may return candidate discovery context for adoption
+- **AND** the result explicitly states that current understanding, ownership, and implementation readiness are unproved
+
+### Requirement: Preflight consumes only bounded canonical relation handoffs
+Full Existing Model Preflight SHALL consume canonical relation handoffs only after exact current owner and endpoint identities have been resolved. The relation MAY support reuse, extension, child-model, separate-boundary, Code Structure, or Architecture Reduction decisions, but it MUST NOT create a similarity-review prerequisite, maintenance group, change-impact inventory, or standalone completion claim.
+
+#### Scenario: Current relation supports a bounded decision
+- **WHEN** current blueprint, commitment, or topology authority emits a canonical relation for two in-scope endpoints
+- **THEN** preflight records the relation id, type, source authority, endpoints, currentness, affected members, and any unresolved gap
+- **AND** it preserves the downstream owner's proof requirements
+
+#### Scenario: False friend keeps boundaries separate
+- **WHEN** a canonical relation records cross-plane, different-intent, or false-friend evidence
+- **THEN** preflight may keep the boundaries separate while preserving that exact evidence
+- **AND** shared wording alone MUST NOT override the current owner identities
+
+#### Scenario: Relation evidence is absent or stale
+- **WHEN** no current canonical relation covers a proposed reuse or reduction decision
+- **THEN** preflight reports the exact unresolved ownership or relation gap
+- **AND** it MUST NOT infer a maintenance group or run a free-form similarity search

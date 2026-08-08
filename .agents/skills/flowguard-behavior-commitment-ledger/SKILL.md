@@ -24,14 +24,14 @@ Accept a bounded source inventory and mode; register ownership; block coverage, 
 - Do not inventory internals or replace sibling evidence owners; return ordinary modeling to `flowguard`.
 
 ## Required Workflow
-1. Freeze boundary, mode, inventory revision/fingerprint, discovery evidence, and exact source ids.
+1. Freeze boundary, mode, exact source ids, and bounded repository root; resolve each direct, anchored, semicolon-composite, or bounded-glob source through the canonical live source-identity audit before trusting its stored inventory revision/fingerprint.
 2. Give every source one `modeled|delegated|scoped` disposition with evidence or reason; modeled behavior gets one plane, actor kind, stable commitment, owner, typed relations, lookup, and lifecycle.
-3. Bind one current-green `primary_path_id`; run `review_behavior_commitment_ledger()` and hand DCAR/TestMesh/risk evidence downstream.
+3. Bind one current-green `primary_path_id`; run `review_behavior_commitment_ledger(..., project_root=...)` so current source content, membership, inventory revision, and discovery evidence are live-checked, then hand DCAR/TestMesh/risk evidence downstream.
 4. For an explicit blueprint claim, hand off only external commitment/source/path ids, owner references, and the ledger fingerprint. Internal files, symbols, helpers, implementation dispositions, and developer activity never enter BCL.
 
 ## Hard Gates
 - Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework.
-- Missing/duplicate sources, conflicting dispositions, owner overlap, stale PPA, untyped relations, or ambiguous authority block broad confidence.
+- Missing, unsafe, unbounded-glob, empty-glob, missing-anchor, duplicate-member, changed-content, changed-membership, or stale top-inventory sources block broad confidence even when stored rows say `current`; duplicate sources, conflicting dispositions, owner overlap, stale PPA, untyped relations, or ambiguous authority also block.
 - Broad discovery is only for bootstrap/gap backfill; ordinary changes stay affected-only.
 - BCL owns visible promises, not target roles, permissions, activity logs, internal code, resources, or implementation completeness. A blueprint may reference both independent owners by fingerprint.
 

@@ -44,8 +44,6 @@ RISK_INTENT_FIELDS = (
     "adversarial_inputs",
     "hard_invariants",
     "known_bad_cases",
-    "used_template_ids",
-    "template_no_match_reason",
     "blindspots",
 )
 
@@ -63,8 +61,6 @@ class RiskIntent:
     adversarial_inputs: tuple[str, ...] = ()
     hard_invariants: tuple[str, ...] = ()
     known_bad_cases: tuple[str, ...] = ()
-    used_template_ids: tuple[str, ...] = ()
-    template_no_match_reason: str = ""
     blindspots: tuple[str, ...] = ()
 
     def __init__(
@@ -79,8 +75,6 @@ class RiskIntent:
         adversarial_inputs: Iterable[str] | str = (),
         hard_invariants: Iterable[str] | str = (),
         known_bad_cases: Iterable[str] | str = (),
-        used_template_ids: Iterable[str] | str = (),
-        template_no_match_reason: str = "",
         blindspots: Iterable[str] | str = (),
     ) -> None:
         object.__setattr__(self, "failure_modes", _normalize_text_items(failure_modes))
@@ -92,8 +86,6 @@ class RiskIntent:
         object.__setattr__(self, "adversarial_inputs", _normalize_text_items(adversarial_inputs))
         object.__setattr__(self, "hard_invariants", _normalize_text_items(hard_invariants))
         object.__setattr__(self, "known_bad_cases", _normalize_text_items(known_bad_cases))
-        object.__setattr__(self, "used_template_ids", _normalize_text_items(used_template_ids))
-        object.__setattr__(self, "template_no_match_reason", str(template_no_match_reason or ""))
         object.__setattr__(self, "blindspots", _normalize_text_items(blindspots))
 
     @classmethod
@@ -108,8 +100,6 @@ class RiskIntent:
             adversarial_inputs=data.get("adversarial_inputs", ()),
             hard_invariants=data.get("hard_invariants", ()),
             known_bad_cases=data.get("known_bad_cases", ()),
-            used_template_ids=data.get("used_template_ids", ()),
-            template_no_match_reason=str(data.get("template_no_match_reason", "")),
             blindspots=data.get("blindspots", ()),
         )
 
@@ -140,8 +130,6 @@ class RiskIntent:
             warnings.append("risk_intent.hard_invariants is empty")
         if not self.known_bad_cases:
             warnings.append("risk_intent.known_bad_cases is empty")
-        if not self.used_template_ids and not self.template_no_match_reason.strip():
-            warnings.append("risk_intent template reuse or no-match reason is empty")
         if not self.blindspots:
             warnings.append("risk_intent.blindspots is empty")
         return tuple(warnings)
@@ -151,7 +139,6 @@ class RiskIntent:
         for field_name in RISK_INTENT_FIELDS:
             values = getattr(self, field_name)
             lines.append(f"{field_name}: {', '.join(values) if values else '(none)'}")
-        lines.append(f"template_no_match_reason: {self.template_no_match_reason or '(none)'}")
         if self.validation_warnings:
             lines.append("warnings:")
             for warning in self.validation_warnings:
@@ -169,8 +156,6 @@ class RiskIntent:
             "adversarial_inputs": list(self.adversarial_inputs),
             "hard_invariants": list(self.hard_invariants),
             "known_bad_cases": list(self.known_bad_cases),
-            "used_template_ids": list(self.used_template_ids),
-            "template_no_match_reason": self.template_no_match_reason,
             "blindspots": list(self.blindspots),
             "validation_warnings": list(self.validation_warnings),
         }

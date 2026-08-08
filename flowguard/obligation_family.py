@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
@@ -55,46 +56,12 @@ FAMILY_PARITY_DECISION_FULL = "obligation_family_parity_full_confidence"
 FAMILY_PARITY_DECISION_SCOPED = "obligation_family_parity_scoped_confidence"
 FAMILY_PARITY_DECISION_BLOCKED = "obligation_family_parity_blocked"
 
-ANALOGOUS_SCAN_RADIUS_MUST_SCAN = "must_scan"
-ANALOGOUS_SCAN_RADIUS_SHOULD_SCAN = "should_scan"
-ANALOGOUS_SCAN_RADIUS_RECORD_ONLY = "record_only"
-ANALOGOUS_SCAN_RADII = (
-    ANALOGOUS_SCAN_RADIUS_MUST_SCAN,
-    ANALOGOUS_SCAN_RADIUS_SHOULD_SCAN,
-    ANALOGOUS_SCAN_RADIUS_RECORD_ONLY,
-)
-
-ANALOGOUS_DISPOSITION_UNREVIEWED = "unreviewed"
-ANALOGOUS_DISPOSITION_COVERED_CURRENT = "covered_current"
-ANALOGOUS_DISPOSITION_NEEDS_REPAIR_NOW = "needs_repair_now"
-ANALOGOUS_DISPOSITION_NEEDS_MODEL_UPGRADE = "needs_model_upgrade"
-ANALOGOUS_DISPOSITION_SEPARATE_CHANGE = "separate_change"
-ANALOGOUS_DISPOSITION_EXCLUDED_WITH_REASON = "excluded_with_reason"
-ANALOGOUS_SCAN_DISPOSITIONS = (
-    ANALOGOUS_DISPOSITION_UNREVIEWED,
-    ANALOGOUS_DISPOSITION_COVERED_CURRENT,
-    ANALOGOUS_DISPOSITION_NEEDS_REPAIR_NOW,
-    ANALOGOUS_DISPOSITION_NEEDS_MODEL_UPGRADE,
-    ANALOGOUS_DISPOSITION_SEPARATE_CHANGE,
-    ANALOGOUS_DISPOSITION_EXCLUDED_WITH_REASON,
-)
-
-ANALOGOUS_SCAN_DECISION_COMPLETE = "analogous_defect_scan_complete"
-ANALOGOUS_SCAN_DECISION_SCOPED = "analogous_defect_scan_scoped"
-ANALOGOUS_SCAN_DECISION_BLOCKED = "analogous_defect_scan_blocked"
-
 COVERAGE_CELL_COVERED = "covered"
 COVERAGE_CELL_MISSING = "missing"
 COVERAGE_CELL_INVALID_PROVENANCE = "invalid_provenance"
 COVERAGE_CELL_NOT_CURRENT = "not_current"
 COVERAGE_CELL_NON_PASSING = "non_passing"
 COVERAGE_CELL_EXEMPT = "exempt"
-
-
-def _as_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(str(value) for value in values)
 
 
 def _unique(values: Sequence[str]) -> tuple[str, ...]:
@@ -151,11 +118,11 @@ class ObligationFamily:
     expected_member_ids: tuple[str, ...] = ()
     scoped_member_reasons: Mapping[str, str] = field(default_factory=dict)
     require_complete_inventory: bool = False
-    similarity_relation_ids: tuple[str, ...] = ()
-    similarity_impacted_member_ids: tuple[str, ...] = ()
-    similarity_impacted_obligation_ids: tuple[str, ...] = ()
-    scoped_similarity_reasons: Mapping[str, str] = field(default_factory=dict)
-    similarity_provenance_current: bool = True
+    relation_ids: tuple[str, ...] = ()
+    relation_impacted_member_ids: tuple[str, ...] = ()
+    relation_impacted_obligation_ids: tuple[str, ...] = ()
+    scoped_relation_reasons: Mapping[str, str] = field(default_factory=dict)
+    relation_provenance_current: bool = True
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -173,19 +140,19 @@ class ObligationFamily:
             {str(key): str(value) for key, value in dict(self.scoped_member_reasons).items()},
         )
         object.__setattr__(self, "require_complete_inventory", bool(self.require_complete_inventory))
-        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
-        object.__setattr__(self, "similarity_impacted_member_ids", _as_tuple(self.similarity_impacted_member_ids))
+        object.__setattr__(self, "relation_ids", _as_tuple(self.relation_ids))
+        object.__setattr__(self, "relation_impacted_member_ids", _as_tuple(self.relation_impacted_member_ids))
         object.__setattr__(
             self,
-            "similarity_impacted_obligation_ids",
-            _as_tuple(self.similarity_impacted_obligation_ids),
+            "relation_impacted_obligation_ids",
+            _as_tuple(self.relation_impacted_obligation_ids),
         )
         object.__setattr__(
             self,
-            "scoped_similarity_reasons",
-            {str(key): str(value) for key, value in dict(self.scoped_similarity_reasons).items()},
+            "scoped_relation_reasons",
+            {str(key): str(value) for key, value in dict(self.scoped_relation_reasons).items()},
         )
-        object.__setattr__(self, "similarity_provenance_current", bool(self.similarity_provenance_current))
+        object.__setattr__(self, "relation_provenance_current", bool(self.relation_provenance_current))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def mechanisms_for(self, member: ObligationFamilyMember) -> tuple[str, ...]:
@@ -210,11 +177,11 @@ class ObligationFamily:
             "expected_member_ids": list(self.expected_member_ids),
             "scoped_member_reasons": to_jsonable(dict(self.scoped_member_reasons)),
             "require_complete_inventory": self.require_complete_inventory,
-            "similarity_relation_ids": list(self.similarity_relation_ids),
-            "similarity_impacted_member_ids": list(self.similarity_impacted_member_ids),
-            "similarity_impacted_obligation_ids": list(self.similarity_impacted_obligation_ids),
-            "scoped_similarity_reasons": to_jsonable(dict(self.scoped_similarity_reasons)),
-            "similarity_provenance_current": self.similarity_provenance_current,
+            "relation_ids": list(self.relation_ids),
+            "relation_impacted_member_ids": list(self.relation_impacted_member_ids),
+            "relation_impacted_obligation_ids": list(self.relation_impacted_obligation_ids),
+            "scoped_relation_reasons": to_jsonable(dict(self.scoped_relation_reasons)),
+            "relation_provenance_current": self.relation_provenance_current,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -395,158 +362,6 @@ class DerivedFamilyBadCase:
             "generated_combination_case_ids": list(self.generated_combination_case_ids),
             "coverage_receipt_ids": list(self.coverage_receipt_ids),
             "metadata": to_jsonable(dict(self.metadata)),
-        }
-
-
-@dataclass(frozen=True)
-class AnalogousDefectCandidate:
-    """One possible same-shape defect location discovered after an observed miss."""
-
-    candidate_id: str
-    family_id: str
-    member_id: str
-    mechanism_id: str
-    failure_mode: str = ""
-    radius: str = ANALOGOUS_SCAN_RADIUS_MUST_SCAN
-    description: str = ""
-    disposition: str = ANALOGOUS_DISPOSITION_UNREVIEWED
-    disposition_reason: str = ""
-    evidence_ids: tuple[str, ...] = ()
-    source: str = "family_member"
-    metadata: Mapping[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "candidate_id", str(self.candidate_id))
-        object.__setattr__(self, "family_id", str(self.family_id))
-        object.__setattr__(self, "member_id", str(self.member_id))
-        object.__setattr__(self, "mechanism_id", str(self.mechanism_id))
-        object.__setattr__(self, "failure_mode", str(self.failure_mode))
-        object.__setattr__(self, "radius", str(self.radius))
-        object.__setattr__(self, "description", str(self.description))
-        object.__setattr__(self, "disposition", str(self.disposition))
-        object.__setattr__(self, "disposition_reason", str(self.disposition_reason))
-        object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
-        object.__setattr__(self, "source", str(self.source))
-        object.__setattr__(self, "metadata", dict(self.metadata))
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "candidate_id": self.candidate_id,
-            "family_id": self.family_id,
-            "member_id": self.member_id,
-            "mechanism_id": self.mechanism_id,
-            "failure_mode": self.failure_mode,
-            "radius": self.radius,
-            "description": self.description,
-            "disposition": self.disposition,
-            "disposition_reason": self.disposition_reason,
-            "evidence_ids": list(self.evidence_ids),
-            "source": self.source,
-            "metadata": to_jsonable(dict(self.metadata)),
-        }
-
-
-@dataclass(frozen=True)
-class AnalogousDefectScanFinding:
-    """One gap found while scanning same-shape defect candidates."""
-
-    code: str
-    message: str
-    severity: str = "blocker"
-    candidate_id: str = ""
-    family_id: str = ""
-    member_id: str = ""
-    mechanism_id: str = ""
-    metadata: Mapping[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "code", str(self.code))
-        object.__setattr__(self, "message", str(self.message))
-        object.__setattr__(self, "severity", str(self.severity))
-        object.__setattr__(self, "candidate_id", str(self.candidate_id))
-        object.__setattr__(self, "family_id", str(self.family_id))
-        object.__setattr__(self, "member_id", str(self.member_id))
-        object.__setattr__(self, "mechanism_id", str(self.mechanism_id))
-        object.__setattr__(self, "metadata", dict(self.metadata))
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "code": self.code,
-            "message": self.message,
-            "severity": self.severity,
-            "candidate_id": self.candidate_id,
-            "family_id": self.family_id,
-            "member_id": self.member_id,
-            "mechanism_id": self.mechanism_id,
-            "metadata": to_jsonable(dict(self.metadata)),
-        }
-
-
-@dataclass(frozen=True)
-class AnalogousDefectScanReport:
-    """Review result for same-shape defect radius scanning."""
-
-    ok: bool
-    decision: str
-    confidence: str
-    seed: FamilyBadCaseSeed | None = None
-    candidates: tuple[AnalogousDefectCandidate, ...] = ()
-    findings: tuple[AnalogousDefectScanFinding, ...] = ()
-    derived_bad_cases: tuple[DerivedFamilyBadCase, ...] = ()
-    summary: str = ""
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "decision", str(self.decision))
-        object.__setattr__(self, "confidence", str(self.confidence))
-        object.__setattr__(self, "candidates", tuple(self.candidates))
-        object.__setattr__(self, "findings", tuple(self.findings))
-        object.__setattr__(self, "derived_bad_cases", tuple(self.derived_bad_cases))
-        if not self.summary:
-            status = "OK" if self.ok else "BLOCKED"
-            object.__setattr__(
-                self,
-                "summary",
-                f"{status}: decision={self.decision} findings={len(self.findings)} candidates={len(self.candidates)}",
-            )
-
-    def blocker_count(self) -> int:
-        return sum(1 for finding in self.findings if finding.severity == "blocker")
-
-    def format_text(self, max_findings: int = 10) -> str:
-        lines = [
-            "=== flowguard analogous defect scan ===",
-            f"status: {'OK' if self.ok else 'BLOCKED'}",
-            f"decision: {self.decision}",
-            f"confidence: {self.confidence}",
-            f"candidates: {len(self.candidates)}",
-            f"findings: {len(self.findings)}",
-            f"derived_bad_cases: {len(self.derived_bad_cases)}",
-        ]
-        for finding in self.findings[:max_findings]:
-            lines.extend(
-                [
-                    "",
-                    f"finding: {finding.code}",
-                    f"severity: {finding.severity}",
-                    f"candidate: {finding.candidate_id}",
-                    f"family: {finding.family_id}",
-                    f"member: {finding.member_id}",
-                    f"mechanism: {finding.mechanism_id}",
-                    f"message: {finding.message}",
-                ]
-            )
-        return "\n".join(lines)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "ok": self.ok,
-            "decision": self.decision,
-            "confidence": self.confidence,
-            "seed": self.seed.to_dict() if self.seed else None,
-            "candidates": [candidate.to_dict() for candidate in self.candidates],
-            "findings": [finding.to_dict() for finding in self.findings],
-            "derived_bad_cases": [case.to_dict() for case in self.derived_bad_cases],
-            "summary": self.summary,
         }
 
 
@@ -760,272 +575,6 @@ def derive_same_class_bad_cases(
             )
         )
     return tuple(cases)
-
-
-def _scan_finding(
-    code: str,
-    message: str,
-    *,
-    severity: str = "blocker",
-    candidate_id: str = "",
-    family_id: str = "",
-    member_id: str = "",
-    mechanism_id: str = "",
-    metadata: Mapping[str, Any] | None = None,
-) -> AnalogousDefectScanFinding:
-    return AnalogousDefectScanFinding(
-        code=code,
-        message=message,
-        severity=severity,
-        candidate_id=candidate_id,
-        family_id=family_id,
-        member_id=member_id,
-        mechanism_id=mechanism_id,
-        metadata=metadata or {},
-    )
-
-
-def _scan_severity(radius: str) -> str:
-    if radius == ANALOGOUS_SCAN_RADIUS_MUST_SCAN:
-        return "blocker"
-    if radius == ANALOGOUS_SCAN_RADIUS_SHOULD_SCAN:
-        return "warning"
-    return "info"
-
-
-def _analogous_candidate_from_case(case: DerivedFamilyBadCase) -> AnalogousDefectCandidate:
-    return AnalogousDefectCandidate(
-        candidate_id=f"{case.case_id}:scan",
-        family_id=case.family_id,
-        member_id=case.member_id,
-        mechanism_id=case.mechanism_id,
-        failure_mode=case.failure_mode,
-        radius=ANALOGOUS_SCAN_RADIUS_MUST_SCAN,
-        description=case.description,
-        source="derived_same_class_bad_case",
-        metadata={"source_case_id": case.source_case_id, **dict(case.metadata)},
-    )
-
-
-def _scan_decision_for(findings: Sequence[AnalogousDefectScanFinding]) -> tuple[str, str, bool]:
-    blockers = tuple(finding for finding in findings if finding.severity == "blocker")
-    if blockers:
-        return ANALOGOUS_SCAN_DECISION_BLOCKED, FAMILY_CONFIDENCE_BLOCKED, False
-    if findings:
-        return ANALOGOUS_SCAN_DECISION_SCOPED, FAMILY_CONFIDENCE_SCOPED, True
-    return ANALOGOUS_SCAN_DECISION_COMPLETE, FAMILY_CONFIDENCE_FULL, True
-
-
-def review_analogous_defect_scan(
-    families: Sequence[ObligationFamily],
-    seed: FamilyBadCaseSeed,
-    candidates: Sequence[AnalogousDefectCandidate] = (),
-) -> AnalogousDefectScanReport:
-    """Scan where an observed same-shape model miss may recur.
-
-    The helper turns the seed into mandatory sibling candidates and lets callers
-    add wider-radius candidates for related surfaces. Full confidence requires
-    each must-scan candidate to be covered, explicitly excluded with a reason,
-    or assigned to a separate change with a reason.
-    """
-
-    family_by_id, family_findings = _index_families(families)
-    findings: list[AnalogousDefectScanFinding] = [
-        _scan_finding(
-            finding.code,
-            finding.message,
-            severity=finding.severity,
-            family_id=finding.family_id,
-            member_id=finding.member_id,
-            mechanism_id=finding.mechanism_id,
-            metadata={"family_finding": finding.to_dict()},
-        )
-        for finding in family_findings
-    ]
-    family = family_by_id.get(seed.family_id)
-    if family is None:
-        findings.append(
-            _scan_finding(
-                "unknown_analogous_scan_seed_family",
-                "analogous defect scan seed references an unknown family",
-                family_id=seed.family_id,
-                member_id=seed.source_member_id,
-                mechanism_id=seed.mechanism_id,
-            )
-        )
-        decision, confidence, ok = _scan_decision_for(findings)
-        return AnalogousDefectScanReport(
-            ok=ok,
-            decision=decision,
-            confidence=confidence,
-            seed=seed,
-            candidates=tuple(candidates),
-            findings=tuple(findings),
-        )
-
-    derived_cases = derive_same_class_bad_cases(family, seed)
-    auto_candidates = tuple(_analogous_candidate_from_case(case) for case in derived_cases)
-    all_candidates = auto_candidates + tuple(candidates)
-    indexed_candidates: dict[str, AnalogousDefectCandidate] = {}
-    for candidate in all_candidates:
-        if not candidate.candidate_id:
-            findings.append(
-                _scan_finding(
-                    "missing_analogous_scan_candidate_id",
-                    "analogous defect scan candidate has no id",
-                    severity=_scan_severity(candidate.radius),
-                    family_id=candidate.family_id,
-                    member_id=candidate.member_id,
-                    mechanism_id=candidate.mechanism_id,
-                )
-            )
-            continue
-        if candidate.candidate_id in indexed_candidates:
-            existing = indexed_candidates[candidate.candidate_id]
-            if (
-                existing.source == "derived_same_class_bad_case"
-                and candidate.source != "derived_same_class_bad_case"
-            ):
-                indexed_candidates[candidate.candidate_id] = candidate
-                continue
-            findings.append(
-                _scan_finding(
-                    "duplicate_analogous_scan_candidate_id",
-                    "analogous defect scan candidate id is duplicated",
-                    candidate_id=candidate.candidate_id,
-                    severity=_scan_severity(candidate.radius),
-                    family_id=candidate.family_id,
-                    member_id=candidate.member_id,
-                    mechanism_id=candidate.mechanism_id,
-                )
-            )
-            continue
-        indexed_candidates[candidate.candidate_id] = candidate
-
-    for candidate in indexed_candidates.values():
-        severity = _scan_severity(candidate.radius)
-        if candidate.radius not in ANALOGOUS_SCAN_RADII:
-            findings.append(
-                _scan_finding(
-                    "invalid_analogous_scan_radius",
-                    "analogous defect scan candidate has an unknown scan radius",
-                    candidate_id=candidate.candidate_id,
-                    severity="blocker",
-                    family_id=candidate.family_id,
-                    member_id=candidate.member_id,
-                    mechanism_id=candidate.mechanism_id,
-                    metadata={"radius": candidate.radius},
-                )
-            )
-        if candidate.disposition not in ANALOGOUS_SCAN_DISPOSITIONS:
-            findings.append(
-                _scan_finding(
-                    "invalid_analogous_scan_disposition",
-                    "analogous defect scan candidate has an unknown disposition",
-                    candidate_id=candidate.candidate_id,
-                    severity=severity,
-                    family_id=candidate.family_id,
-                    member_id=candidate.member_id,
-                    mechanism_id=candidate.mechanism_id,
-                    metadata={"disposition": candidate.disposition},
-                )
-            )
-            continue
-        if candidate.disposition == ANALOGOUS_DISPOSITION_UNREVIEWED:
-            findings.append(
-                _scan_finding(
-                    "unreviewed_analogous_defect_candidate",
-                    "analogous defect candidate has not been reviewed or dispositioned",
-                    candidate_id=candidate.candidate_id,
-                    severity=severity,
-                    family_id=candidate.family_id,
-                    member_id=candidate.member_id,
-                    mechanism_id=candidate.mechanism_id,
-                )
-            )
-        elif candidate.disposition == ANALOGOUS_DISPOSITION_COVERED_CURRENT:
-            if not candidate.evidence_ids:
-                findings.append(
-                    _scan_finding(
-                        "analogous_scan_coverage_without_evidence",
-                        "candidate is marked covered but no current evidence id is attached",
-                        candidate_id=candidate.candidate_id,
-                        severity=severity,
-                        family_id=candidate.family_id,
-                        member_id=candidate.member_id,
-                        mechanism_id=candidate.mechanism_id,
-                    )
-                )
-        elif candidate.disposition in {
-            ANALOGOUS_DISPOSITION_SEPARATE_CHANGE,
-            ANALOGOUS_DISPOSITION_EXCLUDED_WITH_REASON,
-        }:
-            if not candidate.disposition_reason:
-                findings.append(
-                    _scan_finding(
-                        "analogous_scan_disposition_reason_missing",
-                        "candidate disposition requires a concrete reason",
-                        candidate_id=candidate.candidate_id,
-                        severity=severity,
-                        family_id=candidate.family_id,
-                        member_id=candidate.member_id,
-                        mechanism_id=candidate.mechanism_id,
-                        metadata={"disposition": candidate.disposition},
-                    )
-                )
-            elif candidate.disposition == ANALOGOUS_DISPOSITION_SEPARATE_CHANGE:
-                findings.append(
-                    _scan_finding(
-                        "analogous_scan_candidate_scoped_to_separate_change",
-                        "candidate is dispositioned to a separate change, so the current closure is scoped",
-                        candidate_id=candidate.candidate_id,
-                        severity="warning",
-                        family_id=candidate.family_id,
-                        member_id=candidate.member_id,
-                        mechanism_id=candidate.mechanism_id,
-                        metadata={"disposition": candidate.disposition},
-                    )
-                )
-            elif candidate.radius != ANALOGOUS_SCAN_RADIUS_MUST_SCAN:
-                findings.append(
-                    _scan_finding(
-                        "analogous_scan_candidate_excluded_from_wider_radius",
-                        "wider-radius candidate is excluded with a reason, so the scope remains visible",
-                        candidate_id=candidate.candidate_id,
-                        severity=_scan_severity(candidate.radius),
-                        family_id=candidate.family_id,
-                        member_id=candidate.member_id,
-                        mechanism_id=candidate.mechanism_id,
-                        metadata={"disposition": candidate.disposition},
-                    )
-                )
-        elif candidate.disposition in {
-            ANALOGOUS_DISPOSITION_NEEDS_REPAIR_NOW,
-            ANALOGOUS_DISPOSITION_NEEDS_MODEL_UPGRADE,
-        }:
-            findings.append(
-                _scan_finding(
-                    "analogous_defect_candidate_open_action",
-                    "candidate still requires repair or model upgrade before broad closure",
-                    candidate_id=candidate.candidate_id,
-                    severity=severity,
-                    family_id=candidate.family_id,
-                    member_id=candidate.member_id,
-                    mechanism_id=candidate.mechanism_id,
-                    metadata={"disposition": candidate.disposition},
-                )
-            )
-
-    decision, confidence, ok = _scan_decision_for(findings)
-    return AnalogousDefectScanReport(
-        ok=ok,
-        decision=decision,
-        confidence=confidence,
-        seed=seed,
-        candidates=tuple(indexed_candidates.values()),
-        findings=tuple(findings),
-        derived_bad_cases=derived_cases,
-    )
 
 
 def _decision_for(findings: Sequence[ObligationFamilyParityFinding]) -> tuple[str, str, bool]:
@@ -1419,36 +968,36 @@ def _review_family_inventory(
             )
         )
 
-    if family.similarity_relation_ids:
-        if not family.similarity_provenance_current:
+    if family.relation_ids:
+        if not family.relation_provenance_current:
             findings.append(
                 _finding(
-                    "stale_family_similarity_provenance",
-                    "family similarity provenance is stale",
+                    "stale_family_relation_provenance",
+                    "family canonical relation provenance is stale",
                     family_id=family.family_id,
-                    metadata={"similarity_relation_ids": list(family.similarity_relation_ids)},
+                    metadata={"relation_ids": list(family.relation_ids)},
                 )
             )
-        similarity_scoped = set(family.scoped_similarity_reasons)
-        for item_id, reason in family.scoped_similarity_reasons.items():
+        relation_scoped = set(family.scoped_relation_reasons)
+        for item_id, reason in family.scoped_relation_reasons.items():
             if not reason:
                 findings.append(
                     _finding(
-                        "family_similarity_scoped_reason_missing",
-                        "scoped similarity materialization requires a reason",
+                        "family_relation_scoped_reason_missing",
+                        "scoped canonical relation materialization requires a reason",
                         family_id=family.family_id,
-                        metadata={"similarity_id": item_id},
+                        metadata={"relation_id": item_id},
                     )
                 )
-        for member_id in family.similarity_impacted_member_ids:
-            if member_id not in materialized and member_id not in scoped and member_id not in similarity_scoped:
+        for member_id in family.relation_impacted_member_ids:
+            if member_id not in materialized and member_id not in scoped and member_id not in relation_scoped:
                 findings.append(
                     _finding(
-                        "unmaterialized_family_similarity_member",
-                        "similarity handoff names an impacted member that is not materialized",
+                        "unmaterialized_family_relation_member",
+                        "canonical relation handoff names an impacted member that is not materialized",
                         family_id=family.family_id,
                         member_id=member_id,
-                        metadata={"similarity_relation_ids": list(family.similarity_relation_ids)},
+                        metadata={"relation_ids": list(family.relation_ids)},
                     )
                 )
         materialized_obligations = {
@@ -1456,15 +1005,15 @@ def _review_family_inventory(
             for member in family.members
             for obligation_id in member.obligation_ids
         }
-        for obligation_id in family.similarity_impacted_obligation_ids:
-            if obligation_id not in materialized_obligations and obligation_id not in similarity_scoped:
+        for obligation_id in family.relation_impacted_obligation_ids:
+            if obligation_id not in materialized_obligations and obligation_id not in relation_scoped:
                 findings.append(
                     _finding(
-                        "unmaterialized_family_similarity_obligation",
-                        "similarity handoff names an obligation that is not bound to a family member",
+                        "unmaterialized_family_relation_obligation",
+                        "canonical relation handoff names an obligation that is not bound to a family member",
                         family_id=family.family_id,
                         metadata={
-                            "similarity_relation_ids": list(family.similarity_relation_ids),
+                            "relation_ids": list(family.relation_ids),
                             "obligation_id": obligation_id,
                         },
                     )
@@ -1636,23 +1185,6 @@ def review_obligation_family_parity(
 
 
 __all__ = [
-    "ANALOGOUS_DISPOSITION_COVERED_CURRENT",
-    "ANALOGOUS_DISPOSITION_EXCLUDED_WITH_REASON",
-    "ANALOGOUS_DISPOSITION_NEEDS_MODEL_UPGRADE",
-    "ANALOGOUS_DISPOSITION_NEEDS_REPAIR_NOW",
-    "ANALOGOUS_DISPOSITION_SEPARATE_CHANGE",
-    "ANALOGOUS_DISPOSITION_UNREVIEWED",
-    "ANALOGOUS_SCAN_DECISION_BLOCKED",
-    "ANALOGOUS_SCAN_DECISION_COMPLETE",
-    "ANALOGOUS_SCAN_DECISION_SCOPED",
-    "ANALOGOUS_SCAN_DISPOSITIONS",
-    "ANALOGOUS_SCAN_RADII",
-    "ANALOGOUS_SCAN_RADIUS_MUST_SCAN",
-    "ANALOGOUS_SCAN_RADIUS_RECORD_ONLY",
-    "ANALOGOUS_SCAN_RADIUS_SHOULD_SCAN",
-    "AnalogousDefectCandidate",
-    "AnalogousDefectScanFinding",
-    "AnalogousDefectScanReport",
     "COVERAGE_CELL_COVERED",
     "COVERAGE_CELL_EXEMPT",
     "COVERAGE_CELL_INVALID_PROVENANCE",
@@ -1695,6 +1227,5 @@ __all__ = [
     "ObligationFamilyParityReport",
     "PASSING_FAMILY_EVIDENCE_STATUSES",
     "derive_same_class_bad_cases",
-    "review_analogous_defect_scan",
     "review_obligation_family_parity",
 ]

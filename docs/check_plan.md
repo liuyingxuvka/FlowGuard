@@ -9,8 +9,9 @@ RiskIntent + Workflow + FlowGuardCheckPlan + run_model_first_checks
 For new or deepened FlowGuard models, do not start from a direct finite-engine
 run. Use `FlowGuardCheckPlan` and `run_model_first_checks()` so
 the model must name what it protects, bind the minimum useful model contract,
-prove at least one representative known-bad case is caught, and close template
-reuse/harvest.
+and prove at least one representative known-bad case is caught. Template
+search, no-match review, and harvest are a separate conditional operation, not
+part of this universal entry.
 
 The deterministic finite exploration engine remains underneath that runner. It
 is not the public first-read path for non-trivial model creation.
@@ -37,7 +38,6 @@ risk_profile = RiskProfile(
         adversarial_inputs=("same job repeated", "retry after partial progress"),
         hard_invariants=("one record per job", "one side effect per job"),
         known_bad_cases=("retry_writes_second_record",),
-        used_template_ids=("side_effect_at_most_once",),
         blindspots=("real database isolation is checked by conformance replay"),
     ),
     confidence_goal="model_level",
@@ -65,10 +65,16 @@ heuristics only know the standard classes.
 The `risk_intent` field is the normal place for the Risk Intent Brief. A
 minimum valuable brief explains the failure modes, protected error classes,
 protected harms, state and side effects that must be visible, completion
-evidence, adversarial inputs to simulate, known-bad cases, used public/local
-template ids or a no-match reason, hard invariants, and blindspots. Missing or
-thin risk intent, missing template search/no-match reason, missing completion
-evidence, or missing known-bad cases are pre-modeling gaps.
+evidence, adversarial inputs to simulate, known-bad cases, hard invariants, and
+blindspots. Missing or thin risk intent, missing completion evidence, or
+missing known-bad cases are pre-modeling gaps.
+
+Enter the single strict `risk_template_library` route only when the user
+explicitly requests template reuse/publication or current executable evidence
+identifies a bounded stable pattern intended for use outside the target
+project. That route records exact used ids or a reviewed no-match and closes
+harvest. Ordinary modeling, repair, maintenance, cleanup, and release are not
+blocked when the route is not triggered.
 
 Confidence goals:
 
@@ -114,9 +120,10 @@ plan = FlowGuardCheckPlan(
 
 Route-specific fields still exist for scenarios, contracts, progress config,
 conformance status/report, scenario matrix config, and metadata. The minimum
-model contract, template reuse/no-match review, known-bad proof, and template
-harvest closure are not cosmetic; missing items become blocked or gap sections
-instead of silent pass evidence.
+model contract and known-bad proof are not cosmetic; missing items become
+blocked or gap sections instead of silent pass evidence. Template reuse/no-match
+review and template harvest closure have the same strict status only inside an
+admitted `risk_template_library` operation.
 
 ## run_model_first_checks
 
@@ -145,8 +152,8 @@ For same-class, field/schema, payload, transition, parent/child, or no-delta
 coverage beyond one representative known-bad proof, use ContractExhaustionMesh.
 The owning route declares the finite boundary; `review_contract_exhaustion()`
 creates canonical case ids and expected oracle reactions; MTA/TestMesh/ModelMesh
-and the Risk Evidence Ledger close the evidence. Do not treat hand-written
-analogous examples as exhaustive coverage.
+and the Risk Evidence Ledger close the evidence. Hand-written lookalike
+examples are neither the coverage universe nor proof.
 
 For broad/full coverage claims, also declare a `ContractCoverageUniverse`.
 That universe lists the dimensions, axes, interaction groups, payload
@@ -163,8 +170,9 @@ Every `FlowGuardSummaryReport` also exposes `finding_ledger` and
 output. The ledger flattens model check failures, audit warnings,
 scenario/live-audit gaps, progress findings, contract findings, conformance
 findings, and skipped/not-run sections into one coverage-first list. The
-maintenance obligations turn those non-pass gaps into route-owned memory for
-future `review_maintenance_scan(...)` runs. Use them before FlowGuard or
+maintenance obligations preserve non-pass gaps under their existing owner
+routes; DevelopmentProcessFlow consumes the touched obligations and freshness
+signals directly when deciding what must rerun. Use them before FlowGuard or
 LiveFlowGuard framework upgrades and non-trivial bug/model-miss repairs so the
 next action is chosen deliberately: fix the real system, adjust the check flow,
 extend the model, or record a boundary as out of scope. For in-scope

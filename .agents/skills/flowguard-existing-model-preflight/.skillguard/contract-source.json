@@ -3,7 +3,7 @@
   "checks": [
     {
       "check_id": "check:flowguard-existing-model-preflight:plane-boundary",
-      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_rationale": "The model assertion is the single declared owner for the preflight plane-boundary obligation.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
         "obligation:flowguard-existing-model-preflight:plane-boundary"
@@ -30,11 +30,13 @@
         "-m",
         "pytest",
         "tests/test_existing_model_preflight.py",
+        "tests/test_affected_blueprint_reader.py",
+        "tests/test_understanding_readiness.py",
         "-q"
       ],
       "check_id": "check:flowguard-existing-model-preflight:native-authority",
       "command": "python",
-      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_rationale": "The native command jointly exercises preflight ownership, content-addressed affected reading, and understanding readiness: current index fingerprint, exact object/ancestor closure, no whole-builder affected path, and explicit whole-target qualification scope.",
       "coverage_scope": "declared_obligations",
       "covers_obligation_ids": [
         "obligation:flowguard-existing-model-preflight:native-authority"
@@ -56,6 +58,22 @@
         {
           "kind": "path",
           "path": "tests/test_existing_model_preflight.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/affected_blueprint_reader.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/understanding_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_affected_blueprint_reader.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_understanding_readiness.py"
         },
         {
           "kind": "role",
@@ -101,7 +119,7 @@
       "timeout_seconds": 30
     }
   ],
-  "claim_boundary": "The report proves only current ownership, affected-surface inventory understanding, and current provider-neutral read-only WorkContext attachment plus reuse/route selection; it does not validate provider status, the downstream proposal, runtime path, or implementation.",
+  "claim_boundary": "The report proves only current ownership, a fingerprint-verified affected read with exact objects/ancestors, compact understanding, and current provider-neutral read-only WorkContext attachment plus reuse/route selection. Whole-target qualification requires a separate explicit request; this report does not validate provider status, the downstream proposal, runtime path, or implementation.",
   "closure_profiles": [
     {
       "profile_id": "enforced",
@@ -185,7 +203,11 @@
     "flowguard/existing_model_preflight.py",
     "flowguard/behavior_commitment_lookup.py",
     "flowguard/skill_contract_model.py",
-    "tests/test_existing_model_preflight.py"
+    "flowguard/affected_blueprint_reader.py",
+    "flowguard/understanding_readiness.py",
+    "tests/test_existing_model_preflight.py",
+    "tests/test_affected_blueprint_reader.py",
+    "tests/test_understanding_readiness.py"
   ],
   "integration_mode": "native-integrated",
   "judgment_rubrics": [],
@@ -245,7 +267,7 @@
     {
       "action": {
         "kind": "native",
-        "summary": "Run the existing preflight owner with select-before-materialize, preserve typed related-plane context, and attach exact declared WorkContext adapter/native/artifact/fingerprint identities as non-owning context."
+        "summary": "Run the existing preflight owner with select-before-materialize; verify the affected index fingerprint, exact objects and ancestors, compact understanding without a whole builder, and require an explicit request before whole-target qualification."
       },
       "check_ids": [
         "check:flowguard-existing-model-preflight:native-authority"
