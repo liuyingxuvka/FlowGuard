@@ -1023,6 +1023,16 @@ A supporting implementation binding MAY reference an oracle whose physical sourc
 - **THEN** its typed supporting binding SHALL remain traceable without reporting oracle self-certification
 - **AND** the runner SHALL NOT become an independent behavior block or relax source independence for the owner's direct implementation binding
 
+### Requirement: Aggregate test success does not forge leaf passes
+Model-test alignment SHALL keep aggregate execution success separate from
+leaf-level execution evidence.
+
+#### Scenario: Leaf evidence is absent
+- **WHEN** an aggregate owner passes but an individual behavior block has no
+  current terminal execution receipt
+- **THEN** the behavior block SHALL remain `not_run` or typed-gap
+- **AND** the aggregate pass SHALL not be copied into that leaf
+
 ### Requirement: Test receipts bind to exact behavior blocks and coverage edges
 Model-Test Alignment SHALL bind each declared behavior block and coverage edge to one current code contract, exact test/native member, oracle, execution owner, and terminal receipt, while allowing one receipt to cover several members only through an explicit coverage set.
 

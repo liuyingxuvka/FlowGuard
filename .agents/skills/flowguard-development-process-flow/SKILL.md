@@ -6,19 +6,23 @@ description: Order staged work, freshness, sync, release, and process claims.
 # FlowGuard Development Process Flow
 
 ## Purpose
-Order work, validation, sync, and release; specialists own meaning.
+Order stages, validation, sync, and release.
 
 ## Entrypoint Scope
-Front-door public owner: `public_owner`; development-process simulator: execution_freshness, artifact versions, payload schemas, conditional internal process optimization.
+Public owner: `public_owner`; simulator: execution_freshness, artifact versions,
+payload schemas, and conditional process optimization.
 
 ## Local Material Routing
-Read `references/development_process_flow_protocol.md`; load `references/distribution_release_protocol.md` only when distribution or release is requested.
+Read `references/development_process_flow_protocol.md`; for rough plans,
+multi-skill/tool work, or distribution/release load respectively
+`references/plan_detailing_protocol.md`, `references/agent_workflow_protocol.md`,
+or `references/distribution_release_protocol.md`.
 
 ## Entrypoint Acceptance Map
-Accept stages, versions, owners, evidence; return order and revalidation.
+Accept stages, versions, owners, evidence; return order/revalidation.
 
 ## Use When
-- Use for plans, staged/multi-skill work, artifact/payload versions, or sync/release claims.
+- Use for staged work, artifact versions, sync, and release claims.
 
 ## Do Not Use When
 - Keep specialists; unclear routing goes to `flowguard`.
@@ -41,4 +45,4 @@ Accept stages, versions, owners, evidence; return order and revalidation.
 - Invocation-local reuse is not authority. Never repeat semantics or scan receipts per leaf; missing freshness/reconciliation is `not_run`.
 
 ## Output Requirements
-- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, phases, freshness; edges mean order, invalidation, or required revalidation. Blueprint adds depth/gap. Freeze source/model/install/release; compact/portable views keep static/portable/execution status separate.
+- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, phases, freshness; edges mean order, invalidation, or required revalidation. Freeze source/model/install/release; compact/portable views keep static/portable/execution status separate.

@@ -12,7 +12,9 @@ Classify surfaces/steps: retain, contraction, proven retirement, or unresolved.
 A standalone FlowGuard satellite skill; owner `architecture_reduction`, role `public_owner`. It proves reductions, not implementation.
 
 ## Local Material Routing
-See `references/architecture_reduction_protocol.md` after admission.
+Read `references/architecture_reduction_protocol.md` only for an explicit
+contraction, retirement, or full audit; routine routing uses this compact
+owner contract.
 
 ## Entrypoint Acceptance Map
 Accept DNA, owner/code/test maps, and ModelMaturation provenance; route actions.

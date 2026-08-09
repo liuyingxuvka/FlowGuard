@@ -194,6 +194,11 @@ class SkillPromptParityTests(unittest.TestCase):
                 self.assertIn("preselection", stages)
                 self.assertTrue(all(stage["enforced"] for stage in stages.values()))
                 self.assertTrue(all(stage["ok"] for stage in stages.values()))
+                persistent = bundle["persistent_context"]
+                self.assertEqual("persistent_context", persistent["stage"])
+                self.assertTrue(persistent["enforced"])
+                self.assertTrue(persistent["ok"])
+                self.assertGreaterEqual(persistent["headroom_ratio"], 0.10)
 
 
 if __name__ == "__main__":

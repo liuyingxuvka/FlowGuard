@@ -319,6 +319,24 @@ python -m flowguard flowguard-self-blueprint-check `
   --json
 ```
 
+When the current self-model is ready to be exchanged as a portable DNA
+projection, export it through the same canonical project bundle used by the
+self-audit. The command refuses to write when the observed model or source
+inventory is stale, and it writes only the provider-neutral bundle; it does
+not reconstruct code, run a target, or create a second model authority:
+
+```powershell
+python -m flowguard flowguard-self-blueprint-portable-export `
+  --root . `
+  --output docs/blueprints/flowguard-self-portable.json `
+  --json
+```
+
+Verify a copied self bundle in an isolated directory with the
+`portable-blueprint-verify` command shown above, replacing its bundle path with
+`docs/blueprints/flowguard-self-portable.json`. This release check reads only
+the copied envelope and reports its fingerprint and structural claim boundary.
+
 The checked-in self-blueprint definition keeps authored behavior semantics
 separate from mechanical source identities. Check those identities without
 writing by default; only an explicit author-maintenance step may refresh them:

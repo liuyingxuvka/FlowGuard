@@ -41,3 +41,19 @@ The system SHALL report `static-ready`, `exported-portable`, or an explicit non-
 #### Scenario: Portable bundle verifies
 - **WHEN** a bundle has current identity, complete shards, and successful isolated verification
 - **THEN** the result SHALL report `exported-portable` in addition to the underlying static status
+
+### Requirement: Current self DNA can be exchanged
+FlowGuard SHALL be able to materialize one current self portable-blueprint
+bundle from the same current source/model/code/test evidence used by its
+canonical self blueprint.
+
+#### Scenario: Self bundle is exported
+- **WHEN** the current self blueprint is canonically export-ready
+- **THEN** one content-addressed portable bundle SHALL be written atomically
+- **AND** the bundle SHALL preserve static, portable-integrity, and execution
+  status as separate fields
+
+#### Scenario: Self bundle is checked in isolation
+- **WHEN** the exported self bundle is copied to an empty directory
+- **THEN** the portable verifier SHALL validate it without loading source,
+  providers, tests, fallback readers, or reconstruction logic

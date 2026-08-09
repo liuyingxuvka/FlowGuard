@@ -1194,3 +1194,16 @@ The ordinary FlowGuard development and release process SHALL not execute or requ
 - **WHEN** a target is being modeled, changed, audited, or released without an explicit reconstruction qualification request
 - **THEN** the process SHALL use the portable blueprint and affected validation routes only
 - **AND** it SHALL not start a reconstruction branch
+
+### Requirement: Internal process modes have exact route edges
+DevelopmentProcessFlow SHALL expose exact conditional reference edges for its
+plan-detailing and agent-workflow internal modes.
+
+#### Scenario: Rough plan needs detailing
+- **WHEN** a rough or underspecified plan requires structured rows
+- **THEN** the plan-detailing protocol SHALL be the named on-demand owner
+
+#### Scenario: Multi-skill operation needs rehearsal
+- **WHEN** a multi-skill, tool, plugin, or external-side-effect operation needs
+  workflow rehearsal
+- **THEN** the agent-workflow protocol SHALL be the named on-demand owner

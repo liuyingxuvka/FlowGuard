@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.68.9 - 2026-08-09
+
+- Added a direct, current-model-gated export of FlowGuard's own portable DNA
+  bundle. It reuses the canonical project blueprint already built by the
+  self-audit path, writes one provider-neutral envelope, and leaves
+  reconstruction, source execution, and test execution outside the export.
+- Added persistent prompt-context accounting so route reports measure the
+  context that is always loaded separately from detail that is only triggered
+  when needed. Tightened ArchitectureReduction and DevelopmentProcessFlow
+  routing so large protocol material is loaded only for its declared branch.
+- Kept model authority direct-current: source changes must pass the native
+  model-revision chain before a portable self-bundle can be written.
+
 ## v0.68.8 - 2026-08-08
 
 - Added a provider-neutral portable blueprint envelope over the existing

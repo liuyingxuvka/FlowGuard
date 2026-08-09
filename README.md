@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.68.8` | `1.0` | Python standard library only | MIT |
+| `v0.68.9` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -52,7 +52,7 @@ only affected owners and evidence, while its whole-target view connects those
 same current identities inside the declared model-system boundary. See
 [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md).
 
-The v0.68.8 candidate self-model contains an exact inventory of 51 current
+The v0.68.9 candidate self-model contains an exact inventory of 51 current
 owners. Fourteen historical, task-local, or completed construction routes were removed from current
 authority after their still-useful protections were reattached: Model Angle
 Deliberation, Maintenance Scan Router, standalone Model Similarity

@@ -115,6 +115,7 @@ class PromptBundleMetric:
     conditional_edges: tuple[PromptReferenceEdge, ...] = ()
     missing_paths: tuple[str, ...] = ()
     stages: tuple[PromptStageMetric, ...] = ()
+    persistent_context: PromptStageMetric | None = None
 
     @property
     def utf8_bytes(self) -> int:
@@ -150,6 +151,8 @@ class PromptBundleMetric:
     def ok(self) -> bool:
         return not self.missing_paths and self.headroom_ok and all(
             stage.ok for stage in self.stages
+        ) and (
+            self.persistent_context is None or self.persistent_context.ok
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -173,6 +176,11 @@ class PromptBundleMetric:
             "headroom_ok": self.headroom_ok,
             "conditional_edges": [edge.to_dict() for edge in self.conditional_edges],
             "stages": [stage.to_dict() for stage in self.stages],
+            "persistent_context": (
+                self.persistent_context.to_dict()
+                if self.persistent_context is not None
+                else None
+            ),
             "missing_paths": list(self.missing_paths),
             "components": [item.to_dict() for item in self.components],
         }
@@ -358,6 +366,37 @@ def review_prompt_bundles(
                     enforced=stage in stage_budgets,
                 )
             )
+        persistent_paths = set().union(
+            *(stage_paths.get(stage, set()) for stage in (
+                "catalog",
+                "preselection",
+                "admitted_core",
+            ))
+        )
+        persistent_components: list[PromptComponentMetric] = []
+        for relative_path in sorted(persistent_paths):
+            candidate = (root_path / relative_path).resolve()
+            if not candidate.is_file():
+                continue
+            text = candidate.read_text(encoding="utf-8")
+            persistent_components.append(
+                PromptComponentMetric(
+                    relative_path,
+                    len(text.encode("utf-8")),
+                    len(text),
+                    len(text.splitlines()),
+                )
+            )
+        persistent_budget = int(row.get("persistent_context_max_utf8_bytes", 0) or 0)
+        persistent_context = PromptStageMetric(
+            stage="persistent_context",
+            components=tuple(persistent_components),
+            max_utf8_bytes=persistent_budget,
+            min_headroom_ratio=float(
+                row.get("persistent_context_min_headroom_ratio", row.get("min_headroom_ratio", 0.10))
+            ),
+            enforced=persistent_budget > 0,
+        )
         metrics.append(
             PromptBundleMetric(
                 route_id,
@@ -367,6 +406,7 @@ def review_prompt_bundles(
                 conditional_edges,
                 tuple(missing),
                 tuple(stage_metrics),
+                persistent_context,
             )
         )
     ok = bool(metrics) and all(item.ok for item in metrics)

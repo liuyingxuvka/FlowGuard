@@ -1975,6 +1975,106 @@ def _run_flowguard_self_blueprint_check_command(args: argparse.Namespace) -> int
     )
 
 
+def _run_flowguard_self_blueprint_portable_export_command(
+    args: argparse.Namespace,
+) -> int:
+    """Materialize the current self blueprint through the canonical exporter."""
+
+    from .implementation_blueprint import (
+        BlueprintValidationError,
+        project_canonical_software_blueprint,
+    )
+    from .portable_blueprint import (
+        PortableBlueprintBundleError,
+        build_portable_blueprint_bundle,
+        compact_portable_blueprint_projection,
+        load_portable_blueprint_bundle,
+        verify_portable_blueprint_bundle,
+        write_portable_blueprint_bundle,
+    )
+    from .self_blueprint import FlowGuardSelfBlueprintError, build_flowguard_self_blueprint
+
+    try:
+        self_bundle = build_flowguard_self_blueprint(args.root)
+        project_bundle = self_bundle.project_bundle
+        if project_bundle is None:
+            raise FlowGuardSelfBlueprintError(
+                "self-blueprint does not retain its canonical project bundle"
+            )
+        if not project_bundle.canonical_export_ready:
+            _emit_payload(
+                {
+                    "status": "blocked",
+                    "canonical_export_ready": False,
+                    "canonical_export_blockers": list(
+                        project_bundle.canonical_export_blockers
+                    ),
+                    "claim_boundary": (
+                        "Self portable export requires the current canonical "
+                        "project-blueprint layers; no fallback projection is used."
+                    ),
+                },
+                as_json=args.json,
+            )
+            return 1
+        projection = project_canonical_software_blueprint(project_bundle)
+        target = project_bundle.target_system_report
+        portable = build_portable_blueprint_bundle(
+            projection,
+            subject_revision=(
+                target.descriptor.subject_revision if target is not None else ""
+            ),
+            target_profile=(target.target_profile if target is not None else ""),
+            static_status=(
+                project_bundle.static_readiness.status
+                if project_bundle.static_readiness is not None
+                else "unknown"
+            ),
+            execution_status=(
+                project_bundle.model_test_alignment_report.executed_evidence_status
+                if project_bundle.model_test_alignment_report is not None
+                else "not_run"
+            ),
+        )
+        write_portable_blueprint_bundle(portable, args.output)
+        reloaded = load_portable_blueprint_bundle(args.output)
+        verification = verify_portable_blueprint_bundle(reloaded)
+        if not verification.ok:
+            raise PortableBlueprintBundleError("; ".join(verification.findings))
+    except (
+        BlueprintValidationError,
+        FlowGuardSelfBlueprintError,
+        PortableBlueprintBundleError,
+        OSError,
+        ValueError,
+    ) as exc:
+        _emit_payload(
+            _blueprint_error_payload("flowguard_self_portable_export_failed", exc),
+            as_json=args.json,
+        )
+        return 2
+    payload = (
+        compact_portable_blueprint_projection(reloaded)
+        if args.compact
+        else verification.to_dict()
+    )
+    _emit_payload(
+        {
+            **payload,
+            "materialization_status": "complete",
+            "output": str(Path(args.output).resolve()),
+            "self_blueprint_fingerprint": self_bundle.manifest.fingerprint,
+            "claim_boundary": (
+                "This is the current FlowGuard self portable DNA projection. "
+                "It proves portable integrity only; it does not run source, "
+                "providers, tests, fallback readers, or reconstruction."
+            ),
+        },
+        as_json=args.json,
+    )
+    return 0
+
+
 def _run_flowguard_self_architecture_reduction_command(
     args: argparse.Namespace,
 ) -> int:
@@ -2884,6 +2984,23 @@ def _add_implementation_blueprint_parsers(
     )
     self_check.add_argument("--json", action="store_true")
     self_check.set_defaults(handler=_run_flowguard_self_blueprint_check_command)
+
+    self_portable_export = subparsers.add_parser(
+        "flowguard-self-blueprint-portable-export",
+        help=(
+            "Materialize FlowGuard's current self blueprint as one portable "
+            "integrity-checked DNA bundle."
+        ),
+    )
+    self_portable_export.add_argument(
+        "--root", default=".", help="FlowGuard repository root."
+    )
+    self_portable_export.add_argument("--output", required=True)
+    self_portable_export.add_argument("--compact", action="store_true")
+    self_portable_export.add_argument("--json", action="store_true")
+    self_portable_export.set_defaults(
+        handler=_run_flowguard_self_blueprint_portable_export_command
+    )
 
     self_reduction = subparsers.add_parser(
         "flowguard-self-architecture-reduction-review",

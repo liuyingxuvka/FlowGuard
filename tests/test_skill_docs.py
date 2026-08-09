@@ -111,6 +111,11 @@ class SkillDocsTests(unittest.TestCase):
                     (bundle["utf8_bytes"] + 2) // 3,
                     bundle["source_size_token_proxy"],
                 )
+                persistent = bundle["persistent_context"]
+                self.assertEqual("persistent_context", persistent["stage"])
+                self.assertTrue(persistent["enforced"])
+                self.assertTrue(persistent["ok"])
+                self.assertGreaterEqual(persistent["headroom_ratio"], 0.10)
                 if bundle["route_id"] in SATELLITE_SKILLS:
                     protocol_path = (
                         f".agents/skills/{bundle['route_id']}/references/"
@@ -642,6 +647,8 @@ class SkillDocsTests(unittest.TestCase):
             },
             "flowguard-development-process-flow": {
                 ".agents/skills/flowguard-development-process-flow/references/distribution_release_protocol.md",
+                ".agents/skills/flowguard-development-process-flow/references/plan_detailing_protocol.md",
+                ".agents/skills/flowguard-development-process-flow/references/agent_workflow_protocol.md",
             },
         }
         for route_id, paths in expected.items():

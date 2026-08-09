@@ -43,6 +43,7 @@ def test_blueprint_document_names_current_whole_affected_and_project_cli_entries
         "python -m flowguard affected-blueprint-understanding",
         "python -m flowguard project-blueprint-audit",
         "python -m flowguard flowguard-self-blueprint-check",
+        "python -m flowguard flowguard-self-blueprint-portable-export",
         "python -m flowguard project-blueprint-candidate",
         "python -m flowguard flowguard-self-architecture-reduction-review",
         "python -m flowguard implementation-inventory-audit",

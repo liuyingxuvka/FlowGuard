@@ -65,10 +65,12 @@
 
 - [x] 7.1 Keep the full-validation graph on explicit evidence dependencies
   only; unrelated owners must remain reusable and independently schedulable.
-- [ ] 7.2 Run affected focused checks once, then one foreground frozen-parent
+- [x] 7.2 Run affected focused checks once, then one foreground frozen-parent
   full validation; do not use a second parent, unattended resume, or hidden
-  background validation owner.
-- [ ] 7.3 Synchronize the local installation and consumer projection only
+  background validation owner. The historical v0.68.8 closure used more than
+  one parent; v0.68.9 closes this exception with one foreground parent and
+  result fingerprint `sha256:4316a5b7028bd64cd37974baf7b951e0c8194cde0ffa3f7e84f098e9818eee31`.
+- [x] 7.3 Synchronize the local installation and consumer projection only
   after source, model, and validation identities are frozen.
-- [ ] 7.4 Verify version 0.68.8, commit/tag/release identity, and publish the
+- [x] 7.4 Verify version 0.68.8, commit/tag/release identity, and publish the
   final GitHub release only after all required evidence is terminal-success.

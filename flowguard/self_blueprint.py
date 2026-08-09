@@ -410,6 +410,10 @@ class FlowGuardSelfBlueprintBundle:
     normalized_shared_objects: tuple[tuple[str, Any], ...]
     normalized_shards: tuple[tuple[str, Any], ...] = ()
     build_input_identity: SelfBlueprintBuildInputIdentity | None = None
+    # Keep the exact project bundle used to build this self view so the
+    # existing canonical portable exporter can materialize one current self
+    # DNA without rebuilding a second, weaker projection.
+    project_bundle: Any | None = None
 
     @cached_property
     def readiness_ledger(self) -> BlueprintReadinessLedger:
@@ -3510,6 +3514,7 @@ def build_flowguard_self_blueprint(
         normalized_shared_objects=bundle.normalized_shared_objects,
         normalized_shards=bundle.normalized_shards,
         build_input_identity=build_input_identity,
+        project_bundle=bundle,
     )
 
 

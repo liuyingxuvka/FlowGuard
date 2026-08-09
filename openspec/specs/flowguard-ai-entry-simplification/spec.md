@@ -559,3 +559,15 @@ a standalone similarity route, maintenance group, or completion gate.
   without an exact current canonical relation
 - **THEN** AI entry guidance MUST keep the ownership or relation gap visible
 - **AND** it MUST NOT invoke a free-form similarity search as a replacement
+
+### Requirement: Persistent prompt context is measured separately
+Prompt review SHALL report the unique catalog, preselection, and admitted-core
+source context as a persistent-context metric, with an explicit route budget
+when configured. Triggered detail SHALL not be counted as ordinary persistent
+context.
+
+#### Scenario: High-cost detail is on demand
+- **WHEN** a route has a large detail protocol that is needed only for a named
+  contraction, retirement, release, or other explicit trigger
+- **THEN** the detail SHALL be reported as triggered expansion
+- **AND** the ordinary route SHALL remain within its persistent-context budget
