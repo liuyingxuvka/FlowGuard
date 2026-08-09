@@ -41,5 +41,3 @@ Accept a current topology digest, usage intent, and evidence boundary; promote o
 ## Output Requirements
 - Return anchored candidates, confidence effects, `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`.
 
-
-<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

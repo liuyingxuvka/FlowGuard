@@ -1,0 +1,648 @@
+{
+  "artifact_paths": [
+    "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\result.json",
+    "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\owner-plan.json"
+  ],
+  "blockers": [],
+  "broad_success": true,
+  "children": [
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\a1d5a89ba8864b86380d5b1f340c821c47d6d5aaaa22abdf8d800dacf174976c.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\01-project_audit\\result.json"
+      ],
+      "child_id": "project_audit",
+      "claim_boundary": "Project adoption evidence covers the generated AGENTS policy, version records, and canonical skill-suite reconciliation. It does not replace current executable model checks, tests, replay, UI click-through, release, or business-path evidence.",
+      "payload": {
+        "command": [
+          "C:\\Users\\liu_y\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\python.exe",
+          "-m",
+          "flowguard",
+          "project-audit",
+          "--root",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427",
+          "--json"
+        ],
+        "execution_disposition": "execute",
+        "exit_code": 0,
+        "launch_error": "",
+        "owner_receipt_fingerprint": "sha256:dc554b9a735c4db71f3c2d58936071ec098eae7005df65702ec15e5bbd6a96b3",
+        "payload_keys": [
+          "action",
+          "after",
+          "artifact_type",
+          "artifact_upgrade_report",
+          "before",
+          "blockers",
+          "canonical_status",
+          "checks",
+          "claim_boundary",
+          "dry_run",
+          "findings",
+          "installed_package_version",
+          "inventory_hash",
+          "managed_block_semantic_hash",
+          "manifest_package_version",
+          "manifest_schema_version",
+          "minimum_revalidation",
+          "missing_rule_ids",
+          "mode",
+          "observed_rule_ids",
+          "ok",
+          "proposed_files",
+          "proposed_managed_block_semantic_hash",
+          "rendered_package_version",
+          "rendered_schema_version",
+          "repository",
+          "required_revalidation",
+          "required_rule_ids",
+          "root",
+          "schema_version",
+          "semantic_rule_changes",
+          "skipped_steps",
+          "status",
+          "suite",
+          "suite_findings",
+          "suite_ok",
+          "suite_semantic_hash",
+          "suite_status",
+          "versions",
+          "written_files"
+        ],
+        "payload_sha256": "sha256:a35d5cca8dfaa3d51c26d8a7800afd7dbb7a5799eb66bbe16f13995e2ed506ac"
+      },
+      "receipt_id": "receipt:validation-owner:project_audit:707c30a05135e4aa3fa7674b19e8b5e0",
+      "status": "pass",
+      "summary": "Project adoption evidence covers the generated AGENTS policy, version records, and canonical skill-suite reconciliation. It does not replace current executable model checks, tests, replay, UI click-through, release, or business-path evidence."
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\6e55509efbe1ea42b09657def91d029eacc31e768429377967c306a345b6935d.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\02-skill_suite_static\\result.json"
+      ],
+      "child_id": "skill_suite_static",
+      "claim_boundary": "Pass certifies current prompt and target-declared contract structure for 15 members only; native receipt and parent self-governance gates remain separate.",
+      "payload": {
+        "command": [
+          "C:\\Users\\liu_y\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\python.exe",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\scripts\\check_flowguard_skill_suite.py",
+          "--scope",
+          "static",
+          "--root",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427",
+          "--skillguard",
+          "C:\\Users\\liu_y\\.codex\\skills\\skillguard\\scripts\\skillguard.py",
+          "--output-dir",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\static-suite",
+          "--authority-kind",
+          "child",
+          "--parent-scope",
+          "full-validation",
+          "--json"
+        ],
+        "execution_disposition": "execute",
+        "exit_code": 0,
+        "launch_error": "",
+        "owner_receipt_fingerprint": "sha256:1c43d5dcb7f3ca65f8c6925728c8431f05ed885d1a02bcf9d0d44dcef930234c",
+        "payload_keys": [
+          "blockers",
+          "claim_boundary",
+          "command",
+          "counts",
+          "failed_member_ids",
+          "ok",
+          "result_path",
+          "result_sha256",
+          "run_id",
+          "schema_version",
+          "scope",
+          "skipped_checks",
+          "status"
+        ],
+        "payload_sha256": "sha256:2ceeec19344f35d35c106c3faacdf7d3a581b32a5f7b9a5e749b0b4df689e1f5"
+      },
+      "receipt_id": "receipt:validation-owner:skill_suite_static:800effac72c582f85bd7d8d350ca6763",
+      "status": "pass",
+      "summary": "Pass certifies current prompt and target-declared contract structure for 15 members only; native receipt and parent self-governance gates remain separate."
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\9a6c53dbd4a9a4596e2efd9c85bc9f377a5a546d984b7df198b855cbf150df6d.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\0dc70029d72f17b8fb04bb9086332eb7e3afbebea97579499a6ad1d37c9eb70c.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\03-skill_native_checks\\result.json"
+      ],
+      "child_id": "skill_native_checks",
+      "claim_boundary": "Child receipts prove only each declared owner-specific native binding and its current contract inputs; the parent self-governance command must independently reload and consume all fifteen.",
+      "payload": {
+        "command": [
+          "C:\\Users\\liu_y\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\python.exe",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\scripts\\run_flowguard_skill_native_checks.py",
+          "--root",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427",
+          "--output-dir",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\skill-native-receipts",
+          "--resume",
+          "--json"
+        ],
+        "execution_disposition": "execute",
+        "exit_code": 0,
+        "launch_error": "",
+        "owner_receipt_fingerprint": "sha256:e905e8a04e83e4586a5b2933259558625c62ac494c1280cdd5b7549dd5bc9a77",
+        "payload_keys": [
+          "artifact_type",
+          "claim_boundary",
+          "executed_members",
+          "ok",
+          "passed_members",
+          "requested_members",
+          "results",
+          "reused_members",
+          "status",
+          "total_members"
+        ],
+        "payload_sha256": "sha256:efdb26c262f4ce1a1288dd54b85fd659e70a6afa10397673c24c1cf9d22d0548"
+      },
+      "receipt_id": "receipt:validation-owner:skill_native_checks:7501403b5f1812412c576931737b36f8",
+      "status": "pass",
+      "summary": "Child receipts prove only each declared owner-specific native binding and its current contract inputs; the parent self-governance command must independently reload and consume all fifteen."
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\6b95f26504383fe28c2b5ac8a30de2ae25fd775851beecedb657d78309b6b803.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\04-skill_self_governance\\result.json"
+      ],
+      "child_id": "skill_self_governance",
+      "claim_boundary": "A full result proves only the exact fifteen receipt-bound skill contracts in the current repository; release, installation, distribution, or future agent behavior need their own current evidence.",
+      "payload": {
+        "command": [
+          "C:\\Users\\liu_y\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\python.exe",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\scripts\\check_flowguard_self_governance.py",
+          "--root",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427",
+          "--output-directory",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\skill-native-receipts",
+          "--json"
+        ],
+        "execution_disposition": "execute",
+        "exit_code": 0,
+        "launch_error": "",
+        "owner_receipt_fingerprint": "sha256:ced131c418fdd4ff35ad6ac5f4761a121c790c8a1be6a0ce8337fb40c5952570",
+        "payload_keys": [
+          "artifact_type",
+          "blockers",
+          "child_reports",
+          "child_verification_results",
+          "claim_boundary",
+          "layers",
+          "minimum_revalidation",
+          "ok",
+          "required_child_count",
+          "requirements",
+          "residual_risk",
+          "self_governance_receipt",
+          "self_governance_receipt_hash",
+          "skipped_checks",
+          "status",
+          "typed_downstream"
+        ],
+        "payload_sha256": "sha256:774f9c2690696a5329aa98a3e1d09d43015011b2aae90a220f326cc79759097e"
+      },
+      "receipt_id": "receipt:validation-owner:skill_self_governance:7a4dfe273047fd335a69bf34a4b7d1c2",
+      "status": "pass",
+      "summary": "A full result proves only the exact fifteen receipt-bound skill contracts in the current repository; release, installation, distribution, or future agent behavior need their own current evidence."
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\3ba3ca1799825b3f5e9a9817d8529aa2d32bb3e8f3f208fb088332529005b030.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\05-model_regressions_full\\result.json"
+      ],
+      "child_id": "model_regressions_full",
+      "claim_boundary": "Full-tier success covers every required-public model and every available optional-local model registered in the current manifest.",
+      "payload": {
+        "command": [
+          "C:\\Users\\liu_y\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\python.exe",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\scripts\\run_flowguard_model_regressions.py",
+          "--root",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427",
+          "--tier",
+          "full",
+          "--jobs",
+          "4",
+          "--output-dir",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\model-regressions",
+          "--json",
+          "--timeout",
+          "900.0"
+        ],
+        "execution_disposition": "execute",
+        "exit_code": 0,
+        "launch_error": "",
+        "owner_receipt_fingerprint": "sha256:fe862fdf2d09c6a775caf2718921c6b2cc938d4347c2bca5e9199a9497919f2d",
+        "payload_keys": [
+          "blocked_child_ids",
+          "blockers",
+          "broad_success",
+          "claim_boundary",
+          "command",
+          "counts",
+          "exit_code",
+          "failed_child_ids",
+          "failures",
+          "non_pass_child_ids",
+          "ok",
+          "result_path",
+          "result_sha256",
+          "run_id",
+          "schema_version",
+          "scope",
+          "skipped_check_ids",
+          "status",
+          "tier"
+        ],
+        "payload_sha256": "sha256:f8a93c903485ab6c437e2fdb22ef2330b6ffeca9df761474d6dc9c04ec08d701"
+      },
+      "receipt_id": "receipt:validation-owner:model_regressions_full:fd1bad370d617e20b449dbc48f499c76",
+      "status": "pass",
+      "summary": "Full-tier success covers every required-public model and every available optional-local model registered in the current manifest."
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\624c4e6f7ef8666fb7c11ed22cb5acd29c751ae5c574a8ac38ba4258778eccbd.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\06-self_maintenance_review\\result.json"
+      ],
+      "child_id": "self_maintenance_review",
+      "claim_boundary": "Bounded self-qualification status from one already-built self blueprint; no complete bundle or child report is serialized.",
+      "payload": {
+        "command": [
+          "C:\\Users\\liu_y\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\python.exe",
+          "-m",
+          "flowguard",
+          "flowguard-self-blueprint-check",
+          "--root",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427",
+          "--include-architecture-reduction",
+          "--require-cleanup-release-ready",
+          "--compact",
+          "--json"
+        ],
+        "execution_disposition": "execute",
+        "exit_code": 0,
+        "launch_error": "",
+        "owner_receipt_fingerprint": "sha256:6a06f2db57daa2964da748e7cb8c8913a46a513511f9ba9c098c3bda5da29512",
+        "payload_keys": [
+          "architecture_reduction_review",
+          "behavior_report_fingerprint",
+          "blocking_finding_counts",
+          "blocking_finding_examples",
+          "claim_boundary",
+          "cleanup_release_ready_gate",
+          "cleanup_release_ready_required",
+          "composed_claim_boundary",
+          "composed_self_maintenance_review",
+          "counts",
+          "deepest_proven_layer",
+          "execution_gap_counts",
+          "execution_gap_examples",
+          "fingerprint",
+          "first_gap",
+          "gap_count",
+          "implementation_admitted",
+          "implementation_inventory_fingerprint",
+          "intent_inventory_complete",
+          "intent_inventory_fingerprint",
+          "ok",
+          "omitted_blocking_finding_kind_count",
+          "omitted_execution_gap_kind_count",
+          "projection_kind",
+          "resource_inventory_complete",
+          "resource_inventory_fingerprint",
+          "schema_version",
+          "self_blueprint_fingerprint",
+          "static_readiness_status",
+          "target_blueprint_fingerprint",
+          "target_status",
+          "test_inventory_fingerprint"
+        ],
+        "payload_sha256": "sha256:3d961d93f2dac9879ae463a704dfbbde40db4a3d13133359a763571764a77313"
+      },
+      "receipt_id": "receipt:validation-owner:self_maintenance_review:2b99c17c218f16f0160b8a591557f455",
+      "status": "pass",
+      "summary": "Bounded self-qualification status from one already-built self blueprint; no complete bundle or child report is serialized."
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\8a718c3346ca1b71a018c3b2b9d8d8af2a7d77e5d90c12dcc9269ad1cc8ef0d5.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\07-pytest\\result.json"
+      ],
+      "child_id": "pytest",
+      "claim_boundary": "Current child command and retained artifacts only.",
+      "payload": {
+        "command": [
+          "C:\\Users\\liu_y\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\python.exe",
+          "-m",
+          "pytest"
+        ],
+        "execution_disposition": "execute",
+        "exit_code": 0,
+        "launch_error": "",
+        "owner_receipt_fingerprint": "sha256:d58b169f7a61337d6d88bfca8b2ce538899e07345b3874fe695b26742236bded",
+        "payload_keys": [],
+        "payload_sha256": "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+      },
+      "receipt_id": "receipt:validation-owner:pytest:4cc2c9c8b19999e9059b913fe9e8eb37",
+      "status": "pass",
+      "summary": "pytest exited 0 with status pass"
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\8efde4ff5769c5436f50716382be424ddda9a4901b05dc5c8fe495b9df060962.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\5bc31df123a2e521acdd2c0d9477b367feec506471a91065d0a6b32c09089ed5.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\08-openspec_strict\\result.json"
+      ],
+      "child_id": "openspec_strict",
+      "claim_boundary": "Current child command and retained artifacts only.",
+      "payload": {
+        "command": [
+          "C:\\\\Users\\\\liu_y\\\\AppData\\\\Roaming\\\\npm\\openspec.CMD",
+          "validate",
+          "--all",
+          "--strict"
+        ],
+        "execution_disposition": "execute",
+        "exit_code": 0,
+        "launch_error": "",
+        "owner_receipt_fingerprint": "sha256:91ccc9860fb12aead00b47d8080a1259951524c0ba61cf40c80bc372c929e4c5",
+        "payload_keys": [],
+        "payload_sha256": "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+      },
+      "receipt_id": "receipt:validation-owner:openspec_strict:9b681ac9056df648504b7d533e3d824d",
+      "status": "pass",
+      "summary": "openspec_strict exited 0 with status pass"
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\1904095c820a8922d67e329f6d31e968c3a0e5178e222fe6296074c975823622.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\09-distribution_check\\result.json"
+      ],
+      "child_id": "distribution_check",
+      "claim_boundary": "Only manifest-owned files whose installed raw hash is unchanged may be removed automatically.",
+      "payload": {
+        "command": [
+          "C:\\Users\\liu_y\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\python.exe",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\scripts\\install_flowguard_skills.py",
+          "check",
+          "--source",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.agents\\skills",
+          "--target",
+          "C:\\Users\\liu_y\\skills",
+          "--json"
+        ],
+        "execution_disposition": "execute",
+        "exit_code": 0,
+        "launch_error": "",
+        "owner_receipt_fingerprint": "sha256:ff4031b149f0a21d5b02c4d81f519a90918d46ec23ef05e0b1ba69e050f8cb05",
+        "payload_keys": [
+          "action",
+          "adopted_files",
+          "artifact_type",
+          "authority_hash",
+          "authority_member_ids",
+          "authority_raw_tree_hash",
+          "authority_semantic_tree_hash",
+          "claim_boundary",
+          "conflict_files",
+          "copied_files",
+          "dry_run",
+          "excluded_files",
+          "extra_files",
+          "findings",
+          "ok",
+          "ownership_manifest",
+          "parity",
+          "preserved_paths",
+          "previous_projection_role",
+          "projection_role",
+          "removed_files",
+          "schema_version",
+          "source",
+          "status",
+          "target",
+          "transaction_status",
+          "unchanged_files"
+        ],
+        "payload_sha256": "sha256:8d1d6bd2238f9f938b8696db0dbb0e03e93606160d72dcfbab0f1686eb69931d"
+      },
+      "receipt_id": "receipt:validation-owner:distribution_check:13adb122dc7d7f4022b4ba54b64d243c",
+      "status": "pass",
+      "summary": "Only manifest-owned files whose installed raw hash is unchanged may be removed automatically."
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\6a419be57cb11d5818a46e1606391d7f11e825e7ab2d307c0e97c5c8bf0044e8.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\10-distribution_parity\\result.json"
+      ],
+      "child_id": "distribution_parity",
+      "claim_boundary": "Author roots are compared to the canonical author projection and consumer roots to the generated clean consumer projection; roles are explicit and never inferred.",
+      "payload": {
+        "command": [
+          "C:\\Users\\liu_y\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\\python.exe",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\scripts\\install_flowguard_skills.py",
+          "parity",
+          "--source",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427",
+          "--formal",
+          "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.agents\\skills",
+          "--installed",
+          "C:\\Users\\liu_y\\skills",
+          "--json",
+          "--shadow",
+          "C:\\Users\\liu_y\\Documents\\FlowGuardAuthorShadow_20260427\\.agents\\skills"
+        ],
+        "execution_disposition": "execute",
+        "exit_code": 0,
+        "launch_error": "",
+        "owner_receipt_fingerprint": "sha256:58f39dd3e29a9c8e1a9830d6e023a60832de612d05f908ba40f9b1173f1ca277",
+        "payload_keys": [
+          "action",
+          "artifact_type",
+          "claim_boundary",
+          "comparisons",
+          "inventories",
+          "ok",
+          "reference_name",
+          "root_roles",
+          "schema_version"
+        ],
+        "payload_sha256": "sha256:7aea2f09869d46736c0592fb5030f51ae6313ac695772e4937615089e1198701"
+      },
+      "receipt_id": "receipt:validation-owner:distribution_parity:9b9e800e4e2fcdc5ce9df8aaaee29730",
+      "status": "pass",
+      "summary": "Author roots are compared to the canonical author projection and consumer roots to the generated clean consumer projection; roles are explicit and never inferred."
+    }
+  ],
+  "claim_boundary": "Full pass requires exact pass from project adoption, all 15 static/deep skill contracts, receipt-bound self-governance, manifest full models, pytest, strict OpenSpec, and complete formal/shadow/installed distribution checks for one frozen owner plan; exact-current prior receipts may be reused.",
+  "command": "check-flowguard-skill-suite",
+  "counts": {
+    "blocked": 0,
+    "executed": 10,
+    "passed": 10,
+    "required": 10,
+    "reused": 0,
+    "total": 10
+  },
+  "evidence": [
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\a1d5a89ba8864b86380d5b1f340c821c47d6d5aaaa22abdf8d800dacf174976c.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\01-project_audit\\result.json"
+      ],
+      "child_id": "project_audit",
+      "execution_disposition": "execute",
+      "receipt_fingerprint": "sha256:dc554b9a735c4db71f3c2d58936071ec098eae7005df65702ec15e5bbd6a96b3",
+      "receipt_id": "receipt:validation-owner:project_audit:707c30a05135e4aa3fa7674b19e8b5e0",
+      "status": "pass"
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\6e55509efbe1ea42b09657def91d029eacc31e768429377967c306a345b6935d.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\02-skill_suite_static\\result.json"
+      ],
+      "child_id": "skill_suite_static",
+      "execution_disposition": "execute",
+      "receipt_fingerprint": "sha256:1c43d5dcb7f3ca65f8c6925728c8431f05ed885d1a02bcf9d0d44dcef930234c",
+      "receipt_id": "receipt:validation-owner:skill_suite_static:800effac72c582f85bd7d8d350ca6763",
+      "status": "pass"
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\9a6c53dbd4a9a4596e2efd9c85bc9f377a5a546d984b7df198b855cbf150df6d.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\0dc70029d72f17b8fb04bb9086332eb7e3afbebea97579499a6ad1d37c9eb70c.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\03-skill_native_checks\\result.json"
+      ],
+      "child_id": "skill_native_checks",
+      "execution_disposition": "execute",
+      "receipt_fingerprint": "sha256:e905e8a04e83e4586a5b2933259558625c62ac494c1280cdd5b7549dd5bc9a77",
+      "receipt_id": "receipt:validation-owner:skill_native_checks:7501403b5f1812412c576931737b36f8",
+      "status": "pass"
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\6b95f26504383fe28c2b5ac8a30de2ae25fd775851beecedb657d78309b6b803.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\04-skill_self_governance\\result.json"
+      ],
+      "child_id": "skill_self_governance",
+      "execution_disposition": "execute",
+      "receipt_fingerprint": "sha256:ced131c418fdd4ff35ad6ac5f4761a121c790c8a1be6a0ce8337fb40c5952570",
+      "receipt_id": "receipt:validation-owner:skill_self_governance:7a4dfe273047fd335a69bf34a4b7d1c2",
+      "status": "pass"
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\3ba3ca1799825b3f5e9a9817d8529aa2d32bb3e8f3f208fb088332529005b030.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\05-model_regressions_full\\result.json"
+      ],
+      "child_id": "model_regressions_full",
+      "execution_disposition": "execute",
+      "receipt_fingerprint": "sha256:fe862fdf2d09c6a775caf2718921c6b2cc938d4347c2bca5e9199a9497919f2d",
+      "receipt_id": "receipt:validation-owner:model_regressions_full:fd1bad370d617e20b449dbc48f499c76",
+      "status": "pass"
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\624c4e6f7ef8666fb7c11ed22cb5acd29c751ae5c574a8ac38ba4258778eccbd.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\06-self_maintenance_review\\result.json"
+      ],
+      "child_id": "self_maintenance_review",
+      "execution_disposition": "execute",
+      "receipt_fingerprint": "sha256:6a06f2db57daa2964da748e7cb8c8913a46a513511f9ba9c098c3bda5da29512",
+      "receipt_id": "receipt:validation-owner:self_maintenance_review:2b99c17c218f16f0160b8a591557f455",
+      "status": "pass"
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\8a718c3346ca1b71a018c3b2b9d8d8af2a7d77e5d90c12dcc9269ad1cc8ef0d5.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\07-pytest\\result.json"
+      ],
+      "child_id": "pytest",
+      "execution_disposition": "execute",
+      "receipt_fingerprint": "sha256:d58b169f7a61337d6d88bfca8b2ce538899e07345b3874fe695b26742236bded",
+      "receipt_id": "receipt:validation-owner:pytest:4cc2c9c8b19999e9059b913fe9e8eb37",
+      "status": "pass"
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\8efde4ff5769c5436f50716382be424ddda9a4901b05dc5c8fe495b9df060962.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\5bc31df123a2e521acdd2c0d9477b367feec506471a91065d0a6b32c09089ed5.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\08-openspec_strict\\result.json"
+      ],
+      "child_id": "openspec_strict",
+      "execution_disposition": "execute",
+      "receipt_fingerprint": "sha256:91ccc9860fb12aead00b47d8080a1259951524c0ba61cf40c80bc372c929e4c5",
+      "receipt_id": "receipt:validation-owner:openspec_strict:9b681ac9056df648504b7d533e3d824d",
+      "status": "pass"
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\1904095c820a8922d67e329f6d31e968c3a0e5178e222fe6296074c975823622.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\09-distribution_check\\result.json"
+      ],
+      "child_id": "distribution_check",
+      "execution_disposition": "execute",
+      "receipt_fingerprint": "sha256:ff4031b149f0a21d5b02c4d81f519a90918d46ec23ef05e0b1ba69e050f8cb05",
+      "receipt_id": "receipt:validation-owner:distribution_check:13adb122dc7d7f4022b4ba54b64d243c",
+      "status": "pass"
+    },
+    {
+      "artifact_paths": [
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\6a419be57cb11d5818a46e1606391d7f11e825e7ab2d307c0e97c5c8bf0044e8.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\objects\\sha256\\e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.txt.gz",
+        "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\10-distribution_parity\\result.json"
+      ],
+      "child_id": "distribution_parity",
+      "execution_disposition": "execute",
+      "receipt_fingerprint": "sha256:58f39dd3e29a9c8e1a9830d6e023a60832de612d05f908ba40f9b1173f1ca277",
+      "receipt_id": "receipt:validation-owner:distribution_parity:9b9e800e4e2fcdc5ce9df8aaaee29730",
+      "status": "pass"
+    }
+  ],
+  "exit_code": 0,
+  "failures": [],
+  "ok": true,
+  "progress_summary": {
+    "avoided_producer_invocations": 0,
+    "completed": 10,
+    "elapsed_seconds": 2175.978,
+    "estimated_work_avoided_fraction": 0.0,
+    "output_directory": "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28",
+    "owner_plan_path": "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\full-validation\\v0.68.8-final-r28\\owner-plan.json",
+    "parent_receipt_fingerprint": "sha256:4234908230a3094be6d4d474cba9b0b5fe7d5eec7d520dc3dbef04f617bd673c",
+    "parent_receipt_id": "receipt:validation-parent:full:4c11641a48287a5ea92095b3",
+    "producer_invocations": 10,
+    "receipt_root": "C:\\Users\\liu_y\\Documents\\FlowGuard_20260427\\.flowguard\\evidence\\validation-owners-final-r28",
+    "total": 10
+  },
+  "residual_risk": [
+    "The parent composes only independently verified owner receipts for one frozen content identity.",
+    "Remote publication and post-publication verification remain separate release gates."
+  ],
+  "schema_version": "flowguard.validation_result.v1",
+  "scope": "full",
+  "skipped_checks": [],
+  "status": "pass",
+  "tier": "release"
+}

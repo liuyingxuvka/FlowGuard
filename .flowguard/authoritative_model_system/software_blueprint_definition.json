@@ -401,10 +401,10 @@
         "purpose_source_owner_id": "model-purpose-declaration:architecture_reduction",
         "model_path": ".flowguard/architecture_reduction/model.py",
         "model_source_fingerprint": "sha256:a109593f543672a07cc5c510069e44abbfb1bd8b093dcd8ec9c074deefbb213e",
-        "runner_path": ".flowguard/architecture_reduction/run_checks.py",
-        "runner_source_fingerprint": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "runner_path": ".flowguard/architecture_reduction/model.py",
+        "runner_source_fingerprint": "sha256:a109593f543672a07cc5c510069e44abbfb1bd8b093dcd8ec9c074deefbb213e",
         "purpose_declaration_fingerprint": "sha256:8bb5471bde6bd956a5cabd37694a0c6546bfc2fe412f363edd962429397ec25b",
-        "purpose_closure_fingerprint": "sha256:71b1894d6276b7baf5f6b892da6414cc66113109cd87a6f3da49d864584addf3"
+        "purpose_closure_fingerprint": "sha256:7734cbe612e17b4fe3be8f76f9a0b810865b2fdeaea156233d939774f2b4eaaf"
       }
     },
     {
@@ -783,7 +783,7 @@
     },
     {
       "owner_id": "hierarchical_model_mesh",
-      "surface_key": ".flowguard/hierarchical_model_mesh/model.py#<module>",
+      "surface_key": "flowguard/hierarchy.py#<module>",
       "contracts": {
         "input": "composite-contract:hierarchical_model_mesh:input",
         "state": "composite-contract:hierarchical_model_mesh:state",
@@ -797,10 +797,10 @@
         "purpose_source_owner_id": "model-purpose-declaration:hierarchical_model_mesh",
         "model_path": ".flowguard/hierarchical_model_mesh/model.py",
         "model_source_fingerprint": "sha256:3622dd3fca9407340a27688b31b6f9dae14d3fe17c638a74a597172788976025",
-        "runner_path": ".flowguard/hierarchical_model_mesh/run_checks.py",
-        "runner_source_fingerprint": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "runner_path": ".flowguard/hierarchical_model_mesh/model.py",
+        "runner_source_fingerprint": "sha256:3622dd3fca9407340a27688b31b6f9dae14d3fe17c638a74a597172788976025",
         "purpose_declaration_fingerprint": "sha256:ac138d27c48c1ca5c93ef4f731ac044167ebadec9817e96b904017def1af465a",
-        "purpose_closure_fingerprint": "sha256:fa9bbf9aaa3ca5bba6f9bc03271db7741112022f95686db1736feca57b6faa51"
+        "purpose_closure_fingerprint": "sha256:774a1ca2144f469961f2c0255719b2b1877bba90628925443d9124aa00764890"
       }
     },
     {
@@ -849,7 +849,7 @@
     },
     {
       "owner_id": "mesh_target_split_derivation",
-      "surface_key": ".flowguard/mesh_target_split_derivation/model.py#<module>",
+      "surface_key": "flowguard/auto_split.py#<module>",
       "contracts": {
         "input": "composite-contract:mesh_target_split_derivation:input",
         "state": "composite-contract:mesh_target_split_derivation:state",
@@ -863,10 +863,10 @@
         "purpose_source_owner_id": "model-purpose-declaration:mesh_target_split_derivation",
         "model_path": ".flowguard/mesh_target_split_derivation/model.py",
         "model_source_fingerprint": "sha256:46b969454621a934627aa4719b335ac49a8106088bb6088c06f15c59f267e23e",
-        "runner_path": ".flowguard/mesh_target_split_derivation/run_checks.py",
-        "runner_source_fingerprint": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "runner_path": ".flowguard/mesh_target_split_derivation/model.py",
+        "runner_source_fingerprint": "sha256:46b969454621a934627aa4719b335ac49a8106088bb6088c06f15c59f267e23e",
         "purpose_declaration_fingerprint": "sha256:ee0e0340e169a8332105dcd7b904b1f77de1791c408ba05bd2a27bcb04d35b48",
-        "purpose_closure_fingerprint": "sha256:ab1d457cebf470445815dad61e2f7c415b0ca5207f2c8197be17ebe64008ecee"
+        "purpose_closure_fingerprint": "sha256:8dfefe7193bafba9afb15e694744763b0a8bb5e1837a48fe32bc0b2b0b4f628f"
       }
     },
     {
@@ -1179,7 +1179,7 @@
     },
     {
       "owner_id": "skill_kernel_modularization",
-      "surface_key": ".flowguard/skill_kernel_modularization/model.py#<module>",
+      "surface_key": "flowguard/skill_contract_model.py#<module>",
       "contracts": {
         "input": "composite-contract:skill_kernel_modularization:input",
         "state": "composite-contract:skill_kernel_modularization:state",
@@ -1193,10 +1193,10 @@
         "purpose_source_owner_id": "model-purpose-declaration:skill_kernel_modularization",
         "model_path": ".flowguard/skill_kernel_modularization/model.py",
         "model_source_fingerprint": "sha256:64c57d1bb8c7b839cc7a40768cc27a5a2e4fe76cf883cea502a53d3dfac41aec",
-        "runner_path": ".flowguard/skill_kernel_modularization/run_checks.py",
-        "runner_source_fingerprint": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "runner_path": ".flowguard/skill_kernel_modularization/model.py",
+        "runner_source_fingerprint": "sha256:64c57d1bb8c7b839cc7a40768cc27a5a2e4fe76cf883cea502a53d3dfac41aec",
         "purpose_declaration_fingerprint": "sha256:67bb15edd41edf3f90db51a5816f6b4e990e868bb116ce03f387003188f2e848",
-        "purpose_closure_fingerprint": "sha256:82bd95cc6c0632f947fb9911aacabceb51498f9a0b9bb58a5692f8f6cabf2bfc"
+        "purpose_closure_fingerprint": "sha256:6ded1409098930f0f98e6b7a2d57703469f15b1b79abe326455c4a6016edd169"
       }
     },
     {
@@ -1223,7 +1223,7 @@
     },
     {
       "owner_id": "structure_refactor_mesh",
-      "surface_key": ".flowguard/structure_refactor_mesh/model.py#<module>",
+      "surface_key": "flowguard/structuremesh.py#<module>",
       "contracts": {
         "input": "composite-contract:structure_refactor_mesh:input",
         "state": "composite-contract:structure_refactor_mesh:state",
@@ -1237,10 +1237,10 @@
         "purpose_source_owner_id": "model-purpose-declaration:structure_refactor_mesh",
         "model_path": ".flowguard/structure_refactor_mesh/model.py",
         "model_source_fingerprint": "sha256:aa0acc5dec0b7d0733f8341236370c52af0bd6791da9617a820753c48e219617",
-        "runner_path": ".flowguard/structure_refactor_mesh/run_checks.py",
-        "runner_source_fingerprint": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "runner_path": ".flowguard/structure_refactor_mesh/model.py",
+        "runner_source_fingerprint": "sha256:aa0acc5dec0b7d0733f8341236370c52af0bd6791da9617a820753c48e219617",
         "purpose_declaration_fingerprint": "sha256:755a538b00052caba36373508e96b139663ee303a08c1db9ab3e586c9d548b23",
-        "purpose_closure_fingerprint": "sha256:cc290cf7c72182ee42f2c5e2c63111f3a27c9d8e63483a0612b88ca0fc9501bb"
+        "purpose_closure_fingerprint": "sha256:d403faab20c568486edb5ded2b27111d7d4dbba0cf7f2d47a3a4a8d1494de52d"
       }
     },
     {
@@ -1311,7 +1311,7 @@
     },
     {
       "owner_id": "test_evidence_mesh",
-      "surface_key": ".flowguard/test_evidence_mesh/model.py#<module>",
+      "surface_key": "flowguard/testmesh.py#<module>",
       "contracts": {
         "input": "composite-contract:test_evidence_mesh:input",
         "state": "composite-contract:test_evidence_mesh:state",
@@ -1325,10 +1325,10 @@
         "purpose_source_owner_id": "model-purpose-declaration:test_evidence_mesh",
         "model_path": ".flowguard/test_evidence_mesh/model.py",
         "model_source_fingerprint": "sha256:766490ef9c003544183da36408c604d6b92acde0e32389b59a1877d98d2e6e38",
-        "runner_path": ".flowguard/test_evidence_mesh/run_checks.py",
-        "runner_source_fingerprint": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "runner_path": ".flowguard/test_evidence_mesh/model.py",
+        "runner_source_fingerprint": "sha256:766490ef9c003544183da36408c604d6b92acde0e32389b59a1877d98d2e6e38",
         "purpose_declaration_fingerprint": "sha256:4c2f9de4a71002f66f6f9f8d2b00527f7b4f22d7c99a1a8e0ea6d8a8f040d468",
-        "purpose_closure_fingerprint": "sha256:907b5fdd79ab0161a07d9168033eb8da9e3cd788b57b63346024ce0d0b8b93f7"
+        "purpose_closure_fingerprint": "sha256:a63f8e9cbf24c86e3feb1cb737bc1571eeedea2c8eb274f4f334f35025bb64c2"
       }
     },
     {
@@ -1457,7 +1457,7 @@
     "flowguard/artifact_upgrade.py": "authoritative_model_system",
     "flowguard/assumptions.py": "compositional_verification_kernel",
     "flowguard/audit.py": "compositional_verification_kernel",
-    "flowguard/auto_split.py": "hierarchical_model_mesh",
+    "flowguard/auto_split.py": "mesh_target_split_derivation",
     "flowguard/baseline.py": "validation_evidence_gates",
     "flowguard/behavior_commitment.py": "behavior_commitment_ledger",
     "flowguard/behavior_commitment_lookup.py": "behavior_commitment_ledger",
@@ -1492,6 +1492,7 @@
     "flowguard/affected_blueprint_reader.py": "implementation_blueprint",
     "flowguard/blueprint_compact_projection.py": "implementation_blueprint",
     "flowguard/canonical_blueprint_projection.py": "implementation_blueprint",
+    "flowguard/portable_blueprint.py": "implementation_blueprint",
     "flowguard/layered_proof.py": "validation_evidence_gates",
     "flowguard/legacy_path_disposition.py": "model_miss_review",
     "flowguard/loop.py": "state_closure_gate",
@@ -1566,7 +1567,7 @@
     "flowguard/validation_owner_execution.py": "architecture_reduction",
     "flowguard/self_maintenance.py": "self_maintenance_mesh",
     "flowguard/shard_safety.py": "test_evidence_mesh",
-    "flowguard/skill_contract_model.py": "codex_skill_satellites",
+    "flowguard/skill_contract_model.py": "skill_kernel_modularization",
     "flowguard/skill_contracts.py": "codex_skill_satellites",
     "flowguard/skill_native_checks.py": "codex_skill_satellites",
     "flowguard/skill_self_governance.py": "codex_skill_satellites",

@@ -333,3 +333,9 @@ supporting-surface relations as observations. Do not accept a small result
 derived after a whole bundle was already materialized.
 Missing shared objects or a fingerprint mismatch blocks; Preflight never fills
 in a missing `BehaviorBlockContract`, resource, intent, oracle, or test row.
+
+For a portable blueprint handoff, carry the exact canonical projection,
+independent owner denominator, provider/profile identity, and subject revision.
+Report static, portable, and execution status separately and keep compact
+omitted counts and unresolved ids. Do not copy inventories into a second
+authority or replace a target's real adapter with Python.

@@ -239,3 +239,12 @@ native owners; one owner's receipt may cover several of that owner's affected
 members only through one exact merged owner reference. Multi-owner integration
 is shareable only when explicitly typed and its complete owner/member set is
 declared.
+
+## Coverage ownership in the portable projection
+
+Every behavior block, case, and coverage edge binds to one current checker or
+native test member and one execution owner. The portable projection preserves
+those binding and coverage fingerprints; the compact view only bounds display.
+Static checker design, portable materialization, and terminal execution remain
+separate. A parent receipt without an explicit typed coverage set cannot fan out
+to leaf obligations.

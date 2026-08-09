@@ -293,6 +293,7 @@ class SameClassMissClosure:
     observed_failure_evidence_id: str = ""
     same_class_proof_evidence_id: str = ""
     model_obligation_id: str = ""
+    defect_family_id: str = ""
     current: bool = True
     result_status: str = CLOSURE_RESULT_PASSED
     in_scope: bool = True
@@ -307,6 +308,7 @@ class SameClassMissClosure:
         object.__setattr__(self, "observed_failure_evidence_id", str(self.observed_failure_evidence_id or ""))
         object.__setattr__(self, "same_class_proof_evidence_id", str(self.same_class_proof_evidence_id or ""))
         object.__setattr__(self, "model_obligation_id", str(self.model_obligation_id or ""))
+        object.__setattr__(self, "defect_family_id", str(self.defect_family_id or ""))
         object.__setattr__(self, "current", bool(self.current))
         object.__setattr__(self, "result_status", _result_status(self.result_status))
         object.__setattr__(self, "in_scope", bool(self.in_scope))
@@ -319,6 +321,7 @@ class SameClassMissClosure:
             "observed_failure_evidence_id": self.observed_failure_evidence_id,
             "same_class_proof_evidence_id": self.same_class_proof_evidence_id,
             "model_obligation_id": self.model_obligation_id,
+            "defect_family_id": self.defect_family_id,
             "current": self.current,
             "result_status": self.result_status,
             "in_scope": self.in_scope,

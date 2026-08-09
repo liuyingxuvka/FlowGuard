@@ -491,6 +491,108 @@ class FullValidationCompositionTests(unittest.TestCase):
         )
         self.assertNotEqual(self.output.parent, native_root)
 
+    def test_owner_graph_contains_only_receipt_consumption_edges(self):
+        specs = tuple(suite_command._full_child_specs(self.args(), self.root))
+        contracts = {
+            item.owner_id: item
+            for item in suite_command._owner_contracts(specs)
+        }
+        self.assertEqual(
+            ("skill_native_checks",),
+            contracts["skill_self_governance"].dependency_owner_ids,
+        )
+        self.assertEqual(
+            ("model_regressions_full",),
+            contracts["self_maintenance_review"].dependency_owner_ids,
+        )
+        for owner_id, contract in contracts.items():
+            if owner_id not in {"skill_self_governance", "self_maintenance_review"}:
+                self.assertEqual((), contract.dependency_owner_ids)
+            self.assertTrue(contract.resource_keys)
+        self.assertEqual(
+            contracts["skill_native_checks"].resource_keys,
+            contracts["skill_self_governance"].resource_keys,
+        )
+        self.assertNotEqual(
+            contracts["project_audit"].resource_keys,
+            contracts["skill_suite_static"].resource_keys,
+        )
+
+    def test_project_audit_failure_does_not_block_unrelated_owners(self):
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor({"project_audit": "fail"}),
+        ) as execute:
+            result = suite_command.run_full_validation(self.args())
+
+        self.assertEqual("blocked", result.status)
+        executed = {self.child_id(call.args[0]) for call in execute.call_args_list}
+        self.assertIn("project_audit", executed)
+        self.assertIn("skill_suite_static", executed)
+        self.assertIn("pytest", executed)
+        self.assertEqual(10, len(executed))
+
+    def test_native_failure_only_blocks_self_governance(self):
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor({"skill_native_checks": "fail"}),
+        ) as execute:
+            result = suite_command.run_full_validation(self.args())
+
+        self.assertEqual("blocked", result.status)
+        native = next(item for item in result.children if item.child_id == "skill_native_checks")
+        self_governance = next(item for item in result.children if item.child_id == "skill_self_governance")
+        self.assertEqual("fail", native.status)
+        self.assertEqual("blocked", self_governance.status)
+        executed = {self.child_id(call.args[0]) for call in execute.call_args_list}
+        self.assertIn("model_regressions_full", executed)
+        self.assertIn("self_maintenance_review", executed)
+
+    def test_model_failure_only_blocks_self_maintenance(self):
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor({"model_regressions_full": "fail"}),
+        ) as execute:
+            result = suite_command.run_full_validation(self.args())
+
+        self.assertEqual("blocked", result.status)
+        model = next(item for item in result.children if item.child_id == "model_regressions_full")
+        maintenance = next(item for item in result.children if item.child_id == "self_maintenance_review")
+        self.assertEqual("fail", model.status)
+        self.assertEqual("blocked", maintenance.status)
+        executed = {self.child_id(call.args[0]) for call in execute.call_args_list}
+        self.assertIn("skill_native_checks", executed)
+        self.assertIn("skill_self_governance", executed)
+
+    def test_failed_native_run_reuses_unaffected_owner_receipts(self):
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor({"skill_native_checks": "fail"}),
+        ):
+            first = suite_command.run_full_validation(self.args())
+        second_args = self.args()
+        second_args.output_dir = str(Path(self.temporary.name) / "artifacts-second")
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor(),
+        ) as execute:
+            second = suite_command.run_full_validation(second_args)
+
+        # The failed native owner also blocks its dependent self-governance
+        # owner, so the release parent is blocked rather than claiming a
+        # complete failure-only outcome.
+        self.assertEqual("blocked", first.status)
+        self.assertTrue(second.broad_success)
+        self.assertEqual({"skill_native_checks", "skill_self_governance"}, {
+            self.child_id(call.args[0]) for call in execute.call_args_list
+        })
+        self.assertEqual(8, second.counts["reused"])
+
     def test_full_pytest_timeout_covers_the_observed_release_suite_runtime(self):
         specs = {
             item.child_id: item

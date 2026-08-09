@@ -516,3 +516,11 @@ authorizes trusting an expected fingerprint or skipping an edge.
 For large normalized payloads, stream the exact canonical representation into
 the digest and byte counter. Release the logical payload before constructing
 the physical projection; several complete serialized copies must never coexist.
+
+## Bounded path preference
+
+When several current routes are candidates, compare only hard-equivalent
+observable contracts and current caller/test evidence. Select the least
+duplicative route within that bounded set, keep missing-proof members unresolved,
+and record the post-action owner. Size, age, or a lower nominal cost is not a
+retirement proof.

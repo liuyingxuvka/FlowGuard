@@ -10,6 +10,8 @@ the current design contribution owned by every current model purpose.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import contextmanager
+from contextvars import ContextVar
 import json
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -66,6 +68,38 @@ INITIAL_AUTHORITY_BOOTSTRAP_SCHEMA = "flowguard.model_authority_bootstrap.v1"
 _HISTORICAL_REVISION_SCHEMAS = frozenset(
     f"flowguard.model_revision_set.v{version}" for version in range(1, 5)
 )
+
+# A retired intent-bootstrap source may be parsed only inside the explicit
+# versioned upgrader that is replacing the current authority artifact.  The
+# normal reader leaves this empty, so persisted v2/v3/v4 bootstrap ancestry is
+# never accepted as a compatibility path after the upgrade completes.
+_UPGRADE_ALLOWED_BOOTSTRAP_SOURCE_SCHEMAS: ContextVar[frozenset[str]] = (
+    ContextVar(
+        "flowguard_upgrade_allowed_bootstrap_source_schemas",
+        default=frozenset(),
+    )
+)
+
+
+@contextmanager
+def allow_upgrade_bootstrap_source_schemas(
+    *schemas: str,
+):
+    """Temporarily authorize exact historical bootstrap input for one upgrader.
+
+    This is intentionally a scoped producer-side capability, not a reader
+    fallback.  Callers must verify the immutable source artifact and complete
+    the replacement transaction before entering the context.
+    """
+
+    normalized = frozenset(
+        value.strip() for value in schemas if isinstance(value, str) and value.strip()
+    )
+    token = _UPGRADE_ALLOWED_BOOTSTRAP_SOURCE_SCHEMAS.set(normalized)
+    try:
+        yield
+    finally:
+        _UPGRADE_ALLOWED_BOOTSTRAP_SOURCE_SCHEMAS.reset(token)
 
 
 def _optional_sha(value: Any, field_name: str) -> str:
@@ -1071,7 +1105,11 @@ class EffectiveIntentBootstrapReceipt:
                     "generation-one intent bootstrap must bind only the initial authority receipt"
                 )
         elif (
-            self.source_revision_schema != LEGACY_CURRENT_REVISION_SCHEMA
+            self.source_revision_schema
+            not in {
+                LEGACY_CURRENT_REVISION_SCHEMA,
+                *_UPGRADE_ALLOWED_BOOTSTRAP_SOURCE_SCHEMAS.get(),
+            }
             or not current_revision_fingerprint
             or not revisions
             or revisions[0] != current_revision_fingerprint

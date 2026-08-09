@@ -625,6 +625,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "scripts/run_flowguard_skill_native_checks.py",
             ),
             ("validation:skill_native_checks",),
+            resource_keys=("resource:validation-native-receipts",),
             required_path=native_script,
             missing_reason=(
                 "skill-native check producer is required before "
@@ -651,6 +652,8 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "scripts/check_flowguard_self_governance.py",
             ),
             ("validation:skill_self_governance",),
+            dependency_owner_ids=("skill_native_checks",),
+            resource_keys=("resource:validation-native-receipts",),
             required_path=self_script,
             missing_reason="self-governance checker is required for full closure",
         ),
@@ -715,6 +718,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 ),
                 content_fingerprint_field="projection_fingerprint",
             ),
+            dependency_owner_ids=("model_regressions_full",),
             timeout_seconds=1800.0,
         ),
         ChildSpec(
@@ -809,13 +813,13 @@ def _owner_contracts(specs: Sequence[ChildSpec]) -> tuple[ValidationOwnerContrac
         return tuple(values)
 
     contracts: list[ValidationOwnerContract] = []
-    previous_owner_id = ""
     for spec in specs:
-        dependencies = (
-            spec.dependency_owner_ids
-            if spec.dependency_owner_ids
-            else ((previous_owner_id,) if previous_owner_id else ())
-        )
+        # Dependencies are semantic evidence edges, never an implicit list
+        # order.  Unrelated owners must remain independently reusable and
+        # schedulable; only a producer whose receipt is consumed declares an
+        # edge (currently native checks -> self-governance and model
+        # regressions -> self-maintenance).
+        dependencies = spec.dependency_owner_ids
         contracts.append(
             ValidationOwnerContract(
                 owner_id=spec.child_id,
@@ -831,7 +835,8 @@ def _owner_contracts(specs: Sequence[ChildSpec]) -> tuple[ValidationOwnerContrac
                 if spec.result_identity_requirement is not None
                 else (),
                 dependency_owner_ids=dependencies,
-                resource_keys=spec.resource_keys or ("resource:full-validation-worktree",),
+                resource_keys=spec.resource_keys
+                or (f"resource:validation-owner:{spec.child_id}",),
                 timeout_seconds=spec.timeout_seconds,
                 external_component_bindings=(
                     spec.external_component_bindings
@@ -845,7 +850,6 @@ def _owner_contracts(specs: Sequence[ChildSpec]) -> tuple[ValidationOwnerContrac
                 ),
             )
         )
-        previous_owner_id = spec.child_id
     return tuple(contracts)
 
 
@@ -1503,6 +1507,20 @@ def run_full_validation(args: argparse.Namespace) -> ValidationResult:
         )
 
     status = aggregate_status(children, required_child_ids=FULL_CHILD_IDS)
+    # A complete release parent is unavailable when the project admission
+    # audit is non-pass or when any required child only produced a partial
+    # result.  Unrelated owners still execute (and their receipts remain
+    # reusable), but the parent must stay visibly blocked until the gate is
+    # closed.  Hard failures remain failures when no closure blocker exists;
+    # dependency-induced blocked children therefore keep the parent blocked.
+    project_audit = next(
+        (child for child in children if child.child_id == "project_audit"),
+        None,
+    )
+    if project_audit is not None and project_audit.status != VALIDATION_STATUS_PASS:
+        status = VALIDATION_STATUS_BLOCKED
+    elif any(child.status == VALIDATION_STATUS_PARTIAL for child in children):
+        status = VALIDATION_STATUS_BLOCKED
     failures = tuple(
         {"code": "required_child_failed", "child_id": child.child_id, "message": child.summary}
         for child in children

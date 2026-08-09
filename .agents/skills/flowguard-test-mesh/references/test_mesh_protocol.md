@@ -153,3 +153,11 @@ Project-blueprint projection also requires one terminal
 and assertion targets stay attached to their exact node. Aggregate parent
 receipts may prove a parent run, but never manufacture an omitted leaf or a
 missing behavior-block binding.
+
+## Compact evidence and final ownership
+
+Compact reports are bounded display projections, not a reduced evidence
+denominator. Keep every planned coverage id, execution owner, receipt
+fingerprint, omitted count, and `not_run` reason in the canonical source. Freeze
+one final parent only after source, toolchain, and impact identities are stable;
+do not use background resume or repeated full runs as a freshness substitute.

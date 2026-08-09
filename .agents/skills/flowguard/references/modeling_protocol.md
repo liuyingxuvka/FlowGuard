@@ -53,3 +53,14 @@ CLI, compatibility reader, current pointer, or reconstruction workflow.
 ## Claim boundary
 
 Model pass is model evidence, not automatic production confidence. Missing conformance, stale writers, unknown branches, skipped/not-run sections, progress-only background work, scoped rows, or `pass_with_gaps` remain explicit. Broad done/release/archive/publish/production claims require current owner-route evidence and final risk/closure consumption.
+
+## Portable blueprint read modes
+
+The canonical projection is the one model authority. A portable file is only an
+exchange envelope over its manifest and content-addressed shards. Keep static
+model completeness, portable projection integrity, and execution evidence
+separate; `not_run`, stale, and incomplete remain visible. Use affected or
+compact views for ordinary work and load the full projection only for explicit
+whole-target export. Provider adapters may describe any language, artifact, or
+non-code workflow; a missing adapter is a blocker, never a reason to invent a
+Python layer or another authority.

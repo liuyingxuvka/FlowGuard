@@ -5,6 +5,8 @@ import subprocess
 import unittest
 from pathlib import Path
 
+from flowguard.prompt_budget import review_prompt_bundles
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_ROOT = ROOT / ".agents" / "skills"
@@ -180,6 +182,18 @@ class SkillPromptParityTests(unittest.TestCase):
                         set(python_paths) <= review_visible,
                         set(python_paths) - review_visible,
                     )
+
+    def test_prompt_bundles_report_enforced_stage_budgets(self):
+        report = review_prompt_bundles(ROOT)
+        self.assertTrue(report["ok"])
+        self.assertEqual(15, report["bundle_count"])
+        for bundle in report["bundles"]:
+            stages = {stage["stage"]: stage for stage in bundle["stages"]}
+            with self.subTest(route=bundle["route_id"]):
+                self.assertIn("catalog", stages)
+                self.assertIn("preselection", stages)
+                self.assertTrue(all(stage["enforced"] for stage in stages.values()))
+                self.assertTrue(all(stage["ok"] for stage in stages.values()))
 
 
 if __name__ == "__main__":

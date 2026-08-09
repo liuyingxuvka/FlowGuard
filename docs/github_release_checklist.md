@@ -161,7 +161,7 @@ python scripts/check_flowguard_skill_suite.py `
   --installed-root $env:CODEX_HOME\skills `
   --model-jobs 4 `
   --model-timeout 900 `
-  --output-dir .flowguard/evidence/full-validation/v0.68.7-final `
+  --output-dir .flowguard/evidence/full-validation/v0.68.8-final `
   --receipt-dir .flowguard/evidence/validation-owners `
   --json
 ```
@@ -174,7 +174,7 @@ not edit, install, synchronize, or stage again before commit and tag.
 
 ## Source-only Release
 
-FlowGuard v0.68.7 uses the immutable source tag as its sole release authority.
+FlowGuard v0.68.8 uses the immutable source tag as its sole release authority.
 Do not build or upload a wheel or source distribution. The GitHub Release must
 be published with zero assets.
 

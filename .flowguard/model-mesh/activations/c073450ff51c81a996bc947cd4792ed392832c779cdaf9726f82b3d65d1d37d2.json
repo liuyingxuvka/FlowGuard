@@ -1,0 +1,12 @@
+{
+  "candidate_snapshot_fingerprint": "sha256:1209f504183e56cb342b49ec7cbfce036d9e26aa3058757e2ba23dea9c0b41a8",
+  "expected_head_fingerprint": "sha256:08e8a2a108a73cf6b377c1d9c01bc61effd432a312131e4bea6f5e9f9ca147e3",
+  "fingerprint": "sha256:c073450ff51c81a996bc947cd4792ed392832c779cdaf9726f82b3d65d1d37d2",
+  "next_generation": 88,
+  "previous_snapshot_fingerprint": "sha256:5ce60d307548d6d7c1c3c23fa563d9657bc7e42931f4287b4e573458730967a7",
+  "receipt_id": "activation:v0688-architecture-reduction-r24",
+  "revision_set_fingerprint": "sha256:2bf80781ff0f63d561879af5654f1ffdc42430a2a6f06641d062a1b7752f992b",
+  "schema": "flowguard.model_activation_receipt.v1",
+  "subject_revision": "source-inventory:881f5bb31d406889cadbfaf9d094f918a849ce122c8235f852e925b41d29e66f",
+  "system_id": "flowguard"
+}

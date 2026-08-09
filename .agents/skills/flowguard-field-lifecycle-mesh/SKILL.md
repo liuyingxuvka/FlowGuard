@@ -41,5 +41,3 @@ Accept a bounded field inventory; create leaf rows and behavior projections; blo
 ## Output Requirements
 - Return leaf rows, projections, owners, dispositions, `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`.
 
-
-<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

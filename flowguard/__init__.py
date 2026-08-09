@@ -897,6 +897,7 @@ from . import software_blueprint_readiness as _software_blueprint_readiness
 from . import target_system_blueprint as _target_system_blueprint
 from . import target_native_qualification as _target_native_qualification
 from . import project_blueprint as _project_blueprint
+from . import portable_blueprint as _portable_blueprint
 from . import test_inventory as _test_inventory
 from . import test_inventory_python as _test_inventory_python
 from . import self_blueprint as _self_blueprint
@@ -944,6 +945,7 @@ from .software_blueprint_readiness import *  # noqa: F403
 from .target_system_blueprint import *  # noqa: F403
 from .target_native_qualification import *  # noqa: F403
 from .project_blueprint import *  # noqa: F403
+from .portable_blueprint import *  # noqa: F403
 from .test_inventory import *  # noqa: F403
 from .test_inventory_python import *  # noqa: F403
 from .self_blueprint import *  # noqa: F403
@@ -1562,6 +1564,7 @@ IMPLEMENTATION_BLUEPRINT_API = tuple(
         + tuple(_target_system_blueprint.__all__)
         + tuple(_target_native_qualification.__all__)
         + tuple(_project_blueprint.__all__)
+        + tuple(_portable_blueprint.__all__)
         + tuple(_test_inventory.__all__)
         + tuple(_test_inventory_python.__all__)
         + tuple(_self_blueprint.__all__)

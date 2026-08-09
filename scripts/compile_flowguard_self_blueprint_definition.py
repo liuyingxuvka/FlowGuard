@@ -326,13 +326,16 @@ def _entry_source_paths(root: Path, entry: ModelRegressionEntry) -> tuple[Path, 
             f"model owner does not use its direct-current model.py path: {entry.model_id}"
         )
     runner_paths = tuple(token for token in entry.runner if token.endswith(".py"))
-    if runner_paths != (expected_runner,):
+    if len(runner_paths) != 1 or runner_paths[0] not in {
+        expected_runner,
+        expected_model,
+    }:
         raise SelfBlueprintDefinitionCompilerError(
-            f"model owner does not use one direct-current run_checks.py path: {entry.model_id}"
+            f"model owner does not use one direct-current model or run_checks.py path: {entry.model_id}"
         )
     return (
         _repository_file(root, expected_model, role=f"{entry.model_id} model source"),
-        _repository_file(root, expected_runner, role=f"{entry.model_id} runner source"),
+        _repository_file(root, runner_paths[0], role=f"{entry.model_id} runner source"),
     )
 
 
@@ -385,7 +388,12 @@ def _freeze_inputs(root: Path) -> _FrozenInputs:
         definition_path: definition_bytes,
     }
     for entry in entries:
-        for path in _entry_source_paths(root, entry):
+        model_path, runner_path = _entry_source_paths(root, entry)
+        entry_paths = (model_path,) if model_path == runner_path else (
+            model_path,
+            runner_path,
+        )
+        for path in entry_paths:
             if path in source_bytes:
                 raise SelfBlueprintDefinitionCompilerError(
                     "current model owners share a mechanical source path: "

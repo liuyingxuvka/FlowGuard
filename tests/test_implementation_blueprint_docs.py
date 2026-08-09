@@ -47,10 +47,13 @@ def test_blueprint_document_names_current_whole_affected_and_project_cli_entries
         "python -m flowguard flowguard-self-architecture-reduction-review",
         "python -m flowguard implementation-inventory-audit",
         "python -m flowguard project-blueprint-export",
+        "python -m flowguard project-blueprint-portable-export",
+        "python -m flowguard portable-blueprint-verify",
     )
 
     for command in commands:
-        assert text.count(command) == 1
+        expected_count = 2 if command.endswith("project-blueprint-audit") else 1
+        assert text.count(command) == expected_count
     assert "callers do not submit their own pass rows" in normalized
     assert (
         "propagated parent/child, producer-consumer, delegation, support, "

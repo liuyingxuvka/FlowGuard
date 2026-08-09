@@ -41,5 +41,3 @@ Accept finite dimensions/seeds; generate cases with oracles; block unbounded cla
 ## Output Requirements
 - Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, canonical coverage cases, gaps, shards, and receipts.
 
-
-<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

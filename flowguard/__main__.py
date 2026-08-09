@@ -1891,7 +1891,10 @@ def _run_implementation_inventory_audit_command(args: argparse.Namespace) -> int
 def _run_flowguard_self_blueprint_check_command(args: argparse.Namespace) -> int:
     """Build and qualify FlowGuard's current self-blueprint without writing it."""
 
-    from .blueprint_compact_projection import BlueprintCompactProjection
+    from .blueprint_compact_projection import (
+        BlueprintCompactProjection,
+        compact_reduction_candidate_detail,
+    )
     from .self_blueprint import FlowGuardSelfBlueprintError, build_flowguard_self_blueprint
     from .self_architecture_reduction import (
         build_flowguard_self_architecture_reduction_review,
@@ -1928,6 +1931,26 @@ def _run_flowguard_self_blueprint_check_command(args: argparse.Namespace) -> int
             "Both bounded reviews consume one exact in-memory self-blueprint; "
             "no cache or target-system artifact is written."
         )
+        candidate_id = str(getattr(args, "candidate_id", "") or "").strip()
+        if candidate_id:
+            try:
+                payload["architecture_reduction_candidate_detail"] = (
+                    compact_reduction_candidate_detail(reduction_report, candidate_id)
+                    if args.compact
+                    else next(
+                        row
+                        for row in reduction_report.candidates
+                        if row.candidate_id == candidate_id
+                    ).to_dict()
+                )
+            except (StopIteration, ValueError) as exc:
+                _emit_payload(
+                    _blueprint_error_payload(
+                        "flowguard_self_reduction_candidate_invalid", exc
+                    ),
+                    as_json=args.json,
+                )
+                return 2
     cleanup_release_ready_required = bool(
         getattr(args, "require_cleanup_release_ready", False)
     )
@@ -1957,7 +1980,10 @@ def _run_flowguard_self_architecture_reduction_command(
 ) -> int:
     """Review exact self-blueprint contraction signals without writing code."""
 
-    from .blueprint_compact_projection import BlueprintCompactProjection
+    from .blueprint_compact_projection import (
+        BlueprintCompactProjection,
+        compact_reduction_candidate_detail,
+    )
     from .self_architecture_reduction import (
         review_flowguard_self_architecture_reduction,
     )
@@ -1978,6 +2004,24 @@ def _run_flowguard_self_architecture_reduction_command(
         if args.compact
         else report.to_dict()
     )
+    candidate_id = str(getattr(args, "candidate_id", "") or "").strip()
+    if candidate_id:
+        try:
+            payload["candidate_detail"] = (
+                compact_reduction_candidate_detail(report, candidate_id)
+                if args.compact
+                else next(
+                    row for row in report.candidates if row.candidate_id == candidate_id
+                ).to_dict()
+            )
+        except (StopIteration, ValueError) as exc:
+            _emit_payload(
+                _blueprint_error_payload(
+                    "flowguard_self_reduction_candidate_invalid", exc
+                ),
+                as_json=args.json,
+            )
+            return 2
     _emit_payload(payload, as_json=args.json)
     return 0 if report.ok else 1
 
@@ -2207,6 +2251,7 @@ def _load_project_blueprint_bundle(args: argparse.Namespace):
 def _run_project_blueprint_audit_command(args: argparse.Namespace) -> int:
     """Build a declared target-system software blueprint in memory only."""
 
+    from .blueprint_compact_projection import compact_project_blueprint_projection
     from .project_blueprint import ProjectBlueprintError
 
     try:
@@ -2217,7 +2262,12 @@ def _run_project_blueprint_audit_command(args: argparse.Namespace) -> int:
             as_json=args.json,
         )
         return 2
-    _emit_payload(bundle.to_dict(), as_json=args.json)
+    payload = (
+        compact_project_blueprint_projection(bundle)
+        if args.compact
+        else bundle.to_dict()
+    )
+    _emit_payload(payload, as_json=args.json)
     return 0 if bundle.ok else 1
 
 
@@ -2286,6 +2336,117 @@ def _run_project_blueprint_export_command(args: argparse.Namespace) -> int:
         as_json=args.json,
     )
     return 0
+
+
+def _run_project_blueprint_portable_export_command(args: argparse.Namespace) -> int:
+    """Write one exchangeable envelope over the canonical project projection."""
+
+    from .implementation_blueprint import (
+        project_canonical_software_blueprint,
+    )
+    from .portable_blueprint import (
+        PortableBlueprintBundleError,
+        build_portable_blueprint_bundle,
+        compact_portable_blueprint_projection,
+        load_portable_blueprint_bundle,
+        verify_portable_blueprint_bundle,
+        write_portable_blueprint_bundle,
+    )
+    from .project_blueprint import ProjectBlueprintError
+
+    try:
+        bundle = _load_project_blueprint_bundle(args)
+        if not bundle.canonical_export_ready:
+            _emit_payload(
+                {
+                    "status": "blocked",
+                    "canonical_export_ready": False,
+                    "canonical_export_blockers": list(
+                        bundle.canonical_export_blockers
+                    ),
+                },
+                as_json=args.json,
+            )
+            return 1
+        projection = project_canonical_software_blueprint(bundle)
+        static_status = (
+            bundle.static_readiness.status
+            if bundle.static_readiness is not None
+            else "unknown"
+        )
+        execution_status = (
+            bundle.model_test_alignment_report.executed_evidence_status
+            if bundle.model_test_alignment_report is not None
+            else "not_run"
+        )
+        target = bundle.target_system_report
+        portable = build_portable_blueprint_bundle(
+            projection,
+            subject_revision=(
+                target.descriptor.subject_revision if target is not None else ""
+            ),
+            target_profile=(target.target_profile if target is not None else ""),
+            static_status=static_status,
+            execution_status=execution_status,
+        )
+        write_portable_blueprint_bundle(portable, args.output)
+        reloaded = load_portable_blueprint_bundle(args.output)
+        verification = verify_portable_blueprint_bundle(reloaded)
+        if not verification.ok:
+            raise PortableBlueprintBundleError(
+                "; ".join(verification.findings)
+            )
+    except (
+        PortableBlueprintBundleError,
+        ProjectBlueprintError,
+        OSError,
+        ValueError,
+    ) as exc:
+        _emit_payload(
+            _blueprint_error_payload("portable_blueprint_export_failed", exc),
+            as_json=args.json,
+        )
+        return 2
+    payload = (
+        compact_portable_blueprint_projection(reloaded)
+        if args.compact
+        else verification.to_dict()
+    )
+    _emit_payload(
+        {
+            **payload,
+            "materialization_status": "complete",
+            "output": str(Path(args.output).resolve()),
+        },
+        as_json=args.json,
+    )
+    return 0
+
+
+def _run_portable_blueprint_verify_command(args: argparse.Namespace) -> int:
+    """Verify a portable envelope without loading project source or providers."""
+
+    from .portable_blueprint import (
+        PortableBlueprintBundleError,
+        load_portable_blueprint_bundle,
+        verify_portable_blueprint_bundle,
+    )
+
+    try:
+        bundle = load_portable_blueprint_bundle(args.bundle)
+        verification = verify_portable_blueprint_bundle(
+            bundle,
+            expected_blueprint_fingerprint=args.expected_blueprint_fingerprint or None,
+            expected_subject_revision=args.expected_subject_revision or None,
+        )
+    except (PortableBlueprintBundleError, OSError, ValueError) as exc:
+        _emit_payload(
+            _blueprint_error_payload("portable_blueprint_verification_failed", exc),
+            as_json=args.json,
+        )
+        return 2
+    _emit_payload(verification.to_dict(), as_json=args.json)
+    return 0 if verification.ok else 1
 
 
 def _run_project_blueprint_candidate_command(args: argparse.Namespace) -> int:
@@ -2716,6 +2877,11 @@ def _add_implementation_blueprint_parsers(
             "unresolved candidate and no authorized cleanup left unapplied."
         ),
     )
+    self_check.add_argument(
+        "--candidate-id",
+        default="",
+        help="Include exact detail for one architecture-reduction candidate.",
+    )
     self_check.add_argument("--json", action="store_true")
     self_check.set_defaults(handler=_run_flowguard_self_blueprint_check_command)
 
@@ -2730,6 +2896,11 @@ def _add_implementation_blueprint_parsers(
         "--root", default=".", help="FlowGuard repository root."
     )
     self_reduction.add_argument("--compact", action="store_true")
+    self_reduction.add_argument(
+        "--candidate-id",
+        default="",
+        help="Include exact detail for one architecture-reduction candidate.",
+    )
     self_reduction.add_argument("--json", action="store_true")
     self_reduction.set_defaults(
         handler=_run_flowguard_self_architecture_reduction_command
@@ -2860,6 +3031,11 @@ def _add_implementation_blueprint_parsers(
     project_check.add_argument(
         "--definition", required=True, help="Strict current project-blueprint JSON."
     )
+    project_check.add_argument(
+        "--compact",
+        action="store_true",
+        help="Emit bounded status/counts without expanding the blueprint.",
+    )
     project_check.add_argument("--json", action="store_true")
     project_check.set_defaults(handler=_run_project_blueprint_audit_command)
 
@@ -2877,6 +3053,41 @@ def _add_implementation_blueprint_parsers(
     project_export.add_argument("--output", required=True)
     project_export.add_argument("--json", action="store_true")
     project_export.set_defaults(handler=_run_project_blueprint_export_command)
+
+    portable_export = subparsers.add_parser(
+        "project-blueprint-portable-export",
+        help=(
+            "Write one exchangeable, content-addressed envelope over the "
+            "canonical project blueprint; it never reconstructs the target."
+        ),
+    )
+    portable_export.add_argument("--root", required=True, help="Bounded project root.")
+    portable_export.add_argument(
+        "--definition", required=True, help="Strict current project-blueprint JSON."
+    )
+    portable_export.add_argument("--output", required=True)
+    portable_export.add_argument(
+        "--compact",
+        action="store_true",
+        help="Print only bounded bundle status and member identities.",
+    )
+    portable_export.add_argument("--json", action="store_true")
+    portable_export.set_defaults(
+        handler=_run_project_blueprint_portable_export_command
+    )
+
+    portable_verify = subparsers.add_parser(
+        "portable-blueprint-verify",
+        help=(
+            "Verify an exchanged blueprint envelope in isolation without source, "
+            "provider, test, or reconstruction work."
+        ),
+    )
+    portable_verify.add_argument("--bundle", required=True)
+    portable_verify.add_argument("--expected-blueprint-fingerprint", default="")
+    portable_verify.add_argument("--expected-subject-revision", default="")
+    portable_verify.add_argument("--json", action="store_true")
+    portable_verify.set_defaults(handler=_run_portable_blueprint_verify_command)
 
     candidate = subparsers.add_parser(
         "project-blueprint-candidate",

@@ -39,5 +39,3 @@ Accept a named current model; derive owners and boundaries; block omissions/dupl
 ## Output Requirements
 - Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, ownership map, and code structure diagram; edges mean owns, calls, adapts, exposes, or validates. Blueprint output adds depth/first gap, fingerprint, unresolved ids, and reverse obligations.
 
-
-<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

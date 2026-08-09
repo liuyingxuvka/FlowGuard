@@ -528,7 +528,7 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
 
         public_api = commitment_by_id["commitment:flowguard-public-api-surface"]
         self.assertIn(
-            ".flowguard/architecture_reduction/run_checks.py",
+            ".flowguard/architecture_reduction/model.py",
             public_api.path_authority.evidence_refs,
         )
         self.assertNotIn(

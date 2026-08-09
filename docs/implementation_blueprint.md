@@ -266,6 +266,33 @@ python -m flowguard project-blueprint-audit `
   --json
 ```
 
+For exchange between tools or projects, wrap the same canonical projection in
+one portable file. This is a transport envelope, not a second model: its
+manifest and shards are the exact current content-addressed projection above.
+The envelope records three separate facts so a compact read cannot accidentally
+turn “saved” into “understood” or “executed”: static model status, portable
+integrity status, and execution-evidence status. It does not invoke providers,
+source, tests, or reconstruction. The file can be checked in an isolated
+directory with no project source available:
+
+```powershell
+python -m flowguard project-blueprint-portable-export `
+  --root <project-root> `
+  --definition <project-blueprint.json> `
+  --output portable-blueprint.json `
+  --compact `
+  --json
+
+python -m flowguard portable-blueprint-verify `
+  --bundle portable-blueprint.json `
+  --json
+```
+
+`--compact` changes only the printed report. The file remains complete, with
+all twenty project projection kinds, member identities, fingerprints, and
+readiness gaps. A consumer that needs details can load the same file; it never
+falls back to source, Python, an alternate provider, or a missing shard.
+
 A missing required provider capability blocks that exact boundary; the core
 does not reject a target merely because it is not Python. These audit/read
 commands do not write the target, start a validator, or activate a model
@@ -357,6 +384,16 @@ python -m flowguard project-blueprint-export `
   --root <project-root> `
   --definition <project-blueprint.json> `
   --output exported-blueprint `
+  --json
+```
+
+For a bounded status check without the full graph, use the compact audit view:
+
+```powershell
+python -m flowguard project-blueprint-audit `
+  --root <project-root> `
+  --definition <project-blueprint.json> `
+  --compact `
   --json
 ```
 

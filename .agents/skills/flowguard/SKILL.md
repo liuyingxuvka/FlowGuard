@@ -53,6 +53,3 @@ Route id and native owner: `model_first_function_flow`; role: `kernel`. Decide `
 
 ## Output Requirements
 - Return evidence, failures, blockers, skipped checks, residual risk, claim boundary, typed next actions, route/reference, model/counterexamples, path-quality summary, sufficiency, admission, user choice, and validation. Blueprint output adds target/profile, affected members, layer statuses/depth/gaps, behavior closure, and resource/intent status.
-
-
-<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

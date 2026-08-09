@@ -40,5 +40,3 @@ Accept concrete failure evidence and prior claim state; block point-fix-only or 
 ## Output Requirements
 - Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, a miss-repair diagram, commitment/owner/blueprint-gap ids, canonical cases, ModelMaturation/replay status, generalized-case status, and preserved-owner diagnostics.
 
-
-<!--VTP:target adapter/catalog;native validation;stale|ambiguous=block;preview!=proof;harvest-->

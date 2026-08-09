@@ -337,3 +337,12 @@ their verified neighborhood directly from the normalized index. Before release c
 self-architecture-reduction review bound to the same self blueprint; route
 only proof-ready candidates into StructureMesh and leave `risky_keep` visible.
 Cleanup never authorizes deletion by size or similarity alone.
+
+## Release order for portable DNA changes
+
+Use affected and compact blueprint reads while behavior is changing. After the
+functional implementation and one consolidated ArchitectureReduction/
+StructureMesh review, freeze OpenSpec, model authority, skill projections,
+installation, and version identities. Only then run the one supervised final
+parent. A portable export records static, portable, and execution statuses; it
+does not replace final validation.

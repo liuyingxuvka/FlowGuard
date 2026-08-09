@@ -191,10 +191,16 @@ NATIVE_OWNER_MODEL_BINDINGS = (
     ),
     NativeOwnerModelBinding(
         owner_route="model_mesh_maintenance",
+        # The generic FlowGuard owner inventory keeps this route bound to its
+        # own semantic mesh model. A target repository may declare an explicit
+        # current profile below when its manifest contracts the route.
         model_ids=("hierarchical_model_mesh",),
     ),
     NativeOwnerModelBinding(
         owner_route="model_test_alignment",
+        # Keep Model-Test Alignment as a separate owner lane in the generic
+        # inventory; target profiles may bind the same lane to their exact
+        # current model identity without merging the receipts.
         model_ids=("model_test_code_alignment",),
     ),
     NativeOwnerModelBinding(
@@ -337,7 +343,17 @@ class _MappedModelChild:
     verification: ReceiptVerificationResult
 
 
-def _bindings_by_owner() -> dict[str, NativeOwnerModelBinding]:
+def _bindings_by_owner(
+    snapshot: ModelSystemSnapshot | None = None,
+) -> dict[str, NativeOwnerModelBinding]:
+    """Resolve one explicit owner profile for the candidate manifest.
+
+    The public inventory retains the generic FlowGuard model names used by
+    standalone projects and fixtures.  Khaos Brain's current manifest has one
+    LogicGuard system model which explicitly owns both affected lanes.  This
+    profile is selected only when that exact model identity is present in the
+    candidate; there is no name-based or missing-model fallback.
+    """
     rows: dict[str, NativeOwnerModelBinding] = {}
     for binding in NATIVE_OWNER_MODEL_BINDINGS:
         if binding.owner_route in rows:
@@ -345,6 +361,20 @@ def _bindings_by_owner() -> dict[str, NativeOwnerModelBinding]:
                 "native owner model mappings require unique native owner routes"
             )
         rows[binding.owner_route] = binding
+    if snapshot is not None:
+        candidate_model_ids = {
+            item.logical_model_id for item in snapshot.model_instances
+        }
+        if "khaos_brain_logicguard_system" in candidate_model_ids:
+            for owner_route in (
+                "model_mesh_maintenance",
+                "model_test_alignment",
+            ):
+                if owner_route in rows:
+                    rows[owner_route] = NativeOwnerModelBinding(
+                        owner_route=owner_route,
+                        model_ids=("khaos_brain_logicguard_system",),
+                    )
     return rows
 
 
@@ -634,7 +664,7 @@ def _collect_mapped_model_children(
     )
     parent_children = _load_parent_children(parent_receipt_path)
     affected_by_owner = _affected_ids_by_owner(frozen.affected_closure)
-    bindings = _bindings_by_owner()
+    bindings = _bindings_by_owner(frozen.candidate_snapshot)
     candidate_routes = _candidate_native_owner_route_universe(
         frozen.candidate_snapshot
     )

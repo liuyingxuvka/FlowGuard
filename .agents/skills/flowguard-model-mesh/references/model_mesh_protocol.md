@@ -140,3 +140,11 @@ or rewrites them. Ordinary work starts from a verified
 `AffectedBlueprintNeighborhood` and follows only declared behavior, support,
 producer/consumer, ancestor, and sibling edges. A different shard layout with
 the same logical content is not a model change.
+
+## Portable and compact mesh evidence
+
+The portable form is the canonical manifest plus content-addressed shards. Mesh
+composition first verifies shard identity, member identity, and parent/child
+references. A compact read may bound rows, but it retains the full denominator
+fingerprint, omitted counts, and all unresolved or `not_run` statuses. Static
+closure, portable integrity, and execution receipts are separate claims.

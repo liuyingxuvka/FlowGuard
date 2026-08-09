@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.68.8 - 2026-08-08
+
+- Added a provider-neutral portable blueprint envelope over the existing
+  canonical projection, with isolated fingerprint verification and bounded
+  compact views that keep static, portable, and execution status separate.
+- Bound the new portable export and verification paths to the existing
+  model/code/test ownership; compact output preserves denominators,
+  fingerprints, unresolved ids, and `not_run` gaps without creating a second
+  DNA authority.
+- Consolidated strict duplicate-key JSON parsing under one current reader
+  owner and tightened ArchitectureReduction, StructureMesh, Model-Test
+  Alignment, TestMesh, and DevelopmentProcessFlow guidance around
+  equivalence-backed contraction and one final release gate.
+- Kept independent reconstruction and translation out of this release; the
+  bundle is an exchangeable model projection, not an implementation runner.
+
 ## v0.68.7 - 2026-08-07
 
 - **Breaking:** retired fourteen historical, task-local, or completed construction current-model routes whose useful

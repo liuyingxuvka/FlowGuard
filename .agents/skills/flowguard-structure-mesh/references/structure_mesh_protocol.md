@@ -237,3 +237,11 @@ adapters, persistence, and serialization through `SupportingSurfaceRelation`.
 Moving or splitting support code must preserve the primary owner and all ten
 behavior dimensions. A duplicate primary owner or an orphan supporting surface
 blocks parity instead of being hidden by facade success.
+
+## Canonical blueprint and cleanup order
+
+Use the independent inventory and the named model as the structure source. A
+small wrapper, serializer, runner, or public entrypoint remains until dynamic,
+manifest, documentation, consumer, and release references are current and its
+facade/parity proof names the post-action owner. Complete the functional change
+first, then perform one consolidated cleanup pass and one affected revalidation.

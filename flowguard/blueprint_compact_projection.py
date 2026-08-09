@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from .evidence_receipts import fingerprint_value
 
 
 BLUEPRINT_COMPACT_PROJECTION_SCHEMA = "flowguard.blueprint_compact_projection.v2"
+PROJECT_BLUEPRINT_COMPACT_PROJECTION_SCHEMA = (
+    "flowguard.project_blueprint_compact_projection.v1"
+)
 DEFAULT_MEMBER_LIMIT = 64
 DEFAULT_BREAKDOWN_LIMIT = 16
+DEFAULT_CANDIDATE_INDEX_LIMIT = 32
 _PLANNED_EXECUTION_GAP_CODES = frozenset(
     {
         "missing_code_contract_test_evidence",
@@ -336,6 +340,103 @@ def compact_self_qualification_projection(bundle: Any) -> dict[str, Any]:
     return payload
 
 
+def compact_project_blueprint_projection(
+    bundle: Any,
+    *,
+    member_limit: int = DEFAULT_MEMBER_LIMIT,
+    breakdown_limit: int = DEFAULT_BREAKDOWN_LIMIT,
+) -> dict[str, Any]:
+    """Return a bounded project status without expanding the blueprint.
+
+    This is the project counterpart to ``compact_self_qualification_projection``.
+    It deliberately exposes denominator counts, layer/status claims, gaps, and
+    export blockers while leaving the canonical shards in their existing owner.
+    """
+
+    if member_limit < 1 or breakdown_limit < 1:
+        raise ValueError("compact projection limits must be positive")
+    inventory = _stored(bundle, "inventory")
+    tests = _stored(bundle, "test_inventory")
+    behavior = _stored(bundle, "behavior_report")
+    alignment = _stored(bundle, "model_test_alignment_report")
+    static_readiness = _stored(bundle, "static_readiness")
+    target_report = _stored(bundle, "target_system_report")
+    understanding = _stored(bundle, "understanding_summary")
+    blockers = tuple(
+        getattr(bundle, "canonical_export_blockers", ()) or ()
+    )
+    # ``readiness_ledger`` is intentionally the one qualified property allowed
+    # here: it is the already-derived project status and does not run work.
+    ledger = getattr(bundle, "readiness_ledger", None)
+    rows = tuple(_stored(ledger, "rows", ()) or ())
+    gaps = tuple(_stored(ledger, "gaps", ()) or ())
+    layer_statuses = [
+        {
+            "layer": str(_stored(row, "layer_id", "")),
+            "status": str(_stored(row, "status", "")),
+        }
+        for row in rows[:member_limit]
+    ]
+    gap_ids, omitted_gap_ids = _bounded(
+        (_stored(gap, "gap_id", "") for gap in gaps), member_limit
+    )
+    _, _, _, execution_counts, execution_examples, omitted_execution = _finding_breakdowns(
+        (("model_test_alignment", alignment),),
+        limit=breakdown_limit,
+    )
+    payload = {
+        "schema_version": PROJECT_BLUEPRINT_COMPACT_PROJECTION_SCHEMA,
+        "projection_kind": "project_blueprint",
+        "project_blueprint_fingerprint": str(
+            getattr(bundle, "fingerprint", "")
+        ),
+        "canonical_export_ready": bool(
+            getattr(bundle, "canonical_export_ready", False)
+        ),
+        "canonical_export_blockers": list(blockers),
+        "status": str(getattr(ledger, "status", "unknown")),
+        "static_status": str(_stored(static_readiness, "status", "unknown")),
+        "portable_status": (
+            "ready"
+            if bool(getattr(bundle, "canonical_export_ready", False))
+            else "blocked"
+        ),
+        "execution_status": str(
+            _stored(alignment, "executed_evidence_status", "not_run")
+        ),
+        "target_status": str(_stored(target_report, "status", "unknown")),
+        "deepest_proven_layer": str(
+            _stored(understanding, "deepest_proven_layer", "")
+        ),
+        "first_gap": _gap_payload(_stored(understanding, "first_gap")),
+        "gap_count": int(_stored(ledger, "gap_count", len(gaps)) or 0),
+        "gap_ids": gap_ids,
+        "omitted_gap_id_count": omitted_gap_ids,
+        "layer_statuses": layer_statuses,
+        "omitted_layer_count": max(0, len(rows) - member_limit),
+        "execution_gap_counts": execution_counts,
+        "execution_gap_examples": execution_examples,
+        "omitted_execution_gap_kind_count": omitted_execution,
+        "counts": {
+            "files": len(_stored(inventory, "file_dispositions", ()) or ()),
+            "implementation_surfaces": len(_stored(inventory, "surfaces", ()) or ()),
+            "required_implementation_surfaces": len(
+                _stored(inventory, "required_surface_ids", ()) or ()
+            ),
+            "test_nodes": len(_stored(tests, "nodes", ()) or ()),
+            "required_test_nodes": len(_stored(tests, "required_node_ids", ()) or ()),
+            "behavior_blocks": len(_stored(behavior, "contracts", ()) or ()),
+            "coverage_edges": len(_stored(behavior, "coverage_edges", ()) or ()),
+        },
+        "claim_boundary": (
+            "Bounded project status from one qualified canonical bundle; it runs "
+            "no provider, source, test owner, export, or reconstruction."
+        ),
+    }
+    payload["projection_fingerprint"] = fingerprint_value(payload)
+    return payload
+
+
 def compact_reduction_projection(
     review: Any,
     *,
@@ -483,6 +584,54 @@ def compact_reduction_projection(
         review, "reduction_universe_fingerprint", ""
     ) or _stored(universe, "universe_fingerprint", "")
     status = str(_stored(review, "status", ""))
+    candidate_index: list[dict[str, Any]] = []
+    candidate_paths: dict[str, int] = {}
+    for candidate in sorted(
+        candidates,
+        key=lambda row: str(_stored(row, "candidate_id", "")),
+    )[: min(member_limit, DEFAULT_CANDIDATE_INDEX_LIMIT)]:
+        metadata = _stored(candidate, "metadata", {}) or {}
+        if not isinstance(metadata, Mapping):
+            metadata = {}
+        candidate_id = str(_stored(candidate, "candidate_id", ""))
+        code_node_id = str(_stored(candidate, "code_node_id", ""))
+        candidate_path = code_node_id.split(":", 1)[0] if code_node_id else ""
+        if candidate_path:
+            candidate_paths[candidate_path] = candidate_paths.get(candidate_path, 0) + 1
+        missing = metadata.get("missing_proof_obligations", ())
+        candidate_index.append(
+            {
+                "candidate_id": candidate_id,
+                "signal": str(metadata.get("signal", "unclassified")),
+                "code_node_id": code_node_id,
+                "source_model_element": str(
+                    _stored(candidate, "source_model_element", "")
+                ),
+                "target_action": str(_stored(candidate, "target_action", "")),
+                "proof_status": str(_stored(candidate, "proof_status", "")),
+                "required_next_route": str(
+                    _stored(candidate, "required_next_route", "")
+                ),
+                "lifecycle_disposition": str(
+                    _stored(candidate, "lifecycle_disposition", "")
+                ),
+                "metadata_disposition": str(metadata.get("disposition", "unresolved")),
+                "missing_proof_obligations": [str(value) for value in missing or ()],
+                "affected_public_entrypoints": [
+                    str(value)
+                    for value in (_stored(candidate, "affected_public_entrypoints", ()) or ())
+                ],
+                "affected_state": [
+                    str(value)
+                    for value in (_stored(candidate, "affected_state", ()) or ())
+                ],
+                "affected_side_effects": [
+                    str(value)
+                    for value in (_stored(candidate, "affected_side_effects", ()) or ())
+                ],
+            }
+        )
+    candidate_index_omitted = max(0, len(candidates) - len(candidate_index))
     payload = {
         "schema_version": str(
             _required_stored_or_property(
@@ -520,6 +669,9 @@ def compact_reduction_projection(
         "omitted_necessity_gap_kind_count": omitted_necessity_gap_kinds,
         "candidate_counts_by_signal": bounded_signals,
         "omitted_signal_count": omitted_signals,
+        "candidate_index": candidate_index,
+        "omitted_candidate_index_count": candidate_index_omitted,
+        "candidate_counts_by_code_node_prefix": dict(sorted(candidate_paths.items())),
         "candidate_counts_by_necessity_disposition": (
             bounded_candidate_necessity_dispositions
         ),
@@ -585,18 +737,87 @@ def compact_reduction_projection(
     return payload
 
 
+def compact_reduction_candidate_detail(review: Any, candidate_id: str) -> dict[str, Any]:
+    """Return one complete candidate row without expanding the full report."""
+
+    requested = str(candidate_id).strip()
+    if not requested:
+        raise ValueError("candidate_id must be non-empty")
+    candidates = tuple(_stored(review, "candidates", ()) or ())
+    candidate = next(
+        (
+            row
+            for row in candidates
+            if str(_stored(row, "candidate_id", "")) == requested
+        ),
+        None,
+    )
+    if candidate is None:
+        raise ValueError(f"unknown architecture-reduction candidate: {requested}")
+    metadata = _stored(candidate, "metadata", {}) or {}
+    if not isinstance(metadata, Mapping):
+        raise ValueError("candidate metadata is not a current object")
+    payload = {
+        "schema_version": BLUEPRINT_COMPACT_PROJECTION_SCHEMA,
+        "projection_kind": "reduction_candidate_detail",
+        "review_fingerprint": str(
+            _required_stored(
+                review,
+                "review_fingerprint",
+                context="self architecture reduction review",
+            )
+        ),
+        "candidate": {
+            "candidate_id": requested,
+            "candidate_type": str(_stored(candidate, "candidate_type", "")),
+            "code_node_id": str(_stored(candidate, "code_node_id", "")),
+            "source_model_element": str(
+                _stored(candidate, "source_model_element", "")
+            ),
+            "target_action": str(_stored(candidate, "target_action", "")),
+            "proof_status": str(_stored(candidate, "proof_status", "")),
+            "required_next_route": str(
+                _stored(candidate, "required_next_route", "")
+            ),
+            "rationale": str(_stored(candidate, "rationale", "")),
+            "affected_public_entrypoints": list(
+                _stored(candidate, "affected_public_entrypoints", ()) or ()
+            ),
+            "affected_state": list(_stored(candidate, "affected_state", ()) or ()),
+            "affected_side_effects": list(
+                _stored(candidate, "affected_side_effects", ()) or ()
+            ),
+            "evidence_refs": list(_stored(candidate, "evidence_refs", ()) or ()),
+            "lifecycle_disposition": str(
+                _stored(candidate, "lifecycle_disposition", "")
+            ),
+            "metadata": dict(metadata),
+        },
+        "claim_boundary": (
+            "One exact current ArchitectureReduction candidate and its proof "
+            "neighborhood; no full report, code edit, or authorization is created."
+        ),
+    }
+    payload["fingerprint"] = fingerprint_value(payload)
+    return payload
+
+
 class BlueprintCompactProjection:
     """Namespace for the three bounded AI-facing projection contracts."""
 
     understanding = staticmethod(compact_understanding_projection)
     self_qualification = staticmethod(compact_self_qualification_projection)
+    project = staticmethod(compact_project_blueprint_projection)
     reduction = staticmethod(compact_reduction_projection)
 
 
 __all__ = [
     "BLUEPRINT_COMPACT_PROJECTION_SCHEMA",
+    "PROJECT_BLUEPRINT_COMPACT_PROJECTION_SCHEMA",
     "BlueprintCompactProjection",
+    "compact_project_blueprint_projection",
     "compact_reduction_projection",
+    "compact_reduction_candidate_detail",
     "compact_self_qualification_projection",
     "compact_understanding_projection",
 ]

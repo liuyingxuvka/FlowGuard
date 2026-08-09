@@ -147,6 +147,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:project-rules:behavior-ledger-current",
@@ -343,6 +345,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:ui-content-visibility-work-context",
@@ -466,6 +470,8 @@
         "side_effects": [
           "generate_behavior_contract_cases"
         ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:contract-exhaustion-skill",
@@ -590,6 +596,8 @@
         "side_effects": [
           "block_stale_or_progress_only_claims"
         ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:test-mesh-skill",
@@ -720,6 +728,8 @@
           "query_behavior_commitments",
           "backfeed_owner_model_and_tests"
         ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:model-miss-skill",
@@ -870,6 +880,8 @@
         "side_effects": [
           "block_incomplete_done_claim"
         ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:self-maintenance-spec:self-maintenance-child-gates"
@@ -994,6 +1006,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:work-context-spec"
@@ -1145,6 +1159,8 @@
           "record_process_optimization_decision",
           "record_repair_group_references"
         ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:development-process-strategy-spec"
@@ -1271,6 +1287,8 @@
         "side_effects": [
           "delete_block_migrate_delegate_or_scope_old_path"
         ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:project-rules:single-path-replacement-disposition",
@@ -1402,6 +1420,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:flowguard-agent-guidance"
@@ -1555,6 +1575,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:portable-compositional-verification"
@@ -1646,7 +1668,7 @@
           "evidence_current": true,
           "evidence_refs": [
             "tests/test_api_surface.py",
-            ".flowguard/architecture_reduction/run_checks.py"
+            ".flowguard/architecture_reduction/model.py"
           ],
           "fallback_candidate_ids": [],
           "metadata": {},
@@ -1681,6 +1703,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:flowguard-public-api"
@@ -1809,6 +1833,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:flowguard-template-cli"
@@ -2008,6 +2034,8 @@
           "persist_immutable_model_revision_records",
           "restore_or_compensate_implementation_effects"
         ],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:model-system-authority-spec"
@@ -2129,6 +2157,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:understanding:task-coverage-demand"
@@ -2261,6 +2291,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:understanding:model-maturation-receipt"
@@ -2387,6 +2419,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:understanding:implementation-admission"
@@ -2519,6 +2553,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:understanding:understanding-confidence"
@@ -2645,6 +2681,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:understanding:understanding-closure-integrity"
@@ -2766,6 +2804,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:understanding:readiness-status"
@@ -2883,6 +2923,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:validation-evidence-gates-spec"
@@ -2993,6 +3035,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:user-facing-model-diagrams-spec"
@@ -3105,6 +3149,8 @@
         "replacement_state": "active",
         "scoped_out_reason": "",
         "side_effects": [],
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_refs": [],
         "source_surface_ids": [
           "surface:codex-skill-satellites-spec"
@@ -3221,10 +3267,10 @@
     "require_current_evidence": true,
     "require_risk_gates_for_broad_claim": true,
     "source_inventory_evidence_ids": [
-      "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+      "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
     ],
-    "source_inventory_fingerprint": "sha256:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
-    "source_inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+    "source_inventory_fingerprint": "sha256:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
+    "source_inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
     "source_surfaces": [
       {
         "business_intent_ids": [
@@ -3234,18 +3280,18 @@
         "commitment_ids": [
           "commitment:behavior-ledger-current"
         ],
-        "content_fingerprint": "sha256:88f22fd79f5adc4d8baf651c7c9efd37d1f489bc84c8a21d664525fc51a6dec6",
+        "content_fingerprint": "sha256:57c6f479dfb171bba73ddfc44feb4c96f8a98916a1ba1dca468a5a3f638e7ab8",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:02cd4a1aea0dcdb45c9d7597454d37b60bb1350b62c4cd336eac55e04cb84416",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "FlowGuard project rules",
         "metadata": {
           "live_source_identity": {
@@ -3262,6 +3308,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "AGENTS.md#FlowGuard Project Rules",
@@ -3285,11 +3333,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "Behavior Commitment Ledger skill contract",
         "metadata": {
           "live_source_identity": {
@@ -3306,6 +3354,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": ".agents/skills/flowguard-behavior-commitment-ledger/SKILL.md",
@@ -3329,11 +3379,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "BCL external-promise requirement",
         "metadata": {
           "live_source_identity": {
@@ -3350,6 +3400,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/behavior-commitment-ledger/spec.md#Requirement: Ledger records all in-scope behavior commitments",
@@ -3373,11 +3425,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "ordinary UI content contract",
         "metadata": {
           "live_source_identity": {
@@ -3394,6 +3446,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/flowguard-ui-flow-structure/spec.md#Requirement: Ordinary UI admits only user-facing content",
@@ -3417,11 +3471,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "UI Flow Structure skill contract",
         "metadata": {
           "live_source_identity": {
@@ -3438,6 +3492,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": ".agents/skills/flowguard-ui-flow-structure/SKILL.md",
@@ -3454,18 +3510,18 @@
         "commitment_ids": [
           "commitment:behavior-dcar-full-axis"
         ],
-        "content_fingerprint": "sha256:eeecf069629ebda7a933b679df44f1330b777373acde7a19a05ab120489fdcbe",
+        "content_fingerprint": "sha256:b934b307a9fc61e6a0495e7d089a28f8d19ab3a7674c28318427c02652db4412",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:6fd075b831f9afd34e1a46afceb6f1394562470407f5e0b71cbcd3db8a711fa0",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "ContractExhaustion skill contract",
         "metadata": {
           "live_source_identity": {
@@ -3482,6 +3538,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": ".agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md",
@@ -3505,11 +3563,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "BCL Cartesian coverage requirement",
         "metadata": {
           "live_source_identity": {
@@ -3526,6 +3584,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/behavior-commitment-ledger/spec.md#Requirement: Ledger supports finite Cartesian coverage planning",
@@ -3542,18 +3602,18 @@
         "commitment_ids": [
           "commitment:test-mesh-current-for-bcl"
         ],
-        "content_fingerprint": "sha256:fce7cb3a78ddeef6fe59960500918477ebec323cda0f95e2d872702be0f116d8",
+        "content_fingerprint": "sha256:5207555bb143894d4e375d7e58d2487fd9d7a58e633e0007f82197ea8017d2bb",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:3be4cef4cc49d905620d0381d1f875d94d70fd56b8b92b07c630f5f30089ca44",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "TestMesh skill contract",
         "metadata": {
           "live_source_identity": {
@@ -3570,6 +3630,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": ".agents/skills/flowguard-test-mesh/SKILL.md",
@@ -3593,11 +3655,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "BCL downstream evidence requirement",
         "metadata": {
           "live_source_identity": {
@@ -3614,6 +3676,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/behavior-commitment-ledger/spec.md#Requirement: Ledger exposes downstream evidence ids",
@@ -3630,18 +3694,18 @@
         "commitment_ids": [
           "commitment:model-miss-backfeeds-existing-commitment"
         ],
-        "content_fingerprint": "sha256:918e676ef8d55fa86adf39eb37a311294b69300984e724e9e037671ae7d0c9d2",
+        "content_fingerprint": "sha256:dd9761c114550be5f5aef9d225a10ea8c6c6c9fa8bbb5bc651acc84c0c4f238f",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:aeeed33ca03f252f6e7b1c45f86f146a90e4286ca9e9cebb1c9ec9211c5b1def",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "Model Miss Review skill contract",
         "metadata": {
           "live_source_identity": {
@@ -3658,6 +3722,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": ".agents/skills/flowguard-model-miss-review/SKILL.md",
@@ -3674,18 +3740,18 @@
         "commitment_ids": [
           "commitment:model-miss-backfeeds-existing-commitment"
         ],
-        "content_fingerprint": "sha256:e904649b0df42a23bf771518d63634272568ca19c2f05e7cb1f4e254700bb8c5",
+        "content_fingerprint": "sha256:f173decd9554b4283043cbc9153d2af27808c563182db246e9f33b998a1e695f",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:aeeed33ca03f252f6e7b1c45f86f146a90e4286ca9e9cebb1c9ec9211c5b1def",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "Existing Model Preflight skill contract",
         "metadata": {
           "live_source_identity": {
@@ -3702,6 +3768,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": ".agents/skills/flowguard-existing-model-preflight/SKILL.md",
@@ -3725,11 +3793,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "BCL model-miss backfeed requirement",
         "metadata": {
           "live_source_identity": {
@@ -3746,6 +3814,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/behavior-commitment-ledger/spec.md#Requirement: Model miss backfeed checks existing commitments first",
@@ -3769,11 +3839,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "self-maintenance understanding-path contract",
         "metadata": {
           "live_source_identity": {
@@ -3790,6 +3860,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/flowguard-self-maintenance-mesh/spec.md#Requirement: FlowGuard self maintenance exercises the full understanding path",
@@ -3813,11 +3885,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "WorkContext read-only contract",
         "metadata": {
           "live_source_identity": {
@@ -3834,6 +3906,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/work-context/spec.md#Requirement: WorkContext has zero provider execution authority",
@@ -3857,11 +3931,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "development-process strategy contract",
         "metadata": {
           "live_source_identity": {
@@ -3878,6 +3952,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/development-process-strategy-selection/spec.md#Requirement: Hard outcome equivalence precedes process optimization",
@@ -3894,18 +3970,18 @@
         "commitment_ids": [
           "commitment:single-path-replacement-disposition"
         ],
-        "content_fingerprint": "sha256:88f22fd79f5adc4d8baf651c7c9efd37d1f489bc84c8a21d664525fc51a6dec6",
+        "content_fingerprint": "sha256:57c6f479dfb171bba73ddfc44feb4c96f8a98916a1ba1dca468a5a3f638e7ab8",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:3c73b188e4f4220547d16d0421115473470a337d984b21a1052e1eeb3d697dc1",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "single-path project rule",
         "metadata": {
           "live_source_identity": {
@@ -3922,6 +3998,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "AGENTS.md#FlowGuard Project Rules",
@@ -3945,11 +4023,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "single-path hard gate",
         "metadata": {
           "live_source_identity": {
@@ -3966,6 +4044,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "docs/agents_snippet.md#Hard Gates",
@@ -3982,18 +4062,18 @@
         "commitment_ids": [
           "commitment:flowguard-agent-guidance-route"
         ],
-        "content_fingerprint": "sha256:540cb4a5813c346c2fb33e4089e785672f898b1c5b700385ed08cfefafba4c6e",
+        "content_fingerprint": "sha256:35d09edde0556eb07d0258e68ecc245025bffefda67d43ffda44a8d86093ebf3",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:2d24f10c72be5652abcaeb262bf5f9630b86e1581d41c36ca33cf7070ba12e0c",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "FlowGuard kernel and satellite guidance contracts",
         "metadata": {
           "live_source_identity": {
@@ -4025,6 +4105,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": ".agents/skills/flowguard/SKILL.md; .agents/skills/flowguard-*/SKILL.md; docs/agents_snippet.md",
@@ -4048,11 +4130,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "portable compositional verification contract",
         "metadata": {
           "live_source_identity": {
@@ -4069,6 +4151,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/flowguard-compositional-verification/spec.md",
@@ -4092,11 +4176,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "FlowGuard public API registry contract",
         "metadata": {
           "live_source_identity": {
@@ -4113,6 +4197,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/flowguard-api-registry/spec.md#Requirement: Route-scoped API groups",
@@ -4136,11 +4222,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "FlowGuard template CLI contract",
         "metadata": {
           "live_source_identity": {
@@ -4157,6 +4243,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/flowguard-api-registry/spec.md#Requirement: Evidence API exposes template files and CLI surfaces",
@@ -4180,11 +4268,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "authoritative model-system contract",
         "metadata": {
           "live_source_identity": {
@@ -4201,6 +4289,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/authoritative-model-system/spec.md#Requirement: A project has one observed model-system head",
@@ -4224,11 +4314,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "task coverage demand contract",
         "metadata": {
           "live_source_identity": {
@@ -4245,6 +4335,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/task-coverage-demand/spec.md#Requirement: Task facts determine the coverage denominator",
@@ -4268,11 +4360,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "model maturation receipt contract",
         "metadata": {
           "live_source_identity": {
@@ -4289,6 +4381,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/model-maturation-receipt/spec.md#Requirement: Terminal maturation is published as a canonical receipt",
@@ -4305,18 +4399,18 @@
         "commitment_ids": [
           "commitment:implementation-admission"
         ],
-        "content_fingerprint": "sha256:4530e03d208ed66aa9dc8f986d495f23231e7e05d766b7f737756ee1273584b6",
+        "content_fingerprint": "sha256:7e4822ef5b157b69f4066bfbd216421b4c6d0894f03e704c646b0ebc91aae22b",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:e4e9300e441030af2b101b8a67509a36fe1f2eaa64155c53d706eb2ac71ed09e",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "implementation admission contract",
         "metadata": {
           "live_source_identity": {
@@ -4333,6 +4427,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/development-process-flow/spec.md#Requirement: Implementation admission requires verified sufficiency and separate permission",
@@ -4356,11 +4452,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "broad confidence ownership contract",
         "metadata": {
           "live_source_identity": {
@@ -4377,6 +4473,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/risk-evidence-ledger/spec.md#Requirement: RiskEvidenceLedger owns final broad confidence",
@@ -4400,11 +4498,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "closure integrity contract",
         "metadata": {
           "live_source_identity": {
@@ -4421,6 +4519,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/flowguard-closure-contract/spec.md#Requirement: Closure validates identity and terminal integrity without recomputing confidence",
@@ -4444,11 +4544,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "understanding readiness projection contract",
         "metadata": {
           "live_source_identity": {
@@ -4465,6 +4565,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/model-maturation-receipt/spec.md#Requirement: Understanding status is a read-only receipt projection",
@@ -4488,11 +4590,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "permanent validation evidence kernel contract",
         "metadata": {
           "live_source_identity": {
@@ -4509,6 +4611,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/validation-evidence-gates/spec.md#Requirement: Cross-route validation evidence gate",
@@ -4532,11 +4636,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "permanent user-facing diagram contract",
         "metadata": {
           "live_source_identity": {
@@ -4553,6 +4657,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/user-facing-model-diagrams/spec.md#Requirement: No Runtime Semantics Change",
@@ -4576,11 +4682,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990"
+          "source-inventory-discovery:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:27ea3f17403fddacd244be4eeac1f2c47ef6e045d42dc36ee3282b49e1ee9990",
+        "inventory_revision": "source-inventory:2a7d6eb38e788150604dcadae6926f6e2c798c2cd00658e333a90739e4292894",
         "label": "permanent skill-suite topology contract",
         "metadata": {
           "live_source_identity": {
@@ -4597,6 +4703,8 @@
         "rationale": "This source states the external promise and does not use implementation, tests, or generated evidence as intent authority.",
         "relation_obligation_ids": [],
         "scoped_out_reason": "",
+        "similarity_obligation_ids": [],
+        "similarity_relation_ids": [],
         "source_authority_role": "normative",
         "source_classification": "external_normative_contract",
         "source_ref": "openspec/specs/flowguard-codex-skill-satellites/spec.md#Requirement: Satellite topology is derived from one canonical suite map",

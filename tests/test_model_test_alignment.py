@@ -519,6 +519,7 @@ class ModelTestAlignmentTests(unittest.TestCase):
             selected_candidate_lane="normative_target",
             comparison_boundary_id="boundary:named",
             candidate_set_fingerprint=fp("candidate-set"),
+            optimization_depth="deep_required",
         )
         cases = (
             (

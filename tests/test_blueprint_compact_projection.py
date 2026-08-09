@@ -304,6 +304,14 @@ def test_reduction_projection_is_bounded_and_never_serializes_review():
     assert payload["candidate_counts_by_disposition_basis"] == (
         "candidate.metadata.disposition"
     )
+    assert len(payload["candidate_index"]) == 25
+    assert payload["candidate_index"][0]["candidate_id"] == "candidate:00"
+    assert payload["candidate_index"][0]["target_action"] == "retire_behavior"
+    assert payload["omitted_candidate_index_count"] == 0
+    assert payload["candidate_index"][0]["missing_proof_obligations"] == [
+        "proof:00",
+        "shared_proof",
+    ]
     assert len(payload["unresolved_member_counts_by_kind"]) == 8
     assert payload["omitted_unresolved_member_kind_count"] == 32
     assert payload["step_assessment_count"] == 80

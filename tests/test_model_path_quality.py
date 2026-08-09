@@ -584,6 +584,31 @@ def test_explicit_trigger_does_not_materialize_candidates_in_lightweight_result(
     assert "candidates" not in result.to_compact_dict()
 
 
+def test_measured_cost_requires_current_evidence_and_admits_deep_review() -> None:
+    model_facts = clean_facts()
+    owner = subject(_model_facts=model_facts)
+    measurement = fp("cost-measurement")
+    result = lightweight_path_review(
+        owner,
+        model_facts,
+        necessity_witnesses=witnesses_for(owner, model_facts),
+        active_obligation_ids=active_obligations_for(model_facts),
+        measured_costs={"steps": 64},
+        cost_thresholds={"steps": 64},
+        cost_evidence={"steps": measurement},
+        trigger_evidence={
+            "high_cost_boundary": fp("trigger:high-cost"),
+        },
+        trigger_currentness_id=owner.currentness_id,
+    )
+    assert result.optimization_depth == "deep_required"
+    assert result.trigger_ids == ("high_cost_boundary",)
+    assert result.cost_measurements == (("steps", 64.0),)
+    assert result.cost_detail_evidence_fingerprint.startswith("sha256:")
+    assert result.trigger_evidence_fingerprint.startswith("sha256:")
+    assert "deep_review_required:high_cost_boundary" in result.unresolved_ids
+
+
 def test_necessity_witness_validation_rejects_missing_duplicate_stale_and_circular_rows() -> None:
     owner = subject()
     retained = {"state:a": "state", "state:b": "state"}

@@ -1422,7 +1422,6 @@
       "expected_artifacts": [],
       "input_globs": [
         ".flowguard/architecture_reduction/model.py",
-        ".flowguard/architecture_reduction/run_checks.py",
         ".flowguard/authoritative_model_system/software_blueprint_definition.json",
         ".agents/skills/flowguard-architecture-reduction/references/architecture_reduction_protocol.md",
         "flowguard/architecture_reduction.py",
@@ -1461,7 +1460,7 @@
       "mutation_policy": "none",
       "runner": [
         "{python}",
-        ".flowguard/architecture_reduction/run_checks.py"
+        ".flowguard/architecture_reduction/model.py"
       ],
       "shard_safe": true,
       "tier": "fast",
@@ -1604,9 +1603,9 @@
           "check:model-regression:architecture_reduction"
         ],
         "model_sha256": "sha256:a109593f543672a07cc5c510069e44abbfb1bd8b093dcd8ec9c074deefbb213e",
-        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "runner_sha256": "sha256:a109593f543672a07cc5c510069e44abbfb1bd8b093dcd8ec9c074deefbb213e",
         "declaration_fingerprint": "sha256:8bb5471bde6bd956a5cabd37694a0c6546bfc2fe412f363edd962429397ec25b",
-        "closure_fingerprint": "sha256:71b1894d6276b7baf5f6b892da6414cc66113109cd87a6f3da49d864584addf3"
+        "closure_fingerprint": "sha256:7734cbe612e17b4fe3be8f76f9a0b810865b2fdeaea156233d939774f2b4eaaf"
       }
     },
     {
@@ -2544,8 +2543,7 @@
       "exclusion_reason": "",
       "expected_artifacts": [],
       "input_globs": [
-        ".flowguard/hierarchical_model_mesh/model.py",
-        ".flowguard/hierarchical_model_mesh/run_checks.py"
+        ".flowguard/hierarchical_model_mesh/model.py"
       ],
       "intent_source_inputs": [
         "openspec/specs/hierarchical-model-mesh/spec.md"
@@ -2555,7 +2553,7 @@
       "mutation_policy": "none",
       "runner": [
         "{python}",
-        ".flowguard/hierarchical_model_mesh/run_checks.py"
+        ".flowguard/hierarchical_model_mesh/model.py"
       ],
       "shard_safe": true,
       "tier": "focused",
@@ -2686,9 +2684,9 @@
           "check:model-regression:hierarchical_model_mesh"
         ],
         "model_sha256": "sha256:3622dd3fca9407340a27688b31b6f9dae14d3fe17c638a74a597172788976025",
-        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "runner_sha256": "sha256:3622dd3fca9407340a27688b31b6f9dae14d3fe17c638a74a597172788976025",
         "declaration_fingerprint": "sha256:ac138d27c48c1ca5c93ef4f731ac044167ebadec9817e96b904017def1af465a",
-        "closure_fingerprint": "sha256:fa9bbf9aaa3ca5bba6f9bc03271db7741112022f95686db1736feca57b6faa51"
+        "closure_fingerprint": "sha256:774a1ca2144f469961f2c0255719b2b1877bba90628925443d9124aa00764890"
       }
     },
     {
@@ -2710,8 +2708,9 @@
         "flowguard/software_blueprint_readiness.py",
         "flowguard/target_system_blueprint.py",
         "flowguard/target_native_qualification.py",
-        "flowguard/affected_blueprint_reader.py",
-        "flowguard/blueprint_compact_projection.py",
+    "flowguard/affected_blueprint_reader.py",
+    "flowguard/blueprint_compact_projection.py",
+    "flowguard/portable_blueprint.py",
         "flowguard/understanding_readiness.py",
         "flowguard/self_architecture_reduction.py",
         "flowguard/self_blueprint.py",
@@ -2733,7 +2732,8 @@
         "tests/test_target_system_blueprint.py",
         "tests/test_target_neutral_blueprint_acceptance.py",
         "tests/test_affected_blueprint_reader.py",
-        "tests/test_blueprint_compact_projection.py",
+    "tests/test_blueprint_compact_projection.py",
+    "tests/test_portable_blueprint.py",
         "tests/test_blueprint_aggregate_integrity.py",
         "tests/test_blueprint_cli_routes.py",
         "tests/test_api_surface.py",
@@ -3027,8 +3027,7 @@
       "exclusion_reason": "",
       "expected_artifacts": [],
       "input_globs": [
-        ".flowguard/mesh_target_split_derivation/model.py",
-        ".flowguard/mesh_target_split_derivation/run_checks.py"
+        ".flowguard/mesh_target_split_derivation/model.py"
       ],
       "intent_source_inputs": [
         "openspec/specs/model-mesh-target-split-derivation/spec.md",
@@ -3039,7 +3038,7 @@
       "mutation_policy": "none",
       "runner": [
         "{python}",
-        ".flowguard/mesh_target_split_derivation/run_checks.py"
+        ".flowguard/mesh_target_split_derivation/model.py"
       ],
       "shard_safe": true,
       "tier": "focused",
@@ -3068,9 +3067,9 @@
           "check:model-regression:mesh_target_split_derivation"
         ],
         "model_sha256": "sha256:46b969454621a934627aa4719b335ac49a8106088bb6088c06f15c59f267e23e",
-        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "runner_sha256": "sha256:46b969454621a934627aa4719b335ac49a8106088bb6088c06f15c59f267e23e",
         "declaration_fingerprint": "sha256:ee0e0340e169a8332105dcd7b904b1f77de1791c408ba05bd2a27bcb04d35b48",
-        "closure_fingerprint": "sha256:ab1d457cebf470445815dad61e2f7c415b0ca5207f2c8197be17ebe64008ecee"
+        "closure_fingerprint": "sha256:8dfefe7193bafba9afb15e694744763b0a8bb5e1837a48fe32bc0b2b0b4f628f"
       }
     },
     {
@@ -3924,8 +3923,7 @@
       "exclusion_reason": "",
       "expected_artifacts": [],
       "input_globs": [
-        ".flowguard/skill_kernel_modularization/model.py",
-        ".flowguard/skill_kernel_modularization/run_checks.py"
+        ".flowguard/skill_kernel_modularization/model.py"
       ],
       "intent_source_inputs": [
         "openspec/specs/flowguard-skill-kernel/spec.md"
@@ -3935,7 +3933,7 @@
       "mutation_policy": "none",
       "runner": [
         "{python}",
-        ".flowguard/skill_kernel_modularization/run_checks.py"
+        ".flowguard/skill_kernel_modularization/model.py"
       ],
       "shard_safe": true,
       "tier": "focused",
@@ -3964,9 +3962,9 @@
           "check:model-regression:skill_kernel_modularization"
         ],
         "model_sha256": "sha256:64c57d1bb8c7b839cc7a40768cc27a5a2e4fe76cf883cea502a53d3dfac41aec",
-        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "runner_sha256": "sha256:64c57d1bb8c7b839cc7a40768cc27a5a2e4fe76cf883cea502a53d3dfac41aec",
         "declaration_fingerprint": "sha256:67bb15edd41edf3f90db51a5816f6b4e990e868bb116ce03f387003188f2e848",
-        "closure_fingerprint": "sha256:82bd95cc6c0632f947fb9911aacabceb51498f9a0b9bb58a5692f8f6cabf2bfc"
+        "closure_fingerprint": "sha256:6ded1409098930f0f98e6b7a2d57703469f15b1b79abe326455c4a6016edd169"
       }
     },
     {
@@ -4027,7 +4025,6 @@
       "expected_artifacts": [],
       "input_globs": [
         ".flowguard/structure_refactor_mesh/model.py",
-        ".flowguard/structure_refactor_mesh/run_checks.py",
         ".agents/skills/flowguard-structure-mesh/references/structure_mesh_protocol.md",
         ".agents/skills/flowguard-architecture-reduction/references/architecture_reduction_protocol.md",
         "flowguard/structuremesh.py",
@@ -4047,7 +4044,7 @@
       "mutation_policy": "none",
       "runner": [
         "{python}",
-        ".flowguard/structure_refactor_mesh/run_checks.py"
+        ".flowguard/structure_refactor_mesh/model.py"
       ],
       "shard_safe": true,
       "tier": "focused",
@@ -4148,9 +4145,9 @@
           "check:model-regression:structure_refactor_mesh"
         ],
         "model_sha256": "sha256:aa0acc5dec0b7d0733f8341236370c52af0bd6791da9617a820753c48e219617",
-        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "runner_sha256": "sha256:aa0acc5dec0b7d0733f8341236370c52af0bd6791da9617a820753c48e219617",
         "declaration_fingerprint": "sha256:755a538b00052caba36373508e96b139663ee303a08c1db9ab3e586c9d548b23",
-        "closure_fingerprint": "sha256:cc290cf7c72182ee42f2c5e2c63111f3a27c9d8e63483a0612b88ca0fc9501bb"
+        "closure_fingerprint": "sha256:d403faab20c568486edb5ded2b27111d7d4dbba0cf7f2d47a3a4a8d1494de52d"
       }
     },
     {
@@ -4215,7 +4212,6 @@
       "expected_artifacts": [],
       "input_globs": [
         ".flowguard/test_evidence_mesh/model.py",
-        ".flowguard/test_evidence_mesh/run_checks.py",
         "flowguard/model_regressions.py",
         "flowguard/test_inventory.py",
         "flowguard/test_inventory_python.py",
@@ -4244,7 +4240,7 @@
       "mutation_policy": "none",
       "runner": [
         "{python}",
-        ".flowguard/test_evidence_mesh/run_checks.py"
+        ".flowguard/test_evidence_mesh/model.py"
       ],
       "shard_safe": true,
       "tier": "fast",
@@ -4279,9 +4275,9 @@
           "check:model-regression:test_evidence_mesh"
         ],
         "model_sha256": "sha256:766490ef9c003544183da36408c604d6b92acde0e32389b59a1877d98d2e6e38",
-        "runner_sha256": "sha256:6b63392ecf7e9925239d5265efb49fdeca4cf94b6abbbf008dd9d701b38a5568",
+        "runner_sha256": "sha256:766490ef9c003544183da36408c604d6b92acde0e32389b59a1877d98d2e6e38",
         "declaration_fingerprint": "sha256:4c2f9de4a71002f66f6f9f8d2b00527f7b4f22d7c99a1a8e0ea6d8a8f040d468",
-        "closure_fingerprint": "sha256:907b5fdd79ab0161a07d9168033eb8da9e3cd788b57b63346024ce0d0b8b93f7"
+        "closure_fingerprint": "sha256:a63f8e9cbf24c86e3feb1cb737bc1571eeedea2c8eb274f4f334f35025bb64c2"
       }
     },
     {
