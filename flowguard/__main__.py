@@ -2075,6 +2075,93 @@ def _run_flowguard_self_blueprint_portable_export_command(
     return 0
 
 
+def _run_flowguard_self_blueprint_directory_export_command(
+    args: argparse.Namespace,
+) -> int:
+    """Materialize the self blueprint as the directory-first DNA form."""
+
+    from .implementation_blueprint import (
+        BlueprintValidationError,
+        project_canonical_software_blueprint,
+        verify_materialized_project_blueprint_projection,
+    )
+    from .portable_blueprint import (
+        PortableBlueprintBundleError,
+        write_portable_blueprint_directory,
+    )
+    from .self_blueprint import FlowGuardSelfBlueprintError, build_flowguard_self_blueprint
+
+    try:
+        self_bundle = build_flowguard_self_blueprint(args.root)
+        project_bundle = self_bundle.project_bundle
+        if project_bundle is None:
+            raise FlowGuardSelfBlueprintError(
+                "self-blueprint does not retain its canonical project bundle"
+            )
+        if not project_bundle.canonical_export_ready:
+            _emit_payload(
+                {
+                    "status": "blocked",
+                    "canonical_export_ready": False,
+                    "canonical_export_blockers": list(
+                        project_bundle.canonical_export_blockers
+                    ),
+                    "claim_boundary": (
+                        "Directory-first DNA requires current canonical project "
+                        "layers; no fallback projection is used."
+                    ),
+                },
+                as_json=args.json,
+            )
+            return 1
+        projection = project_canonical_software_blueprint(project_bundle)
+        written = write_portable_blueprint_directory(projection, args.output)
+        materialization = verify_materialized_project_blueprint_projection(
+            args.output,
+            project_bundle,
+        )
+        if not materialization.ok:
+            raise BlueprintValidationError(
+                "; ".join(finding.message for finding in materialization.findings)
+            )
+    except (
+        BlueprintValidationError,
+        FlowGuardSelfBlueprintError,
+        PortableBlueprintBundleError,
+        OSError,
+        ValueError,
+    ) as exc:
+        _emit_payload(
+            _blueprint_error_payload("flowguard_self_directory_export_failed", exc),
+            as_json=args.json,
+        )
+        return 2
+
+    output_root = Path(args.output).resolve()
+    _emit_payload(
+        {
+            "materialization_ok": True,
+            "materialization_status": "complete",
+            "dna_kind": "canonical_model_directory",
+            "output": str(output_root),
+            "self_blueprint_fingerprint": self_bundle.manifest.fingerprint,
+            "project_blueprint_fingerprint": project_bundle.fingerprint,
+            "projection_fingerprint": materialization.materialization.projection.fingerprint,
+            "tree_fingerprint": materialization.materialization.tree_fingerprint,
+            "written_paths": [
+                path.relative_to(output_root).as_posix() for path in written
+            ],
+            "claim_boundary": (
+                "This is the current FlowGuard self DNA directory. It proves "
+                "directory and model integrity only; it does not execute, "
+                "translate, or reconstruct a target."
+            ),
+        },
+        as_json=args.json,
+    )
+    return 0
+
+
 def _run_flowguard_self_architecture_reduction_command(
     args: argparse.Namespace,
 ) -> int:
@@ -2549,6 +2636,20 @@ def _run_portable_blueprint_verify_command(args: argparse.Namespace) -> int:
     return 0 if verification.ok else 1
 
 
+def _run_portable_blueprint_directory_verify_command(args: argparse.Namespace) -> int:
+    """Verify directory-first DNA without loading source or providers."""
+
+    from .portable_blueprint import verify_portable_blueprint_directory
+
+    verification = verify_portable_blueprint_directory(
+        args.directory,
+        expected_blueprint_fingerprint=args.expected_blueprint_fingerprint or None,
+        expected_projection_fingerprint=args.expected_projection_fingerprint or None,
+    )
+    _emit_payload(verification.to_dict(), as_json=args.json)
+    return 0 if verification.ok else 1
+
+
 def _run_project_blueprint_candidate_command(args: argparse.Namespace) -> int:
     """Discover unresolved behavior candidates without writing the target."""
 
@@ -3002,6 +3103,22 @@ def _add_implementation_blueprint_parsers(
         handler=_run_flowguard_self_blueprint_portable_export_command
     )
 
+    self_directory_export = subparsers.add_parser(
+        "flowguard-self-blueprint-directory-export",
+        help=(
+            "Materialize FlowGuard's current self blueprint as the canonical "
+            "directory-first DNA projection."
+        ),
+    )
+    self_directory_export.add_argument(
+        "--root", default=".", help="FlowGuard repository root."
+    )
+    self_directory_export.add_argument("--output", required=True)
+    self_directory_export.add_argument("--json", action="store_true")
+    self_directory_export.set_defaults(
+        handler=_run_flowguard_self_blueprint_directory_export_command
+    )
+
     self_reduction = subparsers.add_parser(
         "flowguard-self-architecture-reduction-review",
         help=(
@@ -3205,6 +3322,21 @@ def _add_implementation_blueprint_parsers(
     portable_verify.add_argument("--expected-subject-revision", default="")
     portable_verify.add_argument("--json", action="store_true")
     portable_verify.set_defaults(handler=_run_portable_blueprint_verify_command)
+
+    portable_directory_verify = subparsers.add_parser(
+        "portable-blueprint-directory-verify",
+        help=(
+            "Verify one canonical directory-first DNA projection without "
+            "source, provider, test, or reconstruction work."
+        ),
+    )
+    portable_directory_verify.add_argument("--directory", required=True)
+    portable_directory_verify.add_argument("--expected-blueprint-fingerprint", default="")
+    portable_directory_verify.add_argument("--expected-projection-fingerprint", default="")
+    portable_directory_verify.add_argument("--json", action="store_true")
+    portable_directory_verify.set_defaults(
+        handler=_run_portable_blueprint_directory_verify_command
+    )
 
     candidate = subparsers.add_parser(
         "project-blueprint-candidate",

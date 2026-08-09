@@ -22,7 +22,10 @@ from .implementation_blueprint import (
     BlueprintShard,
     BlueprintValidationError,
     CanonicalBlueprintProjection,
+    CanonicalBlueprintMaterialization,
     verify_blueprint_projection,
+    load_canonical_blueprint_projection,
+    write_canonical_blueprint_projection,
 )
 from .portable_model import canonical_json_bytes
 
@@ -305,6 +308,121 @@ class PortableBlueprintVerification:
         }
 
 
+@dataclass(frozen=True)
+class PortableBlueprintDirectoryVerification:
+    """Bounded verification result for the directory-first DNA projection."""
+
+    ok: bool
+    status: str
+    blueprint_fingerprint: str
+    projection_fingerprint: str
+    tree_fingerprint: str
+    shard_count: int
+    member_count: int
+    findings: tuple[str, ...] = ()
+    claim_boundary: str = (
+        "This verifies one exact canonical model directory and its content "
+        "fingerprints. It does not run source, providers, tests, or a target."
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "status": self.status,
+            "blueprint_fingerprint": self.blueprint_fingerprint,
+            "projection_fingerprint": self.projection_fingerprint,
+            "tree_fingerprint": self.tree_fingerprint,
+            "shard_count": self.shard_count,
+            "member_count": self.member_count,
+            "findings": list(self.findings),
+            "claim_boundary": self.claim_boundary,
+        }
+
+
+def write_portable_blueprint_directory(
+    projection: CanonicalBlueprintProjection,
+    output_root: str | Path,
+) -> tuple[Path, ...]:
+    """Write the canonical directory DNA without creating a bundle."""
+
+    verification = verify_blueprint_projection(
+        projection,
+        expected_blueprint_fingerprint=projection.blueprint_fingerprint,
+        expected_projection_fingerprint=projection.fingerprint,
+    )
+    if not verification.ok:
+        raise PortableBlueprintBundleError(
+            "; ".join(finding.message for finding in verification.findings)
+        )
+    return write_canonical_blueprint_projection(projection, output_root)
+
+
+def load_portable_blueprint_directory(
+    output_root: str | Path,
+) -> CanonicalBlueprintMaterialization:
+    """Load one exact canonical directory DNA projection."""
+
+    try:
+        return load_canonical_blueprint_projection(output_root)
+    except (BlueprintValidationError, OSError, TypeError, ValueError) as exc:
+        raise PortableBlueprintBundleError(
+            f"cannot load portable blueprint directory: {exc}"
+        ) from exc
+
+
+def verify_portable_blueprint_directory(
+    output_root: str | Path,
+    *,
+    expected_blueprint_fingerprint: str | None = None,
+    expected_projection_fingerprint: str | None = None,
+) -> PortableBlueprintDirectoryVerification:
+    """Verify directory DNA while keeping all evidence statuses explicit."""
+
+    try:
+        materialization = load_portable_blueprint_directory(output_root)
+        projection = materialization.projection
+        findings: list[str] = []
+        if (
+            expected_blueprint_fingerprint is not None
+            and projection.blueprint_fingerprint != expected_blueprint_fingerprint
+        ):
+            findings.append("blueprint_fingerprint_mismatch")
+        if (
+            expected_projection_fingerprint is not None
+            and projection.fingerprint != expected_projection_fingerprint
+        ):
+            findings.append("projection_fingerprint_mismatch")
+        return PortableBlueprintDirectoryVerification(
+            ok=materialization.verification.ok and not findings,
+            status="complete" if materialization.verification.ok and not findings else "blocked",
+            blueprint_fingerprint=projection.blueprint_fingerprint,
+            projection_fingerprint=projection.fingerprint,
+            tree_fingerprint=materialization.tree_fingerprint,
+            shard_count=len(projection.shards),
+            member_count=len(
+                {
+                    member_id
+                    for shard in projection.shards
+                    for member_id in shard.member_ids
+                    if member_id
+                }
+            ),
+            findings=tuple(findings)
+            + tuple(finding.message for finding in materialization.verification.findings),
+        )
+    except PortableBlueprintBundleError as exc:
+        return PortableBlueprintDirectoryVerification(
+            ok=False,
+            status="blocked",
+            blueprint_fingerprint="",
+            projection_fingerprint="",
+            tree_fingerprint="",
+            shard_count=0,
+            member_count=0,
+            findings=(str(exc),),
+        )
+
+
 def build_portable_blueprint_bundle(
     projection: CanonicalBlueprintProjection,
     *,
@@ -511,12 +629,16 @@ __all__ = [
     "PORTABLE_STATUS_VALUES",
     "PortableBlueprintBundle",
     "PortableBlueprintBundleError",
+    "PortableBlueprintDirectoryVerification",
     "PortableBlueprintVerification",
     "build_portable_blueprint_bundle",
     "compact_portable_blueprint_projection",
+    "load_portable_blueprint_directory",
     "load_portable_blueprint_bundle",
     "portable_blueprint_from_dict",
     "serialize_portable_blueprint_bundle",
+    "verify_portable_blueprint_directory",
     "verify_portable_blueprint_bundle",
+    "write_portable_blueprint_directory",
     "write_portable_blueprint_bundle",
 ]

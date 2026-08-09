@@ -2294,9 +2294,28 @@ def verify_blueprint_projection(
 
 
 def _load_json_blueprint(path: str | Path, *, context: str) -> dict[str, Any]:
+    def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise BlueprintValidationError(
+                    f"{context} contains duplicate JSON key: {key}"
+                )
+            result[key] = value
+        return result
+
+    def reject_non_finite(value: str) -> Any:
+        raise BlueprintValidationError(
+            f"{context} contains non-finite JSON number: {value}"
+        )
+
     try:
-        value = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        value = json.loads(
+            Path(path).read_text(encoding="utf-8"),
+            object_pairs_hook=reject_duplicate_keys,
+            parse_constant=reject_non_finite,
+        )
+    except (OSError, json.JSONDecodeError, BlueprintValidationError) as exc:
         raise BlueprintValidationError(f"cannot load {context}: {exc}") from exc
     if not isinstance(value, dict):
         raise BlueprintValidationError(f"{context} must be a JSON object")

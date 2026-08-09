@@ -14,9 +14,12 @@ from flowguard.portable_blueprint import (
     PortableBlueprintBundleError,
     build_portable_blueprint_bundle,
     compact_portable_blueprint_projection,
+    load_portable_blueprint_directory,
     load_portable_blueprint_bundle,
     portable_blueprint_from_dict,
+    verify_portable_blueprint_directory,
     verify_portable_blueprint_bundle,
+    write_portable_blueprint_directory,
     write_portable_blueprint_bundle,
 )
 
@@ -117,3 +120,43 @@ def test_compact_portable_projection_is_bounded_and_deterministic():
     }
     assert compact["compact_fingerprint"].startswith("sha256:")
     assert json.loads(json.dumps(compact)) == compact
+
+
+def test_directory_first_dna_round_trips_without_bundle(tmp_path: Path):
+    output = write_portable_blueprint_directory(projection(), tmp_path / "dna")
+    assert output[0].name == "manifest.json"
+    assert {path.parent.name for path in output[1:]} == {"shards"}
+    assert {path.name.split("-", 1)[0] for path in output[1:]} == {
+        "identity",
+        "readiness",
+    }
+
+    materialization = load_portable_blueprint_directory(tmp_path / "dna")
+    verification = verify_portable_blueprint_directory(tmp_path / "dna")
+
+    assert materialization.verification.ok is True
+    assert verification.ok is True
+    assert verification.status == "complete"
+    assert verification.shard_count == 2
+    assert verification.member_count == 3
+    assert verification.projection_fingerprint == materialization.projection.fingerprint
+    assert verification.tree_fingerprint == materialization.tree_fingerprint
+
+
+def test_directory_first_dna_rejects_tampering_and_unknown_files(tmp_path: Path):
+    root = tmp_path / "dna"
+    write_portable_blueprint_directory(projection(), root)
+    identity_path = next((root / "shards").glob("identity-*.json"))
+    identity_path.write_text(
+        identity_path.read_text(encoding="utf-8").replace(
+            "blueprint:one", "blueprint:changed"
+        ),
+        encoding="utf-8",
+    )
+    (root / "unexpected.json").write_text("{}", encoding="utf-8")
+
+    verification = verify_portable_blueprint_directory(root)
+
+    assert verification.ok is False
+    assert verification.status == "blocked"
+    assert verification.findings

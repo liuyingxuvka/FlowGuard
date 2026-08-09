@@ -1,8 +1,8 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.68.8"
+adopted_package_version = "0.68.9"
 schema_version = "1.0"
-last_verified_at = "2026-08-08T17:56:22+00:00"
+last_verified_at = "2026-08-09T09:55:12+00:00"
 last_verified_by = "FlowGuard project-upgrade"
 agents_path = "AGENTS.md"
 
@@ -15,12 +15,12 @@ require_model_update_for_behavior_changes = true
 
 [model_authority]
 system_id = "flowguard"
-observed_snapshot_path = ".flowguard/model-mesh/snapshots/559c7513a0f4afb82c6a9a49191c0675b328150ad4fb11d88784571e46f38f7f.json"
-observed_snapshot_fingerprint = "sha256:559c7513a0f4afb82c6a9a49191c0675b328150ad4fb11d88784571e46f38f7f"
-subject_revision = "source-inventory:2b6a5d49d9345482058467d5efc1887991a1936da3e2e60f93b026af49503d97"
+observed_snapshot_path = ".flowguard/model-mesh/snapshots/0114f54c4d849d3fb6c4e268c787259669a7417bc628904e3692ad0260a2aa10.json"
+observed_snapshot_fingerprint = "sha256:0114f54c4d849d3fb6c4e268c787259669a7417bc628904e3692ad0260a2aa10"
+subject_revision = "source-inventory:83d163d5f1ae2f28741f6726fab2e78b7cffa7363f685b4aecdd8e7c83a0d24a"
 coverage_status = "complete_within_declared_boundary"
-generation = 90
-accepted_revision_set_fingerprint = "sha256:b8debdec539d3d4e31e0b35204241a19160994e5800739da294367ab0193273e"
-previous_snapshot_fingerprint = "sha256:403e451c9c956abe33f7759da90519ab9b7e21a63255ab27007a51170ebc1d7f"
-activation_receipt_fingerprint = "sha256:35255fd706c5f588b86cd077ab3fcc994e94620ed9ccba6b0f4840b7e281f492"
-head_fingerprint = "sha256:77c9bcb0755dd06648d15d5f0d71ae7e480dc7360c016db2d788c628e5f362bf"
+generation = 91
+accepted_revision_set_fingerprint = "sha256:2163cabac4b5890842771e9ef8b739c481134a3a39d692e434bab75021b6f00d"
+previous_snapshot_fingerprint = "sha256:559c7513a0f4afb82c6a9a49191c0675b328150ad4fb11d88784571e46f38f7f"
+activation_receipt_fingerprint = "sha256:77d14d426ef5b2e1130dc822afaedd1da1c7093cd8bdefd2c15a988f2477370d"
+head_fingerprint = "sha256:c0584f096c6c44fbc52efa3ed6beaf972cb4f39573e3e61e44477eaa7cfa5d9f"
