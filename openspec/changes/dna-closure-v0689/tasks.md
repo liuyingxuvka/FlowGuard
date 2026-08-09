@@ -36,5 +36,7 @@
 - [x] 4.4 Run one foreground frozen final validation parent. The final
   parent completed with status `pass` and result fingerprint
   `sha256:4316a5b7028bd64cd37974baf7b951e0c8194cde0ffa3f7e84f098e9818eee31`.
-- [ ] 4.5 Bump the patch version to 0.68.9, commit, push, tag, publish, and
-  perform a read-only post-release identity audit.
+- [x] 4.5 Bump the patch version to 0.68.9, commit, push, tag, publish, and
+  perform a read-only post-release identity audit. Release URL:
+  `https://github.com/liuyingxuvka/FlowGuard/releases/tag/v0.68.9`; the
+  immutable release tag points to commit `87d8cae3b4926d8c6ae2e949cd11e984c6538993`.
