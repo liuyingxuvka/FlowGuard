@@ -16,14 +16,18 @@
 - [x] 3.1 Add separate static, semantic, code-binding, and test-binding status projections.
 - [x] 3.2 Require current semantic mesh status and exact parent-child fingerprints for qualified self-DNA.
 - [x] 3.3 Require exact code-owner and test-owner bindings; keep missing, stale, candidate, and unknown reasons visible.
-- [x] 3.4 Keep reconstruction outside ordinary qualification and document the explicit caller-owned boundary.
-- [x] 3.5 Add tests for static-ready/semantic-stale, candidate-mesh blocked, fully qualified, and reconstruction-request separation.
+- [x] 3.4 Keep reconstruction outside ordinary qualification and document that the native directory is the only DNA carrier.
+- [x] 3.5 Add tests for static-ready/semantic-stale, candidate-mesh blocked, fully qualified, and native-directory-only request separation.
+- [x] 3.6 Remove standalone self/project portable-export, copied-directory-export, bundle-verify, and directory-materialization command routes.
+- [x] 3.7 Remove the standalone portable-blueprint module from the public package surface; retain only in-place native-directory audit/reader behavior.
+- [x] 3.8 Update current specs, docs, prompts, and tests so no ordinary route advertises a DNA bundle/export/materialization.
+- [x] 3.9 Add a negative test that any standalone DNA artifact request fails without writing or changing authority.
 
 ## 4. Reduction truthfulness
 
-- [ ] 4.1 Add independent inventory-complete, proof-complete, and applied-and-verified fields to the reduction projection.
-- [ ] 4.2 Preserve unresolved candidates and ensure cleanup-release-ready is false when any required proof or application step is missing.
-- [ ] 4.3 Add tests covering unresolved candidates, proven-but-unapplied candidates, and applied-and-verified simplification.
+- [x] 4.1 Add independent inventory-complete, proof-complete, and applied-and-verified fields to the reduction projection.
+- [x] 4.2 Preserve unresolved candidates and ensure cleanup-release-ready is false when any required proof or application step is missing.
+- [x] 4.3 Add tests covering unresolved candidates, proven-but-unapplied candidates, and applied-and-verified simplification.
 
 ## 5. Validation and downstream handoff
 

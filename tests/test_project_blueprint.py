@@ -2184,64 +2184,9 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
         capture_output=True,
         check=False,
     )
-    assert export_result.returncode == 0, export_result.stderr + export_result.stdout
-    export_payload = json.loads(export_result.stdout)
-    assert export_payload["materialization_ok"] is True
-    assert export_payload["materialization_status"] == "complete"
-    assert "ok" not in export_payload
-    assert "status" not in export_payload
-    assert export_payload["model_readiness_status"] == "pass"
-    assert export_payload["gap_count"] == 0
-    assert export_payload["first_gap"] is None
-    manifest_payload = json.loads(
-        (export_root / "manifest.json").read_text(encoding="utf-8")
-    )
-    shard_kinds = {
-        row["kind"] for row in manifest_payload["shards"]
-    }
-    assert shard_kinds == set(PROJECT_BLUEPRINT_PROJECTION_KINDS)
-    shard_paths = {
-        row["kind"]: export_root / row["relative_path"]
-        for row in manifest_payload["shards"]
-    }
-    identity_payload = json.loads(
-        shard_paths["identity"].read_text(encoding="utf-8")
-    )
-    exported_identity = identity_payload["payload"][0]
-    assert exported_identity["software_manifest"] == bundle.manifest.to_dict()
-    assert (
-        exported_identity["software_manifest_fingerprint"]
-        == bundle.manifest.fingerprint
-    )
-    bindings_payload = json.loads(
-        shard_paths["bindings"].read_text(encoding="utf-8")
-    )
-    exported_binding_report = bindings_payload["payload"][0]
-    assert exported_binding_report["report"] == bundle.binding_report.to_dict()
-    assert (
-        exported_binding_report["report_fingerprint"]
-        == bundle.binding_report.fingerprint
-    )
-    first_export = {
-        path.relative_to(export_root).as_posix(): path.read_bytes()
-        for path in export_root.rglob("*")
-        if path.is_file()
-    }
-    repeated_export = subprocess.run(
-        export_result.args,
-        cwd=Path(__file__).resolve().parents[1],
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    assert repeated_export.returncode == 0, (
-        repeated_export.stderr + repeated_export.stdout
-    )
-    assert first_export == {
-        path.relative_to(export_root).as_posix(): path.read_bytes()
-        for path in export_root.rglob("*")
-        if path.is_file()
-    }
+    assert export_result.returncode != 0
+    assert "invalid choice" in export_result.stderr
+    assert not export_root.exists()
 
     stale_native = replace(
         evidence,

@@ -240,11 +240,10 @@ members only through one exact merged owner reference. Multi-owner integration
 is shareable only when explicitly typed and its complete owner/member set is
 declared.
 
-## Coverage ownership in the portable projection
+## Coverage ownership in the native-directory audit
 
 Every behavior block, case, and coverage edge binds to one current checker or
-native test member and one execution owner. The portable projection preserves
+native test member and one execution owner. The native-directory audit preserves
 those binding and coverage fingerprints; the compact view only bounds display.
-Static checker design, portable materialization, and terminal execution remain
-separate. A parent receipt without an explicit typed coverage set cannot fan out
-to leaf obligations.
+Static checker design and terminal execution remain separate. A parent receipt
+without an explicit typed coverage set cannot fan out to leaf obligations.

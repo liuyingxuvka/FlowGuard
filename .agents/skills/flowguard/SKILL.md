@@ -25,7 +25,7 @@ provider-neutral DNA; clear satellites remain direct owners.
 - Use this route when behavior/state/order/retry/effects/progress need
   `Input x State -> Set(Output x State)` and no satellite owns the task.
 - Do not force the kernel before a clear satellite, for trivial copy/format/
-  direct-command work, or to expose check-engine helpers as Codex skills.
+  direct-command work, or to expose check-engine helpers as independently triggerable Codex skills.
 
 ## Entrypoint Acceptance Map
 `use_flowguard` means owned ordinary model; `skip_with_reason` means trivial
@@ -42,7 +42,7 @@ or implicit reconstruction/translation.
 ## Required Workflow
 1. Freeze provenance-bound `TaskFacts` and independent `TaskCoverageDemand`;
    preserve unknown, contradictory, unmapped, and scoped facts. Ordinary work
-   loads exact affected ids/ancestors; whole inventory/export/qualification
+  loads exact affected ids/ancestors; whole inventory/qualification
    requires explicit scope.
 2. In an existing target, use only the accepted revision's complete
    `CurrentEffectiveIntentView`, current owner denominator, and exact bindings;
@@ -52,8 +52,8 @@ or implicit reconstruction/translation.
    correctness.
 4. Build the smallest faithful `Input x State -> Set(Output x State)` model
    with protected failures, state/effects, completion evidence, and known-bad
-   paths. New or changed models get one current lightweight path-quality review;
-   unchanged rows reuse only exact current evidence.
+   paths. Every new or materially changed model gets one current lightweight
+   path-quality review; unchanged rows reuse only exact current evidence.
 5. Run finite deep path review only for an exact current trigger. Preserve hard
    semantics before named multi-dimensional cost comparison; keep `observed`
    separate from `normative_target`, and return a bounded conclusion.
@@ -69,17 +69,19 @@ or implicit reconstruction/translation.
    software/Python layers.
 
 ## Hard Gates
+- Detailed handoffs live in `references/modeling_core_protocol.md` and `references/modeling_evidence_protocol.md`.
 - Freeze task-specific failure(s) and claim boundary; bind the exact candidate
   to native good/bad-per-failure/oracle/current evidence. Reusable types are
   not fixed-purpose; no mode/fallback, and only declared checks support claims.
-- Require the real check engine and `AGENTS.md` record; never create a fake
-  mini-framework or promote helpers to independent skills.
+- Require the real FlowGuard check engine and an AGENTS.md managed record; never create a fake mini-framework or promote helpers to independent skills.
 - Only the observed snapshot and accepted `ModelRevisionSet` are current; do
   not promote history, non-pass evidence, a normative target, parent result, or
   installation.
 - Path-quality is one compact current ModelMaturation result plus a detail
-  fingerprint. It adds no route, CLI, compatibility reader, second pointer, or
-  ordinary reconstruction step; reimplementation/translation is explicit work.
+  fingerprint. It adds no public route, CLI, compatibility reader, second pointer,
+  standalone DNA export, copied-directory materialization, or ordinary
+  reconstruction step; reimplementation/translation is explicit work outside
+  this skill.
 - Keep target roles/transitions in the target model. Paths/symbols prove
   traceability, not semantics; language is a provider detail; static design,
   leaf execution, resources, and oracles remain distinct.
@@ -87,10 +89,11 @@ or implicit reconstruction/translation.
   WorkContext, diagram, and release rules. Template search/harvest is required
   only for an explicit reuse/publication request or bounded stable-pattern
   evidence in `risk_template_library`; ordinary work does not inherit it.
+  The `risk_evidence_ledger` and template harvest closure remain reference-owned.
 - Self-qualification proves only the public target fixture; generic confidence
   also needs independent external and non-code fixtures.
 - Model-purpose gate: every model binds task-specific failure(s) to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose; no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Provider-neutral DNA qualification: FlowGuard owns portable DNA for software,
+- Provider-neutral DNA qualification: FlowGuard owns native-directory DNA for software,
   non-code workflows, experiments, and other behavior-bearing systems. A
   provider declaration names target kind, profile, layer plan, owner, and claim
   boundary; FlowGuard validates these identities but does not enumerate or
@@ -98,8 +101,9 @@ or implicit reconstruction/translation.
   semantic-mesh, model-to-code, and model-to-test statuses. Candidate, stale,
   incomplete, blocked, and not-run are non-qualified typed gaps. Language is
   only an adapter detail. The normal route is modeling, checking, impact
-  analysis, or export; reimplementation/translation is separately requested
-  and never starts implicitly.
+  analysis. The native model directory is the only DNA source; standalone
+  export/materialization routes are retired and never start implicitly.
+  Reimplementation or translation remains explicit work outside this skill.
 
 ## Output Requirements
 Return evidence, failures, blockers, skipped checks, residual risk, claim

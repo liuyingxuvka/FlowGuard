@@ -1,59 +1,69 @@
-# FlowGuard Portable DNA Specification
+# FlowGuard Native DNA Specification
 
 ## Purpose
 
-Define one target-neutral, content-addressed representation of a current FlowGuard blueprint. It is a portable model projection, not a second source-code authority and not an automatic reconstruction exercise.
+Define the provider-neutral, content-addressed model records that live in a
+target repository's native directory. The model directory, its code/test
+bindings, and its current Git identity are the DNA. There is no second portable
+bundle authority and no routine materialization step.
 
 ## Requirements
 
-### Requirement: The current blueprint can be exported as one portable bundle
-The system SHALL export the current observed target blueprint as one content-addressed bundle containing the manifest, referenced shards, model hierarchy, parent-child interfaces, inputs, states, transitions, outputs, intent, resources, implementation bindings, test/oracle bindings, readiness results, and exact source/provider identities.
+### Requirement: Native model records are content-addressed
 
-#### Scenario: Export uses the current observed authority
-- **WHEN** a caller requests a portable export
-- **THEN** the export SHALL consume the sole current observed implementation head, accepted model revision, complete effective intent view, and frozen provider artifacts
-- **AND** a target, experiment, history, or caller-supplied fingerprint SHALL NOT become the bundle authority
+The system SHALL preserve model hierarchy, interfaces, states, transitions,
+outputs, intent, resources, implementation bindings, test/oracle bindings,
+readiness results, and exact source/provider identities in the native model
+directory. Each record SHALL be addressable by its current fingerprint and
+reachable from the project pointer.
 
-#### Scenario: A required layer is missing
-- **WHEN** a required model, interface, resource, implementation, test, oracle, intent, or readiness member is absent or stale
-- **THEN** the export SHALL fail visibly with the exact missing identity
-- **AND** it SHALL not emit a ready portable status
+#### Scenario: Native hierarchy remains addressable
+- **WHEN** a parent model is audited with its child models, interfaces, bindings, and evidence
+- **THEN** every required record SHALL be reachable from the native pointer
+- **AND** the audit SHALL expose the current record fingerprints
 
-### Requirement: A copied bundle verifies without the source repository
-The system SHALL verify a copied portable bundle using only its manifest, content-addressed shards, declared provider/toolchain identities, and rebind contract.
+### Requirement: Native DNA qualification is in-place
 
-#### Scenario: Bundle is copied to an isolated directory
-- **WHEN** all declared shards are copied without the original repository's blueprint files
-- **THEN** verification SHALL recompute the bundle identity, resolve every parent-child and layer reference, and return pass only when all references close
+- **WHEN** a caller requests DNA status
+- **THEN** the check SHALL read the current directory, pointer chain, and
+  binding records, return static/semantic/code/test/execution status separately,
+  and write no duplicate artifact
 
-#### Scenario: A shard is changed or missing
-- **WHEN** a shard is missing, changed, duplicated, or points to another subject revision
-- **THEN** verification SHALL return a visible failure
-- **AND** it SHALL not use an alternate shard format or source repository
+#### Scenario: Repeated audit is read-only
+- **WHEN** the same native directory is audited twice without a source change
+- **THEN** both audits SHALL report the same native identity and status
+- **AND** neither audit SHALL create a second DNA file or directory
 
-### Requirement: Portable export has a separate readiness status
-The system SHALL report `static-ready`, `exported-portable`, or an explicit non-pass status as separate claims; static readiness SHALL not imply portable export readiness.
+### Requirement: Incomplete native DNA fails visibly
 
-#### Scenario: Static blueprint is complete but no bundle exists
-- **WHEN** all static layers are current but no verified portable bundle was materialized
-- **THEN** the result SHALL remain `static-ready` and SHALL report portable export as not run or incomplete
+- **WHEN** a required layer is missing, stale, candidate, untracked, or blocked
+- **THEN** the status SHALL retain the exact gap and SHALL NOT report a qualified
+  DNA or select an alternate reader, provider, bundle, or fallback
 
-#### Scenario: Portable bundle verifies
-- **WHEN** a bundle has current identity, complete shards, and successful isolated verification
-- **THEN** the result SHALL report `exported-portable` in addition to the underlying static status
+#### Scenario: Missing child binding is visible
+- **WHEN** a child model has no current code or test binding
+- **THEN** the audit SHALL report the missing binding as a typed gap
+- **AND** the parent SHALL NOT be marked qualified through a fallback
 
-### Requirement: Current self DNA can be exchanged
-FlowGuard SHALL be able to materialize one current self portable-blueprint
-bundle from the same current source/model/code/test evidence used by its
-canonical self blueprint.
+### Requirement: Standalone portable routes are forbidden
 
-#### Scenario: Self bundle is exported
-- **WHEN** the current self blueprint is canonically export-ready
-- **THEN** one content-addressed portable bundle SHALL be written atomically
-- **AND** the bundle SHALL preserve static, portable-integrity, and execution
-  status as separate fields
+Requests for a single-file bundle, copied model directory, transport envelope,
+portable materialization, isolated import, or reconstruction SHALL return the
+typed `native_directory_only` result. No such route may write a file or become
+an authority.
 
-#### Scenario: Self bundle is checked in isolation
-- **WHEN** the exported self bundle is copied to an empty directory
-- **THEN** the portable verifier SHALL validate it without loading source,
-  providers, tests, fallback readers, or reconstruction logic
+#### Scenario: Retired export is rejected
+- **WHEN** a caller requests a standalone DNA export or copied-directory route
+- **THEN** the command SHALL return `native_directory_only`
+- **AND** the requested output path SHALL remain unchanged
+
+### Requirement: Provider-neutral semantics remain separate from language
+
+The model schema SHALL support software, non-code workflows, experiments, and
+other behavior-bearing systems. A language or runtime is an adapter detail and
+is never a semantic or qualification shortcut.
+
+#### Scenario: Non-Python target uses the same native contract
+- **WHEN** a TypeScript program, experiment, or non-code workflow supplies its native models and evidence
+- **THEN** the same hierarchy, binding, and readiness contract SHALL apply
+- **AND** no Python-specific field SHALL be required

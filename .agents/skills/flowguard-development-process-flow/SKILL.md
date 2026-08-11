@@ -45,4 +45,4 @@ Accept stages, versions, owners, evidence; return order/revalidation.
 - Invocation-local reuse is not authority. Never repeat semantics or scan receipts per leaf; missing freshness/reconciliation is `not_run`.
 
 ## Output Requirements
-- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, phases, freshness; edges mean order, invalidation, or required revalidation. Freeze source/model/install/release; compact/portable views keep static/portable/execution status separate.
+- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, phases, freshness; edges mean order, invalidation, or required revalidation. Freeze source/model/install/release; native-directory views keep static and execution status separate.

@@ -412,9 +412,9 @@ class FlowGuardSelfBlueprintBundle:
     normalized_shared_objects: tuple[tuple[str, Any], ...]
     normalized_shards: tuple[tuple[str, Any], ...] = ()
     build_input_identity: SelfBlueprintBuildInputIdentity | None = None
-    # Keep the exact project bundle used to build this self view so the
-    # existing canonical portable exporter can materialize one current self
-    # DNA without rebuilding a second, weaker projection.
+    # Keep the exact in-memory project composition used to build this self view
+    # so reduction and audit consumers share the native-directory source of
+    # truth. It is not a disk export, copied directory, or transport bundle.
     project_bundle: Any | None = None
     dna_qualification: TargetSystemDnaQualification | None = None
 

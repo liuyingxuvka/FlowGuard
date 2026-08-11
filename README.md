@@ -12,7 +12,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.68.10` | `1.0` | Python standard library only | MIT |
+| `v0.68.11` | `1.0` | Python standard library only | MIT |
 
 English comes first. A Chinese mirror follows below.
 
@@ -52,7 +52,7 @@ only affected owners and evidence, while its whole-target view connects those
 same current identities inside the declared model-system boundary. See
 [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md).
 
-The v0.68.10 candidate self-model contains an exact inventory of 51 current
+The v0.68.11 candidate self-model contains an exact inventory of 51 current
 owners. Fourteen historical, task-local, or completed construction routes were removed from current
 authority after their still-useful protections were reattached: Model Angle
 Deliberation, Maintenance Scan Router, standalone Model Similarity
@@ -99,30 +99,15 @@ separate from current execution evidence; and ordinary work stays
 affected-only. See
 [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md).
 
-When an explicit portable checkpoint is needed,
-`target-system-blueprint-export` preserves the strict target descriptor,
-frozen provider evidence and layer plan, complete native observation/authority
-report set, and the compiler-owned qualification/readiness result. It uses the
-same `CanonicalBlueprintProjection` manifest, content-addressed shards, writer,
-and verifier as the Python-project convenience export; there is no second DNA
-envelope or raw-manifest authority. `project-blueprint-export` adds the twenty
-project-specialized projection kinds, including code/test bindings, resources,
-intent, topology, and affected indexes, through that same materialization
-kernel. Materialization success is reported separately from model readiness,
-so a growing blueprint can be exchanged without hiding an `incomplete`,
-`stale`, `blocked`, or `not_run` status. Both exports name these boundaries as
-`materialization_ok`, `materialization_status`, and
-`model_readiness_status`.
-
-The generic disk loader proves only exact directory ownership, current
-manifest shape, and content-addressed shard integrity. The target export then
-rebinds the materialized identity, evidence, native reports, and readiness to
-the exact compiler inputs before reporting success. This matters because a
-self-consistent rewritten shard and manifest can still be the wrong target.
-Activation also rechecks the old and staged trees immediately before the
-swap; an activation failure restores the prior projection, while a failure to
-delete an already-obsolete backup cannot turn a successful activation into a
-false failure.
+The native model directory is the DNA. It stays beside the software it
+describes and contains the versioned models, parent/child interfaces,
+code/test bindings, and their current evidence. FlowGuard audits that directory
+in place and reports ownership, fingerprints, readiness, gaps, and freshness;
+it does not create a second DNA envelope, a standalone export file, a copied
+directory, a transport bundle, or an isolated reconstruction. A model can be
+lightweight or deep, but it remains the same native directory and the same
+source of truth. Retired export and materialization command names fail with a
+typed `native_directory_only` result so there is one clear route.
 
 ## The Problem
 
@@ -721,17 +706,12 @@ v0.68.8 的当前候选 DNA 精确包含 51 个长期模型负责人。14 个历
 的哪个输出接入父模型的哪个输入。普通任务仍然只处理受影响范围。详见
 [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md)。
 
-需要交换或保存完整模型快照时，`target-system-blueprint-export` 会原样保存严格
-目标描述、冻结的 provider 证据和层级计划、完整的观察/权威 native report set，
-以及编译器自己算出的资格与准备度结果。它和 Python 项目便利入口
-`project-blueprint-export` 使用同一个 `CanonicalBlueprintProjection` manifest、
-内容寻址 shard、写入器和校验器，不会额外造第二种 DNA 包装或 raw manifest
-权威。项目便利入口再通过这同一套物化内核写出二十类项目专用投影，包括行为和
-案例、父子接口、代码与测试绑定、资源、意图、受影响索引以及全部深度和缺口。
-写出成功与模型准备度是两个结果，因此一份还在生长的蓝图可以被交换，但其中的
-`incomplete`、`stale`、`blocked` 或 `not_run` 不会被隐藏。两个命令都分别使用
-`materialization_ok`、`materialization_status` 和
-`model_readiness_status`，不会用一个容易误解的总 `ok` 把两件事混在一起。
+原生模型目录就是 DNA。它和被描述的软件放在一起，里面保存分层模型、父子输入
+输出关系、代码与测试绑定以及当前证据。FlowGuard 只在原地审计这个目录，报告
+所有权、指纹、准备度、缺口和新鲜度；不会再生成第二种 DNA 包装、独立导出文件、
+复制目录、运输包，也不会默认做隔离重建。模型可以轻量，也可以深入，但始终使用
+同一个原生目录和同一个事实来源。已经退役的导出、物化命令会统一返回带类型的
+`native_directory_only`，保证只有一条清楚的路径。
 
 ## 为什么需要它
 

@@ -3267,10 +3267,10 @@
     "require_current_evidence": true,
     "require_risk_gates_for_broad_claim": true,
     "source_inventory_evidence_ids": [
-      "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+      "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
     ],
-    "source_inventory_fingerprint": "sha256:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
-    "source_inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+    "source_inventory_fingerprint": "sha256:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
+    "source_inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
     "source_surfaces": [
       {
         "business_intent_ids": [
@@ -3280,18 +3280,18 @@
         "commitment_ids": [
           "commitment:behavior-ledger-current"
         ],
-        "content_fingerprint": "sha256:b08695e7bb4e723b606d112f10fab36e2210197014ea29ef538b11935e1e1ab5",
+        "content_fingerprint": "sha256:72f692fa33cd45211102c8f76f6d2843b53a26a0631d634f1322abf0ee136fd2",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:02cd4a1aea0dcdb45c9d7597454d37b60bb1350b62c4cd336eac55e04cb84416",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "FlowGuard project rules",
         "metadata": {
           "live_source_identity": {
@@ -3333,11 +3333,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "Behavior Commitment Ledger skill contract",
         "metadata": {
           "live_source_identity": {
@@ -3379,11 +3379,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "BCL external-promise requirement",
         "metadata": {
           "live_source_identity": {
@@ -3425,11 +3425,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "ordinary UI content contract",
         "metadata": {
           "live_source_identity": {
@@ -3471,11 +3471,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "UI Flow Structure skill contract",
         "metadata": {
           "live_source_identity": {
@@ -3517,11 +3517,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "ContractExhaustion skill contract",
         "metadata": {
           "live_source_identity": {
@@ -3563,11 +3563,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "BCL Cartesian coverage requirement",
         "metadata": {
           "live_source_identity": {
@@ -3609,11 +3609,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "TestMesh skill contract",
         "metadata": {
           "live_source_identity": {
@@ -3655,11 +3655,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "BCL downstream evidence requirement",
         "metadata": {
           "live_source_identity": {
@@ -3701,11 +3701,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "Model Miss Review skill contract",
         "metadata": {
           "live_source_identity": {
@@ -3740,18 +3740,18 @@
         "commitment_ids": [
           "commitment:model-miss-backfeeds-existing-commitment"
         ],
-        "content_fingerprint": "sha256:f173decd9554b4283043cbc9153d2af27808c563182db246e9f33b998a1e695f",
+        "content_fingerprint": "sha256:ddb0cf85a9ee0ebb252c2ca099911d3b2ff3731cc53d8bab0d7ae5460f39a6fc",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:aeeed33ca03f252f6e7b1c45f86f146a90e4286ca9e9cebb1c9ec9211c5b1def",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "Existing Model Preflight skill contract",
         "metadata": {
           "live_source_identity": {
@@ -3793,11 +3793,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "BCL model-miss backfeed requirement",
         "metadata": {
           "live_source_identity": {
@@ -3839,11 +3839,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "self-maintenance understanding-path contract",
         "metadata": {
           "live_source_identity": {
@@ -3885,11 +3885,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "WorkContext read-only contract",
         "metadata": {
           "live_source_identity": {
@@ -3931,11 +3931,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "development-process strategy contract",
         "metadata": {
           "live_source_identity": {
@@ -3970,18 +3970,18 @@
         "commitment_ids": [
           "commitment:single-path-replacement-disposition"
         ],
-        "content_fingerprint": "sha256:b08695e7bb4e723b606d112f10fab36e2210197014ea29ef538b11935e1e1ab5",
+        "content_fingerprint": "sha256:72f692fa33cd45211102c8f76f6d2843b53a26a0631d634f1322abf0ee136fd2",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:3c73b188e4f4220547d16d0421115473470a337d984b21a1052e1eeb3d697dc1",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "single-path project rule",
         "metadata": {
           "live_source_identity": {
@@ -4023,11 +4023,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "single-path hard gate",
         "metadata": {
           "live_source_identity": {
@@ -4062,18 +4062,18 @@
         "commitment_ids": [
           "commitment:flowguard-agent-guidance-route"
         ],
-        "content_fingerprint": "sha256:48523952102f7c8ce137dd0cc8810e99d4ab4ad4288ec5c70a91466fa0301486",
+        "content_fingerprint": "sha256:db1d11bdf28fcb5f250960238e84f8498d87ed6d01396b76f711da84be0bed0c",
         "coverage_disposition": "modeled",
         "declared_semantics_fingerprint": "sha256:2d24f10c72be5652abcaeb262bf5f9630b86e1581d41c36ca33cf7070ba12e0c",
         "delegated_owner_inventory_id": "",
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "FlowGuard kernel and satellite guidance contracts",
         "metadata": {
           "live_source_identity": {
@@ -4130,11 +4130,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "portable compositional verification contract",
         "metadata": {
           "live_source_identity": {
@@ -4176,11 +4176,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "FlowGuard public API registry contract",
         "metadata": {
           "live_source_identity": {
@@ -4222,11 +4222,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "FlowGuard template CLI contract",
         "metadata": {
           "live_source_identity": {
@@ -4268,11 +4268,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "authoritative model-system contract",
         "metadata": {
           "live_source_identity": {
@@ -4314,11 +4314,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "task coverage demand contract",
         "metadata": {
           "live_source_identity": {
@@ -4360,11 +4360,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "model maturation receipt contract",
         "metadata": {
           "live_source_identity": {
@@ -4406,11 +4406,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "implementation admission contract",
         "metadata": {
           "live_source_identity": {
@@ -4452,11 +4452,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "broad confidence ownership contract",
         "metadata": {
           "live_source_identity": {
@@ -4498,11 +4498,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "closure integrity contract",
         "metadata": {
           "live_source_identity": {
@@ -4544,11 +4544,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "understanding readiness projection contract",
         "metadata": {
           "live_source_identity": {
@@ -4590,11 +4590,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "permanent validation evidence kernel contract",
         "metadata": {
           "live_source_identity": {
@@ -4636,11 +4636,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "permanent user-facing diagram contract",
         "metadata": {
           "live_source_identity": {
@@ -4682,11 +4682,11 @@
         "delegates_to_primary_path": false,
         "delegation_relation_type": "",
         "discovery_evidence_ids": [
-          "source-inventory-discovery:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6"
+          "source-inventory-discovery:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30"
         ],
         "freshness_state": "current",
         "in_scope": true,
-        "inventory_revision": "source-inventory:138a0dcf9777dbfc1d1cb32e3b29ab7bad3c6673f4356579adfea6b23450fad6",
+        "inventory_revision": "source-inventory:78cbdd70ef9b1c982aff9cdfafc43f13d6cf75aeabed785b4e4c341df5ddcc30",
         "label": "permanent skill-suite topology contract",
         "metadata": {
           "live_source_identity": {

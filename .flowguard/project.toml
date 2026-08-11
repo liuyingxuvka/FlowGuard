@@ -1,8 +1,8 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.68.10"
+adopted_package_version = "0.68.11"
 schema_version = "1.0"
-last_verified_at = "2026-08-09T09:55:12+00:00"
+last_verified_at = "2026-08-11T10:23:29+00:00"
 last_verified_by = "FlowGuard project-upgrade"
 agents_path = "AGENTS.md"
 
@@ -15,12 +15,12 @@ require_model_update_for_behavior_changes = true
 
 [model_authority]
 system_id = "flowguard"
-observed_snapshot_path = ".flowguard/model-mesh/snapshots/069de29abd3b5f31134f6dc5ffa5063ce8c22a8da91d9ea3202f3102ecc942cf.json"
-observed_snapshot_fingerprint = "sha256:069de29abd3b5f31134f6dc5ffa5063ce8c22a8da91d9ea3202f3102ecc942cf"
-subject_revision = "source-inventory:3a3cb746d5efda2cabccb18728b3f3c73150404d576cee5b0c5df2c3e0df5924"
+observed_snapshot_path = ".flowguard/model-mesh/snapshots/792f57f6bb163c4546700f78733ddc04090948c0f029f8bf8308c76466b52af1.json"
+observed_snapshot_fingerprint = "sha256:792f57f6bb163c4546700f78733ddc04090948c0f029f8bf8308c76466b52af1"
+subject_revision = "source-inventory:ba906be88ebf61c2d56a9cfe090ff26f5662896e185a02f97d6d8319f5b5845d"
 coverage_status = "complete_within_declared_boundary"
-generation = 98
-accepted_revision_set_fingerprint = "sha256:d60acb38ac6efa33e0c5ae10eca89190ebadda8f2e650c397d58754924ce19b8"
-previous_snapshot_fingerprint = "sha256:08ab867fc8dba89a00e4cbb1eec51caf01128d2e13958180b0bf0b43c2a9bdcd"
-activation_receipt_fingerprint = "sha256:e149ec0d8082d9f4db1affc9e4cdbc27dfe830f176bac21244254c0968f87530"
-head_fingerprint = "sha256:62b95700b4f606b0094e6049720a862d2ea84500e8da40ab1ce5e7bdc6a2361d"
+generation = 103
+accepted_revision_set_fingerprint = "sha256:c7f3774fb9ab8789c3352345f55b3bf306f457db95b72dd2dac115979c3f6ddd"
+previous_snapshot_fingerprint = "sha256:5cf4d06f8c27351c2e35ac26960efeff71f0daeafffb6f23edc03f21b4d5a875"
+activation_receipt_fingerprint = "sha256:921d3395bcaec482eff0f3d52b2de23db252c89e69baddfd5a08fc20240a8219"
+head_fingerprint = "sha256:08a9dcbe12c2593f9c4772217cbc5780819a87cd0ee034ed7bd2492a26b19c0c"

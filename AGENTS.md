@@ -21,7 +21,8 @@ Project record: `.flowguard/project.toml`; machine log: `.flowguard/adoption_log
 
 <!-- flowguard-rule:project.rendered_versions -->
 
-Current adoption record: FlowGuard check-engine version: `0.68.10`; FlowGuard schema version: `1.0`.
+Current adoption record: FlowGuard check-engine version: `0.68.11`; FlowGuard schema version: `1.0`.
+
 <!-- flowguard-rule:project.preflight_version_gate -->
 
 Before non-trivial work run `python -m flowguard project-audit --root .`; if the installed engine is newer, run full `project-upgrade` scanning and affected revalidation, and if older connect the current engine.

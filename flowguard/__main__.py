@@ -1978,7 +1978,20 @@ def _run_flowguard_self_blueprint_check_command(args: argparse.Namespace) -> int
 def _run_flowguard_self_blueprint_portable_export_command(
     args: argparse.Namespace,
 ) -> int:
-    """Materialize the current self blueprint through the canonical exporter."""
+    """Reject the retired standalone DNA artifact route."""
+
+    _emit_payload(
+        {
+            "status": "blocked",
+            "reason": "native_directory_only",
+            "claim_boundary": (
+                "The repository's native model directory is the only DNA; "
+                "standalone export and bundle routes are retired."
+            ),
+        },
+        as_json=getattr(args, "json", False),
+    )
+    return 2
 
     from .implementation_blueprint import (
         BlueprintValidationError,
@@ -2078,7 +2091,20 @@ def _run_flowguard_self_blueprint_portable_export_command(
 def _run_flowguard_self_blueprint_directory_export_command(
     args: argparse.Namespace,
 ) -> int:
-    """Materialize the self blueprint as the directory-first DNA form."""
+    """Reject the retired copied-directory DNA artifact route."""
+
+    _emit_payload(
+        {
+            "status": "blocked",
+            "reason": "native_directory_only",
+            "claim_boundary": (
+                "The current native model directory is already the DNA; "
+                "copied-directory materialization is retired."
+            ),
+        },
+        as_json=getattr(args, "json", False),
+    )
+    return 2
 
     from .implementation_blueprint import (
         BlueprintValidationError,
@@ -2247,7 +2273,17 @@ def _run_target_system_blueprint_audit_command(args: argparse.Namespace) -> int:
 
 
 def _run_target_system_blueprint_export_command(args: argparse.Namespace) -> int:
-    """Materialize the exact audited target through the canonical writer."""
+    """Reject the retired standalone target projection route."""
+
+    _emit_payload(
+        {
+            "status": "blocked",
+            "reason": "native_directory_only",
+            "claim_boundary": "Target DNA is checked in its native directory.",
+        },
+        as_json=getattr(args, "json", False),
+    )
+    return 2
 
     from .canonical_blueprint_projection import (
         canonical_target_system_blueprint_projection,
@@ -2459,7 +2495,17 @@ def _run_project_blueprint_audit_command(args: argparse.Namespace) -> int:
 
 
 def _run_project_blueprint_export_command(args: argparse.Namespace) -> int:
-    """Write a deterministic projection that preserves depth and explicit gaps."""
+    """Reject the retired standalone project projection route."""
+
+    _emit_payload(
+        {
+            "status": "blocked",
+            "reason": "native_directory_only",
+            "claim_boundary": "Project DNA is checked in its native directory.",
+        },
+        as_json=getattr(args, "json", False),
+    )
+    return 2
 
     from .implementation_blueprint import (
         BlueprintValidationError,
@@ -2526,7 +2572,17 @@ def _run_project_blueprint_export_command(args: argparse.Namespace) -> int:
 
 
 def _run_project_blueprint_portable_export_command(args: argparse.Namespace) -> int:
-    """Write one exchangeable envelope over the canonical project projection."""
+    """Reject the retired standalone bundle route."""
+
+    _emit_payload(
+        {
+            "status": "blocked",
+            "reason": "native_directory_only",
+            "claim_boundary": "Project DNA is checked in its native directory.",
+        },
+        as_json=getattr(args, "json", False),
+    )
+    return 2
 
     from .implementation_blueprint import (
         project_canonical_software_blueprint,
@@ -2611,7 +2667,17 @@ def _run_project_blueprint_portable_export_command(args: argparse.Namespace) -> 
 
 
 def _run_portable_blueprint_verify_command(args: argparse.Namespace) -> int:
-    """Verify a portable envelope without loading project source or providers."""
+    """Reject the retired isolated bundle verification route."""
+
+    _emit_payload(
+        {
+            "status": "blocked",
+            "reason": "native_directory_only",
+            "claim_boundary": "DNA is verified in the current native directory.",
+        },
+        as_json=getattr(args, "json", False),
+    )
+    return 2
 
     from .portable_blueprint import (
         PortableBlueprintBundleError,
@@ -2637,7 +2703,17 @@ def _run_portable_blueprint_verify_command(args: argparse.Namespace) -> int:
 
 
 def _run_portable_blueprint_directory_verify_command(args: argparse.Namespace) -> int:
-    """Verify directory-first DNA without loading source or providers."""
+    """Reject the retired copied-directory verification route."""
+
+    _emit_payload(
+        {
+            "status": "blocked",
+            "reason": "native_directory_only",
+            "claim_boundary": "DNA is verified in the current native directory.",
+        },
+        as_json=getattr(args, "json", False),
+    )
+    return 2
 
     from .portable_blueprint import verify_portable_blueprint_directory
 
@@ -3086,39 +3162,6 @@ def _add_implementation_blueprint_parsers(
     self_check.add_argument("--json", action="store_true")
     self_check.set_defaults(handler=_run_flowguard_self_blueprint_check_command)
 
-    self_portable_export = subparsers.add_parser(
-        "flowguard-self-blueprint-portable-export",
-        help=(
-            "Materialize FlowGuard's current self blueprint as one portable "
-            "integrity-checked DNA bundle."
-        ),
-    )
-    self_portable_export.add_argument(
-        "--root", default=".", help="FlowGuard repository root."
-    )
-    self_portable_export.add_argument("--output", required=True)
-    self_portable_export.add_argument("--compact", action="store_true")
-    self_portable_export.add_argument("--json", action="store_true")
-    self_portable_export.set_defaults(
-        handler=_run_flowguard_self_blueprint_portable_export_command
-    )
-
-    self_directory_export = subparsers.add_parser(
-        "flowguard-self-blueprint-directory-export",
-        help=(
-            "Materialize FlowGuard's current self blueprint as the canonical "
-            "directory-first DNA projection."
-        ),
-    )
-    self_directory_export.add_argument(
-        "--root", default=".", help="FlowGuard repository root."
-    )
-    self_directory_export.add_argument("--output", required=True)
-    self_directory_export.add_argument("--json", action="store_true")
-    self_directory_export.set_defaults(
-        handler=_run_flowguard_self_blueprint_directory_export_command
-    )
-
     self_reduction = subparsers.add_parser(
         "flowguard-self-architecture-reduction-review",
         help=(
@@ -3170,42 +3213,6 @@ def _add_implementation_blueprint_parsers(
     )
     target_check.add_argument("--json", action="store_true")
     target_check.set_defaults(handler=_run_target_system_blueprint_audit_command)
-
-    target_export = subparsers.add_parser(
-        "target-system-blueprint-export",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        help=(
-            "Explicitly materialize one provider-neutral target blueprint "
-            "from the same strict native artifacts used by audit."
-        ),
-        description=(
-            "Qualify the strict descriptor, frozen provider evidence, and full "
-            "native report set, then write the same canonical content-addressed "
-            "projection envelope used by project export."
-        ),
-    )
-    target_export.add_argument(
-        "--descriptor",
-        required=True,
-        help="Strict current target-system descriptor JSON path.",
-    )
-    target_export.add_argument(
-        "--frozen-evidence",
-        required=True,
-        help="Strict current frozen provider-evidence JSON path.",
-    )
-    target_export.add_argument(
-        "--native-report-set",
-        required=True,
-        help="Strict current native qualification report-set JSON path.",
-    )
-    target_export.add_argument(
-        "--output",
-        required=True,
-        help="Explicit bounded projection output directory.",
-    )
-    target_export.add_argument("--json", action="store_true")
-    target_export.set_defaults(handler=_run_target_system_blueprint_export_command)
 
     affected_understanding = subparsers.add_parser(
         "affected-blueprint-understanding",
@@ -3272,71 +3279,6 @@ def _add_implementation_blueprint_parsers(
     )
     project_check.add_argument("--json", action="store_true")
     project_check.set_defaults(handler=_run_project_blueprint_audit_command)
-
-    project_export = subparsers.add_parser(
-        "project-blueprint-export",
-        help=(
-            "Explicitly materialize the deterministic projection of a "
-            "canonically qualified current project blueprint."
-        ),
-    )
-    project_export.add_argument("--root", required=True, help="Bounded project root.")
-    project_export.add_argument(
-        "--definition", required=True, help="Strict current project-blueprint JSON."
-    )
-    project_export.add_argument("--output", required=True)
-    project_export.add_argument("--json", action="store_true")
-    project_export.set_defaults(handler=_run_project_blueprint_export_command)
-
-    portable_export = subparsers.add_parser(
-        "project-blueprint-portable-export",
-        help=(
-            "Write one exchangeable, content-addressed envelope over the "
-            "canonical project blueprint; it never reconstructs the target."
-        ),
-    )
-    portable_export.add_argument("--root", required=True, help="Bounded project root.")
-    portable_export.add_argument(
-        "--definition", required=True, help="Strict current project-blueprint JSON."
-    )
-    portable_export.add_argument("--output", required=True)
-    portable_export.add_argument(
-        "--compact",
-        action="store_true",
-        help="Print only bounded bundle status and member identities.",
-    )
-    portable_export.add_argument("--json", action="store_true")
-    portable_export.set_defaults(
-        handler=_run_project_blueprint_portable_export_command
-    )
-
-    portable_verify = subparsers.add_parser(
-        "portable-blueprint-verify",
-        help=(
-            "Verify an exchanged blueprint envelope in isolation without source, "
-            "provider, test, or reconstruction work."
-        ),
-    )
-    portable_verify.add_argument("--bundle", required=True)
-    portable_verify.add_argument("--expected-blueprint-fingerprint", default="")
-    portable_verify.add_argument("--expected-subject-revision", default="")
-    portable_verify.add_argument("--json", action="store_true")
-    portable_verify.set_defaults(handler=_run_portable_blueprint_verify_command)
-
-    portable_directory_verify = subparsers.add_parser(
-        "portable-blueprint-directory-verify",
-        help=(
-            "Verify one canonical directory-first DNA projection without "
-            "source, provider, test, or reconstruction work."
-        ),
-    )
-    portable_directory_verify.add_argument("--directory", required=True)
-    portable_directory_verify.add_argument("--expected-blueprint-fingerprint", default="")
-    portable_directory_verify.add_argument("--expected-projection-fingerprint", default="")
-    portable_directory_verify.add_argument("--json", action="store_true")
-    portable_directory_verify.set_defaults(
-        handler=_run_portable_blueprint_directory_verify_command
-    )
 
     candidate = subparsers.add_parser(
         "project-blueprint-candidate",

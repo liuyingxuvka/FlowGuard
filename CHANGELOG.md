@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.68.11 - 2026-08-11
+
+- Made the native model directory the only DNA carrier. Models, parent/child
+  interfaces, code/test bindings, and current evidence remain in place beside
+  the software they describe.
+- Retired standalone DNA export files, copied-directory materialization,
+  transport bundles, and isolated reconstruction routes. Former command names
+  now return the typed `native_directory_only` result.
+- Tightened self-architecture reduction so an audit cannot claim that a
+  simplification was applied without explicit application and verification
+  evidence.
+
 ## v0.68.10 - 2026-08-10
 
 - Added provider-neutral DNA qualification for software, workflows, services,

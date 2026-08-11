@@ -36,17 +36,17 @@ The system SHALL report static blueprint readiness separately from semantic mesh
 - **WHEN** every required layer, parent-child relation, code owner, test owner, and current evidence identity is present
 - **THEN** the result reports qualified self-DNA and exposes the binding counts and evidence identities used for the claim
 
-### Requirement: Qualification SHALL be portable and non-reconstructive
+### Requirement: Qualification SHALL use the native directory and remain non-reconstructive
 
-The qualification contract SHALL export provider-neutral metadata, bindings, and evidence identities for downstream skills, but SHALL NOT execute reconstruction, select a language-specific implementation, or add a fallback route as part of ordinary qualification.
+The qualification contract SHALL inspect the exact current native model directory, its model files, code/test bindings, evidence identities, and source revision in place. It SHALL NOT create a standalone file, copied directory, transport bundle, reconstruction, language-specific implementation, or fallback route as part of ordinary qualification.
 
 #### Scenario: A downstream skill consumes a qualified contract
 - **WHEN** an external Guard supplies a registered provider and its own domain evidence
-- **THEN** FlowGuard returns the provider-neutral qualification result without interpreting domain-specific states
+- **THEN** FlowGuard returns the provider-neutral qualification result and the native-directory identity without interpreting domain-specific states
 
-#### Scenario: Reconstruction is explicitly requested
-- **WHEN** a caller asks for reconstruction
-- **THEN** the qualification result remains an audit input and the caller must invoke a separate, explicitly owned reconstruction workflow
+#### Scenario: A caller requests a standalone DNA artifact
+- **WHEN** a caller asks for a bundle, copied-directory export, materialization, or isolated import
+- **THEN** the current product surface rejects the request with a typed `native_directory_only` result and leaves the repository and authority unchanged
 
 ### Requirement: Reduction status SHALL be honest and tri-state
 

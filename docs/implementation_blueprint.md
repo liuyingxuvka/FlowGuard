@@ -112,7 +112,7 @@ execution remains a separate receipt-backed status.
 
 ## Ordinary Tasks Stay Affected-Only
 
-An explicit whole-target blueprint, export, self-qualification, or release
+An explicit whole-target blueprint, self-qualification, or release
 requirement can request the full boundary. Ordinary maintenance does
 not. It loads the compact blueprint identity and the smallest affected owner
 neighborhood, then revalidates only the referenced shared objects, topology
@@ -167,48 +167,14 @@ python -m flowguard target-system-blueprint-audit `
   --json
 ```
 
-When the same audited target must be saved or exchanged, use the single
-provider-neutral export entry with the same three strict inputs:
-
-```powershell
-python -m flowguard target-system-blueprint-export `
-  --descriptor target-system.json `
-  --frozen-evidence frozen-provider-evidence.json `
-  --native-report-set native-report-set.json `
-  --output exported-target-blueprint `
-  --json
-```
-
-Export invokes the same native qualifier used by audit, then mechanically
-projects that exact descriptor, frozen provider evidence and layer plan,
-complete native report set (including portable models, typed members,
-implementation or external owners, tests, resources, intent, topology, and
-typed receipts), and qualification/readiness result. It uses the existing
-`CanonicalBlueprintProjection` manifest, `BlueprintShard` content addressing,
-writer, and verifier. The Python-project convenience export below uses that
-same envelope and materialization kernel; it is not a second authority or a
-compatibility format.
-
-`load_canonical_blueprint_projection` is the one strict current-schema disk
-loader. It rejects extra files, extra or missing directories, reparse points,
-non-current manifest/shard shapes, and content-address mismatches. Its generic
-claim stops there: it does not prove that identity or readiness is a function
-of the intended target. `target-system-blueprint-export` therefore performs a
-second, target-owned rebind against the exact descriptor, frozen evidence,
-native report set, and compiler qualification after writing. A manifest and
-identity shard that were rewritten and rehashed consistently pass the generic
-content check but fail this target rebind.
-
-The writer snapshots the complete owned tree, validates the staged tree, and
-revalidates both immediately before activation. If directory activation fails
-after the old tree was moved aside, the prior tree is restored even when
-another process recreated the output path. Cleanup of an obsolete backup is
-best-effort after commitment and cannot make an already activated projection
-look uncommitted.
-
-This command always qualifies the whole declared target. It has no affected
-scope switch. Local maintenance uses `affected-blueprint-understanding` below,
-whose content-addressed reader owns the smaller affected neighborhood.
+The native model directory is already the exchangeable DNA. The audit above
+reads that directory, the current project pointer, model files, parent/child
+interfaces, code/test/oracle bindings, and Git source identity in place. It
+does not write a second file, copy a directory, create a transport bundle, or
+run an isolated import. A caller that asks for any former export or
+materialization command receives `native_directory_only`; local maintenance
+continues to use `affected-blueprint-understanding` for the smaller affected
+neighborhood.
 
 A native test row may remain a static `not_run` design without inventing a
 receipt. A `passed` row is accepted only when the report set carries the exact
@@ -266,32 +232,11 @@ python -m flowguard project-blueprint-audit `
   --json
 ```
 
-For exchange between tools or projects, wrap the same canonical projection in
-one portable file. This is a transport envelope, not a second model: its
-manifest and shards are the exact current content-addressed projection above.
-The envelope records three separate facts so a compact read cannot accidentally
-turn “saved” into “understood” or “executed”: static model status, portable
-integrity status, and execution-evidence status. It does not invoke providers,
-source, tests, or reconstruction. The file can be checked in an isolated
-directory with no project source available:
-
-```powershell
-python -m flowguard project-blueprint-portable-export `
-  --root <project-root> `
-  --definition <project-blueprint.json> `
-  --output portable-blueprint.json `
-  --compact `
-  --json
-
-python -m flowguard portable-blueprint-verify `
-  --bundle portable-blueprint.json `
-  --json
-```
-
-`--compact` changes only the printed report. The file remains complete, with
-all twenty project projection kinds, member identities, fingerprints, and
-readiness gaps. A consumer that needs details can load the same file; it never
-falls back to source, Python, an alternate provider, or a missing shard.
+The native model directory remains the only DNA carrier. Do not wrap it in a
+portable file, copy it to another directory, or verify an isolated materialized
+projection. The exact directory, its Git commit, and its model/code/test
+bindings are the exchange unit; `--compact` audit output is only a display
+projection and is never a second authority.
 
 A missing required provider capability blocks that exact boundary; the core
 does not reject a target merely because it is not Python. These audit/read
@@ -319,23 +264,11 @@ python -m flowguard flowguard-self-blueprint-check `
   --json
 ```
 
-When the current self-model is ready to be exchanged as a portable DNA
-projection, export it through the same canonical project bundle used by the
-self-audit. The command refuses to write when the observed model or source
-inventory is stale, and it writes only the provider-neutral bundle; it does
-not reconstruct code, run a target, or create a second model authority:
-
-```powershell
-python -m flowguard flowguard-self-blueprint-portable-export `
-  --root . `
-  --output docs/blueprints/flowguard-self-portable.json `
-  --json
-```
-
-Verify a copied self bundle in an isolated directory with the
-`portable-blueprint-verify` command shown above, replacing its bundle path with
-`docs/blueprints/flowguard-self-portable.json`. This release check reads only
-the copied envelope and reports its fingerprint and structural claim boundary.
+When the current self-model is ready, use the same in-place
+`flowguard-self-blueprint-check` command shown above. The result reports the
+native directory fingerprint, model depth, code/test bindings, and exact gaps.
+There is no self-DNA export, copied self directory, bundle, or isolated rebuild
+step.
 
 The checked-in self-blueprint definition keeps authored behavior semantics
 separate from mechanical source identities. Check those identities without
@@ -394,17 +327,6 @@ python -m flowguard implementation-inventory-audit `
   --json
 ```
 
-When a caller explicitly needs a portable checkpoint of the model, write the
-same canonical project bundle to an explicitly selected directory:
-
-```powershell
-python -m flowguard project-blueprint-export `
-  --root <project-root> `
-  --definition <project-blueprint.json> `
-  --output exported-blueprint `
-  --json
-```
-
 For a bounded status check without the full graph, use the compact audit view:
 
 ```powershell
@@ -416,27 +338,10 @@ python -m flowguard project-blueprint-audit `
 ```
 
 The project, self, candidate, reduction, and inventory audit commands are
-read-only. Project export consumes that same canonically assembled project
-bundle and reuses the provider-neutral export's existing projection envelope,
-writer, and verifier. It writes only beneath the explicit output directory and
-verifies its manifest and content-addressed JSON shards. Its twenty
-project-specialized projection kinds preserve the project identity and
-definition, frozen provider evidence, independent
-implementation inventory and audit, model/code bindings, semantics, oracles,
-behavior model and cases, topology, model/test alignment, test inventory,
-resources, intent lineage, normalized and affected indexes, shared objects,
-and every readiness/depth/gap result. A raw manifest plus caller-repeated labels
-is not another qualification path. None of these commands starts a missing
-validation owner or model-authority update.
-
-Export completion means only that this exact snapshot was materialized and
-verified. The provider-neutral and Python-project convenience exports can both
-materialize a growing blueprint while it still reports `incomplete`, `stale`,
-`blocked`, or `not_run`; those statuses travel inside the readiness shard and
-remain distinct from model completeness. Both commands report
-`materialization_ok` / `materialization_status` for the write-and-verify action
-and `model_readiness_status` for the blueprint itself; neither reuses a generic
-`ok` field that could be mistaken for model readiness.
+read-only. They inspect the native directory, preserve every
+`incomplete`/`stale`/`blocked`/`not_run` status, and never write a projection,
+bundle, or materialization. Former export and isolated-verification command
+names are retired and return `native_directory_only`.
 
 ## Architecture Reduction Before Release
 

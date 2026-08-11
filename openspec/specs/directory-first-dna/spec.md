@@ -1,85 +1,81 @@
 # directory-first-dna Specification
 
 ## Purpose
-This capability makes the canonical FlowGuard model directory a practical,
-exchangeable software-DNA representation while keeping transport envelopes,
-execution evidence, and optional experiments separate from model authority.
+
+The native, versioned model directory is the software/object DNA. It includes
+the model files, parent/child relations, input/output/state/effect contracts,
+code and test bindings, evidence pointers, and the source revision that owns
+them. DNA is inspected where it lives; FlowGuard does not create a second DNA
+file, copied directory, transport bundle, or isolated materialization.
+
 ## Requirements
-### Requirement: Canonical model directory is the DNA representation
 
-FlowGuard SHALL expose the exact current canonical model directory, its
-manifest, child shards, parent/child relations, code bindings, test bindings,
-and explicit evidence statuses as the exchangeable DNA representation. The
-directory SHALL be derived from one current blueprint and SHALL NOT be a
-second model authority.
+### Requirement: Native model directory is the only DNA representation
 
-#### Scenario: Directory export succeeds
+FlowGuard SHALL inspect the exact current canonical model directory and its
+Git-bound files as the DNA representation. The directory SHALL remain the
+single authority and SHALL include model, code, test, oracle, resource,
+parent/child, and evidence identities needed for the declared boundary.
 
-- **WHEN** a current blueprint is canonically qualified and exported to an
-  empty bounded directory
-- **THEN** FlowGuard writes exactly one manifest and its declared content-
-  addressed shards, returns the directory and tree fingerprints, and reports
-  the model, code, test, and evidence identities used for the export
+#### Scenario: Native directory is current
 
-#### Scenario: Unqualified blueprint is rejected
+- **WHEN** the current project pointer resolves to a tracked model directory
+  and every required model/code/test/evidence identity is current
+- **THEN** the in-place audit returns the directory fingerprint, depth, counts,
+  and exact binding statuses without writing another artifact
 
-- **WHEN** a caller requests a directory export while a required model,
-  binding, or evidence layer is stale, missing, or blocked
-- **THEN** FlowGuard refuses to write a partial replacement and returns the
-  typed blocker without substituting a fallback projection
+#### Scenario: Native directory is incomplete
 
-### Requirement: Directory verification is exact and bounded
+- **WHEN** a required model, binding, or evidence layer is stale, missing,
+  untracked, or blocked
+- **THEN** the audit returns the typed gap and does not copy, export, or replace
+  the directory with a partial projection
 
-FlowGuard SHALL verify the directory manifest, shard paths, member identities,
-content fingerprints, parent/child links, and tree fingerprint without loading
-production source or executing target software. Unknown files, duplicate
-shards, path escapes, stale fingerprints, duplicate JSON keys, and non-finite
-numbers SHALL be visible failures.
+### Requirement: In-place verification is exact and bounded
 
-#### Scenario: Exact directory verifies
+FlowGuard SHALL verify the native directory manifest, pointer chain, member
+identities, content fingerprints, parent/child links, code/test/oracle bindings,
+and source revision without loading target software or executing a reconstruction.
+Unknown files, duplicate members, path escapes, stale fingerprints, duplicate
+JSON keys, and non-finite numbers SHALL be visible failures.
 
-- **WHEN** the directory contains only the manifest and the declared shards
-  with unchanged bytes
-- **THEN** verification returns a terminal complete result tied to the same
-  blueprint and projection fingerprints
+#### Scenario: Native directory verifies
 
-#### Scenario: Directory tampering blocks
+- **WHEN** the current directory contains only its declared native files and
+  all identities close
+- **THEN** verification returns a terminal result tied to the same source and
+  model fingerprints
 
-- **WHEN** a shard is changed, duplicated, removed, or an unrelated file is
-  added
-- **THEN** verification returns blocked with the exact affected shard or path
-  and does not reinterpret the directory through a compatibility reader
+#### Scenario: Native directory is tampered
 
-### Requirement: Monolithic transport is optional
+- **WHEN** a model, binding, pointer, or test identity is changed, removed, or
+  duplicated
+- **THEN** verification returns blocked with the exact affected path or ID and
+  does not reinterpret it through a compatibility reader
 
-FlowGuard SHALL allow a single-file transport envelope only as an explicitly
-requested derived artifact. Normal modeling, reading, authority selection, and
-exchange SHALL work from the directory and SHALL NOT require materializing a
-complete duplicate bundle in memory or on disk.
+### Requirement: Standalone DNA artifact routes are retired
 
-#### Scenario: Directory-first consumer
+The product SHALL reject requests to write or verify a standalone DNA file,
+copied DNA directory, transport bundle, portable materialization, or isolated
+import. These are not alternate authorities and are not optional normal-use
+transport paths.
 
-- **WHEN** an AI or tool exchanges the DNA for another target
-- **THEN** it can consume the manifest and selected shards from the directory
-  and preserve omitted members and not-run evidence as explicit bounded
-  statuses
+#### Scenario: Standalone artifact is requested
 
-#### Scenario: Explicit bundle request
-
-- **WHEN** a caller explicitly requests a single-file bundle
-- **THEN** FlowGuard creates it as a derived transport projection, records the
-  source directory fingerprint, and does not promote the bundle to authority
+- **WHEN** a caller invokes an old bundle/export/materialization route
+- **THEN** FlowGuard returns a typed `native_directory_only` failure, writes no
+  output, and leaves model authority unchanged
 
 ### Requirement: Claims remain separated
 
-The directory verification result SHALL distinguish static model integrity,
-portable integrity, current executed evidence, and optional user-requested
-experiments. A successful directory check SHALL NOT claim that the target was
-rebuilt, translated, or executed.
+The native-directory verification result SHALL distinguish static model
+integrity, code/test binding currentness, current executed evidence, and
+optional user-requested experiments. A successful in-place check SHALL NOT
+claim that the target was rebuilt, translated, or executed.
 
 #### Scenario: Not-run evidence stays visible
 
 - **WHEN** a model/test binding is structurally complete but its execution
   receipt is not current
-- **THEN** the directory remains exchangeable while the binding status remains
-  `not_run` or `gap`, and no parent result relabels it as passed
+- **THEN** the native directory remains the DNA authority while the binding
+  status remains `not_run` or `gap`, and no parent result relabels it as passed

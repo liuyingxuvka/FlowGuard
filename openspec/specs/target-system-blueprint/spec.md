@@ -205,7 +205,7 @@ The semantic mesh content fingerprint used by a software blueprint SHALL be deri
 - **AND** the manifest SHALL NOT publish the caller-selected fingerprint as current topology evidence
 
 ### Requirement: Raw manifests are not an alternate blueprint authority
-Whole-target or software-blueprint qualification SHALL enter through the canonical target-system compiler or its project convenience preset. A raw manifest plus caller-repeated current labels SHALL NOT independently produce a complete blueprint claim. Deterministic export SHALL consume the typed result of that canonical project/target chain, including its exact readiness status and gaps.
+Whole-target or software-blueprint qualification SHALL enter through the canonical target-system compiler or its project convenience preset. A raw manifest plus caller-repeated current labels SHALL NOT independently produce a complete blueprint claim. The typed result SHALL be consumed from the native model directory; no standalone export, copied directory, or transport bundle is a qualification step.
 
 The project preset's compiler-owned static-manifest consistency report SHALL
 remain one bounded child input. Its complete status SHALL NOT establish
@@ -214,13 +214,14 @@ implementation admission, or release readiness.
 
 #### Scenario: Caller repeats one arbitrary mesh fingerprint
 - **WHEN** a raw manifest and a command argument contain the same caller-selected semantic mesh fingerprint without a reviewed current topology and provider chain
-- **THEN** no public check or export SHALL report blueprint completion
+- **THEN** no public check SHALL report blueprint completion
 - **AND** the caller SHALL use the canonical target/project qualification entry
 
-#### Scenario: Canonically assembled project is exported
-- **WHEN** the canonical project chain has produced every typed blueprint layer and the caller explicitly requests a bounded export
-- **THEN** the export SHALL materialize the deterministic projection, including incomplete, stale, blocked, or not-run status where present
-- **AND** export completion SHALL NOT be reported as model-completeness success or requalify a second raw-manifest authority
+#### Scenario: Canonically assembled project is inspected
+- **WHEN** the canonical project chain has produced typed blueprint layers
+- **THEN** the audit SHALL inspect the native directory records, including
+  incomplete, stale, blocked, or not-run status where present
+- **AND** no copied projection or second raw-manifest authority SHALL be created
 
 ### Requirement: Project documents carry exact intent authority
 The strict project blueprint document SHALL carry the complete typed intent inventory used by behavior, resource, and readiness review, including source kind, source and owner identity, expectation identity, target bindings, current fingerprints, provider capability, terminal disposition, the independently observed complete model-owner denominator, and any evidence-bound no-intent rationale. Loading the document SHALL rederive and verify the canonical intent-review fingerprint. Adding the required model-owner denominator SHALL advance both the intent-inventory schema and the enclosing project-document schema; the loader SHALL reject the former parent or child schema rather than reinterpret it, infer the denominator, or invoke a compatibility reader.
@@ -240,52 +241,62 @@ The strict project blueprint document SHALL carry the complete typed intent inve
 - **THEN** strict loading rederives the same intent-review, inventory, and enclosing document fingerprints
 - **AND** every model-owner identity remains explicit after round-trip serialization
 
-### Requirement: Canonical project export preserves every blueprint layer
-The canonical project export SHALL bind the complete project-bundle fingerprint and emit deterministic content-addressed projections for project identity and definition, frozen provider evidence, independent implementation and test inventories, implementation audit, model/code bindings, source-independent semantics and oracles, behavior blocks and cases, parent-child topology and interfaces, resources, intent lineage, normalized and affected indexes, shared objects, and all readiness/depth/gap results.
+### Requirement: Native project DNA preserves every blueprint layer
+The native project directory SHALL bind the complete project identity and retain
+deterministic content-addressed records for project definition, frozen provider
+evidence, independent implementation and test inventories, implementation audit,
+model/code bindings, source-independent semantics and oracles, behavior blocks
+and cases, parent-child topology and interfaces, resources, intent lineage,
+normalized and affected indexes, shared objects, and all readiness/depth/gap
+results.
 
-#### Scenario: One layer is omitted from export
-- **WHEN** an export lacks any required canonical projection kind or emits a shard whose fingerprint is not referenced by the manifest
-- **THEN** export verification SHALL fail
-- **AND** the smaller projection SHALL NOT be described as the portable project blueprint
+#### Scenario: One native layer is omitted
+- **WHEN** the native directory lacks any required canonical record or a
+  fingerprint is not referenced by the current manifest
+- **THEN** native-directory verification SHALL fail
+- **AND** the smaller directory SHALL NOT be described as complete DNA
 
-#### Scenario: A partial model is exported for later growth
+#### Scenario: A partial model is retained for later growth
 - **WHEN** every canonical layer is representable but readiness still contains declared gaps or not-run execution evidence
-- **THEN** explicit export MAY succeed and SHALL preserve those exact statuses and gaps
-- **AND** export success SHALL describe materialization only, not sufficient whole-target understanding
+- **THEN** the in-place audit MAY report those exact statuses and gaps
+- **AND** the audit SHALL not describe the directory as sufficient whole-target understanding
 
-### Requirement: Canonical target export preserves the exact audited target
-The provider-neutral target export SHALL load the same strict descriptor,
+### Requirement: Native target DNA preserves the exact audited target
+The provider-neutral target audit SHALL load the same strict descriptor,
 frozen provider evidence, and complete native report set as target audit,
-invoke the same native qualifier, and mechanically project those typed inputs
-and that exact qualification/readiness result through the existing
-`CanonicalBlueprintProjection`, `BlueprintShard`, writer, and verifier. It SHALL
-NOT define a second envelope, raw-manifest authority, status input, gap input,
-or compatibility alias.
+invoke the same native qualifier, and inspect those typed inputs and the exact
+qualification/readiness result in the native model directory. It SHALL NOT
+define a second envelope, copied directory, raw-manifest authority, status
+input, gap input, or compatibility alias.
 
-#### Scenario: TypeScript software or a non-code workflow is exported
+#### Scenario: TypeScript software or a non-code workflow is inspected
 - **WHEN** either target supplies its exact strict descriptor, frozen evidence, and native report set
-- **THEN** export SHALL preserve the target profile and layer plan, observed and authority portable models, typed input/state/output and implementation or external-owner bindings, tests or verification, resources, intent, topology, receipts, and qualification/readiness identities
+- **THEN** the native audit SHALL preserve the target profile and layer plan,
+  observed and authority model identities, typed input/state/output and
+  implementation or external-owner bindings, tests or verification, resources,
+  intent, topology, receipts, and qualification/readiness identities
 - **AND** no Python-specific field SHALL be required by the projection kernel
 
-#### Scenario: Audit and export consume the same frozen artifacts
-- **WHEN** audit and export receive byte-identical strict artifacts
-- **THEN** the qualification fingerprint stored by export SHALL equal the audit report fingerprint
-- **AND** repeated exports SHALL produce the same manifest, shard paths, shard bytes, and projection fingerprint
+#### Scenario: Repeated native audits consume the same frozen artifacts
+- **WHEN** repeated audits receive byte-identical strict artifacts
+- **THEN** the qualification fingerprint SHALL equal the native audit fingerprint
+- **AND** no new materialization is written
 
 #### Scenario: The audited target remains blocked or execution is not run
-- **WHEN** qualification contains `blocked`, `incomplete`, `stale`, or `not_run` evidence while every canonical export object remains representable
-- **THEN** materialization MAY succeed and SHALL preserve those exact states and gaps
-- **AND** `materialization_ok`, `materialization_status`, and `model_readiness_status` SHALL remain separate
+- **WHEN** qualification contains `blocked`, `incomplete`, `stale`, or `not_run` evidence
+- **THEN** the native audit SHALL preserve those exact states and gaps and SHALL
+  not report a standalone materialization status
 
-#### Scenario: Export input or materialized content is invalid
-- **WHEN** a strict input fingerprint is tampered, an artifact or shard is missing, the target profile differs, the frozen plan is non-canonical, or a materialized shard changes
-- **THEN** strict loading, qualification, or projection verification SHALL fail or retain the exact blocked readiness gap at its native boundary
-- **AND** no successful materialization SHALL hide the failure
+#### Scenario: Native input is invalid
+- **WHEN** a strict input fingerprint is tampered, an artifact or native record
+  is missing, the target profile differs, or the frozen plan is non-canonical
+- **THEN** strict loading or qualification SHALL fail or retain the exact
+  blocked readiness gap at its native boundary
 
 #### Scenario: Content addressing is valid but target identity was rewritten
 - **WHEN** an identity shard and manifest are changed and re-fingerprinted so the generic projection verifier remains green
-- **THEN** the target-owned materialization verifier SHALL compare all exact target shards with a projection rebuilt from the descriptor, frozen evidence, native reports, and compiler qualification
-- **AND** materialization SHALL remain blocked because generic directory and content integrity does not prove target identity or sufficient understanding
+- **THEN** the target-owned native-directory verifier SHALL compare all exact target records with the descriptor, frozen evidence, native reports, and compiler qualification
+- **AND** the native audit SHALL remain blocked because generic directory and content integrity does not prove target identity or sufficient understanding
 
 #### Scenario: Projection activation races with another writer
 - **WHEN** the old projection was moved aside but activation fails or the output path is recreated before activation completes
@@ -370,16 +381,21 @@ A target-system blueprint SHALL bind each required behavior model to its compact
 - **WHEN** a child path-quality subject or interface identity changes
 - **THEN** the consuming parent summary and affected blueprint readiness become stale
 
-### Requirement: Canonical target export preserves a portable target-neutral bundle
-The canonical target export SHALL preserve all declared target-neutral blueprint layers, exact provider identities, model hierarchy, interfaces, resources, intent, implementation bindings, test/oracle bindings, and readiness statuses in a content-addressed portable bundle.
+### Requirement: Native target DNA preserves target-neutral layers
+The native target model directory SHALL preserve all declared target-neutral
+blueprint layers, exact provider identities, model hierarchy, interfaces,
+resources, intent, implementation bindings, test/oracle bindings, and readiness
+statuses in its content-addressed records.
 
-#### Scenario: Software target is exported
+#### Scenario: Software target is inspected
 - **WHEN** a software target has current implementation, model, resource, intent, and test artifacts
-- **THEN** the export SHALL preserve them without requiring a particular source language or repository layout
+- **THEN** the native audit SHALL preserve them without requiring a particular
+  source language or repository layout
 
-#### Scenario: Non-code workflow is exported
+#### Scenario: Non-code workflow is inspected
 - **WHEN** a non-code workflow supplies participants, inputs, states, transitions, outputs, resources, intent, and verification
-- **THEN** the export SHALL preserve those real workflow layers without fabricating Python modules, classes, or pytest members
+- **THEN** the native audit SHALL preserve those real workflow layers without
+  fabricating Python modules, classes, or pytest members
 
 ### Requirement: Providers remain adapters rather than blueprint authorities
 Provider adapters SHALL report target observations and qualified artifacts; they SHALL NOT inject a ready status, select a fallback provider, or create a second blueprint authority.

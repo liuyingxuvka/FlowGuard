@@ -3653,6 +3653,11 @@ class SelfArchitectureReductionReview:
     unresolved_step_ids: tuple[str, ...]
     safe_unapplied_candidate_ids: tuple[str, ...]
     status: str
+    # A read-only audit never infers that cleanup was applied. These fields are
+    # populated only by an explicit cleanup owner after source change and
+    # affected revalidation.
+    applied_candidate_ids: tuple[str, ...] = ()
+    application_evidence_fingerprint: str = ""
     review_fingerprint: str = field(init=False)
 
     def __post_init__(self) -> None:
@@ -3765,6 +3770,15 @@ class SelfArchitectureReductionReview:
                 "self reduction safe-unapplied candidates do not match "
                 "current action authorization"
             )
+        candidate_ids = {candidate.candidate_id for candidate in self.candidates}
+        if not set(self.applied_candidate_ids) <= candidate_ids:
+            raise ValueError(
+                "self reduction applied candidates must belong to the current candidate inventory"
+            )
+        if self.applied_candidate_ids and not self.application_evidence_fingerprint:
+            raise ValueError(
+                "self reduction applied candidates require application evidence"
+            )
         if self.audit_complete and (
             not self.audit_accounted
             or not self.denominator_complete
@@ -3825,9 +3839,16 @@ class SelfArchitectureReductionReview:
 
     @property
     def simplification_applied_and_verified(self) -> bool:
-        """Whether a proven action was actually applied and revalidated."""
+        """Whether a separately authorized cleanup was applied and revalidated."""
 
-        return bool(self.cleanup_release_ready)
+        return bool(
+            self.applied_candidate_ids
+            and self.application_evidence_fingerprint
+            and self.cleanup_release_ready
+            and not set(self.applied_candidate_ids).intersection(
+                self.safe_unapplied_candidate_ids
+            )
+        )
 
     @property
     def schema_version(self) -> str:
@@ -3911,6 +3932,10 @@ class SelfArchitectureReductionReview:
             "unresolved_step_ids": list(self.unresolved_step_ids),
             "safe_unapplied_candidate_ids": list(
                 self.safe_unapplied_candidate_ids
+            ),
+            "applied_candidate_ids": list(self.applied_candidate_ids),
+            "application_evidence_fingerprint": (
+                self.application_evidence_fingerprint
             ),
             "status": self.status,
             "claim_boundary": self.claim_boundary,

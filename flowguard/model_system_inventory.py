@@ -719,6 +719,135 @@ def build_manifest_model_system_snapshot(
                     ),
                 )
 
+    # A delegated source surface is deliberately not allowed to license an
+    # external behavior commitment in the BehaviorCommitmentLedger.  It still
+    # belongs in the model-system DNA when its native owner, relation type, and
+    # concrete evidence are present.  Keep that binding visible here instead
+    # of treating the delegated surface as an unexplained coverage gap.
+    for surface_record in surfaces:
+        if surface_record.get("coverage_disposition") != "delegated":
+            continue
+        surface_id = str(surface_record.get("surface_id", "")).strip()
+        delegated_owner_id = str(
+            surface_record.get("delegated_owner_inventory_id", "")
+        ).strip()
+        delegation_relation_type = str(
+            surface_record.get("delegation_relation_type", "")
+        ).strip()
+        native_evidence_ids = tuple(
+            str(item).strip()
+            for item in surface_record.get("native_evidence_ids", ())
+            if str(item).strip()
+        )
+        if not (
+            surface_id
+            and delegated_owner_id
+            and delegation_relation_type
+            and native_evidence_ids
+        ):
+            continue
+        evidence_paths = tuple(root_path / item for item in native_evidence_ids)
+        if any(not item.is_file() for item in evidence_paths):
+            continue
+        surface_endpoint = AuthorityEndpointRef(
+            endpoint_kind="external_surface",
+            endpoint_id=surface_id,
+            fingerprint=canonical_fingerprint(dict(surface_record)),
+            owner_route="behavior_commitment_ledger",
+        )
+        surface_key = (
+            surface_endpoint.endpoint_kind,
+            surface_endpoint.endpoint_id,
+        )
+        if surface_key not in owner_ref_keys:
+            owner_refs.append(surface_endpoint)
+            owner_ref_keys.add(surface_key)
+        owner_endpoint = AuthorityEndpointRef(
+            endpoint_kind="source_owner",
+            endpoint_id=_stable_id("delegated-owner", delegated_owner_id),
+            fingerprint=canonical_fingerprint(
+                {
+                    "delegated_owner_inventory_id": delegated_owner_id,
+                    "delegation_relation_type": delegation_relation_type,
+                }
+            ),
+            owner_route="behavior_commitment_ledger",
+        )
+        owner_key = (owner_endpoint.endpoint_kind, owner_endpoint.endpoint_id)
+        if owner_key not in owner_ref_keys:
+            owner_refs.append(owner_endpoint)
+            owner_ref_keys.add(owner_key)
+        relation_key = (
+            "delegates_to",
+            surface_endpoint.endpoint_kind,
+            surface_endpoint.endpoint_id,
+            owner_endpoint.endpoint_kind,
+            owner_endpoint.endpoint_id,
+        )
+        if relation_key not in relation_keys:
+            relation_keys.add(relation_key)
+            relations.append(
+                ModelRelation(
+                    relation_id=_stable_id(
+                        "relation:external-surface-delegates-to-owner",
+                        f"{surface_id}->{delegated_owner_id}",
+                    ),
+                    kind="delegates_to",
+                    source=surface_endpoint,
+                    target=owner_endpoint,
+                    evidence_fingerprints=(
+                        surface_endpoint.fingerprint,
+                        *tuple(file_fingerprint(item) for item in evidence_paths),
+                    ),
+                )
+            )
+        for evidence_id, evidence_path in zip(native_evidence_ids, evidence_paths):
+            evidence_kind = (
+                "test_evidence"
+                if evidence_id.startswith("tests/")
+                or evidence_id.startswith("skills/")
+                else "source_owner"
+            )
+            evidence_endpoint = AuthorityEndpointRef(
+                endpoint_kind=evidence_kind,
+                endpoint_id=_stable_id(
+                    "delegated-evidence",
+                    f"{surface_id}:{evidence_id}",
+                ),
+                fingerprint=file_fingerprint(evidence_path),
+                owner_route="behavior_commitment_ledger",
+            )
+            evidence_key = (
+                evidence_endpoint.endpoint_kind,
+                evidence_endpoint.endpoint_id,
+            )
+            if evidence_key not in owner_ref_keys:
+                owner_refs.append(evidence_endpoint)
+                owner_ref_keys.add(evidence_key)
+            evidence_relation_key = (
+                "validates",
+                evidence_endpoint.endpoint_kind,
+                evidence_endpoint.endpoint_id,
+                surface_endpoint.endpoint_kind,
+                surface_endpoint.endpoint_id,
+            )
+            if evidence_relation_key in relation_keys:
+                continue
+            relation_keys.add(evidence_relation_key)
+            relations.append(
+                ModelRelation(
+                    relation_id=_stable_id(
+                        "relation:delegated-evidence-validates-surface",
+                        f"{surface_id}:{evidence_id}",
+                    ),
+                    kind="validates",
+                    source=evidence_endpoint,
+                    target=surface_endpoint,
+                    evidence_fingerprints=(evidence_endpoint.fingerprint,),
+                )
+            )
+        linked_surface_ids.add(surface_id)
+
     affected_inventory = load_affected_authority_inventory(root_path)
     affected_required_ids: list[str] = []
     affected_covered_ids: list[str] = []

@@ -25,9 +25,9 @@ def test_blueprint_document_explains_the_complete_claim_boundary_in_plain_langua
         "Test/checker execution remains a separate receipt-backed status",
         "Ordinary Tasks Stay Affected-Only",
         "parent/child output-to-input relations",
-        "twenty project-specialized projection kinds preserve",
-        "same envelope and materialization kernel",
-        "Export completion means only that this exact snapshot was materialized",
+        "native model directory",
+        "There is no self-DNA export, copied self directory, bundle, or isolated rebuild step",
+        "Former export and isolated-verification command names are retired",
         "safe_by_equivalence",
         "safe_by_public_facade",
     ):
@@ -39,17 +39,12 @@ def test_blueprint_document_names_current_whole_affected_and_project_cli_entries
     normalized = " ".join(text.split())
     commands = (
         "python -m flowguard target-system-blueprint-audit",
-        "python -m flowguard target-system-blueprint-export",
         "python -m flowguard affected-blueprint-understanding",
         "python -m flowguard project-blueprint-audit",
         "python -m flowguard flowguard-self-blueprint-check",
-        "python -m flowguard flowguard-self-blueprint-portable-export",
         "python -m flowguard project-blueprint-candidate",
         "python -m flowguard flowguard-self-architecture-reduction-review",
         "python -m flowguard implementation-inventory-audit",
-        "python -m flowguard project-blueprint-export",
-        "python -m flowguard project-blueprint-portable-export",
-        "python -m flowguard portable-blueprint-verify",
     )
 
     for command in commands:
@@ -65,7 +60,7 @@ def test_blueprint_document_names_current_whole_affected_and_project_cli_entries
     assert "model-blueprint-export" not in text
     assert "--require-reconstruction" not in text
     assert text.count("--inventory implementation-inventory.json") == 2
-    assert "--output exported-blueprint" in text
+    assert "--output exported-blueprint" not in text
 
 
 def test_readme_links_the_blueprint_in_both_language_sections():
