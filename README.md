@@ -590,7 +590,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.68.8 is source-only: the immutable Git tag is the release
+FlowGuard v0.68.11 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -599,8 +599,8 @@ three separate identities:
 
 ```powershell
 python scripts/verify_flowguard_release.py --root . --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
-python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.8 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.8 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.11 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.11 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
 ```
 
 ## Relationship To The Guard Family
@@ -1148,15 +1148,15 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.68.8 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.68.11 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 源码候选、不可变 tag 和已发布 Release 是三个独立身份，应分别验证：
 
 ```powershell
 python scripts/verify_flowguard_release.py --root . --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
-python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.8 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.8 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.11 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.11 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
 ```
 
 ## Guard Family 关系
