@@ -994,7 +994,7 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:documentation_model"
         ],
-        "component_hash": "sha256:1b3f0406ef518c6d51a8c0e2a41c167b1321c7134e618e4cb2521f7734f54674",
+        "component_hash": "sha256:678f50f6ad58df8c88ce7a607263a599e7156e6598f1a6bca035535dabcf3491",
         "component_id": "component:documentation_model:bb4f8250d3e177a7",
         "consumer_ids": [
           "projection:installation"
@@ -1403,7 +1403,7 @@
       "owner_cycles": [],
       "unmapped_paths": []
     },
-    "impact_graph_hash": "sha256:9b4f0c6f7c07672bbd43a7565e958453c7b2722843b77a46b082773d6f7634c4",
+    "impact_graph_hash": "sha256:60e8faedeb043ea48109427f9d4d1af46f8c417c3be4e4e3f84f5210d7e485c3",
     "inventory": [
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:contract_schema",
@@ -1414,7 +1414,7 @@
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
-        "content_hash": "sha256:4f960e449ecea37f80d8902847e017c15fd8f402cf4112b696b6699de4bc5be0",
+        "content_hash": "sha256:d2a4929c5bd0325776ffe2f2979a6f95fd3e9fa8d3a36d3103ac39d6cfdecfc9",
         "install_disposition": "copy",
         "path": ".agents/skills/flowguard-development-process-flow/SKILL.md",
         "role": "documentation_model"
@@ -1763,7 +1763,7 @@
         "role": "test_dev"
       }
     ],
-    "inventory_hash": "sha256:8eab5e189866c4c3468d8c7ac30df6ab537fd5ee06d804b0f84a0cbe2842bf98",
+    "inventory_hash": "sha256:553545b32d71b9462e2ca1c12f9fbda22451fae6e9c42f2802af3916f7f1bda9",
     "member_root_path": ".agents/skills/flowguard-development-process-flow",
     "owner_receipt_root_ref": {
       "path_token": "owner_evidence_root",
@@ -2247,7 +2247,7 @@
       },
       {
         "consumer_id": "projection:installation",
-        "consumer_projection_hash": "sha256:c2af944215e6fe65368cbb4c3b64e11eb1e64858812d6d626dd897a07d74fbfb",
+        "consumer_projection_hash": "sha256:0f328323a832ccbcb4da4221702814bc31d9019f4136794657e1003b755ec26a",
         "impact_plan_schema_version": "skillguard.content_impact_plan.current",
         "impact_policy_id": "skillguard.content_impact_policy.current",
         "input_component_ids": [
@@ -2259,7 +2259,7 @@
           "component:documentation_model:ee52ef6e6f85869d",
           "component:runtime_source:9f0c7069ba6a81b4"
         ],
-        "input_projection_hash": "sha256:ba1c1fa8e535e79fb447f2088ea21717e4311ba06edd0ac0ed8c8ffc2147336c",
+        "input_projection_hash": "sha256:5d81a19d47dd4b0da2f7840a11a185439dae15b023b66c73f1fb9f15c4b638b1",
         "kind": "installation",
         "projection_declaration_hash": "sha256:a94e789cbf2f4fbbdfed3f4488857432bf353d935a78971edc8859f9e323ccf0"
       },
@@ -2289,7 +2289,7 @@
     "schema_version": "skillguard.content_impact_plan.current",
     "unknown_mapping_disposition": "block"
   },
-  "contract_hash": "C9310570D9D077422B6B6C581DA5463B7ACC494CFEFC298DCAF247655E59D94E",
+  "contract_hash": "4108BA7BCF9C64739B8B75B4F3FB77EDC169F32E0E75A7C75D7BD9D4D4890CAE",
   "depth_profile": {
     "claim_boundary": "flowguard-development-process-flow owns every check's domain meaning; SkillGuard only reconciles the exact current declared-check inventory and terminal receipts in one fixed enforced closure.",
     "enforcement_level": "enforced",
@@ -2628,8 +2628,8 @@
   "skill_id": "flowguard-development-process-flow",
   "source_fingerprints": {
     "binding": "6F25C47B6D73574AB1B9EA6710E1228E197554CCA330A9BEDF8DCEBBD6EABE56",
-    "entrypoint": "4F960E449ECEA37F80D8902847E017C15FD8F402CF4112B696B6699DE4BC5BE0",
-    "implementation:.agents/skills/flowguard-development-process-flow": "AAC85832C72CB9CC757FC2CD9423113067F05294D80C216F650A18FE0D62781C",
+    "entrypoint": "D2A4929C5BD0325776FFE2F2979A6F95FD3E9FA8D3A36D3103AC39D6CFDECFC9",
+    "implementation:.agents/skills/flowguard-development-process-flow": "9BDC339F6C756F594FEE7367376EFB638969713788705EE665C7AFF0E4C8B0E3",
     "implementation:.flowguard/development_process_flow": "0DEA3C8E8EDEB7B706432855840EACD26560D2DBB2556C18735E62ABFE2196A6",
     "implementation:.flowguard/development_process_strategy": "6A2C5E45B34D9E9E16F5270FA449527D04B83AB4A247F1E7A326996264444E14",
     "implementation:examples/flowguard_agent_workflow_rehearsal": "B6200CA78EA47CFA1DCEFFDEF742BD6C642A7142BB267C992AE5DF3911381688",
