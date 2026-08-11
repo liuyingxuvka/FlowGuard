@@ -27,6 +27,13 @@ TARGET_SYSTEM_SNAPSHOT_SCHEMA = "flowguard.target_system_snapshot.v1"
 TARGET_SYSTEM_LAYER_PLAN_SCHEMA = "flowguard.target_system_layer_plan.v1"
 FROZEN_TARGET_SYSTEM_EVIDENCE_SCHEMA = "flowguard.frozen_target_system_evidence.v1"
 BLUEPRINT_UNDERSTANDING_SCHEMA = "flowguard.blueprint_understanding_summary.v3"
+TARGET_SYSTEM_PROVIDER_PROFILE_SCHEMA = "flowguard.target_system_provider_profile.v1"
+TARGET_SYSTEM_PROVIDER_PROFILE_REGISTRY_SCHEMA = (
+    "flowguard.target_system_provider_profile_registry.v1"
+)
+TARGET_SYSTEM_DNA_QUALIFICATION_SCHEMA = (
+    "flowguard.target_system_dna_qualification.v1"
+)
 MODEL_PATH_QUALITY_BLUEPRINT_BINDING_SCHEMA = (
     "flowguard.model_path_quality_blueprint_binding.v1"
 )
@@ -35,6 +42,16 @@ PROVIDER_ROLES = ("observation", "authority")
 PROVIDER_STATUSES = ("current", "incomplete", "stale", "blocked", "not_applicable")
 LAYER_STATUSES = ("pass", "incomplete", "stale", "blocked", "not_run")
 PRE_CODE_STATUSES = ("ready", "incomplete", "stale", "blocked", "not_applicable")
+DNA_QUALIFICATION_STATUSES = (
+    "current",
+    "stale",
+    "candidate",
+    "incomplete",
+    "blocked",
+    "unknown",
+    "missing",
+    "not_applicable",
+)
 EXECUTED_EVIDENCE_STATUSES = (
     "passed",
     "failed",
@@ -839,6 +856,417 @@ class TargetSystemProviderRegistry:
 
 
 @dataclass(frozen=True)
+class TargetSystemProviderProfileDeclaration:
+    """Provider-neutral profile ownership for one downstream target adapter.
+
+    The declaration deliberately stores only the identity of the layer plan.
+    The plan itself remains owned by ``TargetSystemLayerPlan`` and is supplied
+    to the admission check, so a downstream provider cannot create a second
+    layer-plan authority by embedding a private copy here.
+    """
+
+    provider_id: str
+    target_profile: str
+    target_kind: str
+    layer_plan_id: str
+    layer_plan_fingerprint: str
+    owner_id: str
+    claim_boundary: str
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "provider_id",
+            "target_profile",
+            "target_kind",
+            "layer_plan_id",
+            "layer_plan_fingerprint",
+            "owner_id",
+            "claim_boundary",
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                _text(getattr(self, field_name), f"provider profile {field_name}"),
+            )
+
+    @property
+    def fingerprint(self) -> str:
+        return fingerprint_value(self.to_dict(include_fingerprint=False))
+
+    def to_dict(self, *, include_fingerprint: bool = True) -> dict[str, Any]:
+        payload = {
+            "schema_version": TARGET_SYSTEM_PROVIDER_PROFILE_SCHEMA,
+            "provider_id": self.provider_id,
+            "target_profile": self.target_profile,
+            "target_kind": self.target_kind,
+            "layer_plan_id": self.layer_plan_id,
+            "layer_plan_fingerprint": self.layer_plan_fingerprint,
+            "owner_id": self.owner_id,
+            "claim_boundary": self.claim_boundary,
+        }
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
+        return payload
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "TargetSystemProviderProfileDeclaration":
+        fields = (
+            "schema_version",
+            "provider_id",
+            "target_profile",
+            "target_kind",
+            "layer_plan_id",
+            "layer_plan_fingerprint",
+            "owner_id",
+            "claim_boundary",
+            "fingerprint",
+        )
+        data = _strict_object(
+            value,
+            fields=fields,
+            context="target-system provider profile declaration",
+        )
+        if data["schema_version"] != TARGET_SYSTEM_PROVIDER_PROFILE_SCHEMA:
+            raise TargetSystemBlueprintError(
+                "target-system provider profile declaration schema is not current"
+            )
+        declaration = cls(
+            provider_id=data["provider_id"],
+            target_profile=data["target_profile"],
+            target_kind=data["target_kind"],
+            layer_plan_id=data["layer_plan_id"],
+            layer_plan_fingerprint=data["layer_plan_fingerprint"],
+            owner_id=data["owner_id"],
+            claim_boundary=data["claim_boundary"],
+        )
+        if declaration.fingerprint != _text(
+            data["fingerprint"], "provider profile declaration fingerprint"
+        ):
+            raise TargetSystemBlueprintError(
+                "target-system provider profile declaration fingerprint mismatch"
+            )
+        return declaration
+
+
+@dataclass(frozen=True)
+class TargetSystemProviderProfileRegistry:
+    """Explicit downstream provider/profile ownership for one target scope."""
+
+    registry_id: str
+    declarations: tuple[TargetSystemProviderProfileDeclaration, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "registry_id", _text(self.registry_id, "profile registry id"))
+        rows = tuple(
+            sorted(self.declarations, key=lambda row: (row.provider_id, row.target_profile))
+        )
+        object.__setattr__(self, "declarations", rows)
+        provider_ids = tuple(row.provider_id for row in rows)
+        if not provider_ids or len(provider_ids) != len(set(provider_ids)):
+            raise TargetSystemBlueprintError(
+                "provider profile registry must contain unique provider identities"
+            )
+        profile_owner_pairs = tuple((row.target_profile, row.owner_id) for row in rows)
+        if len(profile_owner_pairs) != len(set(profile_owner_pairs)):
+            raise TargetSystemBlueprintError(
+                "provider profile registry contains duplicate profile owners"
+            )
+
+    @property
+    def fingerprint(self) -> str:
+        return fingerprint_value(self.to_dict(include_fingerprint=False))
+
+    def to_dict(self, *, include_fingerprint: bool = True) -> dict[str, Any]:
+        payload = {
+            "schema_version": TARGET_SYSTEM_PROVIDER_PROFILE_REGISTRY_SCHEMA,
+            "registry_id": self.registry_id,
+            "declarations": [row.to_dict() for row in self.declarations],
+        }
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
+        return payload
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "TargetSystemProviderProfileRegistry":
+        fields = ("schema_version", "registry_id", "declarations", "fingerprint")
+        data = _strict_object(
+            value,
+            fields=fields,
+            context="target-system provider profile registry",
+        )
+        if data["schema_version"] != TARGET_SYSTEM_PROVIDER_PROFILE_REGISTRY_SCHEMA:
+            raise TargetSystemBlueprintError(
+                "target-system provider profile registry schema is not current"
+            )
+        registry = cls(
+            registry_id=data["registry_id"],
+            declarations=tuple(
+                TargetSystemProviderProfileDeclaration.from_dict(item)
+                for item in _array(data["declarations"], "profile registry declarations")
+            ),
+        )
+        if registry.fingerprint != _text(
+            data["fingerprint"], "profile registry fingerprint"
+        ):
+            raise TargetSystemBlueprintError(
+                "target-system provider profile registry fingerprint mismatch"
+            )
+        return registry
+
+
+def validate_target_system_provider_profiles(
+    profile_registry: TargetSystemProviderProfileRegistry,
+    provider_registry: TargetSystemProviderRegistry,
+    layer_plans: Sequence[TargetSystemLayerPlan],
+) -> None:
+    """Validate profile ownership against existing provider and plan authorities.
+
+    This is an admission check only.  It runs no provider, discovers no target,
+    and does not manufacture a missing profile or layer plan.
+    """
+
+    plans_by_profile = {plan.target_profile: plan for plan in layer_plans}
+    if len(plans_by_profile) != len(tuple(layer_plans)):
+        raise TargetSystemBlueprintError("profile admission received duplicate layer plans")
+    providers = provider_registry.declaration_by_id
+    for declaration in profile_registry.declarations:
+        if declaration.provider_id not in providers:
+            raise TargetSystemBlueprintError(
+                f"provider profile names an unregistered provider: {declaration.provider_id}"
+            )
+        provider = providers[declaration.provider_id]
+        # The provider contract is target-neutral.  FlowGuard validates that a
+        # provider declared a non-empty kind, but it must not become the owner
+        # of a closed list such as ``software`` or ``workflow``.  Domain
+        # adapters may introduce their own kinds without changing this core
+        # admission boundary.
+        if not declaration.target_kind.strip():
+            raise TargetSystemBlueprintError(
+                f"provider profile target kind is empty: {declaration.provider_id}"
+            )
+        plan = plans_by_profile.get(declaration.target_profile)
+        if plan is None:
+            raise TargetSystemBlueprintError(
+                f"provider profile references an unknown target profile: {declaration.target_profile}"
+            )
+        if declaration.layer_plan_id != plan.plan_id:
+            raise TargetSystemBlueprintError(
+                f"provider profile layer plan id differs from current profile plan: {declaration.provider_id}"
+            )
+        if declaration.layer_plan_fingerprint != plan.fingerprint:
+            raise TargetSystemBlueprintError(
+                f"provider profile layer plan fingerprint is stale: {declaration.provider_id}"
+            )
+        if declaration.provider_id != provider.provider_id:
+            raise TargetSystemBlueprintError(
+                f"provider profile identity differs from provider registry: {declaration.provider_id}"
+            )
+
+
+@dataclass(frozen=True)
+class TargetSystemDnaQualification:
+    """Provider-neutral, non-reconstructive qualification of one layered DNA."""
+
+    qualification_id: str
+    target_system_id: str
+    target_profile: str
+    static_status: str
+    semantic_status: str
+    code_binding_status: str
+    test_binding_status: str
+    semantic_evidence_fingerprint: str
+    code_binding_fingerprint: str
+    test_binding_fingerprint: str
+    reasons: tuple[str, ...] = ()
+    claim_boundary: str = (
+        "Qualification reports current evidence identities only; it does not run "
+        "providers or reconstruct the target system."
+    )
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "qualification_id",
+            "target_system_id",
+            "target_profile",
+            "semantic_evidence_fingerprint",
+            "code_binding_fingerprint",
+            "test_binding_fingerprint",
+            "claim_boundary",
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                _text(getattr(self, field_name), f"DNA qualification {field_name}"),
+            )
+        for field_name in (
+            "static_status",
+            "semantic_status",
+            "code_binding_status",
+            "test_binding_status",
+        ):
+            status = str(getattr(self, field_name))
+            if status not in DNA_QUALIFICATION_STATUSES:
+                raise TargetSystemBlueprintError(
+                    f"DNA qualification status is not current: {field_name}={status}"
+                )
+            object.__setattr__(self, field_name, status)
+        object.__setattr__(self, "reasons", _strings(self.reasons, "DNA qualification reason"))
+
+    @property
+    def qualified(self) -> bool:
+        return all(
+            status == "current"
+            for status in (
+                self.static_status,
+                self.semantic_status,
+                self.code_binding_status,
+                self.test_binding_status,
+            )
+        )
+
+    @property
+    def status(self) -> str:
+        return "qualified" if self.qualified else "blocked"
+
+    @property
+    def fingerprint(self) -> str:
+        return fingerprint_value(self.to_dict(include_fingerprint=False))
+
+    def to_dict(self, *, include_fingerprint: bool = True) -> dict[str, Any]:
+        payload = {
+            "schema_version": TARGET_SYSTEM_DNA_QUALIFICATION_SCHEMA,
+            "qualification_id": self.qualification_id,
+            "target_system_id": self.target_system_id,
+            "target_profile": self.target_profile,
+            "static_status": self.static_status,
+            "semantic_status": self.semantic_status,
+            "code_binding_status": self.code_binding_status,
+            "test_binding_status": self.test_binding_status,
+            "semantic_evidence_fingerprint": self.semantic_evidence_fingerprint,
+            "code_binding_fingerprint": self.code_binding_fingerprint,
+            "test_binding_fingerprint": self.test_binding_fingerprint,
+            "reasons": list(self.reasons),
+            "status": self.status,
+            "qualified": self.qualified,
+            "claim_boundary": self.claim_boundary,
+        }
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
+        return payload
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "TargetSystemDnaQualification":
+        fields = (
+            "schema_version",
+            "qualification_id",
+            "target_system_id",
+            "target_profile",
+            "static_status",
+            "semantic_status",
+            "code_binding_status",
+            "test_binding_status",
+            "semantic_evidence_fingerprint",
+            "code_binding_fingerprint",
+            "test_binding_fingerprint",
+            "reasons",
+            "status",
+            "qualified",
+            "claim_boundary",
+            "fingerprint",
+        )
+        data = _strict_object(value, fields=fields, context="target-system DNA qualification")
+        if data["schema_version"] != TARGET_SYSTEM_DNA_QUALIFICATION_SCHEMA:
+            raise TargetSystemBlueprintError("target-system DNA qualification schema is not current")
+        qualification = cls(
+            qualification_id=data["qualification_id"],
+            target_system_id=data["target_system_id"],
+            target_profile=data["target_profile"],
+            static_status=data["static_status"],
+            semantic_status=data["semantic_status"],
+            code_binding_status=data["code_binding_status"],
+            test_binding_status=data["test_binding_status"],
+            semantic_evidence_fingerprint=data["semantic_evidence_fingerprint"],
+            code_binding_fingerprint=data["code_binding_fingerprint"],
+            test_binding_fingerprint=data["test_binding_fingerprint"],
+            reasons=tuple(_array(data["reasons"], "DNA qualification reasons")),
+            claim_boundary=data["claim_boundary"],
+        )
+        if data["status"] != qualification.status or bool(data["qualified"]) != qualification.qualified:
+            raise TargetSystemBlueprintError("target-system DNA qualification status projection mismatch")
+        if qualification.fingerprint != _text(data["fingerprint"], "DNA qualification fingerprint"):
+            raise TargetSystemBlueprintError("target-system DNA qualification fingerprint mismatch")
+        return qualification
+
+
+def qualify_target_system_dna(
+    report: "TargetSystemBlueprintReport",
+    *,
+    qualification_id: str,
+    semantic_status: str,
+    semantic_evidence_fingerprint: str,
+    semantic_binding_current: bool,
+    code_binding_status: str,
+    code_binding_fingerprint: str,
+    test_binding_status: str,
+    test_binding_fingerprint: str,
+) -> TargetSystemDnaQualification:
+    """Derive one honest qualification result from already-owned evidence."""
+
+    reasons: list[str] = []
+    static_status = "current" if report.ok else {
+        "pass": "current",
+        "incomplete": "incomplete",
+        "stale": "stale",
+        "blocked": "blocked",
+        "not_applicable": "not_applicable",
+    }.get(report.status, "unknown")
+    if static_status != "current":
+        reasons.append(f"static:{static_status}")
+    raw_semantic = str(semantic_status).strip()
+    if raw_semantic in {"current", "complete"} and semantic_binding_current and semantic_evidence_fingerprint:
+        normalized_semantic = "current"
+    elif raw_semantic in {"candidate", "candidate_defined_not_verified"}:
+        normalized_semantic = "candidate"
+        reasons.append("semantic:candidate_defined_not_verified")
+    elif raw_semantic in DNA_QUALIFICATION_STATUSES:
+        normalized_semantic = raw_semantic
+        reasons.append(f"semantic:{raw_semantic}")
+    else:
+        normalized_semantic = "unknown"
+        reasons.append(f"semantic:unknown:{raw_semantic or 'empty'}")
+    if normalized_semantic == "current" and not semantic_binding_current:
+        normalized_semantic = "stale"
+        reasons.append("semantic:binding_not_current")
+    code_status = str(code_binding_status or "unknown").strip()
+    if code_status in {"complete", "pass"}:
+        code_status = "current"
+    if code_status not in DNA_QUALIFICATION_STATUSES:
+        code_status = "unknown"
+    if code_status != "current":
+        reasons.append(f"code_binding:{code_status}")
+    test_status = str(test_binding_status or "unknown").strip()
+    if test_status in {"complete", "pass"}:
+        test_status = "current"
+    if test_status not in DNA_QUALIFICATION_STATUSES:
+        test_status = "unknown"
+    if test_status != "current":
+        reasons.append(f"test_binding:{test_status}")
+    return TargetSystemDnaQualification(
+        qualification_id=qualification_id,
+        target_system_id=report.descriptor.target_system_id,
+        target_profile=report.target_profile,
+        static_status=static_status,
+        semantic_status=normalized_semantic,
+        code_binding_status=code_status,
+        test_binding_status=test_status,
+        semantic_evidence_fingerprint=str(semantic_evidence_fingerprint or "missing"),
+        code_binding_fingerprint=str(code_binding_fingerprint or "missing"),
+        test_binding_fingerprint=str(test_binding_fingerprint or "missing"),
+        reasons=tuple(sorted(set(reasons))),
+    )
+
+
+@dataclass(frozen=True)
 class TargetSystemSnapshot:
     """Frozen descriptor and provider-result identities; it executes nothing."""
 
@@ -1063,6 +1491,20 @@ def serialize_target_system_provider_registry(registry: TargetSystemProviderRegi
 def load_target_system_provider_registry(path: str | Path) -> TargetSystemProviderRegistry:
     return TargetSystemProviderRegistry.from_dict(
         _load_json_object(path, "target-system provider registry")
+    )
+
+
+def serialize_target_system_provider_profile_registry(
+    registry: TargetSystemProviderProfileRegistry,
+) -> bytes:
+    return canonical_json_bytes(registry.to_dict())
+
+
+def load_target_system_provider_profile_registry(
+    path: str | Path,
+) -> TargetSystemProviderProfileRegistry:
+    return TargetSystemProviderProfileRegistry.from_dict(
+        _load_json_object(path, "target-system provider profile registry")
     )
 
 
@@ -2492,11 +2934,15 @@ __all__ = [
     "MODEL_PATH_QUALITY_BLUEPRINT_BINDING_SCHEMA",
     "MODEL_PATH_QUALITY_CHANGE_KINDS",
     "MODEL_PATH_QUALITY_SUBJECT_LANES",
+    "DNA_QUALIFICATION_STATUSES",
     "NON_CODE_WORKFLOW_LAYER_ORDER",
     "NON_CODE_WORKFLOW_TARGET_PROFILE",
     "SOFTWARE_BLUEPRINT_LAYER_ORDER",
     "SOFTWARE_TARGET_PROFILE",
+    "TARGET_SYSTEM_DNA_QUALIFICATION_SCHEMA",
     "TARGET_SYSTEM_LAYER_PLAN_SCHEMA",
+    "TARGET_SYSTEM_PROVIDER_PROFILE_REGISTRY_SCHEMA",
+    "TARGET_SYSTEM_PROVIDER_PROFILE_SCHEMA",
     "BlueprintGapRef",
     "BlueprintNativeReportRef",
     "BlueprintReadinessLedger",
@@ -2515,6 +2961,8 @@ __all__ = [
     "TargetSystemProviderResult",
     "TargetSystemProviderDeclaration",
     "TargetSystemProviderRegistry",
+    "TargetSystemProviderProfileDeclaration",
+    "TargetSystemProviderProfileRegistry",
     "TargetSystemSnapshot",
     "build_target_system_provider_registry",
     "capture_target_system_snapshot",
@@ -2522,6 +2970,7 @@ __all__ = [
     "load_target_system_descriptor",
     "load_target_system_layer_plan",
     "load_target_system_provider_registry",
+    "load_target_system_provider_profile_registry",
     "load_target_system_provider_result",
     "load_target_system_snapshot",
     "model_path_quality_binding_set_fingerprint",
@@ -2530,7 +2979,11 @@ __all__ = [
     "serialize_target_system_descriptor",
     "serialize_target_system_layer_plan",
     "serialize_target_system_provider_registry",
+    "serialize_target_system_provider_profile_registry",
     "serialize_target_system_provider_result",
     "serialize_target_system_snapshot",
     "validate_blueprint_native_reports",
+    "validate_target_system_provider_profiles",
+    "TargetSystemDnaQualification",
+    "qualify_target_system_dna",
 ]

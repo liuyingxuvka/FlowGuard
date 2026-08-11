@@ -3803,6 +3803,33 @@ class SelfArchitectureReductionReview:
         return self.status == "pass"
 
     @property
+    def candidate_inventory_complete(self) -> bool:
+        """Whether the independent candidate denominator is fully accounted for."""
+
+        return bool(
+            self.denominator_complete
+            and self.candidate_inventory_independent
+            and self.audit_accounted
+        )
+
+    @property
+    def candidate_proof_complete(self) -> bool:
+        """Whether every candidate has a complete decision, even if unapplied."""
+
+        return bool(
+            self.candidate_review_complete
+            and self.step_decision_complete
+            and not self.unresolved_member_ids
+            and not self.unresolved_step_ids
+        )
+
+    @property
+    def simplification_applied_and_verified(self) -> bool:
+        """Whether a proven action was actually applied and revalidated."""
+
+        return bool(self.cleanup_release_ready)
+
+    @property
     def schema_version(self) -> str:
         return SELF_ARCHITECTURE_REDUCTION_SCHEMA
 
@@ -3862,12 +3889,17 @@ class SelfArchitectureReductionReview:
             "candidate_inventory_independent": (
                 self.candidate_inventory_independent
             ),
+            "candidate_inventory_complete": self.candidate_inventory_complete,
+            "candidate_proof_complete": self.candidate_proof_complete,
             "audit_accounted": self.audit_accounted,
             "audit_complete": self.audit_complete,
             "action_authorized_candidate_ids": list(
                 self.action_authorized_candidate_ids
             ),
             "cleanup_release_ready": self.cleanup_release_ready,
+            "simplification_applied_and_verified": (
+                self.simplification_applied_and_verified
+            ),
             "necessity_gap_counts_by_kind": dict(
                 self.necessity_gap_counts_by_kind
             ),

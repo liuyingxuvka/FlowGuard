@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.68.10 - 2026-08-10
+
+- Added provider-neutral DNA qualification for software, workflows, services,
+  agents, pipelines, and mixed systems without assuming Python as the target.
+- Bound FlowGuard's self-blueprint, code/test evidence, and architecture
+  reduction decisions to the same current qualification and ownership chain.
+- Kept ordinary use lightweight: deep simulation and reconstruction remain
+  explicit operations, while stale or incomplete model evidence stays visible.
+
 ## v0.68.9 - 2026-08-09
 
 - Added a direct, current-model-gated export of FlowGuard's own portable DNA

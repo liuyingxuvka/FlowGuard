@@ -126,8 +126,10 @@ from .target_system_blueprint import (
     BlueprintUnderstandingSummary,
     ModelPathQualityBlueprintBinding,
     SOFTWARE_TARGET_PROFILE,
+    TargetSystemDnaQualification,
     TargetSystemBlueprintReport,
     TargetSystemProviderDeclaration,
+    qualify_target_system_dna,
 )
 from .validation_ownership import (
     filter_resolved_input_manifest,
@@ -414,6 +416,7 @@ class FlowGuardSelfBlueprintBundle:
     # existing canonical portable exporter can materialize one current self
     # DNA without rebuilding a second, weaker projection.
     project_bundle: Any | None = None
+    dna_qualification: TargetSystemDnaQualification | None = None
 
     @cached_property
     def readiness_ledger(self) -> BlueprintReadinessLedger:
@@ -490,6 +493,11 @@ class FlowGuardSelfBlueprintBundle:
             ),
             "static_readiness": self.static_readiness.to_dict(),
             "target_system_report": self.target_system_report.to_dict(),
+            "dna_qualification": (
+                self.dna_qualification.to_dict()
+                if self.dna_qualification is not None
+                else None
+            ),
             "understanding_summary": self.understanding_summary.to_dict(),
             "readiness_ledger": self.readiness_ledger.to_dict(),
             "counts": {
@@ -2389,6 +2397,54 @@ def _self_topology(
     )
 
 
+def _semantic_relation_fingerprint(semantic_mesh: Mapping[str, Any]) -> str:
+    """Recompute the checked-in relation identity without licensing it."""
+
+    model_rows = tuple(
+        row
+        for row in semantic_mesh.get("models", ())
+        if isinstance(row, Mapping)
+    )
+    feedback_contracts = tuple(
+        row
+        for row in semantic_mesh.get("feedback_progress_contracts", ())
+        if isinstance(row, Mapping)
+    )
+    return fingerprint_value(
+        {
+            "models": [
+                {
+                    "model_id": str(row.get("model_id", "")),
+                    "structural_parent_id": str(row.get("structural_parent_id", "")),
+                    "cross_boundary_parent_ids": sorted(
+                        str(value) for value in row.get("cross_boundary_parent_ids", ())
+                    ),
+                    "consumer_ids": sorted(
+                        str(value) for value in row.get("consumer_ids", ())
+                    ),
+                }
+                for row in sorted(model_rows, key=lambda value: str(value.get("model_id", "")))
+            ],
+            "feedback_progress_contracts": [
+                {
+                    "relation_id": str(row.get("relation_id", "")),
+                    "contract_id": str(row.get("contract_id", "")),
+                    "contract_kind": str(row.get("contract_kind", "")),
+                    "evidence_source_kind": str(row.get("evidence_source_kind", "")),
+                    "evidence_model_ids": sorted(
+                        str(value) for value in row.get("evidence_model_ids", ())
+                    ),
+                    "rationale": str(row.get("rationale", "")),
+                }
+                for row in sorted(
+                    feedback_contracts,
+                    key=lambda value: str(value.get("relation_id", "")),
+                )
+            ],
+        }
+    )
+
+
 def _native_evidence_artifacts(
     entries: Mapping[str, Mapping[str, Any]],
 ) -> tuple[ProjectEvidenceArtifact, ...]:
@@ -3480,6 +3536,69 @@ def build_flowguard_self_blueprint(
             if row.disposition == IMPLEMENTATION_DISPOSITION_MODEL
         ),
     )
+    semantic_status = str(semantic_mesh.get("semantic_model_status", ""))
+    semantic_relation_fingerprint = str(
+        semantic_mesh.get("semantic_relation_fingerprint", "")
+    )
+    semantic_binding_current = bool(
+        # A checked-in mesh can intentionally remain labelled as a candidate
+        # until its independently verified relation/child evidence is attached.
+        # The evidence-bound predicate below is the promotion boundary; do not
+        # require the historical display label to be current before evaluating
+        # the evidence that is meant to promote it.
+        semantic_status in {
+            "current",
+            "complete",
+            "candidate",
+            "candidate_defined_not_verified",
+        }
+        and semantic_relation_fingerprint
+        and semantic_relation_fingerprint == _semantic_relation_fingerprint(semantic_mesh)
+        and current_relation_evidence_fingerprints
+        and len(current_child_evidence_fingerprints) == len(owners)
+    )
+    # The checked-in semantic mesh may retain the historical candidate label
+    # even after the current authority revision has produced exact relation
+    # and child evidence.  The binding predicate is the authority for this
+    # qualification: it requires the current mesh fingerprint plus every
+    # current child/relation identity, and therefore safely upgrades the
+    # display status without mutating the mesh or claiming an unverified
+    # semantic execution.
+    if semantic_binding_current:
+        semantic_status = "current"
+    code_binding_status = "current" if bundle.binding_report.ok else str(
+        getattr(bundle.binding_report, "status", "incomplete")
+    )
+    # ModelTestAlignment keeps execution evidence separate from the design
+    # binding.  A not-run checker-design row does not mean the model/code/test
+    # identity is missing; it means only that the corresponding executable
+    # evidence still needs to be run.  Qualification therefore uses the
+    # pre-code closure and the exact binding report, while the alignment report
+    # continues to expose executed_evidence_status independently.
+    test_binding_status = (
+        "current"
+        if (
+            bundle.model_test_alignment_report.pre_code_status == "ready"
+            and bundle.model_test_alignment_report.path_quality_blocked_model_ids == ()
+            and bundle.binding_report.ok
+        )
+        else (
+            "incomplete"
+            if bundle.model_test_alignment_report.pre_code_status == "incomplete"
+            else "blocked"
+        )
+    )
+    dna_qualification = qualify_target_system_dna(
+        bundle.target_system_report,
+        qualification_id="flowguard-self-dna-qualification:v1",
+        semantic_status=semantic_status,
+        semantic_evidence_fingerprint=semantic_relation_fingerprint,
+        semantic_binding_current=semantic_binding_current,
+        code_binding_status=code_binding_status,
+        code_binding_fingerprint=bundle.binding_report.fingerprint,
+        test_binding_status=test_binding_status,
+        test_binding_fingerprint=bundle.model_test_alignment_report.fingerprint,
+    )
     if not all(
         (
             bundle.behavior_report,
@@ -3515,6 +3634,7 @@ def build_flowguard_self_blueprint(
         normalized_shards=bundle.normalized_shards,
         build_input_identity=build_input_identity,
         project_bundle=bundle,
+        dna_qualification=dna_qualification,
     )
 
 

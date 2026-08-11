@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-08-10
+goal: Make FlowGuard able to host explicit domain providers and to distinguish
+  static blueprint readiness from semantically qualified, bound, current
+  self-DNA without adding reconstruction or fallback paths.
