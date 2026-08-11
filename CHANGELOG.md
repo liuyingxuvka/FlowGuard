@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.68.12 - 2026-08-11
+
+- Keep the native model directory as the only DNA carrier and publish its
+  model, code/test binding, and current evidence files as ordinary source.
+- Refresh the behavior-commitment source inventory after the self-model and
+  prompt changes; stale fingerprints now fail visibly instead of being reused.
+- Raise the foreground native-check budget for the model-revision owner so the
+  complete regression set has enough time to finish without a retry path.
+
 ## v0.68.11 - 2026-08-11
 
 - Made the native model directory the only DNA carrier. Models, parent/child

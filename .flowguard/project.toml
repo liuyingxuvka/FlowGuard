@@ -1,8 +1,8 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.68.11"
+adopted_package_version = "0.68.12"
 schema_version = "1.0"
-last_verified_at = "2026-08-11T10:23:29+00:00"
+last_verified_at = "2026-08-11T18:29:31+00:00"
 last_verified_by = "FlowGuard project-upgrade"
 agents_path = "AGENTS.md"
 
@@ -15,12 +15,12 @@ require_model_update_for_behavior_changes = true
 
 [model_authority]
 system_id = "flowguard"
-observed_snapshot_path = ".flowguard/model-mesh/snapshots/792f57f6bb163c4546700f78733ddc04090948c0f029f8bf8308c76466b52af1.json"
-observed_snapshot_fingerprint = "sha256:792f57f6bb163c4546700f78733ddc04090948c0f029f8bf8308c76466b52af1"
-subject_revision = "source-inventory:ba906be88ebf61c2d56a9cfe090ff26f5662896e185a02f97d6d8319f5b5845d"
+observed_snapshot_path = ".flowguard/model-mesh/snapshots/2b5fabcc4db4789377da261e4d4dd626bcce1d49912bcbdbfce92a185af2c644.json"
+observed_snapshot_fingerprint = "sha256:2b5fabcc4db4789377da261e4d4dd626bcce1d49912bcbdbfce92a185af2c644"
+subject_revision = "source-inventory:6ed5ffe76502645d814904b72cd666046f18f3edebb1b7ff1c108e0b78bda06d"
 coverage_status = "complete_within_declared_boundary"
-generation = 103
-accepted_revision_set_fingerprint = "sha256:c7f3774fb9ab8789c3352345f55b3bf306f457db95b72dd2dac115979c3f6ddd"
-previous_snapshot_fingerprint = "sha256:5cf4d06f8c27351c2e35ac26960efeff71f0daeafffb6f23edc03f21b4d5a875"
-activation_receipt_fingerprint = "sha256:921d3395bcaec482eff0f3d52b2de23db252c89e69baddfd5a08fc20240a8219"
-head_fingerprint = "sha256:08a9dcbe12c2593f9c4772217cbc5780819a87cd0ee034ed7bd2492a26b19c0c"
+generation = 107
+accepted_revision_set_fingerprint = "sha256:ec7ced3074858e5c5e26022b7a2a8d387079b1a9945c2c401328c7b0aff431e5"
+previous_snapshot_fingerprint = "sha256:eadd4ec61d1383b271fbabad820a00f16712bcf70eacbbcf6689dd599810f2f0"
+activation_receipt_fingerprint = "sha256:a315c2b7514b357ee726891f160bf4fdc6d3a66c85929eb051fbfbd11c6919be"
+head_fingerprint = "sha256:b8a1acb4e95d976b87d6390b9979b17c9cfea678c036d85ce13c401c88ce907a"

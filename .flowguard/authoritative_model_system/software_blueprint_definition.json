@@ -1462,6 +1462,7 @@
     "flowguard/behavior_commitment.py": "behavior_commitment_ledger",
     "flowguard/behavior_commitment_lookup.py": "behavior_commitment_ledger",
     "flowguard/behavior_plane.py": "behavior_commitment_ledger",
+    "scripts/refresh_behavior_commitment_ledger.py": "behavior_commitment_ledger",
     "flowguard/benchmark.py": "bounded_system_composition_benchmark",
     "flowguard/budgeted.py": "compositional_verification_kernel",
     "flowguard/checks.py": "compositional_verification_kernel",

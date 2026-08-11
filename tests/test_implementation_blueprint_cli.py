@@ -37,7 +37,7 @@ def test_raw_manifest_blueprint_authority_is_not_a_public_command(
     assert result.returncode == 2
     assert "invalid choice" in result.stderr
     assert "project-blueprint-audit" in result.stderr
-    assert "project-blueprint-export" in result.stderr
+    assert "project-blueprint-export" not in result.stderr
 
 
 def test_inventory_audit_is_read_only(tmp_path: Path):

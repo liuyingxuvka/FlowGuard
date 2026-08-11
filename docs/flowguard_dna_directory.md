@@ -23,8 +23,8 @@ model directories
   -> .flowguard/project.toml pointer
 ```
 
-There is only one current chain. The directory export command is a projection
-of that chain; it does not create another model authority.
+There is only one current chain. It is read and audited in place; no export
+command creates another projection or authority.
 
 ## What is supporting material
 
@@ -34,16 +34,13 @@ They remain addressable by the fingerprints and paths recorded in the model
 and binding layers. A structural check therefore cannot be mistaken for a
 claim that source code was executed or that the target was rebuilt.
 
-## How to exchange it
+## How to use it
 
-Use `flowguard-self-blueprint-directory-export` when a directory projection is
-needed and `portable-blueprint-directory-verify` to check it. Verification is
-bounded: it checks the manifest, declared shards, paths, fingerprints, and
-duplicate/non-finite JSON hazards without executing target software.
-
-The single-file portable envelope remains an explicit transport option for a
-caller who asks for one. It is not required for normal modeling, authority
-selection, or exchange, and it is never promoted to the current authority.
+Point another workspace at the repository's normal source checkout and inspect
+the same native model directory and pointer chain. The only supported
+operation is an in-place read-only audit of the current directory. There is no
+single-file envelope, copied-directory export, or transport command to keep in
+sync.
 
 ## What this does not promise
 

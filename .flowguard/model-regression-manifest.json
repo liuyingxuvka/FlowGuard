@@ -1616,7 +1616,8 @@
       "input_globs": [
         ".flowguard/behavior_commitment_ledger/model.py",
         ".flowguard/behavior_commitment_ledger/run_checks.py",
-        ".flowguard/behavior_commitment_ledger/ledger.json"
+        ".flowguard/behavior_commitment_ledger/ledger.json",
+        "scripts/refresh_behavior_commitment_ledger.py"
       ],
       "intent_source_inputs": [
         "openspec/specs/behavior-commitment-ledger/spec.md"
