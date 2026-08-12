@@ -72,18 +72,11 @@ def _publish_content_addressed_object(
 ) -> None:
     """Converge concurrent identical publishers without hiding conflicts."""
 
-<<<<<<< HEAD
     storage_path = Path(_extended_windows_path(path))
     last_error: OSError | None = None
     for attempt in range(50):
         try:
             existing = storage_path.read_bytes()
-=======
-    last_error: OSError | None = None
-    for attempt in range(50):
-        try:
-            existing = path.read_bytes()
->>>>>>> agent/harden-currentness-validation
         except FileNotFoundError:
             pass
         except OSError as exc:
@@ -95,11 +88,7 @@ def _publish_content_addressed_object(
                 )
             return
         try:
-<<<<<<< HEAD
             _atomic_write(storage_path, data)
-=======
-            _atomic_write(path, data)
->>>>>>> agent/harden-currentness-validation
             return
         except OSError as exc:
             last_error = exc

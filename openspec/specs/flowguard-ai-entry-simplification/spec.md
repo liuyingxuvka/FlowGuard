@@ -344,7 +344,6 @@ billing.
 - **WHEN** a FlowGuard source release is validated
 - **THEN** the release evidence SHALL include current prompt-bundle metrics and
   budget status for every representative route
-<<<<<<< HEAD
 
 ### Requirement: Guaranteed prompt bundles are derived from declared loading
 FlowGuard SHALL derive each guaranteed first-read prompt bundle from the selected skill shell and its declared unconditional reference edges. A hand-maintained manifest MAY set budgets and conditional reference declarations, but it MUST NOT omit an unconditional reference that the skill instructs the agent to read before route work begins.
@@ -572,5 +571,3 @@ context.
   contraction, retirement, release, or other explicit trigger
 - **THEN** the detail SHALL be reported as triggered expansion
 - **AND** the ordinary route SHALL remain within its persistent-context budget
-=======
->>>>>>> agent/harden-currentness-validation

@@ -347,7 +347,6 @@ affected commitments and explicitly admitted source mappings.
 - **WHEN** a current non-empty ledger is reviewed without an explicit mode
 - **THEN** FlowGuard SHALL infer an affected existing-project review or block
   ambiguity and SHALL NOT silently select bootstrap-wide discovery
-<<<<<<< HEAD
 
 ### Requirement: Triggered commitment coverage contributes to maturation
 Behavior Commitment Ledger SHALL project the in-scope external-promise source inventory, current primary owners, and open coverage or path-authority gaps into task-local maturation when behavior commitment review is triggered.
@@ -422,5 +421,3 @@ identity.
 - **WHEN** a caller explicitly asks the existing BCL owner to refresh an otherwise valid ledger
 - **THEN** the owner SHALL return one immutable ledger value whose source rows, discovery evidence, top fingerprint, and inventory revision all come from the same derivation
 - **AND** commitment decisions and authored semantic fingerprints SHALL remain unchanged
-=======
->>>>>>> agent/harden-currentness-validation

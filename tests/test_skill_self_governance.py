@@ -148,10 +148,7 @@ class SkillSelfGovernanceTests(unittest.TestCase):
             receipt_store = Path(directory)
             for receipt in receipts:
                 save_evidence_receipt(receipt, receipt_store)
-<<<<<<< HEAD
             save_evidence_receipt(parent, receipt_store)
-=======
->>>>>>> agent/harden-currentness-validation
             parent_context = ReceiptVerificationContext(
                 input_snapshots={item.artifact_id: item for item in parent.input_snapshots},
                 contract_hash=parent.contract_hash,

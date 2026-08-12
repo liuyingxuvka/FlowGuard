@@ -21,11 +21,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-<<<<<<< HEAD
 | `v0.68.13` | `1.0` | Python standard library only | MIT |
-=======
-| `v0.65.1` | `1.0` | Python standard library only | MIT |
->>>>>>> agent/harden-currentness-validation
 
 [中文说明](./README.zh-CN.md) · [Quick Start](#quick-start) · [Concept](./docs/concept.md) · [Documentation](#documentation-map)
 
@@ -807,11 +803,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-<<<<<<< HEAD
 FlowGuard v0.68.13 is source-only: the immutable Git tag is the release
-=======
-FlowGuard v0.65.1 is source-only: the immutable Git tag is the release
->>>>>>> agent/harden-currentness-validation
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -1415,11 +1407,7 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-<<<<<<< HEAD
 FlowGuard v0.68.13 只发布源码：不可变 Git tag 是唯一发布权威，release
-=======
-FlowGuard v0.65.1 只发布源码：不可变 Git tag 是唯一发布权威，release
->>>>>>> agent/harden-currentness-validation
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 源码候选、不可变 tag 和已发布 Release 是三个独立身份，应分别验证：

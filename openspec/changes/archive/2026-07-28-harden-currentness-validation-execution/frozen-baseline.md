@@ -4,19 +4,11 @@ Recorded for the isolated implementation lane before production edits.
 
 ## Coordination boundary
 
-<<<<<<< HEAD
 - Implementation worktree: `<workspace>\FlowGuard_currentness_20260728`
 - Implementation branch: `agent/harden-currentness-validation`
 - Base commit: `1556e93ec471e268829d88b9d12a864d08f33c88`
 - Authoritative repository: `https://github.com/liuyingxuvka/FlowGuard.git`
 - Original main worktree: `<workspace>\FlowGuard_20260427`
-=======
-- Implementation worktree: `C:\Users\liu_y\Documents\FlowGuard_currentness_20260728`
-- Implementation branch: `agent/harden-currentness-validation`
-- Base commit: `1556e93ec471e268829d88b9d12a864d08f33c88`
-- Authoritative repository: `https://github.com/liuyingxuvka/FlowGuard.git`
-- Original main worktree: `C:\Users\liu_y\Documents\FlowGuard_20260427`
->>>>>>> agent/harden-currentness-validation
 - Original main remains at the same base commit and owns the pre-existing
   `0.64.2` version, documentation, consumer-authority, OpenSpec, and
   generation-6 model-authority edits recorded below. The isolated lane MUST

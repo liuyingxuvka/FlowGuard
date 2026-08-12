@@ -249,13 +249,8 @@ A distribution pass proves file-tree parity and ownership safety. It does not pr
 
 ## Release Closure
 
-<<<<<<< HEAD
 FlowGuard v0.68.8 is source-only. Bind local release readiness to the exact
 current ten-owner parent receipt and its frozen validation-input and release
-=======
-FlowGuard v0.65.1 is source-only. Bind local release readiness to the exact
-current nine-owner parent receipt and its frozen validation-input and release
->>>>>>> agent/harden-currentness-validation
 tree manifests. The verifier only reads and compares identities; it never
 starts a validation producer:
 
@@ -290,22 +285,14 @@ After committing, verify the immutable local tag against the parent-bound
 release tree:
 
 ```powershell
-<<<<<<< HEAD
 python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.8 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
-=======
-python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.65.1 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
->>>>>>> agent/harden-currentness-validation
 ```
 
 After pushing the tag and creating an asset-free GitHub Release, verify the
 peeled remote tag and release metadata:
 
 ```powershell
-<<<<<<< HEAD
 python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.8 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
-=======
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.65.1 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
->>>>>>> agent/harden-currentness-validation
 ```
 
 The published phase reuses the local checks and additionally requires the
@@ -546,11 +533,7 @@ Distribution pass 只证明文件树一致性和 ownership 安全。它不证明
 
 ### 发布闭环
 
-<<<<<<< HEAD
 FlowGuard v0.68.8 只发布源码。本地发布结论必须绑定当前 10 个验证负责人组成的
-=======
-FlowGuard v0.65.1 只发布源码。本地发布结论必须绑定当前 9 个验证负责人组成的
->>>>>>> agent/harden-currentness-validation
 精确父回执，以及父回执冻结的验证输入清单和发布树清单。验证器只读取并比对
 身份，不会启动任何验证生产者：
 
@@ -577,21 +560,13 @@ python scripts/verify_flowguard_release.py --root . --phase local-candidate --pa
 提交完成后，先把本地不可变 tag 与父回执绑定的发布树进行比较：
 
 ```powershell
-<<<<<<< HEAD
 python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.8 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
-=======
-python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.65.1 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
->>>>>>> agent/harden-currentness-validation
 ```
 
 推送 tag 并创建零资产 GitHub Release 后，再验证剥离后的远端 tag 和 Release 元数据：
 
 ```powershell
-<<<<<<< HEAD
 python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.8 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
-=======
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.65.1 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
->>>>>>> agent/harden-currentness-validation
 ```
 
 published 阶段会重新检查本地条件，并要求远端 tag 指向同一提交、Release 已发布且不是 draft、资产列表为空。若发布后验证失败，应发布新的修正版，不能移动已有 tag。

@@ -201,17 +201,8 @@ An observed snapshot SHALL be current only while a fresh live re-observation and
 - **THEN** the system builds and validates a new `observed_implementation` snapshot from the resulting live source inventory
 - **AND** it links the new observed snapshot to the target through typed realization and supersession relations instead of changing the target's subject lane
 
-<<<<<<< HEAD
 ### Requirement: Published observed authority is reproducible from the release tree
 The release verifier SHALL require every file in the selected snapshot's resolved model input inventory to be reachable from the exact committed source tree when a project publishes an observed model-system head. A local working-tree file, ignored file, untracked file, alternate checkout, or historical evidence artifact SHALL NOT satisfy release authority.
-=======
-### Requirement: Published observed authority is reconstructable from the release tree
-The release verifier SHALL require every file in the selected snapshot's
-resolved model input inventory to be reachable from the exact committed source
-tree when a project publishes an observed model-system head. A local
-working-tree file, ignored file, untracked file, alternate checkout, or
-historical evidence artifact SHALL NOT satisfy release authority.
->>>>>>> agent/harden-currentness-validation
 
 #### Scenario: Every authority input is committed
 - **WHEN** release validation examines the selected observed snapshot
@@ -225,7 +216,6 @@ historical evidence artifact SHALL NOT satisfy release authority.
 - **AND** it does not drop that model from the live inventory or infer another authority
 
 #### Scenario: Runner input exists only in the local working tree
-<<<<<<< HEAD
 - **WHEN** the observed snapshot references a runner input that is absent from the exact committed source tree
 - **THEN** release validation reports the exact missing input and blocks publication
 - **AND** local presence does not satisfy the published authority claim
@@ -445,8 +435,3 @@ An invocation-local observation SHALL be a transient verification input only. It
 - **WHEN** a second revision operation begins after the first operation has ended
 - **THEN** the second operation SHALL create its own fresh frozen observation
 - **AND** equality with the prior observation MAY explain reuse but SHALL NOT replace current receipt and owner verification
-=======
-- **WHEN** the model file is tracked but its snapshot-declared runner or another resolved input is ignored or untracked
-- **THEN** the same authority-input reachability gate blocks publication
-- **AND** a locally passing runner execution does not substitute for committed reachability
->>>>>>> agent/harden-currentness-validation

@@ -42,7 +42,6 @@ from flowguard.evidence_lifecycle import (
     publish_run,
     store_text_object,
 )
-<<<<<<< HEAD
 from flowguard.evidence_receipts import evidence_storage_root
 from flowguard.process_supervision import (
     SupervisedCommandResult,
@@ -53,9 +52,6 @@ from flowguard.validation_owner_execution import (
     ValidationOwnerResultIdentityRequirement,
     publish_supervised_validation_owner_result,
 )
-=======
-from flowguard.process_supervision import run_supervised, write_terminal_artifact
->>>>>>> agent/harden-currentness-validation
 from flowguard.model_regressions import ModelRegressionManifest
 from flowguard.validation_ownership import (
     OWNER_BLOCKED,
@@ -204,11 +200,7 @@ def _model_regression_input_patterns(root: Path) -> tuple[str, ...]:
     manifest = ModelRegressionManifest.load(root)
     for entry in manifest.entries:
         if not entry.excluded:
-<<<<<<< HEAD
             patterns.update(entry.effective_input_patterns)
-=======
-            patterns.update(entry.input_globs)
->>>>>>> agent/harden-currentness-validation
     for group in manifest.shared_input_groups:
         patterns.update(group.globs)
     return tuple(sorted(patterns))
@@ -620,12 +612,8 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "--root",
                 str(root),
                 "--output-dir",
-<<<<<<< HEAD
                 str(native_receipt_root),
                 "--resume",
-=======
-                str(root / ".flowguard" / "evidence" / "skill-suite"),
->>>>>>> agent/harden-currentness-validation
                 "--json",
             ),
             (
@@ -637,10 +625,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "scripts/run_flowguard_skill_native_checks.py",
             ),
             ("validation:skill_native_checks",),
-<<<<<<< HEAD
             resource_keys=("resource:validation-native-receipts",),
-=======
->>>>>>> agent/harden-currentness-validation
             required_path=native_script,
             missing_reason=(
                 "skill-native check producer is required before "

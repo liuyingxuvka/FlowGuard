@@ -420,11 +420,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             result = suite_command.run_full_validation(self.args())
 
         self.assertTrue(result.broad_success)
-<<<<<<< HEAD
         self.assertEqual(10, len(result.children))
-=======
-        self.assertEqual(9, len(result.children))
->>>>>>> agent/harden-currentness-validation
         model_child = next(child for child in result.children if child.child_id == "model_regressions_full")
         self.assertIn("--jobs", model_child.payload["command"])
         self.assertIn("3", model_child.payload["command"])
@@ -440,11 +436,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             self.assertEqual("gzip", result_artifact["stderr"]["compression"])
         parent = json.loads(Path(result.artifact_paths[0]).read_text(encoding="utf-8"))
         self.assertEqual("pass", parent["status"])
-<<<<<<< HEAD
         self.assertEqual(10, len(parent["children"]))
-=======
-        self.assertEqual(9, len(parent["children"]))
->>>>>>> agent/harden-currentness-validation
         self.assertNotIn("result", parent["children"][0]["payload"])
         self.assertTrue((self.output / "evidence-run.json").is_file())
         self.assertTrue((self.output.parent / "CURRENT.json").is_file())
@@ -481,7 +473,6 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertFalse(self.output.exists())
         self.assertFalse((self.output.parent / "CURRENT.json").exists())
 
-<<<<<<< HEAD
     def test_native_receipts_use_a_store_separate_from_validation_lifecycle(self):
         specs = {
             item.child_id: item
@@ -714,9 +705,6 @@ class FullValidationCompositionTests(unittest.TestCase):
         )
 
     def test_identical_second_full_request_reuses_all_ten_owners(self):
-=======
-    def test_identical_second_full_request_reuses_all_nine_owners(self):
->>>>>>> agent/harden-currentness-validation
         with patch.object(
             suite_command,
             "_execute_command",
@@ -730,21 +718,12 @@ class FullValidationCompositionTests(unittest.TestCase):
 
         self.assertTrue(first.broad_success)
         self.assertTrue(second.broad_success)
-<<<<<<< HEAD
         self.assertEqual(10, first_execute.call_count)
         second_execute.assert_not_called()
         self.assertEqual(10, second.counts["reused"])
         self.assertEqual(0, second.counts["executed"])
         self.assertEqual(0, second.progress_summary["producer_invocations"])
         self.assertEqual(10, second.progress_summary["avoided_producer_invocations"])
-=======
-        self.assertEqual(9, first_execute.call_count)
-        second_execute.assert_not_called()
-        self.assertEqual(9, second.counts["reused"])
-        self.assertEqual(0, second.counts["executed"])
-        self.assertEqual(0, second.progress_summary["producer_invocations"])
-        self.assertEqual(9, second.progress_summary["avoided_producer_invocations"])
->>>>>>> agent/harden-currentness-validation
         self.assertEqual(1.0, second.progress_summary["estimated_work_avoided_fraction"])
         self.assertGreaterEqual(second.progress_summary["elapsed_seconds"], 0.0)
 
@@ -783,17 +762,10 @@ class FullValidationCompositionTests(unittest.TestCase):
             },
         )
         self.assertEqual(8, second.counts["reused"])
-<<<<<<< HEAD
         self.assertEqual(2, second.counts["executed"])
         self.assertEqual(2, second.progress_summary["producer_invocations"])
         self.assertEqual(8, second.progress_summary["avoided_producer_invocations"])
         self.assertEqual(0.8, second.progress_summary["estimated_work_avoided_fraction"])
-=======
-        self.assertEqual(1, second.counts["executed"])
-        self.assertEqual(1, second.progress_summary["producer_invocations"])
-        self.assertEqual(8, second.progress_summary["avoided_producer_invocations"])
-        self.assertEqual(0.889, second.progress_summary["estimated_work_avoided_fraction"])
->>>>>>> agent/harden-currentness-validation
 
     def test_failed_parent_preserves_successful_children_for_next_run(self):
         with patch.object(
@@ -818,11 +790,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             "distribution_parity",
             self.child_id(execute.call_args.args[0]),
         )
-<<<<<<< HEAD
         self.assertEqual(9, second.counts["reused"])
-=======
-        self.assertEqual(8, second.counts["reused"])
->>>>>>> agent/harden-currentness-validation
 
     def test_tampered_owner_receipt_blocks_before_any_producer_starts(self):
         with patch.object(

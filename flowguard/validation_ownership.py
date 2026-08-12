@@ -15,10 +15,7 @@ import importlib.metadata
 import json
 import os
 from pathlib import Path, PurePosixPath
-<<<<<<< HEAD
 import platform
-=======
->>>>>>> agent/harden-currentness-validation
 import re
 import subprocess
 import tempfile
@@ -176,7 +173,6 @@ def _glob_pattern_variants(
 
 
 def _matches_declared_pattern(relative: str, pattern: str) -> bool:
-<<<<<<< HEAD
     # ``PurePath.match`` right-anchors relative patterns, which would make
     # ``flowguard/**/*.py`` also match ``.agents/skills/flowguard/x.py``.
     # Validation manifests are repository-root relative, so anchor both sides
@@ -184,11 +180,6 @@ def _matches_declared_pattern(relative: str, pattern: str) -> bool:
     candidate = PurePosixPath("/__flowguard_manifest_root__") / relative
     return any(
         candidate.match(f"/__flowguard_manifest_root__/{variant}")
-=======
-    candidate = PurePosixPath(relative)
-    return any(
-        candidate.match(variant)
->>>>>>> agent/harden-currentness-validation
         for variant in _glob_pattern_variants(
             pattern,
             max_depth=len(candidate.parts),
@@ -234,7 +225,6 @@ def resolve_input_manifest(
     )
     candidates = _git_candidate_paths(root_path)
     if candidates is not None:
-<<<<<<< HEAD
         candidate_set = set(candidates)
         literal_patterns = tuple(
             pattern
@@ -260,13 +250,6 @@ def resolve_input_manifest(
             )
         for relative in sorted(selected):
             if _is_evidence_output(relative):
-=======
-        for relative in candidates:
-            if _is_evidence_output(relative) or not any(
-                _matches_declared_pattern(relative, pattern)
-                for pattern in unique_patterns
-            ):
->>>>>>> agent/harden-currentness-validation
                 continue
             path = root_path / relative
             if path.is_file():
