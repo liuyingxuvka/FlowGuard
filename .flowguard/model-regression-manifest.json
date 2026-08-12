@@ -548,6 +548,7 @@
         ".agents/skills/flowguard-structure-mesh/references/structure_mesh_protocol.md",
         "AGENTS.md",
         "README.md",
+        "README.zh-CN.md",
         "docs/agents_snippet.md",
         "docs/api_surface.md",
         "docs/development_process_flow.md",

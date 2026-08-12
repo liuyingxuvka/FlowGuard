@@ -30,6 +30,7 @@
       "assets/**/*",
       "docs/**/*",
       "README.md",
+      "README.zh-CN.md",
       "CHANGELOG.md",
       "LICENSE",
       "ROADMAP.md"
@@ -1675,6 +1676,7 @@
       "assets/**/*",
       "docs/**/*",
       "README.md",
+      "README.zh-CN.md",
       "CHANGELOG.md",
       "LICENSE",
       "ROADMAP.md"

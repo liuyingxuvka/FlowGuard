@@ -2,7 +2,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-README = ROOT / "README.md"
+README_EN = ROOT / "README.md"
+README_ZH = ROOT / "README.zh-CN.md"
 CHANGELOG = ROOT / "CHANGELOG.md"
 BLUEPRINT_DOC = ROOT / "docs" / "implementation_blueprint.md"
 
@@ -64,16 +65,17 @@ def test_blueprint_document_names_current_whole_affected_and_project_cli_entries
 
 
 def test_readme_links_the_blueprint_in_both_language_sections():
-    text = README.read_text(encoding="utf-8")
+    english = README_EN.read_text(encoding="utf-8")
+    chinese = README_ZH.read_text(encoding="utf-8")
 
-    assert text.count("docs/implementation_blueprint.md") >= 4
-    assert "parent/child output-to-input relations" in text
-    assert "test design stays" in text
-    assert "测试设计是否齐全" in text
+    assert english.count("docs/implementation_blueprint.md") >= 2
+    assert chinese.count("docs/implementation_blueprint.md") >= 2
+    assert "parent/child output-to-input relations" in english
+    assert "test design stays" in english
+    assert "测试设计是否齐全" in chinese
 
 
 def test_readme_keeps_one_direct_first_v5_bootstrap_sequence():
-    text = README.read_text(encoding="utf-8")
     bootstrap_command = (
         "python -m flowguard model-revision-intent-bootstrap --root . "
         "--model-parent-receipt <model-parent.json> "
@@ -84,14 +86,16 @@ def test_readme_keeps_one_direct_first_v5_bootstrap_sequence():
         "--model-parent-receipt <model-parent.json>"
     )
 
-    assert text.count(bootstrap_command) == 2
-    assert text.count(owner_evidence_command) == 2
-    assert text.index(owner_evidence_command) < text.index(bootstrap_command)
-    assert (
-        "model-revision-intent-bootstrap --root . --model-parent-receipt "
-        "<model-parent.json> --revision-set-id"
-        not in text
-    )
+    for readme in (README_EN, README_ZH):
+        text = readme.read_text(encoding="utf-8")
+        assert text.count(bootstrap_command) == 1
+        assert text.count(owner_evidence_command) == 1
+        assert text.index(owner_evidence_command) < text.index(bootstrap_command)
+        assert (
+            "model-revision-intent-bootstrap --root . --model-parent-receipt "
+            "<model-parent.json> --revision-set-id"
+            not in text
+        )
 
 
 def test_patch_release_notes_include_blueprint_depth_and_exact_bindings():

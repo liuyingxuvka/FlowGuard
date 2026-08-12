@@ -1,4 +1,4 @@
-# FlowGuard DNA: directory-first model exchange
+# FlowGuard DNA: native-directory model authority
 
 FlowGuard's normal DNA is the versioned set of model directories and the
 small amount of authority metadata that lets an AI navigate them. It is not a
@@ -23,8 +23,9 @@ model directories
   -> .flowguard/project.toml pointer
 ```
 
-There is only one current chain. The directory export command is a projection
-of that chain; it does not create another model authority.
+There is only one current chain. Read-only audits may project a compact view of
+that chain for people or tools, but the projection is never another DNA carrier
+or model authority.
 
 ## What is supporting material
 
@@ -34,20 +35,31 @@ They remain addressable by the fingerprints and paths recorded in the model
 and binding layers. A structural check therefore cannot be mistaken for a
 claim that source code was executed or that the target was rebuilt.
 
-## How to exchange it
+## How to inspect it
 
-Use `flowguard-self-blueprint-directory-export` when a directory projection is
-needed and `portable-blueprint-directory-verify` to check it. Verification is
-bounded: it checks the manifest, declared shards, paths, fingerprints, and
-duplicate/non-finite JSON hazards without executing target software.
+Inspect the native directory in place. For FlowGuard's own repository, use the
+read-only self-blueprint check:
 
-The single-file portable envelope remains an explicit transport option for a
-caller who asks for one. It is not required for normal modeling, authority
-selection, or exchange, and it is never promoted to the current authority.
+```powershell
+python -m flowguard flowguard-self-blueprint-check --root . --compact --json
+```
+
+For another declared target, use `target-system-blueprint-audit` with its frozen
+provider evidence and native report set, or use the affected-blueprint reader
+for an ordinary bounded change. These commands report fingerprints, bindings,
+readiness, and typed gaps without copying or materializing the DNA.
+
+Former DNA export, copied-directory materialization, and isolated-verification
+commands are retired. Invoking an old command returns the typed reason
+`native_directory_only`; it does not create a compatibility export or a second
+authority. The portable-model JSON IR remains available for an explicitly
+declared finite transition relation, but it is model semantics, not a package or
+replacement carrier for project DNA.
 
 ## What this does not promise
 
-The directory is detailed enough to guide an equivalent implementation, but
-it is not a copy of every source line. A successful directory check proves
-model and projection integrity only. It does not perform a reconstruction,
-translation, or production execution, and it keeps `not_run` evidence visible.
+The directory is detailed enough to guide bounded model-backed work, but it is
+not a copy of every source line. A successful in-place structural audit proves
+only the declared model, authority, and binding integrity. It does not perform
+reconstruction, translation, or production execution, and it keeps `not_run`
+evidence visible.

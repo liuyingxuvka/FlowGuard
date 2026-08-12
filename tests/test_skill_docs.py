@@ -773,6 +773,7 @@ class SkillDocsTests(unittest.TestCase):
     def test_active_guidance_does_not_reintroduce_old_process_entry_rules(self):
         active_guidance_paths = (
             ROOT / "README.md",
+            ROOT / "README.zh-CN.md",
             ROOT / "AGENTS.md",
             ROOT / "docs" / "agents_snippet.md",
             ROOT / "docs" / "api_surface.md",

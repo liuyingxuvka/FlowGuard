@@ -77,14 +77,17 @@ def finding_codes(report):
 
 class BehaviorPlaneUpgradeTests(unittest.TestCase):
     def test_public_guidance_explains_planes_lookup_and_non_guarantee_boundary(self):
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        readmes = (
+            (ROOT / "README.md").read_text(encoding="utf-8"),
+            (ROOT / "README.zh-CN.md").read_text(encoding="utf-8"),
+        )
         ledger_docs = (ROOT / "docs" / "behavior_commitment_ledger.md").read_text(
             encoding="utf-8"
         )
         preflight_docs = (ROOT / "docs" / "existing_model_preflight.md").read_text(
             encoding="utf-8"
         )
-        combined = "\n".join((readme, ledger_docs, preflight_docs))
+        combined = "\n".join((*readmes, ledger_docs, preflight_docs))
 
         for value in (
             "product_runtime",

@@ -2,46 +2,64 @@
 
 ## Project summary
 
-FlowGuard is an executable finite-state preflight system for risky AI-agent transitions before they become code or release claims. It turns the risky part of a workflow into a small executable model before action, then checks traces, invariants, progress, conformance, evidence freshness, and parent/child model handoffs.
+FlowGuard maintains a versioned, executable semantic model of what current
+evidence supports inside a declared software boundary. It lets an AI agent
+search the declared finite behavior space, navigate explicit
+model-to-code/UI/test relationships, test candidate changes, and accept a new
+Current only after the affected model, implementation, and evidence align
+again.
 
 ## Target users
 
-AI coding agents, engineers, and maintainers working on stateful workflows, retries, caches, idempotency, and side effects.
+AI coding agents, engineers, and maintainers working on stateful behavior,
+shared software structure, retries, side effects, UI/API paths, and changes
+that need current evidence.
 
 ## Core problem
 
-Local edits can fix a nearby symptom while breaking workflow-level contracts such as deduplication, cache consistency, idempotent retries, or implementation conformance.
+Code, specifications, commits, and historical test results do not automatically
+form one current answer about a software system. Agents can repeatedly rebuild
+that answer, miss undeclared behavior paths, or add a parallel structure instead
+of reusing the current owner.
 
 ## Core workflow
 
-Choose the smallest risky boundary worth modeling, define a finite-state function-flow model, explore reachable traces and state graphs, inspect counterexamples, revise the design, replay representative traces against implementation adapters when production code exists, and let repeated models accumulate into a project-specific model library over time.
+Start from the accepted Current, create a separate Candidate, search the
+declared finite paths and explicit affected relationships, align the change
+with real code/UI/test observations, and accept a new Current only after the
+declared gates hold.
 
 ## Hero tagline
 
-An AI-agent skill suite for modeling and checking risky software, UI, service, and workflow changes before they become code or release claims; Python is the current check-engine runtime, not the target-system boundary.
+Executable software DNA for finite-path search, affected-change navigation,
+candidate simulation, and evidence-gated evolution.
 
 ## Visual concept
 
-A bright verification-rail sculpture where event tokens branch into finite traces, pass through ceramic verification gates, divert counterexamples, and reach a green implementation gateway only after the model checks hold.
+A wide, bright product-object sculpture. The left-hand teal core represents
+the accepted Current. A blue Current route and an amber Candidate route pass
+through connected model and evidence modules. Red fragments are stopped as
+counterexamples or unresolved gaps. A green core on the right represents the
+next accepted Current after alignment.
 
 ## Material language
 
-Brushed aluminum rails, matte ceramic gates, enamel modules, fiber-optic trace paths, colored state tokens, and crystalline red counterexample fragments.
-
-## Image keywords
-
-premium workflow visual, model-first verification, finite traces, ceramic gates, counterexample isolation, safe implementation
+Matte ceramic, brushed aluminum, enamel modules, soft translucent light paths,
+and small crystalline counterexample fragments on a clean off-white studio
+background.
 
 ## Generation method
 
-Direct project-specific text-to-image generation using a premium art-directed product-object workflow direction. The prompt selected a non-glass-dominant material system for this repository instead of reusing a generic transparent workflow template.
+Direct project-specific text-to-image generation followed by an image-to-image
+composition refinement. The asset contains no text, logos, people, credentials,
+user data, repository paths, or screenshots.
 
 ## File paths
 
-- `assets/readme-hero/hero.png`
+- `assets/readme-hero/hero.jpg`
 - `assets/readme-hero/hero_prompt.md`
 - `assets/readme-hero/hero_design_note.md`
 
 ## README insertion position
 
-Existing README HERO block after the first H1 heading; image file replaced without rewriting the README body.
+Immediately below the title, language switch, and FlowGuard icon.
