@@ -1881,7 +1881,7 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
     payload = json.loads(result.stdout)
     assert payload["ok"] is True
     assert payload["target_system_report"]["status"] == "pass"
-    assert payload["canonical_export_ready"] is True
+    assert payload["canonical_projection_complete"] is True
     assert payload["readiness_ledger"]["executed_evidence_status"] == "not_run"
     assert "empirical_status" not in payload["qualification"]
     assert before == after
@@ -1977,13 +1977,13 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
     )
     assert tampered_understanding.fingerprint != bundle.fingerprint
     assert "stale:understanding_summary:target_report" in (
-        tampered_understanding.canonical_export_blockers
+        tampered_understanding.canonical_projection_blockers
     )
     with pytest.raises(ValueError, match="missing export layers"):
         project_canonical_software_blueprint(tampered_understanding)
     missing_understanding = replace(bundle, understanding_summary=None)
     assert "missing:understanding_summary" in (
-        missing_understanding.canonical_export_blockers
+        missing_understanding.canonical_projection_blockers
     )
 
     first_object_id, first_object_payload = bundle.normalized_shared_objects[0]
@@ -1996,7 +1996,7 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
     )
     assert tampered_objects.fingerprint != bundle.fingerprint
     assert "stale:affected_index:shared_objects" in (
-        tampered_objects.canonical_export_blockers
+        tampered_objects.canonical_projection_blockers
     )
     extra_objects = replace(
         bundle,
@@ -2007,7 +2007,7 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
     )
     assert extra_objects.fingerprint != bundle.fingerprint
     assert "stale:affected_index:shared_objects" in (
-        extra_objects.canonical_export_blockers
+        extra_objects.canonical_projection_blockers
     )
 
     first_shard_id, first_shard_payload = bundle.normalized_shards[0]
@@ -2020,7 +2020,7 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
     )
     assert tampered_shards.fingerprint != bundle.fingerprint
     assert "stale:affected_index:shards" in (
-        tampered_shards.canonical_export_blockers
+        tampered_shards.canonical_projection_blockers
     )
 
     tampered_definition = replace(
@@ -2031,7 +2031,7 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
         ),
     )
     assert "stale:target_system_report:canonical_inputs" in (
-        tampered_definition.canonical_export_blockers
+        tampered_definition.canonical_projection_blockers
     )
     tampered_project_evidence = replace(
         bundle,
@@ -2041,7 +2041,7 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
         ),
     )
     assert "stale:target_system_report:canonical_inputs" in (
-        tampered_project_evidence.canonical_export_blockers
+        tampered_project_evidence.canonical_projection_blockers
     )
     tampered_frozen_evidence = replace(
         bundle,
@@ -2056,7 +2056,7 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
         ),
     )
     assert "stale:target_system_report:canonical_inputs" in (
-        tampered_frozen_evidence.canonical_export_blockers
+        tampered_frozen_evidence.canonical_projection_blockers
     )
     tampered_affected_index = replace(
         bundle,
@@ -2066,7 +2066,7 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
         ),
     )
     assert "stale:affected_index:canonical_inputs" in (
-        tampered_affected_index.canonical_export_blockers
+        tampered_affected_index.canonical_projection_blockers
     )
     tampered_logical_fingerprint = "sha256:" + "9" * 64
     tampered_normalized_projection = replace(
@@ -2081,7 +2081,7 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
         ),
     )
     assert "stale:normalized_projection:canonical_inputs" in (
-        tampered_normalized_projection.canonical_export_blockers
+        tampered_normalized_projection.canonical_projection_blockers
     )
 
     first_member_shard_id, first_member_ids = (
@@ -2103,7 +2103,7 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
         ),
     )
     assert "stale:normalized_projection:canonical_inputs" in (
-        tampered_member_index.canonical_export_blockers
+        tampered_member_index.canonical_projection_blockers
     )
 
     target_object_id = bundle.normalized_affected_index.target_object_id
@@ -2135,7 +2135,7 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
         ),
     )
     assert "stale:affected_index:canonical_inputs" in (
-        self_consistent_target_tamper.canonical_export_blockers
+        self_consistent_target_tamper.canonical_projection_blockers
     )
 
     assert bundle.normalized_affected_index.topology_invalidation_edges
@@ -2149,7 +2149,7 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
         ),
     )
     assert "stale:affected_index:canonical_inputs" in (
-        missing_topology_edge.canonical_export_blockers
+        missing_topology_edge.canonical_projection_blockers
     )
     for invalid_bundle in (
         tampered_definition,

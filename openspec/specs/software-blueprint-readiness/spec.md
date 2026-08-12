@@ -18,7 +18,7 @@ FlowGuard SHALL distinguish owner-level structural closure, behavior-block closu
 - **THEN** static-blueprint readiness SHALL be `ready`
 - **AND** the deepest proven layer SHALL be `static_blueprint`
 
-### Requirement: Behavior-bearing surfaces have reimplementable contracts
+### Requirement: Behavior-bearing surfaces have implementation-complete contracts
 Every behavior-bearing implementation surface SHALL bind a source-independent contract expressed as `Input x State -> Set(Output x State)` with explicit input, output, state/effect, error, decision, completion, and applicable order, retry, and timeout meanings. Pure helpers MAY close through one unique supporting owner relation.
 
 #### Scenario: Generic owner text is copied across unrelated behavior blocks

@@ -95,9 +95,9 @@ finite evidence boundary; never claim an unrestricted optimum. Store detailed
 candidates, rewrites, costs, and witnesses behind one detail fingerprint so
 ordinary parents consume only the compact result.
 
-This review evaluates the declared model path itself. Reimplementation,
-language translation, or empirical reconstruction is separate explicitly
-requested target work and is not ordinary path-quality evidence.
+This review evaluates the declared model path itself. The route ends in model
+completeness, binding coverage, impact closure, and current evidence for the
+declared boundary; it does not add a target-generation step.
 
 ## Implementation and replay
 
@@ -185,7 +185,7 @@ identify what exists and where it is owned. They cannot supply behavior that
 was merely inferred from source. The project blueprint embeds the complete
 `ProjectTestInventory`, and every read independently audits its manifest,
 nodes, cases, and fingerprints against current test source. `independent_semantics` must stand alone as a
-reimplementable contract. `model_code_test` must bind every in-scope
+  implementation-complete contract. `model_code_test` must bind every in-scope
 obligation through one owner code contract to exact test assertions and
 current evidence. `resource_oracle` captures everything required to build,
 start, configure, migrate, integrate, and judge the behavior.

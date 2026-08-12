@@ -39,7 +39,8 @@ Accept stages, versions, owners, evidence; return order/revalidation.
 - Model-purpose gate: freeze task-specific failure(s)/claim_boundary; bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework. Activation/reverse share lock/CAS; stale head stops.
 - Authorization bounds attempts, not confidence. Unknown owner/impact, active lease, or missing revalidation blocks.
 - `single_clear_path` proceeds directly; an exact deep trigger blocks implementation/activation until closed. Unchanged models reuse exact current results.
-- ModelMaturation owns path quality; DPF verifies order/currentness. Reimplementation is explicit target work, not routine validation.
+- ModelMaturation owns path quality; DPF verifies order/currentness. No
+  target-generation step belongs to validation or release.
 - Preserve provider, model/path-quality, binding, resource, test, projection, and observed/normative identities. Success is artifact-backed; non-pass is visible.
 - Source/model, consumer, install, commit, tag, GitHub Release are separate claims.
 - Invocation-local reuse is not authority. Never repeat semantics or scan receipts per leaf; missing freshness/reconciliation is `not_run`.

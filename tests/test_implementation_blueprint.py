@@ -153,7 +153,7 @@ def resource(resource_id: str = "resource:runtime", kind: str = "runtime"):
         owner_id="owner:build",
         artifact_id=f"artifact:{resource_id}",
         purpose="satisfy the declared blueprint resource obligation",
-        lifecycle_role="reconstruction_input",
+        lifecycle_role="implementation_dependency",
         consuming_behavior_ids=("behavior:save",),
         consuming_model_ids=("model:save",),
         artifact_fingerprint=f"fp:{resource_id}",
@@ -549,7 +549,7 @@ def test_resources_require_fingerprints_or_explicit_external_disposition_and_no_
             owner_id="owner",
             artifact_id="config",
             purpose="configure the target",
-            lifecycle_role="reconstruction_input",
+            lifecycle_role="implementation_dependency",
             consuming_behavior_ids=("behavior:save",),
             consuming_model_ids=("model:save",),
             artifact_fingerprint="fp:config",
@@ -615,7 +615,7 @@ def test_static_complete_uses_one_layered_readiness_result():
         "implementation admission, or release readiness."
     )
     assert "empirical_status" not in qualification.to_dict()
-    assert "reconstruction_required" not in qualification.to_dict()
+    assert "target_generation_required" not in qualification.to_dict()
 
 
 def test_manifest_qualification_report_cannot_be_caller_constructed() -> None:
@@ -640,7 +640,7 @@ def test_manifest_qualification_report_cannot_be_caller_constructed() -> None:
         )
 
 
-def test_legacy_reconstruction_arguments_are_not_an_alternate_qualification_path():
+def test_qualification_has_no_target_generation_switch():
     report = good_report()
     blueprint = manifest(report)
 
@@ -648,7 +648,7 @@ def test_legacy_reconstruction_arguments_are_not_an_alternate_qualification_path
         _qualify_blueprint_manifest(
             blueprint,
             report,
-            reconstruction_required=True,
+            target_generation_requested=True,
         )
 
 

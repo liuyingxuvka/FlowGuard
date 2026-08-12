@@ -36,8 +36,9 @@ Use when behavior/state/order/retry/effects/progress or a provider-neutral
 blueprint needs modeling and no satellite owns it.
 
 ## Do Not Use When
-Do not use it for a clear satellite route, grammar-only edits, direct commands,
-or implicit reconstruction/translation.
+Do not use it for a clear satellite route, grammar-only edits, or direct
+commands. Keep implementation and language choice as downstream user-owned
+work; this route remains the model, binding, impact, and evidence owner.
 
 ## Required Workflow
 1. Freeze provenance-bound `TaskFacts` and independent `TaskCoverageDemand`;
@@ -78,10 +79,9 @@ or implicit reconstruction/translation.
   not promote history, non-pass evidence, a normative target, parent result, or
   installation.
 - Path-quality is one compact current ModelMaturation result plus a detail
-  fingerprint. It adds no public route, CLI, compatibility reader, second pointer,
-  standalone DNA export, copied-directory materialization, or ordinary
-  reconstruction step; reimplementation/translation is explicit work outside
-  this skill.
+  fingerprint. It adds no public route, CLI, compatibility reader, or second
+  DNA authority. The native model directory, its bindings, and its evidence
+  remain the only current model surface.
 - Keep target roles/transitions in the target model. Paths/symbols prove
   traceability, not semantics; language is a provider detail; static design,
   leaf execution, resources, and oracles remain distinct.
@@ -96,14 +96,14 @@ or implicit reconstruction/translation.
 - Provider-neutral DNA qualification: FlowGuard owns native-directory DNA for software,
   non-code workflows, experiments, and other behavior-bearing systems. A
   provider declaration names target kind, profile, layer plan, owner, and claim
-  boundary; FlowGuard validates these identities but does not enumerate or
-  reconstruct the target. Qualification requires current static-blueprint,
+  boundary; FlowGuard validates these identities against the declared target
+  boundary. Qualification requires current static-blueprint,
   semantic-mesh, model-to-code, and model-to-test statuses. Candidate, stale,
   incomplete, blocked, and not-run are non-qualified typed gaps. Language is
   only an adapter detail. The normal route is modeling, checking, impact
-  analysis. The native model directory is the only DNA source; standalone
-  export/materialization routes are retired and never start implicitly.
-  Reimplementation or translation remains explicit work outside this skill.
+  analysis. The native model directory is the only DNA source. A result reports
+  the deepest closed implementation layer and its first gap; it never creates a
+  second target authority or an implementation artifact as part of qualification.
 
 ## Output Requirements
 Return evidence, failures, blockers, skipped checks, residual risk, claim

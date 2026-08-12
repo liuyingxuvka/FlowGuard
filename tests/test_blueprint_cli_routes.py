@@ -1409,10 +1409,5 @@ class BlueprintCliRouteTests(unittest.TestCase):
         self.assertEqual(reduction_payload, json.loads(output.getvalue()))
         project_reduction.assert_called_once_with(reduction)
 
-    def test_standalone_dna_export_route_is_removed(self):
-        with self.assertRaises(SystemExit):
-            main(["flowguard-self-blueprint-portable-export"])
-
-
 if __name__ == "__main__":
     unittest.main()

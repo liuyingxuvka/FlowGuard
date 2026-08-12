@@ -363,7 +363,7 @@ def compact_project_blueprint_projection(
     target_report = _stored(bundle, "target_system_report")
     understanding = _stored(bundle, "understanding_summary")
     blockers = tuple(
-        getattr(bundle, "canonical_export_blockers", ()) or ()
+        getattr(bundle, "canonical_projection_blockers", ()) or ()
     )
     # ``readiness_ledger`` is intentionally the one qualified property allowed
     # here: it is the already-derived project status and does not run work.
@@ -390,15 +390,15 @@ def compact_project_blueprint_projection(
         "project_blueprint_fingerprint": str(
             getattr(bundle, "fingerprint", "")
         ),
-        "canonical_export_ready": bool(
-            getattr(bundle, "canonical_export_ready", False)
+        "canonical_projection_complete": bool(
+            getattr(bundle, "canonical_projection_complete", False)
         ),
-        "canonical_export_blockers": list(blockers),
+        "canonical_projection_blockers": list(blockers),
         "status": str(getattr(ledger, "status", "unknown")),
         "static_status": str(_stored(static_readiness, "status", "unknown")),
         "portable_status": (
             "ready"
-            if bool(getattr(bundle, "canonical_export_ready", False))
+            if bool(getattr(bundle, "canonical_projection_complete", False))
             else "blocked"
         ),
         "execution_status": str(
@@ -429,8 +429,9 @@ def compact_project_blueprint_projection(
             "coverage_edges": len(_stored(behavior, "coverage_edges", ()) or ()),
         },
         "claim_boundary": (
-            "Bounded project status from one qualified canonical bundle; it runs "
-            "no provider, source, test owner, export, or reconstruction."
+            "Bounded project status from one qualified canonical bundle; it reads "
+            "the native model and current evidence without creating another target "
+            "or model authority."
         ),
     }
     payload["projection_fingerprint"] = fingerprint_value(payload)

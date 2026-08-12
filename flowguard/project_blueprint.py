@@ -1644,12 +1644,12 @@ class ProjectBlueprintBundle:
         )
 
     @property
-    def canonical_export_blockers(self) -> tuple[str, ...]:
-        """Return missing canonical layers that prevent faithful serialization.
+    def canonical_projection_blockers(self) -> tuple[str, ...]:
+        """Return missing canonical layers for the native projection.
 
-        A modeled gap is content, not an export failure.  Readiness, currentness,
-        and execution findings remain embedded in the exported blueprint so a
-        partial model can grow without being mistaken for a complete one.
+        A modeled gap is content, not a projection failure. Readiness,
+        currentness, and execution findings remain part of the native model so
+        a partial model can grow without being mistaken for a complete one.
         """
 
         blockers: list[str] = []
@@ -1726,10 +1726,10 @@ class ProjectBlueprintBundle:
         return tuple(sorted(set(blockers)))
 
     @property
-    def canonical_export_ready(self) -> bool:
+    def canonical_projection_complete(self) -> bool:
         """True when every canonical layer can be represented without omission."""
 
-        return not self.canonical_export_blockers
+        return not self.canonical_projection_blockers
 
     @property
     def readiness_ledger(self) -> BlueprintReadinessLedger:
@@ -1802,8 +1802,8 @@ class ProjectBlueprintBundle:
         return {
             "ok": self.ok,
             "project_blueprint_fingerprint": self.fingerprint,
-            "canonical_export_ready": self.canonical_export_ready,
-            "canonical_export_blockers": list(self.canonical_export_blockers),
+            "canonical_projection_complete": self.canonical_projection_complete,
+            "canonical_projection_blockers": list(self.canonical_projection_blockers),
             "inventory_fingerprint": self.inventory.inventory_fingerprint,
             "binding_report_fingerprint": self.binding_report.fingerprint,
             "blueprint_fingerprint": self.manifest.fingerprint,
@@ -4218,7 +4218,7 @@ def _project_bundle_rebinding_blockers(
         bundle.test_inventory,
     )
     if any(value is None for value in required):
-        return ("invalid:canonical_export:rederivation_inputs",)
+        return ("invalid:canonical_projection:rederivation_inputs",)
 
     definition = bundle.definition
     project_evidence = bundle.project_evidence
@@ -4307,7 +4307,7 @@ def _project_bundle_rebinding_blockers(
             affected_surface_ids=understanding_summary.affected_surface_ids,
         )
     except ValueError:
-        return tuple(sorted({*blockers, "invalid:canonical_export:rederivation"}))
+        return tuple(sorted({*blockers, "invalid:canonical_projection:rederivation"}))
 
     if expected_projection.to_dict() != normalized_projection.to_dict():
         blockers.append("stale:normalized_projection:canonical_inputs")

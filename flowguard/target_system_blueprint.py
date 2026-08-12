@@ -1065,7 +1065,7 @@ def validate_target_system_provider_profiles(
 
 @dataclass(frozen=True)
 class TargetSystemDnaQualification:
-    """Provider-neutral, non-reconstructive qualification of one layered DNA."""
+    """Provider-neutral qualification of one layered target DNA."""
 
     qualification_id: str
     target_system_id: str
@@ -1079,8 +1079,8 @@ class TargetSystemDnaQualification:
     test_binding_fingerprint: str
     reasons: tuple[str, ...] = ()
     claim_boundary: str = (
-        "Qualification reports current evidence identities only; it does not run "
-        "providers or reconstruct the target system."
+        "Qualification reports current evidence identities and model depth only; "
+        "it does not create a target or a second model authority."
     )
 
     def __post_init__(self) -> None:

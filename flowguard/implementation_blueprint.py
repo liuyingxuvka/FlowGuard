@@ -1919,10 +1919,10 @@ def project_canonical_software_blueprint(
         raise BlueprintValidationError(
             "canonical project export requires the exact typed project blueprint bundle"
         )
-    if not project_bundle.canonical_export_ready:
+    if not project_bundle.canonical_projection_complete:
         raise BlueprintValidationError(
             "canonical project blueprint is missing export layers: "
-            + ", ".join(project_bundle.canonical_export_blockers)
+            + ", ".join(project_bundle.canonical_projection_blockers)
         )
     assert project_bundle.definition is not None
     assert project_bundle.project_evidence is not None

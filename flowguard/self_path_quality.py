@@ -1,7 +1,7 @@
 """Compile FlowGuard's own current models into path-quality material.
 
 This is a private self-maintenance adapter, not a route, CLI, authority
-pointer, or reconstruction workflow.  It projects existing executable model
+pointer, or target-generation workflow.  It projects existing executable model
 structures (``Workflow`` objects or explicit contract exports) and, only when
 neither exists, the native runner's actual evidence-owner calls into the
 provider-neutral facts consumed by :mod:`flowguard.model_path_quality`.
@@ -1616,8 +1616,8 @@ def compile_flowguard_self_path_quality_material(
     """Compile current self-model facts and run the ordinary light review.
 
     A current deep trigger remains an exact unresolved handoff.  This function
-    never invents finite candidates, runs a reconstruction exercise, mutates a
-    model, or writes an authority artifact.
+    never invents finite candidates, creates a target, mutates a model, or writes
+    an authority artifact.
     """
 
     if not isinstance(candidate_snapshot, ModelSystemSnapshot):

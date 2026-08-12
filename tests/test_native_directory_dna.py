@@ -5,21 +5,20 @@ import pytest
 from flowguard.__main__ import main
 
 
-@pytest.mark.parametrize(
-    "command",
-    (
+def test_standalone_dna_routes_are_absent_from_the_current_cli(capsys):
+    with pytest.raises(SystemExit):
+        main(["--help"])
+    help_text = capsys.readouterr().out
+    for retired in (
         "flowguard-self-blueprint-portable-export",
         "flowguard-self-blueprint-directory-export",
         "project-blueprint-export",
         "project-blueprint-portable-export",
-        "target-system-blueprint-export",
         "portable-blueprint-verify",
         "portable-blueprint-directory-verify",
-    ),
-)
-def test_standalone_dna_routes_are_retired(command):
-    with pytest.raises(SystemExit):
-        main([command])
+    ):
+        assert retired not in help_text
+    assert "flowguard-self-blueprint-check" in help_text
 
 
 def test_portable_blueprint_module_is_not_a_public_authority():

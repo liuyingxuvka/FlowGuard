@@ -169,12 +169,11 @@ python -m flowguard target-system-blueprint-audit `
 
 The native model directory is already the exchangeable DNA. The audit above
 reads that directory, the current project pointer, model files, parent/child
-interfaces, code/test/oracle bindings, and Git source identity in place. It
-does not write a second file, copy a directory, create a transport bundle, or
-run an isolated import. A caller that asks for any former export or
-materialization command receives `native_directory_only`; local maintenance
-continues to use `affected-blueprint-understanding` for the smaller affected
-neighborhood.
+interfaces, code/test/oracle bindings, and Git source identity in place. The
+native directory is the DNA and the exchange unit. Qualification is an
+in-place completeness and currentness check; it does not create a second model
+authority or a generated target. Local maintenance continues to use
+`affected-blueprint-understanding` for the smaller affected neighborhood.
 
 A native test row may remain a static `not_run` design without inventing a
 receipt. A `passed` row is accepted only when the report set carries the exact
@@ -232,11 +231,10 @@ python -m flowguard project-blueprint-audit `
   --json
 ```
 
-The native model directory remains the only DNA carrier. Do not wrap it in a
-portable file, copy it to another directory, or verify an isolated materialized
-projection. The exact directory, its Git commit, and its model/code/test
-bindings are the exchange unit; `--compact` audit output is only a display
-projection and is never a second authority.
+The native model directory remains the only DNA carrier. The exact directory,
+its Git commit, and its model/code/test bindings are the exchange unit;
+`--compact` audit output is only a display projection and is never a second
+authority.
 
 A missing required provider capability blocks that exact boundary; the core
 does not reject a target merely because it is not Python. These audit/read
@@ -267,8 +265,8 @@ python -m flowguard flowguard-self-blueprint-check `
 When the current self-model is ready, use the same in-place
 `flowguard-self-blueprint-check` command shown above. The result reports the
 native directory fingerprint, model depth, code/test bindings, and exact gaps.
-There is no self-DNA export, copied self directory, bundle, or isolated rebuild
-step.
+The result is an understanding/readiness report, not a target-generation
+request.
 
 The checked-in self-blueprint definition keeps authored behavior semantics
 separate from mechanical source identities. Check those identities without
@@ -339,9 +337,9 @@ python -m flowguard project-blueprint-audit `
 
 The project, self, candidate, reduction, and inventory audit commands are
 read-only. They inspect the native directory, preserve every
-`incomplete`/`stale`/`blocked`/`not_run` status, and never write a projection,
-bundle, or materialization. Former export and isolated-verification command
-names are retired and return `native_directory_only`.
+`incomplete`/`stale`/`blocked`/`not_run` status, and never change model
+authority. Projection helpers may materialize bounded internal evidence for
+the current audit, but they do not create a second DNA authority or a target.
 
 ## Architecture Reduction Before Release
 

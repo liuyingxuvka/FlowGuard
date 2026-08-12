@@ -45,6 +45,7 @@ sync.
 ## What this does not promise
 
 The directory is detailed enough to guide an equivalent implementation, but
-it is not a copy of every source line. A successful directory check proves
-model and projection integrity only. It does not perform a reconstruction,
-translation, or production execution, and it keeps `not_run` evidence visible.
+it is not a copy of every source line. A successful directory check proves the
+declared model, bindings, and projection integrity while keeping `not_run`
+evidence visible. It reports understanding depth and current gaps; it does not
+create a second model authority or a generated target.

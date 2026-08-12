@@ -99,8 +99,8 @@ compare costs, create necessity witnesses, or decide model path quality.
 Keep `observed` current behavior separate from a cleaner `normative_target`.
 The same provider-neutral lookup applies to other programming languages and to
 non-code workflows; a path or Python symbol is never required as semantic
-authority. No preflight lookup launches reconstruction or creates another
-public route, CLI, compatibility reader, or current pointer.
+authority. Preflight reads current model authority only; it never creates
+another authority, route, CLI, reader, or pointer.
 
 ## Full Mode
 

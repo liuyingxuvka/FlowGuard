@@ -169,10 +169,9 @@ ModelMaturation decides path quality; DPF checks only denominator, order,
 fingerprint currentness, invalidation, and affected validation. Keep faithful
 `observed` behavior separate from a cleaner `normative_target`, and keep user
 execution choice separate from verified understanding and admission. The
-ordinary lifecycle contains no reconstruction phase. Reimplementation,
-language translation, or empirical reconstruction appears only when the user
-explicitly requests that target outcome and never substitutes for static
-closure, model-path evidence, or ordinary validation.
+ordinary lifecycle closes on the declared model, code/test bindings, and current
+evidence for the requested boundary. It has no target-generation phase; a
+generated target is not evidence for static closure or ordinary validation.
 
 ## Freshness And Sync
 

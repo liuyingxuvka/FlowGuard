@@ -10,12 +10,15 @@ The current FlowGuard target-system blueprint already contains software and non-
 - Add explicit provider/profile admission checks and a provider-neutral qualification projection.
 - Preserve the distinction between static readiness, semantic currentness, code binding, and test binding.
 - Make reduction reports truthful without deleting or contracting any unresolved path.
-- Keep the ordinary path single and lightweight; no reconstruction, export, copied-directory materialization, or transport bundle is part of the product path.
+- Keep the ordinary path single and lightweight; native model files, bindings,
+  checks, and evidence are the product path. No second target authority or
+  generated target is part of the product path.
 
 **Non-Goals:**
 
 - No domain-specific ResearchGuard, PhysicsGuard, or WorldGuard semantics in FlowGuard.
-- No reconstruction, language translation, fallback, alias, compatibility reader, export route, copied-directory materialization, transport bundle, or second model authority.
+- No target-generation route, language-specific target writer, fallback, alias,
+  compatibility reader, transport bundle, or second model authority.
 - No deletion or contraction of existing code in this change.
 
 ## Decisions
@@ -28,7 +31,12 @@ The current FlowGuard target-system blueprint already contains software and non-
 
 4. **Project reduction truth as three independent facts.** Existing cleanup fields remain compatible, while new projections make inventory completeness, proof completeness, and applied-and-verified simplification independently inspectable.
 
-5. **Keep the DNA in its native directory.** FlowGuard checks the exact current repository directory, model files, code/test bindings, evidence pointers, and Git identity in place. It does not create a second file, copied directory, transport bundle, or reconstruction workflow. A separate reconstruction request is outside this change and cannot be reached through normal qualification.
+5. **Keep the DNA in its native directory.** FlowGuard checks the exact current
+   repository directory, model files, code/test bindings, evidence pointers,
+   and Git identity in place. The directory is the exchange unit; qualification
+   reports whether its implementation-complete contract is closed and where the
+   first gap remains. No second model authority or generated target is needed
+   for that claim.
 
 ## Risks / Trade-offs
 

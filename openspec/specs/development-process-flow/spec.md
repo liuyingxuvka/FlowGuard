@@ -1187,13 +1187,19 @@ The development process SHALL perform implementation and affected validation fir
 - **THEN** plan-only SHALL classify each final owner as execute, reuse_current, or blocked before any producer starts
 - **AND** one final parent SHALL execute each stale owner at most once
 
-### Requirement: Independent reconstruction is not a routine release owner
-The ordinary FlowGuard development and release process SHALL not execute or require an independent software reconstruction experiment unless a separate explicit change requests that qualification.
+### Requirement: Current model closure is the release owner
+The ordinary FlowGuard development and release process SHALL close the current
+model, its code/test/resource/intent/interface bindings, affected impact, and
+current executable evidence in the native project directory. A target-generation
+step is not a lifecycle phase and SHALL not be used as a release or readiness
+criterion.
 
 #### Scenario: User requests ordinary modeling or maintenance
-- **WHEN** a target is being modeled, changed, audited, or released without an explicit reconstruction qualification request
-- **THEN** the process SHALL use the portable blueprint and affected validation routes only
-- **AND** it SHALL not start a reconstruction branch
+- **WHEN** a target is being modeled, changed, audited, or released
+- **THEN** the process SHALL use the native blueprint, affected validation, and
+  evidence-currentness routes
+- **AND** it SHALL report the deepest proven layer and first remaining gap
+- **AND** it SHALL not create a second target authority or generated target
 
 ### Requirement: Internal process modes have exact route edges
 DevelopmentProcessFlow SHALL expose exact conditional reference edges for its

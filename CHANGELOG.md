@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.68.13 - 2026-08-12
+
+- Keep the repository directory as FlowGuard's native DNA: models, code/test
+  bindings, and current evidence remain the source authority without a
+  standalone self-DNA package.
+- Remove the last self-export terminology and keep readiness focused on the
+  current native model, its bindings, and visible evidence gaps.
+- Refresh the self-model and release identities for the patch version.
+
 ## v0.68.12 - 2026-08-11
 
 - Keep the native model directory as the only DNA carrier and publish its

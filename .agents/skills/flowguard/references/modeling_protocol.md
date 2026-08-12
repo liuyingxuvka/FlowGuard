@@ -48,7 +48,7 @@ through one lightweight path review. Exact current triggers may deepen only the
 affected finite model boundary. ModelMesh, Architecture Reduction,
 Model-Test Alignment, TestMesh, and DevelopmentProcessFlow consume the compact
 result under their native responsibilities; none creates another optimizer,
-CLI, compatibility reader, current pointer, or reconstruction workflow.
+CLI, compatibility reader, current pointer, or second model authority.
 
 ## Claim boundary
 
