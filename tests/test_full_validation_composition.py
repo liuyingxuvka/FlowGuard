@@ -27,6 +27,7 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.installed.mkdir()
         for relative in (
             "scripts/check_flowguard_self_governance.py",
+            "scripts/run_flowguard_skill_native_checks.py",
             "scripts/run_flowguard_model_regressions.py",
             "scripts/install_flowguard_skills.py",
         ):
@@ -73,6 +74,25 @@ class FullValidationCompositionTests(unittest.TestCase):
             ]
         )
 
+    def test_external_consumer_fingerprint_ignores_unrelated_installed_skills(self):
+        initial = suite_command._external_tree_fingerprint(self.installed)
+        unrelated = self.installed / "unrelated-plugin" / "large.bin"
+        unrelated.parent.mkdir(parents=True)
+        unrelated.write_bytes(b"x" * 4096)
+
+        self.assertEqual(
+            initial,
+            suite_command._external_tree_fingerprint(self.installed),
+        )
+
+        managed = self.installed / "flowguard" / "SKILL.md"
+        managed.parent.mkdir(parents=True)
+        managed.write_text("# current FlowGuard\n", encoding="utf-8")
+        self.assertNotEqual(
+            initial,
+            suite_command._external_tree_fingerprint(self.installed),
+        )
+
     @staticmethod
     def child_id(command):
         joined = " ".join(command)
@@ -82,6 +102,8 @@ class FullValidationCompositionTests(unittest.TestCase):
             return "skill_suite_static"
         if "check_flowguard_self_governance.py" in joined:
             return "skill_self_governance"
+        if "run_flowguard_skill_native_checks.py" in joined:
+            return "skill_native_checks"
         if "run_flowguard_model_regressions.py" in joined:
             return "model_regressions_full"
         if tuple(command[1:3]) == ("-m", "pytest"):
@@ -233,6 +255,43 @@ class FullValidationCompositionTests(unittest.TestCase):
             row["blob_id"],
         )
 
+    def test_release_tree_rehashes_only_an_unstaged_worktree_change(self):
+        source = self.root / "changed.txt"
+        source.write_text("staged\n", encoding="utf-8")
+        subprocess.run(
+            ("git", "add", "changed.txt"),
+            cwd=self.root,
+            check=True,
+        )
+        staged_blob = subprocess.check_output(
+            ("git", "ls-files", "--stage", "--", "changed.txt"),
+            cwd=self.root,
+            text=True,
+        ).split()[1]
+        source.write_text("unstaged\n", encoding="utf-8")
+
+        row = next(
+            item
+            for item in release_tree_manifest(self.root)
+            if item["path"] == "changed.txt"
+        )
+
+        self.assertNotEqual(staged_blob, row["blob_id"])
+        self.assertEqual(
+            subprocess.check_output(
+                (
+                    "git",
+                    "hash-object",
+                    "--path=changed.txt",
+                    "--",
+                    "changed.txt",
+                ),
+                cwd=self.root,
+                text=True,
+            ).strip(),
+            row["blob_id"],
+        )
+
     def test_v2_contract_projection_reuses_exact_depth_parity_hash(self):
         compiler = SimpleNamespace(ok=True, contract_hashes={"target": "ABC123"})
         depth = {
@@ -314,7 +373,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             result = suite_command.run_full_validation(self.args())
 
         self.assertTrue(result.broad_success)
-        self.assertEqual(8, len(result.children))
+        self.assertEqual(9, len(result.children))
         model_child = next(child for child in result.children if child.child_id == "model_regressions_full")
         self.assertIn("--jobs", model_child.payload["command"])
         self.assertIn("3", model_child.payload["command"])
@@ -330,7 +389,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             self.assertEqual("gzip", result_artifact["stderr"]["compression"])
         parent = json.loads(Path(result.artifact_paths[0]).read_text(encoding="utf-8"))
         self.assertEqual("pass", parent["status"])
-        self.assertEqual(8, len(parent["children"]))
+        self.assertEqual(9, len(parent["children"]))
         self.assertNotIn("result", parent["children"][0]["payload"])
         self.assertTrue((self.output / "evidence-run.json").is_file())
         self.assertTrue((self.output.parent / "CURRENT.json").is_file())
@@ -349,7 +408,7 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertFalse(self.output.exists())
         self.assertFalse((self.output.parent / "CURRENT.json").exists())
 
-    def test_identical_second_full_request_reuses_all_eight_owners(self):
+    def test_identical_second_full_request_reuses_all_nine_owners(self):
         with patch.object(
             suite_command,
             "_execute_command",
@@ -363,12 +422,12 @@ class FullValidationCompositionTests(unittest.TestCase):
 
         self.assertTrue(first.broad_success)
         self.assertTrue(second.broad_success)
-        self.assertEqual(8, first_execute.call_count)
+        self.assertEqual(9, first_execute.call_count)
         second_execute.assert_not_called()
-        self.assertEqual(8, second.counts["reused"])
+        self.assertEqual(9, second.counts["reused"])
         self.assertEqual(0, second.counts["executed"])
         self.assertEqual(0, second.progress_summary["producer_invocations"])
-        self.assertEqual(8, second.progress_summary["avoided_producer_invocations"])
+        self.assertEqual(9, second.progress_summary["avoided_producer_invocations"])
         self.assertEqual(1.0, second.progress_summary["estimated_work_avoided_fraction"])
         self.assertGreaterEqual(second.progress_summary["elapsed_seconds"], 0.0)
 
@@ -400,11 +459,11 @@ class FullValidationCompositionTests(unittest.TestCase):
             "openspec_strict",
             self.child_id(execute.call_args.args[0]),
         )
-        self.assertEqual(7, second.counts["reused"])
+        self.assertEqual(8, second.counts["reused"])
         self.assertEqual(1, second.counts["executed"])
         self.assertEqual(1, second.progress_summary["producer_invocations"])
-        self.assertEqual(7, second.progress_summary["avoided_producer_invocations"])
-        self.assertEqual(0.875, second.progress_summary["estimated_work_avoided_fraction"])
+        self.assertEqual(8, second.progress_summary["avoided_producer_invocations"])
+        self.assertEqual(0.889, second.progress_summary["estimated_work_avoided_fraction"])
 
     def test_failed_parent_preserves_successful_children_for_next_run(self):
         with patch.object(
@@ -429,7 +488,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             "distribution_parity",
             self.child_id(execute.call_args.args[0]),
         )
-        self.assertEqual(7, second.counts["reused"])
+        self.assertEqual(8, second.counts["reused"])
 
     def test_tampered_owner_receipt_blocks_before_any_producer_starts(self):
         with patch.object(

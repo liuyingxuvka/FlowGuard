@@ -62,8 +62,8 @@ content.
 - **THEN** consumer readiness fails with the exact prohibited path
 
 ### Requirement: Canonical Inventory Projections
-Repository, package, formal, shadow, installed, project-audit, and
-project-upgrade consumer checks SHALL consume the package-owned authority and
+Repository, package, formal, shadow, installed, project-audit, and project-upgrade consumer checks SHALL
+consume the package-owned authority and
 MUST NOT maintain independent member lists. Machine output SHALL include the
 authority schema, authority hash, member set, exact file projection,
 projection role, and deterministic tree identity. Author-maintenance evidence

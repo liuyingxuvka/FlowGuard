@@ -3,11 +3,15 @@
 This capability defines how FlowGuard keeps long-running validation visible, bounded, and evidence-backed instead of treating background progress as completion.
 ## Requirements
 ### Requirement: Background checks record durable evidence
-FlowGuard skill guidance SHALL require long-running background checks to record durable stdout, stderr, combined output, exit status, and metadata artifacts by default.
+FlowGuard skill guidance SHALL require long-running background checks to record complete stdout and stderr, terminal exit status, metadata, and result artifacts by default. Complete streams MAY be retained as deterministic compressed content-addressed objects with bounded human-readable tails; guidance MUST NOT require redundant raw, combined, and parsed full-payload copies when the compressed objects are verifiable and recoverable.
 
 #### Scenario: Long check is run in the background
 - **WHEN** an agent runs a long FlowGuard check outside the foreground session
-- **THEN** the agent records `.out.txt`, `.err.txt`, `.combined.txt`, `.exit.txt`, and `.meta.json` artifacts under a declared log root
+- **THEN** the agent records complete stdout/stderr object descriptors, exit status, metadata, and the terminal result under a declared evidence root
+
+#### Scenario: Compressed stream is used
+- **WHEN** complete stdout or stderr is retained as a compressed object
+- **THEN** its descriptor records logical hash and size, storage hash and size, compression, and recoverable object path
 
 ### Requirement: Reports cite concrete completion evidence
 FlowGuard skill guidance SHALL require final task reports to cite the log root, exit code, last update time, and proof-reuse status for long-running checks.

@@ -217,6 +217,11 @@ Fail-fast, collect-all, focused-first, bounded-collect, safe parallel shards,
 and adaptive runs are all conditional. A complete campaign cannot hide not-run
 work, while an early-stopped campaign must keep its stop reason visible.
 
+Reused child evidence must set `result_reused=True` and bind a current
+`TestResultReuseTicket` plus `ProofArtifactRef`. Matching labels, commands, or
+old green output alone do not prove that the previous result still covers the
+current source, dependencies, environment, obligations, and execution owner.
+
 TestMesh is parallel to ModelMesh and StructureMesh: the object being split is
 the test structure. The parent should consume child ownership and evidence
 contracts instead of expanding every child test case into one giant parent graph.

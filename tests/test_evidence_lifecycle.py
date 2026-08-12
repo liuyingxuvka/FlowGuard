@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
 
@@ -47,6 +48,24 @@ class EvidenceObjectTests(unittest.TestCase):
             self.assertEqual(100, len(descriptor["diagnostic_tail"]))
             self.assertTrue(descriptor["diagnostic_truncated"])
             self.assertEqual(10000, descriptor["logical_bytes"])
+
+    def test_concurrent_identical_objects_converge_on_one_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary) / "run"
+            with ThreadPoolExecutor(max_workers=16) as executor:
+                descriptors = tuple(
+                    executor.map(
+                        lambda _index: store_text_object(run, ""),
+                        range(64),
+                    )
+                )
+
+            self.assertTrue(
+                all(item == descriptors[0] for item in descriptors)
+            )
+            objects = list((run / "objects" / "sha256").glob("*.gz"))
+            self.assertEqual(1, len(objects))
+            self.assertEqual(b"", gzip.decompress(objects[0].read_bytes()))
 
     def test_run_directory_must_be_empty_before_execution(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

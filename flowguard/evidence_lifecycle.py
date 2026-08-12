@@ -52,7 +52,47 @@ def _atomic_write(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     temporary.write_bytes(data)
-    os.replace(temporary, path)
+    try:
+        os.replace(temporary, path)
+    except OSError:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+
+
+def _publish_content_addressed_object(
+    path: Path,
+    data: bytes,
+    *,
+    logical_sha: str,
+) -> None:
+    """Converge concurrent identical publishers without hiding conflicts."""
+
+    last_error: OSError | None = None
+    for attempt in range(50):
+        try:
+            existing = path.read_bytes()
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            last_error = exc
+        else:
+            if existing != data:
+                raise EvidenceLifecycleError(
+                    f"stored object conflicts with logical identity: {logical_sha}"
+                )
+            return
+        try:
+            _atomic_write(path, data)
+            return
+        except OSError as exc:
+            last_error = exc
+        time.sleep(min(0.005 * (attempt + 1), 0.05))
+    raise EvidenceLifecycleError(
+        f"cannot publish evidence object: {logical_sha}"
+    ) from last_error
 
 
 def _extended_windows_path(path: Path) -> str:
@@ -100,11 +140,11 @@ def store_text_object(
     compressed = _gzip_deterministic(logical)
     digest = logical_sha.removeprefix("sha256:")
     object_path = run_path / "objects" / "sha256" / f"{digest}.txt.gz"
-    if object_path.is_file():
-        if object_path.read_bytes() != compressed:
-            raise EvidenceLifecycleError(f"stored object conflicts with logical identity: {logical_sha}")
-    else:
-        _atomic_write(object_path, compressed)
+    _publish_content_addressed_object(
+        object_path,
+        compressed,
+        logical_sha=logical_sha,
+    )
     return {
         "schema_version": OBJECT_SCHEMA,
         "logical_sha256": logical_sha,

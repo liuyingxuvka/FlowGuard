@@ -3,8 +3,8 @@
 The default mode is intentionally non-destructive: it copies current source
 sets over matching paths but does not delete files that only exist in the
 shadow workspace. This preserves parallel-agent work while still keeping the
-FlowGuard source, OpenSpec artifacts, tests, scripts, docs, and local model
-evidence aligned.
+FlowGuard source, OpenSpec artifacts, tests, scripts, docs, and committed model
+authority aligned. Environment-local runtime evidence remains local.
 """
 
 from __future__ import annotations
@@ -53,6 +53,10 @@ SKIP_PARTS = {
     "tmp",
 }
 
+LOCAL_ONLY_PREFIXES = (
+    (".flowguard", "evidence"),
+)
+
 
 @dataclass(frozen=True)
 class SyncResult:
@@ -71,6 +75,14 @@ class SyncResult:
 
 def _should_skip(path: Path) -> bool:
     return any(part in SKIP_PARTS for part in path.parts)
+
+
+def _is_local_only(relative_path: Path) -> bool:
+    parts = relative_path.parts
+    return any(
+        parts[: len(prefix)] == prefix
+        for prefix in LOCAL_ONLY_PREFIXES
+    )
 
 
 def _iter_files(path: Path) -> Iterable[Path]:
@@ -110,6 +122,8 @@ def sync_workspace(
             continue
         for file_path in _iter_files(source_path):
             rel_path = file_path.relative_to(source_root)
+            if _is_local_only(rel_path):
+                continue
             destination = target_root / rel_path
             copied.append(rel_path.as_posix())
             if dry_run:

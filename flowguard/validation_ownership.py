@@ -14,7 +14,7 @@ import hashlib
 import importlib.metadata
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import tomllib
@@ -137,6 +137,67 @@ def _is_evidence_output(relative: str) -> bool:
     return False
 
 
+def _glob_pattern_variants(
+    pattern: str,
+    *,
+    max_depth: int,
+) -> tuple[str, ...]:
+    """Return Path.glob-compatible recursive variants for candidate matching."""
+
+    pending = [str(pattern).replace("\\", "/")]
+    variants: set[str] = set()
+    while pending:
+        current = pending.pop()
+        if current in variants:
+            continue
+        variants.add(current)
+        marker = current.find("**/")
+        if marker >= 0:
+            prefix = current[:marker]
+            suffix = current[marker + 3 :]
+            pending.extend(
+                prefix + ("*/" * depth) + suffix
+                for depth in range(max_depth + 1)
+            )
+    return tuple(sorted(variants))
+
+
+def _matches_declared_pattern(relative: str, pattern: str) -> bool:
+    candidate = PurePosixPath(relative)
+    return any(
+        candidate.match(variant)
+        for variant in _glob_pattern_variants(
+            pattern,
+            max_depth=len(candidate.parts),
+        )
+    )
+
+
+def _git_candidate_paths(root: Path) -> tuple[str, ...] | None:
+    """List tracked and non-ignored untracked candidates without walking ignored stores."""
+
+    try:
+        raw = _git_bytes(
+            root,
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+        )
+    except ValueError:
+        return None
+    return tuple(
+        sorted(
+            {
+                item.decode("utf-8").replace("\\", "/")
+                for item in raw.split(b"\0")
+                if item
+            }
+        )
+    )
+
+
 def resolve_input_manifest(
     root: str | Path,
     patterns: Sequence[str],
@@ -145,7 +206,26 @@ def resolve_input_manifest(
 
     root_path = Path(root).resolve()
     rows: dict[str, str] = {}
-    for pattern in tuple(dict.fromkeys(str(item) for item in patterns if str(item))):
+    unique_patterns = tuple(
+        dict.fromkeys(str(item) for item in patterns if str(item))
+    )
+    candidates = _git_candidate_paths(root_path)
+    if candidates is not None:
+        for relative in candidates:
+            if _is_evidence_output(relative) or not any(
+                _matches_declared_pattern(relative, pattern)
+                for pattern in unique_patterns
+            ):
+                continue
+            path = root_path / relative
+            if path.is_file():
+                rows[relative] = source_file_fingerprint(path)
+        return tuple(
+            {"path": path, "sha256": rows[path]}
+            for path in sorted(rows)
+        )
+
+    for pattern in unique_patterns:
         for path in root_path.glob(pattern):
             if not path.is_file():
                 continue
@@ -153,10 +233,11 @@ def resolve_input_manifest(
             try:
                 relative = resolved.relative_to(root_path).as_posix()
             except ValueError as exc:
-                raise ValueError(f"validation input escapes repository: {path}") from exc
-            if _is_evidence_output(relative):
-                continue
-            rows[relative] = source_file_fingerprint(resolved)
+                raise ValueError(
+                    f"validation input escapes repository: {path}"
+                ) from exc
+            if not _is_evidence_output(relative):
+                rows[relative] = source_file_fingerprint(resolved)
     return tuple({"path": path, "sha256": rows[path]} for path in sorted(rows))
 
 
@@ -423,6 +504,16 @@ def release_tree_manifest(
         if stage != "0":
             raise ValueError(f"release tree has an unresolved index stage: {path}")
         index_rows[path] = (mode, object_id)
+    worktree_changed_paths = {
+        item.decode("utf-8")
+        for item in _git_bytes(
+            root_path,
+            "diff-files",
+            "--name-only",
+            "-z",
+        ).split(b"\0")
+        if item
+    }
     required_authority_paths = model_authority_release_paths(root_path)
     missing_authority_paths = tuple(
         path for path in required_authority_paths if path not in index_rows
@@ -453,6 +544,8 @@ def release_tree_manifest(
         if mode == "160000":
             if not index_object_id:
                 raise ValueError(f"untracked submodule entry is unsupported: {relative}")
+            blob_id = index_object_id
+        elif relative in index_rows and relative not in worktree_changed_paths:
             blob_id = index_object_id
         else:
             if not path.exists():

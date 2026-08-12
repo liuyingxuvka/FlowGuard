@@ -29,7 +29,11 @@ if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
 from flowguard.skill_contracts import compile_skill_suite
-from flowguard.skill_suite import FLOWGUARD_SKILL_ROOT, validate_skill_suite
+from flowguard.skill_suite import (
+    FLOWGUARD_SKILL_ROOT,
+    FLOWGUARD_SUITE_MAP,
+    validate_skill_suite,
+)
 from flowguard.evidence_lifecycle import (
     EvidenceLifecycleError,
     ensure_new_run_directory,
@@ -39,6 +43,7 @@ from flowguard.evidence_lifecycle import (
     store_text_object,
 )
 from flowguard.process_supervision import run_supervised, write_terminal_artifact
+from flowguard.model_regressions import ModelRegressionManifest
 from flowguard.validation_ownership import (
     OWNER_BLOCKED,
     OWNER_EXECUTE,
@@ -72,6 +77,7 @@ from flowguard.validation_results import (
 FULL_CHILD_IDS = (
     "project_audit",
     "skill_suite_static",
+    "skill_native_checks",
     "skill_self_governance",
     "model_regressions_full",
     "pytest",
@@ -122,31 +128,69 @@ class ChildSpec:
     missing_reason: str = ""
 
 
+def _canonical_flowguard_member_ids() -> tuple[str, ...]:
+    payload = json.loads((SCRIPT_ROOT / FLOWGUARD_SUITE_MAP).read_text(encoding="utf-8"))
+    members = payload.get("included_skills", ())
+    return tuple(
+        sorted(
+            str(row.get("name", "")).strip()
+            for row in members
+            if isinstance(row, Mapping) and str(row.get("name", "")).strip()
+        )
+    )
+
+
 def _external_tree_fingerprint(path: Path) -> str:
     if not path.is_dir():
         return fingerprint_payload({"state": "missing", "path_kind": "directory"})
     skill_root = path / ".agents" / "skills"
     scanned_root = skill_root if skill_root.is_dir() else path
     rows = []
-    for file_path in sorted(
-        (item for item in scanned_root.rglob("*") if item.is_file()),
-        key=lambda item: item.relative_to(scanned_root).as_posix(),
-    ):
-        relative = file_path.relative_to(scanned_root).as_posix()
-        if (
-            ".git" in file_path.parts
-            or "__pycache__" in file_path.parts
-            or relative.endswith(".pyc")
-            or "/.flowguard/evidence/" in f"/{relative}/"
-        ):
+    for member_id in _canonical_flowguard_member_ids():
+        member_root = scanned_root / member_id
+        if not member_root.is_dir():
+            rows.append({"member_id": member_id, "state": "missing"})
             continue
-        rows.append(
-            {
-                "path": relative,
-                "sha256": "sha256:" + hashlib.sha256(file_path.read_bytes()).hexdigest(),
-            }
-        )
+        for file_path in sorted(
+            (item for item in member_root.rglob("*") if item.is_file()),
+            key=lambda item: item.relative_to(scanned_root).as_posix(),
+        ):
+            relative = file_path.relative_to(scanned_root).as_posix()
+            if (
+                ".git" in file_path.parts
+                or "__pycache__" in file_path.parts
+                or relative.endswith(".pyc")
+            ):
+                continue
+            rows.append(
+                {
+                    "path": relative,
+                    "sha256": (
+                        "sha256:" + hashlib.sha256(file_path.read_bytes()).hexdigest()
+                    ),
+                }
+            )
     return fingerprint_payload(rows)
+
+
+def _model_regression_input_patterns(root: Path) -> tuple[str, ...]:
+    """Use the manifest's exact owned inputs instead of scanning runtime stores."""
+
+    manifest_path = root / ".flowguard" / "model-regression-manifest.json"
+    patterns = {
+        ".flowguard/model-regression-manifest.json",
+        "flowguard/model_regressions.py",
+        "scripts/run_flowguard_model_regressions.py",
+    }
+    if not manifest_path.is_file():
+        return tuple(sorted(patterns))
+    manifest = ModelRegressionManifest.load(root)
+    for entry in manifest.entries:
+        if not entry.excluded:
+            patterns.update(entry.input_globs)
+    for group in manifest.shared_input_groups:
+        patterns.update(group.globs)
+    return tuple(sorted(patterns))
 
 
 def _skillguard_cli(value: str) -> Path:
@@ -461,6 +505,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
         else Path.home() / ".codex" / "skills"
     )
     self_script = root / "scripts" / "check_flowguard_self_governance.py"
+    native_script = root / "scripts" / "run_flowguard_skill_native_checks.py"
     model_script = root / "scripts" / "run_flowguard_model_regressions.py"
     distribution_script = root / "scripts" / "install_flowguard_skills.py"
 
@@ -536,6 +581,32 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
             ("validation:skill_suite_static",),
         ),
         ChildSpec(
+            "skill_native_checks",
+            (
+                sys.executable,
+                str(native_script),
+                "--root",
+                str(root),
+                "--output-dir",
+                str(root / ".flowguard" / "evidence" / "skill-suite"),
+                "--json",
+            ),
+            (
+                ".agents/skills/**/*",
+                ".skillguard/**/*",
+                "flowguard/evidence_receipts.py",
+                "flowguard/process_supervision.py",
+                "flowguard/skill_native_checks.py",
+                "scripts/run_flowguard_skill_native_checks.py",
+            ),
+            ("validation:skill_native_checks",),
+            required_path=native_script,
+            missing_reason=(
+                "skill-native check producer is required before "
+                "self-governance can consume current child receipts"
+            ),
+        ),
+        ChildSpec(
             "skill_self_governance",
             (
                 sys.executable,
@@ -561,15 +632,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
         ChildSpec(
             "model_regressions_full",
             tuple(model_command),
-            (
-                ".flowguard/model-regression-manifest.json",
-                ".flowguard/**/*.py",
-                ".flowguard/**/*.json",
-                "flowguard/model_*.py",
-                "flowguard/source_identity.py",
-                "flowguard/validation_results.py",
-                "scripts/run_flowguard_model_regressions.py",
-            ),
+            _model_regression_input_patterns(root),
             ("validation:model_regressions_full",),
             required_path=model_script,
             missing_reason="manifest model-regression runner is required for full closure",
@@ -612,6 +675,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
             (
                 ".agents/skills/**/*",
                 ".skillguard/**/*",
+                "flowguard/consumer-suite-authority.json",
                 "flowguard/distribution_sync.py",
                 "flowguard/skill_suite.py",
                 "scripts/install_flowguard_skills.py",
@@ -629,6 +693,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
             (
                 ".agents/skills/**/*",
                 ".skillguard/**/*",
+                "flowguard/consumer-suite-authority.json",
                 "flowguard/distribution_sync.py",
                 "flowguard/skill_suite.py",
                 "scripts/install_flowguard_skills.py",

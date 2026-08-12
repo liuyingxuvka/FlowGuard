@@ -508,9 +508,8 @@ FlowGuard's maintained prompts SHALL describe adapter boundaries and generic rol
 - **THEN** the existing SkillGuard maintenance unit SHALL supervise the FlowGuard-owned change without enrolling, copying, or validating the provider skill itself
 
 ### Requirement: Existing skills teach behavior-plane ownership
-The existing BCL, Existing Model Preflight, Model Miss, DevelopmentProcessFlow,
-AgentWorkflowRehearsal, PlanDetailing, and public `flowguard` kernel guidance
-SHALL describe the three behavior planes and their route-native ownership
+The existing BCL, Existing Model Preflight, Model Miss, DevelopmentProcessFlow, AgentWorkflowRehearsal, PlanDetailing, and public `flowguard` kernel guidance SHALL
+describe the three behavior planes and their route-native ownership
 boundaries without adding a new skill route.
 
 #### Scenario: BCL skill creates a commitment
