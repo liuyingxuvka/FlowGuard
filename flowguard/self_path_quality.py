@@ -18,6 +18,7 @@ import ast
 from dataclasses import dataclass, replace
 import importlib.util
 import inspect
+import json
 from pathlib import Path
 import re
 import sys
@@ -34,16 +35,20 @@ from .model_authority import (
 )
 from .model_path_quality import (
     NecessityWitness,
+    PATH_COST_DIMENSIONS,
     PathQualityMaterialReview,
     PathQualityResult,
     PathQualitySubject,
     canonical_fingerprint,
+    collect_deep_review_triggers,
     derive_retained_elements,
+    find_lightweight_findings,
     lightweight_path_review,
     normalize_path_quality_material,
     normalized_model_facts_fingerprint,
     path_quality_result_set_fingerprint,
     review_path_quality_material,
+    validate_necessity_witnesses,
 )
 from .model_regressions import ModelRegressionEntry, ModelRegressionManifest
 from .model_system_inventory import build_manifest_model_system_snapshot
@@ -51,8 +56,20 @@ from .scenario import Scenario
 from .workflow import Workflow
 
 
-SELF_PATH_QUALITY_SCHEMA_VERSION = "flowguard.self-path-quality-material.v2"
+SELF_PATH_QUALITY_SCHEMA_VERSION = "flowguard.self-path-quality-material.v3"
 SELF_PATH_QUALITY_PRODUCER_ID = "flowguard-self-path-quality"
+
+# These are deliberately provider-neutral structural thresholds.  They are
+# admission signals, not a license to delete a route: a triggered model still
+# needs the finite deep proof owned by ModelMaturation.
+SELF_PATH_COST_THRESHOLDS: dict[str, float] = {
+    "steps": 64.0,
+    "states": 32.0,
+    "transitions": 64.0,
+    "branches": 16.0,
+    "validations": 24.0,
+    "payload_bytes": 50_000.0,
+}
 
 
 class SelfPathQualityError(ValueError):
@@ -75,6 +92,10 @@ class SelfModelDeepTriggerCensusEntry:
     currentness_id: str
     current: bool
     result_available: bool = True
+    measured_costs: tuple[tuple[str, float], ...] = ()
+    optimization_depth: str = ""
+    cost_detail_evidence_fingerprint: str = ""
+    trigger_evidence_fingerprint: str = ""
 
     def __post_init__(self) -> None:
         if not isinstance(self.model_id, str) or not self.model_id:
@@ -103,6 +124,35 @@ class SelfModelDeepTriggerCensusEntry:
                 raise SelfPathQualityError(
                     f"deep-trigger census {name} must be a canonical tuple"
                 )
+        costs = tuple(self.measured_costs)
+        if costs != tuple(sorted(costs)) or len({key for key, _value in costs}) != len(costs):
+            raise SelfPathQualityError("deep-trigger census measured costs must be canonical")
+        for dimension, value in costs:
+            if dimension not in PATH_COST_DIMENSIONS:
+                raise SelfPathQualityError(
+                    f"deep-trigger census measured cost has unknown dimension: {dimension}"
+                )
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise SelfPathQualityError(
+                    f"deep-trigger census measured cost must be numeric: {dimension}"
+                )
+        object.__setattr__(self, "measured_costs", costs)
+        if self.optimization_depth and self.optimization_depth not in {
+            "lightweight",
+            "deep_required",
+            "deep_closed",
+        }:
+            raise SelfPathQualityError("deep-trigger census optimization depth is invalid")
+        for name in (
+            "cost_detail_evidence_fingerprint",
+            "trigger_evidence_fingerprint",
+        ):
+            value = str(getattr(self, name))
+            if value and not value.startswith("sha256:"):
+                raise SelfPathQualityError(
+                    f"deep-trigger census {name} must be a fingerprint"
+                )
+            object.__setattr__(self, name, value)
             if any(not isinstance(value, str) or not value for value in values):
                 raise SelfPathQualityError(
                     f"deep-trigger census {name} must contain non-empty strings"
@@ -119,6 +169,10 @@ class SelfModelDeepTriggerCensusEntry:
                 self.conclusion,
                 self.currentness_id,
                 self.current,
+                self.measured_costs,
+                self.optimization_depth,
+                self.cost_detail_evidence_fingerprint,
+                self.trigger_evidence_fingerprint,
             )
         ):
             raise SelfPathQualityError(
@@ -144,6 +198,12 @@ class SelfModelDeepTriggerCensusEntry:
             "currentness_id": self.currentness_id,
             "current": self.current,
             "result_available": self.result_available,
+            "measured_costs": {
+                dimension: value for dimension, value in self.measured_costs
+            },
+            "optimization_depth": self.optimization_depth,
+            "cost_detail_evidence_fingerprint": self.cost_detail_evidence_fingerprint,
+            "trigger_evidence_fingerprint": self.trigger_evidence_fingerprint,
         }
 
     def to_dict(self) -> dict[str, Any]:
@@ -244,6 +304,12 @@ class FlowGuardSelfPathQualityMaterial:
                 or entry.conclusion != result.conclusion
                 or entry.currentness_id != result.currentness_id
                 or entry.current != result.current
+                or entry.measured_costs != result.cost_measurements
+                or entry.optimization_depth != result.optimization_depth
+                or entry.cost_detail_evidence_fingerprint
+                != result.cost_detail_evidence_fingerprint
+                or entry.trigger_evidence_fingerprint
+                != result.trigger_evidence_fingerprint
             ):
                 raise SelfPathQualityError(
                     "deep-trigger census result projection drifted: " + entry.model_id
@@ -318,12 +384,26 @@ class FlowGuardSelfPathQualityMaterial:
         }
 
     def to_audit_dict(self) -> dict[str, Any]:
+        depth_counts: dict[str, int] = {}
+        cost_dimensions: dict[str, int] = {}
+        for detail in self.details:
+            depth = detail.result.optimization_depth
+            depth_counts[depth] = depth_counts.get(depth, 0) + 1
+            for dimension, _value in detail.result.cost_measurements:
+                cost_dimensions[dimension] = cost_dimensions.get(dimension, 0) + 1
         return {
             "schema_version": self.schema_version,
             "candidate_snapshot_fingerprint": self.candidate_snapshot_fingerprint,
             "required_model_ids": list(self.required_model_ids),
             "result_set_fingerprint": self.review.result_set_fingerprint,
             "deep_required_model_ids": list(self.deep_required_model_ids),
+            "path_denominator": {
+                "model_count": len(self.required_model_ids),
+                "detail_count": len(self.details),
+                "trigger_census_complete": not self.trigger_census_blocked_model_ids,
+            },
+            "optimization_depth_counts": dict(sorted(depth_counts.items())),
+            "measured_cost_dimension_counts": dict(sorted(cost_dimensions.items())),
             "deep_trigger_census": {
                 "denominator_model_ids": list(self.required_model_ids),
                 "denominator_count": len(self.required_model_ids),
@@ -1165,6 +1245,75 @@ def _augment_provider_gaps(
     )
 
 
+def _measure_path_costs(
+    model_id: str,
+    projection: _ProviderProjection,
+) -> tuple[dict[str, float], dict[str, str], str]:
+    """Derive a small, deterministic cost packet from provider-neutral facts."""
+
+    facts = projection.facts
+    states = tuple(facts.get("states", ()) or ())
+    transitions = tuple(facts.get("transitions", ()) or ())
+    blocks = tuple(facts.get("function_blocks", ()) or ())
+    validations = tuple(facts.get("validations", ()) or ())
+    source_counts: dict[str, int] = {}
+    for row in transitions:
+        if isinstance(row, Mapping):
+            source = str(row.get("source", ""))
+            if source:
+                source_counts[source] = source_counts.get(source, 0) + 1
+    branches = sum(max(0, count - 1) for count in source_counts.values())
+    branches += sum(
+        max(0, len(row.get("outputs", ())) - 1)
+        for row in transitions
+        if isinstance(row, Mapping)
+    )
+    try:
+        payload_bytes = len(
+            json.dumps(
+                facts,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                default=str,
+                allow_nan=False,
+            ).encode("utf-8")
+        )
+    except (TypeError, ValueError) as exc:
+        raise SelfPathQualityError(
+            f"provider facts cannot be measured for {model_id}: {exc}"
+        ) from exc
+    costs = {
+        "steps": float(len(blocks)),
+        "states": float(len(states)),
+        "transitions": float(len(transitions)),
+        "branches": float(branches),
+        "validations": float(len(validations)),
+        "payload_bytes": float(payload_bytes),
+    }
+    measurement_fingerprint = canonical_fingerprint(
+        {
+            "model_id": model_id,
+            "provider_fingerprint": projection.fingerprint,
+            "costs": costs,
+            "thresholds": SELF_PATH_COST_THRESHOLDS,
+        }
+    )
+    evidence = {
+        dimension: canonical_fingerprint(
+            {
+                "measurement": measurement_fingerprint,
+                "model_id": model_id,
+                "dimension": dimension,
+                "value": value,
+                "threshold": SELF_PATH_COST_THRESHOLDS[dimension],
+            }
+        )
+        for dimension, value in costs.items()
+    }
+    return costs, evidence, measurement_fingerprint
+
+
 def _compile_model_detail(
     entry: ModelRegressionEntry,
     instance: ModelInstanceRef,
@@ -1181,6 +1330,10 @@ def _compile_model_detail(
     if purpose is None:
         raise SelfPathQualityError(f"current model has no purpose closure: {entry.model_id}")
     retained = derive_retained_elements(projection.facts)
+    measured_costs, cost_evidence, measurement_fingerprint = _measure_path_costs(
+        entry.model_id,
+        projection,
+    )
     evidence_rows = _element_evidence_rows(entry, instance, projection, retained)
     obligations = tuple(sorted({row["obligation_id"] for row in evidence_rows}))
     subject = PathQualitySubject(
@@ -1244,6 +1397,39 @@ def _compile_model_detail(
         )
         for row in evidence_rows
     )
+    findings = find_lightweight_findings(projection.facts)
+    witness_gaps = validate_necessity_witnesses(
+        subject,
+        retained,
+        witnesses,
+        expected_currentness_id=candidate_snapshot_fingerprint,
+        active_obligation_ids=obligations,
+    )
+    trigger_ids = collect_deep_review_triggers(
+        findings,
+        explicit_request=explicit_deep_request,
+        declared_candidate_count=declared_candidate_count,
+        path_design_model_miss=path_design_model_miss,
+        missing_necessity_witness=any(
+            gap.startswith("missing_necessity_witness:") for gap in witness_gaps
+        ),
+        high_cost_boundary=high_cost_boundary,
+        release_critical_boundary=release_critical_boundary,
+        measured_costs=measured_costs,
+        cost_thresholds=SELF_PATH_COST_THRESHOLDS,
+    )
+    trigger_evidence = {
+        trigger_id: canonical_fingerprint(
+            {
+                "model_id": entry.model_id,
+                "subject_fingerprint": subject.fingerprint,
+                "trigger_id": trigger_id,
+                "measurement_fingerprint": measurement_fingerprint,
+                "currentness_id": candidate_snapshot_fingerprint,
+            }
+        )
+        for trigger_id in trigger_ids
+    }
     result = lightweight_path_review(
         subject,
         projection.facts,
@@ -1255,6 +1441,11 @@ def _compile_model_detail(
         path_design_model_miss=path_design_model_miss,
         high_cost_boundary=high_cost_boundary,
         release_critical_boundary=release_critical_boundary,
+        measured_costs=measured_costs,
+        cost_thresholds=SELF_PATH_COST_THRESHOLDS,
+        cost_evidence=cost_evidence,
+        trigger_evidence=trigger_evidence,
+        trigger_currentness_id=candidate_snapshot_fingerprint,
         producer_id=SELF_PATH_QUALITY_PRODUCER_ID,
     )
     result = _augment_provider_gaps(result, projection.gaps)
@@ -1447,6 +1638,26 @@ def compile_flowguard_self_path_quality_material(
                 else False
             ),
             result_available=model_id in details_by_id,
+            measured_costs=(
+                details_by_id[model_id].result.cost_measurements
+                if model_id in details_by_id
+                else ()
+            ),
+            optimization_depth=(
+                details_by_id[model_id].result.optimization_depth
+                if model_id in details_by_id
+                else ""
+            ),
+            cost_detail_evidence_fingerprint=(
+                details_by_id[model_id].result.cost_detail_evidence_fingerprint
+                if model_id in details_by_id
+                else ""
+            ),
+            trigger_evidence_fingerprint=(
+                details_by_id[model_id].result.trigger_evidence_fingerprint
+                if model_id in details_by_id
+                else ""
+            ),
         )
         for model_id in required
     )
@@ -1490,6 +1701,7 @@ def build_flowguard_self_path_quality_material(
 
 __all__ = [
     "SELF_PATH_QUALITY_PRODUCER_ID",
+    "SELF_PATH_COST_THRESHOLDS",
     "SELF_PATH_QUALITY_SCHEMA_VERSION",
     "FlowGuardSelfPathQualityMaterial",
     "SelfModelDeepTriggerCensusEntry",

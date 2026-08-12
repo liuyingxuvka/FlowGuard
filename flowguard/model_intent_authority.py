@@ -66,6 +66,9 @@ INITIAL_AUTHORITY_BOOTSTRAP_SCHEMA = "flowguard.model_authority_bootstrap.v1"
 _HISTORICAL_REVISION_SCHEMAS = frozenset(
     f"flowguard.model_revision_set.v{version}" for version in range(1, 5)
 )
+# Historical revision sets are accepted only as an explicit, read-only
+# intent-bootstrap source. They never become normal-runtime authority.
+LEGACY_CURRENT_REVISION_SCHEMAS = _HISTORICAL_REVISION_SCHEMAS
 
 
 def _optional_sha(value: Any, field_name: str) -> str:
@@ -1071,13 +1074,13 @@ class EffectiveIntentBootstrapReceipt:
                     "generation-one intent bootstrap must bind only the initial authority receipt"
                 )
         elif (
-            self.source_revision_schema != LEGACY_CURRENT_REVISION_SCHEMA
+            self.source_revision_schema not in LEGACY_CURRENT_REVISION_SCHEMAS
             or not current_revision_fingerprint
             or not revisions
             or revisions[0] != current_revision_fingerprint
         ):
             raise ModelAuthorityError(
-                "legacy intent bootstrap must bind the exact current v4 revision"
+                "legacy intent bootstrap must bind the exact current v1-v4 revision"
             )
         entries = tuple(
             sorted(
@@ -2446,9 +2449,9 @@ def _bootstrap_source_audit(
         )
         if generation == head.generation:
             current_revision_schema = revision_schema
-            if current_revision_schema != LEGACY_CURRENT_REVISION_SCHEMA:
+            if current_revision_schema not in LEGACY_CURRENT_REVISION_SCHEMAS:
                 raise ModelAuthorityError(
-                    "explicit intent migration requires the current head to reference v4"
+                    "explicit intent migration requires the current head to reference v1-v4"
                 )
         if (
             revision_payload["candidate_snapshot_fingerprint"]

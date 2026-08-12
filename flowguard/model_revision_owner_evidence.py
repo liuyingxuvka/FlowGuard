@@ -169,9 +169,13 @@ class NativeOwnerModelEvidencePlan:
         }
 
 
-# These are the current semantic owner models already present in the checked-in
-# model-regression manifest.  The mapping is explicit so a missing, foreign, or
-# duplicated lane blocks instead of selecting a similarly named fallback model.
+# These are the native owner lanes emitted by the model-system inventory.  The
+# KB repository deliberately keeps two executable model owners rather than
+# materializing one model per FlowGuard satellite lane: the behavior ledger
+# owns its own commitment lane, while the two model-system lanes must inspect
+# every current model instance.  Keep this mapping explicit so a missing,
+# foreign, or duplicated lane blocks instead of selecting a similarly named
+# fallback model.
 NATIVE_OWNER_MODEL_BINDINGS = (
     NativeOwnerModelBinding(
         owner_route="affected_authority_inventory",
@@ -191,11 +195,17 @@ NATIVE_OWNER_MODEL_BINDINGS = (
     ),
     NativeOwnerModelBinding(
         owner_route="model_mesh_maintenance",
-        model_ids=("hierarchical_model_mesh",),
+        model_ids=(
+            "behavior_commitment_ledger",
+            "khaos_brain_logicguard_system",
+        ),
     ),
     NativeOwnerModelBinding(
         owner_route="model_test_alignment",
-        model_ids=("model_test_code_alignment",),
+        model_ids=(
+            "behavior_commitment_ledger",
+            "khaos_brain_logicguard_system",
+        ),
     ),
     NativeOwnerModelBinding(
         owner_route="test_mesh_maintenance",

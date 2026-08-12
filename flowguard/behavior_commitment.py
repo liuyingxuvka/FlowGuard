@@ -398,6 +398,8 @@ class BehaviorSourceSurface:
     delegates_to_primary_path: bool = False
     canonical_relation_ids: tuple[str, ...] = ()
     relation_obligation_ids: tuple[str, ...] = ()
+    similarity_obligation_ids: tuple[str, ...] = ()
+    similarity_relation_ids: tuple[str, ...] = ()
     freshness_state: str = BCL_SOURCE_FRESHNESS_UNCHECKED
     in_scope: bool = True
     scoped_out_reason: str = ""
@@ -464,6 +466,8 @@ class BehaviorSourceSurface:
         object.__setattr__(self, "delegates_to_primary_path", bool(self.delegates_to_primary_path))
         object.__setattr__(self, "canonical_relation_ids", _as_tuple(self.canonical_relation_ids))
         object.__setattr__(self, "relation_obligation_ids", _as_tuple(self.relation_obligation_ids))
+        object.__setattr__(self, "similarity_obligation_ids", _as_tuple(self.similarity_obligation_ids))
+        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
         object.__setattr__(
             self,
             "freshness_state",
@@ -516,6 +520,8 @@ class BehaviorSourceSurface:
             "delegates_to_primary_path": self.delegates_to_primary_path,
             "canonical_relation_ids": list(self.canonical_relation_ids),
             "relation_obligation_ids": list(self.relation_obligation_ids),
+            "similarity_obligation_ids": list(self.similarity_obligation_ids),
+            "similarity_relation_ids": list(self.similarity_relation_ids),
             "freshness_state": self.freshness_state,
             "in_scope": self.in_scope,
             "scoped_out_reason": self.scoped_out_reason,
@@ -900,6 +906,8 @@ class BehaviorCommitment:
     external_differences: tuple[BehaviorExternalDifference | Mapping[str, Any], ...] = ()
     canonical_relation_ids: tuple[str, ...] = ()
     relation_obligation_ids: tuple[str, ...] = ()
+    similarity_obligation_ids: tuple[str, ...] = ()
+    similarity_relation_ids: tuple[str, ...] = ()
     surface_delegation_only: bool = False
     source_surface_ids: tuple[str, ...] = ()
     source_refs: tuple[str, ...] = ()
@@ -944,6 +952,8 @@ class BehaviorCommitment:
         )
         object.__setattr__(self, "canonical_relation_ids", _as_tuple(self.canonical_relation_ids))
         object.__setattr__(self, "relation_obligation_ids", _as_tuple(self.relation_obligation_ids))
+        object.__setattr__(self, "similarity_obligation_ids", _as_tuple(self.similarity_obligation_ids))
+        object.__setattr__(self, "similarity_relation_ids", _as_tuple(self.similarity_relation_ids))
         object.__setattr__(self, "surface_delegation_only", bool(self.surface_delegation_only))
         object.__setattr__(self, "source_surface_ids", _as_tuple(self.source_surface_ids))
         object.__setattr__(self, "source_refs", _as_tuple(self.source_refs))
@@ -1022,6 +1032,8 @@ class BehaviorCommitment:
             "external_differences": [item.to_dict() for item in self.external_differences],
             "canonical_relation_ids": list(self.canonical_relation_ids),
             "relation_obligation_ids": list(self.relation_obligation_ids),
+            "similarity_obligation_ids": list(self.similarity_obligation_ids),
+            "similarity_relation_ids": list(self.similarity_relation_ids),
             "surface_delegation_only": self.surface_delegation_only,
             "source_surface_ids": list(self.source_surface_ids),
             "source_refs": list(self.source_refs),

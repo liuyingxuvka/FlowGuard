@@ -17,7 +17,7 @@ import math
 import re
 from typing import Any, Iterable, Mapping, Sequence
 
-PATH_QUALITY_SCHEMA_VERSION = "flowguard.model-path-quality.v1"
+PATH_QUALITY_SCHEMA_VERSION = "flowguard.model-path-quality.v2"
 
 PATH_QUALITY_CONCLUSIONS = frozenset(
     {
@@ -31,6 +31,9 @@ PATH_QUALITY_CONCLUSIONS = frozenset(
 )
 
 PATH_QUALITY_MODES = frozenset({"lightweight", "deep"})
+PATH_OPTIMIZATION_DEPTHS = frozenset(
+    {"lightweight", "deep_required", "deep_closed"}
+)
 
 HARD_SEMANTIC_DIMENSIONS = (
     "accepted_inputs",
@@ -63,6 +66,7 @@ PATH_COST_DIMENSIONS = (
     "states",
     "transitions",
     "branches",
+    "validations",
     "repeated_reads",
     "repeated_writes",
     "repeated_validations",
@@ -377,6 +381,7 @@ class PathCostVector(_CanonicalRecord):
     states: float | None = None
     transitions: float | None = None
     branches: float | None = None
+    validations: float | None = None
     repeated_reads: float | None = None
     repeated_writes: float | None = None
     repeated_validations: float | None = None
@@ -720,6 +725,11 @@ class PathQualityResult(_CanonicalRecord):
     rewrite_set_exhausted: bool = False
     current: bool = True
     schema_version: str = PATH_QUALITY_SCHEMA_VERSION
+    optimization_depth: str = "auto"
+    cost_dimensions: tuple[str, ...] = ()
+    cost_measurements: tuple[tuple[str, float], ...] = ()
+    cost_detail_evidence_fingerprint: str = ""
+    trigger_evidence_fingerprint: str = ""
 
     def __post_init__(self) -> None:
         for name in (
@@ -769,6 +779,69 @@ class PathQualityResult(_CanonicalRecord):
             object.__setattr__(self, name, _require_fingerprint(getattr(self, name), name))
         if self.mode not in PATH_QUALITY_MODES:
             raise ValueError(f"unsupported path-quality mode: {self.mode}")
+        depth = self.optimization_depth
+        if depth == "auto":
+            depth = (
+                "deep_closed"
+                if self.mode == "deep"
+                else "deep_required"
+                if self.trigger_ids
+                else "lightweight"
+            )
+        if depth not in PATH_OPTIMIZATION_DEPTHS:
+            raise ValueError(f"unsupported path-quality optimization depth: {depth}")
+        if self.mode == "deep" and depth not in {"deep_required", "deep_closed"}:
+            raise ValueError("deep path-quality results require deep_required or deep_closed depth")
+        if self.mode == "lightweight" and self.trigger_ids and depth != "deep_required":
+            raise ValueError("triggered lightweight results require deep_required depth")
+        if self.mode == "lightweight" and not self.trigger_ids and depth != "lightweight":
+            raise ValueError("untriggered lightweight results require lightweight depth")
+        object.__setattr__(self, "optimization_depth", depth)
+        dimensions = _canonical_ids(self.cost_dimensions, "cost_dimensions")
+        unknown_dimensions = set(dimensions) - set(PATH_COST_DIMENSIONS)
+        if unknown_dimensions:
+            raise ValueError(
+                "cost_dimensions contains unknown dimensions: "
+                + ", ".join(sorted(unknown_dimensions))
+            )
+        object.__setattr__(self, "cost_dimensions", dimensions)
+        measurements = tuple(self.cost_measurements)
+        if measurements != tuple(sorted(measurements)):
+            raise ValueError("cost_measurements must be canonical")
+        if measurements and tuple(dimension for dimension, _value in measurements) != dimensions:
+            raise ValueError("cost_measurements must match cost_dimensions")
+        for dimension, value in measurements:
+            if dimension not in PATH_COST_DIMENSIONS:
+                raise ValueError(f"cost_measurements contains unknown dimension: {dimension}")
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"cost_measurements.{dimension} must be numeric")
+            if not math.isfinite(float(value)) or float(value) < 0:
+                raise ValueError(
+                    f"cost_measurements.{dimension} must be finite and non-negative"
+                )
+        object.__setattr__(
+            self,
+            "cost_measurements",
+            tuple((str(dimension), float(value)) for dimension, value in measurements),
+        )
+        object.__setattr__(
+            self,
+            "cost_detail_evidence_fingerprint",
+            _require_fingerprint(
+                self.cost_detail_evidence_fingerprint,
+                "cost_detail_evidence_fingerprint",
+                optional=True,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "trigger_evidence_fingerprint",
+            _require_fingerprint(
+                self.trigger_evidence_fingerprint,
+                "trigger_evidence_fingerprint",
+                optional=True,
+            ),
+        )
         if self.conclusion not in PATH_QUALITY_CONCLUSIONS:
             raise ValueError("path-quality conclusion must use bounded licensed vocabulary")
         for name in ("candidate_set_exhausted", "rewrite_set_exhausted", "current"):
@@ -851,6 +924,13 @@ class PathQualityResult(_CanonicalRecord):
             "candidate_set_exhausted": self.candidate_set_exhausted,
             "rewrite_set_exhausted": self.rewrite_set_exhausted,
             "current": self.current,
+            "optimization_depth": self.optimization_depth,
+            "cost_dimensions": list(self.cost_dimensions),
+            "cost_measurements": {
+                dimension: value for dimension, value in self.cost_measurements
+            },
+            "cost_detail_evidence_fingerprint": self.cost_detail_evidence_fingerprint,
+            "trigger_evidence_fingerprint": self.trigger_evidence_fingerprint,
         }
 
     def to_compact_dict(self) -> dict[str, Any]:
@@ -1655,6 +1735,8 @@ def collect_deep_review_triggers(
     missing_necessity_witness: bool = False,
     high_cost_boundary: bool = False,
     release_critical_boundary: bool = False,
+    measured_costs: Mapping[str, float] | None = None,
+    cost_thresholds: Mapping[str, float] | None = None,
 ) -> tuple[str, ...]:
     """Return exact affected-model triggers; it never creates candidates."""
 
@@ -1685,6 +1767,24 @@ def collect_deep_review_triggers(
             raise ValueError(f"{dimension} growth values must be non-negative integers")
         if values[1] - values[0] > values[2]:
             triggers.add(f"material_{dimension}_growth")
+    measured = dict(measured_costs or {})
+    cost_limits = dict(cost_thresholds or {})
+    for dimension, value in measured.items():
+        if dimension not in PATH_COST_DIMENSIONS:
+            raise ValueError(f"measured_costs contains unknown dimension: {dimension}")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"measured_costs.{dimension} must be numeric")
+        if not math.isfinite(float(value)) or float(value) < 0:
+            raise ValueError(f"measured_costs.{dimension} must be finite and non-negative")
+    for dimension, threshold in cost_limits.items():
+        if dimension not in PATH_COST_DIMENSIONS:
+            raise ValueError(f"cost_thresholds contains unknown dimension: {dimension}")
+        if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
+            raise ValueError(f"cost_thresholds.{dimension} must be numeric")
+        if not math.isfinite(float(threshold)) or float(threshold) < 0:
+            raise ValueError(f"cost_thresholds.{dimension} must be finite and non-negative")
+        if dimension in measured and float(measured[dimension]) >= float(threshold):
+            triggers.add("high_cost_boundary")
     if path_design_model_miss:
         triggers.add("path_design_model_miss")
     if missing_necessity_witness:
@@ -1725,6 +1825,11 @@ def lightweight_path_review(
     path_design_model_miss: bool = False,
     high_cost_boundary: bool = False,
     release_critical_boundary: bool = False,
+    measured_costs: Mapping[str, float] | None = None,
+    cost_thresholds: Mapping[str, float] | None = None,
+    cost_evidence: Mapping[str, str] | Iterable[Sequence[str]] | None = None,
+    trigger_evidence: Mapping[str, str] | Iterable[Sequence[str]] | None = None,
+    trigger_currentness_id: str = "",
     producer_id: str = "model_maturation",
 ) -> PathQualityResult:
     """Run the ordinary deterministic review and return only a compact result."""
@@ -1754,6 +1859,20 @@ def lightweight_path_review(
         expected_currentness_id=currentness_id,
         active_obligation_ids=active_obligation_ids,
     )
+    measured = {
+        str(dimension): float(value)
+        for dimension, value in dict(measured_costs or {}).items()
+    }
+    cost_thresholds_value = {
+        str(dimension): float(value)
+        for dimension, value in dict(cost_thresholds or {}).items()
+    }
+    cost_evidence_rows = dict(_canonical_string_pairs(cost_evidence, "cost_evidence"))
+    for dimension, fingerprint in cost_evidence_rows.items():
+        _require_fingerprint(fingerprint, f"cost_evidence[{dimension}]")
+    for dimension in measured:
+        if dimension not in cost_evidence_rows:
+            intake_gaps.add(f"cost_measurement_evidence_missing:{dimension}")
     triggers = collect_deep_review_triggers(
         findings,
         explicit_request=explicit_deep_request,
@@ -1767,7 +1886,21 @@ def lightweight_path_review(
         ),
         high_cost_boundary=high_cost_boundary,
         release_critical_boundary=release_critical_boundary,
+        measured_costs=measured,
+        cost_thresholds=cost_thresholds_value,
     )
+    trigger_evidence_rows = dict(
+        _canonical_string_pairs(trigger_evidence, "trigger_evidence")
+    )
+    for trigger_id, fingerprint in trigger_evidence_rows.items():
+        _require_fingerprint(fingerprint, f"trigger_evidence[{trigger_id}]")
+    if set(trigger_evidence_rows) != set(triggers):
+        if triggers:
+            intake_gaps.add("deep_trigger_evidence_incomplete")
+    if triggers:
+        current_trigger_id = trigger_currentness_id or currentness_id
+        if current_trigger_id != currentness_id:
+            intake_gaps.add("deep_trigger_evidence_stale")
     unresolved = tuple(sorted(set(findings) | set(witness_gaps) | intake_gaps))
     if triggers and not unresolved:
         unresolved = tuple(f"deep_review_required:{trigger}" for trigger in triggers)
@@ -1784,6 +1917,11 @@ def lightweight_path_review(
             ],
             "finding_ids": findings,
             "trigger_ids": triggers,
+            "trigger_evidence": trigger_evidence_rows,
+            "trigger_currentness_id": trigger_currentness_id or currentness_id,
+            "measured_costs": measured,
+            "cost_thresholds": cost_thresholds_value,
+            "cost_evidence": cost_evidence_rows,
             "unresolved_ids": unresolved,
         }
     )
@@ -1807,6 +1945,31 @@ def lightweight_path_review(
         detail_evidence_fingerprint=detail_fingerprint,
         producer_id=producer_id,
         currentness_id=currentness_id,
+        optimization_depth="auto",
+        cost_dimensions=tuple(sorted(measured)),
+        cost_measurements=tuple(sorted(measured.items())),
+        cost_detail_evidence_fingerprint=(
+            canonical_fingerprint(
+                {
+                    "measurements": measured,
+                    "thresholds": cost_thresholds_value,
+                    "evidence": cost_evidence_rows,
+                }
+            )
+            if measured
+            else ""
+        ),
+        trigger_evidence_fingerprint=(
+            canonical_fingerprint(
+                {
+                    "trigger_ids": triggers,
+                    "evidence": trigger_evidence_rows,
+                    "currentness_id": trigger_currentness_id or currentness_id,
+                }
+            )
+            if triggers
+            else ""
+        ),
     )
 
 
@@ -2174,6 +2337,30 @@ def evaluate_deep_path_review(
         currentness_id=currentness_id,
         candidate_set_exhausted=candidate_set_exhausted,
         rewrite_set_exhausted=rewrite_set_exhausted,
+        optimization_depth="deep_closed" if not gaps else "deep_required",
+        cost_dimensions=required_dimensions,
+        cost_detail_evidence_fingerprint=(
+            canonical_fingerprint(
+                {
+                    "candidate_cost_fingerprints": [
+                        row.cost.fingerprint
+                        for row in rows
+                        if row.cost is not None
+                    ],
+                    "required_dimensions": list(required_dimensions),
+                    "currentness_id": currentness_id,
+                }
+            )
+            if required_dimensions
+            else ""
+        ),
+        trigger_evidence_fingerprint=canonical_fingerprint(
+            {
+                "trigger_ids": list(triggers),
+                "trigger_evidence": trigger_evidence_rows,
+                "currentness_id": trigger_currentness_id,
+            }
+        ),
     )
 
 
@@ -2197,6 +2384,7 @@ __all__ = [
     "HARD_SEMANTIC_DIMENSIONS",
     "NECESSITY_EVIDENCE_KINDS",
     "PATH_COST_DIMENSIONS",
+    "PATH_OPTIMIZATION_DEPTHS",
     "PATH_QUALITY_CONCLUSIONS",
     "PATH_QUALITY_SCHEMA_VERSION",
     "NecessityWitness",
