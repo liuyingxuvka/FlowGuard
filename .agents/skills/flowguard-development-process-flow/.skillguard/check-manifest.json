@@ -1050,7 +1050,6 @@
         "member_paths": [
           ".flowguard/development_process_strategy/active_change_baseline.json",
           ".flowguard/development_process_strategy/architecture_reduction.py",
-          ".flowguard/development_process_strategy/code_structure.json",
           ".flowguard/development_process_strategy/contract_exhaustion.py",
           ".flowguard/development_process_strategy/field_lifecycle.py",
           ".flowguard/development_process_strategy/preflight.json",
@@ -1464,13 +1463,6 @@
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
-        "content_hash": "sha256:6799d2d8cb5b69029b2fa3380a7f64b7466e85cac0e2a132e8244793024a8477",
-        "install_disposition": "source_only",
-        "path": ".flowguard/development_process_strategy/active_change_baseline.json",
-        "role": "documentation_model"
-      },
-      {
-        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
         "content_hash": "sha256:04be1726f0521e47ed9604290e7f804501fc3c42625fd3461eb2ed8872a3c0dd",
         "install_disposition": "source_only",
         "path": ".flowguard/development_process_strategy/architecture_reduction.py",
@@ -1502,13 +1494,6 @@
         "content_hash": "sha256:29bc3fb24552edc8dc721a6c1f4bd12374372eeba7f88a28eedab32e621f2a76",
         "install_disposition": "source_only",
         "path": ".flowguard/development_process_strategy/model.py",
-        "role": "documentation_model"
-      },
-      {
-        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
-        "content_hash": "sha256:0e4864570d9ea0da53178b300a712b15a89c6659cd61868b728721551552fb8f",
-        "install_disposition": "source_only",
-        "path": ".flowguard/development_process_strategy/preflight.json",
         "role": "documentation_model"
       },
       {

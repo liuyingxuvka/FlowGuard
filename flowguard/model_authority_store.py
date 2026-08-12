@@ -1157,13 +1157,26 @@ def audit_model_authority(
     try:
         head, snapshot = load_observed_model_system(root_path)
     except (ModelAuthorityError, ProjectManifestError, ValueError) as exc:
+        inventory_fields: dict[str, tuple[str, ...]] = {}
+        finding_code = "model_authority_invalid"
+        if model_inventory is not None:
+            inventory_fields = {
+                "declared_model_ids": model_inventory.declared_ids,
+                "materialized_model_ids": model_inventory.materialized_ids,
+                "required_model_ids": model_inventory.required_ids,
+                "covered_model_ids": model_inventory.covered_ids,
+                "missing_model_ids": model_inventory.missing_ids,
+            }
+            if model_inventory.missing_ids:
+                finding_code = "live_model_manifest_incomplete"
         return ModelAuthorityAuditReport(
             root=str(root_path),
             status=MODEL_AUTHORITY_STATUS_BLOCKED,
+            **inventory_fields,
             findings=(
                 ModelAuthorityFinding(
                     "blocked",
-                    "model_authority_invalid",
+                    finding_code,
                     str(exc),
                 ),
             ),

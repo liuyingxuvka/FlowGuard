@@ -1,9 +1,11 @@
 import contextlib
 import io
+import json
 import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.run_flowguard_model_regressions import main as run_model_regressions
 from scripts.generate_field_lifecycle_inventory import (

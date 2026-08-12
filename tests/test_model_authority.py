@@ -682,6 +682,7 @@ class ModelAuthorityTests(unittest.TestCase):
             path_quality_results=tuple(
                 result for _subject, result in path_quality_rows
             ),
+            required_evidence_refs=required,
         )
         return proposed.accept(
             tuple(replace(item, status="pass") for item in required),
