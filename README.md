@@ -2,11 +2,20 @@
 
 <!-- README HERO START -->
 <p align="center">
-  <img src="./assets/readme-hero/flowguard-icon.png" alt="FlowGuard icon" width="120" />
+  <img src="./assets/readme-hero/flowguard-icon.png" alt="FlowGuard logo" width="104" />
+</p>
+
+<p align="center">
+  <img src="./assets/readme-hero/hero.jpg" alt="FlowGuard change lifecycle: Current and Candidate paths pass through model and evidence checks; red gaps are stopped before a new Current is accepted" width="960" />
 </p>
 
 <p align="center">
   <strong>An AI-agent skill suite powered by an executable check engine.</strong>
+</p>
+
+<p align="center">
+  FlowGuard keeps an executable model of what current evidence supports inside the declared software boundary,
+  searches its declared behavior and structure, and checks a proposed change before it becomes the new Current.
 </p>
 <!-- README HERO END -->
 
@@ -14,43 +23,33 @@
 | --- | --- | --- | --- |
 | `v0.68.13` | `1.0` | Python standard library only | MIT |
 
-English comes first. A Chinese mirror follows below.
+[中文说明](./README.zh-CN.md) · [Quick Start](#quick-start) · [Concept](./docs/concept.md) · [Documentation](#documentation-map)
 
 ## What FlowGuard Is
 
-An AI-agent skill suite with executable check scripts, FlowGuard checks the risky part of a software change before an agent writes more code. The suite is powered by an executable check engine. In this author repository, its primary agent surface is `.agents/skills/`: start with `.agents/skills/flowguard/SKILL.md`, then use its sibling `SKILL.md` files, references, assets, and check scripts to select the right route. An ordinary target project uses the single clean consumer projection under `$CODEX_HOME/skills/`; it does not vendor a second local FlowGuard suite or suite map. The installed package ships one deterministic clean-consumer authority, and project audit or upgrade compares that authority directly with the global projection and its ownership manifest.
+FlowGuard is a model-first preflight layer for AI-assisted software work.
 
-It asks the agent to turn the danger zone into a finite state model, run that model, and inspect counterexample traces. That makes problems such as duplicate side effects, stale test evidence, broken UI recovery paths, or unsupported "done" claims visible before they become maintenance debt.
+Its primary agent surface is `.agents/skills/`: start with
+`.agents/skills/flowguard/SKILL.md`, and keep the sibling FlowGuard skills
+available so the kernel can select the smallest matching route.
 
-For a post-green model miss, v0.66.0 can also derive a bounded,
-deletion-minimal conflict from exact observation, model, code/test, and failure
-boundary atoms. The result is deliberately subordinate to the existing
-Model-Miss Review: it preserves the parent decision, reports budget exhaustion
-as incomplete, and rejects a proposed repair that only deletes the obligation
-or loses every named positive behavior.
+The suite includes executable check scripts. The Python package is the check
+engine used by those skills; it is not the skill installation itself.
 
-It does not call an LLM API. It is not a prompt trick. It is not a replacement for tests. It is a model-first preflight layer for work where order, state, retries, side effects, UI paths, validation evidence, or release confidence matter. The executable Python code is the check-script engine used by the skills; it is not the skill installation itself.
+FlowGuard does not merely save another specification file. It maintains a
+current, executable map of the modeled software:
 
-FlowGuard now makes “does the AI understand enough to proceed?” an evidence
-question, not a self-rating. Frozen task facts derive a `TaskCoverageDemand`;
-every triggered owner must return current evidence or a visible unresolved or
-blocked disposition. Model Maturation then publishes a canonical receipt that
-is independently verified before a separate implementation-admission decision.
-Lightweight work stays lightweight because only triggered detail is loaded,
-but a smaller presentation tier cannot remove a triggered obligation. See
-[`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md).
+- what behaviors exist now;
+- which states and transitions those behaviors allow;
+- which code owns each behavior, or where ownership remains unresolved;
+- which UI, API, CLI, field, resource, and side-effect boundaries realize it;
+- which tests or checks currently support the model;
+- how parent, child, producer, consumer, and sibling models are connected.
 
-The read-only `model-understanding-status` command makes that result visible as
-three separate answers: how deeply the current task is understood, what the
-user chose to do, and whether FlowGuard itself admits implementation. It reads
-only explicit JSON artifacts; it never runs missing owners, resumes validation,
-publishes receipts, changes model authority, or writes files.
+That map is the software's **FlowGuard DNA**.
 
-The whole-system semantic mesh is the relationship layer inside FlowGuard's
-living blueprint. It supports bounded task-understanding claims by loading
-only affected owners and evidence, while its whole-target view connects those
-same current identities inside the declared model-system boundary. See
-[`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md).
+The DNA says what the maintained model contains. **Current** says which exact
+version of that DNA is accepted now.
 
 The v0.68.13 candidate self-model contains an exact inventory of 51 current
 owners. Fourteen historical, task-local, or completed construction routes were removed from current
@@ -68,36 +67,16 @@ reuse and publication remain available when requested; they are not a
 universal completion gate. Old public route names are errors rather than
 aliases or fallbacks.
 
-Every new or materially changed model now receives a compact path-quality
-decision before it can enter current DNA. Ordinary one-path models stop at a
-lightweight structural result; a finite deep comparison runs only when current
-evidence exposes duplication, unreachable structure, repeated work, missing
-necessity evidence, material growth, or another explicit trigger. Cost remains
-multi-dimensional, every retained model element needs a current necessity
-witness, and FlowGuard makes only bounded claims such as
-`single_clear_path` or `locally_irreducible_under_declared_rewrites`—never an
-unrestricted claim that it found the globally best possible software.
+FlowGuard then gives an AI agent three capabilities that plain repository
+search does not provide by itself:
 
-For an explicit whole-target claim, the provider-neutral blueprint composes
-exact observation and authority providers for software, workflows, services,
-agents, pipelines, or mixed systems. A programming language is a provider
-detail, never the core admission gate. For software, it starts from an
-independently discovered implementation and resource inventory, then checks
-model-to-code and code-to-model bindings, independently sourced semantics,
-an embedded test inventory rechecked against current test source,
-exact behavior blocks, concrete or symbolic-contract cases, exact checker
-designs, admitted intent, parent/child output-to-input relations, and owned
-resources. Every admitted resource keeps its exact owner,
-artifact fingerprint, purpose, lifecycle role, and source-independent
-semantics instead of being flattened into a weaker checklist row. Each
-behavior block has one primary owner and ten
-explicit dimensions: input, state, output, effect, error, decision, order,
-retry, timeout, and completion. It reports every gap, the deepest proven layer,
-and the first incomplete layer instead of letting AI award itself one opaque
-green status. Placeholder cases cannot make the graph green; test design stays
-separate from current execution evidence; and ordinary work stays
-affected-only. See
-[`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md).
+1. search the declared finite behavior space for missing or rule-violating
+   paths and, when path-quality review is triggered, surface unreachable or
+   duplicated structure;
+2. search the affected model neighborhood to see what else a change can make
+   stale or inconsistent;
+3. search the current structure for an existing owner or reusable path before
+   adding another handler, module, screen flow, facade, or fallback.
 
 The native model directory is the DNA. It stays beside the software it
 describes and contains the versioned models, parent/child interfaces,
@@ -108,23 +87,87 @@ and the same source of truth. The public action surface is the current
 model/check/impact/update path, with one clear route and no second DNA
 authority.
 
-## The Problem
+## Why FlowGuard Exists
 
-AI coding agents are good at local edits. That is useful, but it creates a common failure mode: the nearby code looks fixed while the whole workflow is already wrong.
+AI coding agents are good at local edits. They can find a nearby function,
+change it, and make a visible test pass.
+
+The harder problem is knowing whether that local edit still fits the whole
+software system.
+
+A repository may contain years of specifications, code, tests, changelogs, and
+design discussions. That history does not automatically give an agent one
+maintained answer to these questions:
+
+- What does the software do **now**?
+- Which component owns this behavior **now**?
+- Which paths are legal, missing, or obsolete **now**?
+- Which tests still support that answer after the last change?
+- If this part changes, what other parts must be reconsidered?
+
+Without a maintained current model, every new agent session must search and
+reconstruct those answers again. The reconstruction may miss a branch, select
+an outdated rule, or build a second path beside an existing one.
 
 For example:
 
-1. You ask an agent to fix retry handling.
-2. The agent changes the function near the bug.
-3. The visible test passes.
-4. The same job is processed again later.
-5. A side effect happens twice because the workflow never modeled the repeated input.
+1. an agent is asked to fix retry handling;
+2. it changes the function nearest the visible failure;
+3. the visible test passes;
+4. the same job is processed again later;
+5. a side effect happens twice because repeated input was never modeled.
 
-FlowGuard is built for that kind of problem. Instead of telling the agent to "be careful", it asks the agent to name the state, inputs, outputs, side effects, owners, and evidence gates that decide whether the next step is safe.
+FlowGuard replaces "please be careful" with explicit questions about state,
+paths, ownership, side effects, current evidence, and completion.
 
-## How It Works
+## What FlowGuard Builds: Current Software DNA
 
-The core shape is:
+The native model directory is the DNA. It stays beside the software it
+describes and contains the versioned models, parent/child interfaces,
+code/test bindings, and their current evidence.
+
+FlowGuard audits that directory in place. It does not create a second DNA
+envelope, a copied authority directory, or an isolated reconstruction that can
+silently drift from the real current model.
+
+A useful Current model answers five connected questions.
+
+| Question | What the DNA records |
+| --- | --- |
+| What behavior exists? | finite behavior blocks, inputs, states, outputs, errors, decisions, retries, timeouts, and completion |
+| Who owns it? | one current model owner and the relevant code or external-system boundary |
+| How is it reached? | UI, API, CLI, event, field, resource, producer-consumer, and parent-child relations |
+| What proves it today? | exact tests, checkers, oracles, receipts, fingerprints, and freshness |
+| What remains unknown? | omitted, stale, unresolved, blocked, or explicitly scoped gaps |
+
+```mermaid
+flowchart LR
+    CURRENT["Accepted Current"] --> BEHAVIOR["Behavior<br/>states · inputs · outcomes"]
+    CURRENT --> STRUCTURE["Structure<br/>owners · parent/child · dependencies"]
+    CURRENT --> EVIDENCE["Current evidence<br/>bindings · tests · receipts"]
+    BEHAVIOR --> SOFTWARE["Real software<br/>code · API · UI · data"]
+    STRUCTURE --> NEIGHBORS["Connected models<br/>affected relationships"]
+    EVIDENCE --> CHECKS["Observed checks<br/>what still supports Current"]
+```
+
+This is an information map, not merely a file index. Each relation states why
+two things are connected: owns, implements, reads, writes, calls, displays,
+validates, delegates, or affects. A missing or stale connection stays visible
+as unknown instead of being filled in because two names look similar.
+
+The Current model is not simply the newest file named `current`. Current
+authority belongs only to the observed snapshot reached through the accepted
+revision, activation receipt, and single pointer in `.flowguard/project.toml`.
+Its complete current-intent view (`CurrentEffectiveIntentView`) states the
+intent that remains active.
+
+That view states the behavior that remains active after all accepted changes.
+A revision delta says only what changed in one revision; history is never a
+substitute for the maintained current meaning.
+
+## The Core Model, in Plain Language
+
+The smallest FlowGuard model has this shape:
 
 ```text
 Input x State -> Set(Output x State)
@@ -132,72 +175,340 @@ Input x State -> Set(Output x State)
 
 In plain language:
 
-- `Input` is the event coming in, such as a job, retry, UI click, file payload, or release action.
+- `Input` is an incoming event, such as a retry, click, payload, job, or release action.
 - `State` is what the system remembers before the event.
 - `Output` is what the step says happened.
-- The new `State` is what the system remembers after the step.
-- `Set(...)` means one input may have several legal branches, and the model must say what they are.
+- the new `State` is what the system remembers afterward.
+- `Set(...)` means one input may have several legal branches; the model must say what they are.
 
-When that finite meaning must cross a process, tool, or repository boundary,
-FlowGuard can project it into the current `flowguard.portable_model.v1` JSON
-IR. The portable checker validates the exact schema and content identity,
-executes the explicit nondeterministic transition relation, checks safety and
-temporal obligations, and verifies explicit parent/child refinement plus
-assume/guarantee composition. It does not serialize arbitrary Python or act as
-an application's database, UI, deletion, people, relationship, or project
-workflow layer.
+The model is useful because it makes paths executable rather than leaving them
+as prose that an agent may interpret differently each time.
+
+```mermaid
+stateDiagram-v2
+    [*] --> A
+    A --> B: Input X / allowed result
+    A --> C: Input Y / allowed result
+    B --> Done
+    C --> Done
+    note right of A
+      Input Z has no matching transition
+    end note
+```
+
+The diagram is intentionally abstract. FlowGuard does not need to invent a
+business story to show the important fact: inside the declared finite boundary,
+`Input Z` has no matching transition or declared outcome from state `A`.
+
+The checker then explores the combinations that this finite boundary enables,
+within the declared finite sequence bounds:
+
+```mermaid
+flowchart LR
+    BOUNDARY["Declared finite boundary"] --> STATES["Finite states"]
+    BOUNDARY --> INPUTS["Finite input classes"]
+    STATES --> SEARCH["Explore reachable combinations"]
+    INPUTS --> SEARCH
+    SEARCH --> ALLOWED["Declared outcome<br/>allowed path"]
+    SEARCH --> GAP["No declared outcome<br/>counterexample"]
+    ALLOWED --> RESULT["Scoped result"]
+    GAP --> RESULT
+```
+
+FlowGuard exhaustively explores those reachable traces only when the declared
+inputs, states, and sequence bounds are finite and exploration completes. A
+truncated exploration is a visible non-pass or blocked result, never a clean
+pass.
+
+This is why the model can reveal a case that neither the developer nor the AI
+thought to ask about explicitly: the checker enumerates the reachable
+combinations in the declared model instead of sampling only the most likely
+story. It cannot reveal states, inputs, or dependencies that were never placed
+inside that boundary.
+
+The counterexample is not automatically proof of a production code bug. It is
+evidence that the model, intended behavior, implementation binding, or test
+coverage needs a specific review.
+
+## Three Searches over One Current Model
+
+FlowGuard's searches have different jobs. Keeping them separate prevents a
+strong structural result from being overstated as production truth.
+
+### 1. Behavior-path search
+
+For a declared finite model, FlowGuard explores the stated transitions and
+checks the supplied invariants, scenarios, safety rules, temporal obligations,
+and known-bad cases.
+
+It can make these structural problems visible:
+
+- an input with no declared result;
+- a branch that violates an invariant;
+- an unreachable, duplicated, or non-terminal structure when the corresponding
+  path-quality review is triggered;
+- a retry that repeats a side effect;
+- two branches that violate a declared conflict rule, invariant, oracle, or
+  observable contract;
+- truncated exploration, which is reported as a visible non-pass rather than a
+  clean result.
+
+The result applies only to the declared model boundary and the checks that ran.
+
+### 2. Affected-neighborhood search
+
+A local model can be green while a broader claim is no longer supported.
+
+FlowGuard follows declared relations from the changed model to affected:
+
+- ancestors and parent obligations;
+- child models and their reattachment points;
+- producers and consumers;
+- delegated owners;
+- siblings that share state, fields, resources, or side effects;
+- tests and receipts whose input identity has changed.
+
+```mermaid
+flowchart LR
+    Changed[Changed model] --> Parent[Parent obligation]
+    Changed --> Child[Child model]
+    Changed --> Consumer[Consumer]
+    Changed --> Sibling[Sibling sharing state or effect]
+    Parent --> Evidence[Evidence to revalidate]
+    Child --> Evidence
+    Consumer --> Evidence
+    Sibling --> Evidence
+```
+
+Ordinary work loads the affected neighborhood, not the entire repository.
+Whole-target claims require an explicit whole-target scope.
+
+Affected-only reading avoids reconstructing the whole blueprint and can keep
+the verified model/context projection proportional to the declared change.
+Search still happens, and FlowGuard does not promise a fixed token saving.
+
+### 3. Structural reuse and reduction search
+
+Before adding a new path, FlowGuard can query Current DNA for the existing
+behavior owner and related surfaces.
+
+For a whole-target structure claim, FlowGuard also starts from an independently
+discovered implementation inventory and checks both directions: every modeled
+obligation should point to its implementation, and every in-scope
+behavior-bearing implementation surface should lead to a model obligation, an
+owner contract, or an explicit non-behavior disposition. That comparison can
+expose an unbound implementation, an ownerless rule, or two structures claiming
+the same responsibility. It does not infer every dependency in an unmodeled
+repository.
+
+This supports **reuse before growth**:
+
+- reuse the existing state or side-effect owner;
+- delegate a new UI, API, or CLI surface to the current behavior path;
+- avoid a parallel handler that makes the same external promise;
+- identify repeated validation or compatibility layers;
+- propose a smaller structure when current obligations can still be preserved.
+
+```mermaid
+flowchart TB
+    REQUEST["New behavior request"] --> LOOKUP["Read Current<br/>ownership and impact map"]
+    LOOKUP --> OWNER{"Existing primary owner?"}
+    LOOKUP --> AFFECTED["Reopen declared neighborhood<br/>parents · children · shared state · bindings"]
+    OWNER -->|Yes| REUSE["Reuse, extend, or delegate"]
+    OWNER -->|No| NEW["Create one explicit boundary"]
+    OWNER -->|Multiple| CONFLICT["Structural conflict<br/>resolve ownership first"]
+    REUSE --> AFFECTED
+    NEW --> AFFECTED
+    AFFECTED --> CHECK["Recheck affected evidence<br/>reuse unchanged evidence only when identity still matches"]
+```
+
+One primary owner means one authoritative implementation responsibility for a
+behavior. It does **not** mean one global controller for the entire application.
+
+FlowGuard does not remove code because it looks old, duplicated, or expensive.
+A reduction must preserve the observable contract and account for callers,
+consumers, owners, tests, oracles, topology, and every active responsibility.
+
+The only safe outcomes are bounded classifications:
+
+- `retain`;
+- `contract-equivalent`;
+- `retire-behavior-with-complete-current-proof`;
+- `unresolved`.
+
+If proof is missing or stale, the correct result is `unresolved`, not deletion.
+
+| Candidate structure | Safe bounded outcomes |
+| --- | --- |
+| two owners or parallel paths for the same behavior | prove distinct responsibilities and retain separately; otherwise delegate, contract with observable-equivalence proof, or remain unresolved |
+| fallback or compatibility surface | retain or delegate; retire only with complete current caller and responsibility proof |
+| facade, adapter, or old entrypoint | keep the public boundary, or remove it only after callers, effects, and parity are proved |
+| missing ownership, binding, consumer, or test evidence | `unresolved` |
+
+## How the Model Stays Bound to the Software
+
+A model is not useful merely because a diagram and some code both exist.
+FlowGuard binds the same obligation across several evidence layers.
+
+```mermaid
+flowchart TB
+    RULE["Model rule<br/>expected behavior"] --> BINDING["Behavior binding<br/>where the rule lives"]
+    BINDING --> CODE["Code / API<br/>runs the behavior"]
+    BINDING --> SURFACE["UI / data / effect<br/>shows the outcome"]
+    TEST["Controlled test<br/>sets input and state"] --> CODE
+    CODE --> OBSERVED["Observed result<br/>outcome · next state · effect"]
+    SURFACE --> OBSERVED
+    RULE --> COMPARE["Comparator<br/>expected vs. observed"]
+    OBSERVED --> COMPARE
+```
+
+### Code binding
+
+Each affected obligation should resolve to one current owner, one relevant code
+contract, and exact implementation references.
+
+Paths and symbol names prove traceability, not semantics. FlowGuard keeps the
+plain-language behavior meaning separate from the source location so a renamed
+function does not silently redefine the obligation.
+
+### UI and external-surface binding
+
+A screen, API endpoint, command, alias, adapter, or facade is a surface, not
+automatically a new behavior.
+
+When surfaces have the same actor, preconditions, terminal result, failure
+boundary, material state writes, and side effects, they should map to the same
+stable intent and selected current path. Extra surfaces can delegate instead of
+growing a second implementation.
+
+UI modeling also records reachable journeys, visible controls, disabled
+reasons, cancel/recovery paths, terminal states, feedback, and implementation
+evidence. A visible button alone does not prove that the user can complete or
+recover from the workflow.
+
+### Tests as sensors
+
+Tests are not the model, and the model is not a replacement for tests.
+
+Tests act like sensors attached to model obligations:
+
+- the model says what must remain true;
+- the code binding says where the behavior is realized;
+- the test or checker observes a specific part of that behavior;
+- the execution receipt says whether that sensor ran against current inputs.
+
+A test counts as a current sensor only when it binds the same obligation and
+owner contract, has the required assertion scope, and carries current execution
+evidence.
+
+If the model, code, test source, fixture, dependency, or covered input changes,
+the old sensor reading may become stale. A previously passing test is not
+silently carried forward as current proof.
+
+Test design stays separate from current execution evidence. A well-designed
+case that did not run is still `not_run`, not a pass.
+
+## Current, Target, and Candidate Experiment Models
+
+FlowGuard separates three meanings that are easy to confuse:
+
+| Model | Meaning | Authority |
+| --- | --- | --- |
+| **Current / observed** | what the accepted evidence says exists now | may support current-system claims within its proven boundary |
+| **Target / normative** | the intended replacement | a proposal, not current fact |
+| **Candidate experiment** | a counterfactual change used for simulation | may reveal conflicts, but changes no current authority |
+
+A filename, prompt statement, discovery hit, or passing Candidate check does
+not make that Candidate current.
+
+FlowGuard can run the Candidate against declared obligations before code is
+accepted:
+
+1. freeze the exact Current base and materialize a separate Candidate revision
+   over the declared affected closure;
+2. change the proposed transitions, ownership, structure, or relations;
+3. run model checks and known-bad cases;
+4. inspect counterexamples and affected-neighborhood gaps;
+5. implement and collect current code/test evidence separately;
+6. accept one complete revision set only when the required evidence matches;
+7. move the single Current pointer last.
+
+```mermaid
+flowchart TB
+    Current[Accepted Current] --> Candidate[Candidate experiment]
+    Candidate --> Simulate[Run declared checks]
+    Simulate -->|counterexample or gap| Revise[Revise candidate or plan]
+    Revise --> Candidate
+    Simulate -->|model-consistent within declared boundary| Implement[Update implementation and UI separately]
+    Implement --> Rebind[Align affected relations, bindings, tests, and current evidence]
+    Rebind --> Accept[Accept one complete revision]
+    Accept --> Current2[New Current]
+```
+
+The first cumulative v5 revision has one direct main line. Produce exact
+native-owner evidence before the intent bootstrap:
 
 ```powershell
-python -m flowguard portable-model-validate path/to/model.json --json
-python -m flowguard portable-model-check path/to/model.json --json
-python -m flowguard portable-model-refinement --parent parent.json --child child.json --binding binding.json --json
-python -m flowguard portable-system-check --system system.json --request request.json --component component-a.json --component component-b.json --json
+python -m flowguard model-revision-owner-evidence --root . --model-parent-receipt <model-parent.json> --snapshot-id <snapshot-id> --output <owner-evidence.json> --json
+python -m flowguard model-revision-intent-bootstrap --root . --model-parent-receipt <model-parent.json> --native-owner-evidence <owner-evidence.json> --revision-set-id <revision-id> --task-id <task-id> --snapshot-id <snapshot-id> --intent-bootstrap-input <bootstrap-input.json> --json
 ```
 
-For a declared finite subsystem, `flowguard.portable_system.v1` keeps the
-system definition, the verification request, and the exact derived slice as
-three distinct identities. The system checker validates every referenced
-component, compiles the declared dependency/step graph into one bounded joint
-model, and makes at most one canonical system-level checker invocation. A
-counterexample is mapped back to component transitions and optional code
-targets. Missing, stale, or omitted dependencies, clean truncation, and
-truncated temporal claims block rather than being reported as passes. This is
-evidence about the declared bounded slice only; it does not discover unknown
-components or prove arbitrary software outside that slice.
+See [Modeling Protocol](./docs/modeling_protocol.md) and
+[Implementation Blueprint](./docs/implementation_blueprint.md) for authority,
+revision, rollback, and parent/child output-to-input relations; test design stays
+separate from current execution evidence throughout that process.
 
-The practical loop is:
+## Co-evolution: Software and Model Change Together
+
+FlowGuard is designed for a repeated loop, not a one-time modeling workshop.
 
 ```text
-risky AI action
--> small executable model
--> invariants, scenarios, and freshness checks
--> counterexample trace
--> revise the plan, code, tests, UI, or claim
+read and audit Current
+-> resolve observed-current drift through its own accepted revision
+-> select the affected model neighborhood
+-> search paths and existing owners
+-> build a Target or Candidate
+-> run declared model checks
+-> implement the admitted change
+-> run affected code, UI, and test evidence
+-> accept the new Current
 ```
 
-The important output is often the counterexample: a concrete sequence of states that shows why the current plan should not continue unchanged.
+When software gains an accepted behavior, state, relationship, or
+responsibility, the next accepted Current must account for it. The model can
+shrink when complete current evidence proves
+that two surfaces are equivalent or one responsibility has been fully retired.
+
+This co-evolution reduces repeated reconstruction. It does not eliminate the
+need to observe code, tests, runtime behavior, or production telemetry when a
+claim depends on them.
 
 ## What It Helps Catch
 
 | Situation | What can go wrong | What FlowGuard makes visible |
 | --- | --- | --- |
-| Retry or repeated job processing | the same input creates a second side effect | a repeated-input trace and an idempotency invariant |
-| Cache or refresh logic | old state is reused after it should be invalid | state fields and freshness rules that need to change |
-| UI workflows | buttons exist, but the user cannot recover, cancel, or reach a terminal state | launch-to-terminal journeys, visible controls, disabled reasons, and recovery paths |
-| UI product language | each page uses different title sizes, controls, navigation, feedback, or recovery for the same job | one product-scope UI Flow Structure comparison across typography, components, navigation, interaction, feedback, recovery, and transitions |
-| Repeated functional paths | downloading or submitting the same kind of result quietly grows a different handler per page, API, command, alias, or wrapper | one stable exact intent, one active behavior commitment, one selected current path, and evidence that extra surfaces delegate |
-| Refactors | a new module split loses the real state or side-effect owner | facade boundaries, state owners, side-effect owners, and parity evidence |
-| Tests and releases | an old passing test is treated as proof after code, docs, models, or fixtures changed | evidence freshness and minimum revalidation requirements |
-| Feature or behavior inventory | AI fixes one local path while missing, duplicating, or inventing external behavior | an independently derived WorkContext/UI/field source inventory, exactly one modeled/delegated/scoped disposition per source, then a Behavior Commitment Ledger with one primary owner model and PPA handoff |
-| Model-code-test binding | a model, a code contract, and a test all exist, but they do not prove the same behavior | binding rows that connect obligations, owner code, source audit, runtime evidence, bad-case replay, and open gaps |
-| Parent and child models | one local green check is treated as whole-system confidence | child evidence, parent reattachment, sibling impact, and scoped confidence |
-| Public claims | a README, release note, or "done" message says more than current evidence supports | the claim boundary and the missing proof |
+| Missing behavior path | an input has no legal outcome or recovery | a finite counterexample ending at the undeclared branch |
+| Retry or repeated job | the same input creates another side effect | repeated-input traces and an idempotency invariant |
+| Conflicting branches | two paths violate a declared conflict rule, invariant, oracle, or observable contract | the exact state and transition where the declared rules diverge |
+| Unreachable or unfinished structure | a state cannot be entered, exited, or completed | unreachable nodes, missing terminals, and blocked journeys |
+| Repeated functional paths | each page, API, command, alias, or wrapper grows a separate handler | one stable intent, one current owner, one selected path, and explicit delegation |
+| Structure growth | a local change adds a new layer instead of using the existing architecture | reusable owners, duplicate boundaries, and bounded reduction candidates |
+| UI workflow | controls exist but the user cannot recover, cancel, or reach a terminal state | launch-to-terminal journeys, controls, disabled reasons, feedback, and recovery paths |
+| Refactor | a module split loses the real state or side-effect owner | facade boundaries, owner maps, parity obligations, and affected callers |
+| Cache or refresh | old state is reused after it should be invalid | state fields, writers, readers, and freshness rules |
+| Model-code-test drift | artifacts exist but no longer prove the same behavior | exact obligation-to-owner-to-test alignment rows and open gaps |
+| Parent and child models | one local green check is treated as whole-system confidence | reattachment points, sibling impact, and scoped parent confidence |
+| Tests and releases | old evidence is treated as proof after relevant inputs changed | receipt identity, freshness, and minimum revalidation |
+| Public claims | a README, release note, or "done" message exceeds current evidence | the exact claim boundary and missing proof |
 
-FlowGuard can help design the workflow before code exists, and it can help check whether later evidence still supports a claim. The claim is always bounded: a FlowGuard pass means the declared model obligations passed. It does not mean the entire production system is correct.
+FlowGuard can expose a **structural error** in the declared model even when no
+production failure has yet been observed. A structural counterexample becomes
+a code-bug claim only after current model-code-test or runtime evidence binds it
+to the implementation.
 
 ## Quick Start
 
-Clone or open the repository, then make the FlowGuard skills visible to your AI agent:
+Clone or open the repository:
 
 ```powershell
 git clone https://github.com/liuyingxuvka/FlowGuard.git
@@ -206,13 +517,14 @@ cd FlowGuard
 
 For AI agents, complete setup means:
 
-1. Read `AGENTS.md`.
-2. Load or copy every skill under `.agents/skills/` according to the host agent's skill mechanism.
-3. Start from `.agents/skills/flowguard/SKILL.md`.
-4. Keep the sibling FlowGuard skills available so the kernel can route to them.
-5. Run executable check scripts only when current evidence is needed.
+1. read `AGENTS.md`;
+2. load or copy every skill under `.agents/skills/` according to the host
+   agent's skill mechanism;
+3. start from `.agents/skills/flowguard/SKILL.md`;
+4. keep the sibling FlowGuard skills available so the kernel can route to them;
+5. run executable check scripts only when current evidence is needed.
 
-Run a small check script that compares a correct model with broken variants:
+Run a small check that compares a correct model with broken variants:
 
 ```powershell
 python examples/job_matching/run_checks.py
@@ -223,17 +535,23 @@ The example should report:
 - the correct model is `OK`;
 - the broken duplicate-record model has invariant violations;
 - the broken repeated-scoring model has invariant violations;
-- the report includes counterexample traces showing the repeated input path.
+- the report includes counterexample traces showing the repeated-input path.
 
-That example is intentionally abstract. It does not search real jobs or call an AI model. It exists to show the FlowGuard pattern: repeated inputs, state writes, invariants, and counterexamples.
+The example is intentionally abstract. It does not search real jobs or call an
+AI model. It demonstrates repeated inputs, state writes, invariants, and
+counterexamples.
 
-If you need command-line project records or template generation, run `python -m flowguard ...` from the repository. The command executes checks and helpers; it is not the AI-agent skill install.
+Run `python -m flowguard --help` for the current command list. The command
+executes checks and helpers; it is not the AI-agent skill installation surface.
 
-## Use It In Another Project
+## Use It in Another Project
 
-For a target project, first make the FlowGuard skill suite available to the AI agent that will work there. The agent needs `AGENTS.md` plus every FlowGuard `SKILL.md` under `.agents/skills/`.
+First make the FlowGuard skill suite available to the AI agent working in the
+target project. An ordinary target project uses the single clean consumer
+projection under `$CODEX_HOME/skills/`; it does not copy the FlowGuard suite
+into its local project and create a second suite authority.
 
-Then, when executable project records are useful, run the current project commands:
+When executable project records are useful, run:
 
 ```powershell
 python -m flowguard project-adopt --root <target-project>
@@ -241,70 +559,37 @@ python -m flowguard project-audit --root <target-project>
 python -m flowguard project-upgrade --root <target-project>
 ```
 
-Then start small:
+Then start with one risky boundary:
 
 ```text
 choose one risky boundary
--> name the error class you want to prevent
--> describe Input, State, Output, side effects, owners, and completion evidence
+-> name the failure class to prevent
+-> query the existing Current owner
+-> describe Input, State, Output, effects, owners, and completion evidence
 -> add one invariant or scenario
 -> add one known-bad case
 -> run the check
 -> inspect the counterexample
--> revise the plan, code, tests, UI, or claim
+-> revise the model, plan, code, tests, UI, or claim
 ```
-
-Escalate only when the risk needs it. A retry bug may need a small model. A release claim, UI flow, refactor split, or parent/child model chain may need a stronger route.
-
-For broad feature, release, UI/API/CLI, skill, workflow, or project-confidence
-claims, start with the Behavior Commitment Ledger. It registers external
-behavior promises only after FlowGuard independently freezes the exact expected
-source inventory from declared WorkContexts plus native UI and field
-inventories. Every source is modeled, delegated to one native specialist with
-evidence, or explicitly scoped. Modeled promises receive exactly one primary
-owner and `path_sensitive=true` rows go to Primary Path Authority.
 
 External requirements, plans, designs, tasks, and status enter through
 provider-neutral read-only `WorkContext` adapters. OpenSpec, Spec Kit,
 Superpowers, Spark/OpenSpark, changelog/history, custom skills, declared files,
-or no provider at all are supported
-as peers. Their native identity and content fingerprints are preserved, but
-their commands, sessions, receipts, validation status, and lifecycle never
-become FlowGuard execution or test authority.
+or no specification provider are peers. Their native status does not become
+FlowGuard execution or test evidence.
 
-Surface shape is not behavior identity. When a page control, API, CLI, alias,
-adapter, wrapper, or compatibility facade has the same actor, preconditions,
-terminal result, failure boundary, material state writes, and side effects, it
-maps to the same stable business intent and active commitment. Primary Path
-Authority keeps one current selected path, while extra surfaces delegate. UI
-Flow Structure then checks that repeated pages use one semantic typography and
-interaction language without exposing the internal intent, commitment, path,
-audit, or evidence ids to ordinary users. Content admission remains exactly
-`user_visible`, `user_on_demand`, or `internal`.
+For broad external behavior claims, the Behavior Commitment Ledger freezes the
+expected source inventory, gives each modeled promise one primary owner, and
+hands path-sensitive behavior to Primary Path Authority.
 
-Behavior ownership is a separate question from UI visibility and from
-`commitment_kind`. Every registered production commitment belongs to exactly
-one execution plane:
+Its read-only lookup does not force every ordinary action through FlowGuard and
+cannot guarantee that a future AI agent will follow the retrieved guidance.
 
-- `product_runtime`: what the application promises to users or external systems;
-- `agent_operation`: how the current AI agent operates tools to complete work;
-- `development_process`: how development, validation, installation, archive,
-  publish, and release work is governed.
+## Minimal Runnable Model Sketch
 
-Existing Model Preflight queries the requested plane first, then shows typed
-related-plane context separately. A product target can be invoked or validated
-by an AI action without transferring ownership to that action. The lookup is a
-small, explainable recall aid; it does not force every ordinary action to run a
-model and cannot guarantee that a future AI will obey the retrieved guidance.
-Inspect a decision with the existing BCL/preflight-owned read-only command:
-
-```powershell
-python -m flowguard behavior-commitment-query "start the UI test and check the port bridge" --root . --plane agent_operation --term port_bridge --json
-```
-
-## Minimal Model Sketch
-
-The full runnable version is in [`examples/job_matching`](./examples/job_matching). The idea is small:
+The complete runnable version is in
+[`examples/job_matching`](./examples/job_matching). Its core is small:
 
 ```python
 @dataclass(frozen=True)
@@ -325,7 +610,13 @@ class ProcessJob:
 
     def apply(self, input_obj: Input, state: State):
         if input_obj.job_id in state.processed:
-            return [FunctionResult("already_processed", state, label="deduplicated_retry")]
+            return [
+                FunctionResult(
+                    "already_processed",
+                    state,
+                    label="deduplicated_retry",
+                )
+            ]
         return [
             FunctionResult(
                 "processed",
@@ -339,168 +630,93 @@ class ProcessJob:
         ]
 ```
 
-The model is useful only when it also includes a bad case and a rule worth checking, such as "the same job may not create duplicate side effects."
+The model is useful only when it also includes a bad case and a rule worth
+checking, such as: "the same job may not create duplicate side effects."
 
-## When To Use It
+## When to Use It
 
-Use FlowGuard when the next action depends on workflow state, not just on local code text.
+Use FlowGuard when the next action depends on workflow state, ownership,
+relationships, side effects, order, or evidence freshness—not only on nearby
+code text.
 
 Good fits:
 
 - AI-agent coding work with multiple stages, handoffs, or validation gates;
 - retries, deduplication, cache refresh, queues, ingestion, and repeated jobs;
-- UI flows where visible controls do not prove recovery paths or internal
-  status/audit/diagnostic content has reached the ordinary user surface;
-- refactors where public entrypoints and side effects must stay compatible;
-- test or release processes where old evidence can be mistaken for current proof;
-- parent/child model chains where local evidence must be reattached before broad confidence.
+- changes that may reuse or duplicate existing handlers, screens, APIs, or fields;
+- UI flows with recovery, cancellation, disabled, terminal, or feedback states;
+- refactors where public entrypoints and side effects must remain compatible;
+- tests or releases where old evidence may be mistaken for current proof;
+- parent/child model chains where local evidence must be reattached;
+- explicit architecture contraction where behavior equivalence must be proven.
 
 Bad fits:
 
 - one-line typo fixes;
 - formatting-only changes;
-- tasks with no meaningful state, side effect, order, or evidence boundary;
-- claims that need statistical truth, business truth, or production telemetry rather than structural workflow checks.
+- tasks with no meaningful state, effect, order, ownership, or evidence boundary;
+- claims that need statistical truth, business truth, or production telemetry
+  rather than structural model checks.
 
 ## Advanced Agent Workflows
 
 You can skip this section if you are only trying the first example.
 
-FlowGuard has one model-first kernel and route-specific skills. These are the skills an AI agent should load as the FlowGuard suite:
+FlowGuard has one model-first kernel and fourteen public satellite skills.
+The table remains the canonical 15-member public inventory.
+
+<details>
+<summary><strong>Show all 15 FlowGuard skills</strong></summary>
 
 <!-- FLOWGUARD SKILL TABLE EN START -->
 | Skill | Use it when |
 | --- | --- |
-| `flowguard` | ordinary behavior or state modeling is enough, or several FlowGuard routes need coordination |
-| `flowguard-existing-model-preflight` | an existing modeled system should be checked before adding a new boundary |
-| `flowguard-development-process-flow` | staged work, multi-skill setup, evidence freshness, or several outcome-equivalent routes need a lower-rework process choice; it owns internal `plan_detailing_compiler` and `agent_workflow_rehearsal` routes |
-| `flowguard-behavior-commitment-ledger` | broad behavior promises need source coverage, one primary owner model, and Primary Path Authority handoff for path-sensitive behavior |
-| `flowguard-field-lifecycle-mesh` | fields, schemas, modes, prompt/config keys, old-field disposition, or UI-boundary candidate-field handoff need ownership |
-| `flowguard-contract-exhaustion-mesh` | finite bad-case generation, same-class families, payloads, or transition cases need canonical coverage |
-| `flowguard-ui-flow-structure` | UI candidate content admission, controls, visible surface, on-demand details, journeys, recovery, and implementation evidence need modeling |
-| `flowguard-code-structure-recommendation` | a functional model should drive module, facade, owner, side-effect, config, or validation boundaries |
-| `flowguard-structure-mesh` | a large script, package, command, or public API split needs compatibility and parity evidence |
-| `flowguard-test-mesh` | validation is slow, layered, stale, skipped, release-only, or split across child suites |
-| `flowguard-model-test-alignment` | model obligations, code contracts, and test evidence need direct comparison |
-| `flowguard-model-mesh` | parent/child model evidence, sibling impact, or oversized model surfaces need mesh governance |
-| `flowguard-model-topology-hazard-review` | a locally green model may still imply future-use hazards |
-| `flowguard-architecture-reduction` | current DNA necessity must classify repeated or historical surfaces as retain, equivalent contraction, delegating facade, authorized behavior retirement, or unresolved |
-| `flowguard-model-miss-review` | runtime, tests, replay, logs, or manual checks failed after a FlowGuard model passed |
+| `flowguard` | ordinary behavior/state modeling is enough, ownership is unclear, or several FlowGuard routes need coordination |
+| `flowguard-existing-model-preflight` | an existing modeled system should be queried before adding another boundary |
+| `flowguard-development-process-flow` | staged work, multi-skill order, freshness, installation, archive, publish, or release needs lifecycle governance |
+| `flowguard-behavior-commitment-ledger` | broad behavior promises need source coverage, one primary owner, and Primary Path Authority handoff |
+| `flowguard-field-lifecycle-mesh` | fields, schema keys, flags, defaults, aliases, migrations, replacements, or fallbacks need lifecycle ownership |
+| `flowguard-contract-exhaustion-mesh` | a declared finite boundary needs canonical bad cases, combinations, or coverage receipts |
+| `flowguard-ui-flow-structure` | UI content, controls, journeys, recovery, operability, transitions, and implementation evidence need modeling |
+| `flowguard-code-structure-recommendation` | a model should drive pre-code modules, owners, facades, adapters, or validation boundaries |
+| `flowguard-structure-mesh` | an existing large module, package, command, facade, or public API split needs parity and compatibility evidence |
+| `flowguard-test-mesh` | validation is large, slow, stale, skipped, layered, release-only, or distributed across child suites |
+| `flowguard-model-test-alignment` | model obligations, code contracts, bindings, or test evidence need direct comparison |
+| `flowguard-model-mesh` | affected topology crosses model boundaries, child evidence is stale, or sibling/parent reattachment matters |
+| `flowguard-model-topology-hazard-review` | a locally green model still needs topology-grounded future-use hazard review |
+| `flowguard-architecture-reduction` | current DNA may support retention, equivalent contraction, proven retirement, or an unresolved result |
+| `flowguard-model-miss-review` | runtime, tests, replay, logs, or manual checks fail after a FlowGuard model was green |
 <!-- FLOWGUARD SKILL TABLE EN END -->
 
-Process optimization is conditional, not a mandatory six-way strategy menu. When it is useful, FlowGuard first proves that candidate routes preserve the same outcome, evidence, safety, side effects, dependencies, and execution ownership; it then chooses a diagnostic boundary and sequential or isolation-proven parallel execution. This can support collecting enough related failures before one root-cause repair, but hard blockers still stop invalid downstream work and every affected obligation is revalidated.
+</details>
 
-The table is parity-checked against `.skillguard/flowguard-suite/suite-map.json`; a missing or extra route fails the documentation test.
+The suite table is parity-checked against
+`.skillguard/flowguard-suite/suite-map.json`. Check-engine helpers are not
+separate Codex skills.
 
-### Current, Target, And Experiment Models
+## Evidence Has Three Different Meanings
 
-FlowGuard now keeps three different things separate:
-
-- the **observed implementation model** describes the software that actually
-  exists now;
-- a **normative target model** describes a proposed replacement;
-- a **counterfactual experiment model** explores an alternative without
-  changing what counts as current.
-
-Names such as `current`, a prompt statement, a file discovery hit, or a passing
-candidate check do not grant authority. One content-addressed project snapshot,
-selected by the single head in `.flowguard/project.toml`, is the observed
-authority. Its finite coverage inventory joins model instances, behavior
-commitments, external surfaces, fields/state/effects, code contracts, and
-tests/evidence. Missing authority or unresolved required coverage blocks broad
-current-model claims.
-
-Every accepted v5 revision carries two intent views that must not be confused.
-The revision-local delta records only what that revision changes. The
-cumulative `CurrentEffectiveIntentView` records the complete intent that remains
-active for the modeled system after the change. It binds every independently
-derived current model owner exactly once, reverifies the active source for each
-contribution, and records whether prior intent was retained, superseded, or
-retired. The first v5 view is created through one explicit ancestry-audited
-bootstrap receipt; later revisions refine the accepted view directly rather
-than reconstructing current meaning from historical deltas.
-
-FlowGuard's executable check engine is a Python runtime, but this authority
-contract is target- and provider-neutral. The modeled target may be software in
-another language, a service, a workflow, an agent, a pipeline, or a mixed
-system; its provider supplies target-native observation and evidence without
-changing the model-authority rules.
-
-The two bootstrap commands own different boundaries. For a brand-new modeled
-project, `model-system-bootstrap` establishes generation-one observed authority
-from its first verified snapshot. Once that observed authority exists,
-`model-revision-intent-bootstrap` creates the first cumulative v5 intent view
-for a generation-one or legacy v4 lineage. It does not replace project
-bootstrap, and later v5 revisions use the normal refine path.
-
-A target or experiment replaces the observed system only as one accepted
-`ModelRevisionSet`: the exact base, candidate, changed relations, affected
-sibling closure, prediction/replay evidence, and current owner receipts must
-match. Immutable records are written first and the single pointer is changed
-last under a shared compare-and-swap lock. Rollback restores or compensates
-real implementation effects and revalidates the old snapshot before moving the
-pointer; irreversible effects require forward repair.
-
-```powershell
-python -m flowguard model-system-bootstrap --root . --snapshot-id <id> --evidence-fingerprint <sha256>
-python -m flowguard model-system-audit --root . --json
-python -m flowguard model-revision-plan --root . --snapshot-id <snapshot-id> --compact --json
-python -m flowguard model-revision-owner-evidence --root . --model-parent-receipt <model-parent.json> --snapshot-id <snapshot-id> --output <owner-evidence.json> --json
-python -m flowguard model-revision-intent-bootstrap --root . --model-parent-receipt <model-parent.json> --native-owner-evidence <owner-evidence.json> --revision-set-id <revision-id> --task-id <task-id> --snapshot-id <snapshot-id> --intent-bootstrap-input <bootstrap-input.json> --json
-python -m flowguard model-revision-activate --root . --candidate-snapshot <snapshot.json> --revision-set <revision.json> --receipt-id <id>
-python -m flowguard model-revision-build --root . --model-parent-receipt <later-model-parent.json> --native-owner-evidence <later-owner-evidence.json> --intent-inventory <later-intent-inventory.json> --revision-set-id <later-revision-id> --task-id <later-task-id> --snapshot-id <later-snapshot-id> --json
-python -m flowguard model-revision-rollback --root . --contract <rollback.json> --completed-evidence-fingerprint <sha256> --result exact --receipt-id <id> --reason <reason>
-```
-
-The first cumulative v5 revision therefore has one direct main line: preview,
-produce exact native-owner evidence, run `model-revision-intent-bootstrap` once
-with both the aggregate bootstrap input and that evidence, then activate the
-accepted pair. Running an evidence-free bootstrap first only creates an
-incomplete non-current candidate and is not a required stage. After v5 is
-current, later revisions use `model-revision-build` with an exact refinement
-intent inventory.
-
-These commands extend the existing model, preflight, ModelMesh, commitment,
-field-lifecycle, test, and development-process routes. They do not introduce a
-second product workflow or make any specification provider part of FlowGuard.
-
-For ordinary UI, FlowGuard uses two conceptual groups and three executable
-values: `user_visible` and `user_on_demand` are user content; `internal` is not.
-Unclassified/internal content cannot render. On-demand content is hidden by
-default across every mapping target and needs visible/enabled reveal and return
-controls, content-specific feedback, and a distinct keyboard/focus event for
-hover. User needs use typed task/state/recovery/safety references. Observing
-content in an existing UI does not grant permission to keep it. Only the exact
-normal label of a registered, in-scope task-owned control with no extra state or
-metadata avoids a duplicate row. Runnable claims use an observed inventory and
-structured per-content evidence. This model does not introduce audience/role/
-persona or admin/operator/developer/auditor classes.
-
-### Three Evidence Layers
-
-FlowGuard deliberately keeps three different meanings of “green” separate:
-
-All fifteen bundled skills use `skillguard.contract_source.v2`, belong to the
-single `unit:flowguard-suite` author maintenance unit, and bind existing
-FlowGuard-owned routes and checks. Contract compilation proves deterministic
-prompt/model/check mapping; it is not an execution-depth receipt and does not
-create a SkillGuard-owned domain route.
+FlowGuard deliberately separates three kinds of green result:
 
 | Layer | What passed | What it does not prove |
 | --- | --- | --- |
-| Prompt and contract structure | the skill prompt, generated contract, references, and SkillGuard static/depth rules agree | the route's executable check did not necessarily run |
-| Native evidence receipt | the route-owned command ran against declared current inputs and produced a terminal, freshness-verifiable receipt | one route receipt does not close the other fourteen public skills or the parent claim |
+| Prompt and contract structure | the skill prompt, generated contract, references, and static/depth rules agree | the route's executable check did not necessarily run |
+| Native evidence receipt | the route-owned command ran against declared current inputs and produced a freshness-verifiable terminal receipt | one receipt does not close every other required route or the parent claim |
 | Self-governance parent closure | the parent consumed current exact-pass receipts for all required members and checked inventory, freshness, and distribution boundaries | it still proves only the declared suite obligations, not future AI behavior or production correctness |
 
-If a prompt, contract, native checker, model, test, or covered input changes, older evidence may become stale. A previous pass is not silently carried forward.
+If a prompt, contract, checker, model, code binding, test, fixture, or covered
+input changes, older evidence may become stale.
 
-### Validation And Distribution
+Model regressions use three tiers:
 
-Model regressions use an explicit manifest and three tiers: `fast` for narrow development feedback, `focused` for a wider selected surface, and `full` for every required non-excluded model. Only a current, terminal full-tier pass can contribute to a release claim.
+- `fast` for narrow development feedback;
+- `focused` for a wider selected surface;
+- `full` for every required non-excluded model.
 
-For normal use, the package exposes one simulator front door. It audits the
-same manifest and delegates each selected id to that model's own native runner;
-it does not merge domain models or reinterpret their results:
+Only a current, terminal full-tier pass can contribute to a release claim.
+
+For normal use, the simulator audits the manifest and delegates each selected
+model to its native runner:
 
 ```powershell
 python -m flowguard simulator --root . --list
@@ -509,11 +725,9 @@ python -m flowguard simulator --root . --model "ui_*" --tier focused --json
 python -m flowguard simulator --root . --all --tier full --jobs 1 --timeout 900
 ```
 
-The checked-in `.flowguard/**/model.py` and native `run_checks.py` files are
-executable model source. `.flowguard/evidence/`, extra local worktrees,
-`build/`, `dist/`, caches, and release receipts are generated or environment
-state; their size is not the model size and none of them is part of the clean
-installed AI-agent skill projection.
+See [Validation and Distribution](./docs/validation_and_distribution.md) for
+regression commands, background progress, evidence locations, cleanup,
+installation, parity, and release verification.
 
 ```powershell
 python scripts/run_flowguard_model_regressions.py --audit-only --json
@@ -606,36 +820,60 @@ python scripts/verify_flowguard_release.py --root . --phase published --tag v0.6
 
 | Project | Focus |
 | --- | --- |
-| FlowGuard | stateful behavior, process flow, evidence freshness, parent/child model confidence |
+| FlowGuard | stateful behavior, current software DNA, process flow, affected topology, and evidence freshness |
 | LogicGuard | claims, evidence, warrants, assumptions, rebuttals, scope, and overclaiming in written reasoning |
 | PhysicsGuard | low-fidelity residual checks and model-building blueprints for physical simulation debugging |
 | FlowPilot | long-running project orchestration and route control for AI-agent software work |
 
 ## Documentation Map
 
+### Start here
+
 | File | Purpose |
 | --- | --- |
 | [`docs/concept.md`](./docs/concept.md) | short conceptual introduction |
 | [`docs/modeling_protocol.md`](./docs/modeling_protocol.md) | core model-first protocol |
-| [`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md) | task-derived understanding depth, receipts, and implementation admission |
-| [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md) | complete 51-model candidate inventory, semantic map, and claim boundary |
-| [`docs/understanding_plumbing_reduction.md`](./docs/understanding_plumbing_reduction.md) | earlier behavior-preserving contraction evidence and field/surface dispositions |
-| [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md) | independent inventory, bidirectional bindings, exact model/code/test/topology qualification, and affected-only projection |
-| [`docs/api_surface.md`](./docs/api_surface.md) | public Python API overview |
 | [`docs/invariant_examples.md`](./docs/invariant_examples.md) | examples of useful invariants |
-| [`docs/development_process_flow.md`](./docs/development_process_flow.md) | staged development, validation freshness, archive, publish, and release gates |
-| [`docs/ui_flow_structure.md`](./docs/ui_flow_structure.md) | UI interaction and structure modeling |
+| [`docs/project_integration.md`](./docs/project_integration.md) | target-project adoption guidance |
+
+### Current DNA, understanding, and authority
+
+| File | Purpose |
+| --- | --- |
+| [`docs/flowguard_dna_directory.md`](./docs/flowguard_dna_directory.md) | native DNA directory and authority boundary |
+| [`docs/model_understanding_readiness.md`](./docs/model_understanding_readiness.md) | task-derived understanding depth, receipts, and implementation admission |
+| [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md) | whole-system semantic map and claim boundary |
+| [`docs/implementation_blueprint.md`](./docs/implementation_blueprint.md) | independent inventory, bidirectional bindings, exact model/code/test qualification, and affected-only projection |
+
+### Behavior, fields, UI, and code structure
+
+| File | Purpose |
+| --- | --- |
+| [`docs/behavior_commitment_ledger.md`](./docs/behavior_commitment_ledger.md) | external behavior promises, source coverage, and primary ownership |
+| [`docs/field_lifecycle_mesh.md`](./docs/field_lifecycle_mesh.md) | field, schema, alias, migration, replacement, and fallback lifecycle |
+| [`docs/ui_flow_structure.md`](./docs/ui_flow_structure.md) | UI content, journeys, recovery, operability, and structure modeling |
 | [`docs/code_structure_recommendation.md`](./docs/code_structure_recommendation.md) | model-derived code structure recommendations |
-| [`docs/structure_mesh.md`](./docs/structure_mesh.md) | refactor and module split governance |
+| [`docs/structure_mesh.md`](./docs/structure_mesh.md) | refactor, facade, and module-split governance |
+
+### Models, tests, and topology
+
+| File | Purpose |
+| --- | --- |
+| [`docs/model_test_alignment.md`](./docs/model_test_alignment.md) | model obligation, code contract, and test evidence alignment |
 | [`docs/test_evidence_mesh.md`](./docs/test_evidence_mesh.md) | layered validation and evidence freshness |
-| [`docs/model_test_alignment.md`](./docs/model_test_alignment.md) | model obligation and test evidence alignment |
 | [`docs/model_mesh_protocol.md`](./docs/model_mesh_protocol.md) | parent/child model mesh governance |
 | [`docs/model_topology_hazard_review.md`](./docs/model_topology_hazard_review.md) | topology-grounded future-use hazard review |
-| [`docs/canonical_relation_handoff.md`](./docs/canonical_relation_handoff.md) | exact internal canonical-relation handoffs between current owners |
-| [`docs/flowguard_closure_contract.md`](./docs/flowguard_closure_contract.md) | closure contract for complete FlowGuard use |
+| [`docs/flowguard_model_miss_review.md`](./docs/flowguard_model_miss_review.md) | bounded diagnosis after a green model misses an observed failure |
+
+### Process, evidence, and release
+
+| File | Purpose |
+| --- | --- |
+| [`docs/development_process_flow.md`](./docs/development_process_flow.md) | staged development, validation freshness, archive, publish, and release gates |
 | [`docs/risk_evidence_ledger.md`](./docs/risk_evidence_ledger.md) | risk-to-model-to-code-to-evidence confidence boundary |
-| [`docs/runtime_gateway_adoption.md`](./docs/runtime_gateway_adoption.md) | runtime gateway adoption levels and critical-state writer inventory |
-| [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md) | tiered validation, evidence layers, background progress, and skill distribution lifecycle |
+| [`docs/flowguard_closure_contract.md`](./docs/flowguard_closure_contract.md) | closure contract for complete FlowGuard use |
+| [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md) | validation tiers, evidence layers, monitoring, skill distribution, and release lifecycle |
+| [`docs/github_release_checklist.md`](./docs/github_release_checklist.md) | source-only GitHub release checklist |
 
 ## Repository Layout
 
@@ -644,14 +882,36 @@ flowguard/     Core library, review helpers, templates, mesh routes, CLI
 examples/      Small executable models and public self-reviews
 docs/          Protocols, API notes, examples, and adoption guidance
 tests/         Focused regression tests for public helpers
-assets/        README hero image and generation notes
+assets/        README hero image, icon, and generation notes
 ```
 
 ## Public Boundary
 
-This repository is a public starter and reference implementation. It includes the FlowGuard skill suite, executable check scripts/check engine code, examples, protocol docs, public templates, and AI-agent skill material, including Codex-compatible skills.
+This repository is a public starter and reference implementation. It includes
+the FlowGuard skill suite, executable check scripts and check-engine code,
+examples, protocol docs, public templates, and Codex-compatible AI-agent skill
+material.
 
-It does not include private project logs, credentials, customer data, or a claim that every real system is fully covered. FlowGuard checks the model and evidence you declare. Real software still needs tests, code review, UI review, production-facing validation, and human judgment where those are relevant.
+FlowGuard does not call an LLM API. It is not a prompt trick, an application's
+database, a production telemetry system, or a replacement for tests, code
+review, UI review, security review, or human judgment.
+
+A FlowGuard pass means that the declared model obligations passed the checks
+that actually ran against the stated current inputs. It does not mean:
+
+- every unknown component was discovered;
+- every production behavior was modeled;
+- all code is correct;
+- a structural counterexample is already a confirmed production bug;
+- a Candidate is safe to promote without implementation evidence;
+- the architecture is globally optimal;
+- future AI agents will obey the model.
+
+Missing, stale, skipped, truncated, scoped, unresolved, or blocked evidence
+remains visible and cannot be renamed as a pass.
+
+The repository does not include private project logs, credentials, customer
+data, or a claim that every real system is fully covered.
 
 ## License
 

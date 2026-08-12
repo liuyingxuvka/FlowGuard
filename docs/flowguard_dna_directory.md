@@ -1,4 +1,4 @@
-# FlowGuard DNA: directory-first model exchange
+# FlowGuard DNA: native-directory model authority
 
 FlowGuard's normal DNA is the versioned set of model directories and the
 small amount of authority metadata that lets an AI navigate them. It is not a

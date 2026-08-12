@@ -1,8 +1,8 @@
 {
   "schema_version": "skillguard.visual_privacy_review.v1",
-  "asset_path": "assets/readme-hero/hero.png",
-  "asset_sha256": "353C396F917FECFC791C66153D5A5C88C0CE791530093262530E2081A5869A42",
-  "reviewed_at": "2026-07-16T00:20:19Z",
+  "asset_path": "assets/readme-hero/hero.jpg",
+  "asset_sha256": "5BF047169AC384CE06FBD44EF1787619B9AD05A4FFB57F8958BAD272688E7C86",
+  "reviewed_at": "2026-08-12T08:06:48Z",
   "status": "passed",
   "checks": {
     "local_paths_visible": false,

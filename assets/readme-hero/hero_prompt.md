@@ -1,3 +1,26 @@
 # README Hero Prompt
 
-Create a bright wide GitHub README concept hero image for FlowGuard. Premium art-directed conceptual workflow visual, semi-realistic 3D product-object render, clean light studio background, modern technical but not dark. Use a project-specific material language that is mostly brushed aluminum, matte ceramic, enamel, and fiber-optic light paths; avoid transparent glass as the dominant material. No words, no labels, no letters, no logo, no UI text anywhere in the image. Visual meaning: streams of blue and amber event tokens enter from the left, travel along branching finite trace rails through sculpted function-flow modules, then pass through four distinct ceramic verification gates represented only by icons and geometric symbols; red broken trace shards are diverted into a side containment tray; stable green paths reach a polished implementation gateway on the right. Make the purpose obvious visually: model-first checks catch broken stateful workflow paths before production code changes. Composition: wide airy banner, large-scale explainer sculpture, clear left-to-right stages, elegant motion paths, dimensional objects instead of flat boxes, no humanoid robot, no people, no dark room, no wall of screens. Avoid generic dashboard, purely decorative technology background, repeated template layout, cluttered flat flowchart, cartoon style, anime, childish illustration, watermark, readable text, pseudo text, Chinese text, long paragraphs, gibberish text.
+Create a very wide, bright GitHub README hero for FlowGuard as a premium
+semi-realistic 3D product-object sculpture on a warm off-white studio
+background. No words, letters, logos, UI text, people, screenshots, or
+watermarks.
+
+Show one accepted software model on the left as a compact teal ceramic core
+with connected state and relationship nodes. From it, form two clearly
+separated routes: a stable blue Current route and an amber Candidate route.
+Both pass through a small number of connected model, code/UI, and test-sensor
+modules. Show red fragments or blocked branches where a path is missing, a
+relationship conflicts, or evidence is stale. Rejoin only at a polished green
+core on the right, representing a new accepted Current after the declared
+model, software, and evidence align.
+
+Use matte ceramic, brushed aluminum, enamel, subtle translucent light paths,
+and restrained blue, amber, teal, red, and green accents. Make the left-to-right
+logic obvious without a flat flowchart. Keep generous negative space and a
+clean GitHub-friendly composition. Avoid dark rooms, dashboards, humanoid
+robots, generic cyber imagery, clutter, childish illustration, pseudo-text,
+and a glass-dominant material language.
+
+The refined composition should be approximately 2.7:1, keep every object fully
+inside the frame, and make the Current/Candidate split and evidence-gated
+rejoin readable at README width.

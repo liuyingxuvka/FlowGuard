@@ -9,14 +9,23 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-README = ROOT / "README.md"
+README_EN = ROOT / "README.md"
+README_ZH = ROOT / "README.zh-CN.md"
 GUIDE = ROOT / "docs" / "validation_and_distribution.md"
 CONCEPT = ROOT / "docs" / "concept.md"
 SUITE_MAP = ROOT / ".skillguard" / "flowguard-suite" / "suite-map.json"
 
 TABLE_MARKERS = {
-    "english": ("<!-- FLOWGUARD SKILL TABLE EN START -->", "<!-- FLOWGUARD SKILL TABLE EN END -->"),
-    "chinese": ("<!-- FLOWGUARD SKILL TABLE ZH START -->", "<!-- FLOWGUARD SKILL TABLE ZH END -->"),
+    "english": (
+        README_EN,
+        "<!-- FLOWGUARD SKILL TABLE EN START -->",
+        "<!-- FLOWGUARD SKILL TABLE EN END -->",
+    ),
+    "chinese": (
+        README_ZH,
+        "<!-- FLOWGUARD SKILL TABLE ZH START -->",
+        "<!-- FLOWGUARD SKILL TABLE ZH END -->",
+    ),
 }
 
 DOCUMENTED_SCRIPTS = {
@@ -38,7 +47,7 @@ def _table_skill_ids(text: str, start: str, end: str) -> tuple[str, ...]:
 
 def _documented_commands() -> tuple[tuple[Path, str, tuple[str, ...]], ...]:
     commands = []
-    for path in (README, GUIDE):
+    for path in (README_EN, README_ZH, GUIDE):
         for line in _read(path).splitlines():
             stripped = line.strip()
             if not stripped.startswith("python scripts/"):
@@ -52,7 +61,10 @@ def _documented_commands() -> tuple[tuple[Path, str, tuple[str, ...]], ...]:
 class DocumentationCommandTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.readme = _read(README)
+        cls.readmes = {
+            "english": _read(README_EN),
+            "chinese": _read(README_ZH),
+        }
         cls.guide = _read(GUIDE)
         cls.concept = _read(CONCEPT)
         cls.suite = json.loads(_read(SUITE_MAP))
@@ -62,21 +74,25 @@ class DocumentationCommandTests(unittest.TestCase):
         self.assertEqual(15, len(canonical))
         self.assertEqual(len(canonical), len(set(canonical)))
 
-        for language, (start, end) in TABLE_MARKERS.items():
+        for language, (path, start, end) in TABLE_MARKERS.items():
             with self.subTest(language=language):
-                documented = _table_skill_ids(self.readme, start, end)
+                documented = _table_skill_ids(_read(path), start, end)
                 self.assertEqual(15, len(documented))
                 self.assertEqual(set(canonical), set(documented))
                 self.assertEqual(len(documented), len(set(documented)))
                 self.assertIn("flowguard-behavior-commitment-ledger", documented)
 
-        self.assertIn("Behavior Commitment Ledger", self.readme)
+        self.assertIn("Behavior Commitment Ledger", self.readmes["english"])
+        self.assertIn("Behavior Commitment Ledger", self.readmes["chinese"])
 
     def test_product_positioning_and_three_layers_are_bilingual(self):
         exact_positioning = "AI-agent skill suite powered by an executable check engine"
-        self.assertIn(exact_positioning, self.readme)
+        self.assertIn(exact_positioning, self.readmes["english"])
         self.assertIn(exact_positioning, self.concept)
-        self.assertIn("由可执行检查引擎驱动的 AI-agent 技能套件", self.readme)
+        self.assertIn(
+            "由可执行检查引擎驱动的 AI-agent 技能套件",
+            self.readmes["chinese"],
+        )
 
         for phrase in (
             "Prompt and contract structure",
@@ -91,9 +107,15 @@ class DocumentationCommandTests(unittest.TestCase):
     def test_readme_version_matches_package_metadata_without_hardcoding_release(self):
         metadata = tomllib.loads(_read(ROOT / "pyproject.toml"))
         package_version = metadata["project"]["version"]
-        match = re.search(r"^\| `v([^`]+)` \| `1\.0` \|", self.readme, flags=re.MULTILINE)
-        self.assertIsNotNone(match)
-        self.assertEqual(package_version, match.group(1))
+        for language, readme in self.readmes.items():
+            with self.subTest(language=language):
+                match = re.search(
+                    r"^\| `v([^`]+)` \| `1\.0` \|",
+                    readme,
+                    flags=re.MULTILINE,
+                )
+                self.assertIsNotNone(match)
+                self.assertEqual(package_version, match.group(1))
 
     def test_release_verification_commands_are_documented_bilingually(self):
         command = (
@@ -143,7 +165,9 @@ class DocumentationCommandTests(unittest.TestCase):
                         self.assertNotIn("--dry-run", tokens)
 
     def test_validation_examples_cover_tiers_outputs_progress_install_and_claim_boundaries(self):
-        combined = f"{self.readme}\n{self.guide}"
+        combined = (
+            f"{self.readmes['english']}\n{self.readmes['chinese']}\n{self.guide}"
+        )
         for phrase in (
             "--tier fast",
             "--tier focused",
