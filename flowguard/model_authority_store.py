@@ -31,6 +31,7 @@ from .model_authority import (
 from .model_intent_authority import (
     INITIAL_AUTHORITY_BOOTSTRAP_SCHEMA,
     LEGACY_CURRENT_REVISION_SCHEMA,
+    LEGACY_CURRENT_REVISION_SCHEMAS,
     _bootstrap_source_audit,
     _build_current_intent_bootstrap_receipt_from_source,
     _validate_current_effective_intent_refinement_with_sources,
@@ -967,7 +968,7 @@ def load_current_model_authority_state(
         head, snapshot = load_observed_model_system(root_path)
 
     schema = _accepted_revision_schema(root_path, head)
-    if head.generation == 1 or schema == LEGACY_CURRENT_REVISION_SCHEMA:
+    if head.generation == 1 or schema in LEGACY_CURRENT_REVISION_SCHEMAS:
         _bootstrap_source_audit(root_path, head, snapshot)
         if not allow_legacy_bootstrap_source:
             raise ModelAuthorityError(
@@ -1192,7 +1193,7 @@ def audit_model_authority(
     accepted_revision: ModelRevisionSet | None = None
     is_legacy_source = (
         head.generation == 1
-        or accepted_revision_schema == LEGACY_CURRENT_REVISION_SCHEMA
+        or accepted_revision_schema in LEGACY_CURRENT_REVISION_SCHEMAS
     )
     if not is_legacy_source:
         try:

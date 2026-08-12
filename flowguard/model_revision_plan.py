@@ -15,6 +15,7 @@ from .model_authority_store import (
 from .model_intent_authority import (
     INITIAL_AUTHORITY_BOOTSTRAP_SCHEMA,
     LEGACY_CURRENT_REVISION_SCHEMA,
+    LEGACY_CURRENT_REVISION_SCHEMAS,
     LegacyIntentAuditEntry,
     _bootstrap_source_audit,
     _current_model_owner_relations,
@@ -455,10 +456,9 @@ def _derive_intent_plan_boundary(
             head.accepted_revision_set_fingerprint
         ),
     }
-    if accepted_schema in {
-        INITIAL_AUTHORITY_BOOTSTRAP_SCHEMA,
-        LEGACY_CURRENT_REVISION_SCHEMA,
-    }:
+    if accepted_schema == INITIAL_AUTHORITY_BOOTSTRAP_SCHEMA or (
+        accepted_schema in LEGACY_CURRENT_REVISION_SCHEMAS
+    ):
         audit = _bootstrap_source_audit(root, head, base_snapshot)
         entries = tuple(audit.ancestry_intent_entries)
         return _IntentPlanBoundary(
