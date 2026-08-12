@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.68.14 - 2026-08-12
+
+- Repair the package-owned consumer-suite authority so its embedded FlowGuard
+  version matches the published package identity.
+- Add release-identity coverage for stale authority metadata while preserving
+  the existing fifteen-member clean consumer projection.
+
 ## v0.68.13 - 2026-08-12
 
 - Keep the repository directory as FlowGuard's native DNA: models, code/test

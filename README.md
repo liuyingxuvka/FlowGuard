@@ -21,7 +21,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.68.13` | `1.0` | Python standard library only | MIT |
+| `v0.68.14` | `1.0` | Python standard library only | MIT |
 
 [中文说明](./README.zh-CN.md) · [Quick Start](#quick-start) · [Concept](./docs/concept.md) · [Documentation](#documentation-map)
 
@@ -51,7 +51,7 @@ That map is the software's **FlowGuard DNA**.
 The DNA says what the maintained model contains. **Current** says which exact
 version of that DNA is accepted now.
 
-The v0.68.13 candidate self-model contains an exact inventory of 51 current
+The v0.68.14 candidate self-model contains an exact inventory of 51 current
 owners. Fourteen historical, task-local, or completed construction routes were removed from current
 authority after their still-useful protections were reattached: Model Angle
 Deliberation, Maintenance Scan Router, standalone Model Similarity
@@ -803,7 +803,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.68.13 is source-only: the immutable Git tag is the release
+FlowGuard v0.68.14 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -812,8 +812,8 @@ three separate identities:
 
 ```powershell
 python scripts/verify_flowguard_release.py --root . --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
-python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.13 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.13 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.14 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.14 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
 ```
 
 ## Relationship To The Guard Family
@@ -946,7 +946,7 @@ FlowGuard 的整套语义网格，是这份持续生长蓝图内部的关系层�
 同一批当前身份会连接成完整视图，而且任何理解声明都不能超出当前模型和证据边界。详见
 [`docs/flowguard_self_understanding_semantic_mesh.md`](./docs/flowguard_self_understanding_semantic_mesh.md)。
 
-v0.68.13 的当前候选 DNA 精确包含 51 个长期模型负责人。14 个历史、任务期或
+v0.68.14 的当前候选 DNA 精确包含 51 个长期模型负责人。14 个历史、任务期或
 已经完成施工职责的模型已经退出当前权威，但它们仍有价值的反例和保护先被移交
 给了现行负责人。每个新增或实质变化的模型还必须有一份紧凑的路径质量结果：
 普通单一路径只做轻量结构检查；只有当前证据发现重复、不可达、重复劳动、缺少
@@ -1407,15 +1407,15 @@ python -m flowguard risk-template-search "completion evidence"
 python -m flowguard --help
 ```
 
-FlowGuard v0.68.13 只发布源码：不可变 Git tag 是唯一发布权威，release
+FlowGuard v0.68.14 只发布源码：不可变 Git tag 是唯一发布权威，release
 中不得包含 wheel、source distribution 或 GitHub Release asset。
 
 源码候选、不可变 tag 和已发布 Release 是三个独立身份，应分别验证：
 
 ```powershell
 python scripts/verify_flowguard_release.py --root . --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
-python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.13 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.13 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.14 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.14 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
 ```
 
 ## Guard Family 关系

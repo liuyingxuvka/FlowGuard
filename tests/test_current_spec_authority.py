@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import tomllib
 import unittest
 
 
@@ -81,6 +82,14 @@ class CurrentSpecAuthorityTests(unittest.TestCase):
         self.assertEqual(
             "projection:consumer-distribution",
             authority["projection_id"],
+        )
+
+    def test_package_authority_version_matches_package_version(self) -> None:
+        authority = json.loads(AUTHORITY.read_text(encoding="utf-8"))
+        package = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        self.assertEqual(
+            package["project"]["version"],
+            authority["flowguard_version"],
         )
 
     def test_current_specs_have_no_superseded_count_or_release_literal(self) -> None:
