@@ -1,8 +1,14 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
+<<<<<<< HEAD
 adopted_package_version = "0.68.12"
 schema_version = "1.0"
 last_verified_at = "2026-08-11T18:29:31+00:00"
+=======
+adopted_package_version = "0.65.1"
+schema_version = "1.0"
+last_verified_at = "2026-07-28T22:31:31+00:00"
+>>>>>>> agent/harden-currentness-validation
 last_verified_by = "FlowGuard project-upgrade"
 agents_path = "AGENTS.md"
 
@@ -15,6 +21,7 @@ require_model_update_for_behavior_changes = true
 
 [model_authority]
 system_id = "flowguard"
+<<<<<<< HEAD
 observed_snapshot_path = ".flowguard/model-mesh/snapshots/3878369ea634e490d2a1813602ea52c515f600ea855661fa1325f6f03fbb4537.json"
 observed_snapshot_fingerprint = "sha256:3878369ea634e490d2a1813602ea52c515f600ea855661fa1325f6f03fbb4537"
 subject_revision = "source-inventory:d14e84e7a3493bed803506e295dc63e00dd001aac7b7b6fca34af287d0511d6e"
@@ -24,3 +31,14 @@ accepted_revision_set_fingerprint = "sha256:bf6ec76c3367825d19f74d5fcb4609f06cdf
 previous_snapshot_fingerprint = "sha256:c1d7b6dcf8fbe0fd1a2287960d994837b04898dd90fcb150026b6274afc3dd68"
 activation_receipt_fingerprint = "sha256:d45bf589b5681bf1ae9a2a2c2e43e8c1dd69deeb1d7b5674d05ee99af00abd38"
 head_fingerprint = "sha256:f7c98745c021e4043339271c2ecbe6b87317eda610401f5eec4af891cb072859"
+=======
+observed_snapshot_path = ".flowguard/model-mesh/snapshots/33e0a2383a1ca74d1e0f3fd615183a178abdfb697f0cb0257e88de4f9e35c331.json"
+observed_snapshot_fingerprint = "sha256:33e0a2383a1ca74d1e0f3fd615183a178abdfb697f0cb0257e88de4f9e35c331"
+subject_revision = "source-inventory:32828576b0e8c89c2b0cc3417e300406b53552adea34803d9d932b7bc7f490a9"
+coverage_status = "complete_within_declared_boundary"
+generation = 11
+accepted_revision_set_fingerprint = "sha256:3a8dec7d97822919042089a76d50c207cc1476bb1b18b1bba090811e9b6b89a9"
+previous_snapshot_fingerprint = "sha256:211634f6cae08d0e6bb428aa1462f4fe8693e7674a1cacb77034b4412da85006"
+activation_receipt_fingerprint = "sha256:a495471e528dc7b572c3c00e452970e766ded32de23a3bef831a072924c435c7"
+head_fingerprint = "sha256:514a042730aa36821e5593c57d076407471c8a9281e87010056c03b22aff5d6e"
+>>>>>>> agent/harden-currentness-validation

@@ -229,6 +229,7 @@ explicit behavior-source-surface identities and an admitted typed mapping.
   identity and typed commitment target
 - **THEN** coverage inventory MAY include that exact source without treating
   provider status as behavior or validation evidence
+<<<<<<< HEAD
 
 ### Requirement: WorkContext projects typed intent contributions
 WorkContext SHALL project admitted requirement, design, plan, history, Spark/OpenSpark, changelog, and direct user-decision material into content-addressed intent contributions. Each contribution SHALL preserve its logical model or explicit unresolved owner, source kind and fingerprint, subject role, effective revision, decision state, supersession references, target obligation references, and rationale.
@@ -281,3 +282,5 @@ WorkContext SHALL accept declared planning and workflow material for software an
 - **WHEN** a workflow WorkContext maps exact intended transitions to the target authority
 - **THEN** the canonical intent inventory MAY preserve those mappings
 - **AND** native model, behavior, test, and validation owners SHALL still decide current authority and completion
+=======
+>>>>>>> agent/harden-currentness-validation

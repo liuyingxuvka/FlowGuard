@@ -30,11 +30,15 @@ from flowguard.validation_ownership import (
     build_validation_parent_current,
     filter_resolved_input_manifest,
     manifest_fingerprint,
+<<<<<<< HEAD
     observe_validation_owners,
     plan_validation_owners,
     resolve_input_manifest,
     save_child_bound_owner_receipt,
     save_child_bound_owner_receipt_from_observation,
+=======
+    resolve_input_manifest,
+>>>>>>> agent/harden-currentness-validation
     topological_owner_contracts,
     validation_input_manifest,
 )
@@ -412,6 +416,7 @@ class ValidationExecutionOwnershipTests(unittest.TestCase):
             direct = root / "flowguard" / "direct.py"
             nested = root / "flowguard" / "nested" / "deep.py"
             ignored = root / ".flowguard" / "evidence" / "run" / "noise.py"
+<<<<<<< HEAD
             lookalike = root / ".agents" / "skills" / "flowguard" / "noise.py"
             direct.parent.mkdir(parents=True)
             nested.parent.mkdir(parents=True)
@@ -421,6 +426,14 @@ class ValidationExecutionOwnershipTests(unittest.TestCase):
             nested.write_text("DEEP = True\n", encoding="utf-8")
             ignored.write_text("NOISE = True\n", encoding="utf-8")
             lookalike.write_text("LOOKALIKE = True\n", encoding="utf-8")
+=======
+            direct.parent.mkdir(parents=True)
+            nested.parent.mkdir(parents=True)
+            ignored.parent.mkdir(parents=True)
+            direct.write_text("DIRECT = True\n", encoding="utf-8")
+            nested.write_text("DEEP = True\n", encoding="utf-8")
+            ignored.write_text("NOISE = True\n", encoding="utf-8")
+>>>>>>> agent/harden-currentness-validation
             (root / ".gitignore").write_text(
                 ".flowguard/evidence/\n",
                 encoding="utf-8",
@@ -438,6 +451,7 @@ class ValidationExecutionOwnershipTests(unittest.TestCase):
                 ".flowguard/evidence/run/noise.py",
                 paths,
             )
+<<<<<<< HEAD
             self.assertNotIn(".agents/skills/flowguard/noise.py", paths)
 
     def test_child_bound_owner_receipt_consumes_real_verified_child(self) -> None:
@@ -697,6 +711,8 @@ class ValidationExecutionOwnershipTests(unittest.TestCase):
             all_contracts=(aggregate_contract,),
         )
         return aggregate_contract, aggregate_current
+=======
+>>>>>>> agent/harden-currentness-validation
 
     @staticmethod
     def _repository(root: Path) -> Path:

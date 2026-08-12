@@ -117,6 +117,7 @@ repository mutation.
   artifacts, current inputs, and no repository mutation
 - **THEN** the receipt SHALL bind the model id, proof contract, source
   fingerprint, result projections, and claim boundary for the current release
+<<<<<<< HEAD
 
 ### Requirement: Invocation-local validation observations are strict non-authoritative reuse
 FlowGuard SHALL permit one frozen validation observation to be shared only inside the bounded operation that created it. The observation SHALL preserve the canonical repository-input manifest, receipt inventory, owner contexts, terminal states, obligations, dependencies, toolchain, environment, and independently verified child identities without weakening, relabeling, or omitting any evidence gate.
@@ -149,3 +150,5 @@ Every bounded operation that uses a frozen validation observation SHALL expose t
 - **THEN** their owner receipts SHALL consume the one final fresh owner-context projection
 - **AND** per-leaf source-current rebuild and per-leaf receipt-store scan counts SHALL be zero
 - **AND** exactly one post-publication receipt reconciliation SHALL be required before a parent claim becomes current
+=======
+>>>>>>> agent/harden-currentness-validation

@@ -326,6 +326,7 @@ MUST NOT expand to every observed model.
   caller explicitly requests an authority inventory audit
 - **THEN** preflight MAY inspect the complete declared inventory and SHALL label
   that breadth in its evidence
+<<<<<<< HEAD
 
 ### Requirement: Commitment owner identity reconciles against current model instances
 Existing Model Preflight SHALL reconcile a commitment owner against the observed snapshot by exact normalized logical model id, exact normalized repository-relative model path, or exact current model-instance fingerprint. Path suffix matching MAY resolve an absolute and repository-relative form of the same path, but it MUST NOT make two distinct basename or partial-token matches equivalent.
@@ -426,3 +427,5 @@ Full Existing Model Preflight SHALL consume canonical relation handoffs only aft
 - **WHEN** no current canonical relation covers a proposed reuse or reduction decision
 - **THEN** preflight reports the exact unresolved ownership or relation gap
 - **AND** it MUST NOT infer a maintenance group or run a free-form similarity search
+=======
+>>>>>>> agent/harden-currentness-validation

@@ -70,6 +70,7 @@ class EvidenceObjectTests(unittest.TestCase):
             self.assertEqual(1, len(objects))
             self.assertEqual(b"", gzip.decompress(objects[0].read_bytes()))
 
+<<<<<<< HEAD
     @unittest.skipUnless(os.name == "nt", "Windows long-path behavior")
     def test_object_store_supports_windows_paths_beyond_legacy_limit(self) -> None:
         temporary = Path(tempfile.mkdtemp())
@@ -83,6 +84,8 @@ class EvidenceObjectTests(unittest.TestCase):
         finally:
             shutil.rmtree("\\\\?\\" + str(temporary.resolve()), ignore_errors=True)
 
+=======
+>>>>>>> agent/harden-currentness-validation
     def test_run_directory_must_be_empty_before_execution(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             run = Path(temporary) / "run"

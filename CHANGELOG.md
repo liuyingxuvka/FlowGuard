@@ -1,5 +1,6 @@
 # Changelog
 
+<<<<<<< HEAD
 ## v0.68.13 - 2026-08-12
 
 - Keep the repository directory as FlowGuard's native DNA: models, code/test
@@ -498,6 +499,8 @@
 - Kept the release source-only: the immutable annotated tag is the release
   authority and the GitHub Release has zero uploaded assets.
 
+=======
+>>>>>>> agent/harden-currentness-validation
 ## v0.65.1 - 2026-07-28
 
 - Restored strict-validation parity between the CI-pinned OpenSpec `1.3.1`

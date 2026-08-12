@@ -174,7 +174,11 @@ not edit, install, synchronize, or stage again before commit and tag.
 
 ## Source-only Release
 
+<<<<<<< HEAD
 FlowGuard v0.68.8 uses the immutable source tag as its sole release authority.
+=======
+FlowGuard v0.65.1 uses the immutable source tag as its sole release authority.
+>>>>>>> agent/harden-currentness-validation
 Do not build or upload a wheel or source distribution. The GitHub Release must
 be published with zero assets.
 
