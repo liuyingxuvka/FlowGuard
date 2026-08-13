@@ -1502,34 +1502,6 @@ def bootstrap_model_authority(
         raise ModelAuthorityError("bootstrap snapshot must be active")
     root_path = Path(root).resolve()
     manifest_path = root_path / ".flowguard" / "project.toml"
-    write_content_addressed_snapshot(root_path, snapshot)
-    bootstrap_payload = {
-        "schema": "flowguard.model_authority_bootstrap.v1",
-        "system_id": snapshot.system_id,
-        "snapshot_fingerprint": snapshot.fingerprint,
-        "subject_revision": snapshot.subject_revision,
-        "evidence_fingerprint": bootstrap_evidence_fingerprint,
-        "claim_boundary": (
-            "Bootstrap establishes the first observed authority pointer only; "
-            "coverage gaps remain explicit and require later revision evidence."
-        ),
-    }
-    bootstrap_fingerprint = canonical_fingerprint(bootstrap_payload)
-    _write_immutable_json(
-        root_path,
-        "bootstraps",
-        bootstrap_fingerprint,
-        {**bootstrap_payload, "fingerprint": bootstrap_fingerprint},
-    )
-    head = ModelAuthorityHead(
-        system_id=snapshot.system_id,
-        snapshot_fingerprint=snapshot.fingerprint,
-        subject_revision=snapshot.subject_revision,
-        generation=1,
-        accepted_revision_set_fingerprint=bootstrap_fingerprint,
-        previous_snapshot_fingerprint="",
-        activation_receipt_fingerprint=bootstrap_fingerprint,
-    )
     with project_manifest_lock(manifest_path):
         current_text = read_manifest_text(manifest_path)
         try:
@@ -1540,6 +1512,37 @@ def bootstrap_model_authority(
             raise ModelAuthorityError(
                 "project already has model authority; use a revision set"
             )
+        # Do not create snapshots or bootstrap artifacts until the manifest
+        # precondition has passed.  A rejected greenfield bootstrap must leave
+        # no orphaned immutable objects behind.
+        write_content_addressed_snapshot(root_path, snapshot)
+        bootstrap_payload = {
+            "schema": "flowguard.model_authority_bootstrap.v1",
+            "system_id": snapshot.system_id,
+            "snapshot_fingerprint": snapshot.fingerprint,
+            "subject_revision": snapshot.subject_revision,
+            "evidence_fingerprint": bootstrap_evidence_fingerprint,
+            "claim_boundary": (
+                "Bootstrap establishes the first observed authority pointer only; "
+                "coverage gaps remain explicit and require later revision evidence."
+            ),
+        }
+        bootstrap_fingerprint = canonical_fingerprint(bootstrap_payload)
+        _write_immutable_json(
+            root_path,
+            "bootstraps",
+            bootstrap_fingerprint,
+            {**bootstrap_payload, "fingerprint": bootstrap_fingerprint},
+        )
+        head = ModelAuthorityHead(
+            system_id=snapshot.system_id,
+            snapshot_fingerprint=snapshot.fingerprint,
+            subject_revision=snapshot.subject_revision,
+            generation=1,
+            accepted_revision_set_fingerprint=bootstrap_fingerprint,
+            previous_snapshot_fingerprint="",
+            activation_receipt_fingerprint=bootstrap_fingerprint,
+        )
         section_text = render_model_authority_section(
             head,
             snapshot_path=_snapshot_path(root_path, snapshot),
@@ -1551,6 +1554,189 @@ def bootstrap_model_authority(
             expected_fingerprint=manifest_text_fingerprint(current_text),
         )
     return head
+
+
+def _raw_authority_section(text: str) -> str:
+    match = _SECTION_RE.search(text)
+    if match is None:
+        raise ModelAuthorityError("project manifest has no model authority section")
+    return match.group(0)
+
+
+def _copy_rebuild_artifact(
+    staging_root: Path,
+    target_root: Path,
+    category: str,
+    fingerprint: str,
+) -> Path:
+    source = _artifact_path(staging_root, category, fingerprint)
+    target = _artifact_path(target_root, category, fingerprint)
+    if not source.is_file():
+        raise ModelAuthorityError(
+            f"rebuild package is missing current {category} artifact: {fingerprint}"
+        )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    source_bytes = source.read_bytes()
+    if target.exists():
+        if target.read_bytes() != source_bytes:
+            raise ModelAuthorityError(
+                f"immutable {category} target contains different bytes: {fingerprint}"
+            )
+    else:
+        temporary = target.with_suffix(".json.tmp")
+        temporary.write_bytes(source_bytes)
+        temporary.replace(target)
+    return target
+
+
+def rebuild_model_authority(
+    root: str | Path,
+    *,
+    staging_root: str | Path,
+    expected_old_section_fingerprint: str,
+    target_system_id: str = "",
+    target_generation: int = 2,
+) -> dict[str, Any]:
+    """Replace an existing authority with a verified current-only package.
+
+    The target's old authority is treated as opaque raw section bytes for CAS
+    only.  All semantic reads happen in the isolated staging root, which must
+    already contain a current generation-one -> accepted current-v5 lineage.
+    """
+
+    root_path = Path(root).resolve()
+    staging_path = Path(staging_root).resolve()
+    if root_path == staging_path:
+        raise ModelAuthorityError("rebuild staging root must be isolated from target root")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", str(expected_old_section_fingerprint)):
+        raise ModelAuthorityError("expected old authority section fingerprint must be sha256")
+    if target_generation < 2:
+        raise ModelAuthorityError("current-only rebuild generation must be at least two")
+    target_manifest = root_path / ".flowguard" / "project.toml"
+    staging_manifest = staging_path / ".flowguard" / "project.toml"
+    stage_head, stage_snapshot = load_observed_model_system(staging_path)
+    if stage_head.generation != target_generation:
+        raise ModelAuthorityError(
+            f"staging current generation must be {target_generation}, got {stage_head.generation}"
+        )
+    if target_system_id and stage_head.system_id != target_system_id:
+        raise ModelAuthorityError("staging system_id does not match requested target system_id")
+    if stage_head.generation < 2:
+        raise ModelAuthorityError("staging root is not a current v5 rebuild package")
+    stage_state = load_current_model_authority_state(staging_path)
+    if stage_state.accepted_revision is None:
+        raise ModelAuthorityError("staging root does not contain an accepted current revision")
+    if stage_state.accepted_revision.schema != "flowguard.model_revision_set.v5":
+        raise ModelAuthorityError("staging rebuild package must use current revision schema v5")
+    if stage_snapshot.subject_lane != SUBJECT_OBSERVED_IMPLEMENTATION:
+        raise ModelAuthorityError("staging rebuild package must be observed implementation")
+    if stage_snapshot.lifecycle != LIFECYCLE_ACTIVE:
+        raise ModelAuthorityError("staging rebuild package must be active")
+
+    from .model_system_inventory import build_manifest_model_system_snapshot
+
+    live_target = build_manifest_model_system_snapshot(
+        root_path,
+        snapshot_id=stage_snapshot.snapshot_id,
+        system_id=stage_snapshot.system_id,
+        subject_lane=stage_snapshot.subject_lane,
+        lifecycle=stage_snapshot.lifecycle,
+    )
+    if live_target.identity_payload() != stage_snapshot.identity_payload():
+        raise ModelAuthorityError(
+            "target current source does not exactly match the staging rebuild package"
+        )
+
+    predecessor = stage_state.predecessor_head
+    if predecessor is None:
+        raise ModelAuthorityError("staging rebuild package has no exact predecessor")
+    activation = stage_state.activation_receipt
+    if activation is None:
+        raise ModelAuthorityError("staging rebuild package has no activation receipt")
+    reachable = {
+        ("snapshots", stage_head.snapshot_fingerprint),
+        ("snapshots", predecessor.snapshot_fingerprint),
+        ("revisions", stage_head.accepted_revision_set_fingerprint),
+        ("activations", stage_head.activation_receipt_fingerprint),
+        ("bootstraps", predecessor.accepted_revision_set_fingerprint),
+    }
+    section_text = render_model_authority_section(
+        stage_head,
+        snapshot_path=_snapshot_path(root_path, stage_snapshot),
+        coverage_status=stage_snapshot.coverage_status,
+    )
+    transaction_id = canonical_fingerprint(
+        {
+            "old_section": expected_old_section_fingerprint,
+            "new_head": stage_head.fingerprint,
+            "staging_snapshot": stage_snapshot.fingerprint,
+        }
+    )
+    manifest_path = target_manifest
+    with project_manifest_lock(manifest_path):
+        old_text = read_manifest_text(manifest_path)
+        old_section = _raw_authority_section(old_text)
+        if manifest_text_fingerprint(old_section) != expected_old_section_fingerprint:
+            raise ModelAuthorityError("target authority section changed before rebuild")
+
+        for category, fingerprint in sorted(reachable):
+            _copy_rebuild_artifact(staging_path, root_path, category, fingerprint)
+
+        new_text = replace_model_authority_section(old_text, section_text)
+        replace_project_manifest_locked(
+            manifest_path,
+            new_text,
+            expected_fingerprint=manifest_text_fingerprint(old_text),
+        )
+        try:
+            post_head, post_snapshot = load_observed_model_system(root_path)
+            if post_head != stage_head or post_snapshot.identity_payload() != stage_snapshot.identity_payload():
+                raise ModelAuthorityError("post-rebuild authority pointer does not match staging head")
+            post_state = load_current_model_authority_state(root_path)
+            if post_state.accepted_revision is None:
+                raise ModelAuthorityError("post-rebuild authority is not current")
+        except Exception:
+            current_text = read_manifest_text(manifest_path)
+            if current_text != new_text:
+                raise ModelAuthorityError(
+                    "rebuild recovery required: peer changed manifest after pointer replacement"
+                )
+            replace_project_manifest_locked(
+                manifest_path,
+                old_text,
+                expected_fingerprint=manifest_text_fingerprint(current_text),
+            )
+            raise
+
+        mesh_root = root_path / ".flowguard" / "model-mesh"
+        residual: list[str] = []
+        if mesh_root.exists():
+            for path in mesh_root.rglob("*.json"):
+                category = path.parent.name
+                fingerprint = f"sha256:{path.stem}"
+                if (category, fingerprint) not in reachable:
+                    path.unlink()
+                else:
+                    residual.append(str(path))
+        remaining = [
+            str(path)
+            for path in mesh_root.rglob("*.json")
+            if (path.parent.name, f"sha256:{path.stem}") not in reachable
+        ] if mesh_root.exists() else []
+        if remaining:
+            raise ModelAuthorityError(
+                "cleanup_incomplete: unreachable model-mesh artifacts remain"
+            )
+
+    return {
+        "status": "pass",
+        "transaction_id": transaction_id,
+        "system_id": stage_head.system_id,
+        "generation": stage_head.generation,
+        "revision_schema": stage_state.accepted_revision.schema,
+        "snapshot_fingerprint": stage_head.snapshot_fingerprint,
+        "retired_objects_removed": True,
+    }
 
 
 def _validate_revision_intent_activation(
@@ -1969,6 +2155,7 @@ __all__ = [
     "activate_model_revision_set",
     "audit_model_authority",
     "bootstrap_model_authority",
+    "rebuild_model_authority",
     "load_current_accepted_revision_set",
     "load_current_model_authority_state",
     "load_observed_model_system",

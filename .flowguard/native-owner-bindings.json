@@ -1,0 +1,95 @@
+{
+  "schema": "flowguard.native_owner_model_bindings.v1",
+  "system_id": "flowguard",
+  "candidate_model_ids": [
+    "authoritative_model_system",
+    "compositional_verification_kernel",
+    "bounded_system_composition_benchmark",
+    "model_maturation_loop",
+    "task_coverage_demand",
+    "adversarial_scenario_synthesis",
+    "ai_entry_surface_reduction",
+    "ai_route_handoffs",
+    "architecture_reduction",
+    "behavior_commitment_ledger",
+    "code_boundary_conformance",
+    "codex_skill_satellites",
+    "contract_source_audit",
+    "default_replacement_field_lifecycle",
+    "development_process_flow",
+    "development_process_strategy",
+    "existing_model_preflight",
+    "field_prompt_reduction",
+    "flowguard_closure_contract",
+    "guard_closure_contract",
+    "guidance_compression",
+    "harden_ui_content_visibility_validation",
+    "harden_ui_real_surface_validation",
+    "hierarchical_model_mesh",
+    "implementation_blueprint",
+    "maintenance_obligation_memory",
+    "mesh_target_split_derivation",
+    "minimum_valuable_model_entry",
+    "model_impact_freshness_gate",
+    "model_mesh_closure_model",
+    "model_miss_review",
+    "model_test_code_alignment",
+    "model_topology_hazard_review",
+    "model_visibility",
+    "plan_detailing_compiler",
+    "primary_path_authority",
+    "project_adoption_version_gate",
+    "runtime_gateway_adoption",
+    "runtime_path_evidence",
+    "self_maintenance_mesh",
+    "skill_kernel_modularization",
+    "state_closure_gate",
+    "structure_refactor_mesh",
+    "template_public_release",
+    "test_evidence_mesh",
+    "ui_flow_structure_skill",
+    "ui_human_operability_gate",
+    "user_facing_model_diagrams",
+    "validation_evidence_gates",
+    "work_context",
+    "task_local_prediction_replay"
+  ],
+  "bindings": [
+    {
+      "owner_route": "affected_authority_inventory",
+      "model_ids": ["authoritative_model_system"],
+      "protected_failure_ids": ["model-authority:partial-or-stale-activation"]
+    },
+    {
+      "owner_route": "authoritative_model_system",
+      "model_ids": ["authoritative_model_system"],
+      "protected_failure_ids": ["model-authority:partial-or-stale-activation"]
+    },
+    {
+      "owner_route": "behavior_commitment_ledger",
+      "model_ids": ["behavior_commitment_ledger"],
+      "protected_failure_ids": ["behavior_commitment_ledger:invalid-or-incomplete-outcome"]
+    },
+    {
+      "owner_route": "field_lifecycle_mesh",
+      "model_ids": ["default_replacement_field_lifecycle"],
+      "protected_failure_ids": ["old_field_disposition_gap"]
+    },
+    {
+      "owner_route": "model_mesh_maintenance",
+      "model_ids": ["hierarchical_model_mesh"],
+      "protected_failure_ids": ["hierarchical_model_mesh:invalid-or-incomplete-outcome"]
+    },
+    {
+      "owner_route": "model_test_alignment",
+      "model_ids": ["model_test_code_alignment"],
+      "protected_failure_ids": ["model_test_code_alignment:invalid-or-incomplete-outcome"]
+    },
+    {
+      "owner_route": "test_mesh_maintenance",
+      "model_ids": ["test_evidence_mesh"],
+      "protected_failure_ids": ["test_evidence_mesh:invalid-or-incomplete-outcome"]
+    }
+  ],
+  "claim_boundary": "This declaration belongs to the FlowGuard project. It names current semantic owner bindings only; FlowGuard validates it and never projects it to another project."
+}

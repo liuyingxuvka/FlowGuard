@@ -64,8 +64,8 @@
       },
       "input_component_ids": [
         "component:documentation_model:29192a275f485e40",
-        "component:documentation_model:5787825df26c16eb",
         "component:documentation_model:7101a09078455d54",
+        "component:documentation_model:c68962ce89d1741d",
         "component:runtime_source:3f7e0460eb365f65",
         "component:runtime_source:5fe332a8b48e23e0",
         "component:runtime_source:add19eec855882b7",
@@ -261,13 +261,14 @@
         "classification_rule_ids": [
           "skillguard.content_role_classifier.current:documentation_model"
         ],
-        "component_hash": "sha256:e77e866790d318218318312a530067a952646530c6a20c5142306381f82f36b7",
-        "component_id": "component:documentation_model:5787825df26c16eb",
+        "component_hash": "sha256:d95ab5eba7fb1f28dbc374e6e3ea60a6241719884cb04812c85d8782321a1ff9",
+        "component_id": "component:documentation_model:c68962ce89d1741d",
         "consumer_ids": [
           "owner:check:flowguard-ui-flow-structure:native-authority"
         ],
         "install_disposition": "source_only",
         "member_paths": [
+          ".flowguard/ui_flow_structure_skill/result.json",
           ".flowguard/ui_flow_structure_skill/run_checks.py"
         ],
         "role": "documentation_model"
@@ -433,6 +434,13 @@
       },
       {
         "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
+        "content_hash": "sha256:2d446feec2fbc7917bea5cdb0e4379df4492bd26e7995ce9329609001bd3b4bf",
+        "install_disposition": "source_only",
+        "path": ".flowguard/ui_flow_structure_skill/result.json",
+        "role": "documentation_model"
+      },
+      {
+        "classification_rule_id": "skillguard.content_role_classifier.current:documentation_model",
         "content_hash": "sha256:c23526ec84ae28a82a6b9a8951124a9716b5ad984369b39e095764347433dab0",
         "install_disposition": "source_only",
         "path": ".flowguard/ui_flow_structure_skill/run_checks.py",
@@ -495,8 +503,8 @@
         "execution_owner_id": "owner:check:flowguard-ui-flow-structure:native-authority",
         "input_component_ids": [
           "component:documentation_model:29192a275f485e40",
-          "component:documentation_model:5787825df26c16eb",
           "component:documentation_model:7101a09078455d54",
+          "component:documentation_model:c68962ce89d1741d",
           "component:runtime_source:3f7e0460eb365f65",
           "component:runtime_source:5fe332a8b48e23e0",
           "component:runtime_source:add19eec855882b7",

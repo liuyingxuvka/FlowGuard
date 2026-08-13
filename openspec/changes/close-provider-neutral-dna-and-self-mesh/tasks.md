@@ -34,7 +34,14 @@
 
 ## 5. Validation and downstream handoff
 
-- [ ] 5.1 Run focused FlowGuard tests, project-audit, and the relevant OpenSpec verification.
-- [ ] 5.2 Update the FlowGuard adoption log with model files, commands, evidence identities, and skipped work.
+- [x] 5.0 Remove all product-specific owner mappings from the public runtime;
+  require each target project to provide and fingerprint its own current native
+  owner declaration, with no self-map or run-all fallback.
+- [x] 5.0a Add the atomic current-only authority rebuild command. It must use
+  the old authority section only as opaque CAS bytes, validate a clean staging
+  generation-one to accepted-v5 package, replace the pointer last, audit the
+  new head, and remove only unreachable old model-mesh objects.
+- [x] 5.1 Run focused FlowGuard tests, project-audit, and the relevant OpenSpec verification.
+- [x] 5.2 Update the FlowGuard adoption log with model files, commands, evidence identities, and skipped work.
 - [ ] 5.3 Install the source projection only after author-side SkillGuard checks are current and passing.
 - [ ] 5.4 Hand the provider-neutral contract to ResearchGuard, PhysicsGuard, and WorldGuard without embedding their domain logic in FlowGuard.

@@ -13,6 +13,11 @@ The current FlowGuard target-system blueprint already contains software and non-
 - Keep the ordinary path single and lightweight; native model files, bindings,
   checks, and evidence are the product path. No second target authority or
   generated target is part of the product path.
+- Keep native owner bindings target-owned. A current declaration under the
+  target's `.flowguard/` directory supplies the exact model denominator,
+  owner-route rows, and protected failure ids; the public engine validates
+  these values and has no product-name, fixed-id-set, self-default, or
+  run-all fallback.
 
 **Non-Goals:**
 
@@ -37,6 +42,12 @@ The current FlowGuard target-system blueprint already contains software and non-
    reports whether its implementation-complete contract is closed and where the
    first gap remains. No second model authority or generated target is needed
    for that claim.
+
+6. **Use a separate current owner declaration.** Do not silently add a new
+   required field to the existing model-regression manifest wire shape. The
+   declaration is a current governed input with its own schema and fingerprint;
+   changing it invalidates the parent and owner evidence. Missing, foreign,
+   duplicate, or semantically unsupported rows block before evidence output.
 
 ## Risks / Trade-offs
 

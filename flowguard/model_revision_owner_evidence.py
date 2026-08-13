@@ -56,6 +56,8 @@ from .validation_ownership import (
 MODEL_REVISION_OWNER_EVIDENCE_REPORT_SCHEMA = (
     "flowguard.model_revision_owner_evidence_report.v1"
 )
+NATIVE_OWNER_BINDINGS_SCHEMA = "flowguard.native_owner_model_bindings.v1"
+NATIVE_OWNER_BINDINGS_RELATIVE_PATH = ".flowguard/native-owner-bindings.json"
 
 
 @dataclass(frozen=True)
@@ -64,21 +66,33 @@ class NativeOwnerModelBinding:
 
     owner_route: str
     model_ids: tuple[str, ...]
+    protected_failure_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         owner_route = str(self.owner_route).strip()
         model_ids = tuple(
             sorted({str(item).strip() for item in self.model_ids if str(item).strip()})
         )
+        protected_failure_ids = tuple(
+            sorted(
+                {
+                    str(item).strip()
+                    for item in self.protected_failure_ids
+                    if str(item).strip()
+                }
+            )
+        )
         if not owner_route or not model_ids:
             raise ValueError("native owner route and model ids are required")
         object.__setattr__(self, "owner_route", owner_route)
         object.__setattr__(self, "model_ids", model_ids)
+        object.__setattr__(self, "protected_failure_ids", protected_failure_ids)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "owner_route": self.owner_route,
             "model_ids": list(self.model_ids),
+            "protected_failure_ids": list(self.protected_failure_ids),
         }
 
 
@@ -169,45 +183,126 @@ class NativeOwnerModelEvidencePlan:
         }
 
 
-# These are the current semantic owner models already present in the checked-in
-# model-regression manifest.  The mapping is explicit so a missing, foreign, or
-# duplicated lane blocks instead of selecting a similarly named fallback model.
-NATIVE_OWNER_MODEL_BINDINGS = (
-    NativeOwnerModelBinding(
-        owner_route="affected_authority_inventory",
-        model_ids=("authoritative_model_system",),
-    ),
-    NativeOwnerModelBinding(
-        owner_route="authoritative_model_system",
-        model_ids=("authoritative_model_system",),
-    ),
-    NativeOwnerModelBinding(
-        owner_route="behavior_commitment_ledger",
-        model_ids=("behavior_commitment_ledger",),
-    ),
-    NativeOwnerModelBinding(
-        owner_route="field_lifecycle_mesh",
-        model_ids=("default_replacement_field_lifecycle",),
-    ),
-    NativeOwnerModelBinding(
-        owner_route="model_mesh_maintenance",
-        # The generic FlowGuard owner inventory keeps this route bound to its
-        # own semantic mesh model. A target repository may declare an explicit
-        # current profile below when its manifest contracts the route.
-        model_ids=("hierarchical_model_mesh",),
-    ),
-    NativeOwnerModelBinding(
-        owner_route="model_test_alignment",
-        # Keep Model-Test Alignment as a separate owner lane in the generic
-        # inventory; target profiles may bind the same lane to their exact
-        # current model identity without merging the receipts.
-        model_ids=("model_test_code_alignment",),
-    ),
-    NativeOwnerModelBinding(
-        owner_route="test_mesh_maintenance",
-        model_ids=("test_evidence_mesh",),
-    ),
-)
+def _load_native_owner_model_bindings(
+    root: Path,
+    snapshot: ModelSystemSnapshot,
+) -> dict[str, NativeOwnerModelBinding]:
+    """Load and validate the target project's current owner declaration.
+
+    The public FlowGuard runtime deliberately has no product-owned model map.
+    A target project declares its current model denominator and semantic owner
+    bindings; FlowGuard only checks exactness and evidence identity.
+    """
+
+    path = root / NATIVE_OWNER_BINDINGS_RELATIVE_PATH
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ModelAuthorityError(
+            f"current native owner declaration is required: {NATIVE_OWNER_BINDINGS_RELATIVE_PATH}"
+        ) from exc
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ModelAuthorityError(
+            f"current native owner declaration is unreadable: {path}"
+        ) from exc
+    if not isinstance(payload, Mapping):
+        raise ModelAuthorityError("native owner declaration must be a JSON object")
+    required = {
+        "schema",
+        "system_id",
+        "candidate_model_ids",
+        "bindings",
+        "claim_boundary",
+    }
+    if set(payload) != required:
+        raise ModelAuthorityError(
+            "native owner declaration fields are not exact: "
+            f"missing={sorted(required - set(payload))}; "
+            f"unknown={sorted(set(payload) - required)}"
+        )
+    if payload["schema"] != NATIVE_OWNER_BINDINGS_SCHEMA:
+        raise ModelAuthorityError(
+            f"native owner declaration schema must be {NATIVE_OWNER_BINDINGS_SCHEMA}"
+        )
+    if str(payload["system_id"]) != snapshot.system_id:
+        raise ModelAuthorityError(
+            "native owner declaration system_id does not match the current snapshot"
+        )
+    declared_model_ids = tuple(
+        sorted(
+            {
+                str(item).strip()
+                for item in payload["candidate_model_ids"]
+                if str(item).strip()
+            }
+        )
+    )
+    actual_model_ids = tuple(
+        sorted(item.logical_model_id for item in snapshot.model_instances)
+    )
+    if declared_model_ids != actual_model_ids:
+        raise ModelAuthorityError(
+            "native owner declaration model denominator is not exact: "
+            f"missing={sorted(set(actual_model_ids) - set(declared_model_ids))}; "
+            f"extra={sorted(set(declared_model_ids) - set(actual_model_ids))}"
+        )
+    rows: dict[str, NativeOwnerModelBinding] = {}
+    from .model_regressions import ModelRegressionManifest
+
+    manifest = ModelRegressionManifest.load(root)
+    manifest_entries = {entry.model_id: entry for entry in manifest.entries}
+    raw_bindings = payload["bindings"]
+    if not isinstance(raw_bindings, list):
+        raise ModelAuthorityError("native owner declaration bindings must be an array")
+    for raw in raw_bindings:
+        if not isinstance(raw, Mapping):
+            raise ModelAuthorityError("native owner declaration binding must be an object")
+        allowed = {"owner_route", "model_ids", "protected_failure_ids"}
+        if set(raw) != allowed:
+            raise ModelAuthorityError("native owner declaration binding fields are not exact")
+        binding = NativeOwnerModelBinding(
+            owner_route=str(raw["owner_route"]),
+            model_ids=tuple(str(item) for item in raw["model_ids"]),
+            protected_failure_ids=tuple(
+                str(item) for item in raw["protected_failure_ids"]
+            ),
+        )
+        if binding.owner_route in rows:
+            raise ModelAuthorityError(
+                f"native owner declaration duplicates route: {binding.owner_route}"
+            )
+        missing_models = sorted(set(binding.model_ids) - set(actual_model_ids))
+        if missing_models:
+            raise ModelAuthorityError(
+                f"native owner declaration names foreign models for {binding.owner_route}: {missing_models}"
+            )
+        if not binding.protected_failure_ids:
+            raise ModelAuthorityError(
+                f"native owner declaration requires protected failures for {binding.owner_route}"
+            )
+        for model_id in binding.model_ids:
+            entry = manifest_entries.get(model_id)
+            if entry is None or entry.purpose_closure is None:
+                raise ModelAuthorityError(
+                    f"native owner declaration model has no current purpose closure: {model_id}"
+                )
+            missing_failures = sorted(
+                set(binding.protected_failure_ids)
+                - set(entry.purpose_closure.protected_failure_ids)
+            )
+            if missing_failures:
+                raise ModelAuthorityError(
+                    f"native owner declaration protected failures are not owned by {model_id}: {missing_failures}"
+                )
+        rows[binding.owner_route] = binding
+    expected_routes = set(_candidate_native_owner_route_universe(snapshot))
+    if set(rows) != expected_routes:
+        raise ModelAuthorityError(
+            "native owner declaration route set is not exact: "
+            f"missing={sorted(expected_routes - set(rows))}; "
+            f"extra={sorted(set(rows) - expected_routes)}"
+        )
+    return rows
 
 
 @dataclass(frozen=True)
@@ -345,37 +440,14 @@ class _MappedModelChild:
 
 def _bindings_by_owner(
     snapshot: ModelSystemSnapshot | None = None,
+    *,
+    root: Path | None = None,
 ) -> dict[str, NativeOwnerModelBinding]:
-    """Resolve one explicit owner profile for the candidate manifest.
-
-    The public inventory retains the generic FlowGuard model names used by
-    standalone projects and fixtures.  Khaos Brain's current manifest has one
-    LogicGuard system model which explicitly owns both affected lanes.  This
-    profile is selected only when that exact model identity is present in the
-    candidate; there is no name-based or missing-model fallback.
-    """
-    rows: dict[str, NativeOwnerModelBinding] = {}
-    for binding in NATIVE_OWNER_MODEL_BINDINGS:
-        if binding.owner_route in rows:
-            raise ModelAuthorityError(
-                "native owner model mappings require unique native owner routes"
-            )
-        rows[binding.owner_route] = binding
-    if snapshot is not None:
-        candidate_model_ids = {
-            item.logical_model_id for item in snapshot.model_instances
-        }
-        if "khaos_brain_logicguard_system" in candidate_model_ids:
-            for owner_route in (
-                "model_mesh_maintenance",
-                "model_test_alignment",
-            ):
-                if owner_route in rows:
-                    rows[owner_route] = NativeOwnerModelBinding(
-                        owner_route=owner_route,
-                        model_ids=("khaos_brain_logicguard_system",),
-                    )
-    return rows
+    if snapshot is None or root is None:
+        raise ModelAuthorityError(
+            "native owner declaration requires both current snapshot and project root"
+        )
+    return _load_native_owner_model_bindings(root, snapshot)
 
 
 def _candidate_native_owner_route_universe(
@@ -664,7 +736,7 @@ def _collect_mapped_model_children(
     )
     parent_children = _load_parent_children(parent_receipt_path)
     affected_by_owner = _affected_ids_by_owner(frozen.affected_closure)
-    bindings = _bindings_by_owner(frozen.candidate_snapshot)
+    bindings = _bindings_by_owner(frozen.candidate_snapshot, root=root)
     candidate_routes = _candidate_native_owner_route_universe(
         frozen.candidate_snapshot
     )
@@ -1397,7 +1469,8 @@ def produce_model_revision_owner_evidence(
 
 __all__ = [
     "MODEL_REVISION_OWNER_EVIDENCE_REPORT_SCHEMA",
-    "NATIVE_OWNER_MODEL_BINDINGS",
+    "NATIVE_OWNER_BINDINGS_RELATIVE_PATH",
+    "NATIVE_OWNER_BINDINGS_SCHEMA",
     "ModelRevisionOwnerEvidenceBundle",
     "ModelRevisionOwnerEvidenceReport",
     "NativeOwnerModelBinding",

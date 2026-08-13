@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.68.15 - 2026-08-13
+
+- Remove product-specific Planning Tool and KhaosBrain owner mappings from the
+  public FlowGuard engine.
+- Require each target repository to declare its exact native owner bindings;
+  FlowGuard validates the declaration and never selects a hidden product profile
+  or falls back to FlowGuard's own models.
+- Add a current-only atomic authority rebuild command for direct replacement;
+  retired revisions are opaque CAS inputs and are never parsed or migrated.
+
 ## v0.68.14 - 2026-08-12
 
 - Repair the package-owned consumer-suite authority so its embedded FlowGuard

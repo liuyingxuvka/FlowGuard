@@ -495,6 +495,7 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
         audit_model_authority,
         bootstrap_model_authority,
         load_observed_model_system,
+        rebuild_model_authority,
         rollback_observed_model_system,
     )
     from .model_system_inventory import (
@@ -542,6 +543,18 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
                 },
                 as_json=args.json,
             )
+            return 0
+        if args.model_system_action == "rebuild":
+            report = rebuild_model_authority(
+                args.root,
+                staging_root=args.staging_root,
+                expected_old_section_fingerprint=(
+                    args.expected_old_section_fingerprint
+                ),
+                target_system_id=args.target_system_id,
+                target_generation=args.target_generation,
+            )
+            _emit_payload(report, as_json=args.json)
             return 0
         if args.model_system_action == "owner-evidence":
             from .model_revision_owner_evidence import (
@@ -979,6 +992,24 @@ def _add_model_system_parsers(
     bootstrap.set_defaults(
         handler=_run_model_system_command,
         model_system_action="bootstrap",
+    )
+
+    rebuild = subparsers.add_parser(
+        "model-authority-rebuild",
+        help=(
+            "Replace an existing authority from an isolated current-only "
+            "generation-one to accepted-v5 staging package."
+        ),
+    )
+    rebuild.add_argument("--root", default=".")
+    rebuild.add_argument("--staging-root", required=True)
+    rebuild.add_argument("--expected-old-section-fingerprint", required=True)
+    rebuild.add_argument("--target-system-id", default="")
+    rebuild.add_argument("--target-generation", type=int, default=2)
+    rebuild.add_argument("--json", action="store_true")
+    rebuild.set_defaults(
+        handler=_run_model_system_command,
+        model_system_action="rebuild",
     )
 
     owner_evidence = subparsers.add_parser(

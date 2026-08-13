@@ -21,7 +21,7 @@
 
 | 公开版本 | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.68.11` | `1.0` | 仅使用 Python 标准库 | MIT |
+| `v0.68.15` | `1.0` | 仅使用 Python 标准库 | MIT |
 
 [English](./README.md) · [快速开始](#快速开始) · [概念介绍](./docs/concept.md) · [文档地图](#文档地图)
 
@@ -397,18 +397,17 @@ flowchart TB
     Accept --> Current2[新的 Current]
 ```
 
-第一次累计 v5 revision 只有一条直接主线。先生成精确的 native-owner evidence，
-再进行 intent bootstrap：
+关于 authority、revision、rollback 和 parent/child output-to-input relation，另见
+[建模协议](./docs/modeling_protocol.md) 与
+[实现蓝图](./docs/implementation_blueprint.md)；整个过程中，测试设计是否齐全始终与
+当前执行证据是否通过分开。
+
+第一次 current-only v5 sequence 只有一条直接主线：
 
 ```powershell
 python -m flowguard model-revision-owner-evidence --root . --model-parent-receipt <model-parent.json> --snapshot-id <snapshot-id> --output <owner-evidence.json> --json
 python -m flowguard model-revision-intent-bootstrap --root . --model-parent-receipt <model-parent.json> --native-owner-evidence <owner-evidence.json> --revision-set-id <revision-id> --task-id <task-id> --snapshot-id <snapshot-id> --intent-bootstrap-input <bootstrap-input.json> --json
 ```
-
-关于 authority、revision、rollback 和 parent/child output-to-input relation，见
-[建模协议](./docs/modeling_protocol.md) 与
-[实现蓝图](./docs/implementation_blueprint.md)；整个过程中，测试设计是否齐全始终与
-当前执行证据是否通过分开。
 
 ## 共同演进：软件与模型一起变化
 
@@ -667,6 +666,88 @@ python -m flowguard simulator --root . --all --tier full --jobs 1 --timeout 900
 
 关于 regression command、后台 progress、evidence location、cleanup、installation、parity
 和 release verification，见[验证与分发](./docs/validation_and_distribution.md)。
+
+```powershell
+python scripts/run_flowguard_model_regressions.py --audit-only --json
+python scripts/run_flowguard_model_regressions.py --tier fast --output-dir .flowguard/evidence/model-regressions/fast-local
+python scripts/run_flowguard_model_regressions.py --tier focused --model "ui_*" --shard 1/2 --jobs 1 --output-dir .flowguard/evidence/model-regressions/focused-1 --json
+python scripts/run_flowguard_model_regressions.py --tier full --jobs 1 --timeout 900 --output-dir .flowguard/evidence/model-regressions/full-local --full
+```
+
+默认的人类可读输出保持简洁。`--json` 输出规范的机器结果，`--full` 展开人类可读的
+子项细节；两者都不会扩大证据范围。完整 stdout/stderr 只会以确定性的 gzip 对象保存一次，
+并记录逻辑和存储哈希。长时间的前台或后台运行中，progress event 只表示仍在运行；只有
+选定输出目录中的最终 `report.json`、`evidence-run.json`、Current head binding 和终态子收据
+齐全时，运行才算完成。
+
+持久化证据清理始终必须显式执行：
+
+```powershell
+python -m flowguard evidence-audit --root .flowguard/evidence --json
+python -m flowguard evidence-gc-plan --root .flowguard/evidence --keep 2 --preserve skill-suite --output .flowguard/evidence-gc-plan.json --json
+python -m flowguard evidence-gc-apply --root .flowguard/evidence --plan .flowguard/evidence-gc-plan.json --json
+python -m flowguard evidence-gc-restore --root .flowguard/evidence --quarantine-id <id> --json
+python -m flowguard evidence-gc-purge --root .flowguard/evidence --quarantine-id <id> --json
+```
+
+Audit 和 planning 不会修改证据。Apply 会重新验证冻结的计划，只把不可达运行移入隔离区；
+Purge 前可以 Restore，且只有在 Current 和 pinned runs 仍然通过后才能对一个精确隔离项执行 Purge。
+计划应放在保留 evidence root 之外；对于明确绑定的旧 root 要重复 `--preserve`，并且清理前必须
+没有未分类字节。普通验证不会自动调用持久化清理。
+
+技能安装器把完整的 15-member author projection 与 consumer projection 分开维护，并记录自己拥有的文件。
+把 `FLOWGUARD_AUTHOR_SHADOW_SKILLS` 指向维护者工作区明确的 `.agents/skills` 目录；`author-sync` 不会指向
+`CODEX_HOME`，也不会复制周围仓库：
+
+```powershell
+python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --dry-run --json
+python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --json
+python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --dry-run --json
+python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --json
+python scripts/install_flowguard_skills.py check --source . --codex-home $env:CODEX_HOME --json
+python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --installed $env:CODEX_HOME\skills --json
+python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOME --dry-run --json
+python scripts/install_flowguard_skills.py uninstall --codex-home $env:CODEX_HOME --json
+```
+
+`author-sync` 只原子维护已声明的 author members 和 ownership record；`install` 独立建立干净的 consumer
+distribution；`check` 与 `parity` 是只读的，因此不接受 `--dry-run`。Uninstall 只删除未改变且由 installer
+拥有的文件，并把修改过或不属于它的文件保留为 conflict。当前 receipts 在 `.flowguard/evidence/skill-suite`，
+模型运行产物在选择的 regression `--output-dir` 中。环境本地 receipts 不进入发布的 skill tree，声称有证据时
+必须在对应环境重新生成。
+
+见 [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md) 了解命令契约、退出状态、
+后台监控边界、证据位置和安全安装生命周期。
+
+有用的检查和模板命令：
+
+```powershell
+python -m flowguard project-template
+python -m flowguard risk-intent-template
+python -m flowguard risk-template-library-template
+python -m flowguard development-process-flow-template
+python -m flowguard ui-flow-structure-template
+python -m flowguard code-structure-recommendation-template
+python -m flowguard model-test-alignment-template
+python -m flowguard test-mesh-template
+python -m flowguard structure-mesh-template
+python -m flowguard closure-contract-template
+python -m flowguard topology-hazard-template
+python -m flowguard risk-template-search "completion evidence"
+```
+
+运行 `python -m flowguard --help` 查看完整的当前命令列表。
+
+FlowGuard v0.68.15 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
+或 GitHub Release asset。
+
+验证冻结的 source candidate、不可变 tag 和已发布 release 这三个独立身份：
+
+```powershell
+python scripts/verify_flowguard_release.py --root . --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.15 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.15 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+```
 
 ## 与 Guard Family 的关系
 

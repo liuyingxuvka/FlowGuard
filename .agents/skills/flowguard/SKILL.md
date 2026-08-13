@@ -7,7 +7,7 @@ description: Unified FlowGuard entry for behavior/state models, unclear routes, 
 
 ## Purpose
 Select the smallest faithful owner/model and deepen only for exact evidence.
-The native owner is `model_first_function_flow` (`kernel`). Decide
+The native owner is `model_first_function_flow` (`kernel`); role: `kernel`. Decide
 `use_flowguard`, `skip_with_reason`, or `needs_human_review` through
 `behavior_flow`, `argument_flow`, or `decision_flow`.
 

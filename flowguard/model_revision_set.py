@@ -1795,10 +1795,21 @@ class ModelRevisionSet:
             and self.no_declared_intent_evidence_fingerprints
             and self.no_declared_intent_rationale
         )
+        current_view = self.current_effective_intent_view
+        current_bootstrap_intent_complete = bool(
+            current_view
+            and current_view.active_contributions
+            and current_view.transitions
+            and all(item.action == "retain" for item in current_view.transitions)
+        )
         return (
             self.current_effective_intent_view.complete
             and self.intent_review.acceptance_ready
-            and bool(self.intent_contributions or no_intent_complete)
+            and bool(
+                self.intent_contributions
+                or current_bootstrap_intent_complete
+                or no_intent_complete
+            )
         )
 
     @property

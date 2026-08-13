@@ -26,6 +26,8 @@ from flowguard.model_purpose import (
 from flowguard.model_regressions import MANIFEST_SCHEMA, run_manifest_regressions
 from flowguard.model_revision_builder import build_current_model_revision
 from flowguard.model_revision_owner_evidence import (
+    NATIVE_OWNER_BINDINGS_RELATIVE_PATH,
+    NATIVE_OWNER_BINDINGS_SCHEMA,
     produce_model_revision_owner_evidence,
 )
 from tests.test_model_maturation import _path_quality
@@ -150,6 +152,35 @@ class ModelRevisionBuilderTests(unittest.TestCase):
         (self.root / ".flowguard" / "model-regression-manifest.json").write_text(
             json.dumps(manifest),
             encoding="utf-8",
+        )
+        # The public owner-evidence contract is target-owned: even an
+        # isolated builder fixture must declare the exact semantic routes it
+        # wants FlowGuard to validate.  Do not reintroduce a FlowGuard-wide
+        # default map merely to make temporary test roots work.
+        bindings = {
+            "schema": NATIVE_OWNER_BINDINGS_SCHEMA,
+            "system_id": "flowguard",
+            "candidate_model_ids": list(_MODEL_IDS),
+            "bindings": [
+                {
+                    "owner_route": "model_mesh_maintenance",
+                    "model_ids": ["hierarchical_model_mesh"],
+                    "protected_failure_ids": [
+                        "hierarchical_model_mesh:stale-or-partial"
+                    ],
+                },
+                {
+                    "owner_route": "model_test_alignment",
+                    "model_ids": ["model_test_code_alignment"],
+                    "protected_failure_ids": [
+                        "model_test_code_alignment:stale-or-partial"
+                    ],
+                },
+            ],
+            "claim_boundary": "Only this isolated revision-builder fixture.",
+        }
+        (self.root / NATIVE_OWNER_BINDINGS_RELATIVE_PATH).write_text(
+            json.dumps(bindings), encoding="utf-8"
         )
 
     def _current_parent(self, name: str = "parent"):

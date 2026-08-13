@@ -29,7 +29,8 @@ from flowguard.model_purpose import build_model_purpose_closure, file_fingerprin
 from flowguard.model_regressions import MANIFEST_SCHEMA, run_manifest_regressions
 from flowguard.model_revision_builder import build_current_model_revision
 from flowguard.model_revision_owner_evidence import (
-    NATIVE_OWNER_MODEL_BINDINGS,
+    NATIVE_OWNER_BINDINGS_RELATIVE_PATH,
+    NATIVE_OWNER_BINDINGS_SCHEMA,
     NativeOwnerModelBinding,
     NativeOwnerModelEvidencePlan,
     produce_model_revision_owner_evidence,
@@ -154,6 +155,27 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
         ).write_text(
             json.dumps(manifest),
             encoding="utf-8",
+        )
+        bindings = {
+            "schema": NATIVE_OWNER_BINDINGS_SCHEMA,
+            "system_id": "flowguard",
+            "candidate_model_ids": list(model_ids),
+            "bindings": [
+                {
+                    "owner_route": "model_mesh_maintenance",
+                    "model_ids": [model_ids[0]],
+                    "protected_failure_ids": [f"{model_ids[0]}:stale"],
+                },
+                {
+                    "owner_route": "model_test_alignment",
+                    "model_ids": [model_ids[1]],
+                    "protected_failure_ids": [f"{model_ids[1]}:stale"],
+                },
+            ],
+            "claim_boundary": "Only this isolated owner-evidence fixture.",
+        }
+        (target_root / NATIVE_OWNER_BINDINGS_RELATIVE_PATH).write_text(
+            json.dumps(bindings), encoding="utf-8"
         )
 
     def _current_parent(self):
@@ -508,7 +530,9 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
             )
             plans = owner_evidence_module._derive_native_owner_model_plans(
                 frozen,
-                owner_evidence_module._bindings_by_owner(),
+                owner_evidence_module._bindings_by_owner(
+                    frozen.candidate_snapshot, root=root
+                ),
             )
             plans_naming_removed = tuple(
                 plan
@@ -796,15 +820,15 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
     def test_blocks_unknown_owner_mapping_without_writing_bundle(self) -> None:
         parent = self._current_parent()
         output = self.root / "blocked-owner-evidence.json"
-        reduced = tuple(
-            row
-            for row in NATIVE_OWNER_MODEL_BINDINGS
-            if row.owner_route != "model_mesh_maintenance"
-        )
-
         with patch(
-            "flowguard.model_revision_owner_evidence.NATIVE_OWNER_MODEL_BINDINGS",
-            reduced,
+            "flowguard.model_revision_owner_evidence._load_native_owner_model_bindings",
+            return_value={
+                "model_test_alignment": NativeOwnerModelBinding(
+                    owner_route="model_test_alignment",
+                    model_ids=(_MODEL_IDS[1],),
+                    protected_failure_ids=(f"{_MODEL_IDS[1]}:stale",),
+                )
+            },
         ):
             with self.assertRaisesRegex(ValueError, "missing native owner model mapping"):
                 produce_model_revision_owner_evidence(
@@ -827,7 +851,9 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
         routes = owner_evidence_module._candidate_native_owner_route_universe(
             snapshot
         )
-        bindings = owner_evidence_module._bindings_by_owner()
+        bindings = owner_evidence_module._bindings_by_owner(
+            snapshot, root=project_root
+        )
 
         self.assertEqual(
             ("authoritative_model_system",),
@@ -853,7 +879,7 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(
                 ValueError,
-                "missing native owner model mapping.*future_owner_route",
+                "native owner declaration route set is not exact.*future_owner_route",
             ):
                 produce_model_revision_owner_evidence(
                     self.root,
@@ -867,19 +893,20 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
     def test_foreign_mapped_model_blocks_before_bundle_write(self) -> None:
         parent = self._current_parent()
         output = self.root / "foreign-model-owner-evidence.json"
-        foreign = tuple(
-            NativeOwnerModelBinding(
-                owner_route=row.owner_route,
-                model_ids=("future_nonexistent_model",),
-            )
-            if row.owner_route == "model_mesh_maintenance"
-            else row
-            for row in NATIVE_OWNER_MODEL_BINDINGS
-        )
-
         with patch(
-            "flowguard.model_revision_owner_evidence.NATIVE_OWNER_MODEL_BINDINGS",
-            foreign,
+            "flowguard.model_revision_owner_evidence._load_native_owner_model_bindings",
+            return_value={
+                "model_mesh_maintenance": NativeOwnerModelBinding(
+                    owner_route="model_mesh_maintenance",
+                    model_ids=("future_nonexistent_model",),
+                    protected_failure_ids=("future:stale",),
+                ),
+                "model_test_alignment": NativeOwnerModelBinding(
+                    owner_route="model_test_alignment",
+                    model_ids=(_MODEL_IDS[1],),
+                    protected_failure_ids=(f"{_MODEL_IDS[1]}:stale",),
+                ),
+            },
         ):
             with self.assertRaisesRegex(
                 ValueError,
@@ -897,17 +924,9 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
     def test_blocks_duplicate_or_foreign_mapping_before_writing_bundle(self) -> None:
         parent = self._current_parent()
         output = self.root / "duplicate-owner-evidence.json"
-        duplicate = (
-            *NATIVE_OWNER_MODEL_BINDINGS,
-            NativeOwnerModelBinding(
-                owner_route="model_mesh_maintenance",
-                model_ids=("hierarchical_model_mesh",),
-            ),
-        )
-
         with patch(
-            "flowguard.model_revision_owner_evidence.NATIVE_OWNER_MODEL_BINDINGS",
-            duplicate,
+            "flowguard.model_revision_owner_evidence._load_native_owner_model_bindings",
+            side_effect=ValueError("unique native owner routes"),
         ):
             with self.assertRaisesRegex(ValueError, "unique native owner routes"):
                 produce_model_revision_owner_evidence(

@@ -341,6 +341,11 @@ read-only. They inspect the native directory, preserve every
 authority. Projection helpers may materialize bounded internal evidence for
 the current audit, but they do not create a second DNA authority or a target.
 
+There is no self-DNA export, copied self directory, bundle, or isolated rebuild
+step in these read-only audits. Former export and isolated-verification command
+names are retired; any architecture contraction still requires current
+`safe_by_equivalence` or `safe_by_public_facade` evidence.
+
 ## Architecture Reduction Before Release
 
 Once the blueprint closes, it can reveal duplicate handlers, adapters,
