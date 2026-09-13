@@ -497,6 +497,13 @@ class TestEvidence:
     receipt_verification_context: ReceiptVerificationContext | None = None
     receipt_verification: ReceiptVerificationResult | None = None
     receipt_producer_id: str = ""
+    # Native model-owner evidence is a direct leaf receipt whose exact case
+    # projection is validated by the model-regression package.  It is not a
+    # parent receipt and does not masquerade as ordinary test-node evidence.
+    native_execution_verified: bool = False
+    native_execution_receipt_id: str = ""
+    native_execution_receipt_fingerprint: str = ""
+    native_execution_owner_id: str = ""
     stale_reasons: tuple[str, ...] = ()
     overclaims_model_confidence: bool = False
     closure_evidence_role: str = TEST_CLOSURE_ROLE_UNSPECIFIED
@@ -543,6 +550,26 @@ class TestEvidence:
         ):
             raise TypeError("receipt_verification_context must be a ReceiptVerificationContext")
         object.__setattr__(self, "receipt_producer_id", str(self.receipt_producer_id))
+        object.__setattr__(
+            self,
+            "native_execution_verified",
+            bool(self.native_execution_verified),
+        )
+        object.__setattr__(
+            self,
+            "native_execution_receipt_id",
+            str(self.native_execution_receipt_id),
+        )
+        object.__setattr__(
+            self,
+            "native_execution_receipt_fingerprint",
+            str(self.native_execution_receipt_fingerprint),
+        )
+        object.__setattr__(
+            self,
+            "native_execution_owner_id",
+            str(self.native_execution_owner_id),
+        )
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
         object.__setattr__(self, "closure_evidence_role", str(self.closure_evidence_role))
         object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
@@ -570,6 +597,12 @@ class TestEvidence:
     def has_current_pass(self) -> bool:
         if self.result_status not in PASSING_STATUSES or not self.evidence_current:
             return False
+        if self.native_execution_verified:
+            return bool(
+                self.native_execution_receipt_id
+                and self.native_execution_receipt_fingerprint
+                and self.native_execution_owner_id
+            )
         if self.requires_receipt_verification():
             return not self.receipt_gap_codes()
         return True
@@ -674,6 +707,10 @@ class TestEvidence:
                 else None
             ),
             "receipt_producer_id": self.receipt_producer_id,
+            "native_execution_verified": self.native_execution_verified,
+            "native_execution_receipt_id": self.native_execution_receipt_id,
+            "native_execution_receipt_fingerprint": self.native_execution_receipt_fingerprint,
+            "native_execution_owner_id": self.native_execution_owner_id,
             "stale_reasons": list(self.stale_reasons),
             "overclaims_model_confidence": self.overclaims_model_confidence,
             "closure_evidence_role": self.closure_evidence_role,
@@ -1227,6 +1264,10 @@ class ModelTestAlignmentPlan:
     require_behavior_plane_binding: bool = False
     scoped_relation_reasons: Mapping[str, str] = field(default_factory=dict)
     require_implementation_blueprint: bool = False
+    # When set, every planned test row must be backed by a terminal native
+    # execution receipt.  A static design remains explicitly ``not_run`` when
+    # this flag is false or when no execution evidence is supplied.
+    require_executed_evidence: bool = False
     implementation_binding_report: Any | None = None
     model_fingerprint: str = ""
     required_path_quality_model_ids: tuple[str, ...] = ()
@@ -1314,6 +1355,11 @@ class ModelTestAlignmentPlan:
             "require_implementation_blueprint",
             bool(self.require_implementation_blueprint),
         )
+        object.__setattr__(
+            self,
+            "require_executed_evidence",
+            bool(self.require_executed_evidence),
+        )
         object.__setattr__(self, "model_fingerprint", str(self.model_fingerprint))
         required_models, subjects, results = normalize_path_quality_material(
             self.required_path_quality_model_ids,
@@ -1386,6 +1432,7 @@ class ModelTestAlignmentPlan:
             "require_behavior_plane_binding": self.require_behavior_plane_binding,
             "scoped_relation_reasons": to_jsonable(dict(self.scoped_relation_reasons)),
             "require_implementation_blueprint": self.require_implementation_blueprint,
+            "require_executed_evidence": self.require_executed_evidence,
             "implementation_binding_report": (
                 self.implementation_binding_report.to_dict()
                 if hasattr(self.implementation_binding_report, "to_dict")
@@ -4601,6 +4648,15 @@ def _executed_evidence_status(
         return TEST_STATUS_NOT_RUN
     if blockers:
         return "blocked"
+    if any(status in NON_PASSING_STATUSES for status in statuses):
+        return "failed" if any(
+            status in {
+                TEST_STATUS_FAILED,
+                TEST_STATUS_TIMEOUT,
+                TEST_STATUS_ERROR,
+            }
+            for status in statuses
+        ) else TEST_STATUS_NOT_RUN
     return TEST_STATUS_PASSED
 
 
@@ -4931,6 +4987,24 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
             passing_by_code_contract,
         )
     )
+    if plan.require_executed_evidence:
+        incomplete_execution = tuple(
+            evidence.evidence_id
+            for evidence in plan.test_evidence
+            if evidence.result_status != TEST_STATUS_PASSED
+            or not evidence.has_current_pass()
+        )
+        if incomplete_execution:
+            findings.append(
+                ModelTestAlignmentFinding(
+                    "executed_evidence_required",
+                    "the executed-evidence gate requires every planned alignment test row to be a current native pass",
+                    metadata={
+                        "model_id": plan.model_id,
+                        "incomplete_evidence_ids": list(incomplete_execution),
+                    },
+                )
+            )
     binding_rows = _binding_rows(
         plan,
         obligations_by_id,

@@ -7,6 +7,8 @@ import subprocess
 import tempfile
 import unittest
 
+import pytest
+
 from flowguard.model_authority import (
     ModelAuthorityError,
     ModelRevisionSet,
@@ -287,6 +289,7 @@ artifact_role = "requirement"
             with self.assertRaisesRegex(ModelAuthorityError, "regular file"):
                 verify_model_intent_sources(root, (nonregular,))
 
+    @pytest.mark.flowguard_capability("path_escape.posix_symlink")
     def test_direct_intent_source_rejects_external_link(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             outer = Path(directory)
@@ -300,28 +303,7 @@ artifact_role = "requirement"
             try:
                 os.symlink(target, linked)
             except (NotImplementedError, OSError) as exc:
-                if os.name != "nt":
-                    self.skipTest(f"external-link creation unavailable: {exc}")
-                linked_dir = root / "docs" / "linked-external"
-                completed = subprocess.run(
-                    [
-                        "cmd",
-                        "/c",
-                        "mklink",
-                        "/J",
-                        str(linked_dir),
-                        str(target_dir),
-                    ],
-                    text=True,
-                    capture_output=True,
-                    check=False,
-                )
-                if completed.returncode != 0:
-                    self.skipTest(
-                        "external link and junction creation unavailable: "
-                        f"{exc}; {completed.stderr or completed.stdout}"
-                    )
-                linked = linked_dir / target.name
+                self.skipTest(f"real external symlink unavailable: {exc}")
             item = contribution(
                 "intent:external-link",
                 source_ref=linked.relative_to(root).as_posix(),
@@ -330,6 +312,43 @@ artifact_role = "requirement"
 
             with self.assertRaisesRegex(ModelAuthorityError, "external link"):
                 verify_model_intent_sources(root, (item,))
+
+    @pytest.mark.flowguard_capability("path_escape.windows_reparse")
+    @pytest.mark.skipif(os.name != "nt", reason="directory junctions are Windows reparse points")
+    def test_direct_intent_source_rejects_external_junction(self) -> None:
+        """A Windows junction is tested independently from POSIX symlinks."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            outer = Path(directory)
+            root = outer / "project"
+            target_dir = outer / "external"
+            target_dir.mkdir()
+            target = target_dir / "external.md"
+            target.write_text("external\n", encoding="utf-8")
+            linked_dir = root / "docs" / "linked"
+            linked_dir.parent.mkdir(parents=True)
+            result = subprocess.run(
+                ["cmd", "/d", "/c", "mklink", "/J", str(linked_dir), str(target_dir)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0 or not linked_dir.is_dir():
+                self.skipTest("directory junction creation is unavailable")
+            try:
+                item = contribution(
+                    "intent:external-junction",
+                    source_ref="docs/linked/external.md",
+                    source_fingerprint=source_file_fingerprint(target),
+                )
+                with self.assertRaisesRegex(ModelAuthorityError, "external link"):
+                    verify_model_intent_sources(root, (item,))
+            finally:
+                # rmdir removes the junction itself and never the target tree.
+                try:
+                    os.rmdir(linked_dir)
+                except OSError:
+                    pass
 
     def test_work_context_intent_source_requires_exact_current_lineage(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

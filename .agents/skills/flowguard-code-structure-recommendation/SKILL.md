@@ -1,6 +1,6 @@
 ---
 name: flowguard-code-structure-recommendation
-description: Use when a FlowGuard model should drive pre-code modules, FunctionBlock/state/field/effect owners, facades, adapters, or validation boundaries.
+description: standalone FlowGuard satellite skill; Use when a FlowGuard model should drive pre-code modules, FunctionBlock/state/field/effect owners, facades, adapters, or validation boundaries.
 ---
 
 # FlowGuard Code Structure Recommendation
@@ -9,13 +9,15 @@ description: Use when a FlowGuard model should drive pre-code modules, FunctionB
 Derive recommendation-only FunctionBlock-to-module ownership, facades, adapters, fields, effects, and validation boundaries from a named model.
 
 ## Entrypoint Scope
-This standalone FlowGuard satellite skill owns `code_structure_recommendation` (`public_owner`), not refactoring.
+Owner `code_structure_recommendation` (`public_owner`); recommendation only, not refactoring.
 
 ## Local Material Routing
 After admission, read `references/code_structure_recommendation_protocol.md` for the complete schema and handoffs.
 
 ## Entrypoint Acceptance Map
-Accept a named current model; derive owners and boundaries; block omissions/duplicates; send existing-code work to StructureMesh.
+Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
+
+### Shared execution contract
 
 ## Use When
 - Use before code when module, function, facade, adapter, field/effect owner, or validation boundary is unclear.
@@ -30,12 +32,10 @@ Accept a named current model; derive owners and boundaries; block omissions/dupl
 4. Without exact current admission for the same task/model/scope, remain recommendation-only.
 
 ## Hard Gates
-- Model-purpose gate: freeze task-specific failure(s); bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework.
+- Model-purpose gate: task-specific failure(s); native good/bad-per-failure/oracle/current evidence; Reusable types are not fixed-purpose; no mode/fallback; FlowGuard check engine: only FlowGuard-declared checks may support completion claims.
 - Do not invent modules before responsibilities. Every write needs one owner; public facades and validation boundaries stay explicit; oversized leaves split or remain scoped.
 - A diagram or nonempty map is not readiness. Omitted elements, missing reverse obligations, fingerprint drift, or scope beyond admission block blueprint use. This route neither scans source nor proves static closure.
 - Route ArchitectureReduction only for a concrete evidence-backed contraction candidate. Any model/maturation/admission identity drift makes this recommendation stale.
-- Blueprint traceability targets, depth/first gap, explicit whole scope, affected-only default, no owner fallback, and separate decision axes follow the protocol.
 
 ## Output Requirements
-- Return `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, `typed_next_actions`, ownership map, and code structure diagram; edges mean owns, calls, adapts, exposes, or validates. Blueprint output adds depth/first gap, fingerprint, unresolved ids, and reverse obligations.
-
+- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, ownership map, and structure diagram; edges mean owns, calls, adapts, exposes, or validates. Blueprint adds depth/first gap, fingerprint, unresolved ids, and reverse obligations.

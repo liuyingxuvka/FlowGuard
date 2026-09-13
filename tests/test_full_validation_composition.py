@@ -11,11 +11,18 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from flowguard.evidence_receipts import fingerprint_value
+from flowguard.completion_epoch import CompletionEpochReadiness
 from flowguard.process_supervision import (
     SupervisedCommandResult,
     _attest_supervised_result,
 )
-from flowguard.validation_ownership import release_tree_manifest
+from flowguard.validation_ownership import (
+    GitQueryTimeout,
+    build_validation_owner_plan,
+    build_validation_parent_current,
+    observe_validation_owners,
+    release_tree_manifest,
+)
 from scripts import check_flowguard_skill_suite as suite_command
 
 
@@ -57,8 +64,69 @@ class FullValidationCompositionTests(unittest.TestCase):
             check=True,
         )
 
+    def _with_completion_readiness(self, args: argparse.Namespace) -> argparse.Namespace:
+        # Full validation intentionally requires a positive, plan-bound
+        # readiness receipt.  The fixture supplies one so the composition
+        # tests exercise owner execution/reuse rather than the production
+        # missing-readiness blocker.
+        planning_args = argparse.Namespace(**vars(args))
+        # `run_full_validation` replaces the requested output with its actual
+        # run directory immediately before constructing child specs; mirror
+        # that identity here so the readiness test-inventory fingerprint is
+        # byte-for-byte the same as the execution plan.
+        planning_args.output_dir = str(args.output_dir)
+        specs = suite_command._full_child_specs(planning_args, self.root)
+        contracts = suite_command._owner_contracts(specs)
+        receipt_root = self.root / ".flowguard" / "evidence" / "validation-owners"
+        required_external = {
+            component_id: fingerprint
+            for contract in contracts
+            for component_id, fingerprint in contract.external_component_bindings
+        }
+        observation = observe_validation_owners(
+            self.root,
+            contracts,
+            receipt_root=receipt_root,
+        )
+        owner_plan = build_validation_owner_plan(
+            self.root,
+            contracts,
+            receipt_root=receipt_root,
+            required_external_components=required_external,
+            observation=observation,
+        )
+        if owner_plan.blocked:
+            # Some negative tests intentionally tamper with a persisted owner
+            # receipt.  Preserve the production owner-plan blocker and do not
+            # attempt to manufacture a readiness object for a plan that can
+            # never become a parent current.
+            return args
+        parent_current = build_validation_parent_current(
+            self.root,
+            owner_plan,
+            frozen_validation_manifest=owner_plan.validation_input_manifest,
+            frozen_release_tree_manifest=owner_plan.release_tree_manifest,
+        )
+        completion_plan = suite_command._completion_epoch_plan(
+            args=args,
+            root=self.root,
+            specs=specs,
+            owner_plan=owner_plan,
+            parent_current=parent_current,
+            planning_observation=observation,
+        )
+        args.completion_readiness = CompletionEpochReadiness.for_plan(
+            completion_plan,
+            openspec_terminal_receipt_fingerprint="sha256:" + "8" * 64,
+            external_roots_sync_receipt_fingerprint="sha256:" + "9" * 64,
+            formal_shadow_installed_sync_receipt_fingerprint="sha256:" + "a" * 64,
+            reverse_input_acceptance_receipt_fingerprint="sha256:" + "b" * 64,
+            owner_dag_freeze_receipt_fingerprint="sha256:" + "c" * 64,
+        )
+        return args
+
     def args(self) -> argparse.Namespace:
-        return suite_command.build_parser().parse_args(
+        args = suite_command.build_parser().parse_args(
             [
                 "--scope",
                 "full",
@@ -78,6 +146,33 @@ class FullValidationCompositionTests(unittest.TestCase):
                 "19",
             ]
         )
+        return self._with_completion_readiness(args)
+
+    def test_symlink_capability_is_owned_by_pytest_child_not_parent_admission(self):
+        shard_script = self.root / "scripts" / "run_flowguard_pytest_shards.py"
+        shard_script.write_text("# governed shard fixture\n", encoding="utf-8")
+        args = suite_command.build_parser().parse_args(
+            [
+                "--scope",
+                "full",
+                "--root",
+                str(self.root),
+                "--shadow-root",
+                str(self.shadow),
+            ]
+        )
+        with patch.object(
+            suite_command,
+            "_load_completion_run_manifest",
+            return_value=(None, None, "", ()),
+        ), patch.object(
+            suite_command,
+            "observe_validation_owners",
+            side_effect=AssertionError("owner observation reached"),
+        ) as observe:
+            with self.assertRaisesRegex(AssertionError, "owner observation reached"):
+                suite_command.run_full_validation(args)
+        observe.assert_called_once()
 
     def test_external_consumer_fingerprint_ignores_unrelated_installed_skills(self):
         initial = suite_command._external_tree_fingerprint(self.installed)
@@ -136,7 +231,10 @@ class FullValidationCompositionTests(unittest.TestCase):
             return "self_blueprint"
         if "project-audit" in command:
             return "project_audit"
-        if "check_flowguard_skill_suite.py" in joined:
+        if (
+            "check_flowguard_skill_suite.py" in joined
+            or "check_flowguard_author_skill_assurance.py" in joined
+        ):
             return "skill_suite_light"
         if "check_flowguard_self_governance.py" in joined:
             return "skill_self_governance"
@@ -144,6 +242,8 @@ class FullValidationCompositionTests(unittest.TestCase):
             return "skill_native_checks"
         if "run_flowguard_model_regressions.py" in joined:
             return "model_regressions_full"
+        if "run_flowguard_pytest_shards.py" in joined:
+            return "pytest"
         if tuple(command[1:3]) == ("-m", "pytest"):
             return "pytest"
         if Path(command[0]).stem.lower().startswith("openspec"):
@@ -392,7 +492,7 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertEqual(1, rejected["exit_code"])
         self.assertEqual("fail", rejected["payload"]["decision"])
 
-    def test_light_skillguard_check_binds_non_self_target_to_repository(self):
+    def test_light_skillguard_currentness_does_not_start_skillguard_producers(self):
         skill = self.root / ".agents" / "skills" / "target"
         (skill / ".skillguard").mkdir(parents=True)
         (skill / ".skillguard" / "contract-source.json").write_text(
@@ -404,6 +504,7 @@ class FullValidationCompositionTests(unittest.TestCase):
         inventory = SimpleNamespace(
             ok=True,
             declared_member_ids=("target",),
+            members=(SimpleNamespace(skill_id="target", ok=True),),
             inventory_hash="INVENTORY",
             semantic_hash="SEMANTIC",
             to_dict=lambda: {"ok": True},
@@ -413,6 +514,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             compiler_version="current",
             route_registry_hash="ROUTES",
             contract_hashes={"target": "CONTRACT"},
+            findings=(),
             to_dict=lambda: {"ok": True},
         )
         commands = []
@@ -440,9 +542,14 @@ class FullValidationCompositionTests(unittest.TestCase):
             result = suite_command.run_light_suite(self.root)
 
         self.assertTrue(result["ok"])
-        light = next(command for command in commands if "check-skill" in command)
-        self.assertIn("--repository-root", light)
-        self.assertEqual(str(self.root), light[light.index("--repository-root") + 1])
+        self.assertEqual([], commands)
+        self.assertEqual(0, result["author_subprocess_count"])
+        self.assertEqual(0, result["native_producer_count"])
+        self.assertEqual(
+            ["layout_shape", "adoption_pointer", "contract_parity"],
+            result["checks_run"],
+        )
+        self.assertIn("author_check_skill", result["checks_not_run"])
 
     def test_full_pass_retains_independent_child_artifacts(self):
         with patch.object(suite_command, "_execute_command", side_effect=self.executor()):
@@ -472,6 +579,25 @@ class FullValidationCompositionTests(unittest.TestCase):
         parent_head = json.loads((self.output.parent / "CURRENT.json").read_text(encoding="utf-8"))
         self.assertEqual("parent", parent_head["authority_kind"])
         self.assertTrue(gzip.decompress(Path(model_child.artifact_paths[0]).read_bytes()))
+
+    def test_full_run_uses_one_shared_freshness_boundary_and_terminal_epoch(self):
+        with patch.object(suite_command, "_execute_command", side_effect=self.executor()):
+            result = suite_command.run_full_validation(self.args())
+
+        self.assertEqual("pass", result.status)
+        counters = result.progress_summary["metrics"]["counters"]
+        self.assertEqual(1, counters["source_manifest_builds"])
+        self.assertEqual(1, counters["source_freshness_checks"])
+        self.assertEqual(1, counters["receipt_batch_refreshes"])
+        self.assertEqual(0, counters["per_leaf_source_current_rebuild_count"])
+        self.assertEqual(0, counters["per_leaf_receipt_store_scan_count"])
+        self.assertEqual(
+            "terminal_pass",
+            result.progress_summary["completion_epoch_ledger_status"],
+        )
+        self.assertTrue(
+            Path(result.progress_summary["completion_epoch_ledger_path"]).is_file()
+        )
 
     def test_light_child_publishes_only_child_authority(self):
         child_run = Path(self.temporary.name) / "parent-run" / "light-suite"
@@ -519,6 +645,78 @@ class FullValidationCompositionTests(unittest.TestCase):
             native_root,
         )
         self.assertNotEqual(self.output.parent, native_root)
+
+    def test_local_validation_omits_release_tree_placeholder_owners(self):
+        args = self.args()
+        args.claim_scope = "local_validation"
+        specs = {
+            item.child_id: item
+            for item in suite_command._full_child_specs(args, self.root)
+        }
+
+        self.assertNotIn("distribution_check", specs)
+        self.assertNotIn("distribution_parity", specs)
+        self.assertEqual(
+            {
+                "skill_native_checks",
+                "model_regressions_full",
+                "pytest",
+            },
+            set(specs),
+        )
+
+    def test_local_validation_completion_budget_matches_functional_owner_set(self):
+        args = self.args()
+        args.claim_scope = "local_validation"
+        specs = suite_command._full_child_specs(args, self.root)
+        self.assertEqual(
+            tuple(spec.child_id for spec in specs),
+            suite_command._required_child_ids(specs),
+        )
+        self.assertNotIn("distribution_check", suite_command._required_child_ids(specs))
+        self.assertNotIn("distribution_parity", suite_command._required_child_ids(specs))
+
+    def test_model_receipt_store_is_stable_and_shared_across_run_outputs(self):
+        args = self.args()
+        first_specs = {
+            item.child_id: item
+            for item in suite_command._full_child_specs(args, self.root)
+        }
+        stable_root = self.root / ".flowguard" / "evidence" / "model-owner-receipts"
+        model_command = first_specs["model_regressions_full"].command
+        blueprint_command = first_specs["self_maintenance_review"].command
+        self.assertEqual("child", model_command[model_command.index("--authority-kind") + 1])
+        self.assertEqual("full-validation", model_command[model_command.index("--parent-scope") + 1])
+        self.assertEqual(
+            stable_root,
+            Path(model_command[model_command.index("--receipt-dir") + 1]),
+        )
+        self.assertEqual(
+            stable_root,
+            Path(blueprint_command[blueprint_command.index("--model-receipt-dir") + 1]),
+        )
+
+        args.model_receipt_dir = str(self.root / "stable-model-store")
+        args.output_dir = str(Path(self.temporary.name) / "artifacts-second")
+        second_specs = {
+            item.child_id: item
+            for item in suite_command._full_child_specs(args, self.root)
+        }
+        second_model = second_specs["model_regressions_full"].command
+        second_blueprint = second_specs["self_maintenance_review"].command
+        explicit_root = Path(args.model_receipt_dir).resolve()
+        self.assertEqual(
+            explicit_root,
+            Path(second_model[second_model.index("--receipt-dir") + 1]),
+        )
+        self.assertEqual(
+            explicit_root,
+            Path(second_blueprint[second_blueprint.index("--model-receipt-dir") + 1]),
+        )
+        self.assertNotEqual(
+            explicit_root,
+            Path(args.output_dir).resolve() / "model-owner-receipts",
+        )
 
     def test_owner_graph_contains_only_receipt_consumption_edges(self):
         specs = tuple(suite_command._full_child_specs(self.args(), self.root))
@@ -596,7 +794,7 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertIn("skill_native_checks", executed)
         self.assertIn("skill_self_governance", executed)
 
-    def test_failed_native_run_reuses_unaffected_owner_receipts(self):
+    def test_failed_native_run_requires_explicit_typed_repair_before_replay(self):
         with patch.object(
             suite_command,
             "_execute_command",
@@ -605,6 +803,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             first = suite_command.run_full_validation(self.args())
         second_args = self.args()
         second_args.output_dir = str(Path(self.temporary.name) / "artifacts-second")
+        second_args = self._with_completion_readiness(second_args)
         with patch.object(
             suite_command,
             "_execute_command",
@@ -613,14 +812,21 @@ class FullValidationCompositionTests(unittest.TestCase):
             second = suite_command.run_full_validation(second_args)
 
         # The failed native owner also blocks its dependent self-governance
-        # owner, so the release parent is blocked rather than claiming a
-        # complete failure-only outcome.
+        # owner.  A second invocation without the persisted typed repair link
+        # must not spend another producer attempt or silently reopen the
+        # finite completion cycle.
         self.assertEqual("blocked", first.status)
-        self.assertTrue(second.broad_success)
-        self.assertEqual({"skill_native_checks", "skill_self_governance"}, {
-            self.child_id(call.args[0]) for call in execute.call_args_list
-        })
-        self.assertEqual(8, second.counts["reused"])
+        self.assertEqual("blocked", second.status)
+        execute.assert_not_called()
+        self.assertTrue(
+            any(
+                "completion_cycle_attempt_already_consumed" in blocker["code"]
+                or "completion_cycle_initial_attempt_already_consumed" in blocker["code"]
+                or "completion_epoch_terminal_already_recorded" in blocker["code"]
+                for blocker in second.blockers
+            ),
+            second.blockers,
+        )
 
     def test_full_pytest_timeout_covers_the_observed_release_suite_runtime(self):
         specs = {
@@ -630,6 +836,39 @@ class FullValidationCompositionTests(unittest.TestCase):
 
         self.assertEqual(3600.0, specs["pytest"].timeout_seconds)
         self.assertEqual(900.0, specs["openspec_strict"].timeout_seconds)
+
+    def test_git_timeout_does_not_launch_validation_owner(self):
+        args = suite_command.build_parser().parse_args(
+            [
+                "--scope",
+                "full",
+                "--root",
+                str(self.root),
+                "--output-dir",
+                str(self.output),
+                "--shadow-root",
+                str(self.shadow),
+            ]
+        )
+        timeout = GitQueryTimeout(
+            code="git_query_timeout",
+            query_category="ls-files",
+            elapsed_seconds=30.0,
+            cleanup_confirmed=True,
+            terminal_reason="timeout",
+        )
+        with (
+            patch.object(
+                suite_command,
+                "observe_validation_owners",
+                side_effect=timeout,
+            ),
+            patch.object(suite_command, "_execute_command") as execute,
+        ):
+            with self.assertRaisesRegex(ValueError, "git_query_timeout"):
+                suite_command.run_full_validation(args)
+
+        execute.assert_not_called()
 
     def test_light_owner_declares_self_maintenance_route_registry_input(self):
         specs = {
@@ -647,7 +886,12 @@ class FullValidationCompositionTests(unittest.TestCase):
 
         spec = specs["self_maintenance_review"]
         self.assertIn("--compact", spec.command)
-        self.assertIn("--require-cleanup-release-ready", spec.command)
+        # The full parent consumes the complete self-maintenance audit.  The
+        # stricter architecture-cleanup gate remains available on the
+        # standalone command, but proofless candidates are intentionally
+        # visible as unresolved/risky-keep and must not deadlock the broader
+        # model/test/release validation epoch.
+        self.assertNotIn("--require-cleanup-release-ready", spec.command)
         requirement = spec.result_identity_requirement
         self.assertIsNotNone(requirement)
         self.assertEqual(
@@ -693,6 +937,11 @@ class FullValidationCompositionTests(unittest.TestCase):
         identity = proof["child"]["payload"]["result_identity_projection"]
         self.assertEqual("sha256:" + "a" * 64, identity["review_fingerprint"])
         self.assertTrue(identity["projection_fingerprint"].startswith("sha256:"))
+        dependency_bindings = proof["child"]["payload"]["dependency_receipt_bindings"]
+        self.assertEqual(1, len(dependency_bindings))
+        self.assertEqual("model_regressions_full", dependency_bindings[0]["owner_id"])
+        self.assertTrue(dependency_bindings[0]["receipt_id"])
+        self.assertTrue(dependency_bindings[0]["receipt_fingerprint"].startswith("sha256:"))
 
     def test_self_maintenance_identity_missing_blocks_green_owner_receipt(self):
         invalid_review = {
@@ -742,6 +991,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             first = suite_command.run_full_validation(self.args())
         second_args = self.args()
         second_args.output_dir = str(Path(self.temporary.name) / "artifacts-second")
+        second_args = self._with_completion_readiness(second_args)
         with patch.object(suite_command, "_execute_command") as second_execute:
             second = suite_command.run_full_validation(second_args)
 
@@ -756,7 +1006,73 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertEqual(1.0, second.progress_summary["estimated_work_avoided_fraction"])
         self.assertGreaterEqual(second.progress_summary["elapsed_seconds"], 0.0)
 
-    def test_one_changed_input_executes_only_its_declared_owner(self):
+    def test_exact_parent_reuse_does_not_require_a_second_readiness_receipt(self):
+        """A settled exact parent is a no-op even when readiness is omitted."""
+
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor(),
+        ) as first_execute:
+            first = suite_command.run_full_validation(self.args())
+        second_args = self.args()
+        second_args.output_dir = str(Path(self.temporary.name) / "artifacts-second")
+        # Deliberately leave completion_readiness unset.  The exact-current
+        # parent and its terminal ledger are sufficient output evidence.
+        with patch.object(suite_command, "_execute_command") as second_execute:
+            second = suite_command.run_full_validation(second_args)
+
+        self.assertTrue(first.broad_success)
+        self.assertTrue(second.broad_success)
+        self.assertEqual(10, first_execute.call_count)
+        second_execute.assert_not_called()
+        self.assertEqual(10, second.counts["reused"])
+        self.assertEqual(0, second.progress_summary["producer_invocations"])
+
+    def test_explicit_reuse_only_reuses_same_parent_without_any_producer(self):
+        """A same-parent reuse pass must not reopen a source completion epoch."""
+
+        with patch.object(
+            suite_command,
+            "_execute_command",
+            side_effect=self.executor(),
+        ) as first_execute:
+            first = suite_command.run_full_validation(self.args())
+
+        second_args = self.args()
+        second_args.output_dir = str(
+            Path(self.temporary.name) / "reuse-only-artifacts"
+        )
+        # The exact-current terminal parent is sufficient for an explicit
+        # reuse-only read.  No second readiness producer is needed.
+        second_args.completion_readiness = None
+        second_args.reuse_only = True
+        with patch.object(suite_command, "_execute_command") as second_execute:
+            second = suite_command.run_full_validation(second_args)
+
+        self.assertTrue(first.broad_success)
+        self.assertEqual("pass", second.status, second.blockers)
+        self.assertEqual(
+            first.progress_summary["completion_epoch_id"],
+            second.progress_summary["completion_epoch_id"],
+        )
+        self.assertEqual(
+            first.progress_summary["parent_receipt_id"],
+            second.progress_summary["parent_receipt_id"],
+        )
+        self.assertEqual(
+            first.progress_summary["parent_receipt_fingerprint"],
+            second.progress_summary["parent_receipt_fingerprint"],
+        )
+        self.assertEqual(10, first_execute.call_count)
+        second_execute.assert_not_called()
+        self.assertEqual(10, second.counts["reused"])
+        self.assertEqual(0, second.counts["executed"])
+        self.assertEqual(0, second.progress_summary["producer_invocations"])
+        self.assertEqual(10, second.progress_summary["avoided_producer_invocations"])
+        self.assertFalse(Path(second_args.output_dir).exists())
+
+    def test_one_changed_input_does_not_reset_consumed_completion_cycle(self):
         openspec = self.root / "openspec" / "changes" / "fixture"
         openspec.mkdir(parents=True)
         source = openspec / "spec.md"
@@ -770,6 +1086,7 @@ class FullValidationCompositionTests(unittest.TestCase):
         source.write_text("# v2\n", encoding="utf-8")
         second_args = self.args()
         second_args.output_dir = str(Path(self.temporary.name) / "artifacts-second")
+        second_args = self._with_completion_readiness(second_args)
         with patch.object(
             suite_command,
             "_execute_command",
@@ -778,25 +1095,19 @@ class FullValidationCompositionTests(unittest.TestCase):
             second = suite_command.run_full_validation(second_args)
 
         self.assertTrue(first.broad_success)
-        self.assertTrue(second.broad_success)
-        self.assertEqual(2, execute.call_count)
-        self.assertEqual(
-            {
-                "openspec_strict",
-                "self_maintenance_review",
-            },
-            {
-                self.child_id(call.args[0])
-                for call in execute.call_args_list
-            },
+        self.assertEqual("blocked", second.status)
+        execute.assert_not_called()
+        self.assertTrue(
+            any(
+                "completion_cycle_attempt_already_consumed" in blocker["code"]
+                or "completion_cycle_initial_attempt_already_consumed" in blocker["code"]
+                or "completion_epoch_terminal_already_recorded" in blocker["code"]
+                for blocker in second.blockers
+            ),
+            second.blockers,
         )
-        self.assertEqual(8, second.counts["reused"])
-        self.assertEqual(2, second.counts["executed"])
-        self.assertEqual(2, second.progress_summary["producer_invocations"])
-        self.assertEqual(8, second.progress_summary["avoided_producer_invocations"])
-        self.assertEqual(0.8, second.progress_summary["estimated_work_avoided_fraction"])
 
-    def test_failed_parent_preserves_successful_children_for_next_run(self):
+    def test_failed_parent_does_not_replay_without_explicit_typed_repair(self):
         with patch.object(
             suite_command,
             "_execute_command",
@@ -805,6 +1116,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             first = suite_command.run_full_validation(self.args())
         second_args = self.args()
         second_args.output_dir = str(Path(self.temporary.name) / "artifacts-second")
+        second_args = self._with_completion_readiness(second_args)
         with patch.object(
             suite_command,
             "_execute_command",
@@ -813,13 +1125,17 @@ class FullValidationCompositionTests(unittest.TestCase):
             second = suite_command.run_full_validation(second_args)
 
         self.assertEqual("fail", first.status)
-        self.assertTrue(second.broad_success)
-        self.assertEqual(1, execute.call_count)
-        self.assertEqual(
-            "distribution_parity",
-            self.child_id(execute.call_args.args[0]),
+        self.assertEqual("blocked", second.status)
+        execute.assert_not_called()
+        self.assertTrue(
+            any(
+                "completion_cycle_attempt_already_consumed" in blocker["code"]
+                or "completion_cycle_initial_attempt_already_consumed" in blocker["code"]
+                or "completion_epoch_terminal_already_recorded" in blocker["code"]
+                for blocker in second.blockers
+            ),
+            second.blockers,
         )
-        self.assertEqual(9, second.counts["reused"])
 
     def test_tampered_owner_receipt_blocks_before_any_producer_starts(self):
         with patch.object(
@@ -895,6 +1211,15 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertEqual("fail", parity.status)
         self.assertTrue(parity.payload["payload_sha256"].startswith("sha256:"))
         self.assertFalse(result.broad_success)
+        ledger_path = Path(
+            result.progress_summary["completion_epoch_ledger_path"]
+        )
+        ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            set(ledger["terminal_action_ids"])
+            - {"distribution_parity"},
+            set(ledger["completed_terminal_action_ids"]),
+        )
 
     def test_missing_tracked_required_script_blocks_during_parent_freeze(self):
         (self.root / "scripts/check_flowguard_self_governance.py").unlink()

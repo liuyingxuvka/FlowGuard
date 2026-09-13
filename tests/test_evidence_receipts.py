@@ -3,7 +3,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+import flowguard.evidence_receipts as evidence_receipts_module
 from flowguard.evidence_receipts import (
     ChildReceiptRequirement,
     ConsumedChildReceipt,
@@ -170,7 +172,11 @@ class EvidenceReceiptSchemaTests(unittest.TestCase):
         self.assertEqual("<WORKSPACE>/skills/SKILL.md", path_token)
         self.assertEqual("<WORKSPACE>/scripts/check.py", command[1])
         self.assertNotIn(str(Path.home()), serialized)
-        self.assertNotIn(Path.home().name, serialized)
+        # ``Path.home().name`` is ``root`` on the Linux runner, which is also
+        # the spelling of the command-line ``--root`` option.  Assert that no
+        # quoted home-name value leaked instead of rejecting an unrelated flag
+        # substring; this keeps the privacy invariant platform-independent.
+        self.assertNotIn(f'"{Path.home().name}"', serialized)
 
     def test_environment_rejects_non_allowlisted_machine_identity(self):
         with self.assertRaisesRegex(ReceiptValidationError, "unsafe environment"):
@@ -229,6 +235,54 @@ class EvidenceReceiptSchemaTests(unittest.TestCase):
 
             self.assertEqual(1, len(inventory))
             self.assertEqual("receipt:skillguard:1", inventory[0].receipt_id)
+
+    def test_subject_filter_uses_owner_prefix_without_loading_other_subjects(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            selected = receipt(
+                receipt_id="receipt:validation-owner:model:alpha:" + "a" * 32,
+                subject_id="validation-owner:model:alpha",
+            )
+            other = receipt(
+                receipt_id="receipt:validation-owner:model:beta:" + "b" * 32,
+                subject_id="validation-owner:model:beta",
+            )
+            save_evidence_receipt(selected, root)
+            save_evidence_receipt(other, root)
+
+            inventory = list_evidence_receipts(
+                root,
+                subject_ids=("validation-owner:model:alpha",),
+            )
+
+            self.assertEqual((selected,), inventory)
+
+    def test_subject_filter_parses_only_matching_receipt_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            selected = receipt(
+                receipt_id="receipt:validation-owner:model:alpha:" + "a" * 32,
+                subject_id="validation-owner:model:alpha",
+            )
+            other = receipt(
+                receipt_id="receipt:validation-owner:model:beta:" + "b" * 32,
+                subject_id="validation-owner:model:beta",
+            )
+            save_evidence_receipt(selected, root)
+            save_evidence_receipt(other, root)
+
+            with mock.patch.object(
+                evidence_receipts_module,
+                "load_evidence_receipt",
+                wraps=evidence_receipts_module.load_evidence_receipt,
+            ) as loader:
+                inventory = list_evidence_receipts(
+                    root,
+                    subject_ids=("validation-owner:model:alpha",),
+                )
+
+            self.assertEqual((selected,), inventory)
+            self.assertEqual(1, loader.call_count)
 
     def test_same_receipt_id_with_different_content_cannot_overwrite(self):
         with tempfile.TemporaryDirectory() as tmp:

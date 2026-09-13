@@ -48,7 +48,11 @@ done.
   actions, or skipped-skill consequences
 - **THEN** the Codex-facing guidance enters `flowguard-development-process-flow`
   first
-- **AND** it records and executes the owner's internal `agent_workflow` mode
+- **AND** it records the owner's internal `agent_workflow` mode only when
+  explicit rehearsal, cross-owner/shared-write,
+  post-validation-invalidating-write, agent/route-workflow-change, or
+  multiple-independent-owner irreversible-risk facts are present
+- **AND** capability labels alone leave the mode `not_triggered`
 
 #### Scenario: Staged implementation trigger
 - **WHEN** an agent is asked to complete a non-trivial task with staged actions
@@ -1213,3 +1217,48 @@ plan-detailing and agent-workflow internal modes.
 - **WHEN** a multi-skill, tool, plugin, or external-side-effect operation needs
   workflow rehearsal
 - **THEN** the agent-workflow protocol SHALL be the named on-demand owner
+
+### Requirement: Completion epoch has one terminal full attempt
+DevelopmentProcessFlow SHALL create a frozen completion epoch only after all
+governed source, model, test, specification, projection, and external-root
+writes are settled. A completion epoch SHALL permit at most one full producer
+attempt and SHALL record its terminal outcome in output-only ledger state.
+
+#### Scenario: Governed writes remain
+- **WHEN** an OpenSpec task, model, test, skill projection, reverse semantic
+  input, or other governed source write remains pending
+- **THEN** final admission SHALL be blocked
+- **AND** the process SHALL not start a full producer
+
+#### Scenario: Output-only evidence is written
+- **WHEN** a child receipt, progress record, or terminal ledger is written below
+  the evidence output root
+- **THEN** the source completion epoch SHALL remain current
+- **AND** the process SHALL not edit or re-check tracked task files merely to
+  close the terminal result
+
+#### Scenario: Source drifts during the epoch
+- **WHEN** a governed input fingerprint differs after the epoch is frozen
+- **THEN** the epoch SHALL be aborted
+- **AND** a new epoch SHALL be created only after a focused repair batch and a
+  new freeze
+
+### Requirement: Full freshness is observed once per invocation
+For one full invocation, DevelopmentProcessFlow SHALL share one source
+observation across all owners, batch-refresh receipt currentness after child
+publication, and perform the live source comparison before parent save. After
+the parent is saved it SHALL perform integrity-only verification and SHALL NOT
+rebuild every owner currentness or scan all historical receipts again.
+
+#### Scenario: Many owners execute
+- **WHEN** multiple owners run under the same frozen parent
+- **THEN** they SHALL consume one source observation and one batch receipt
+  refresh
+- **AND** per-owner source rebuild and unbounded receipt-store scans SHALL be
+  zero
+
+#### Scenario: Drift is found before parent save
+- **WHEN** the final live comparison detects source drift
+- **THEN** the parent SHALL remain unpublished
+- **AND** the exact epoch SHALL be marked aborted or stale without leaving a
+  terminal-success parent

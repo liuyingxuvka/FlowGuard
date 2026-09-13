@@ -8,8 +8,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from flowguard.__main__ import main
+from flowguard.__main__ import _JsonObjectStoreLocator, main
 from flowguard.affected_blueprint_reader import materialize_affected_blueprint_index
+from flowguard.affected_blueprint_reader import load_affected_blueprint_projection
 from flowguard.canonical_blueprint_projection import (
     TARGET_SYSTEM_BLUEPRINT_PROJECTION_KINDS,
     canonical_target_system_blueprint_projection,
@@ -41,6 +42,7 @@ from flowguard.implementation_blueprint import (
     verify_blueprint_projection,
     write_canonical_blueprint_projection,
 )
+from flowguard.model_authority_store import load_current_model_authority_state
 from flowguard.target_native_qualification import (
     TargetBlueprintNativeReportSet,
     TargetNativeMember,
@@ -1139,6 +1141,180 @@ class BlueprintCliRouteTests(unittest.TestCase):
         self.assertEqual(2, exit_code)
         self.assertEqual("invalid", payload["status"])
         self.assertIn("fallback_summary", payload["findings"][0]["message"])
+
+    def _write_selective_projection_fixture(self, directory: Path) -> Path:
+        _projection, index, shard_payloads, objects = self._affected_understanding_artifacts()
+        authority = load_current_model_authority_state(Path.cwd())
+        canonical_blueprint_fingerprint = fingerprint_value(
+            {"canonical": "affected-cli", "snapshot": authority.snapshot.fingerprint}
+        )
+
+        def shard(kind: str, payload: list[dict[str, object]]) -> BlueprintShard:
+            digest = fingerprint_value(payload)
+            return BlueprintShard(
+                shard_id=f"{kind}:{digest}",
+                kind=kind,
+                relative_path=f"shards/{kind}-{digest.removeprefix('sha256:')}.json",
+                member_ids=tuple(
+                    str(row.get("object_id", row.get("shard_id", "")))
+                    for row in payload
+                    if isinstance(row, dict)
+                ),
+                payload=tuple(payload),
+                content_fingerprint=digest,
+            )
+
+        identity = {
+            "schema_version": "1.2",
+            "blueprint_id": "fixture-blueprint",
+            "projection_kind": "project_blueprint",
+            "blueprint_fingerprint": canonical_blueprint_fingerprint,
+            "project_blueprint_fingerprint": canonical_blueprint_fingerprint,
+            "target_blueprint_fingerprint": index.blueprint_fingerprint,
+            "subject_revision": authority.snapshot.fingerprint,
+            "software_manifest": {
+                "observed_snapshot_fingerprint": authority.snapshot.fingerprint,
+            },
+            "child_fingerprints": {"affected_index": index.fingerprint},
+        }
+        inventory = {
+            "inventory_id": "inventory:fixture",
+            "surfaces": [
+                {
+                    "surface_id": "surface:a",
+                    "path": "src/a.py",
+                    "symbol": "run",
+                }
+            ],
+        }
+        projection = CanonicalBlueprintProjection(
+            blueprint_fingerprint=canonical_blueprint_fingerprint,
+            shards=(
+                shard("identity", [identity]),
+                shard("affected_index", [index.to_dict()]),
+                shard("behavior_shards", list(shard_payloads.values())),
+                shard(
+                    "shared_objects",
+                    [
+                        {"object_id": object_id, "value": value}
+                        for object_id, value in sorted(objects.items())
+                    ],
+                ),
+                shard("implementation_inventory", [inventory]),
+            ),
+        )
+        output = directory / "projection"
+        write_canonical_blueprint_projection(projection, output)
+        return output
+
+    def test_affected_understanding_cli_reads_projection_root_selectively(self):
+        with tempfile.TemporaryDirectory() as directory:
+            projection_root = self._write_selective_projection_fixture(Path(directory))
+            output = StringIO()
+            with patch(
+                "flowguard.implementation_blueprint.load_canonical_blueprint_projection",
+                side_effect=AssertionError("whole projection loader invoked"),
+            ), redirect_stdout(output):
+                exit_code = main(
+                    [
+                        "affected-blueprint-understanding",
+                        "--root",
+                        str(Path.cwd()),
+                        "--projection-root",
+                        str(projection_root),
+                        "--affected-id",
+                        "surface:a",
+                        "--json",
+                    ]
+                )
+            payload = json.loads(output.getvalue())
+        self.assertEqual(0, exit_code)
+        self.assertEqual("affected", payload["scope"])
+        self.assertEqual("surface:a", payload["affected_ids"][0])
+        self.assertEqual(
+            payload["projection"]["authority_snapshot_fingerprint"],
+            load_current_model_authority_state(Path.cwd()).snapshot.fingerprint,
+        )
+
+    def test_cli_rejects_caller_snapshot_verified_flag(self):
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = main(
+                [
+                    "affected-blueprint-understanding",
+                    "--accepted-snapshot-verified",
+                    "--json",
+                ]
+            )
+
+        payload = json.loads(output.getvalue())
+        self.assertEqual(2, exit_code)
+        self.assertEqual("invalid", payload["status"])
+        self.assertEqual(
+            "caller_snapshot_verification_not_accepted",
+            payload["findings"][0]["code"],
+        )
+        self.assertEqual(0, payload["producer_count"])
+
+    def test_projection_root_rejects_traversal_and_unknown_entries_without_producer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            projection_root = self._write_selective_projection_fixture(root)
+            (projection_root / "unexpected.json").write_text("{}", encoding="utf-8")
+            output = StringIO()
+            with redirect_stdout(output):
+                exit_code = main(
+                    [
+                        "affected-blueprint-understanding",
+                        "--root",
+                        str(Path.cwd()),
+                        "--projection-root",
+                        str(projection_root),
+                        "--affected-id",
+                        "surface:a",
+                        "--json",
+                    ]
+                )
+            payload = json.loads(output.getvalue())
+            self.assertEqual(2, exit_code)
+            self.assertEqual(0, payload["producer_count"])
+            self.assertIn("projection_unknown_entry", payload["findings"][0]["message"])
+
+            output = StringIO()
+            with redirect_stdout(output):
+                exit_code = main(
+                    [
+                        "affected-blueprint-understanding",
+                        "--root",
+                        str(Path.cwd()),
+                        "--projection-root",
+                        "..\\outside",
+                        "--affected-id",
+                        "surface:a",
+                        "--json",
+                    ]
+                )
+            payload = json.loads(output.getvalue())
+        self.assertEqual(2, exit_code)
+        self.assertEqual(0, payload["producer_count"])
+        self.assertIn("projection_path_traversal", payload["findings"][0]["message"])
+
+    def test_json_object_store_locator_reuses_one_index_and_resets_after_close(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "objects.json"
+            path.write_text(
+                json.dumps({f"object:{index}": {"value": index} for index in range(10)}),
+                encoding="utf-8",
+            )
+            locator = _JsonObjectStoreLocator(path, "fixture object store")
+            with patch.object(locator, "_scan_value_end", wraps=locator._scan_value_end) as scan:
+                self.assertEqual(9, locator.load("object:9")["value"])
+                self.assertEqual(0, locator.load("object:0")["value"])
+                self.assertEqual(9, locator.load("object:9")["value"])
+                self.assertEqual(10, scan.call_count)
+            locator.close()
+            self.assertEqual(5, locator.load("object:5")["value"])
+            locator.close()
 
     def _native_owner_evidence(self) -> dict[str, object]:
         contract = ValidationOwnerContract(

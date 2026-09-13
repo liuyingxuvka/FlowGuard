@@ -35,8 +35,13 @@ from .canonical_relation import (
     normalize_canonical_relation_handoff,
 )
 from .model_authority_store import (
+    EXECUTION_EVIDENCE_NOT_RUN,
+    MODEL_AUTHORITY_STATUS_BLOCKED,
+    SELECTED_SOURCE_UNAVAILABLE,
+    SelectedModelClosureRead,
     audit_model_authority,
     load_observed_model_system,
+    read_selected_model_closure,
 )
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref
 from .task_coverage_demand import (
@@ -400,6 +405,24 @@ class ExistingModelPreflight:
     authority_snapshot_fingerprint: str = ""
     authority_subject_revision: str = ""
     authority_gap_ids: tuple[str, ...] = ()
+    # Light selected-closure status is deliberately separate from the global
+    # authority audit status above.  A saved head may be intact while one
+    # selected model/input is stale; callers must be able to retain the as-of
+    # map without claiming current execution.
+    authority_integrity: str = "not_checked"
+    selected_source_currentness: str = "not_checked"
+    execution_evidence_status: str = EXECUTION_EVIDENCE_NOT_RUN
+    as_of: Mapping[str, Any] = field(default_factory=dict)
+    stale_obligations: tuple[str, ...] = ()
+    stale_obligation_details: tuple[Mapping[str, Any], ...] = ()
+    selected_model_paths: tuple[str, ...] = ()
+    selected_runner_paths: tuple[str, ...] = ()
+    selected_input_paths: tuple[str, ...] = ()
+    selected_intent_paths: tuple[str, ...] = ()
+    selected_contract_paths: tuple[str, ...] = ()
+    selected_read_paths: tuple[str, ...] = ()
+    selected_read_counts: Mapping[str, int] = field(default_factory=dict)
+    selected_closure: Mapping[str, Any] = field(default_factory=dict)
     model_search_performed: bool = False
     search_paths: tuple[str, ...] = ()
     behavior_lookup_required: bool = False
@@ -459,6 +482,35 @@ class ExistingModelPreflight:
             "authority_gap_ids",
             _as_tuple(self.authority_gap_ids),
         )
+        object.__setattr__(self, "authority_integrity", str(self.authority_integrity))
+        object.__setattr__(
+            self,
+            "selected_source_currentness",
+            str(self.selected_source_currentness),
+        )
+        object.__setattr__(
+            self,
+            "execution_evidence_status",
+            str(self.execution_evidence_status),
+        )
+        object.__setattr__(self, "as_of", dict(self.as_of))
+        object.__setattr__(self, "stale_obligations", _as_tuple(self.stale_obligations))
+        object.__setattr__(
+            self,
+            "stale_obligation_details",
+            tuple(dict(item) for item in self.stale_obligation_details),
+        )
+        for name in (
+            "selected_model_paths",
+            "selected_runner_paths",
+            "selected_input_paths",
+            "selected_intent_paths",
+            "selected_contract_paths",
+            "selected_read_paths",
+        ):
+            object.__setattr__(self, name, _as_tuple(getattr(self, name)))
+        object.__setattr__(self, "selected_read_counts", dict(self.selected_read_counts))
+        object.__setattr__(self, "selected_closure", dict(self.selected_closure))
         object.__setattr__(self, "search_paths", _as_tuple(self.search_paths))
         object.__setattr__(self, "behavior_lookup_required", bool(self.behavior_lookup_required))
         object.__setattr__(self, "behavior_lookup_status", str(self.behavior_lookup_status))
@@ -528,6 +580,14 @@ class ExistingModelPreflight:
             tuple(dict(item) for item in self.work_contexts),
         )
 
+    @property
+    def selected_currentness(self) -> str:
+        return self.selected_source_currentness
+
+    @property
+    def execution_status(self) -> str:
+        return self.execution_evidence_status
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "preflight_id": self.preflight_id,
@@ -543,6 +603,25 @@ class ExistingModelPreflight:
             ),
             "authority_subject_revision": self.authority_subject_revision,
             "authority_gap_ids": list(self.authority_gap_ids),
+            "authority_integrity": self.authority_integrity,
+            "selected_source_currentness": self.selected_source_currentness,
+            "selected_currentness": self.selected_source_currentness,
+            "execution_evidence_status": self.execution_evidence_status,
+            "execution_status": self.execution_evidence_status,
+            "as_of": to_jsonable(dict(self.as_of)),
+            "as_of_map": to_jsonable(dict(self.as_of)),
+            "stale_obligations": list(self.stale_obligations),
+            "stale_obligation_details": [
+                to_jsonable(dict(item)) for item in self.stale_obligation_details
+            ],
+            "selected_model_paths": list(self.selected_model_paths),
+            "selected_runner_paths": list(self.selected_runner_paths),
+            "selected_input_paths": list(self.selected_input_paths),
+            "selected_intent_paths": list(self.selected_intent_paths),
+            "selected_contract_paths": list(self.selected_contract_paths),
+            "selected_read_paths": list(self.selected_read_paths),
+            "selected_read_counts": dict(self.selected_read_counts),
+            "selected_closure": to_jsonable(dict(self.selected_closure)),
             "model_search_performed": self.model_search_performed,
             "search_paths": list(self.search_paths),
             "behavior_lookup_required": self.behavior_lookup_required,
@@ -1145,23 +1224,7 @@ def existing_model_preflight_from_project(
         except ValueError:
             searched_path_values.insert(0, str(canonical_ledger_path))
     searched_paths = tuple(dict.fromkeys(searched_path_values))
-    authority_report = audit_model_authority(root_path)
-    authority_declared = bool(
-        authority_report.ok or _project_declares_model_authority(root_path)
-    )
-    grounding_state = (
-        PREFLIGHT_GROUNDING_MODELED_CURRENT
-        if authority_declared
-        else PREFLIGHT_GROUNDING_ADOPTION_CANDIDATE
-    )
-    authority_status = (
-        authority_report.status if authority_declared else "not_adopted"
-    )
-    authority_snapshot_fingerprint = ""
-    authority_subject_revision = ""
-    authority_gap_ids: tuple[str, ...] = ()
-    affected_relations: tuple[CanonicalRelation, ...] = ()
-    hits: list[ModelContextHit] = []
+
     primary_lookup_hits = tuple(
         getattr(lookup_report, "primary_hits", ()) if lookup_report else ()
     )
@@ -1171,28 +1234,110 @@ def existing_model_preflight_from_project(
     candidate_lookup_hits = tuple(
         getattr(lookup_report, "candidate_hits", ()) if lookup_report else ()
     )
-    if authority_report.ok:
-        _, authority_snapshot = load_observed_model_system(root_path)
+    lookup_hits = (*primary_lookup_hits, *related_lookup_hits)
+
+    # Light selected navigation must not pay for a whole live inventory audit.
+    # It loads the one saved authority pair, then the selected reader validates
+    # only that finite typed closure.  Full or broad preflight retains the
+    # existing global audit semantics below.
+    light_selected = (
+        mode == PREFLIGHT_MODE_LIGHT
+        and inventory_scope == PREFLIGHT_INVENTORY_SELECTED
+    )
+    authority_report = None
+    authority_snapshot = None
+    authority_head = None
+    selected_read: SelectedModelClosureRead | None = None
+    if light_selected:
+        try:
+            authority_head, authority_snapshot = load_observed_model_system(root_path)
+        except Exception:
+            # A declared but malformed authority is a modeled-current failure,
+            # not permission to fall back to lexical/root discovery.  For a
+            # target with no declared authority, preserve the existing
+            # adoption-candidate behavior.
+            authority_head = None
+            authority_snapshot = None
+        authority_declared = bool(
+            authority_snapshot is not None
+            or _project_declares_model_authority(root_path)
+        )
+        if authority_snapshot is not None:
+            selected_read = read_selected_model_closure(
+                root_path,
+                selected_owner_ids=tuple(
+                    hit.primary_owner_model_id
+                    for hit in lookup_hits
+                    if getattr(hit, "primary_owner_model_id", "")
+                ),
+                changed_paths=tuple(changed_paths),
+                inventory_scope=inventory_scope,
+                head=authority_head,
+                snapshot=authority_snapshot,
+            )
+            authority_ok = selected_read.ok
+            authority_status = (
+                selected_read.authority_integrity
+                if authority_ok
+                else MODEL_AUTHORITY_STATUS_BLOCKED
+            )
+        else:
+            authority_ok = False
+            authority_status = MODEL_AUTHORITY_STATUS_BLOCKED if authority_declared else "not_adopted"
+    else:
+        authority_report = audit_model_authority(root_path)
+        authority_ok = bool(authority_report.ok)
+        authority_declared = bool(
+            authority_report.ok or _project_declares_model_authority(root_path)
+        )
+        authority_status = (
+            authority_report.status if authority_declared else "not_adopted"
+        )
+    grounding_state = (
+        PREFLIGHT_GROUNDING_MODELED_CURRENT
+        if authority_declared
+        else PREFLIGHT_GROUNDING_ADOPTION_CANDIDATE
+    )
+    authority_snapshot_fingerprint = ""
+    authority_subject_revision = ""
+    authority_gap_ids: tuple[str, ...] = ()
+    affected_relations: tuple[CanonicalRelation, ...] = ()
+    hits: list[ModelContextHit] = []
+    if authority_ok and authority_snapshot is None:
+        # Full/broad mode keeps the historical global audit first and then
+        # loads the single observed snapshot for materialization.
+        try:
+            authority_head, authority_snapshot = load_observed_model_system(root_path)
+        except Exception:
+            authority_ok = False
+    if authority_ok and authority_snapshot is not None:
         authority_snapshot_fingerprint = authority_snapshot.fingerprint
         authority_subject_revision = authority_snapshot.subject_revision
         authority_gap_ids = authority_snapshot.unresolved_gap_ids
-        lookup_hits = (*primary_lookup_hits, *related_lookup_hits)
-        selected_fingerprints = _lookup_owner_instance_fingerprints(
-            authority_snapshot,
-            lookup_hits,
-        )
-        if inventory_scope == PREFLIGHT_INVENTORY_BROAD:
+        if selected_read is not None:
+            selected_model_ids = set(selected_read.selected_model_ids)
             selected_fingerprints = {
                 instance.fingerprint
                 for instance in authority_snapshot.model_instances
+                if instance.logical_model_id in selected_model_ids
             }
-        if inventory_scope == PREFLIGHT_INVENTORY_SELECTED:
-            selected_fingerprints.update(
-                _relation_neighbor_fingerprints(
-                    authority_snapshot,
-                    selected_fingerprints,
-                )
+        else:
+            selected_fingerprints = _lookup_owner_instance_fingerprints(
+                authority_snapshot,
+                lookup_hits,
             )
+            if inventory_scope == PREFLIGHT_INVENTORY_BROAD:
+                selected_fingerprints = {
+                    instance.fingerprint
+                    for instance in authority_snapshot.model_instances
+                }
+            if inventory_scope == PREFLIGHT_INVENTORY_SELECTED:
+                selected_fingerprints.update(
+                    _relation_neighbor_fingerprints(
+                        authority_snapshot,
+                        selected_fingerprints,
+                    )
+                )
         affected_relations = _canonical_relations(
             authority_snapshot,
             selected_fingerprints,
@@ -1214,7 +1359,10 @@ def existing_model_preflight_from_project(
                         f"model-authority:{instance.fingerprint}"
                     ),
                     evidence_tier="authoritative_observed",
-                    evidence_current=True,
+                    evidence_current=(
+                        selected_read is None
+                        or selected_read.selected_source_currentness == "current"
+                    ),
                     responsibilities=(
                         _purpose_lines(model_text)
                         if mode == PREFLIGHT_MODE_FULL
@@ -1232,6 +1380,13 @@ def existing_model_preflight_from_project(
                     ),
                     rationale=(
                         "Selected from the sole observed model-system authority."
+                        + (
+                            " The map is retained as-of the accepted snapshot while "
+                            "one selected source obligation is stale."
+                            if selected_read is not None
+                            and selected_read.selected_source_currentness != "current"
+                            else ""
+                        )
                     ),
                 )
             )
@@ -1275,7 +1430,7 @@ def existing_model_preflight_from_project(
             seen_model_paths.add(normalized_relative)
 
     ownership_snapshot = None
-    if authority_report.ok and hits:
+    if authority_ok and hits:
         ownership_snapshot = ExistingOwnershipSnapshot(
             function_block_owners=tuple(
                 (block, hit.model_id)
@@ -1298,7 +1453,7 @@ def existing_model_preflight_from_project(
     )
     reuse_decision = (
         REUSE_DECISION_REUSE_EXISTING
-        if authority_report.ok and hits
+        if authority_ok and hits
         else REUSE_DECISION_NO_MODEL_FOUND
     )
     if grounding_state == PREFLIGHT_GROUNDING_ADOPTION_CANDIDATE:
@@ -1336,6 +1491,58 @@ def existing_model_preflight_from_project(
         authority_snapshot_fingerprint=authority_snapshot_fingerprint,
         authority_subject_revision=authority_subject_revision,
         authority_gap_ids=authority_gap_ids,
+        authority_integrity=(
+            selected_read.authority_integrity
+            if selected_read is not None
+            else authority_status
+        ),
+        selected_source_currentness=(
+            selected_read.selected_source_currentness
+            if selected_read is not None
+            else (
+                SELECTED_SOURCE_UNAVAILABLE
+                if authority_declared and not authority_ok
+                else "not_checked"
+            )
+        ),
+        execution_evidence_status=(
+            selected_read.execution_evidence_status
+            if selected_read is not None
+            else EXECUTION_EVIDENCE_NOT_RUN
+        ),
+        as_of=(selected_read.as_of if selected_read is not None else {}),
+        stale_obligations=(
+            selected_read.stale_obligations if selected_read is not None else ()
+        ),
+        stale_obligation_details=(
+            selected_read.stale_obligation_details
+            if selected_read is not None
+            else ()
+        ),
+        selected_model_paths=(
+            selected_read.selected_model_paths if selected_read is not None else ()
+        ),
+        selected_runner_paths=(
+            selected_read.selected_runner_paths if selected_read is not None else ()
+        ),
+        selected_input_paths=(
+            selected_read.selected_input_paths if selected_read is not None else ()
+        ),
+        selected_intent_paths=(
+            selected_read.selected_intent_paths if selected_read is not None else ()
+        ),
+        selected_contract_paths=(
+            selected_read.selected_contract_paths if selected_read is not None else ()
+        ),
+        selected_read_paths=(
+            selected_read.read_paths if selected_read is not None else ()
+        ),
+        selected_read_counts=(
+            dict(selected_read.read_counts) if selected_read is not None else {}
+        ),
+        selected_closure=(
+            selected_read.to_dict() if selected_read is not None else {}
+        ),
         model_search_performed=True,
         search_paths=searched_paths,
         behavior_lookup_required=behavior_lookup_required,

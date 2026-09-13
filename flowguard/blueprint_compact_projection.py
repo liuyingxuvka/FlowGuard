@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Mapping
 
 from .evidence_receipts import fingerprint_value
@@ -14,6 +15,7 @@ PROJECT_BLUEPRINT_COMPACT_PROJECTION_SCHEMA = (
 DEFAULT_MEMBER_LIMIT = 64
 DEFAULT_BREAKDOWN_LIMIT = 16
 DEFAULT_CANDIDATE_INDEX_LIMIT = 32
+DEFAULT_TASK_CONTEXT_BYTE_LIMIT = 32 * 1024
 _PLANNED_EXECUTION_GAP_CODES = frozenset(
     {
         "missing_code_contract_test_evidence",
@@ -74,6 +76,31 @@ def _bounded_counts(
     return dict(rows[:limit]), max(0, len(rows) - limit)
 
 
+def _execution_counts(behavior: Any) -> dict[str, int]:
+    """Project dynamic edge execution counts without expanding receipts."""
+
+    rows = tuple(_stored(behavior, "coverage_execution_evidence", ()) or ())
+    return {
+        "coverage_edges": len(rows),
+        "passed": sum(str(_stored(row, "disposition", "")) == "pass" for row in rows),
+        "failed": sum(str(_stored(row, "disposition", "")) == "fail" for row in rows),
+        "blocked": sum(str(_stored(row, "disposition", "")) == "blocked" for row in rows),
+        "not_run": sum(
+            str(_stored(row, "disposition", ""))
+            in {"not_run", "not_applicable"}
+            for row in rows
+        ),
+        "native_case_ids": len(
+            {
+                str(case_id)
+                for row in rows
+                for case_id in (_stored(row, "executed_case_ids", ()) or ())
+                if str(case_id)
+            }
+        ),
+    }
+
+
 def _gap_payload(gap: Any) -> dict[str, Any] | None:
     if gap is None:
         return None
@@ -90,6 +117,231 @@ def _gap_payload(gap: Any) -> dict[str, Any] | None:
     if not gap_id:
         gap_id = "blueprint-gap:" + fingerprint_value(payload).split(":", 1)[-1]
     return {"gap_id": str(gap_id), **payload}
+
+
+def _compact_safe(value: Any, *, depth: int = 0) -> Any:
+    """Copy already-materialized task-map values without invoking serializers."""
+
+    if depth > 8:
+        return "<depth-limit>"
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Mapping):
+        return {
+            str(key): _compact_safe(item, depth=depth + 1)
+            for key, item in sorted(value.items(), key=lambda row: str(row[0]))
+        }
+    if isinstance(value, (list, tuple)):
+        return [_compact_safe(item, depth=depth + 1) for item in value]
+    namespace = getattr(value, "__dict__", None)
+    if isinstance(namespace, dict):
+        return _compact_safe(namespace, depth=depth + 1)
+    return str(value)
+
+
+def _compact_row_id(row: Any, *, group: str) -> str:
+    if isinstance(row, Mapping):
+        for key in (
+            "gap_id",
+            "path_id",
+            "coverage_id",
+            "case_id",
+            "surface_id",
+            "behavior_block_id",
+            "test_node_id",
+            "owner_id",
+            "intent_id",
+            "id",
+        ):
+            value = row.get(key)
+            if value not in (None, ""):
+                return str(value)
+    return f"{group}:{fingerprint_value(_compact_safe(row)).split(':', 1)[-1]}"
+
+
+def _compact_task_row(row: Any, *, group: str) -> dict[str, Any]:
+    payload = _compact_safe(row)
+    if isinstance(payload, Mapping):
+        result = dict(payload)
+    else:
+        result = {"value": payload}
+    result.setdefault("id", _compact_row_id(row, group=group))
+    # A compact page must remain useful even when a source explanation carries
+    # a very large natural-language payload.  The complete object remains
+    # addressable through continuation refs; the first page uses a stable
+    # bounded explanation.
+    for key in ("message", "reason", "impact_reason", "rationale"):
+        value = result.get(key)
+        if isinstance(value, str) and len(value) > 512:
+            result[key] = value[:509] + "..."
+    return result
+
+
+def _json_size(value: Any) -> int:
+    return len(
+        json.dumps(
+            value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    )
+
+
+def _compact_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return default
+
+
+def _compact_task_context(
+    value: Any,
+    *,
+    member_limit: int,
+    byte_limit: int,
+) -> dict[str, Any]:
+    """Project task-context groups with deterministic object-ref pagination."""
+
+    source = value if isinstance(value, Mapping) else {}
+    groups = (
+        "selected_change_points",
+        "accepted_intent",
+        "must_preserve",
+        "impact_paths",
+        "validation",
+        "gaps",
+    )
+    all_rows: dict[str, list[dict[str, Any]]] = {
+        group: sorted(
+            [_compact_task_row(row, group=group) for row in (source.get(group) or ())],
+            key=lambda row: (str(row.get("id", "")), json.dumps(row, sort_keys=True, ensure_ascii=False)),
+        )
+        for group in groups
+    }
+    gap_rows = all_rows["gaps"]
+    gap_refs = [str(row.get("gap_id") or row.get("id")) for row in gap_rows]
+    gap_refs = sorted({ref for ref in gap_refs if ref})
+    boundaries_source = source.get("evidence_boundaries")
+    boundaries = (
+        {
+            str(name): sorted({str(ref) for ref in (refs or ()) if str(ref)})
+            for name, refs in boundaries_source.items()
+        }
+        if isinstance(boundaries_source, Mapping)
+        else {name: [] for name in ("observed_structure", "accepted_contract", "executed_evidence", "unresolved")}
+    )
+    full_counts = {
+        group: len(rows)
+        for group, rows in all_rows.items()
+    }
+    supplied_gap_count = _compact_int(source.get("gap_count", len(gap_rows)), len(gap_rows))
+    supplied_blocker_count = _compact_int(source.get("blocker_count", 0), 0)
+    if not supplied_blocker_count:
+        supplied_blocker_count = sum(
+            row.get("status") == "blocked" for row in gap_rows
+        )
+    all_continuation_refs = {
+        group: [str(row.get("id")) for row in rows]
+        for group, rows in all_rows.items()
+    }
+
+    def make_payload(limit: int) -> dict[str, Any]:
+        projected = {
+            group: rows[:limit] for group, rows in all_rows.items()
+        }
+        omitted_counts = {
+            group: max(0, len(rows) - len(projected[group]))
+            for group, rows in all_rows.items()
+        }
+        continuation_refs = {
+            group: refs[len(projected[group]) :]
+            for group, refs in all_continuation_refs.items()
+            if refs[len(projected[group]) :]
+        }
+        return {
+            "schema_version": str(
+                source.get("schema_version", "flowguard.affected_task_context.v1")
+            ),
+            "fingerprint": str(source.get("fingerprint", "")),
+            "task_summary": str(source.get("task_summary", "")),
+            "requested_seed_ids": sorted(
+                {str(item) for item in (source.get("requested_seed_ids") or ()) if str(item)}
+            ),
+            "affected_ids": sorted(
+                {str(item) for item in (source.get("affected_ids") or ()) if str(item)}
+            ),
+            "status": str(source.get("status", "") or ""),
+            "claim_boundary": str(source.get("claim_boundary", "") or ""),
+            "selected_change_points": projected["selected_change_points"],
+            "accepted_intent": projected["accepted_intent"],
+            "must_preserve": projected["must_preserve"],
+            "impact_paths": projected["impact_paths"],
+            "validation": projected["validation"],
+            "gaps": projected["gaps"],
+            "gap_count": supplied_gap_count,
+            "blocker_count": supplied_blocker_count,
+            "gap_refs": gap_refs,
+            "evidence_boundaries": boundaries,
+            "omitted_counts": omitted_counts,
+            "omitted_count": omitted_counts,
+            "continuation": {
+                "read_only": True,
+                "object_refs": continuation_refs,
+                "next_token": fingerprint_value(
+                    {
+                        "source_fingerprint": str(source.get("fingerprint", "")),
+                        "omitted_counts": omitted_counts,
+                        "object_refs": continuation_refs,
+                    }
+                )
+                if continuation_refs
+                else "",
+            },
+            "denominator": {
+                "blueprint_fingerprint": str(source.get("blueprint_fingerprint", "")),
+                "logical_fingerprint": str(source.get("logical_fingerprint", "")),
+                "index_fingerprint": str(source.get("index_fingerprint", "")),
+                "context_fingerprint": str(source.get("fingerprint", "")),
+                "group_counts": full_counts,
+                "evidence_boundary_counts": {
+                    name: len(refs) for name, refs in boundaries.items()
+                },
+            },
+        }
+
+    # Keep all six-group omission accounting deterministic.  If a single
+    # verbose row would exceed the envelope, remove detail rows one at a time;
+    # gap refs, counts, denominator fingerprints, and continuation refs remain.
+    limit = min(member_limit, max(full_counts.values(), default=0))
+    compact = make_payload(limit)
+    while limit > 0 and _json_size(compact) > byte_limit:
+        limit -= 1
+        compact = make_payload(limit)
+    if _json_size(compact) > byte_limit:
+        # Retain the mandatory accounting envelope and shorten only explanatory
+        # text.  This branch is deterministic and never drops a blocker id.
+        compact["task_summary"] = compact["task_summary"][:256]
+        compact["claim_boundary"] = compact["claim_boundary"][:512]
+        compact["gaps"] = [
+            {
+                key: row[key]
+                for key in ("id", "gap_id", "code", "category", "status", "owner_id", "next_owner", "evidence_refs")
+                if key in row
+            }
+            for row in compact["gaps"]
+        ]
+    compact["byte_limit"] = byte_limit
+    # The byte metadata itself is part of the envelope; converge the reported
+    # size after adding it so consumers can verify the bound without guessing
+    # whether the metadata was included.
+    compact["byte_size"] = 0
+    for _ in range(4):
+        measured = _json_size(compact)
+        if compact["byte_size"] == measured:
+            break
+        compact["byte_size"] = measured
+    return compact
 
 
 def _finding_breakdowns(
@@ -165,9 +417,12 @@ def compact_understanding_projection(
     summary: Any,
     *,
     member_limit: int = DEFAULT_MEMBER_LIMIT,
+    byte_limit: int = DEFAULT_TASK_CONTEXT_BYTE_LIMIT,
 ) -> dict[str, Any]:
     if member_limit < 1:
         raise ValueError("member_limit must be positive")
+    if byte_limit < 1:
+        raise ValueError("byte_limit must be positive")
     affected_ids = _stored(summary, "affected_ids")
     if affected_ids is None:
         affected_ids = _stored(summary, "affected_surface_ids", ())
@@ -189,6 +444,12 @@ def compact_understanding_projection(
         ),
         "blueprint_fingerprint": str(
             _stored(summary, "blueprint_fingerprint", "")
+        ),
+        "logical_fingerprint": str(
+            _stored(summary, "logical_fingerprint", "")
+        ),
+        "index_fingerprint": str(
+            _stored(summary, "index_fingerprint", "")
         ),
         "layer_statuses": layer_payload,
         "omitted_layer_count": max(0, len(layers) - member_limit),
@@ -215,8 +476,62 @@ def compact_understanding_projection(
             "or whole builder."
         ),
     }
+    raw_task_context = _stored(summary, "task_context", {})
+    # ``byte_limit`` applies to the complete projection envelope, not merely
+    # the nested task map.  Reserve the already-built identity envelope before
+    # selecting detail rows, then tighten once more after the nested map is
+    # attached so the final fingerprint is included in the measurement.
+    context_budget = max(256, byte_limit - _json_size(payload) - 256)
+    task_context = _compact_task_context(
+        raw_task_context,
+        member_limit=member_limit,
+        byte_limit=context_budget,
+    )
+    # The context carries its own source denominator and continuation refs;
+    # the top-level projection repeats only the stable identity needed by an AI
+    # that elects not to open the nested object.
+    task_context.setdefault("denominator", {})["blueprint_fingerprint"] = payload[
+        "blueprint_fingerprint"
+    ]
+    task_context.setdefault("denominator", {})["logical_fingerprint"] = payload[
+        "logical_fingerprint"
+    ]
+    task_context.setdefault("denominator", {})["index_fingerprint"] = payload[
+        "index_fingerprint"
+    ]
+    task_context["byte_size"] = 0
+    for _ in range(4):
+        measured = _json_size(task_context)
+        if task_context["byte_size"] == measured:
+            break
+        task_context["byte_size"] = measured
+    payload["task_context"] = task_context
+    while _json_size(payload) > byte_limit and context_budget > 256:
+        context_budget -= 256
+        task_context = _compact_task_context(
+            raw_task_context,
+            member_limit=member_limit,
+            byte_limit=context_budget,
+        )
+        task_context.setdefault("denominator", {})["blueprint_fingerprint"] = payload[
+            "blueprint_fingerprint"
+        ]
+        task_context.setdefault("denominator", {})["logical_fingerprint"] = payload[
+            "logical_fingerprint"
+        ]
+        task_context.setdefault("denominator", {})["index_fingerprint"] = payload[
+            "index_fingerprint"
+        ]
+        task_context["byte_size"] = 0
+        for _ in range(4):
+            measured = _json_size(task_context)
+            if task_context["byte_size"] == measured:
+                break
+            task_context["byte_size"] = measured
+        payload["task_context"] = task_context
     supplied = _stored(summary, "fingerprint")
-    payload["fingerprint"] = str(supplied or fingerprint_value(payload))
+    payload["understanding_fingerprint"] = str(supplied or "")
+    payload["fingerprint"] = fingerprint_value(payload)
     return payload
 
 
@@ -315,6 +630,7 @@ def compact_self_qualification_projection(bundle: Any) -> dict[str, Any]:
         "execution_gap_counts": execution_gap_counts,
         "execution_gap_examples": execution_gap_examples,
         "omitted_execution_gap_kind_count": omitted_execution_gap_kinds,
+        "execution_counts": _execution_counts(behavior),
         "implementation_admitted": bool(
             _stored(summary, "implementation_admitted", False)
         ),
@@ -417,6 +733,7 @@ def compact_project_blueprint_projection(
         "execution_gap_counts": execution_counts,
         "execution_gap_examples": execution_examples,
         "omitted_execution_gap_kind_count": omitted_execution,
+        "execution_counts": _execution_counts(behavior),
         "counts": {
             "files": len(_stored(inventory, "file_dispositions", ()) or ()),
             "implementation_surfaces": len(_stored(inventory, "surfaces", ()) or ()),
@@ -466,6 +783,7 @@ def compact_reduction_projection(
     missing_proof_obligation_count = 0
     proof_required_candidate_count = 0
     retirement_review_candidate_count = 0
+    derived_unresolved_candidate_ids: list[str] = []
     for candidate in candidates:
         metadata = _stored(candidate, "metadata", {}) or {}
         signal = str(metadata.get("signal", "unclassified"))
@@ -482,6 +800,8 @@ def compact_reduction_projection(
         )
         if necessity_disposition == "unresolved":
             unresolved_candidate_count += 1
+            if candidate_id:
+                derived_unresolved_candidate_ids.append(candidate_id)
         obligations = metadata.get("missing_proof_obligations", ())
         if isinstance(obligations, (tuple, list, set, frozenset)):
             obligation_kinds = tuple(
@@ -503,6 +823,27 @@ def compact_reduction_projection(
         candidate_necessity_dispositions[necessity_disposition] = (
             candidate_necessity_dispositions.get(necessity_disposition, 0) + 1
         )
+    # Prefer the review's explicit candidate gate when available.  The
+    # bounded fallback keeps projections useful for lightweight test doubles
+    # and older in-memory callers without treating a missing field as proof.
+    stored_unresolved_candidate_ids = _stored(
+        review, "unresolved_candidate_ids", None
+    )
+    if stored_unresolved_candidate_ids is None:
+        unresolved_candidate_ids = tuple(sorted(derived_unresolved_candidate_ids))
+    else:
+        unresolved_candidate_ids = tuple(
+            sorted(
+                {
+                    str(value)
+                    for value in (stored_unresolved_candidate_ids or ())
+                    if str(value)
+                }
+            )
+        )
+    unresolved_candidate_rows, unresolved_candidate_omitted = _bounded(
+        unresolved_candidate_ids, member_limit
+    )
     bounded_signals, omitted_signals = _bounded_counts(
         signal_counts, breakdown_limit
     )
@@ -655,6 +996,8 @@ def compact_reduction_projection(
         "reduction_universe_fingerprint": str(universe_fingerprint),
         "candidate_count": len(candidates),
         "unresolved_candidate_count": unresolved_candidate_count,
+        "unresolved_candidate_ids": unresolved_candidate_rows,
+        "omitted_unresolved_candidate_count": unresolved_candidate_omitted,
         "proof_required_candidate_count": proof_required_candidate_count,
         "retirement_review_candidate_count": (
             retirement_review_candidate_count
@@ -815,6 +1158,7 @@ class BlueprintCompactProjection:
 __all__ = [
     "BLUEPRINT_COMPACT_PROJECTION_SCHEMA",
     "PROJECT_BLUEPRINT_COMPACT_PROJECTION_SCHEMA",
+    "DEFAULT_TASK_CONTEXT_BYTE_LIMIT",
     "BlueprintCompactProjection",
     "compact_project_blueprint_projection",
     "compact_reduction_projection",

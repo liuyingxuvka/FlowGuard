@@ -56,6 +56,8 @@ from flowguard import (
 )
 from flowguard.development_process_flow import (
     IMPLEMENTATION_ADMISSION_NOT_REQUESTED,
+    PROCESS_CLAIM_SCOPE_LOCAL_VALIDATION,
+    PROCESS_CLAIM_SCOPE_RELEASE,
     PATH_QUALITY_PHASE_ACTIVATION,
     PATH_QUALITY_PHASE_AFFECTED_VALIDATION,
     PATH_QUALITY_PHASE_CANDIDATE_REVISION,
@@ -472,6 +474,42 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
             "full_validation_parent_not_current",
             {item.code for item in report.findings},
         )
+
+    def test_local_validation_is_the_default_and_release_scope_is_explicit(self):
+        local = DevelopmentProcessPlan(
+            "local-done",
+            actions=(ProcessAction("claim-done", action_type="claim_done"),),
+        )
+        local_report = review_development_process_flow(local)
+        self.assertTrue(local_report.ok, local_report.format_text())
+        self.assertEqual(PROCESS_CLAIM_SCOPE_LOCAL_VALIDATION, local.claim_scope)
+        self.assertEqual(PROCESS_CLAIM_SCOPE_LOCAL_VALIDATION, local_report.claim_scope)
+        self.assertNotIn("claim_scope", local_report.summary)
+
+        release = DevelopmentProcessPlan(
+            "explicit-release",
+            actions=(ProcessAction("claim-done", action_type="claim_done"),),
+            claim_scope=PROCESS_CLAIM_SCOPE_RELEASE,
+        )
+        release_report = review_development_process_flow(release)
+        self.assertFalse(release_report.ok)
+        self.assertEqual(PROCESS_CLAIM_SCOPE_RELEASE, release.claim_scope)
+        self.assertIn(
+            "full_validation_parent_not_unique",
+            {item.code for item in release_report.findings},
+        )
+        self.assertEqual(
+            PROCESS_CLAIM_SCOPE_RELEASE,
+            release_report.to_dict()["claim_scope"],
+        )
+
+    def test_release_decision_cannot_be_downgraded_to_local_claim_scope(self):
+        with self.assertRaisesRegex(ValueError, "cannot use the local_validation"):
+            DevelopmentProcessPlan(
+                "conflicting-scope",
+                decision_scope=PROCESS_SCOPE_RELEASE,
+                claim_scope=PROCESS_CLAIM_SCOPE_LOCAL_VALIDATION,
+            )
 
     def test_distribution_evidence_is_typed_and_owned_outside_dpf(self):
         with self.assertRaises(TypeError):

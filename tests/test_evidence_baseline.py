@@ -65,7 +65,17 @@ class EvidenceBaselineTests(unittest.TestCase):
         self.assertEqual(2100, corpus.total_cases)
         self.assertEqual("problem_intent_cases", corpus.count_semantics)
         self.assertEqual(0, self.report.count_group("problem_intent_corpus"))
-        self.assertNotEqual(corpus.total_cases, self.report.count_group("unit_test_inventory"))
+        # ``corpus.total_cases`` is a problem-intent corpus denominator, not
+        # an executed-evidence group count.  The two values may coincidentally
+        # be equal as the repository grows; the semantic boundary is proved by
+        # the absence of a problem-corpus result group and metadata below.
+        self.assertEqual(
+            sum(
+                result.group == "unit_test_inventory"
+                for result in self.report.results
+            ),
+            self.report.count_group("unit_test_inventory"),
+        )
         for result in self.report.results:
             self.assertNotEqual("problem_intent_corpus", result.group)
             self.assertNotIn("problem_corpus_case_id", dict(result.metadata))

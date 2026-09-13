@@ -22,7 +22,7 @@ from flowguard.validation_ownership import (
 from flowguard.validation_results import ValidationChildResult
 
 
-def _owner(tmp_path: Path, *, command: tuple[str, ...], timeout: float = 5.0):
+def _owner(tmp_path: Path, *, command: tuple[str, ...]):
     source = tmp_path / "subject.txt"
     source.write_text("current\n", encoding="utf-8")
     contract = ValidationOwnerContract(
@@ -31,7 +31,6 @@ def _owner(tmp_path: Path, *, command: tuple[str, ...], timeout: float = 5.0):
         input_patterns=("subject.txt",),
         obligation_ids=("obligation:supervised",),
         projected_inputs=(("subject", fingerprint_value("current")),),
-        timeout_seconds=timeout,
     )
     current = build_owner_current(
         tmp_path,

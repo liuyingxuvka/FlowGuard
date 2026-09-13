@@ -73,6 +73,13 @@ class RouteTopologyGovernanceTests(unittest.TestCase):
             self.assertEqual(flowguard.ROUTE_ROLE_INTERNAL_MODE, profiles[route_id].route_role)
             self.assertEqual("development_process_flow", profiles[route_id].canonical_owner_route)
 
+    def test_agent_workflow_rehearsal_stays_internal_and_owner_bound(self):
+        profile = next(item for item in self.profiles if item.route_id == "agent_workflow_rehearsal")
+
+        self.assertEqual(flowguard.ROUTE_ROLE_INTERNAL_MODE, profile.route_role)
+        self.assertEqual("development_process_flow", profile.canonical_owner_route)
+        self.assertNotEqual(flowguard.ENTRY_POLICY_DIRECT, profile.entry_policy)
+
     def test_legacy_bare_string_is_a_migration_error(self):
         with self.assertRaisesRegex(LegacyRouteHandoffError, "target_kind"):
             flowguard.RouteProfile(

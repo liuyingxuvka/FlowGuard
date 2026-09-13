@@ -62,6 +62,11 @@ class HierarchyCase:
     feedback_progress_evidence_exact_current: bool = True
     checked_in_declaration_not_child_currentness: bool = True
     checked_in_declaration_not_progress_currentness: bool = True
+    recursive_depth_declared: bool = True
+    finite_leaf_boundary_execution: bool = True
+    parent_consumes_subtree_receipts: bool = True
+    cross_child_connection_tests: bool = True
+    global_cartesian_not_materialized: bool = True
 
 
 @dataclass(frozen=True)
@@ -104,6 +109,11 @@ class HierarchyPlan:
     feedback_progress_evidence_exact_current: bool = False
     checked_in_declaration_not_child_currentness: bool = False
     checked_in_declaration_not_progress_currentness: bool = False
+    recursive_depth_declared: bool = False
+    finite_leaf_boundary_execution: bool = False
+    parent_consumes_subtree_receipts: bool = False
+    cross_child_connection_tests: bool = False
+    global_cartesian_not_materialized: bool = False
 
 
 GOOD_PLAN = HierarchyCase("good_hierarchical_mesh_plan")
@@ -205,6 +215,26 @@ BROKEN_DECLARATION_SELF_CERTIFIES_PROGRESS = HierarchyCase(
     "broken_declaration_self_certifies_progress",
     checked_in_declaration_not_progress_currentness=False,
 )
+BROKEN_RECURSIVE_DEPTH_UNDECLARED = HierarchyCase(
+    "broken_recursive_depth_undeclared",
+    recursive_depth_declared=False,
+)
+BROKEN_FINITE_LEAF_BOUNDARY_NOT_EXECUTED = HierarchyCase(
+    "broken_finite_leaf_boundary_not_executed",
+    finite_leaf_boundary_execution=False,
+)
+BROKEN_PARENT_SUBTREE_RECEIPTS_NOT_CONSUMED = HierarchyCase(
+    "broken_parent_subtree_receipts_not_consumed",
+    parent_consumes_subtree_receipts=False,
+)
+BROKEN_CROSS_CHILD_CONNECTION_TESTS_MISSING = HierarchyCase(
+    "broken_cross_child_connection_tests_missing",
+    cross_child_connection_tests=False,
+)
+BROKEN_GLOBAL_CARTESIAN_MATERIALIZED = HierarchyCase(
+    "broken_global_cartesian_materialized",
+    global_cartesian_not_materialized=False,
+)
 
 
 class EvaluateHierarchyPlan:
@@ -249,6 +279,11 @@ class EvaluateHierarchyPlan:
         "feedback_progress_evidence_exact_current",
         "checked_in_declaration_not_child_currentness",
         "checked_in_declaration_not_progress_currentness",
+        "recursive_depth_declared",
+        "finite_leaf_boundary_execution",
+        "parent_consumes_subtree_receipts",
+        "cross_child_connection_tests",
+        "global_cartesian_not_materialized",
     )
     accepted_input_type = HierarchyCase
     input_description = "hierarchical mesh rollout case"
@@ -295,6 +330,11 @@ class EvaluateHierarchyPlan:
             feedback_progress_evidence_exact_current=input_obj.feedback_progress_evidence_exact_current,
             checked_in_declaration_not_child_currentness=input_obj.checked_in_declaration_not_child_currentness,
             checked_in_declaration_not_progress_currentness=input_obj.checked_in_declaration_not_progress_currentness,
+            recursive_depth_declared=input_obj.recursive_depth_declared,
+            finite_leaf_boundary_execution=input_obj.finite_leaf_boundary_execution,
+            parent_consumes_subtree_receipts=input_obj.parent_consumes_subtree_receipts,
+            cross_child_connection_tests=input_obj.cross_child_connection_tests,
+            global_cartesian_not_materialized=input_obj.global_cartesian_not_materialized,
         )
         return (
             FunctionResult(
@@ -512,6 +552,41 @@ def child_receipts_are_exact_current_owner_bound_and_distinct(
     return _pass()
 
 
+def recursive_composition_is_finite_and_complete(
+    state: HierarchyPlan, _trace: object
+) -> InvariantResult:
+    """Guard the compositional alternative to one giant global Cartesian table."""
+
+    if _empty(state):
+        return _pass()
+    if not state.recursive_depth_declared:
+        return _fail(
+            "recursive_composition_is_finite_and_complete",
+            "the model mesh does not declare an arbitrary-depth parent/child hierarchy",
+        )
+    if not state.finite_leaf_boundary_execution:
+        return _fail(
+            "recursive_composition_is_finite_and_complete",
+            "one or more finite leaf input/state boundaries have not been executed",
+        )
+    if not state.parent_consumes_subtree_receipts:
+        return _fail(
+            "recursive_composition_is_finite_and_complete",
+            "a parent model claims closure without consuming independently verified child subtree receipts",
+        )
+    if not state.cross_child_connection_tests:
+        return _fail(
+            "recursive_composition_is_finite_and_complete",
+            "cross-child/interface connections have no independent current tests",
+        )
+    if not state.global_cartesian_not_materialized:
+        return _fail(
+            "recursive_composition_is_finite_and_complete",
+            "the implementation materializes a giant global Cartesian state table instead of composing finite local products",
+        )
+    return _pass()
+
+
 def feedback_loops_require_current_progress_contracts(
     state: HierarchyPlan, _trace: object
 ) -> InvariantResult:
@@ -628,6 +703,11 @@ INVARIANTS = (
         "child_receipts_are_exact_current_owner_bound_and_distinct",
         "A full parent receipt proves composition while every child keeps exact-current, owner-bound, distinct evidence.",
         child_receipts_are_exact_current_owner_bound_and_distinct,
+    ),
+    Invariant(
+        "recursive_composition_is_finite_and_complete",
+        "Arbitrary-depth finite leaf products, independently tested cross-child connections, and parent-consumed subtree receipts compose whole-domain coverage without a giant global Cartesian table.",
+        recursive_composition_is_finite_and_complete,
     ),
     Invariant(
         "feedback_loops_require_current_progress_contracts",
@@ -935,6 +1015,51 @@ SCENARIOS = (
         _expect_violation(
             "self-certified progress currentness fails",
             ("checked_in_declarations_cannot_self_certify_currentness",),
+        ),
+    ),
+    scenario(
+        "recursive_depth_must_be_declared",
+        "A whole-domain mesh must declare its arbitrary-depth recursive hierarchy.",
+        BROKEN_RECURSIVE_DEPTH_UNDECLARED,
+        _expect_violation(
+            "missing recursive depth declaration fails",
+            ("recursive_composition_is_finite_and_complete",),
+        ),
+    ),
+    scenario(
+        "finite_leaf_boundaries_must_execute",
+        "Every leaf finite input/state boundary must be executed before parent composition.",
+        BROKEN_FINITE_LEAF_BOUNDARY_NOT_EXECUTED,
+        _expect_violation(
+            "unexecuted finite leaf boundary fails",
+            ("recursive_composition_is_finite_and_complete",),
+        ),
+    ),
+    scenario(
+        "parent_must_consume_subtree_receipts",
+        "Parent models consume independently verified child subtree receipts.",
+        BROKEN_PARENT_SUBTREE_RECEIPTS_NOT_CONSUMED,
+        _expect_violation(
+            "parent receipt omission fails",
+            ("recursive_composition_is_finite_and_complete",),
+        ),
+    ),
+    scenario(
+        "cross_child_connections_need_tests",
+        "Cross-child/interface connections require their own current tests.",
+        BROKEN_CROSS_CHILD_CONNECTION_TESTS_MISSING,
+        _expect_violation(
+            "cross-child connection test omission fails",
+            ("recursive_composition_is_finite_and_complete",),
+        ),
+    ),
+    scenario(
+        "global_cartesian_table_is_not_materialized",
+        "Finite local products are composed without materializing one giant global Cartesian table.",
+        BROKEN_GLOBAL_CARTESIAN_MATERIALIZED,
+        _expect_violation(
+            "global Cartesian expansion fails",
+            ("recursive_composition_is_finite_and_complete",),
         ),
     ),
 )

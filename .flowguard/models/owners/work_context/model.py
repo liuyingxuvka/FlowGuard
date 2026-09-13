@@ -231,7 +231,10 @@ def run_model_checks() -> dict[str, object]:
         WorkContextState(),
         0,
     ).new_state
-    if not (selected_declared.adapter_selected and selected_openspec.adapter_selected):
+    peer_adapters_ok = bool(
+        selected_declared.adapter_selected and selected_openspec.adapter_selected
+    )
+    if not peer_adapters_ok:
         findings.append("peer_adapters_not_equivalent")
 
     bad_reads = {
@@ -271,13 +274,14 @@ def run_model_checks() -> dict[str, object]:
         context_read.new_state,
         2,
     )
-    if (
+    current_context_projection_ok = bool(
         context_read.output != "context-read"
         or projected.output != "projected"
         or not projected.new_state.context_projected
         or not projected.new_state.intent_contributions_projected
         or projected.new_state.behavior_admitted
-    ):
+    ) is False
+    if not current_context_projection_ok:
         findings.append("current_context_not_projected")
 
     admitted = _run(
@@ -288,7 +292,8 @@ def run_model_checks() -> dict[str, object]:
         context_read.new_state,
         2,
     )
-    if not admitted.new_state.behavior_admitted:
+    explicit_behavior_source_admission_ok = bool(admitted.new_state.behavior_admitted)
+    if not explicit_behavior_source_admission_ok:
         findings.append("explicit_behavior_source_not_admitted")
 
     for name, case in {
@@ -314,7 +319,8 @@ def run_model_checks() -> dict[str, object]:
         selected_openspec,
         1,
     )
-    if second_context.output != "context-read":
+    multiple_distinct_contexts_ok = bool(second_context.output == "context-read")
+    if not multiple_distinct_contexts_ok:
         findings.append("multiple_distinct_contexts_not_supported")
 
     return {
@@ -325,6 +331,10 @@ def run_model_checks() -> dict[str, object]:
         "function_blocks": [block.name for block in BLOCKS],
         "generic_artifact_roles": list(GENERIC_ARTIFACT_ROLES),
         "known_bad": known_bad,
+        "peer_adapter_selection_ok": peer_adapters_ok,
+        "current_context_projection_ok": current_context_projection_ok,
+        "explicit_behavior_source_admission_ok": explicit_behavior_source_admission_ok,
+        "multiple_distinct_contexts_ok": multiple_distinct_contexts_ok,
         "claim_boundary": (
             "The model proves a provider-neutral read-only planning-context "
             "boundary. Native providers retain authoring, execution, validation, "

@@ -8,18 +8,17 @@ specialist's judgment.
 
 ## Modes
 
-Record applicable modes in this order:
+Record modes in this order:
 
 1. `plan_detailing`: run the internal plan-detailing route for rough or
    underspecified plans when structured rows are needed.
 2. `strategy_selection`: an internal, conditional process-optimization mode.
-3. `agent_workflow`: run the internal agent-workflow route for multi-skill,
-   tool, plugin, or external-side-effect rehearsal.
+3. `agent_workflow`: admit only for explicit rehearsal, cross-owner/shared
+   write, a post-validation-invalidating write, route change, or multiple
+   owners' irreversible side effects. Capability labels alone stay
+   `not_triggered`.
 4. `execution_freshness`: review artifact versions, evidence, sync, and final
    claim closure here.
-
-The internal mode id remains `strategy_selection`; it is not a public route or
-a mandatory choice for every task.
 
 ## Conditional Local Material
 
@@ -117,15 +116,20 @@ project its immutable success and do not rerun producers.
 Inside that one bounded owner invocation, construct one complete immutable
 validation observation after the owner plan is frozen. Resolve and semantically
 verify each exact-current child once, then let sibling rows and aggregates
-consume exact subsets of that same observation. After all native producers
-terminate, make one fresh governed source/dependency/toolchain/environment/owner
-comparison. Publish every newly executed leaf from those exact fresh owner
-contexts without rebuilding source currentness or scanning the receipt store
-per leaf. Reconcile the content-addressed leaf identities once, then complete
-the parent boundary without a third repository scan. Matching identities
-authorize reuse of the already verified objects; they do not justify repeating
-native semantic verification. Any drift blocks the whole candidate operation,
-and an omitted final source comparison or receipt reconciliation is `not_run`.
+consume exact subsets of that same observation. When an individual child
+reaches a confirmed terminal state, perform only that child's finite
+source/dependency/toolchain/environment post-check and publish its immutable
+leaf immediately. A later sibling timeout or cancellation therefore
+preserves the already-published success; the parent remains non-pass until
+its required children and final composition are complete. At the end, make
+one fresh governed source/dependency/toolchain/environment/owner comparison
+for the parent, reconcile the content-addressed leaf identities once, and
+complete the parent boundary without a third repository scan. Matching
+identities authorize reuse of already verified objects; they do not justify
+repeating native semantic verification. Drift blocks only the affected leaf
+publication and the parent claim, while unrelated current leaves remain
+reusable. An omitted child post-check, final parent comparison, or receipt
+reconciliation is `not_run`.
 Never persist this observation as a cache, receipt alias, alternate store, or
 cross-invocation authority.
 

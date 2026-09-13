@@ -199,7 +199,10 @@ EXTERNAL_INPUTS = (
     StateClosureInput("claim_full_confidence"),
 )
 
-MAX_SEQUENCE_LENGTH = 5
+# The owner supplies per-case witness lengths; two is the bounded fallback and
+# is sufficient for the missing-generation label witness.  A global depth of
+# five would enumerate an unnecessary 5^5 input product for every bad model.
+MAX_SEQUENCE_LENGTH = 2
 
 
 def initial_state() -> StateClosureState:

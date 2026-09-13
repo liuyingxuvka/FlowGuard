@@ -48,7 +48,11 @@ def correct_layered_proof() -> LayeredBoundaryProofPlan:
         child_contracts=(
             ChildProofContract(
                 "validate-submit",
+                model_fingerprint="sha256:template-validate-submit-model",
                 evidence_id="validate-submit:v1",
+                owner_id="owner:validate-submit",
+                parent_model_id="checkout-parent",
+                claim_scope="full",
                 responsibilities=("validate-submit",),
                 functions_owned=("validate_submit",),
                 inputs_accepted=("empty-submit", "valid-submit"),
@@ -73,9 +77,9 @@ def correct_layered_proof() -> LayeredBoundaryProofPlan:
             LeafBoundaryMatrix(
                 "validate-submit",
                 matrix_id="validate-submit:matrix:v1",
-                input_cases=("empty-submit",),
+                input_cases=("empty-submit", "valid-submit"),
                 state_cases=("idle",),
-                expected_cell_ids=("empty-submit:idle",),
+                expected_cell_ids=("empty-submit:idle", "valid-submit:idle"),
                 cells=(
                     LeafBoundaryMatrixCell(
                         "empty-submit:idle",
@@ -91,6 +95,20 @@ def correct_layered_proof() -> LayeredBoundaryProofPlan:
                         proof_artifact=proof_artifact(
                             "artifact:reject-empty-submit-cell",
                             "test:reject-empty-submit",
+                        ),
+                    ),
+                    LeafBoundaryMatrixCell(
+                        "valid-submit:idle",
+                        "valid-submit",
+                        "idle",
+                        expected_outputs=("Accepted",),
+                        observed_outputs=("Accepted",),
+                        expected_next_states=("idle",),
+                        observed_next_states=("idle",),
+                        evidence_ids=("test:accept-valid-submit",),
+                        proof_artifact=proof_artifact(
+                            "artifact:accept-valid-submit-cell",
+                            "test:accept-valid-submit",
                         ),
                     ),
                 ),
@@ -171,7 +189,7 @@ def main() -> int:
     correct, broken = run_checks()
     print(correct.format_text())
     print()
-    print(broken.format_text(max_findings=5))
+    print(broken.format_text(max_findings=12))
     return 0 if correct.ok and not broken.ok else 1
 
 

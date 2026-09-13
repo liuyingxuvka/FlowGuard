@@ -24,6 +24,7 @@ from flowguard.model_path_quality import (
     PathQualitySubject,
     canonical_fingerprint,
 )
+from flowguard.recursive_hierarchy import VerifiedSubtreeReceipt
 
 
 def path_fp(value):
@@ -426,6 +427,117 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual("model_coverage_receipt_required", report.decision)
         self.assertIn("model_child_coverage_receipt_unconsumed", {finding.code for finding in report.findings})
+
+    def test_strict_parent_coverage_receipt_rejects_id_only_native_child_projection(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(child("payment"),),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            coverage_receipts=(
+                ModelContractCoverageReceipt(
+                    "contract_coverage:checkout",
+                    "checkout",
+                    claim_scope="full",
+                    required_child_receipt_ids=("contract_coverage:payment",),
+                    consumed_child_receipt_ids=("contract_coverage:payment",),
+                    covered_case_ids=("cartesian:checkout:parent:1",),
+                    shard_ids=("contract_shard:checkout:parent",),
+                    interaction_group_ids=("parent",),
+                ),
+            ),
+            required_coverage_receipt_ids=("contract_coverage:checkout",),
+            claim_scope="full",
+            strict=True,
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        codes = {finding.code for finding in report.findings}
+        self.assertFalse(report.ok)
+        self.assertIn("contract_native_child_binding_set_mismatch", codes)
+        self.assertIn("contract_native_receipt_store_missing", codes)
+
+    def test_strict_non_leaf_modelmesh_rejects_generic_passed_receipt_projection(self):
+        child_model = child(
+            "payment",
+            owner_id="owner:payment",
+            parent_model_id="checkout",
+            model_fingerprint=path_fp("model:payment"),
+            functions_owned=("payment",),
+            is_leaf=False,
+            child_model_ids=("payment-leaf",),
+            claim_scope="full",
+            subtree_receipt_id="subtree:payment",
+            subtree_receipt_fingerprint=path_fp("receipt:payment"),
+        )
+        generic_receipt = {
+            "receipt_id": "subtree:payment",
+            "model_id": "payment",
+            "owner_id": "owner:payment",
+            "parent_model_id": "checkout",
+            "claim_scope": "full",
+            "model_fingerprint": path_fp("model:payment"),
+            "obligation_ids": ["payment"],
+            "status": "passed",
+            "current": True,
+            "terminal": True,
+            "fingerprint": path_fp("receipt:payment"),
+        }
+        report = review_hierarchical_mesh(
+            HierarchyPartitionMap(
+                parent_model_id="checkout",
+                child_models=(child_model,),
+                target_split_derivation=target("checkout", ("payment",), ()),
+                subtree_receipts=(generic_receipt,),
+                claim_scope="full",
+                strict=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "model_child_subtree_receipt_not_verified",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_strict_non_leaf_modelmesh_accepts_canonical_subtree_receipt(self):
+        receipt = VerifiedSubtreeReceipt(
+            receipt_id="subtree:payment",
+            model_id="payment",
+            owner_id="owner:payment",
+            parent_model_id="checkout",
+            claim_scope="full",
+            model_fingerprint=path_fp("model:payment"),
+            obligation_ids=("payment",),
+        )
+        child_model = child(
+            "payment",
+            owner_id="owner:payment",
+            parent_model_id="checkout",
+            model_fingerprint=path_fp("model:payment"),
+            functions_owned=("payment",),
+            is_leaf=False,
+            child_model_ids=("payment-leaf",),
+            claim_scope="full",
+            subtree_receipt_id=receipt.receipt_id,
+            subtree_receipt_fingerprint=receipt.fingerprint,
+        )
+        report = review_hierarchical_mesh(
+            HierarchyPartitionMap(
+                parent_model_id="checkout",
+                child_models=(child_model,),
+                target_split_derivation=target("checkout", ("payment",), ()),
+                subtree_receipts=(receipt,),
+                claim_scope="full",
+                strict=True,
+            )
+        )
+
+        self.assertNotIn(
+            "model_child_subtree_receipt_not_verified",
+            {finding.code for finding in report.findings},
+        )
 
     def test_child_output_without_closure_model_blocks_parent_green(self):
         partition = HierarchyPartitionMap(

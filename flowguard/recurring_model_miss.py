@@ -25,6 +25,18 @@ from .behavior_commitment_lookup import (
 )
 from .export import to_jsonable
 
+
+def _strict_bool(value: Any, field_name: str) -> bool:
+    """Require a real boolean for model-miss evidence switches.
+
+    Model-miss closure is a safety boundary.  Coercing arbitrary values would
+    let strings, integers, ``None`` or containers silently become evidence.
+    """
+
+    if type(value) is not bool:
+        raise TypeError(f"{field_name} must be a boolean, not {type(value).__name__}")
+    return value
+
 UI_MODEL_MISS_EVIDENCE_OVERCLAIMED = "evidence_overclaimed"
 UI_MODEL_MISS_BOUNDARY_MISSING = "boundary_missing"
 UI_MODEL_MISS_STATE_TOO_COARSE = "state_too_coarse"
@@ -63,6 +75,18 @@ MODEL_MISS_BACKFEED_DISPOSITIONS = (
     MODEL_MISS_BACKFEED_COVERAGE_GAP,
     MODEL_MISS_BACKFEED_AMBIGUOUS,
     MODEL_MISS_BACKFEED_BLOCKED,
+)
+
+# A model miss is not a binary "review passed" flag.  A well-formed record is
+# first prepared for bounded repair; missing bindings/evidence make it blocked;
+# only a separate, verified finite-evidence handoff can close it in scope.
+MODEL_MISS_REVIEW_STATUS_PREPARED = "prepared"
+MODEL_MISS_REVIEW_STATUS_BLOCKED = "blocked"
+MODEL_MISS_REVIEW_STATUS_CLOSED = "closed_within_scope"
+MODEL_MISS_REVIEW_STATUSES = (
+    MODEL_MISS_REVIEW_STATUS_PREPARED,
+    MODEL_MISS_REVIEW_STATUS_BLOCKED,
+    MODEL_MISS_REVIEW_STATUS_CLOSED,
 )
 
 @dataclass(frozen=True)
@@ -221,7 +245,10 @@ class UIModelMissRecord:
         object.__setattr__(
             self,
             "behavior_coverage_gap_candidate",
-            bool(self.behavior_coverage_gap_candidate),
+            _strict_bool(
+                self.behavior_coverage_gap_candidate,
+                "behavior_coverage_gap_candidate",
+            ),
         )
         object.__setattr__(self, "root_cause_backpropagation", str(self.root_cause_backpropagation))
         object.__setattr__(self, "code_owner", str(self.code_owner))
@@ -277,7 +304,11 @@ class UIModelMissReviewPlan:
     def __post_init__(self) -> None:
         object.__setattr__(self, "plan_id", str(self.plan_id))
         object.__setattr__(self, "ui_misses", tuple(self.ui_misses))
-        object.__setattr__(self, "require_behavior_binding", bool(self.require_behavior_binding))
+        object.__setattr__(
+            self,
+            "require_behavior_binding",
+            _strict_bool(self.require_behavior_binding, "require_behavior_binding"),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -401,16 +432,59 @@ class UIModelMissReviewReport:
     plan_id: str
     findings: tuple[UIModelMissFinding, ...] = ()
     summary: str = ""
+    status: str = ""
+    closure_licensed: bool = False
+    closure_evidence_ids: tuple[str, ...] = ()
+    closure_evidence_verified: bool = False
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "ok", _strict_bool(self.ok, "ok"))
         object.__setattr__(self, "plan_id", str(self.plan_id))
         object.__setattr__(self, "findings", tuple(self.findings))
+        object.__setattr__(self, "closure_licensed", _strict_bool(
+            self.closure_licensed, "closure_licensed"
+        ))
+        object.__setattr__(self, "closure_evidence_verified", _strict_bool(
+            self.closure_evidence_verified, "closure_evidence_verified"
+        ))
+        object.__setattr__(
+            self,
+            "closure_evidence_ids",
+            tuple(sorted({str(item) for item in self.closure_evidence_ids if str(item)})),
+        )
+        status = str(self.status or "")
+        if not status:
+            status = (
+                MODEL_MISS_REVIEW_STATUS_PREPARED
+                if self.ok
+                else MODEL_MISS_REVIEW_STATUS_BLOCKED
+            )
+        if status not in MODEL_MISS_REVIEW_STATUSES:
+            raise ValueError(f"unknown model-miss review status: {status!r}")
+        if status == MODEL_MISS_REVIEW_STATUS_CLOSED:
+            if not self.ok:
+                raise ValueError("blocked model-miss review cannot be closed")
+            if not self.closure_licensed or not self.closure_evidence_verified:
+                raise ValueError(
+                    "closed model-miss review requires verified finite closure evidence"
+                )
+            if not self.closure_evidence_ids:
+                raise ValueError(
+                    "closed model-miss review requires closure evidence ids"
+                )
+        elif self.closure_licensed or self.closure_evidence_verified:
+            raise ValueError(
+                "closure evidence may only be licensed for closed_within_scope"
+            )
+        object.__setattr__(self, "status", status)
         if not self.summary:
-            status = "OK" if self.ok else "BLOCKED"
+            summary_status = "CLOSED" if status == MODEL_MISS_REVIEW_STATUS_CLOSED else (
+                "OK" if self.ok else "BLOCKED"
+            )
             object.__setattr__(
                 self,
                 "summary",
-                f"{status}: ui_model_miss_review={self.plan_id} findings={len(self.findings)}",
+                f"{summary_status}: ui_model_miss_review={self.plan_id} findings={len(self.findings)}",
             )
 
     def blocker_count(self) -> int:
@@ -422,7 +496,52 @@ class UIModelMissReviewReport:
             "plan_id": self.plan_id,
             "findings": [finding.to_dict() for finding in self.findings],
             "summary": self.summary,
+            "status": self.status,
+            "closure_licensed": self.closure_licensed,
+            "closure_evidence_ids": list(self.closure_evidence_ids),
+            "closure_evidence_verified": self.closure_evidence_verified,
         }
+
+    def close_with_verified_evidence(
+        self,
+        evidence: Mapping[str, Any],
+    ) -> "UIModelMissReviewReport":
+        """Close only after four finite, independently identified evidence roles.
+
+        This is deliberately a small handoff gate rather than a new producer.
+        The caller must supply already-produced current evidence for the model,
+        code, test, and interaction roles.  The review itself never turns a
+        prepared report into a closed claim merely because ``ok`` is true.
+        """
+
+        if not self.ok or self.status != MODEL_MISS_REVIEW_STATUS_PREPARED:
+            raise ValueError("only a prepared, unblocked review can be closed")
+        if not isinstance(evidence, Mapping):
+            raise TypeError("closure evidence must be a mapping")
+        required_roles = ("model", "code", "test", "interaction")
+        evidence_ids: list[str] = []
+        for role in required_roles:
+            item = evidence.get(role)
+            if not isinstance(item, Mapping):
+                raise ValueError(f"missing finite closure evidence role: {role}")
+            item_status = item.get("status")
+            if item_status not in {"pass", "passed", "current", "complete"}:
+                raise ValueError(f"closure evidence role {role} is not passing/current")
+            if item.get("current") is not True or item.get("verified") is not True:
+                raise ValueError(
+                    f"closure evidence role {role} must be explicitly current and verified"
+                )
+            evidence_id = item.get("evidence_id") or item.get("receipt_id")
+            if not isinstance(evidence_id, str) or not evidence_id.strip():
+                raise ValueError(f"closure evidence role {role} has no evidence id")
+            evidence_ids.append(evidence_id)
+        return replace(
+            self,
+            status=MODEL_MISS_REVIEW_STATUS_CLOSED,
+            closure_licensed=True,
+            closure_evidence_ids=tuple(evidence_ids),
+            closure_evidence_verified=True,
+        )
 
 
 def review_ui_model_misses(plan: UIModelMissReviewPlan) -> UIModelMissReviewReport:
@@ -690,6 +809,10 @@ __all__ = [
     "MODEL_MISS_BACKFEED_COVERAGE_GAP",
     "MODEL_MISS_BACKFEED_DISPOSITIONS",
     "MODEL_MISS_BACKFEED_REUSE_EXISTING",
+    "MODEL_MISS_REVIEW_STATUS_PREPARED",
+    "MODEL_MISS_REVIEW_STATUS_BLOCKED",
+    "MODEL_MISS_REVIEW_STATUS_CLOSED",
+    "MODEL_MISS_REVIEW_STATUSES",
     "UI_MODEL_MISS_ACTION_GRAMMAR_CONFLICT",
     "UI_MODEL_MISS_AFFORDANCE_MISMATCH",
     "UI_MODEL_MISS_BOUNDARY_MISSING",

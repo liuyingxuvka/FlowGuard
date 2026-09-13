@@ -1309,6 +1309,28 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
         frozen_target_evidence,
         affected_surface_ids=(save_id,),
     )
+    strict_bundle = _qualify_project_blueprint(
+        prepare_project_blueprint(
+            tmp_path,
+            definition,
+            evidence,
+            discovery_adapters=discovery_adapters,
+            test_discovery_adapters=test_discovery_adapters,
+            require_executed_evidence=True,
+        ),
+        frozen_target_evidence,
+        affected_surface_ids=(save_id,),
+        require_executed_evidence=True,
+    )
+    assert not strict_bundle.ok
+    assert strict_bundle.target_system_report is not None
+    strict_model_code_test = next(
+        row
+        for row in strict_bundle.target_system_report.layers
+        if row.layer == "model_code_test"
+    )
+    assert strict_model_code_test.status == "blocked"
+    assert strict_model_code_test.executed_evidence_status == "blocked"
     after = sorted(path.relative_to(tmp_path) for path in tmp_path.rglob("*"))
 
     assert bundle.qualification.static_manifest_status == "complete", json.dumps(bundle.to_dict())

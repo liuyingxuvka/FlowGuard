@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
+import json
+import os
+from pathlib import Path, PurePosixPath
+import re
+import stat
 from typing import Any
 
 from .blueprint_topology import TOPOLOGY_RELATION_KINDS
@@ -27,6 +32,13 @@ AFFECTED_BLUEPRINT_READER_SCHEMA = "flowguard.affected_blueprint_reader.v3"
 AFFECTED_BLUEPRINT_INDEX_SCHEMA = "flowguard.affected_blueprint_index.v3"
 AFFECTED_BLUEPRINT_UNDERSTANDING_SCHEMA = (
     "flowguard.affected_blueprint_understanding.v3"
+)
+AFFECTED_TASK_CONTEXT_SCHEMA = "flowguard.affected_task_context.v1"
+AFFECTED_IMPACT_PLAN_SCHEMA = "flowguard.affected_impact_plan.v1"
+AFFECTED_IMPACT_OWNER_DISPOSITIONS = (
+    "execute",
+    "reuse_current",
+    "blocked",
 )
 AFFECTED_TOPOLOGY_INVALIDATION_EDGE_SCHEMA = (
     "flowguard.affected_topology_invalidation_edge.v1"
@@ -66,6 +78,422 @@ _TOPOLOGY_RELATION_INVALIDATION_DIRECTIONS = {
 
 class AffectedBlueprintReadError(ValueError):
     """Raised when an affected read cannot preserve normalized authority."""
+
+
+def _impact_sha256(value: Any, *, context: str) -> str:
+    """Require a content-addressed identity on the affected boundary."""
+
+    if not isinstance(value, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", value):
+        raise AffectedBlueprintReadError(
+            f"{context} must be a canonical sha256 fingerprint"
+        )
+    return value
+
+
+def _impact_ids(value: Any, *, context: str) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        raise AffectedBlueprintReadError(f"{context} must be an array")
+    result = tuple(str(item).strip() for item in value)
+    if any(not item for item in result):
+        raise AffectedBlueprintReadError(f"{context} contains an empty id")
+    if result != tuple(sorted(set(result))):
+        raise AffectedBlueprintReadError(
+            f"{context} must be sorted and duplicate-free"
+        )
+    return result
+
+
+def _wire_id_array(value: Any, context: str) -> list[Any]:
+    """Require JSON-array input at the machine-wire boundary.
+
+    In-memory callers may use tuples while constructing a receipt, but a
+    decoded receipt must not silently accept scalar strings, mappings, or
+    other iterable look-alikes.  Keeping this check separate from
+    ``_impact_ids`` lets the dataclass remain convenient without weakening
+    current-schema deserialization.
+    """
+
+    if not isinstance(value, list):
+        raise AffectedBlueprintReadError(f"{context} must be a JSON array")
+    return value
+
+
+def _impact_paths(value: Any, *, context: str) -> tuple[str, ...]:
+    values = _impact_ids(value, context=context)
+    normalized: list[str] = []
+    for item in values:
+        candidate = PurePosixPath(item.replace("\\", "/"))
+        if candidate.is_absolute() or ".." in candidate.parts:
+            raise AffectedBlueprintReadError(
+                f"{context} must contain repository-relative paths"
+            )
+        normalized.append(candidate.as_posix())
+    result = tuple(sorted(set(normalized)))
+    if result != values:
+        raise AffectedBlueprintReadError(
+            f"{context} must use normalized repository-relative paths"
+        )
+    return result
+
+
+@dataclass(frozen=True)
+class AffectedImpactOwner:
+    """One exact owner row in a current affected-impact plan."""
+
+    owner_id: str
+    disposition: str
+    model_obligation_ids: tuple[str, ...] = ()
+    test_owner_ids: tuple[str, ...] = ()
+    evidence_owner_ids: tuple[str, ...] = ()
+    required_parent_owner_ids: tuple[str, ...] = ()
+    required_sibling_owner_ids: tuple[str, ...] = ()
+    owner_identity: str = ""
+    receipt_id: str = ""
+    receipt_fingerprint: str = ""
+
+    def __post_init__(self) -> None:
+        owner_id = str(self.owner_id).strip()
+        if not owner_id:
+            raise AffectedBlueprintReadError("affected owner id is required")
+        object.__setattr__(self, "owner_id", owner_id)
+        disposition = str(self.disposition).strip()
+        if disposition not in AFFECTED_IMPACT_OWNER_DISPOSITIONS:
+            raise AffectedBlueprintReadError(
+                f"unsupported affected owner disposition: {disposition}"
+            )
+        object.__setattr__(self, "disposition", disposition)
+        for field_name in (
+            "model_obligation_ids",
+            "test_owner_ids",
+            "evidence_owner_ids",
+            "required_parent_owner_ids",
+            "required_sibling_owner_ids",
+        ):
+            values = _impact_ids(
+                getattr(self, field_name),
+                context=f"affected owner {owner_id} {field_name}",
+            )
+            object.__setattr__(self, field_name, values)
+        owner_identity = str(self.owner_identity).strip()
+        if owner_identity and not re.fullmatch(r"sha256:[0-9a-f]{64}", owner_identity):
+            raise AffectedBlueprintReadError(
+                f"affected owner {owner_id} owner_identity must be a canonical sha256 fingerprint"
+            )
+        object.__setattr__(self, "owner_identity", owner_identity)
+        receipt_id = str(self.receipt_id).strip()
+        if receipt_id and any(character.isspace() for character in receipt_id):
+            raise AffectedBlueprintReadError(
+                f"affected owner {owner_id} receipt id must not contain whitespace"
+            )
+        object.__setattr__(self, "receipt_id", receipt_id)
+        receipt_fingerprint = str(self.receipt_fingerprint).strip()
+        if receipt_fingerprint:
+            _impact_sha256(
+                receipt_fingerprint,
+                context=f"affected owner {owner_id} receipt fingerprint",
+            )
+        if disposition == "reuse_current" and (
+            not self.receipt_id or not receipt_fingerprint
+        ):
+            raise AffectedBlueprintReadError(
+                f"affected owner {owner_id} reuse_current requires an exact receipt"
+            )
+        if disposition != "reuse_current" and (self.receipt_id or receipt_fingerprint):
+            raise AffectedBlueprintReadError(
+                f"affected owner {owner_id} non-reuse disposition cannot carry a receipt"
+            )
+        object.__setattr__(self, "receipt_fingerprint", receipt_fingerprint)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "owner_id": self.owner_id,
+            "disposition": self.disposition,
+            "model_obligation_ids": list(self.model_obligation_ids),
+            "test_owner_ids": list(self.test_owner_ids),
+            "evidence_owner_ids": list(self.evidence_owner_ids),
+            "required_parent_owner_ids": list(self.required_parent_owner_ids),
+            "required_sibling_owner_ids": list(self.required_sibling_owner_ids),
+            "owner_identity": self.owner_identity,
+            "receipt_id": self.receipt_id,
+            "receipt_fingerprint": self.receipt_fingerprint,
+        }
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "AffectedImpactOwner":
+        if not isinstance(value, Mapping):
+            raise AffectedBlueprintReadError("affected impact owner must be an object")
+        required = {
+            "owner_id",
+            "disposition",
+            "model_obligation_ids",
+            "test_owner_ids",
+            "evidence_owner_ids",
+            "required_parent_owner_ids",
+            "required_sibling_owner_ids",
+            "owner_identity",
+            "receipt_id",
+            "receipt_fingerprint",
+        }
+        if set(value) != required:
+            raise AffectedBlueprintReadError(
+                "affected impact owner fields are not current: "
+                + repr(sorted(set(value) ^ required))
+            )
+        return cls(
+            owner_id=value["owner_id"],
+            disposition=value["disposition"],
+            model_obligation_ids=tuple(_wire_id_array(value["model_obligation_ids"], "affected owner model_obligation_ids")),
+            test_owner_ids=tuple(_wire_id_array(value["test_owner_ids"], "affected owner test_owner_ids")),
+            evidence_owner_ids=tuple(_wire_id_array(value["evidence_owner_ids"], "affected owner evidence_owner_ids")),
+            required_parent_owner_ids=tuple(_wire_id_array(value["required_parent_owner_ids"], "affected owner required_parent_owner_ids")),
+            required_sibling_owner_ids=tuple(_wire_id_array(value["required_sibling_owner_ids"], "affected owner required_sibling_owner_ids")),
+            owner_identity=value["owner_identity"],
+            receipt_id=value["receipt_id"],
+            receipt_fingerprint=value["receipt_fingerprint"],
+        )
+
+
+@dataclass(frozen=True)
+class AffectedImpactPlan:
+    """Current-only machine receipt for one bounded affected execution.
+
+    The plan is intentionally independent from the full validation parent.  It
+    names the changed boundary, its exact direct owners, and only the explicit
+    parent/sibling edges that extend the closure.  A consumer may execute or
+    reuse the listed owners, but it cannot invent owners from ``--member`` or
+    widen the closure to all siblings.
+    """
+
+    changed_paths: tuple[str, ...]
+    changed_components: tuple[tuple[str, str], ...]
+    affected_member_ids: tuple[str, ...]
+    affected_model_obligation_ids: tuple[str, ...]
+    affected_test_owner_ids: tuple[str, ...]
+    affected_evidence_owner_ids: tuple[str, ...]
+    required_parent_dependencies: tuple[str, ...]
+    required_sibling_dependencies: tuple[str, ...]
+    unknown_impact_blockers: tuple[str, ...]
+    source_fingerprint: str
+    model_fingerprint: str
+    test_fingerprint: str
+    owner_fingerprint: str
+    owner_rows: tuple[AffectedImpactOwner, ...]
+    status: str = "pass"
+    claim_boundary: str = (
+        "This receipt proves one exact current affected closure only. It does not "
+        "prove the whole model, release, or whole-system validation claim."
+    )
+    schema_version: str = AFFECTED_IMPACT_PLAN_SCHEMA
+
+    def __post_init__(self) -> None:
+        if self.schema_version != AFFECTED_IMPACT_PLAN_SCHEMA:
+            raise AffectedBlueprintReadError(
+                "affected impact plan schema is not current"
+            )
+        if self.status not in {"pass", "blocked", "invalid"}:
+            raise AffectedBlueprintReadError(
+                f"unsupported affected impact plan status: {self.status}"
+            )
+        object.__setattr__(
+            self,
+            "changed_paths",
+            _impact_paths(self.changed_paths, context="affected changed paths"),
+        )
+        try:
+            components = tuple(
+                (str(component_id).strip(), str(fingerprint).strip())
+                for component_id, fingerprint in self.changed_components
+            )
+        except (TypeError, ValueError) as exc:
+            raise AffectedBlueprintReadError(
+                "affected changed components must contain component/fingerprint pairs"
+            ) from exc
+        if components != tuple(sorted(components)):
+            raise AffectedBlueprintReadError(
+                "affected changed components must be sorted by component id"
+            )
+        if (not components and self.status == "pass") or len({item[0] for item in components}) != len(components):
+            raise AffectedBlueprintReadError(
+                "affected changed components must be unique and non-empty"
+            )
+        for component_id, fingerprint in components:
+            if not component_id:
+                raise AffectedBlueprintReadError(
+                    "affected component id must be non-empty"
+                )
+            _impact_sha256(fingerprint, context=f"affected component {component_id}")
+        object.__setattr__(self, "changed_components", components)
+        for field_name in (
+            "affected_member_ids",
+            "affected_model_obligation_ids",
+            "affected_test_owner_ids",
+            "affected_evidence_owner_ids",
+            "required_parent_dependencies",
+            "required_sibling_dependencies",
+            "unknown_impact_blockers",
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                _impact_ids(
+                    getattr(self, field_name),
+                    context=f"affected impact plan {field_name}",
+                ),
+            )
+        for field_name in (
+            "source_fingerprint",
+            "model_fingerprint",
+            "test_fingerprint",
+            "owner_fingerprint",
+        ):
+            _impact_sha256(
+                str(getattr(self, field_name)),
+                context=f"affected impact plan {field_name}",
+            )
+            object.__setattr__(self, field_name, str(getattr(self, field_name)))
+        rows = tuple(self.owner_rows)
+        if rows != tuple(sorted(rows, key=lambda item: item.owner_id)):
+            raise AffectedBlueprintReadError(
+                "affected impact owner rows must be sorted by owner id"
+            )
+        if len({item.owner_id for item in rows}) != len(rows):
+            raise AffectedBlueprintReadError(
+                "affected impact owner rows must have unique owner ids"
+            )
+        row_ids = tuple(item.owner_id for item in rows)
+        if row_ids != self.affected_member_ids:
+            raise AffectedBlueprintReadError(
+                "affected member ids must exactly match affected owner rows"
+            )
+        if self.unknown_impact_blockers and self.status == "pass":
+            raise AffectedBlueprintReadError(
+                "unknown impact blockers cannot be hidden by a passing plan"
+            )
+        if not self.unknown_impact_blockers and self.status == "blocked":
+            raise AffectedBlueprintReadError(
+                "blocked affected impact plan must name an unknown-impact blocker"
+            )
+        object.__setattr__(self, "owner_rows", rows)
+        object.__setattr__(self, "claim_boundary", str(self.claim_boundary).strip())
+
+    @property
+    def ok(self) -> bool:
+        return self.status == "pass" and not self.unknown_impact_blockers
+
+    @property
+    def fingerprint(self) -> str:
+        return fingerprint_value(self.to_dict(include_fingerprint=False))
+
+    def to_dict(self, *, include_fingerprint: bool = True) -> dict[str, Any]:
+        payload = {
+            "schema_version": self.schema_version,
+            "status": self.status,
+            "ok": self.ok,
+            "changed_paths": list(self.changed_paths),
+            "changed_components": [
+                {"component_id": component_id, "fingerprint": fingerprint}
+                for component_id, fingerprint in self.changed_components
+            ],
+            "affected_member_ids": list(self.affected_member_ids),
+            "affected_model_obligation_ids": list(self.affected_model_obligation_ids),
+            "affected_test_owner_ids": list(self.affected_test_owner_ids),
+            "affected_evidence_owner_ids": list(self.affected_evidence_owner_ids),
+            "required_parent_dependencies": list(self.required_parent_dependencies),
+            "required_sibling_dependencies": list(self.required_sibling_dependencies),
+            "unknown_impact_blockers": list(self.unknown_impact_blockers),
+            "source_fingerprint": self.source_fingerprint,
+            "model_fingerprint": self.model_fingerprint,
+            "test_fingerprint": self.test_fingerprint,
+            "owner_fingerprint": self.owner_fingerprint,
+            "owner_rows": [item.to_dict() for item in self.owner_rows],
+            "claim_boundary": self.claim_boundary,
+        }
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
+        return payload
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "AffectedImpactPlan":
+        if not isinstance(value, Mapping):
+            raise AffectedBlueprintReadError("affected impact plan must be an object")
+        required = {
+            "schema_version",
+            "status",
+            "ok",
+            "changed_paths",
+            "changed_components",
+            "affected_member_ids",
+            "affected_model_obligation_ids",
+            "affected_test_owner_ids",
+            "affected_evidence_owner_ids",
+            "required_parent_dependencies",
+            "required_sibling_dependencies",
+            "unknown_impact_blockers",
+            "source_fingerprint",
+            "model_fingerprint",
+            "test_fingerprint",
+            "owner_fingerprint",
+            "owner_rows",
+            "claim_boundary",
+            "fingerprint",
+        }
+        if set(value) != required:
+            raise AffectedBlueprintReadError(
+                "affected impact plan fields are not current: "
+                + repr(sorted(set(value) ^ required))
+            )
+        if not isinstance(value["changed_paths"], list):
+            raise AffectedBlueprintReadError(
+                "affected changed paths must be a JSON array"
+            )
+        if not isinstance(value["changed_components"], list):
+            raise AffectedBlueprintReadError(
+                "affected changed components must be a JSON array"
+            )
+        if not isinstance(value["owner_rows"], list):
+            raise AffectedBlueprintReadError(
+                "affected owner rows must be a JSON array"
+            )
+        components = []
+        for item in value["changed_components"]:
+            if not isinstance(item, Mapping) or set(item) != {"component_id", "fingerprint"}:
+                raise AffectedBlueprintReadError(
+                    "affected changed component fields are not current"
+                )
+            components.append((item["component_id"], item["fingerprint"]))
+        plan = cls(
+            changed_paths=tuple(value["changed_paths"]),
+            changed_components=tuple(components),
+            affected_member_ids=tuple(_wire_id_array(value["affected_member_ids"], "affected member ids")),
+            affected_model_obligation_ids=tuple(_wire_id_array(value["affected_model_obligation_ids"], "affected model obligation ids")),
+            affected_test_owner_ids=tuple(_wire_id_array(value["affected_test_owner_ids"], "affected test owner ids")),
+            affected_evidence_owner_ids=tuple(_wire_id_array(value["affected_evidence_owner_ids"], "affected evidence owner ids")),
+            required_parent_dependencies=tuple(_wire_id_array(value["required_parent_dependencies"], "affected parent dependencies")),
+            required_sibling_dependencies=tuple(_wire_id_array(value["required_sibling_dependencies"], "affected sibling dependencies")),
+            unknown_impact_blockers=tuple(_wire_id_array(value["unknown_impact_blockers"], "affected impact blockers")),
+            source_fingerprint=value["source_fingerprint"],
+            model_fingerprint=value["model_fingerprint"],
+            test_fingerprint=value["test_fingerprint"],
+            owner_fingerprint=value["owner_fingerprint"],
+            owner_rows=tuple(AffectedImpactOwner.from_dict(item) for item in value["owner_rows"]),
+            status=value["status"],
+            claim_boundary=value["claim_boundary"],
+            schema_version=value["schema_version"],
+        )
+        if not isinstance(value["ok"], bool):
+            raise AffectedBlueprintReadError(
+                "affected impact plan ok must be a boolean"
+            )
+        supplied_fingerprint = str(value["fingerprint"])
+        if supplied_fingerprint != plan.fingerprint:
+            raise AffectedBlueprintReadError(
+                "affected impact plan fingerprint mismatch"
+            )
+        if bool(value["ok"]) != plan.ok:
+            raise AffectedBlueprintReadError(
+                "affected impact plan ok flag is not derived from status"
+            )
+        return plan
 
 
 ShardLoader = Callable[[str], Any]
@@ -214,8 +642,10 @@ _EXPLICIT_ANCESTOR_KEYS = frozenset(
 _INFERRED_REFERENCE_KEYS = frozenset(
     {
         "behavior_block_id",
+        "behavior_block_object_id",
         "case_id",
         "implementation_surface_id",
+        "implementation_surface_object_id",
         "intent_id",
         "model_element_id",
         "model_obligation_id",
@@ -228,6 +658,8 @@ _INFERRED_REFERENCE_KEYS = frozenset(
         "portable_binding_id",
         "receipt_id",
         "resource_id",
+        "surface_object_id",
+        "surface_record_id",
         "semantic_spec_id",
         "supporting_surface_id",
         "test_node_id",
@@ -237,21 +669,27 @@ _INFERRED_REFERENCE_KEYS = frozenset(
 _INFERRED_REFERENCE_COLLECTION_KEYS = frozenset(
     {
         "intent_ids",
+        "intent_contribution_ids",
         "oracle_ids",
         "portable_binding_ids",
         "relation_object_ids",
         "resource_ids",
         "semantic_spec_ids",
         "test_node_ids",
+        "coverage_execution_evidence_ids",
     }
 )
 _INFERRED_ANCESTOR_KEYS = frozenset(
     {
         "behavior_block_id",
+        "behavior_block_object_id",
+        "implementation_surface_object_id",
         "model_element_id",
         "owner_contract_id",
         "owner_id",
         "parent_object_id",
+        "surface_object_id",
+        "surface_record_id",
         "topology_node_id",
     }
 )
@@ -721,6 +1159,517 @@ class AffectedBlueprintIndex:
         return index
 
 
+@dataclass(frozen=True)
+class AffectedBlueprintProjectionBundle:
+    """Selective, current-bound projection inputs for the affected reader.
+
+    A canonical software projection contains many unrelated shards.  The
+    affected CLI must be able to consume only the identity, affected index,
+    reference shards, shared objects, and implementation inventory needed for
+    one bounded closure.  This bundle deliberately exposes loader callables
+    instead of a reconstructed whole ``CanonicalBlueprintProjection``.
+    """
+
+    projection_root: Path
+    projection_fingerprint: str
+    blueprint_fingerprint: str
+    index: AffectedBlueprintIndex
+    shard_payloads: tuple[tuple[str, Any], ...]
+    object_payloads: tuple[tuple[str, Any], ...]
+    identity: Mapping[str, Any]
+    surface_catalog: Mapping[str, Any] | None
+    accepted_snapshot: Mapping[str, Any]
+    authority_snapshot_fingerprint: str
+    authority_head_fingerprint: str
+    unknown_entries: tuple[str, ...] = ()
+    # The native loader result is invocation-local and is never serialized.
+    # Passing it through the projection bundle prevents the task-context
+    # projection from resolving the same authority identity a second time.
+    authority_state: Any | None = None
+
+    def load_shard(self, shard_id: str) -> Any:
+        values = dict(self.shard_payloads)
+        try:
+            return values[str(shard_id)]
+        except KeyError as exc:
+            raise KeyError(str(shard_id)) from exc
+
+    def load_object(self, object_id: str) -> Any:
+        values = dict(self.object_payloads)
+        try:
+            return values[str(object_id)]
+        except KeyError as exc:
+            raise KeyError(str(object_id)) from exc
+
+    def changed_path_candidates(self, changed_paths: Iterable[str]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """Resolve changed paths to exact registered seeds without guessing.
+
+        The first tuple contains unique seed ids when every supplied path has
+        exactly one match.  The second tuple contains normalized paths with no
+        match.  Multiple matches raise a typed reader error so a caller cannot
+        silently choose one owner.
+        """
+
+        rows = _projection_surface_rows(self.surface_catalog)
+        by_path: dict[str, list[str]] = {}
+        for row in rows:
+            surface_id = str(
+                row.get("surface_id", row.get("implementation_surface_id", ""))
+            ).strip()
+            path = str(row.get("path", "") or "").replace("\\", "/")
+            if not surface_id or not path:
+                continue
+            candidate = PurePosixPath(path)
+            if candidate.is_absolute() or ".." in candidate.parts:
+                continue
+            by_path.setdefault(candidate.as_posix(), []).append(surface_id)
+
+        known_ids = {
+            *(object_id for object_id, _fingerprint in self.index.object_fingerprints),
+            *(member_id for _shard_id, members in self.index.shard_member_ids for member_id in members),
+            *(affected_id for affected_id, _object_ids in self.index.affected_edges),
+        }
+        selected: set[str] = set()
+        unknown: list[str] = []
+        for raw_path in changed_paths:
+            raw = str(raw_path).strip()
+            candidate = PurePosixPath(raw.replace("\\", "/"))
+            if not raw or candidate.is_absolute() or ".." in candidate.parts:
+                raise AffectedBlueprintReadError(
+                    f"invalid_changed_path: {raw_path}"
+                )
+            normalized = candidate.as_posix()
+            matches = sorted(set(by_path.get(normalized, ())))
+            if len(matches) > 1:
+                raise AffectedBlueprintReadError(
+                    "owner_ambiguous: changed path "
+                    f"{normalized} maps to {', '.join(matches)}"
+                )
+            if not matches:
+                unknown.append(normalized)
+                continue
+            seed = matches[0]
+            if seed not in known_ids:
+                unknown.append(normalized)
+                continue
+            selected.add(seed)
+        return tuple(sorted(selected)), tuple(sorted(set(unknown)))
+
+
+# Publicly readable alias for callers that describe the artifact as a
+# projection rather than a bundle.  Keep one implementation and one identity.
+AffectedBlueprintProjection = AffectedBlueprintProjectionBundle
+
+
+def _projection_json_load(path: Path, *, context: str) -> Any:
+    try:
+        raw = path.read_text(encoding="utf-8")
+
+        def reject_duplicate(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+            result: dict[str, Any] = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError(f"duplicate JSON key: {key}")
+                result[str(key)] = value
+            return result
+
+        value = json.loads(
+            raw,
+            object_pairs_hook=reject_duplicate,
+            parse_constant=lambda item: (_ for _ in ()).throw(
+                ValueError(f"non-finite JSON number: {item}")
+            ),
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise AffectedBlueprintReadError(
+            f"projection_read_error: cannot load {context}: {exc}"
+        ) from exc
+    if not isinstance(value, Mapping):
+        raise AffectedBlueprintReadError(f"projection_read_error: {context} must be a JSON object")
+    return value
+
+
+def _projection_is_reparse(value: os.stat_result) -> bool:
+    flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return stat.S_ISLNK(value.st_mode) or bool(getattr(value, "st_file_attributes", 0) & flag)
+
+
+def _projection_relative_path(value: Any, *, context: str) -> str:
+    raw = str(value or "").strip().replace("\\", "/")
+    candidate = PurePosixPath(raw)
+    if (
+        not raw
+        or candidate.is_absolute()
+        or ".." in candidate.parts
+        or not candidate.parts
+        or ":" in candidate.parts[0]
+        or raw.startswith(("/", "//"))
+        or candidate.as_posix() != raw
+    ):
+        raise AffectedBlueprintReadError(
+            f"projection_path_traversal: {context} escapes projection root"
+        )
+    return candidate.as_posix()
+
+
+def _projection_file(root: Path, relative: str, *, context: str) -> Path:
+    candidate = root.joinpath(*PurePosixPath(relative).parts)
+    try:
+        root_stat = os.lstat(root)
+        candidate_stat = os.lstat(candidate)
+    except OSError as exc:
+        raise AffectedBlueprintReadError(
+            f"projection_read_error: cannot inspect {context}: {exc}"
+        ) from exc
+    if _projection_is_reparse(root_stat) or not stat.S_ISDIR(root_stat.st_mode):
+        raise AffectedBlueprintReadError(
+            "projection_path_traversal: projection root must be a real directory"
+        )
+    current = root
+    for part in PurePosixPath(relative).parts[:-1]:
+        current = current / part
+        try:
+            current_stat = os.lstat(current)
+        except OSError as exc:
+            raise AffectedBlueprintReadError(
+                f"projection_read_error: cannot inspect {context}: {exc}"
+            ) from exc
+        if _projection_is_reparse(current_stat) or not stat.S_ISDIR(current_stat.st_mode):
+            raise AffectedBlueprintReadError(
+                f"projection_path_traversal: {context} contains an unsafe parent"
+            )
+    if _projection_is_reparse(candidate_stat) or not stat.S_ISREG(candidate_stat.st_mode):
+        raise AffectedBlueprintReadError(
+            f"projection_path_traversal: {context} is not a regular file"
+        )
+    return candidate
+
+
+def _projection_surface_rows(value: Mapping[str, Any] | None) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, Mapping):
+        return ()
+    rows = value.get("surfaces", value.get("implementation_surfaces", ()))
+    if not isinstance(rows, (list, tuple)):
+        return ()
+    return tuple(row for row in rows if isinstance(row, Mapping))
+
+
+def _projection_authority_snapshot(root: Path) -> tuple[Any, Mapping[str, Any]]:
+    try:
+        from .model_authority_store import load_current_model_authority_state
+
+        state = load_current_model_authority_state(root)
+    except Exception as exc:
+        raise AffectedBlueprintReadError(
+            f"accepted_snapshot_unavailable: current model authority is not usable: {exc}"
+        ) from exc
+    snapshot_id = str(state.snapshot.fingerprint)
+    subject_revision = str(state.snapshot.subject_revision)
+    head_fingerprint = str(state.head.fingerprint)
+    revision_set = str(getattr(state.head, "accepted_revision_set_fingerprint", ""))
+    accepted = {
+        "as_of": subject_revision,
+        "snapshot_id": snapshot_id,
+        "snapshot_fingerprint": snapshot_id,
+        "authority_head_fingerprint": head_fingerprint,
+        "accepted_revision_set_fingerprint": revision_set,
+        "claim_boundary": "Current model authority snapshot resolved from project authority.",
+    }
+    return state, accepted
+
+
+def _projection_identity_value(identity: Mapping[str, Any], *names: str) -> str:
+    for name in names:
+        value = identity.get(name)
+        if value not in (None, ""):
+            return str(value)
+    return ""
+
+
+def load_affected_blueprint_projection(
+    projection_root: str | Path,
+    *,
+    authority_root: str | Path,
+    accepted_snapshot: Mapping[str, Any] | None = None,
+) -> AffectedBlueprintProjectionBundle:
+    """Load only the canonical shards required by an affected read.
+
+    This is intentionally not an adapter around
+    ``load_canonical_blueprint_projection``: that loader materializes every
+    shard and verifies the full tree.  The affected route reads the manifest,
+    five selected kinds, and the exact authority identity, then leaves closure
+    traversal to :class:`AffectedBlueprintReader`.
+    """
+
+    root = Path(projection_root)
+    try:
+        root_stat = os.lstat(root)
+    except OSError as exc:
+        raise AffectedBlueprintReadError(
+            f"projection_root_required: cannot inspect projection root: {exc}"
+        ) from exc
+    if _projection_is_reparse(root_stat) or not stat.S_ISDIR(root_stat.st_mode):
+        raise AffectedBlueprintReadError(
+            "projection_path_traversal: projection root must be a real directory"
+        )
+
+    manifest = _projection_json_load(
+        _projection_file(root, "manifest.json", context="projection manifest"),
+        context="projection manifest",
+    )
+    required_manifest_keys = {
+        "schema_version",
+        "blueprint_fingerprint",
+        "shards",
+        "projection_fingerprint",
+    }
+    if set(manifest) != required_manifest_keys or manifest.get("schema_version") != "1.2":
+        raise AffectedBlueprintReadError(
+            "projection_schema_invalid: canonical projection manifest is not current"
+        )
+    rows = manifest.get("shards")
+    if not isinstance(rows, list):
+        raise AffectedBlueprintReadError("projection_schema_invalid: shard manifest is not an array")
+    manifest_without_fingerprint = {
+        key: manifest[key] for key in required_manifest_keys if key != "projection_fingerprint"
+    }
+    if str(manifest["projection_fingerprint"]) != fingerprint_value(manifest_without_fingerprint):
+        raise AffectedBlueprintReadError("projection_identity_mismatch: projection fingerprint is stale")
+
+    row_keys = {
+        "shard_id",
+        "kind",
+        "relative_path",
+        "member_ids",
+        "content_fingerprint",
+    }
+    rows_by_kind: dict[str, Mapping[str, Any]] = {}
+    expected_files = {"manifest.json"}
+    for row in rows:
+        if not isinstance(row, Mapping) or set(row) != row_keys:
+            raise AffectedBlueprintReadError("projection_schema_invalid: shard manifest row is not exact-current")
+        kind = str(row.get("kind", ""))
+        if not kind or kind in rows_by_kind:
+            raise AffectedBlueprintReadError("projection_identity_mismatch: duplicate projection shard kind")
+        relative = _projection_relative_path(row.get("relative_path"), context="projection shard")
+        if relative in expected_files:
+            raise AffectedBlueprintReadError("projection_identity_mismatch: duplicate projection shard path")
+        expected_files.add(relative)
+        rows_by_kind[kind] = row
+
+    selected_kinds = {"identity", "affected_index", "behavior_shards", "shared_objects"}
+    missing = sorted(selected_kinds - set(rows_by_kind))
+    if missing:
+        raise AffectedBlueprintReadError(
+            "projection_schema_invalid: missing required projection shards: "
+            + ", ".join(missing)
+        )
+
+    def read_kind(kind: str) -> list[Any]:
+        row = rows_by_kind[kind]
+        relative = _projection_relative_path(row["relative_path"], context=f"{kind} shard")
+        shard = _projection_json_load(
+            _projection_file(root, relative, context=f"{kind} shard"),
+            context=f"{kind} shard",
+        )
+        shard_keys = {
+            "schema_version",
+            "shard_id",
+            "kind",
+            "relative_path",
+            "member_ids",
+            "payload",
+            "content_fingerprint",
+        }
+        if set(shard) != shard_keys or shard.get("schema_version") != "1.2":
+            raise AffectedBlueprintReadError(f"projection_schema_invalid: {kind} shard is not exact-current")
+        for key in row_keys:
+            if shard.get(key) != row.get(key):
+                raise AffectedBlueprintReadError(
+                    f"projection_identity_mismatch: {kind} shard metadata disagrees with manifest"
+                )
+        payload = shard.get("payload")
+        if not isinstance(payload, list):
+            raise AffectedBlueprintReadError(f"projection_schema_invalid: {kind} shard payload is not an array")
+        if fingerprint_value(payload) != str(row["content_fingerprint"]):
+            raise AffectedBlueprintReadError(f"projection_identity_mismatch: {kind} shard content fingerprint mismatch")
+        return payload
+
+    identity_rows = read_kind("identity")
+    index_rows = read_kind("affected_index")
+    behavior_rows = read_kind("behavior_shards")
+    shared_rows = read_kind("shared_objects")
+    inventory_rows = read_kind("implementation_inventory") if "implementation_inventory" in rows_by_kind else []
+    if len(identity_rows) != 1 or not isinstance(identity_rows[0], Mapping):
+        raise AffectedBlueprintReadError("projection_schema_invalid: identity shard must contain one object")
+    identity = dict(identity_rows[0])
+    if len(index_rows) != 1 or not isinstance(index_rows[0], Mapping):
+        raise AffectedBlueprintReadError("projection_schema_invalid: affected index shard must contain one object")
+    index = AffectedBlueprintIndex.from_dict(index_rows[0])
+    manifest_blueprint = str(manifest["blueprint_fingerprint"])
+    if _projection_identity_value(identity, "blueprint_fingerprint") != manifest_blueprint:
+        raise AffectedBlueprintReadError("projection_identity_mismatch: identity blueprint fingerprint disagrees with manifest")
+    target_fingerprint = _projection_identity_value(identity, "target_blueprint_fingerprint")
+    if target_fingerprint and target_fingerprint != index.blueprint_fingerprint:
+        raise AffectedBlueprintReadError("projection_identity_mismatch: target blueprint fingerprint disagrees with affected index")
+    child_fingerprints = identity.get("child_fingerprints", {})
+    if isinstance(child_fingerprints, Mapping) and child_fingerprints.get("affected_index") not in (None, index.fingerprint):
+        raise AffectedBlueprintReadError("projection_identity_mismatch: affected index child fingerprint is stale")
+
+    shard_payloads: dict[str, Any] = {}
+    for payload in behavior_rows:
+        if not isinstance(payload, Mapping):
+            raise AffectedBlueprintReadError("projection_schema_invalid: behavior shard reference is not an object")
+        shard_id = str(payload.get("shard_id", ""))
+        if not shard_id or shard_id in shard_payloads:
+            raise AffectedBlueprintReadError("projection_identity_mismatch: duplicate behavior shard id")
+        expected = dict(index.shard_fingerprints).get(shard_id)
+        if expected is None or fingerprint_value(payload) != expected:
+            raise AffectedBlueprintReadError(f"projection_identity_mismatch: behavior shard fingerprint mismatch: {shard_id}")
+        shard_payloads[shard_id] = dict(payload)
+    if set(shard_payloads) != set(dict(index.shard_fingerprints)):
+        raise AffectedBlueprintReadError("projection_identity_mismatch: behavior shard set disagrees with affected index")
+
+    object_payloads: dict[str, Any] = {}
+    for row in shared_rows:
+        if not isinstance(row, Mapping) or set(row) != {"object_id", "value"}:
+            raise AffectedBlueprintReadError("projection_schema_invalid: shared object row is not exact-current")
+        object_id = str(row["object_id"])
+        if not object_id or object_id in object_payloads:
+            raise AffectedBlueprintReadError("projection_identity_mismatch: duplicate shared object id")
+        object_payloads[object_id] = row["value"]
+    expected_objects = dict(index.object_fingerprints)
+    missing_objects = sorted(set(expected_objects) - set(object_payloads))
+    if missing_objects:
+        raise AffectedBlueprintReadError(
+            "projection_identity_mismatch: shared object set omits: " + ", ".join(missing_objects)
+        )
+    for object_id, expected in expected_objects.items():
+        if fingerprint_value(object_payloads[object_id]) != expected:
+            raise AffectedBlueprintReadError(f"projection_identity_mismatch: shared object fingerprint mismatch: {object_id}")
+
+    state, derived_snapshot = _projection_authority_snapshot(Path(authority_root))
+    current_snapshot = str(state.snapshot.fingerprint)
+    identity_snapshot = _projection_identity_value(identity, "subject_revision")
+    software_manifest = identity.get("software_manifest")
+    if isinstance(software_manifest, Mapping):
+        observed = str(software_manifest.get("observed_snapshot_fingerprint", "") or "")
+        if observed and observed != current_snapshot:
+            raise AffectedBlueprintReadError("projection_snapshot_identity_mismatch: software manifest snapshot is stale")
+    if identity_snapshot and identity_snapshot != current_snapshot:
+        raise AffectedBlueprintReadError("projection_snapshot_identity_mismatch: projection subject revision is stale")
+    if not identity_snapshot and not isinstance(software_manifest, Mapping):
+        raise AffectedBlueprintReadError("projection_snapshot_identity_mismatch: projection has no authority snapshot identity")
+    if accepted_snapshot is not None:
+        supplied_snapshot = str(accepted_snapshot.get("snapshot_id", accepted_snapshot.get("snapshot_fingerprint", "")) or "")
+        supplied_as_of = str(accepted_snapshot.get("as_of", accepted_snapshot.get("subject_revision", "")) or "")
+        if supplied_snapshot != current_snapshot or supplied_as_of not in {
+            str(state.snapshot.subject_revision),
+            str(state.head.subject_revision),
+            str(getattr(state.head, "accepted_revision_set_fingerprint", "")),
+        }:
+            raise AffectedBlueprintReadError("projection_snapshot_identity_mismatch: supplied accepted snapshot is stale")
+        supplied_head = str(
+            accepted_snapshot.get("authority_head_fingerprint", "") or ""
+        )
+        if supplied_head and supplied_head != str(state.head.fingerprint):
+            raise AffectedBlueprintReadError(
+                "projection_snapshot_identity_mismatch: supplied authority head is stale"
+            )
+        supplied_index = str(
+            accepted_snapshot.get(
+                "affected_index_fingerprint",
+                accepted_snapshot.get(
+                    "blueprint_index_fingerprint",
+                    accepted_snapshot.get("index_fingerprint", ""),
+                ),
+            )
+            or ""
+        )
+        if supplied_index and supplied_index != index.fingerprint:
+            raise AffectedBlueprintReadError(
+                "projection_identity_mismatch: supplied accepted snapshot is bound to another affected index"
+            )
+        supplied_blueprint = str(
+            accepted_snapshot.get(
+                "blueprint_fingerprint",
+                accepted_snapshot.get("target_blueprint_fingerprint", ""),
+            )
+            or ""
+        )
+        if supplied_blueprint and supplied_blueprint != index.blueprint_fingerprint:
+            raise AffectedBlueprintReadError(
+                "projection_identity_mismatch: supplied accepted snapshot is bound to another blueprint"
+            )
+    derived_snapshot = {
+        **derived_snapshot,
+        "affected_index_fingerprint": index.fingerprint,
+        "blueprint_fingerprint": index.blueprint_fingerprint,
+    }
+
+    surface_catalog: Mapping[str, Any] | None = None
+    if inventory_rows:
+        if len(inventory_rows) != 1 or not isinstance(inventory_rows[0], Mapping):
+            raise AffectedBlueprintReadError("projection_schema_invalid: implementation inventory shard must contain one object")
+        inventory = inventory_rows[0]
+        surfaces = inventory.get("surfaces", ())
+        if surfaces is not None and not isinstance(surfaces, list):
+            raise AffectedBlueprintReadError("projection_schema_invalid: implementation inventory surfaces are not an array")
+        surface_catalog = dict(inventory)
+        surface_catalog["surfaces"] = list(surfaces or ())
+        surface_catalog["_flowguard_catalog_identity"] = {
+            "affected_index_fingerprint": index.fingerprint,
+            "blueprint_fingerprint": index.blueprint_fingerprint,
+            "authority_snapshot_fingerprint": current_snapshot,
+            "inventory_shard_fingerprint": str(
+                rows_by_kind["implementation_inventory"]["content_fingerprint"]
+            ),
+            "surfaces_fingerprint": fingerprint_value(
+                {"surfaces": list(surfaces or ())}
+            ),
+        }
+
+    unknown_entries: list[str] = []
+    pending: list[tuple[Path, str]] = [(root, "")]
+    while pending:
+        directory, prefix = pending.pop()
+        try:
+            entries = sorted(os.scandir(directory), key=lambda entry: entry.name)
+        except OSError as exc:
+            raise AffectedBlueprintReadError(f"projection_read_error: cannot inspect projection entries: {exc}") from exc
+        for entry in entries:
+            relative = f"{prefix}/{entry.name}" if prefix else entry.name
+            relative = PurePosixPath(relative).as_posix()
+            try:
+                entry_stat = entry.stat(follow_symlinks=False)
+            except OSError as exc:
+                raise AffectedBlueprintReadError(f"projection_read_error: cannot inspect projection entry {relative}: {exc}") from exc
+            if _projection_is_reparse(entry_stat):
+                raise AffectedBlueprintReadError(f"projection_path_traversal: projection entry is a reparse point: {relative}")
+            if stat.S_ISDIR(entry_stat.st_mode):
+                pending.append((Path(entry.path), relative))
+            elif stat.S_ISREG(entry_stat.st_mode) and relative not in expected_files:
+                unknown_entries.append(relative)
+            elif not stat.S_ISREG(entry_stat.st_mode):
+                raise AffectedBlueprintReadError(f"projection_schema_invalid: unsupported projection entry: {relative}")
+
+    return AffectedBlueprintProjectionBundle(
+        projection_root=root,
+        projection_fingerprint=str(manifest["projection_fingerprint"]),
+        blueprint_fingerprint=manifest_blueprint,
+        index=index,
+        shard_payloads=tuple(sorted(shard_payloads.items())),
+        object_payloads=tuple(sorted(object_payloads.items())),
+        identity=identity,
+        surface_catalog=surface_catalog,
+        accepted_snapshot=derived_snapshot,
+        authority_snapshot_fingerprint=current_snapshot,
+        authority_head_fingerprint=str(state.head.fingerprint),
+        unknown_entries=tuple(sorted(unknown_entries)),
+        authority_state=state,
+    )
+
+
 def _put_content_addressed_object(
     objects: dict[str, Any], object_id: str, payload: Any
 ) -> None:
@@ -734,6 +1683,8 @@ def _put_content_addressed_object(
 
 def _materialize_topology_invalidation_edges(
     objects: Mapping[str, Any],
+    *,
+    include_sibling_invalidation: bool = False,
 ) -> tuple[
     tuple[AffectedTopologyInvalidationEdge, ...],
     dict[str, set[str]],
@@ -896,6 +1847,13 @@ def _materialize_topology_invalidation_edges(
                 (relation_object_id,),
             )
 
+    # A child-to-parent edge is enough to close the changed child over its
+    # ancestors.  Reopening every sibling is a broader *family* review and is
+    # therefore opt-in; the affected-only reader must not silently turn one
+    # changed model into an unrelated sibling fanout.
+    if not include_sibling_invalidation:
+        children_by_parent.clear()
+
     for parent_id, child_rows in sorted(children_by_parent.items()):
         ordered_children = sorted(
             (child_id, tuple(sorted(relation_ids)))
@@ -958,6 +1916,7 @@ def materialize_affected_blueprint_index(
     readiness_ledger: BlueprintReadinessLedger,
     shared_objects: Mapping[str, Any],
     required_path_quality_model_ids: Iterable[str] = (),
+    include_sibling_invalidation: bool = False,
 ) -> tuple[AffectedBlueprintIndex, tuple[tuple[str, Any], ...]]:
     """Add a separately addressed ledger index without mutating base authority."""
 
@@ -1128,7 +2087,10 @@ def materialize_affected_blueprint_index(
     )
 
     topology_invalidation_edges, topology_object_edges = (
-        _materialize_topology_invalidation_edges(objects)
+        _materialize_topology_invalidation_edges(
+            objects,
+            include_sibling_invalidation=include_sibling_invalidation,
+        )
     )
 
     shard_members = tuple(
@@ -1191,6 +2153,23 @@ class AffectedBlueprintReadResult:
     ancestor_object_ids: tuple[str, ...]
     shards: tuple[tuple[str, Any], ...]
     objects: tuple[tuple[str, Any], ...]
+    # Exact topology edges actually traversed from the requested seeds.  This
+    # is intentionally retained with the read result so later projections do
+    # not rebuild a broader graph walk and accidentally reopen unrelated
+    # siblings.
+    traversed_topology_edge_identities: tuple[tuple[str, str, str, str], ...] = ()
+    # Deterministic reason paths selected during that same traversal. Each
+    # row is ``(seed_id, node_ids, edge_identities)``. A later task-context
+    # projection consumes these rows directly instead of running a second BFS
+    # that could lose the child-descent state of the bounded closure.
+    traversed_topology_paths: tuple[
+        tuple[
+            str,
+            tuple[str, ...],
+            tuple[tuple[str, str, str, str], ...],
+        ],
+        ...,
+    ] = ()
 
     @property
     def schema_version(self) -> str:
@@ -1219,6 +2198,20 @@ class AffectedBlueprintReadResult:
             "shard_ids": list(self.shard_ids),
             "object_ids": list(self.object_ids),
             "ancestor_object_ids": list(self.ancestor_object_ids),
+            "traversed_topology_edge_identities": [
+                list(identity) for identity in self.traversed_topology_edge_identities
+            ],
+            "traversed_topology_paths": [
+                {
+                    "seed_id": seed_id,
+                    "node_ids": list(node_ids),
+                    "edge_identities": [
+                        list(identity) for identity in edge_identities
+                    ],
+                }
+                for seed_id, node_ids, edge_identities
+                in self.traversed_topology_paths
+            ],
             "shards": dict(self.shards),
             "objects": dict(self.objects),
             "claim_boundary": self.claim_boundary,
@@ -1361,14 +2354,95 @@ class AffectedBlueprintReader:
             )
 
         propagated_set = set(requested_set)
-        pending_affected = deque(requested)
+        # ``child`` edges are intentionally context-sensitive.  A caller that
+        # explicitly asks for a parent gets its required descendants, but a
+        # child that propagates upward to that parent must not immediately
+        # fan back down into unrelated siblings.  Keep a small traversal mode
+        # alongside each id so the static edge index can express both cases
+        # without reopening a whole model family.
+        pending_affected = deque(
+            (item, True, (item,), ()) for item in requested
+        )
+        processed_child_descent: dict[str, bool] = {}
+        traversed_topology_edges: set[tuple[str, str, str, str]] = set()
+        traversed_topology_paths: dict[
+            tuple[str, str, str, str],
+            tuple[str, tuple[str, ...], tuple[tuple[str, str, str, str], ...]],
+        ] = {}
         while pending_affected:
-            source_id = pending_affected.popleft()
+            (
+                source_id,
+                allow_child_descent,
+                node_path,
+                edge_path,
+            ) = pending_affected.popleft()
+            previous_descent = processed_child_descent.get(source_id)
+            if previous_descent is True or (
+                previous_descent is False and not allow_child_descent
+            ):
+                continue
+            processed_child_descent[source_id] = bool(
+                allow_child_descent or previous_descent is True
+            )
             for edge in self._topology_edges_by_source.get(source_id, ()):
+                if edge.edge_kind == "child" and not allow_child_descent:
+                    continue
+                traversed_topology_edges.add(edge.identity)
+                candidate_node_path = (*node_path, edge.target_id)
+                candidate_edge_path = (*edge_path, edge.identity)
+                candidate_path = (
+                    node_path[0],
+                    candidate_node_path,
+                    candidate_edge_path,
+                )
+                existing_path = traversed_topology_paths.get(edge.identity)
+                if existing_path is None or (
+                    len(candidate_edge_path),
+                    candidate_edge_path,
+                    candidate_path[0],
+                    candidate_node_path,
+                ) < (
+                    len(existing_path[2]),
+                    existing_path[2],
+                    existing_path[0],
+                    existing_path[1],
+                ):
+                    traversed_topology_paths[edge.identity] = candidate_path
+                # A cycle edge remains part of the actual selected boundary,
+                # but it must not enqueue a node already on this path and
+                # reopen the same cycle indefinitely.
+                if edge.target_id in node_path:
+                    continue
                 if edge.target_id in propagated_set:
+                    # An already reached id may still need one pass with the
+                    # broader explicit-parent descent mode.
+                    target_allow_child_descent = bool(
+                        allow_child_descent
+                        and edge.edge_kind
+                        in {"child", "realization_owner", "realization_member"}
+                    )
+                    pending_affected.append(
+                        (
+                            edge.target_id,
+                            target_allow_child_descent,
+                            candidate_node_path,
+                            candidate_edge_path,
+                        )
+                    )
                     continue
                 propagated_set.add(edge.target_id)
-                pending_affected.append(edge.target_id)
+                pending_affected.append(
+                    (
+                        edge.target_id,
+                        bool(
+                            allow_child_descent
+                            and edge.edge_kind
+                            in {"child", "realization_owner", "realization_member"}
+                        ),
+                        candidate_node_path,
+                        candidate_edge_path,
+                    )
+                )
         affected = tuple(sorted(propagated_set))
         affected_set = set(affected)
         selected_shards = tuple(
@@ -1495,6 +2569,20 @@ class AffectedBlueprintReader:
             ),
             shards=tuple(loaded_shards),
             objects=tuple(loaded_objects),
+            traversed_topology_edge_identities=tuple(
+                sorted(traversed_topology_edges)
+            ),
+            traversed_topology_paths=tuple(
+                sorted(
+                    traversed_topology_paths.values(),
+                    key=lambda row: (
+                        row[0],
+                        len(row[2]),
+                        row[2],
+                        row[1],
+                    ),
+                )
+            ),
         )
 
 
@@ -1564,6 +2652,1678 @@ _NATIVE_REPORT_FIELDS = frozenset(
 )
 
 
+def _context_stored(value: Any, name: str, default: Any = None) -> Any:
+    """Read task-map data without invoking arbitrary object properties."""
+
+    if isinstance(value, Mapping):
+        return value.get(name, default)
+    namespace = getattr(value, "__dict__", None)
+    if isinstance(namespace, dict):
+        return namespace.get(name, default)
+    return default
+
+
+def _context_rows(value: Any, *names: str) -> tuple[Any, ...]:
+    """Extract an already-materialized record collection from a catalog."""
+
+    candidate = value
+    if value is not None and not isinstance(value, (Mapping, Sequence)):
+        for name in names:
+            candidate = _context_stored(value, name, _MISSING)
+            if candidate is not _MISSING:
+                break
+        else:
+            return ()
+    elif isinstance(value, Mapping):
+        for name in names:
+            if name in value:
+                candidate = value[name]
+                break
+        else:
+            # A mapping keyed by record identity is itself a catalog.
+            candidate = value
+    if candidate is None or candidate is _MISSING:
+        return ()
+    if isinstance(candidate, Mapping):
+        # A single record is distinguishable from an id -> record catalog by
+        # its identity fields.  Preserve the key so callers can recover the
+        # surface id when the payload omits it.
+        if any(key in candidate for key in ("surface_id", "implementation_surface_id")):
+            return (candidate,)
+        rows: list[Any] = []
+        for key, row in candidate.items():
+            if isinstance(row, Mapping):
+                payload = dict(row)
+                payload.setdefault("surface_id", str(key))
+                rows.append(payload)
+            else:
+                rows.append(row)
+        return tuple(rows)
+    if isinstance(candidate, Sequence) and not isinstance(
+        candidate, (str, bytes, bytearray)
+    ):
+        return tuple(candidate)
+    return ()
+
+
+def _context_scalar(value: Any, *names: str, default: Any = "") -> Any:
+    for name in names:
+        supplied = _context_stored(value, name, _MISSING)
+        if supplied is not _MISSING and supplied not in (None, ""):
+            return supplied
+    return default
+
+
+def _context_strings(value: Any, *names: str) -> list[str]:
+    for name in names:
+        supplied = _context_stored(value, name, _MISSING)
+        if supplied is _MISSING or supplied is None:
+            continue
+        if isinstance(supplied, str):
+            return [supplied] if supplied else []
+        if isinstance(supplied, Sequence) and not isinstance(
+            supplied, (bytes, bytearray)
+        ):
+            return sorted({str(item) for item in supplied if str(item)})
+    return []
+
+
+def _context_bool(value: Any, *names: str, default: bool = False) -> bool:
+    for name in names:
+        supplied = _context_stored(value, name, _MISSING)
+        if supplied is _MISSING:
+            continue
+        return supplied if isinstance(supplied, bool) else default
+    return default
+
+
+def _context_safe(value: Any, *, depth: int = 0) -> Any:
+    """Make a bounded, JSON-shaped copy of a canonical object payload."""
+
+    if depth > 8:
+        return "<depth-limit>"
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Mapping):
+        return {
+            str(key): _context_safe(item, depth=depth + 1)
+            for key, item in sorted(value.items(), key=lambda row: str(row[0]))
+        }
+    if isinstance(value, Sequence) and not isinstance(
+        value, (str, bytes, bytearray)
+    ):
+        return [_context_safe(item, depth=depth + 1) for item in value]
+    namespace = getattr(value, "__dict__", None)
+    if isinstance(namespace, dict):
+        return _context_safe(namespace, depth=depth + 1)
+    return str(value)
+
+
+def _context_id(value: Any, *names: str) -> str:
+    supplied = _context_scalar(value, *names, default="")
+    return str(supplied) if supplied not in (None, "") else ""
+
+
+def _context_ref(value: Any, *names: str) -> dict[str, Any]:
+    return {
+        name: str(supplied)
+        for name in names
+        if (supplied := _context_scalar(value, name, default="")) not in (None, "")
+    }
+
+
+def _context_path(value: Any) -> tuple[str, str]:
+    raw = str(_context_scalar(value, "path", default="") or "")
+    normalized = raw.replace("\\", "/")
+    if not normalized:
+        return "", ""
+    candidate = PurePosixPath(normalized)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        return normalized, "invalid_surface_path"
+    return candidate.as_posix(), ""
+
+
+def _context_source_fingerprint(value: Any) -> str:
+    supplied = _context_scalar(
+        value,
+        "source_fingerprint",
+        "content_fingerprint",
+        "structure_fingerprint",
+        "implementation_fingerprint",
+        "fingerprint",
+        default="",
+    )
+    return str(supplied) if supplied not in (None, "") else ""
+
+
+def _context_int(value: Any, *names: str, default: int = 0) -> int:
+    supplied = _context_scalar(value, *names, default=default)
+    try:
+        return int(supplied or 0)
+    except (TypeError, ValueError):
+        return default
+
+
+def _context_surface_payload(
+    surface_id: str,
+    value: Any,
+    *,
+    owner_id: str = "",
+    source_ref: str = "",
+) -> dict[str, Any]:
+    path, path_gap = _context_path(value)
+    payload: dict[str, Any] = {
+        "surface_id": surface_id,
+        "path": path,
+        "symbol": str(_context_scalar(value, "symbol", default="") or ""),
+        "surface_kind": str(
+            _context_scalar(value, "surface_kind", "kind", default="") or ""
+        ),
+        "parent_surface_id": str(
+            _context_scalar(value, "parent_surface_id", default="") or ""
+        ),
+        "line_start": _context_int(value, "line_start", default=0),
+        "line_end": _context_int(value, "line_end", default=0),
+        "owner_id": owner_id
+        or str(_context_scalar(value, "owner_id", "behavior_owner_id", default="") or ""),
+        "source_fingerprint": _context_source_fingerprint(value),
+        "roles": _context_strings(value, "roles"),
+        "parameters": _context_strings(value, "parameters"),
+        "calls": _context_strings(value, "calls"),
+        "state_reads": _context_strings(value, "state_reads"),
+        "state_writes": _context_strings(value, "state_writes"),
+        "side_effect_candidates": _context_strings(
+            value, "side_effect_candidates", "effects", "side_effects"
+        ),
+        "raised_errors": _context_strings(value, "raised_errors", "errors"),
+        "source_ref": source_ref or surface_id,
+        "evidence_class": "observed_structure",
+    }
+    if path_gap:
+        payload["path_gap"] = path_gap
+    return payload
+
+
+def _context_objects(read_result: AffectedBlueprintReadResult) -> dict[str, Any]:
+    return {str(object_id): value for object_id, value in read_result.objects}
+
+
+def _context_behavior_blocks(objects: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
+    return tuple(
+        sorted(
+            (
+                object_id,
+                value,
+            )
+            for object_id, value in objects.items()
+            if isinstance(value, Mapping) and value.get("kind") == "behavior_block"
+        )
+    )
+
+
+def _context_related_ids(block: Any, *names: str) -> tuple[str, ...]:
+    result: set[str] = set()
+    for name in names:
+        result.update(_context_strings(block, name))
+    return tuple(sorted(result))
+
+
+def _context_placeholder(value: Any) -> bool:
+    text = str(value).strip().lower()
+    return bool(
+        text
+        and (
+            "owner-defined" in text
+            or "preserve state and effect boundaries licensed" in text
+            or "template" in text
+            or text in {"todo", "tbd", "placeholder"}
+            or text.startswith(("todo:", "tbd:", "placeholder:"))
+        )
+    )
+
+
+def _context_has_structured_contract(value: Any) -> bool:
+    if not isinstance(value, Mapping):
+        return False
+    direct_names = (
+        "input_values",
+        "initial_state",
+        "expected_output",
+        "expected_state",
+        "expected_effects",
+        "expected_errors",
+        "input_field_mappings",
+        "output_field_mappings",
+        "state_field_mappings",
+        "invariant_ids",
+        "guarantee_ids",
+        "protected_failure_ids",
+    )
+    if any(value.get(name) not in (None, "", (), [], {}) for name in direct_names):
+        return True
+    dimensions = value.get("dimensions")
+    return isinstance(dimensions, Sequence) and any(
+        isinstance(row, Mapping)
+        and any(
+            row.get(name) not in (None, "", (), [], {})
+            for name in ("semantics", "semantic_rule_ids", "applicability_surface_ids")
+        )
+        for row in dimensions
+    )
+
+
+def _context_gap(
+    code: str,
+    *,
+    message: str,
+    owner_id: str = "",
+    next_owner: str = "",
+    evidence_refs: Iterable[str] = (),
+    status: str = "unresolved",
+    gap_id: str = "",
+    category: str = "",
+) -> dict[str, Any]:
+    refs = sorted({str(item) for item in evidence_refs if str(item)})
+    payload = {
+        "code": str(code),
+        "category": str(category or code),
+        "status": str(status),
+        "message": str(message),
+        "owner_id": str(owner_id),
+        "next_owner": str(next_owner),
+        "evidence_refs": refs,
+        "evidence_class": "unresolved",
+    }
+    payload["gap_id"] = gap_id or "task-gap:" + fingerprint_value(payload).split(":", 1)[-1]
+    return payload
+
+
+def _context_reason(edge_kind: str) -> str:
+    return {
+        "ancestor": "required parent/ancestor closure",
+        "affected_sibling": "declared affected sibling invalidation",
+        "child": "declared parent-to-child model dependency",
+        "cross_boundary_support": "declared cross-boundary support relation",
+        "delegates_to": "declared delegation dependency",
+        "feedback": "declared feedback relation",
+        "produces_for": "declared producer-to-consumer relation",
+        "repair": "declared repair relation",
+        "relation_consumer": "declared relation consumer dependency",
+        "relation_producer": "declared relation producer dependency",
+        "realization_member": "declared realization member dependency",
+        "realization_owner": "declared realization owner dependency",
+        "retry": "declared retry relation",
+        "shared_resource": "declared shared resource dependency",
+        "sibling": "declared common-parent sibling invalidation",
+        "supports": "declared support relation",
+    }.get(edge_kind, "declared typed topology relation")
+
+
+def _context_snapshot(
+    accepted_snapshot: Mapping[str, Any] | Any | None,
+    *,
+    accepted_snapshot_verified: bool,
+    authority_root: str | Path | None = None,
+    expected_index_fingerprint: str = "",
+    expected_blueprint_fingerprint: str = "",
+    authority_state: Any | None = None,
+) -> dict[str, Any]:
+    supplied = accepted_snapshot if accepted_snapshot is not None else {}
+    as_of = str(
+        _context_scalar(
+            supplied,
+            "as_of",
+            "as_of_revision",
+            "subject_revision",
+            "accepted_revision",
+            default="",
+        )
+        or ""
+    )
+    snapshot_id = str(
+        _context_scalar(
+            supplied,
+            "snapshot_id",
+            "snapshot_fingerprint",
+            "evidence_fingerprint",
+            "fingerprint",
+            default="",
+        )
+        or ""
+    )
+    supplied_index_fingerprint = str(
+        _context_scalar(
+            supplied,
+            "affected_index_fingerprint",
+            "blueprint_index_fingerprint",
+            "index_fingerprint",
+            default="",
+        )
+        or ""
+    )
+    supplied_blueprint_fingerprint = str(
+        _context_scalar(
+            supplied,
+            "blueprint_fingerprint",
+            "target_blueprint_fingerprint",
+            default="",
+        )
+        or ""
+    )
+    supplied_head = str(
+        _context_scalar(
+            supplied,
+            "authority_head_fingerprint",
+            "head_fingerprint",
+            default="",
+        )
+        or ""
+    )
+    supplied_revision_set = str(
+        _context_scalar(
+            supplied,
+            "accepted_revision_set_fingerprint",
+            default="",
+        )
+        or ""
+    )
+    # ``verified`` and ``status=verified`` are descriptive caller input, not
+    # evidence.  A current task map may claim accepted intent only when the
+    # supplied identity is bound to the project's actual current authority
+    # head, snapshot, and accepted revision.  The loader performs all native
+    # content-address and transition checks; this projection only compares the
+    # caller's explicit identity with that verified result.
+    verification_reason = ""
+    verified = False
+    if authority_root is None:
+        verification_reason = "authority root was not supplied"
+    elif not as_of or not snapshot_id:
+        verification_reason = "accepted snapshot identity is incomplete"
+    elif expected_index_fingerprint and supplied_index_fingerprint != expected_index_fingerprint:
+        verification_reason = (
+            "accepted snapshot is not bound to the current affected index"
+            if not supplied_index_fingerprint
+            else "accepted snapshot affected index fingerprint is stale"
+        )
+    elif (
+        expected_blueprint_fingerprint
+        and supplied_blueprint_fingerprint
+        and supplied_blueprint_fingerprint != expected_blueprint_fingerprint
+    ):
+        verification_reason = "accepted snapshot blueprint fingerprint is stale"
+    elif not supplied_head or not supplied_revision_set:
+        verification_reason = "accepted authority head identity is incomplete"
+    else:
+        try:
+            if authority_state is not None:
+                state = authority_state
+            else:
+                from .model_authority_store import load_current_model_authority_state
+
+                state = load_current_model_authority_state(authority_root)
+        except Exception as exc:  # authority errors remain an unresolved map gap
+            verification_reason = f"current authority verification failed: {exc}"
+        else:
+            current_snapshot_id = str(state.snapshot.fingerprint)
+            allowed_revisions = {
+                str(state.snapshot.subject_revision),
+                str(state.head.subject_revision),
+                str(state.head.accepted_revision_set_fingerprint),
+            }
+            if state.accepted_revision is not None:
+                allowed_revisions.add(str(state.accepted_revision.fingerprint))
+            if snapshot_id != current_snapshot_id:
+                verification_reason = "accepted snapshot fingerprint is not current"
+            elif as_of not in allowed_revisions:
+                verification_reason = "accepted snapshot revision is not current"
+            elif supplied_head and supplied_head != str(state.head.fingerprint):
+                verification_reason = "accepted authority head fingerprint is stale"
+            elif (
+                supplied_revision_set
+                and supplied_revision_set
+                != str(state.head.accepted_revision_set_fingerprint)
+            ):
+                verification_reason = "accepted revision-set fingerprint is stale"
+            else:
+                verified = True
+                verification_reason = "accepted identity matches current authority"
+    return {
+        "status": "verified" if verified else "unavailable",
+        "as_of": as_of if verified else "",
+        "snapshot_id": snapshot_id if verified else "",
+        "accepted_revision": as_of if verified else "",
+        "affected_index_fingerprint": (
+            expected_index_fingerprint if verified else ""
+        ),
+        "blueprint_fingerprint": (
+            expected_blueprint_fingerprint if verified else ""
+        ),
+        "verification_reason": verification_reason,
+        "claim_boundary": str(
+            _context_scalar(supplied, "claim_boundary", default="") or ""
+        )
+        if verified
+        else "Accepted intent/currentness is unavailable without an explicit verified as-of snapshot.",
+    }
+
+
+def _context_catalog_surfaces(
+    surface_catalog: Mapping[str, Any] | Any | None,
+) -> tuple[dict[str, Any], ...]:
+    rows = _context_rows(
+        surface_catalog,
+        "surfaces",
+        "implementation_surfaces",
+        "members",
+        "inventory",
+    )
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            namespace = getattr(row, "__dict__", None)
+            if not isinstance(namespace, dict):
+                continue
+            row = namespace
+        surface_id = _context_id(row, "surface_id", "implementation_surface_id")
+        if not surface_id:
+            continue
+        result.append(dict(row))
+    return tuple(sorted(result, key=lambda row: _context_id(row, "surface_id", "implementation_surface_id")))
+
+
+def _context_catalog_identity(
+    surface_catalog: Mapping[str, Any] | Any | None,
+) -> dict[str, str]:
+    """Read catalog identity without treating caller metadata as proof."""
+
+    if not isinstance(surface_catalog, Mapping):
+        return {}
+    nested = surface_catalog.get("_flowguard_catalog_identity")
+    if not isinstance(nested, Mapping):
+        nested = surface_catalog.get("catalog_identity")
+    if not isinstance(nested, Mapping):
+        nested = surface_catalog.get("identity")
+    candidates: list[Mapping[str, Any]] = [surface_catalog]
+    if isinstance(nested, Mapping):
+        candidates.insert(0, nested)
+    identity: dict[str, str] = {}
+    aliases = {
+        "affected_index_fingerprint": (
+            "affected_index_fingerprint",
+            "blueprint_index_fingerprint",
+            "index_fingerprint",
+        ),
+        "blueprint_fingerprint": (
+            "blueprint_fingerprint",
+            "target_blueprint_fingerprint",
+        ),
+        "authority_snapshot_fingerprint": (
+            "authority_snapshot_fingerprint",
+            "snapshot_fingerprint",
+            "snapshot_id",
+        ),
+        "inventory_shard_fingerprint": (
+            "inventory_shard_fingerprint",
+            "catalog_fingerprint",
+        ),
+        "surfaces_fingerprint": ("surfaces_fingerprint",),
+    }
+    for canonical, names in aliases.items():
+        for candidate in candidates:
+            for name in names:
+                value = candidate.get(name)
+                if value not in (None, ""):
+                    identity[canonical] = str(value)
+                    break
+            if canonical in identity:
+                break
+    return identity
+
+
+def _context_catalog_surfaces_fingerprint(
+    rows: Sequence[Mapping[str, Any]],
+) -> str:
+    return fingerprint_value(
+        {
+            "surfaces": [
+                _context_safe(dict(row))
+                for row in sorted(
+                    rows,
+                    key=lambda value: _context_id(
+                        value, "surface_id", "implementation_surface_id"
+                    ),
+                )
+            ]
+        }
+    )
+
+
+def _context_surface_rows(
+    read_result: AffectedBlueprintReadResult,
+    *,
+    surface_catalog: Mapping[str, Any] | Any | None,
+    changed_paths: Iterable[str],
+    expected_index_fingerprint: str = "",
+    expected_blueprint_fingerprint: str = "",
+    expected_snapshot_fingerprint: str = "",
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    objects = _context_objects(read_result)
+    blocks = _context_behavior_blocks(objects)
+    owner_by_surface: dict[str, set[str]] = {}
+    block_by_surface: dict[str, list[tuple[str, Any]]] = {}
+    for block_id, block in blocks:
+        surface_id = _context_id(block, "implementation_surface_id")
+        if not surface_id:
+            continue
+        block_by_surface.setdefault(surface_id, []).append((block_id, block))
+        owner_id = _context_id(block, "owner_id", "behavior_owner_id")
+        if owner_id:
+            owner_by_surface.setdefault(surface_id, set()).add(owner_id)
+
+    catalog_rows = list(_context_catalog_surfaces(surface_catalog))
+    catalog_gaps: list[dict[str, Any]] = []
+    catalog_identity = _context_catalog_identity(surface_catalog)
+    if surface_catalog is not None:
+        expected_catalog_identity = {
+            "affected_index_fingerprint": expected_index_fingerprint,
+            "blueprint_fingerprint": expected_blueprint_fingerprint,
+            "authority_snapshot_fingerprint": expected_snapshot_fingerprint,
+        }
+        if not catalog_identity:
+            catalog_gaps.append(
+                _context_gap(
+                    "surface_catalog_identity_unavailable",
+                    message=(
+                        "surface catalog has no independently bound index, blueprint, "
+                        "or authority identity; it is display-only"
+                    ),
+                    next_owner="implementation-inventory-owner",
+                    evidence_refs=tuple(
+                        _context_id(row, "surface_id", "implementation_surface_id")
+                        for row in catalog_rows
+                    ),
+                )
+            )
+        for field_name, expected in expected_catalog_identity.items():
+            supplied = catalog_identity.get(field_name, "")
+            if expected and supplied and supplied != expected:
+                catalog_gaps.append(
+                    _context_gap(
+                        "surface_catalog_identity_mismatch",
+                        message=(
+                            f"surface catalog {field_name} does not match the current "
+                            f"affected closure: supplied={supplied or '<missing>'}, "
+                            f"expected={expected}"
+                        ),
+                        next_owner="implementation-inventory-owner",
+                        evidence_refs=(field_name, supplied, expected),
+                        status="blocked",
+                    )
+                )
+            elif expected and catalog_identity and not supplied:
+                catalog_gaps.append(
+                    _context_gap(
+                        "surface_catalog_identity_unavailable",
+                        message=(
+                            f"surface catalog identity is missing required field: {field_name}"
+                        ),
+                        next_owner="implementation-inventory-owner",
+                        evidence_refs=(field_name,),
+                    )
+                )
+        supplied_surfaces_fingerprint = catalog_identity.get(
+            "surfaces_fingerprint", ""
+        )
+        if supplied_surfaces_fingerprint and supplied_surfaces_fingerprint != _context_catalog_surfaces_fingerprint(catalog_rows):
+            catalog_gaps.append(
+                _context_gap(
+                    "surface_catalog_identity_mismatch",
+                    message="surface catalog surface rows do not match their declared fingerprint",
+                    next_owner="implementation-inventory-owner",
+                    evidence_refs=(supplied_surfaces_fingerprint,),
+                    status="blocked",
+                )
+            )
+
+    # Canonical surface facts from the loaded closure win.  A caller catalog
+    # may fill missing coordinates, but it cannot replace a current owner,
+    # path, symbol, or source fingerprint with a modified value.
+    canonical_by_surface: dict[str, dict[str, Any]] = {}
+    for object_id, value in objects.items():
+        if not isinstance(value, Mapping):
+            continue
+        kind = str(value.get("kind", ""))
+        if kind in {
+            "implementation_surface",
+            "implementation_surface_record",
+            "surface",
+        }:
+            surface_id = _context_id(value, "surface_id", "implementation_surface_id")
+            if surface_id:
+                canonical_by_surface.setdefault(surface_id, dict(value))
+        elif kind == "implementation_surface_index":
+            surface_id = _context_id(value, "implementation_surface_id")
+            if surface_id:
+                canonical_by_surface.setdefault(surface_id, dict(value))
+    for surface_id, rows_for_surface in block_by_surface.items():
+        canonical = canonical_by_surface.setdefault(surface_id, {"surface_id": surface_id})
+        owner_ids = sorted(owner_by_surface.get(surface_id, ()))
+        if len(owner_ids) == 1:
+            canonical.setdefault("owner_id", owner_ids[0])
+        for _block_id, block in rows_for_surface:
+            source_fingerprint = _context_source_fingerprint(block)
+            if source_fingerprint:
+                canonical.setdefault("source_fingerprint", source_fingerprint)
+                break
+
+    by_surface: dict[str, dict[str, Any]] = {
+        surface_id: dict(row) for surface_id, row in canonical_by_surface.items()
+    }
+    identity_fields = (
+        "path",
+        "symbol",
+        "line_start",
+        "line_end",
+        "owner_id",
+        "behavior_owner_id",
+        "source_fingerprint",
+        "content_fingerprint",
+        "structure_fingerprint",
+    )
+    catalog_identity_blocked = any(
+        gap.get("code") == "surface_catalog_identity_mismatch"
+        for gap in catalog_gaps
+    )
+    catalog_rows_for_merge = () if catalog_identity_blocked else catalog_rows
+    for catalog_row in catalog_rows_for_merge:
+        surface_id = _context_id(
+            catalog_row, "surface_id", "implementation_surface_id"
+        )
+        if not surface_id:
+            continue
+        canonical = by_surface.get(surface_id)
+        if canonical is None:
+            by_surface[surface_id] = dict(catalog_row)
+            continue
+        conflicting_fields: list[str] = []
+        for field_name in identity_fields:
+            canonical_value = _context_scalar(canonical, field_name, default="")
+            catalog_value = _context_scalar(catalog_row, field_name, default="")
+            if canonical_value not in (None, "") and catalog_value not in (None, ""):
+                if str(canonical_value) != str(catalog_value):
+                    conflicting_fields.append(field_name)
+        if conflicting_fields:
+            catalog_gaps.append(
+                _context_gap(
+                    "surface_catalog_identity_mismatch",
+                    message=(
+                        f"surface catalog row {surface_id} disagrees with the loaded "
+                        f"canonical surface identity: {', '.join(conflicting_fields)}"
+                    ),
+                    owner_id=surface_id,
+                    next_owner="implementation-inventory-owner",
+                    evidence_refs=(surface_id, *conflicting_fields),
+                    status="blocked",
+                )
+            )
+            continue
+        merged = dict(canonical)
+        for key, value in catalog_row.items():
+            if key not in merged or merged[key] in (None, "", (), [], {}):
+                merged[key] = value
+        by_surface[surface_id] = merged
+
+    changed: list[str] = []
+    invalid_changes: list[dict[str, Any]] = []
+    for raw_path in (changed_paths or ()):
+        raw = str(raw_path).strip()
+        if not raw:
+            continue
+        normalized = raw.replace("\\", "/")
+        candidate = PurePosixPath(normalized)
+        if candidate.is_absolute() or ".." in candidate.parts:
+            invalid_changes.append(
+                _context_gap(
+                    "invalid_changed_path",
+                    message=f"changed path is not repository-relative: {raw}",
+                    next_owner="change-admission",
+                )
+            )
+            continue
+        changed.append(candidate.as_posix())
+
+    selected_ids: set[str] = set()
+    if changed:
+        path_matches: dict[str, list[str]] = {}
+        for surface_id, row in by_surface.items():
+            path, _ = _context_path(row)
+            if path:
+                path_matches.setdefault(path, []).append(surface_id)
+        for path in sorted(set(changed)):
+            matches = sorted(path_matches.get(path, ()))
+            if not matches:
+                invalid_changes.append(
+                    _context_gap(
+                        "unknown_change_point",
+                        message=f"changed path does not resolve to a current implementation surface: {path}",
+                        next_owner="implementation-inventory-owner",
+                    )
+                )
+            selected_ids.update(matches)
+    else:
+        selected_ids.update(by_surface)
+        selected_ids.update(block_by_surface)
+
+    rows: list[dict[str, Any]] = []
+    gaps = [*catalog_gaps, *invalid_changes]
+    # A block is itself an exact affected change point even when the normalized
+    # surface index has no coordinate payload.  Emit the row with explicit
+    # missing coordinates and a gap instead of guessing a path or symbol.
+    for surface_id in sorted(selected_ids):
+        surface = by_surface.get(surface_id, {"surface_id": surface_id})
+        owner_ids = set(owner_by_surface.get(surface_id, set()))
+        declared_surface_owner = _context_id(
+            surface, "owner_id", "behavior_owner_id"
+        )
+        if declared_surface_owner:
+            owner_ids.add(declared_surface_owner)
+        owner_id = next(iter(owner_ids)) if len(owner_ids) == 1 else ""
+        row = _context_surface_payload(
+            surface_id,
+            surface,
+            owner_id=owner_id,
+            source_ref=surface_id,
+        )
+        if not row["source_fingerprint"]:
+            for _block_id, block in block_by_surface.get(surface_id, ()):
+                row["source_fingerprint"] = _context_source_fingerprint(block)
+                if row["source_fingerprint"]:
+                    break
+        if len(owner_ids) != 1:
+            gaps.append(
+                _context_gap(
+                    "owner_ambiguous" if owner_ids else "owner_unknown",
+                    message=(
+                        f"surface {surface_id} maps to multiple owners: {sorted(owner_ids)}"
+                        if owner_ids
+                        else f"surface {surface_id} has no exact behavior owner"
+                    ),
+                    owner_id=surface_id,
+                    next_owner="behavior-owner-resolution",
+                    evidence_refs=(surface_id,),
+                )
+            )
+        if not row["path"] or not row["symbol"] or not row["source_fingerprint"]:
+            gaps.append(
+                _context_gap(
+                    "surface_coordinates_unresolved",
+                    message=f"surface {surface_id} lacks complete path, symbol, or source fingerprint coordinates",
+                    owner_id=owner_id,
+                    next_owner="implementation-inventory-owner",
+                    evidence_refs=(surface_id,),
+                )
+            )
+        if row.get("path_gap"):
+            gaps.append(
+                _context_gap(
+                    "invalid_surface_path",
+                    message=f"surface {surface_id} contains an invalid repository path",
+                    owner_id=owner_id,
+                    next_owner="implementation-inventory-owner",
+                    evidence_refs=(surface_id,),
+                )
+            )
+        rows.append(row)
+    return rows, gaps
+
+
+def _context_intent_rows(
+    read_result: AffectedBlueprintReadResult,
+    blocks: Sequence[tuple[str, Any]],
+    *,
+    snapshot: Mapping[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    objects = _context_objects(read_result)
+    rows: list[dict[str, Any]] = []
+    gaps: list[dict[str, Any]] = []
+    linked_ids: set[str] = set()
+    for _block_id, block in blocks:
+        linked_ids.update(
+            _context_related_ids(
+                block,
+                "intent_contribution_ids",
+                "intent_ids",
+                "intent_id",
+            )
+        )
+    candidates: list[tuple[str, Any]] = []
+    for object_id, value in objects.items():
+        kind = str(value.get("kind", "")) if isinstance(value, Mapping) else ""
+        contribution_id = _context_id(value, "contribution_id", "intent_id", "commitment_id")
+        if object_id in linked_ids or contribution_id in linked_ids or kind in {
+            "intent_contribution",
+            "project_intent_contribution",
+        }:
+            if contribution_id or object_id in linked_ids:
+                candidates.append((object_id, value))
+    for object_id, value in sorted(candidates):
+        intent_id = _context_id(value, "contribution_id", "intent_id") or object_id
+        disposition = str(_context_scalar(value, "disposition", "status", default="") or "")
+        source_ref = {
+            key: str(_context_scalar(value, key, default="") or "")
+            for key in ("source_kind", "source_id", "source_owner_id", "source_fingerprint")
+            if _context_scalar(value, key, default="") not in (None, "")
+        }
+        expectation_id = _context_id(value, "expectation_id")
+        expectation_fp = str(
+            _context_scalar(value, "expectation_fingerprint", default="") or ""
+        )
+        expectation: dict[str, Any] = {
+            "expectation_id": expectation_id,
+            "expectation_fingerprint": expectation_fp,
+        }
+        for key in ("expectation", "expected", "rationale"):
+            supplied = _context_stored(value, key, _MISSING)
+            if supplied is not _MISSING:
+                expectation[key] = _context_safe(supplied)
+        accepted = disposition in {"accepted", "current", "approved"} or _context_bool(
+            value, "accepted", default=False
+        )
+        is_verified = snapshot.get("status") == "verified"
+        row = {
+            "intent_id": intent_id,
+            "commitment_id": _context_id(value, "commitment_id"),
+            "source_ref": source_ref,
+            "accepted_revision": str(snapshot.get("accepted_revision", ""))
+            if is_verified and accepted
+            else "",
+            "expectation": expectation,
+            "disposition": disposition,
+            "accepted": bool(accepted and is_verified),
+            "claim_boundary": str(snapshot.get("claim_boundary", "")),
+            "evidence_refs": sorted(
+                {
+                    ref
+                    for ref in (
+                        object_id,
+                        str(_context_scalar(value, "source_fingerprint", default="") or ""),
+                        str(_context_scalar(value, "expectation_fingerprint", default="") or ""),
+                    )
+                    if ref
+                }
+            ),
+            "evidence_class": "accepted_contract"
+            if accepted and is_verified
+            else "unresolved",
+        }
+        rows.append(row)
+        if not accepted:
+            gaps.append(
+                _context_gap(
+                    "intent_not_accepted",
+                    message=f"intent contribution {intent_id} is not accepted",
+                    next_owner="intent-authority-owner",
+                    evidence_refs=(object_id,),
+                )
+            )
+    if not rows:
+        gaps.append(
+            _context_gap(
+                "accepted_intent_unresolved",
+                message="affected closure has no linked accepted intent contribution",
+                next_owner="intent-authority-owner",
+            )
+        )
+    if snapshot.get("status") != "verified":
+        gaps.append(
+            _context_gap(
+                "accepted_snapshot_unavailable",
+                message="no explicit independently verified as-of snapshot was supplied; accepted currentness is not claimed",
+                next_owner="model-authority-owner",
+                evidence_refs=tuple(
+                    str(item)
+                    for item in (
+                        snapshot.get("as_of", ""),
+                        snapshot.get("snapshot_id", ""),
+                    )
+                    if item
+                ),
+            )
+        )
+    return rows, gaps
+
+
+def _context_case(value: Any, object_id: str) -> dict[str, Any]:
+    return {
+        "case_id": _context_id(value, "case_id") or object_id,
+        "behavior_block_id": _context_id(value, "behavior_block_id"),
+        "case_kind": str(_context_scalar(value, "case_kind", default="") or ""),
+        "input_values": _context_safe(_context_scalar(value, "input_values", default={})),
+        "initial_state": _context_safe(_context_scalar(value, "initial_state", default={})),
+        "expected_output": _context_safe(
+            _context_scalar(value, "expected_output", default={})
+        ),
+        "expected_state": _context_safe(
+            _context_scalar(value, "expected_state", default={})
+        ),
+        "expected_effects": _context_safe(
+            _context_scalar(value, "expected_effects", default=[])
+        ),
+        "expected_errors": _context_safe(
+            _context_scalar(value, "expected_errors", default=[])
+        ),
+        "oracle_id": _context_id(value, "oracle_id"),
+        "case_evidence_id": _context_id(value, "case_evidence_id"),
+        "case_evidence_fingerprint": str(
+            _context_scalar(value, "case_evidence_fingerprint", default="") or ""
+        ),
+        "protected_failure_ids": _context_strings(value, "protected_failure_ids"),
+        "source_ref": object_id,
+        "evidence_class": "accepted_contract",
+    }
+
+
+def _context_must_preserve_rows(
+    read_result: AffectedBlueprintReadResult,
+    blocks: Sequence[tuple[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    objects = _context_objects(read_result)
+    rows: list[dict[str, Any]] = []
+    gaps: list[dict[str, Any]] = []
+    for block_id, block in blocks:
+        related_ids = set(
+            _context_related_ids(
+                block,
+                "portable_binding_ids",
+                "semantic_spec_ids",
+                "oracle_ids",
+                "case_ids",
+                "behavior_case_ids",
+                "coverage_ids",
+            )
+        )
+        related_ids.update(
+            _context_related_ids(
+                block,
+                "owner_id",
+                "owner_contract_id",
+                "model_element_id",
+            )
+        )
+        semantic_ids = set(_context_related_ids(block, "semantic_spec_ids"))
+        oracle_ids = set(_context_related_ids(block, "oracle_ids"))
+        related = [
+            (object_id, value)
+            for object_id, value in objects.items()
+            if object_id in related_ids
+            or (
+                isinstance(value, Mapping)
+                and _context_id(value, "behavior_block_id") == block_id
+            )
+        ]
+        dimensions_raw = _context_stored(block, "dimensions", ()) or ()
+        dimensions: list[Any] = []
+        if isinstance(dimensions_raw, Mapping):
+            dimensions = [
+                {"dimension": str(key), **(_context_safe(value) if isinstance(value, Mapping) else {"semantics": _context_safe(value)})}
+                for key, value in dimensions_raw.items()
+            ]
+        elif isinstance(dimensions_raw, Sequence) and not isinstance(
+            dimensions_raw, (str, bytes, bytearray)
+        ):
+            dimensions = [_context_safe(item) for item in dimensions_raw]
+        by_dimension: dict[str, Any] = {}
+        for dimension in dimensions:
+            if isinstance(dimension, Mapping):
+                key = str(dimension.get("dimension", ""))
+                if key:
+                    by_dimension[key] = dimension
+
+        def direct_or_dimension(*names: str, dimension: str) -> Any:
+            supplied = _context_scalar(block, *names, default=_MISSING)
+            if supplied is not _MISSING:
+                return _context_safe(supplied)
+            return by_dimension.get(dimension, {})
+
+        cases = [
+            _context_case(value, object_id)
+            for object_id, value in sorted(related)
+            if isinstance(value, Mapping)
+            and value.get("kind") in {"behavior_case_contract", "behavior_case"}
+        ]
+        bindings = [
+            _context_safe(value)
+            for _object_id, value in sorted(related)
+            if isinstance(value, Mapping)
+            and value.get("kind") == "portable_behavior_binding"
+        ]
+        oracles = [
+            _context_safe(value)
+            for _object_id, value in sorted(related)
+            if isinstance(value, Mapping)
+            and (
+                value.get("kind") in {"oracle", "oracle_reference"}
+                or _object_id in oracle_ids
+                or bool(value.get("oracle_id"))
+            )
+        ]
+        semantic_specs = [
+            _context_safe(value)
+            for _object_id, value in sorted(related)
+            if isinstance(value, Mapping)
+            and (
+                value.get("kind") in {"semantic_spec", "semantic_spec_reference"}
+                or _object_id in semantic_ids
+                or bool(value.get("semantic_spec_id"))
+            )
+        ]
+        input_contract = direct_or_dimension(
+            "inputs", "input_contract", "input_values", dimension="input"
+        )
+        state_contract = direct_or_dimension(
+            "state", "state_contract", "initial_state", dimension="state"
+        )
+        output_contract = direct_or_dimension(
+            "outputs", "output_contract", "expected_output", dimension="output"
+        )
+        effect_contract = direct_or_dimension(
+            "effects", "effect_contract", "side_effects", dimension="effect"
+        )
+        error_contract = direct_or_dimension(
+            "errors", "error_contract", "expected_errors", dimension="error"
+        )
+        completion_contract = direct_or_dimension(
+            "completion", "completion_contract", dimension="completion"
+        )
+        invariant_ids: set[str] = set(_context_strings(block, "invariant_ids"))
+        protected_failures = set(
+            _context_strings(block, "protected_failure_ids")
+        )
+        for item in related:
+            value = item[1]
+            invariant_ids.update(_context_strings(value, "invariant_ids"))
+            protected_failures.update(
+                _context_strings(value, "protected_failure_ids")
+            )
+        source_refs = sorted(
+            {
+                ref
+                for ref in (
+                    block_id,
+                    _context_id(block, "model_element_id"),
+                    _context_id(block, "owner_id"),
+                    _context_id(block, "owner_contract_id"),
+                    _context_source_fingerprint(block),
+                    *[object_id for object_id, _value in related],
+                )
+                if ref
+            }
+        )
+        row = {
+            "behavior_block_id": block_id,
+            "owner_id": _context_id(block, "owner_id", "behavior_owner_id"),
+            "owner_contract_id": _context_id(block, "owner_contract_id"),
+            "model_element_id": _context_id(block, "model_element_id"),
+            "source_fingerprint": _context_source_fingerprint(block),
+            "function_relation": str(
+                _context_scalar(block, "function_relation", default="") or ""
+            ),
+            "inputs": input_contract,
+            "input_contract": input_contract,
+            "external_inputs": input_contract,
+            "state": state_contract,
+            "state_contract": state_contract,
+            "state_reads": _context_safe(
+                _context_scalar(block, "state_reads", default=[])
+            ),
+            "state_writes": _context_safe(
+                _context_scalar(block, "state_writes", default=[])
+            ),
+            "outputs": output_contract,
+            "output_contract": output_contract,
+            "external_outputs": output_contract,
+            "effects": effect_contract,
+            "effect_contract": effect_contract,
+            "side_effects": effect_contract,
+            "errors": error_contract,
+            "error_contract": error_contract,
+            "error_paths": error_contract,
+            "completion": completion_contract,
+            "dimensions": dimensions,
+            "invariant_ids": sorted(invariant_ids),
+            "protected_failure_ids": sorted(protected_failures),
+            "portable_bindings": bindings,
+            "semantic_specs": semantic_specs,
+            "oracle_members": oracles,
+            "case_contracts": cases,
+            "source_refs": source_refs,
+            "evidence_class": "accepted_contract",
+        }
+        serialized = _context_safe(block)
+        has_placeholder = _context_placeholder(serialized)
+        has_structured = _context_has_structured_contract(block) or bool(cases)
+        if not has_structured or has_placeholder:
+            row["evidence_class"] = "unresolved"
+            gaps.append(
+                _context_gap(
+                    "contract_details_unresolved",
+                    message=(
+                        f"behavior block {block_id} has only a template/summary or no structured contract details"
+                        if has_placeholder
+                        else f"behavior block {block_id} has no structured input/state/output/effect contract"
+                    ),
+                    owner_id=_context_id(block, "owner_id", "behavior_owner_id"),
+                    next_owner="behavior-contract-owner",
+                    evidence_refs=source_refs,
+                )
+            )
+        rows.append(row)
+    if not rows:
+        gaps.append(
+            _context_gap(
+                "must_preserve_unresolved",
+                message="affected closure contains no behavior block contract",
+                next_owner="behavior-contract-owner",
+            )
+        )
+    return rows, gaps
+
+
+def _context_impact_rows(
+    read_result: AffectedBlueprintReadResult,
+    index: AffectedBlueprintIndex,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    affected = set(read_result.affected_ids)
+    seeds = tuple(read_result.requested_seed_ids)
+    traversed_identities = set(read_result.traversed_topology_edge_identities)
+    # The reader already performed the context-sensitive closure walk.  Use
+    # the exact edge-to-path records from that walk; rebuilding BFS here would
+    # lose the child-descent state and could reopen parent-to-sibling edges
+    # that were deliberately not traversed for a child seed.
+    edges = tuple(
+        edge
+        for edge in index.topology_invalidation_edges
+        if edge.identity in traversed_identities
+    )
+    paths_by_edge: dict[
+        tuple[str, str, str, str],
+        tuple[str, tuple[str, ...], tuple[tuple[str, str, str, str], ...]],
+    ] = {}
+    for seed_id, node_ids, edge_identities in read_result.traversed_topology_paths:
+        for offset, edge_identity in enumerate(edge_identities):
+            if edge_identity not in traversed_identities:
+                continue
+            candidate = (
+                str(seed_id),
+                tuple(str(item) for item in node_ids[: offset + 2]),
+                tuple(edge_identities[: offset + 1]),
+            )
+            current = paths_by_edge.get(edge_identity)
+            if current is None or (
+                len(candidate[2]),
+                candidate[2],
+                candidate[0],
+                candidate[1],
+            ) < (
+                len(current[2]),
+                current[2],
+                current[0],
+                current[1],
+            ):
+                paths_by_edge[edge_identity] = candidate
+    rows: list[dict[str, Any]] = []
+    unresolved_edges: list[AffectedTopologyInvalidationEdge] = []
+    for edge in edges:
+        if edge.source_id not in affected and edge.target_id not in affected:
+            continue
+        selected = paths_by_edge.get(edge.identity)
+        if selected is None:
+            # A legacy/in-memory result may contain the edge identity but not
+            # the new path record. Keep the typed edge visible, but do not
+            # claim a seed-to-target explanation for it.
+            path = (edge.source_id, edge.target_id)
+            seed_id = ""
+            unresolved_edges.append(edge)
+        else:
+            seed_id, path, _edge_path = selected
+            if not path or path[-1] != edge.target_id:
+                path = (*path, edge.target_id)
+        path_id = "task-impact-path:" + fingerprint_value(
+            {
+                "path": list(path),
+                "edge_kind": edge.edge_kind,
+                "via_node_id": edge.via_node_id,
+                "evidence_object_ids": list(edge.evidence_object_ids),
+            }
+        ).split(":", 1)[-1]
+        rows.append(
+            {
+                "path_id": path_id,
+                "seed_id": seed_id,
+                "path": list(path),
+                "source_id": edge.source_id,
+                "target_id": edge.target_id,
+                "edge_kind": edge.edge_kind,
+                "via": edge.via_node_id,
+                "via_node_id": edge.via_node_id,
+                "evidence_refs": list(edge.evidence_object_ids),
+                "reason": _context_reason(edge.edge_kind),
+                "evidence_class": "observed_structure",
+            }
+        )
+    rows.sort(key=lambda row: (row["path_id"], row["source_id"], row["target_id"]))
+    gaps: list[dict[str, Any]] = []
+    if not rows or unresolved_edges:
+        gaps.append(
+            _context_gap(
+                "impact_path_unresolved",
+                message=(
+                    "affected closure has no declared typed topology edge for the selected seed"
+                    if not rows
+                    else "one or more affected topology edges cannot be traced back to a selected seed"
+                ),
+                next_owner="model-topology-owner",
+                evidence_refs=(
+                    *seeds,
+                    *(evidence for edge in unresolved_edges for evidence in edge.evidence_object_ids),
+                ),
+            )
+        )
+    return rows, gaps
+
+
+def _context_execution_disposition(value: Any) -> str:
+    raw = str(_context_scalar(value, "disposition", "status", default="") or "").lower()
+    if raw in {"pass", "passed", "reuse", "reused", "current"}:
+        return "reuse"
+    if raw in {"execute", "pending", "planned", "ready"}:
+        return "execute"
+    if raw in {"blocked", "fail", "failed", "error", "stale"}:
+        return "blocked"
+    return "not_run"
+
+
+def _context_validation_rows(
+    read_result: AffectedBlueprintReadResult,
+    blocks: Sequence[tuple[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    objects = _context_objects(read_result)
+    coverage_rows = [
+        (object_id, value)
+        for object_id, value in objects.items()
+        if isinstance(value, Mapping) and value.get("kind") == "behavior_coverage_edge"
+    ]
+    execution_rows = [
+        (object_id, value)
+        for object_id, value in objects.items()
+        if isinstance(value, Mapping)
+        and value.get("kind")
+        in {"coverage_execution_evidence", "behavior_coverage_execution"}
+    ]
+    executions_by_coverage: dict[str, list[tuple[str, Any]]] = {}
+    for object_id, value in execution_rows:
+        coverage_id = _context_id(value, "coverage_id")
+        if coverage_id:
+            executions_by_coverage.setdefault(coverage_id, []).append((object_id, value))
+    receipts = {
+        object_id: value
+        for object_id, value in objects.items()
+        if isinstance(value, Mapping) and value.get("kind") in {
+            "terminal_execution_receipt",
+            "execution_receipt",
+        }
+    }
+    rows: list[dict[str, Any]] = []
+    gaps: list[dict[str, Any]] = []
+    for object_id, value in sorted(coverage_rows):
+        coverage_id = _context_id(value, "coverage_id") or object_id
+        block_id = _context_id(value, "behavior_block_id")
+        case_id = _context_id(value, "case_id")
+        case_value = objects.get(case_id, {})
+        test_node_id = _context_id(value, "test_node_id")
+        test_value = objects.get(test_node_id, {})
+        execution = sorted(executions_by_coverage.get(coverage_id, ()))
+        execution_id, execution_value = execution[0] if execution else ("", {})
+        disposition = _context_execution_disposition(execution_value) if execution else "not_run"
+        receipt_id = _context_id(execution_value, "receipt_id")
+        receipt_fp = str(
+            _context_scalar(
+                execution_value,
+                "receipt_fingerprint",
+                "execution_fingerprint",
+                default="",
+            )
+            or ""
+        )
+        if disposition == "reuse" and receipt_id:
+            receipt = receipts.get(receipt_id)
+            if receipt is None or (
+                receipt_fp
+                and str(_context_scalar(receipt, "fingerprint", default="") or "")
+                not in {receipt_fp, ""}
+            ):
+                disposition = "blocked"
+                gaps.append(
+                    _context_gap(
+                        "validation_receipt_mismatch",
+                        message=f"coverage {coverage_id} has no matching terminal receipt",
+                        owner_id=_context_id(value, "behavior_owner_id", "owner_id"),
+                        next_owner="native-test-owner",
+                        evidence_refs=(coverage_id, receipt_id),
+                        status="blocked",
+                    )
+                )
+        if not execution:
+            gaps.append(
+                _context_gap(
+                    "validation_not_run",
+                    message=f"coverage {coverage_id} has no exact execution evidence",
+                    owner_id=_context_id(value, "behavior_owner_id", "owner_id"),
+                    next_owner=_context_id(test_value, "owner_id") or "native-test-owner",
+                    evidence_refs=(coverage_id, test_node_id, case_id),
+                )
+            )
+        if not test_node_id or not isinstance(test_value, Mapping):
+            gaps.append(
+                _context_gap(
+                    "validation_owner_unresolved",
+                    message=f"coverage {coverage_id} has no exact test node selector",
+                    owner_id=_context_id(value, "behavior_owner_id", "owner_id"),
+                    next_owner="test-inventory-owner",
+                    evidence_refs=(coverage_id,),
+                )
+            )
+        if not case_id or not isinstance(case_value, Mapping):
+            gaps.append(
+                _context_gap(
+                    "validation_case_unresolved",
+                    message=f"coverage {coverage_id} has no exact behavior case contract",
+                    owner_id=_context_id(value, "behavior_owner_id", "owner_id"),
+                    next_owner="behavior-case-owner",
+                    evidence_refs=(coverage_id,),
+                )
+            )
+        row = {
+            "coverage_id": coverage_id,
+            "behavior_block_id": block_id,
+            "owner_id": _context_id(value, "behavior_owner_id", "owner_id"),
+            "model_obligation_id": _context_id(value, "model_obligation_id"),
+            "implementation_surface_id": _context_id(value, "implementation_surface_id"),
+            "test_node_id": test_node_id,
+            "selector": str(
+                _context_scalar(test_value, "pytest_nodeid", "selector", default="") or ""
+            ),
+            "test_path": str(_context_scalar(test_value, "path", default="") or ""),
+            "case_id": case_id,
+            "case_kind": str(_context_scalar(case_value, "case_kind", default="") or ""),
+            "case_contract": _context_case(case_value, case_id)
+            if isinstance(case_value, Mapping)
+            else {},
+            "oracle_id": _context_id(value, "oracle_id") or _context_id(case_value, "oracle_id"),
+            "oracle_member_id": _context_id(value, "oracle_member_id"),
+            "covered_dimensions": _context_strings(value, "covered_dimensions"),
+            "execution_owner_id": _context_id(execution_value, "execution_owner_id"),
+            "disposition": disposition,
+            "receipt_id": receipt_id,
+            "receipt_fingerprint": receipt_fp,
+            "execution_evidence_id": execution_id,
+            "reason": str(_context_scalar(execution_value, "reason", default="") or "")
+            or ("no exact execution evidence" if not execution else ""),
+            "impact_reason": "coverage edge binds model obligation, implementation surface, test selector, case, and oracle",
+            "evidence_refs": sorted(
+                {
+                    ref
+                    for ref in (object_id, coverage_id, execution_id, receipt_id, test_node_id, case_id)
+                    if ref
+                }
+            ),
+            "evidence_class": "executed_evidence"
+            if disposition == "reuse" and receipt_id
+            else "unresolved",
+        }
+        rows.append(row)
+
+    # A closure can carry a test node without a coverage edge.  Keep that
+    # omission visible as a not-run validation row rather than declaring a
+    # test owner complete from inventory presence alone.
+    covered_test_ids = {row["test_node_id"] for row in rows if row["test_node_id"]}
+    for object_id, value in sorted(objects.items()):
+        if not isinstance(value, Mapping) or value.get("kind") != "test_node":
+            continue
+        if object_id in covered_test_ids:
+            continue
+        rows.append(
+            {
+                "coverage_id": "",
+                "behavior_block_id": "",
+                "owner_id": _context_id(value, "owner_id"),
+                "model_obligation_id": "",
+                "implementation_surface_id": "",
+                "test_node_id": object_id,
+                "selector": str(_context_scalar(value, "pytest_nodeid", default="") or ""),
+                "test_path": str(_context_scalar(value, "path", default="") or ""),
+                "case_id": "",
+                "case_kind": "",
+                "case_contract": {},
+                "oracle_id": "",
+                "oracle_member_id": "",
+                "covered_dimensions": [],
+                "execution_owner_id": "",
+                "disposition": "not_run",
+                "receipt_id": "",
+                "receipt_fingerprint": "",
+                "execution_evidence_id": "",
+                "reason": "test node is not bound by a coverage edge",
+                "impact_reason": "no declared model-to-test coverage edge",
+                "evidence_refs": [object_id],
+                "evidence_class": "unresolved",
+            }
+        )
+        gaps.append(
+            _context_gap(
+                "validation_coverage_unresolved",
+                message=f"test node {object_id} is not bound by a behavior coverage edge",
+                owner_id=_context_id(value, "owner_id"),
+                next_owner="model-test-alignment-owner",
+                evidence_refs=(object_id,),
+            )
+        )
+    if not rows and blocks:
+        gaps.append(
+            _context_gap(
+                "validation_unresolved",
+                message="affected behavior blocks have no coverage/test validation rows",
+                next_owner="model-test-alignment-owner",
+            )
+        )
+    rows.sort(key=lambda row: (str(row.get("coverage_id", "")), str(row.get("test_node_id", ""))))
+    return rows, gaps
+
+
+def build_affected_task_context(
+    read_result: AffectedBlueprintReadResult,
+    index: AffectedBlueprintIndex,
+    *,
+    target: Mapping[str, Any] | None = None,
+    legacy_gaps: Sequence[BlueprintGapRef] = (),
+    status: str = "",
+    task_summary: str = "",
+    changed_paths: Iterable[str] = (),
+    surface_catalog: Mapping[str, Any] | Any | None = None,
+    accepted_snapshot: Mapping[str, Any] | Any | None = None,
+    accepted_snapshot_verified: bool = False,
+    authority_root: str | Path | None = None,
+    authority_state: Any | None = None,
+) -> dict[str, Any]:
+    """Build the six-group AI work map from one already loaded closure.
+
+    This function is deliberately a pure projection.  It reads only
+    ``read_result`` and optional, caller-supplied materialized catalogs; it
+    never scans the repository, launches a producer, or treats source calls as
+    semantic impact edges.
+    """
+
+    target = target if isinstance(target, Mapping) else {}
+    objects = _context_objects(read_result)
+    blocks = _context_behavior_blocks(objects)
+    snapshot = _context_snapshot(
+        accepted_snapshot,
+        accepted_snapshot_verified=accepted_snapshot_verified,
+        authority_root=authority_root,
+        expected_index_fingerprint=index.fingerprint,
+        expected_blueprint_fingerprint=index.blueprint_fingerprint,
+        authority_state=authority_state,
+    )
+    selected, selected_gaps = _context_surface_rows(
+        read_result,
+        surface_catalog=surface_catalog,
+        changed_paths=changed_paths,
+        expected_index_fingerprint=index.fingerprint,
+        expected_blueprint_fingerprint=index.blueprint_fingerprint,
+        expected_snapshot_fingerprint=str(snapshot.get("snapshot_id", "") or ""),
+    )
+    intents, intent_gaps = _context_intent_rows(
+        read_result,
+        blocks,
+        snapshot=snapshot,
+    )
+    preserve, preserve_gaps = _context_must_preserve_rows(read_result, blocks)
+    impacts, impact_gaps = _context_impact_rows(read_result, index)
+    validation, validation_gaps = _context_validation_rows(read_result, blocks)
+
+    gaps: list[dict[str, Any]] = []
+    for gap in legacy_gaps:
+        gap_id = str(_context_stored(gap, "gap_id", "") or "")
+        payload = _context_gap(
+            "blueprint_gap",
+            message=str(_context_stored(gap, "message", "") or ""),
+            owner_id=str(_context_stored(gap, "owner_id", "") or ""),
+            evidence_refs=(
+                str(_context_stored(gap, "evidence_ref", "") or ""),
+                str(_context_stored(gap, "object_id", "") or ""),
+            ),
+            status=str(_context_stored(gap, "status", "unresolved") or "unresolved"),
+            gap_id=gap_id,
+            category=str(_context_stored(gap, "layer", "") or "blueprint_gap"),
+        )
+        payload["object_kind"] = str(_context_stored(gap, "object_kind", "") or "")
+        payload["object_id"] = str(_context_stored(gap, "object_id", "") or "")
+        payload["expected_fingerprint"] = str(
+            _context_stored(gap, "expected_fingerprint", "") or ""
+        )
+        payload["observed_fingerprint"] = str(
+            _context_stored(gap, "observed_fingerprint", "") or ""
+        )
+        gaps.append(payload)
+    gaps.extend(selected_gaps)
+    gaps.extend(intent_gaps)
+    gaps.extend(preserve_gaps)
+    gaps.extend(impact_gaps)
+    gaps.extend(validation_gaps)
+    # Stable de-duplication is important because a missing leaf can be
+    # reported by both the contract and validation projections.
+    unique_gaps: dict[str, dict[str, Any]] = {}
+    for gap in gaps:
+        gap_id = str(gap.get("gap_id", ""))
+        if not gap_id:
+            gap_id = "task-gap:" + fingerprint_value(gap).split(":", 1)[-1]
+            gap["gap_id"] = gap_id
+        existing = unique_gaps.get(gap_id)
+        if existing is None:
+            unique_gaps[gap_id] = gap
+        else:
+            refs = sorted(
+                set(existing.get("evidence_refs", ()))
+                | set(gap.get("evidence_refs", ()))
+            )
+            existing["evidence_refs"] = refs
+            if existing.get("status") != "blocked" and gap.get("status") == "blocked":
+                existing["status"] = "blocked"
+    ordered_gaps = [unique_gaps[key] for key in sorted(unique_gaps)]
+    boundary_refs = {
+        "observed_structure": sorted(
+            {
+                ref
+                for row in (*selected, *impacts)
+                for ref in (
+                    row.get("source_ref", ""),
+                    row.get("source_fingerprint", ""),
+                    row.get("path_id", ""),
+                    *row.get("evidence_refs", ()),
+                )
+                if ref
+            }
+        ),
+        "accepted_contract": sorted(
+            {
+                ref
+                for row in (*intents, *preserve)
+                if row.get("evidence_class") == "accepted_contract"
+                for ref in (
+                    row.get("intent_id", ""),
+                    row.get("behavior_block_id", ""),
+                    *row.get("source_refs", ()),
+                    *row.get("evidence_refs", ()),
+                )
+                if ref
+            }
+        ),
+        "executed_evidence": sorted(
+            {
+                ref
+                for row in validation
+                if row.get("evidence_class") == "executed_evidence"
+                for ref in (
+                    row.get("coverage_id", ""),
+                    row.get("execution_evidence_id", ""),
+                    row.get("receipt_id", ""),
+                )
+                if ref
+            }
+        ),
+        "unresolved": sorted(
+            {
+                ref
+                for gap in ordered_gaps
+                for ref in (gap.get("gap_id", ""), *gap.get("evidence_refs", ()))
+                if ref
+            }
+        ),
+    }
+    context: dict[str, Any] = {
+        "schema_version": AFFECTED_TASK_CONTEXT_SCHEMA,
+        "task_summary": str(task_summary or ""),
+        "blueprint_fingerprint": read_result.blueprint_fingerprint,
+        "logical_fingerprint": read_result.logical_fingerprint,
+        "index_fingerprint": index.fingerprint,
+        "status": str(status or _context_scalar(target, "status", default="") or ""),
+        "requested_seed_ids": list(read_result.requested_seed_ids),
+        "affected_ids": list(read_result.affected_ids),
+        "propagated_affected_ids": list(read_result.propagated_affected_ids),
+        "selected_change_points": selected,
+        "accepted_intent": intents,
+        "must_preserve": preserve,
+        "impact_paths": impacts,
+        "validation": validation,
+        "gaps": ordered_gaps,
+        "gap_count": len(ordered_gaps),
+        "blocker_count": sum(gap.get("status") == "blocked" for gap in ordered_gaps),
+        "evidence_boundaries": boundary_refs,
+        "accepted_snapshot": snapshot,
+        "target_claim_boundary": str(
+            _context_scalar(target, "claim_boundary", default="") or ""
+        ),
+        "claim_boundary": (
+            "This task context is a read-only projection of one exact affected "
+            "closure. observed_structure, accepted_contract, executed_evidence, "
+            "and unresolved are separate; no source call is promoted to semantic "
+            "impact and no producer or currentness activation is performed."
+        ),
+    }
+    context["fingerprint"] = fingerprint_value(context)
+    return context
+
+
 @dataclass(frozen=True)
 class AffectedBlueprintUnderstanding:
     """AI-facing readiness derived only from one loaded affected closure."""
@@ -1595,6 +4355,7 @@ class AffectedBlueprintUnderstanding:
     native_reports: tuple[BlueprintNativeReportRef, ...]
     required_path_quality_model_ids: tuple[str, ...]
     path_quality_bindings: tuple[ModelPathQualityBlueprintBinding, ...]
+    task_context: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def schema_version(self) -> str:
@@ -1657,6 +4418,7 @@ class AffectedBlueprintUnderstanding:
             "path_quality_bindings": [
                 row.to_dict() for row in self.path_quality_bindings
             ],
+            "task_context": _context_safe(self.task_context),
             "claim_boundary": self.claim_boundary,
         }
         if include_fingerprint:
@@ -1752,6 +4514,13 @@ def read_affected_blueprint_understanding(
     affected_ids: Iterable[str],
     load_shard: ShardLoader,
     load_object: ObjectLoader,
+    task_summary: str = "",
+    changed_paths: Iterable[str] = (),
+    surface_catalog: Mapping[str, Any] | Any | None = None,
+    accepted_snapshot: Mapping[str, Any] | Any | None = None,
+    accepted_snapshot_verified: bool = False,
+    authority_root: str | Path | None = None,
+    authority_state: Any | None = None,
 ) -> AffectedBlueprintUnderstanding:
     """Derive compact readiness without a whole summary or whole conversion."""
 
@@ -2028,6 +4797,30 @@ def read_affected_blueprint_understanding(
             f"duplicate={list(duplicate_loaded_path_ids)}, "
             f"unresolved={list(unresolved_loaded_path_ids)}"
         )
+    task_context = build_affected_task_context(
+        read_result,
+        index,
+        target=target,
+        legacy_gaps=tuple(ledger.gaps),
+        status=ledger.status,
+        task_summary=task_summary,
+        changed_paths=changed_paths,
+        surface_catalog=surface_catalog,
+        accepted_snapshot=accepted_snapshot,
+        accepted_snapshot_verified=accepted_snapshot_verified,
+        authority_root=authority_root,
+        authority_state=authority_state,
+    )
+    catalog_mismatches = tuple(
+        gap
+        for gap in task_context.get("gaps", ())
+        if gap.get("code") == "surface_catalog_identity_mismatch"
+    )
+    if catalog_mismatches:
+        raise AffectedBlueprintReadError(
+            "surface_catalog_identity_mismatch: "
+            + "; ".join(str(gap.get("message", "")) for gap in catalog_mismatches)
+        )
     return AffectedBlueprintUnderstanding(
         scope="affected",
         blueprint_fingerprint=index.blueprint_fingerprint,
@@ -2078,6 +4871,7 @@ def read_affected_blueprint_understanding(
                 ),
             )
         ),
+        task_context=task_context,
     )
 
 
@@ -2085,17 +4879,26 @@ __all__ = [
     "AFFECTED_BLUEPRINT_INDEX_SCHEMA",
     "AFFECTED_BLUEPRINT_READER_SCHEMA",
     "AFFECTED_BLUEPRINT_UNDERSTANDING_SCHEMA",
+    "AFFECTED_TASK_CONTEXT_SCHEMA",
+    "AFFECTED_IMPACT_PLAN_SCHEMA",
+    "AFFECTED_IMPACT_OWNER_DISPOSITIONS",
     "AFFECTED_TOPOLOGY_INVALIDATION_EDGE_SCHEMA",
     "AFFECTED_TOPOLOGY_INVALIDATION_KINDS",
     "AffectedBlueprintIndex",
+    "AffectedBlueprintProjection",
+    "AffectedBlueprintProjectionBundle",
     "AffectedBlueprintReadError",
     "AffectedBlueprintReadResult",
     "AffectedBlueprintReader",
     "AffectedBlueprintUnderstanding",
+    "AffectedImpactOwner",
+    "AffectedImpactPlan",
     "AffectedTopologyInvalidationEdge",
     "ObjectLoader",
     "ShardLoader",
     "materialize_affected_blueprint_index",
+    "load_affected_blueprint_projection",
+    "build_affected_task_context",
     "read_affected_blueprint",
     "read_affected_blueprint_understanding",
 ]

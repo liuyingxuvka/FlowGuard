@@ -105,6 +105,6 @@ def main() -> int:
     )
     return 0 if exact_ok and observation_shape_ok and report.ok else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:model_impact_freshness_gate", main))

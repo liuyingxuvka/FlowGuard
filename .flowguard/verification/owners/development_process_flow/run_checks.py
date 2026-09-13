@@ -295,6 +295,6 @@ def main() -> int:
         else 1
     )
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:development_process_flow", main))

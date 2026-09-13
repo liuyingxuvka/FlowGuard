@@ -359,10 +359,19 @@ class ModelRegressionManifestTests(unittest.TestCase):
         )
         expected_inputs = {
             "minimum_valuable_model_entry": {
+                "AGENTS.md",
+                ".agents/skills/flowguard*/SKILL.md",
+                ".agents/skills/flowguard*/references/*.md",
                 "flowguard/risk.py",
+                "flowguard/prompt_budget.py",
+                "flowguard/prompt_bundle_manifest.json",
                 "tests/test_audit.py",
                 "tests/test_risk_plan.py",
                 "tests/test_runner.py",
+            },
+            "guidance_compression": {
+                ".agents/skills/flowguard*/SKILL.md",
+                ".agents/skills/flowguard*/references/*.md",
             },
             "development_process_flow": {
                 "flowguard/release_verification.py",
@@ -399,6 +408,23 @@ class ModelRegressionManifestTests(unittest.TestCase):
             self.assertTrue(
                 required_paths.issubset(by_id[owner_id].input_globs),
                 (owner_id, sorted(required_paths - set(by_id[owner_id].input_globs))),
+            )
+
+        # Both owner runners consume the prompt-bundle projection, not only
+        # their Python model/runner files.  Resolve the selectors here so a
+        # wildcard cannot silently stop covering the current route index.
+        for owner_id in ("guidance_compression", "minimum_valuable_model_entry"):
+            resolved_paths = {
+                item["path"]
+                for item in resolve_entry_input_inventory(root, by_id[owner_id])
+            }
+            self.assertIn(
+                ".agents/skills/flowguard/SKILL.md",
+                resolved_paths,
+            )
+            self.assertIn(
+                ".agents/skills/flowguard/references/route_index.md",
+                resolved_paths,
             )
 
         minimum_purpose = by_id["minimum_valuable_model_entry"].purpose_closure
@@ -521,7 +547,10 @@ class ModelRegressionManifestTests(unittest.TestCase):
                 / "model-owner-receipts"
                 / "model-parents"
             )
-            self.assertEqual(1, len(tuple(parent_dir.glob("*.json"))))
+            self.assertEqual(
+                1,
+                len(tuple(path for path in parent_dir.glob("*.json") if path.name != "CURRENT.json")),
+            )
 
     def test_full_run_renews_stale_parent_without_mutating_history(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -554,7 +583,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
             )
             self.assertEqual(
                 2,
-                len(tuple(first_path.parent.glob("*.json"))),
+                len(tuple(path for path in first_path.parent.glob("*.json") if path.name != "CURRENT.json")),
             )
 
     def test_full_run_renews_parent_only_stale_wrapper_without_replacing_leaves(self):
@@ -606,7 +635,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
             )
             self.assertEqual(
                 2,
-                len(tuple(first_path.parent.glob("*.json"))),
+                len(tuple(path for path in first_path.parent.glob("*.json") if path.name != "CURRENT.json")),
             )
 
     def test_current_parent_resolver_does_not_treat_retired_v1_as_authority(self):
@@ -633,7 +662,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
                 current.parent_artifact_fingerprint,
             )
 
-    def test_current_parent_resolver_blocks_unknown_store_schema(self):
+    def test_current_parent_resolver_ignores_unknown_historical_store_schema(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             report = self.current_parent_fixture(root)
@@ -643,11 +672,8 @@ class ModelRegressionManifestTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with self.assertRaisesRegex(
-                ModelRegressionEvidenceError,
-                "unknown model parent schema",
-            ):
-                resolve_current_full_model_regression_parent(root)
+            current = resolve_current_full_model_regression_parent(root)
+            self.assertEqual(report.parent_receipt_fingerprint, current.parent_artifact_fingerprint)
 
     def test_current_full_parent_resolver_rejects_no_matching_parent(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -655,6 +681,11 @@ class ModelRegressionManifestTests(unittest.TestCase):
             self.current_parent_fixture(root)
             manifest_path = root / ".flowguard" / "models" / "regression-manifest.json"
             manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest_payload["models"][0]["runner"] = [
+                "{python}",
+                ".flowguard/verification/owners/alpha/run_checks.py",
+                "--manifest-change",
+            ]
             manifest_path.write_text(
                 json.dumps(manifest_payload, indent=2) + "\n",
                 encoding="utf-8",
@@ -662,7 +693,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 ModelRegressionEvidenceError,
-                "no exact-current full/full/pass",
+                "current model parent head does not name an exact-current",
             ):
                 resolve_current_full_model_regression_parent(root)
 
@@ -675,11 +706,8 @@ class ModelRegressionManifestTests(unittest.TestCase):
             alternate["claim_boundary"] += " Alternate current wrapper."
             self.write_parent_artifact(parent_path.parent, alternate)
 
-            with self.assertRaisesRegex(
-                ModelRegressionEvidenceError,
-                "ambiguous exact-current full model parent",
-            ):
-                resolve_current_full_model_regression_parent(root)
+            current = resolve_current_full_model_regression_parent(root)
+            self.assertEqual(report.parent_receipt_fingerprint, current.parent_artifact_fingerprint)
 
     def test_current_full_parent_resolver_rejects_missing_child_receipt(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -714,7 +742,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
             parent["children"][0]["receipt_fingerprint"] = (
                 "sha256:" + "f" * 64
             )
-            self.write_parent_artifact(parent_path.parent, parent)
+            self.write_parent_artifact(parent_path.parent, parent, update_current=True)
 
             with self.assertRaisesRegex(
                 ModelRegressionEvidenceError,
@@ -750,7 +778,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
             parent["children"][0]["receipt_fingerprint"] = parent[
                 "execution_receipt_fingerprint"
             ]
-            self.write_parent_artifact(parent_path.parent, parent)
+            self.write_parent_artifact(parent_path.parent, parent, update_current=True)
 
             with self.assertRaisesRegex(
                 ModelRegressionEvidenceError,
@@ -1023,7 +1051,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
         )
 
     @staticmethod
-    def write_parent_artifact(parent_dir: Path, payload):
+    def write_parent_artifact(parent_dir: Path, payload, *, update_current=False):
         current = dict(payload)
         current.pop("parent_receipt_fingerprint", None)
         identity = fingerprint_value(current)
@@ -1039,6 +1067,19 @@ class ModelRegressionManifestTests(unittest.TestCase):
             + "\n",
             encoding="utf-8",
         )
+        if update_current:
+            (parent_dir / "CURRENT.json").write_text(
+                json.dumps(
+                    {
+                        "artifact_type": "flowguard_model_regression_parent_receipt",
+                        "parent_receipt_fingerprint": identity,
+                        "schema_version": "flowguard.model_regression_parent_current.v1",
+                    },
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
         return path
 
     @staticmethod

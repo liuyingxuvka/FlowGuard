@@ -148,6 +148,69 @@ class ProjectLayoutIntegrationTests(unittest.TestCase):
             self.assertEqual("pass", payload["status"])
             self.assertEqual(3, payload["layout_version"])
 
+    def test_layout_cli_keeps_working_artifacts_out_of_currentness(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            flowguard_root = root / ".flowguard"
+            flowguard_root.mkdir()
+            (flowguard_root / "project.toml").write_text(
+                '[flowguard]\nschema_version = "1.0"\n',
+                encoding="utf-8",
+            )
+            (flowguard_root / "adoption_log.jsonl").write_text("", encoding="utf-8")
+            (flowguard_root / "README.md").write_text(
+                current_layout_readme_text(), encoding="utf-8"
+            )
+            for role_name, _role in CANONICAL_ROLE_ROOTS:
+                (flowguard_root / role_name).mkdir()
+            (flowguard_root / "layout.toml").write_text(
+                current_layout_manifest_text(root), encoding="utf-8"
+            )
+            cache = flowguard_root / "models" / "__pycache__"
+            cache.mkdir(parents=True)
+            cache_file = cache / "worker.pyc"
+            cache_file.write_bytes(b"cache-bytes")
+            staging = flowguard_root / "models" / "authority" / "staging"
+            staging.mkdir(parents=True)
+            staging_file = staging / "candidate.json"
+            staging_file.write_bytes(b"candidate-bytes")
+            workspace = root / "work" / "flowguard" / "task-1" / "trace.json"
+            workspace.parent.mkdir(parents=True)
+            workspace.write_bytes(b"trace-bytes")
+            before = {
+                "cache": cache_file.read_bytes(),
+                "staging": staging_file.read_bytes(),
+                "workspace": workspace.read_bytes(),
+            }
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "flowguard",
+                    "project-layout-audit",
+                    "--root",
+                    str(root),
+                    "--json",
+                ],
+                cwd=Path(__file__).resolve().parents[1],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertTrue(payload["ok"], payload)
+            self.assertEqual(
+                [item["code"] for item in payload["findings"]],
+                ["layout_runtime_artifact"],
+            )
+            self.assertEqual(before["cache"], cache_file.read_bytes())
+            self.assertEqual(before["staging"], staging_file.read_bytes())
+            self.assertEqual(before["workspace"], workspace.read_bytes())
+            self.assertFalse(list(root.parent.glob(f".{root.name}*")))
+
 
 if __name__ == "__main__":
     unittest.main()

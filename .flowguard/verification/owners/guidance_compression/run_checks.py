@@ -87,6 +87,6 @@ def main() -> int:
     load_graph_ok = run_real_load_graph_budget_review()
     return 0 if exact_ok and workflow_report.ok and all(report_checks) and load_graph_ok else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:guidance_compression", main))

@@ -187,7 +187,85 @@ parent-local axes instead of expanding every child internal case.
   output classes and parent state
 - **THEN** FlowGuard generates parent interface combination cases over those
   summaries
-- **AND** the parent receipt records which child receipt ids were consumed
+  - **AND** the parent receipt records which child receipt ids were consumed
+
+### Requirement: Strict parent coverage resolves native child evidence
+ContractExhaustionMesh SHALL keep model-coverage receipts separate from
+execution evidence. For `full`, `release`, `whole_domain`, `whole-domain`,
+`whole_system`, and `whole-system` claims, every required child coverage
+receipt SHALL map one-to-one to a canonical immutable `EvidenceReceipt` loaded
+by exact receipt id from the declared store. The parent SHALL use an
+independently derived verification context and SHALL verify the child model,
+owner, structural parent, subject, claim scope, covered obligations,
+fingerprint, currentness, exit status, skipped checks, and blockers. An id-only
+child set, aggregate status, alias key, ghost receipt, duplicate, foreign
+receipt, stale receipt, or parent-as-child SHALL block the claim.
+
+#### Scenario: Strict parent consumes a real native child receipt
+- **WHEN** a strict parent supplies an exact binding, canonical store, and
+  independently derived verifier context for every required child
+- **THEN** FlowGuard loads each native `EvidenceReceipt` by id and accepts the
+  parent only when every identity, obligation, fingerprint, currentness, and
+  terminal-pass check matches
+
+#### Scenario: Strict parent supplies only child coverage ids
+- **WHEN** a strict parent records required and consumed child coverage ids but
+  supplies no exact native evidence bindings or verifier contexts
+- **THEN** FlowGuard SHALL block with a native-child-binding or verification-
+  context finding rather than treating the id set as execution proof
+
+#### Scenario: Native child is foreign, stale, or duplicated
+- **WHEN** a strict parent binding resolves a child whose model/owner/parent,
+  fingerprint, obligations, currentness, or receipt identity differs from the
+  frozen binding, or two bindings resolve the same native receipt
+- **THEN** FlowGuard SHALL block the parent and expose the exact mismatch
+
+### Requirement: Product signatures are exact and bounded
+ContractExhaustionMesh SHALL bind every generated finite product to its model
+id, ordered axis ids, axis fingerprints/values, expected cardinality, partition
+revision, product kind, and shard plan. It SHALL reject foreign-model axes,
+split singleton groups presented as one full product, and truncated products
+presented as complete. A coverage universe that intentionally uses several
+disjoint model-local products SHALL explicitly declare
+`allow_partitioned_product` and SHALL provide typed parent/interface handoff
+evidence; that declaration SHALL NOT weaken local product, receipt, or
+connection checks.
+
+#### Scenario: Foreign axis is referenced
+- **WHEN** an interaction group for model P references an axis owned by model X
+- **THEN** generation SHALL fail closed with an axis-model mismatch
+
+#### Scenario: Full product is split into singleton groups
+- **WHEN** required axes A and B appear only in separate singleton groups
+- **THEN** `require_full_product` SHALL remain incomplete because A×B was not
+  generated
+
+#### Scenario: Partitioned local products are explicit
+- **WHEN** a parent universe covers child-local products separately and sets
+  `allow_partitioned_product` with typed cross-child handoff evidence
+- **THEN** the parent SHALL not require a monolithic cross-child Cartesian
+  table, but every local product and handoff result SHALL remain independently
+  complete
+
+### Requirement: Cross-child handoff results are an execution gate
+ContractExhaustionMesh SHALL distinguish generated cross-child handoff
+obligations from independently produced terminal results. A plan that enables
+`require_composite_handoff_results` SHALL require exactly one current,
+fingerprinted result covering every route in each generated handoff. A plan
+that has not migrated this execution evidence MAY remain scoped, but a supplied
+result is always validated and SHALL NOT name an unknown obligation.
+
+#### Scenario: Required handoff result is missing
+- **WHEN** a broad plan enables `require_composite_handoff_results` and a
+  generated case crosses two child routes without a terminal result
+- **THEN** the plan SHALL remain blocked with an explicit missing-result
+  finding
+
+#### Scenario: Handoff result covers every route
+- **WHEN** one current result is bound to the exact generated obligation and
+  names every required route
+- **THEN** the cross-child execution gate SHALL close without a missing,
+  incomplete, or route-omission finding
 
 ### Requirement: Combination cases project to route obligations
 ContractExhaustionMesh SHALL project generated combination case ids to

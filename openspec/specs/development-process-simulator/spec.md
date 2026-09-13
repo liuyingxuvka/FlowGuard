@@ -19,10 +19,30 @@ claims.
 - **AND** the simulator SHALL select `plan_detailing` as an internal mode
 
 #### Scenario: Multi-skill workflow enters front door
-- **WHEN** a non-trivial user request requires multiple Codex skills, tools,
-  plugins, external actions, staged validation, or side-effect sequencing
+- **WHEN** a non-trivial user request requires risk-admitted capability
+  sequencing such as an explicit rehearsal request, a cross-owner handoff,
+  shared writes, a write that can invalidate post-validation evidence, an
+  agent/route workflow change, or multiple independent owners with
+  irreversible side effects
 - **THEN** the AI-facing entry SHALL be `flowguard-development-process-flow`
 - **AND** the simulator SHALL select `agent_workflow` as an internal mode
+
+#### Scenario: Low-risk capability surface skips rehearsal
+- **WHEN** a task is simple read-only work, has one owner and one tool, and only
+  needs targeted checks
+- **AND** the request has no explicit rehearsal or risk-admission fact
+- **THEN** the simulator SHALL leave `agent_workflow` `not_triggered`
+- **AND** it SHALL not create a workflow inventory, rehearsal plan, or receipt
+
+#### Scenario: Capability labels alone do not admit rehearsal
+- **WHEN** a request merely names multiple skills, tools, plugins, or an
+  external-effect label
+- **AND** it has no explicit rehearsal, cross-owner/shared-write,
+  post-validation-invalidating-write, route-change, or multi-owner irreversible
+  side-effect fact
+- **THEN** the simulator SHALL keep `agent_workflow` unselected
+- **AND** the owning DevelopmentProcessFlow route and author-side native checks
+  SHALL remain authoritative
 
 #### Scenario: Execution freshness enters front door
 - **WHEN** a non-trivial user request includes implementation, validation,

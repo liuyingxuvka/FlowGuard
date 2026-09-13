@@ -27,6 +27,6 @@ def main() -> int:
     print(report.format_text(max_counterexamples=1))
     return 0 if report.ok else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:plan_detailing_compiler", main))

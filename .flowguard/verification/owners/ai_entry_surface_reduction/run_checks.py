@@ -39,7 +39,7 @@ def run_block(block, actions: tuple[str, ...]):
     return state, tuple(rows)
 
 
-def run_case(name: str, block, *, expect_done: str) -> bool:
+def run_case(name: str, block, *, expect_done: str) -> dict[str, object]:
     state, rows = run_block(block, HAPPY_PATH)
     ok = state.done_claim == expect_done
     print(f"{name}: {'OK' if ok else 'FAILED'}")
@@ -47,7 +47,21 @@ def run_case(name: str, block, *, expect_done: str) -> bool:
         print(f"  - {action}: {label} ({status})")
     print(f"  final_done_claim={state.done_claim}")
     print()
-    return ok
+    # Keep the wrapper oracle (``ok``) separate from the model observation.
+    # A broken block that is correctly rejected is a passing check whose
+    # observed model status is still a violation; the native adapter consumes
+    # both fields without guessing from display text.
+    return {
+        "name": name,
+        "ok": ok,
+        "observed_status": "ok" if state.done_claim == "accepted" else "violation",
+        "observed_finding_codes": [
+            label
+            for _action, label, _status, _state in rows
+            if label and label not in {"done_accepted", "local_surfaces_synced"}
+        ],
+        "final_done_claim": state.done_claim,
+    }
 
 
 def main() -> int:
@@ -61,8 +75,8 @@ def main() -> int:
         ),
         run_case("broken_full_path_missing", model.BrokenFullPathMissing(), expect_done="rejected"),
     )
-    return 0 if all(checks) else 1
+    return 0 if all(check["ok"] for check in checks) else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:ai_entry_surface_reduction", main))

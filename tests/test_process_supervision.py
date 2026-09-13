@@ -4,14 +4,18 @@ import inspect
 import json
 import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 from pathlib import Path
 
+import flowguard.validation_ownership as ownership
 from flowguard.process_supervision import (
     SupervisedCommandResult,
+    _confirmed_windows_process_ids,
     _descendant_process_ids,
     run_supervised,
+    run_supervised_bytes,
     write_terminal_artifact,
 )
 
@@ -40,6 +44,77 @@ class ProcessSupervisionTests(unittest.TestCase):
         self.assertEqual((), result.descendant_process_ids)
         self.assertFalse(result.root_process_running)
         self.assertTrue(result.containment_query_succeeded)
+
+    def test_requested_interpreter_identity_is_preserved(self) -> None:
+        source = (
+            "import json,sys;"
+            "print(json.dumps({'executable':sys.executable,'prefix':sys.prefix}))"
+        )
+        result = run_supervised(
+            (sys.executable, "-c", source),
+            cwd=Path.cwd(),
+            timeout_seconds=5,
+        )
+
+        self.assertTrue(result.ok, result.to_dict())
+        payload = json.loads(result.stdout)
+        self.assertEqual(
+            Path(sys.executable).resolve(),
+            Path(payload["executable"]).resolve(),
+        )
+        self.assertEqual(sys.prefix, payload["prefix"])
+
+    def test_unknown_process_tree_query_blocks_cleanup(self) -> None:
+        with mock.patch(
+            "flowguard.process_supervision._windows_process_tree_observation",
+            return_value=None,
+        ):
+            result = run_supervised(
+                (sys.executable, "-c", "pass"),
+                cwd=Path.cwd(),
+                timeout_seconds=5,
+                grace_seconds=0.01,
+            )
+
+        self.assertFalse(result.ok)
+        self.assertFalse(result.cleanup_confirmed)
+        self.assertFalse(result.containment_query_succeeded)
+        self.assertEqual("cleanup_unconfirmed", result.terminal_reason)
+
+    def test_transient_process_tree_query_failure_does_not_poison_final_cleanup(
+        self,
+    ) -> None:
+        # The launch observation may race a short-lived Windows launcher.  A
+        # later confirmed empty containment/tree observation is authoritative
+        # for cleanup; only an unknown final observation remains blocking.
+        with mock.patch(
+            "flowguard.process_supervision._windows_process_tree_observation",
+            side_effect=[None, {}, {}, {}],
+        ):
+            result = run_supervised(
+                (sys.executable, "-c", "pass"),
+                cwd=Path.cwd(),
+                timeout_seconds=5,
+                grace_seconds=0.01,
+            )
+
+        self.assertTrue(result.ok, result.to_dict())
+        self.assertTrue(result.cleanup_confirmed)
+        self.assertTrue(result.containment_query_succeeded)
+
+    def test_pid_reuse_is_not_confirmed_as_the_original_descendant(self) -> None:
+        snapshot = {
+            41: (7, "python.exe", 200),
+            42: (7, "python.exe", 300),
+        }
+        self.assertEqual(
+            (42,),
+            _confirmed_windows_process_ids(snapshot, {41: 100, 42: 300}),
+        )
+        self.assertEqual(
+            (),
+            _confirmed_windows_process_ids(snapshot, {42: 300}, (42,)),
+        )
 
     def test_transient_exited_root_pid_is_not_a_descendant(self) -> None:
         self.assertEqual((), _descendant_process_ids((321,), 321))
@@ -108,6 +183,101 @@ class ProcessSupervisionTests(unittest.TestCase):
         self.assertEqual("none", result.termination_stage)
         self.assertTrue(result.cleanup_confirmed)
         self.assertFalse(result.ok)
+
+    def test_supervised_bytes_preserves_nul_and_non_utf8_output(self) -> None:
+        source = (
+            "import sys;"
+            "data=sys.stdin.buffer.read();"
+            "sys.stdout.buffer.write(data+b'\\x00\\xff');"
+            "sys.stderr.buffer.write(b'\\x00\\xfe')"
+        )
+        result = run_supervised_bytes(
+            (sys.executable, "-c", source),
+            cwd=Path.cwd(),
+            input_bytes=b"input\x00\xff",
+            timeout_seconds=5,
+        )
+
+        self.assertTrue(result.ok, result.to_dict())
+        self.assertIsInstance(result.stdout, bytes)
+        self.assertIsInstance(result.stderr, bytes)
+        self.assertEqual(b"input\x00\xff\x00\xff", result.stdout)
+        self.assertEqual(b"\x00\xfe", result.stderr)
+
+    def test_git_query_timeout_cleans_descendants(self) -> None:
+        source = (
+            "import subprocess,sys,time;"
+            "subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)']);"
+            "time.sleep(60)"
+        )
+        started = time.monotonic()
+        result = run_supervised_bytes(
+            (sys.executable, "-c", source),
+            cwd=Path.cwd(),
+            timeout_seconds=0.2,
+            grace_seconds=0.2,
+        )
+        elapsed = time.monotonic() - started
+
+        self.assertTrue(result.timed_out, result.to_dict())
+        self.assertTrue(result.cleanup_confirmed, result.to_dict())
+        self.assertEqual((), result.descendant_process_ids)
+        self.assertLess(elapsed, 0.2 + 0.2 + 5.0)
+
+    def test_git_observation_has_one_total_deadline(self) -> None:
+        calls: list[float] = []
+        clock = [0.0]
+
+        class Completed:
+            timed_out = False
+            cleanup_confirmed = True
+            exit_code = 0
+            terminal_reason = "process_exit"
+            stdout = b""
+            stderr = b""
+
+        def fake_query(*args, **kwargs):
+            calls.append(float(kwargs["timeout_seconds"]))
+            clock[0] += 0.6
+            return Completed()
+
+        with (
+            mock.patch.object(ownership.time, "monotonic", side_effect=lambda: clock[0]),
+            mock.patch.object(ownership, "run_supervised_bytes", side_effect=fake_query),
+            ownership.git_observation_budget(timeout_seconds=1.0),
+        ):
+            ownership._git_bytes(Path.cwd(), "first")
+            ownership._git_bytes(Path.cwd(), "second")
+            with self.assertRaises(ownership.GitQueryTimeout) as raised:
+                ownership._git_bytes(Path.cwd(), "third")
+
+        self.assertEqual(2, len(calls))
+        self.assertEqual("source_observation_timeout", raised.exception.code)
+        self.assertEqual("third", raised.exception.query_category)
+
+    def test_git_query_timeout_does_not_fallback_to_filesystem_walk(self) -> None:
+        class TimedOut:
+            timed_out = True
+            cleanup_confirmed = True
+            exit_code = None
+            terminal_reason = "timeout"
+            stdout = b""
+            stderr = b""
+            cancelled = False
+            interrupted = False
+
+        with (
+            mock.patch.object(ownership, "run_supervised_bytes", return_value=TimedOut()),
+            mock.patch.object(
+                Path,
+                "glob",
+                side_effect=AssertionError("unbounded filesystem fallback"),
+            ),
+        ):
+            with self.assertRaises(ownership.GitQueryTimeout) as raised:
+                ownership.resolve_input_manifest(Path.cwd(), ("flowguard/**/*.py",))
+
+        self.assertEqual("git_query_timeout", raised.exception.code)
 
     def test_timeout_terminates_spawned_grandchild(self) -> None:
         source = (

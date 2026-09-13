@@ -21,6 +21,7 @@ from flowguard.skill_native_checks import (  # noqa: E402
     run_native_skill_check,
 )
 from flowguard.skill_self_governance import load_governance_requirements  # noqa: E402
+from flowguard.skill_suite import validate_skill_suite  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,7 +29,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", default=str(ROOT), help="FlowGuard repository root")
     parser.add_argument("--member", action="append", default=[], help="Skill id; repeat to select members")
     parser.add_argument("--output-dir", help="Explicit environment-local evidence directory")
-    parser.add_argument("--timeout", type=float, default=300.0, help="Per-native-command timeout in seconds")
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=900.0,
+        help="Per-native-command timeout in seconds (contract-declared long checks may run up to 900s)",
+    )
     parser.add_argument(
         "--resume",
         action="store_true",
@@ -38,18 +44,42 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _current_receipt_row(root: Path, skill_id: str, output_directory: str | None) -> dict[str, object] | None:
+def _current_receipt_row(
+    root: Path,
+    skill_id: str,
+    output_directory: str | None,
+    *,
+    receipts: tuple[object, ...] | None = None,
+    suite_inventory_hash: str | None = None,
+) -> dict[str, object] | None:
+    """Return one exact-current reusable receipt without rescanning the store.
+
+    The native run contains many members, but the receipt store is shared.  A
+    resume pass must snapshot that store once and filter the in-memory rows;
+    scanning the full directory once per member both inflated the freshness
+    window and could exhaust the parent validation timeout before all owners
+    were reached.
+    """
+
     receipts = sorted(
         (
             receipt
-            for receipt in list_evidence_receipts(root, output_directory=output_directory)
+            for receipt in (
+                receipts
+                if receipts is not None
+                else list_evidence_receipts(root, output_directory=output_directory)
+            )
             if receipt.subject_id == skill_id
         ),
         key=lambda receipt: (receipt.finished_at, receipt.receipt_id),
         reverse=True,
     )
     for receipt in receipts:
-        context = build_current_native_receipt_context(receipt, root)
+        context = build_current_native_receipt_context(
+            receipt,
+            root,
+            suite_inventory_hash=suite_inventory_hash,
+        )
         if context is None:
             continue
         verification = verify_evidence_receipt(receipt, context)
@@ -93,8 +123,41 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     results = []
+    receipt_rows = (
+        tuple(
+            list_evidence_receipts(
+                root,
+                output_directory=args.output_dir,
+                subject_ids=selected,
+            )
+        )
+        if args.resume
+        else None
+    )
+    # The suite inventory is a shared current input.  Validate it once for the
+    # resume pass, then reuse only its immutable hash while each receipt still
+    # reloads and verifies its own contract, manifest, snapshots, and proof.
+    suite_inventory_hash = (
+        # Private-inventory scanning is an independent governance check.  It
+        # rereads every Python source file and must not be repeated while a
+        # resume pass is only recomputing the immutable suite hash for child
+        # receipt reuse.  The full scan remains owned by the governance gate.
+        validate_skill_suite(root, check_private_inventories=False).inventory_hash
+        if args.resume
+        else None
+    )
     for index, skill_id in enumerate(selected, start=1):
-        reused = _current_receipt_row(root, skill_id, args.output_dir) if args.resume else None
+        reused = (
+            _current_receipt_row(
+                root,
+                skill_id,
+                args.output_dir,
+                receipts=receipt_rows,
+                suite_inventory_hash=suite_inventory_hash,
+            )
+            if args.resume
+            else None
+        )
         if reused is not None:
             print(f"[{index}/{len(selected)}] native check: {skill_id} (reuse_current)", file=sys.stderr, flush=True)
             results.append(reused)

@@ -35,6 +35,7 @@ from .validation_ownership import (
     build_owner_current,
     find_reusable_owner_receipt,
 )
+from .execution_profiles import ValidationExecutionPolicy
 from .validation_results import ValidationChildResult
 
 
@@ -47,8 +48,96 @@ VALIDATION_OWNER_RESULT_IDENTITY_SCHEMA = (
 
 _EVIDENCE_RUN_TOKEN = "<EVIDENCE_RUN>"
 _EVIDENCE_OUTPUT_OPTIONS = frozenset(
-    {"--output-dir", "--output-directory", "--receipt-dir"}
+    {
+        "--output-dir",
+        "--output-directory",
+        "--receipt-dir",
+        "--model-receipt-dir",
+    }
 )
+_RESOURCE_ONLY_OPTIONS = frozenset(
+    {
+        "--timeout",
+        "--model-timeout",
+        "--collect-timeout",
+        "--shard-timeout",
+        "--run-timeout",
+        "--gate-timeout",
+    }
+)
+_RESOURCE_VALUE_TOKEN = "<RESOURCE_POLICY>"
+
+
+def canonical_semantic_command(
+    command: Sequence[str],
+    *,
+    resource_options: Sequence[str] = (),
+) -> tuple[str, ...]:
+    """Normalize only registered evidence-output paths for identity joins.
+
+    Output locations and registered resource-only timeout values are execution
+    metadata. Inputs, selectors, oracles, tool/version flags, and every other
+    argument remain part of the semantic identity. Both separated and
+    ``--flag=value`` spellings are supported. A timeout option remains visible
+    as a typed resource-policy marker, so adding/removing a resource override
+    is not confused with changing a product selector while changing its value
+    cannot stale a passed functional leaf.
+    """
+
+    values = [str(item) for item in command]
+    declared_resource_options = frozenset(
+        str(item).strip()
+        for item in resource_options
+        if str(item).strip() in _RESOURCE_ONLY_OPTIONS
+    )
+    normalized: list[str] = []
+    index = 0
+    while index < len(values):
+        value = values[index]
+        if value in declared_resource_options:
+            normalized.append(value)
+            if index + 1 < len(values):
+                normalized.append(_RESOURCE_VALUE_TOKEN)
+                index += 2
+            else:
+                normalized.append(_RESOURCE_VALUE_TOKEN)
+                index += 1
+            continue
+        resource_option = next(
+            (
+                option
+                for option in declared_resource_options
+                if value.startswith(option + "=")
+            ),
+            None,
+        )
+        if resource_option is not None:
+            normalized.append(resource_option + "=" + _RESOURCE_VALUE_TOKEN)
+            index += 1
+            continue
+        if value in _EVIDENCE_OUTPUT_OPTIONS:
+            normalized.append(value)
+            if index + 1 < len(values):
+                normalized.append(_EVIDENCE_RUN_TOKEN)
+                index += 2
+            else:
+                index += 1
+            continue
+        matched_option = next(
+            (
+                option
+                for option in _EVIDENCE_OUTPUT_OPTIONS
+                if value.startswith(option + "=")
+            ),
+            None,
+        )
+        normalized.append(
+            matched_option + "=" + _EVIDENCE_RUN_TOKEN
+            if matched_option is not None
+            else value
+        )
+        index += 1
+    return tuple(normalized)
 
 
 def _is_canonical_sha256(value: str) -> bool:
@@ -233,6 +322,26 @@ def _matches_contract_command_template(
     for index, (contract_value, executed_value) in enumerate(
         zip(expected, observed, strict=True)
     ):
+        matched_resource_option = next(
+            (
+                option
+                for option in _RESOURCE_ONLY_OPTIONS
+                if contract_value == option + "=" + _RESOURCE_VALUE_TOKEN
+            ),
+            None,
+        )
+        if matched_resource_option is not None:
+            if not executed_value.startswith(matched_resource_option + "="):
+                return False
+            continue
+        if contract_value == _RESOURCE_VALUE_TOKEN:
+            if index == 0 or expected[index - 1] not in _RESOURCE_ONLY_OPTIONS:
+                return False
+            # Resource policy is deliberately non-semantic.  The concrete
+            # value is still validated by the owner command/parser that ran;
+            # it must not make an otherwise identical functional command
+            # stale merely because the execution budget changed.
+            continue
         if contract_value == _EVIDENCE_RUN_TOKEN:
             if index == 0 or expected[index - 1] not in _EVIDENCE_OUTPUT_OPTIONS:
                 return False
@@ -466,6 +575,7 @@ def execute_validation_owner_command(
     result_identity_requirement: (
         ValidationOwnerResultIdentityRequirement | None
     ) = None,
+    resource_policy: ValidationExecutionPolicy | None = None,
 ) -> ValidationOwnerExecutionResult:
     """Execute one exact owner and publish only its clean terminal pass."""
 
@@ -478,10 +588,11 @@ def execute_validation_owner_command(
     )
     if refreshed_before.owner_identity != current.owner_identity:
         raise ValueError("validation owner inputs changed before command execution")
+    policy = resource_policy or ValidationExecutionPolicy.from_project(root_path)
     supervised = run_supervised(
         current.contract.command,
         cwd=root_path,
-        timeout_seconds=current.contract.timeout_seconds,
+        timeout_seconds=policy.owner_timeout(current.contract.owner_id),
         grace_seconds=grace_seconds,
         environment=environment,
         cancel_event=cancel_event,
@@ -505,6 +616,7 @@ __all__ = [
     "VALIDATION_OWNER_RESULT_IDENTITY_SCHEMA",
     "ValidationOwnerExecutionResult",
     "ValidationOwnerResultIdentityRequirement",
+    "canonical_semantic_command",
     "execute_validation_owner_command",
     "publish_supervised_validation_owner_result",
 ]

@@ -25,6 +25,7 @@ class DevelopmentProcessSimulatorTests(unittest.TestCase):
                     "material_rework_risk",
                 ),
                 multiple_skills_or_tools=True,
+                cross_owner_handoff=True,
                 staged_validation=True,
                 process_optimization_evidence_ids=("optimization:decision:v1",),
             )
@@ -65,6 +66,7 @@ class DevelopmentProcessSimulatorTests(unittest.TestCase):
                 task_summary="combine OpenSpec, FlowGuard, install sync, and git evidence",
                 multiple_skills_or_tools=True,
                 external_side_effects=True,
+                multiple_independent_owner_irreversible_side_effects=True,
             )
         )
 
@@ -73,6 +75,67 @@ class DevelopmentProcessSimulatorTests(unittest.TestCase):
         self.assertEqual((SIMULATOR_MODE_AGENT_WORKFLOW,), report.selected_modes)
         self.assertEqual(("review_agent_workflow_rehearsal",), report.required_reviews)
         self.assertIn("agent_workflow_rehearsal", report.format_text())
+
+    def test_surface_complexity_alone_skips_agent_workflow_admission(self):
+        report = review_development_process_simulator(
+            DevelopmentProcessSimulationRequest(
+                "safe-single-owner",
+                task_summary="one owner, one tool, read-only targeted check",
+                multiple_skills_or_tools=True,
+                external_side_effects=True,
+                task_trivial=True,
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertNotIn(SIMULATOR_MODE_AGENT_WORKFLOW, report.selected_modes)
+        self.assertEqual((), report.required_reviews)
+
+    def test_nontrivial_single_owner_multi_tool_work_stays_on_freshness(self):
+        report = review_development_process_simulator(
+            DevelopmentProcessSimulationRequest(
+                "safe-single-owner-implementation",
+                task_summary="one owner uses two local tools for a reversible implementation",
+                multiple_skills_or_tools=True,
+                external_side_effects=True,
+                implementation_work=True,
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual((SIMULATOR_MODE_EXECUTION_FRESHNESS,), report.selected_modes)
+        self.assertNotIn(SIMULATOR_MODE_AGENT_WORKFLOW, report.selected_modes)
+        self.assertEqual(("review_development_process_flow",), report.required_reviews)
+
+    def test_explicit_agent_workflow_request_admits_internal_mode(self):
+        report = review_development_process_simulator(
+            DevelopmentProcessSimulationRequest(
+                "explicit-agent-workflow",
+                explicit_agent_workflow=True,
+            )
+        )
+
+        self.assertEqual((SIMULATOR_MODE_AGENT_WORKFLOW,), report.selected_modes)
+        self.assertIn("explicit_agent_workflow", report.mode_decisions[0].reason)
+
+    def test_each_material_workflow_risk_fact_admits_internal_mode(self):
+        risk_fields = (
+            "cross_owner_handoff",
+            "shared_write",
+            "post_validation_write",
+            "agent_route_workflow_change",
+            "multiple_independent_owner_irreversible_side_effects",
+        )
+        for field_name in risk_fields:
+            with self.subTest(field_name=field_name):
+                report = review_development_process_simulator(
+                    DevelopmentProcessSimulationRequest(
+                        f"risk-{field_name}",
+                        **{field_name: True},
+                    )
+                )
+                self.assertEqual((SIMULATOR_MODE_AGENT_WORKFLOW,), report.selected_modes)
+                self.assertIn(field_name, report.mode_decisions[0].reason)
 
     def test_execution_and_release_select_execution_freshness(self):
         report = review_development_process_simulator(
@@ -98,6 +161,7 @@ class DevelopmentProcessSimulatorTests(unittest.TestCase):
                 "plan-to-release",
                 rough_plan=True,
                 multiple_skills_or_tools=True,
+                cross_owner_handoff=True,
                 implementation_work=True,
                 staged_validation=True,
                 install_sync=True,

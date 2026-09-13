@@ -23,6 +23,66 @@ from flowguard.behavior_commitment import (
 
 
 class ModelSystemInventoryTests(unittest.TestCase):
+    def test_repository_snapshot_materializes_authored_semantic_hierarchy(self):
+        """The current project must expose domain/model nesting in authority.
+
+        ``semantic_model_mesh.json`` already owns the reviewed responsibility
+        partition.  This assertion prevents a future inventory refactor from
+        silently regressing to one root ``contains`` edge per model, which
+        would hide the impact-map boundaries from an AI consumer.
+        """
+
+        root = Path(__file__).resolve().parents[1]
+        snapshot = build_manifest_model_system_snapshot(
+            root,
+            snapshot_id="snapshot:repository-semantic-hierarchy",
+        )
+        domain_edges = tuple(
+            item
+            for item in snapshot.relations
+            if item.relation_id.startswith("relation:semantic-system-contains:")
+        )
+        model_edges = tuple(
+            item
+            for item in snapshot.relations
+            if item.relation_id.startswith("relation:semantic-parent-contains-model:")
+        )
+        cross_boundary_edges = tuple(
+            item
+            for item in snapshot.relations
+            if item.relation_id.startswith("relation:semantic-cross-boundary-support:")
+        )
+        consumer_edges = tuple(
+            item
+            for item in snapshot.relations
+            if item.relation_id.startswith("relation:semantic-model-affects-consumer:")
+        )
+
+        self.assertEqual(7, len(domain_edges))
+        self.assertEqual(51, len(model_edges))
+        self.assertEqual(13, len(cross_boundary_edges))
+        self.assertGreaterEqual(len(consumer_edges), 80)
+        self.assertFalse(
+            any(
+                item.relation_id.startswith("relation:system-contains:")
+                for item in snapshot.relations
+            )
+        )
+        self.assertEqual(
+            {item.target.endpoint_id for item in domain_edges},
+            {
+                item.source.endpoint_id
+                for item in model_edges
+            },
+        )
+        self.assertEqual(
+            {
+                item.target.endpoint_id
+                for item in model_edges
+            },
+            {f"model:{item.logical_model_id}" for item in snapshot.model_instances},
+        )
+
     def test_repository_snapshot_has_no_owner_coverage_gaps(self):
         root = Path(__file__).resolve().parents[1]
         snapshot = build_manifest_model_system_snapshot(
@@ -322,6 +382,98 @@ class ModelSystemInventoryTests(unittest.TestCase):
             self.assertEqual(
                 "incomplete_within_declared_boundary",
                 incomplete.coverage_status,
+            )
+
+    def test_shared_manifest_input_is_part_of_living_model_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            model_dir = root / ".flowguard" / "models" / "owners" / "sample"
+            runner_dir = root / ".flowguard" / "verification" / "owners" / "sample"
+            model_dir.mkdir(parents=True)
+            runner_dir.mkdir(parents=True)
+            model_path = model_dir / "model.py"
+            runner_path = runner_dir / "run_checks.py"
+            shared_path = root / "shared" / "protocol.py"
+            shared_path.parent.mkdir(parents=True)
+            model_path.write_text("VALUE = 1\n", encoding="utf-8")
+            runner_path.write_text("print('ok')\n", encoding="utf-8")
+            shared_path.write_text("PROTOCOL = 1\n", encoding="utf-8")
+            purpose = build_model_purpose_closure(
+                model_instance_id="regression:sample:fixture",
+                reusable_model_type_id="sample",
+                task_intent_id="flowguard-regression:sample",
+                guarded_purpose="Keep the sample model identity current.",
+                protected_failure_ids=("sample:incorrect",),
+                known_good_case_id="native:sample:complete",
+                failure_bindings=(
+                    {
+                        "failure_id": "sample:incorrect",
+                        "known_bad_case_id": "native:sample:incorrect",
+                        "oracle_id": "native:sample:run-checks",
+                    },
+                ),
+                claim_boundary="Fixture-only shared input identity check.",
+                evidence_check_ids=("check:model-regression:sample",),
+                model_sha256=file_fingerprint(model_path),
+                runner_sha256=file_fingerprint(runner_path),
+            )
+            (root / ".flowguard" / "models" / "regression-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": MANIFEST_SCHEMA,
+                        "governed_input_globs": [".flowguard/**/*.py", "shared/*.py"],
+                        "snapshot_only_input_globs": [],
+                        "shared_input_groups": [
+                            {
+                                "component_id": "shared-protocol",
+                                "globs": ["shared/protocol.py"],
+                                "consumers": ["sample"],
+                            }
+                        ],
+                        "models": [
+                            {
+                                "model_id": "sample",
+                                "model_path": ".flowguard/models/owners/sample/model.py",
+                                "runner": [
+                                    "{python}",
+                                    ".flowguard/verification/owners/sample/run_checks.py",
+                                ],
+                                "tier": "fast",
+                                "timeout_seconds": 5,
+                                "shard_safe": True,
+                                "mutation_policy": "none",
+                                "input_globs": [
+                                    ".flowguard/models/owners/sample/model.py",
+                                    ".flowguard/verification/owners/sample/run_checks.py",
+                                ],
+                                "expected_artifacts": [],
+                                "exclusion_reason": "",
+                                "purpose_closure": purpose.to_dict(),
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            before = build_manifest_model_system_snapshot(
+                root,
+                snapshot_id="snapshot:shared-input",
+            )
+            before_model = before.model_instances[0]
+            self.assertIn(
+                "shared/protocol.py",
+                tuple(item.path for item in before_model.inputs),
+            )
+
+            shared_path.write_text("PROTOCOL = 2\n", encoding="utf-8")
+            after = build_manifest_model_system_snapshot(
+                root,
+                snapshot_id="snapshot:shared-input",
+            )
+            self.assertNotEqual(
+                before_model.fingerprint,
+                after.model_instances[0].fingerprint,
             )
 
     def test_manifest_snapshot_connects_model_purpose_and_commitment(self):

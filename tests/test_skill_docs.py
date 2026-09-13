@@ -472,6 +472,8 @@ class SkillDocsTests(unittest.TestCase):
                 if skill_name == "flowguard-development-process-flow":
                     self.assertIn("plan_detailing_compiler", text)
                     self.assertIn("agent_workflow_rehearsal", text)
+                    self.assertIn("not a standalone public skill", text)
+                    self.assertIn("Multiple skills/tools", text)
 
     def test_model_test_alignment_skill_does_not_teach_optional_code_contracts(self):
         checked = (

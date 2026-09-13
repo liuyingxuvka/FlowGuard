@@ -1,6 +1,6 @@
 ---
 name: flowguard-architecture-reduction
-description: Decide retain, equivalent contraction, proven retirement, or unresolved from current FlowGuard DNA.
+description: standalone FlowGuard satellite skill; Decide retain, equivalent contraction, proven retirement, or unresolved from current FlowGuard DNA.
 ---
 
 # FlowGuard Architecture Reduction
@@ -9,15 +9,19 @@ description: Decide retain, equivalent contraction, proven retirement, or unreso
 Classify surfaces/steps: retain, contraction, proven retirement, or unresolved.
 
 ## Entrypoint Scope
-A standalone FlowGuard satellite skill; owner `architecture_reduction`, role `public_owner`. It proves reductions, not implementation.
+This is a standalone FlowGuard satellite skill. Owner
+`architecture_reduction` (`public_owner`); proves reductions, not implementation.
 
 ## Local Material Routing
-Read `references/architecture_reduction_protocol.md` only for an explicit
+After admission, read `references/architecture_reduction_protocol.md` only for an explicit
 contraction, retirement, or full audit; routine routing uses this compact
-owner contract.
+owner contract. Conditional proof and hazard details are named by the main
+protocol only when their triggers are present.
 
 ## Entrypoint Acceptance Map
-Accept DNA, owner/code/test maps, and ModelMaturation provenance; route actions.
+Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
+
+### Shared execution contract
 
 ## Use When
 - Use for keep, contraction candidates, retirement, or unresolved review of surfaces and repeated, replaced, or costly steps.
@@ -33,12 +37,11 @@ Accept DNA, owner/code/test maps, and ModelMaturation provenance; route actions.
 5. Classify steps as `retain|merge|delegate|remove|explicit_on_demand|unresolved`; bind evidence, post-action owner, and required next route.
 
 ## Hard Gates
-- Model-purpose gate: freeze task-specific failure(s)/claim_boundary; bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework.
-- Age, membership, tests, cost, or path findings alone prove no decision. Preserve hard semantics before named costs; no scalar/global-optimum claim.
+- Model-purpose gate: task-specific failure(s); native good/bad-per-failure/oracle/current evidence; Reusable types are not fixed-purpose; no mode/fallback; FlowGuard check engine: only FlowGuard-declared checks may support completion claims.
 - Retirement disposes every responsibility against complete intent. Keep core DNA under one owner; no alias, compatibility reader/adapter, fallback, forwarder, alternate success path, or second authority.
 - Merge/delegate/remove/on-demand requires complete callers, equivalence/replacement proof, post-action owners, and a named on-demand trigger.
 - Missing, stale, foreign, ambiguous, or rewrapped evidence blocks. Public/large work needs StructureMesh; implementation needs DevelopmentProcessFlow and affected revalidation.
 - Read-only self-audit consumes one current aggregate receipt. Explicit proof freezes a finite batch, reuses current evidence first, and never adds a second registry/store.
 
 ## Output Requirements
-- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, decisions, responsibility proof, and blueprint depth/gap. Prefer a shorter path only after equivalence, caller/test coverage, ownership, and facade rebinding are proven; otherwise keep it unresolved.
+- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, decisions, responsibility proof, and blueprint depth/gap; remain unresolved until equivalence, callers/tests, ownership, and facade rebinding are proven.

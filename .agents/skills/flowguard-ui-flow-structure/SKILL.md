@@ -1,6 +1,6 @@
 ---
 name: flowguard-ui-flow-structure
-description: Use for UI admission, surfaces, behavior, structure, operability, evidence, or transitions.
+description: standalone FlowGuard satellite skill; Use for UI admission, surfaces, behavior, structure, operability, evidence, or transitions.
 ---
 
 # FlowGuard UI Flow Structure
@@ -9,15 +9,16 @@ description: Use for UI admission, surfaces, behavior, structure, operability, e
 Admit content, model UI event x state, and prove runnable visible surfaces.
 
 ## Entrypoint Scope
-This standalone FlowGuard satellite skill owns `ui_flow_structure`
-(`public_owner`) UI admission/evidence, not styling or code structure.
+Owner `ui_flow_structure` (`public_owner`) UI admission/evidence; not styling or code structure.
 
 ## Local Material Routing
 Read `references/ui_flow_structure_protocol.md` for surface, journey,
 structure, text hierarchy, operability, evidence, and geometry.
 
 ## Entrypoint Acceptance Map
-Accept admission, UI state/task/control coverage, and current evidence; block leaks, blindspots, or stale proof.
+Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden. Design or observation alone never becomes runnable evidence.
+
+### Shared execution contract
 
 ## Use When
 - Use for UI content, controls, tasks, runnable evidence, hierarchy, or product language.
@@ -34,8 +35,7 @@ Accept admission, UI state/task/control coverage, and current evidence; block le
 6. Bind claims to inventory, screenshot/DOM/event/result evidence, click chains, blindspots, and tests.
 
 ## Hard Gates
-- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
+- Model-purpose gate: task-specific failure(s); native good/bad-per-failure/oracle/current evidence; Reusable types are not fixed-purpose; no mode/fallback; FlowGuard check engine: only FlowGuard-declared checks may support completion claims.
 - Unclassified/internal content cannot render; do not add audience/role/persona categories.
 - On-demand stays hidden until an accessible task-owned reveal/return; hover has keyboard/focus parity.
 - Every reachable enabled action needs control -> event -> owner -> function -> UI update -> evidence, pure-UI disposition, or blindspot.
@@ -43,8 +43,6 @@ Accept admission, UI state/task/control coverage, and current evidence; block le
 - Repeated surfaces for one intent reuse its commitment, path, and semantic grammar. Presentation exceptions never change intent, path, visibility, or result.
 - Runnable UI needs current source/recovery/freshness evidence; design alone
   cannot prove it.
-- Only explicit reuse/publication or proven cross-project use
-  triggers strict `risk_template_library` closure.
 - Planning context becomes UI behavior only through explicit behavior-source admission.
 
 ## Output Requirements

@@ -9,6 +9,7 @@ from flowguard.model_path_quality import path_quality_result_set_fingerprint
 from flowguard.model_purpose import build_model_purpose_closure, file_fingerprint
 from flowguard.model_regressions import MANIFEST_SCHEMA
 from flowguard.model_system_inventory import build_manifest_model_system_snapshot
+from flowguard.source_identity import functional_source_fingerprint
 from flowguard.self_path_quality import (
     SelfPathQualityError,
     compile_flowguard_self_path_quality_material,
@@ -185,6 +186,36 @@ def _snapshot(root: Path):
         snapshot_id="self-path-quality-fixture",
         system_id="self-path-quality-fixture",
     )
+
+
+def test_current_snapshot_manifest_uses_functional_identity_for_self_quality(
+    tmp_path: Path,
+) -> None:
+    root = _fixture_root(tmp_path)
+    snapshot = _snapshot(root)
+    manifest_path = root / ".flowguard" / "models" / "regression-manifest.json"
+
+    # The fixture contains timeout budgets, which are intentionally excluded
+    # from the functional projection.  This guards the exact mismatch that
+    # previously made a snapshot produced by the model inventory unusable by
+    # the self path-quality compiler.
+    assert file_fingerprint(manifest_path) != functional_source_fingerprint(
+        root,
+        ".flowguard/models/regression-manifest.json",
+    )
+    manifest_refs = tuple(
+        item
+        for item in snapshot.owner_artifact_refs
+        if item.endpoint_id.endswith(":model-regression-manifest")
+    )
+    assert len(manifest_refs) == 1
+    assert manifest_refs[0].fingerprint == functional_source_fingerprint(
+        root,
+        ".flowguard/models/regression-manifest.json",
+    )
+
+    material = compile_flowguard_self_path_quality_material(root, snapshot)
+    assert material.ok
 
 
 def test_compiles_dynamic_denominator_from_real_workflow_and_contract_export(

@@ -1,12 +1,16 @@
 import unittest
+from dataclasses import replace
+from tempfile import TemporaryDirectory
 
 from flowguard import (
     CONTRACT_DIMENSION_FIELD,
     CONTRACT_DIMENSION_INPUT,
     CONTRACT_DIMENSION_PAYLOAD,
+    CONTRACT_GENERATION_PARENT_INTERFACE,
     CONTRACT_EXHAUSTION_CONFIDENCE_BLOCKED,
     CONTRACT_EXHAUSTION_CONFIDENCE_FULL,
     CONTRACT_EXHAUSTION_CONFIDENCE_SCOPED,
+    CONTRACT_EXHAUSTION_DECISION_SCOPED,
     CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
     CONTRACT_MUTATION_SAME_CLASS_CASE,
     CONTRACT_MUTATION_CARTESIAN_COMBINATION,
@@ -31,6 +35,7 @@ from flowguard import (
     ContractExhaustionPlan,
     ContractMutationCase,
     ContractOracle,
+    CompositeHandoffResult,
     ObservedProblemBackfeed,
     MeshClosureModel,
     MeshClosureTransition,
@@ -256,6 +261,91 @@ class ContractExhaustionTests(unittest.TestCase):
         self.assertIn("contract_coverage_shard_incomplete", {finding.code for finding in report.findings})
         self.assertEqual(5, len(report.combination_cases))
 
+    def test_model_local_cartesian_group_rejects_a_foreign_axis(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "foreign-axis",
+                model_id="parent",
+                axes=(
+                    ContractAxis("parent_state", model_id="parent", values=("cold", "hot")),
+                    ContractAxis("child_state", model_id="child", values=("cold", "hot")),
+                ),
+                interaction_groups=(
+                    ContractInteractionGroup(
+                        "parent-local",
+                        model_id="parent",
+                        axis_ids=("parent_state", "child_state"),
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("contract_cartesian_axis_foreign_model", {finding.code for finding in report.findings})
+
+    def test_cross_model_product_requires_typed_parent_interface_and_refinement(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "typed-parent-interface",
+                model_id="parent",
+                axes=(
+                    ContractAxis("parent_state", model_id="parent", values=("cold", "hot")),
+                    ContractAxis("child_state", model_id="child", values=("cold", "hot")),
+                ),
+                interaction_groups=(
+                    ContractInteractionGroup(
+                        "parent-interface",
+                        model_id="parent",
+                        generation_kind=CONTRACT_GENERATION_PARENT_INTERFACE,
+                        axis_ids=("parent_state", "child_state"),
+                        parent_interface_contract_id="interface:parent-child",
+                        refinement_contract_id="refinement:parent-child",
+                        interface_model_ids=("child",),
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(4, len(report.combination_cases))
+        self.assertEqual(
+            CONTRACT_GENERATION_PARENT_INTERFACE,
+            report.product_signatures[0].generation_kind,
+        )
+        self.assertEqual(
+            "interface:parent-child",
+            report.product_signatures[0].parent_interface_contract_id,
+        )
+        self.assertEqual(
+            "refinement:parent-child",
+            report.product_signatures[0].refinement_contract_id,
+        )
+
+    def test_cross_model_product_without_typed_parent_interface_is_blocked(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "untyped-parent-interface",
+                model_id="parent",
+                axes=(
+                    ContractAxis("parent_state", model_id="parent", values=("cold",)),
+                    ContractAxis("child_state", model_id="child", values=("cold",)),
+                ),
+                interaction_groups=(
+                    ContractInteractionGroup(
+                        "parent-interface",
+                        model_id="parent",
+                        generation_kind=CONTRACT_GENERATION_PARENT_INTERFACE,
+                        axis_ids=("parent_state", "child_state"),
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        finding_codes = {finding.code for finding in report.findings}
+        self.assertIn("contract_parent_interface_typed_contract_missing", finding_codes)
+        self.assertIn("contract_parent_interface_axis_model_unbound", finding_codes)
+
     def test_parent_receipt_blocks_when_required_child_receipt_is_not_consumed(self):
         report = review_contract_exhaustion(
             ContractExhaustionPlan(
@@ -388,6 +478,197 @@ class ContractExhaustionTests(unittest.TestCase):
         )
         self.assertEqual((), report.required_composite_handoff_acceptance_ids)
 
+    def test_explicit_cross_child_result_gate_blocks_missing_terminal_result(self):
+        plan = ContractExhaustionPlan(
+            "cross-child-result-required",
+            seed_cases=(
+                ContractMutationCase(
+                    "cross-child",
+                    mutation_type=CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
+                    required_routes=(
+                        CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
+                        CONTRACT_ROUTE_TEST_MESH,
+                    ),
+                    expected_status=CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
+                ),
+            ),
+            claim_scope="full",
+            require_composite_handoff_results=True,
+        )
+
+        report = review_contract_exhaustion(plan)
+
+        self.assertIn(
+            "composite_handoff_result_missing",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_broad_cross_child_result_gate_is_unconditional(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "cross-child-result-unconditional",
+                seed_cases=(
+                    ContractMutationCase(
+                        "cross-child",
+                        mutation_type=CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
+                        required_routes=(
+                            CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
+                            CONTRACT_ROUTE_TEST_MESH,
+                        ),
+                        expected_status=CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
+                    ),
+                ),
+                claim_scope="full",
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertTrue(report.composite_handoff_acceptances)
+        self.assertIn(
+            "composite_handoff_result_missing",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_supplied_composite_result_is_validated_in_scoped_plan(self):
+        report = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "scoped-composite-result-validation",
+                composite_handoff_results=(
+                    CompositeHandoffResult(
+                        result_id="composite-result:ghost",
+                        acceptance_id="composite_handoff:ghost",
+                        evidence_ids=("receipt:ghost",),
+                    ),
+                ),
+                claim_scope="routine",
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "composite_handoff_result_unknown_obligation",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_composite_result_requires_canonical_store_and_context(self):
+        base = ContractExhaustionPlan(
+            "cross-child-result-canonical-store",
+            seed_cases=(
+                ContractMutationCase(
+                    "cross-child",
+                    mutation_type=CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
+                    required_routes=(
+                        CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
+                        CONTRACT_ROUTE_TEST_MESH,
+                    ),
+                    expected_status=CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
+                ),
+            ),
+            claim_scope="full",
+            composite_handoff_results=(
+                CompositeHandoffResult(
+                    result_id="composite-result:cross-child",
+                    acceptance_id="composite_handoff:cross-child",
+                    covered_route_ids=(
+                        CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
+                        CONTRACT_ROUTE_TEST_MESH,
+                    ),
+                    evidence_ids=("receipt:cross-child",),
+                ),
+            ),
+        )
+
+        with TemporaryDirectory() as folder:
+            report = review_contract_exhaustion(
+                replace(
+                    base,
+                    native_receipt_store_repository_root=folder,
+                )
+            )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "composite_handoff_evidence_missing",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_composite_result_rejects_foreign_route(self):
+        base = ContractExhaustionPlan(
+            "cross-child-result-foreign-route",
+            seed_cases=(
+                ContractMutationCase(
+                    "cross-child",
+                    mutation_type=CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
+                    required_routes=(
+                        CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
+                        CONTRACT_ROUTE_TEST_MESH,
+                    ),
+                    expected_status=CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
+                ),
+            ),
+            claim_scope="full",
+            composite_handoff_results=(
+                CompositeHandoffResult(
+                    result_id="composite-result:cross-child",
+                    acceptance_id="composite_handoff:cross-child",
+                    covered_route_ids=(
+                        CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
+                        CONTRACT_ROUTE_TEST_MESH,
+                        CONTRACT_ROUTE_MODEL_MESH,
+                    ),
+                    evidence_ids=("receipt:cross-child",),
+                ),
+            ),
+        )
+
+        report = review_contract_exhaustion(base)
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "composite_handoff_result_route_foreign",
+            {finding.code for finding in report.findings},
+        )
+
+    def test_explicit_cross_child_result_covers_every_required_route(self):
+        base = ContractExhaustionPlan(
+            "cross-child-result-present",
+            seed_cases=(
+                ContractMutationCase(
+                    "cross-child",
+                    mutation_type=CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
+                    required_routes=(
+                        CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
+                        CONTRACT_ROUTE_TEST_MESH,
+                    ),
+                    expected_status=CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
+                ),
+            ),
+            claim_scope="full",
+            require_composite_handoff_results=True,
+        )
+        acceptance_id = "composite_handoff:cross-child"
+        result = CompositeHandoffResult(
+            result_id="composite-result:cross-child",
+            acceptance_id=acceptance_id,
+            covered_route_ids=(
+                CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
+                CONTRACT_ROUTE_TEST_MESH,
+            ),
+            evidence_ids=("receipt:cross-child",),
+        )
+        report = review_contract_exhaustion(
+            replace(base, composite_handoff_results=(result,))
+        )
+
+        result_findings = {
+            finding.code
+            for finding in report.findings
+            if finding.code.startswith("composite_handoff_result_")
+        }
+        self.assertNotIn("composite_handoff_result_missing", result_findings)
+        self.assertNotIn("composite_handoff_result_incomplete", result_findings)
+        self.assertNotIn("composite_handoff_result_route_missing", result_findings)
+
     def test_broad_claim_requires_declared_coverage_universe(self):
         report = review_contract_exhaustion(
             ContractExhaustionPlan(
@@ -457,6 +738,79 @@ class ContractExhaustionTests(unittest.TestCase):
 
         self.assertTrue(scoped.ok, scoped.format_text())
         self.assertNotIn("coverage_universe_item_missing", {finding.code for finding in scoped.findings})
+
+    def test_full_product_gate_distinguishes_monolithic_and_partitioned_universes(self):
+        axes = (
+            ContractAxis("child_a_state", values=("cold", "hot"), model_id="root"),
+            ContractAxis("child_b_state", values=("cold", "hot"), model_id="root"),
+        )
+        groups = (
+            ContractInteractionGroup(
+                "child-a-local",
+                model_id="root",
+                axis_ids=("child_a_state",),
+            ),
+            ContractInteractionGroup(
+                "child-b-local",
+                model_id="root",
+                axis_ids=("child_b_state",),
+            ),
+        )
+        monolithic = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "monolithic-product-required",
+                model_id="root",
+                claim_scope="finite-matrix",
+                axes=axes,
+                interaction_groups=groups,
+                coverage_universe=ContractCoverageUniverse(
+                    "root-universe",
+                    required_axis_ids=("child_a_state", "child_b_state"),
+                    required_interaction_group_ids=("child-a-local", "child-b-local"),
+                    require_full_product=True,
+                ),
+                require_coverage_universe=True,
+            )
+        )
+        self.assertIn(
+            "coverage_universe_full_product_group_missing",
+            {finding.code for finding in monolithic.findings},
+        )
+
+        partitioned = review_contract_exhaustion(
+            ContractExhaustionPlan(
+                "partitioned-product-allowed",
+                model_id="root",
+                claim_scope="finite-matrix",
+                axes=axes,
+                interaction_groups=groups,
+                coverage_universe=ContractCoverageUniverse(
+                    "root-partitioned-universe",
+                    required_axis_ids=("child_a_state", "child_b_state"),
+                    required_interaction_group_ids=("child-a-local", "child-b-local"),
+                    require_full_product=True,
+                    allow_partitioned_product=True,
+                ),
+                require_coverage_universe=True,
+            )
+        )
+        self.assertNotIn(
+            "coverage_universe_full_product_group_missing",
+            {finding.code for finding in partitioned.findings},
+        )
+        self.assertTrue(partitioned.ok, partitioned.format_text())
+        self.assertEqual(CONTRACT_EXHAUSTION_DECISION_SCOPED, partitioned.decision)
+        self.assertIn(
+            "partition_boundary_verification_missing",
+            {finding.code for finding in partitioned.findings},
+        )
+        self.assertTrue(
+            all(
+                finding.severity == "confidence_gap"
+                for finding in partitioned.findings
+                if finding.code == "partition_boundary_verification_missing"
+            )
+        )
 
     def test_actionable_oracle_feedback_requires_message_and_repair_fields(self):
         report = review_contract_exhaustion(

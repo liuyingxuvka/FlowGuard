@@ -33,6 +33,7 @@ from .implementation_inventory import (
     ImplementationSurface,
     ImplementationSurfaceInventory,
     IMPLEMENTATION_DISPOSITION_MODEL,
+    SUPPORTING_RELATION_KINDS,
     SoftwareBoundary,
     build_implementation_surface_inventory,
     implementation_behavior_surface_ids,
@@ -54,6 +55,7 @@ from .model_test_alignment import (
     TestEvidence,
     review_model_test_alignment,
 )
+from .model_regressions import ModelRegressionExecutionEvidencePackage
 from .blueprint_topology import (
     BlueprintTopologyNode,
     BlueprintTopologyPort,
@@ -1527,6 +1529,11 @@ class ProjectBlueprintBundle:
     definition: ProjectBlueprintDefinition | None = None
     project_evidence: ProjectBlueprintEvidence | None = None
     frozen_target_evidence: FrozenTargetSystemEvidence | None = None
+    # Keep the caller's execution-evidence admission policy in the canonical
+    # bundle.  Static model/code/test design and executed native coverage are
+    # separate claims; a strict build must remain strict when the canonical
+    # projection is re-derived for identity checks.
+    require_executed_evidence: bool = False
 
     @cached_property
     def canonical_child_fingerprints(self) -> tuple[tuple[str, str], ...]:
@@ -1628,6 +1635,7 @@ class ProjectBlueprintBundle:
                 if self.test_inventory is not None
                 else ""
             ),
+            "require_executed_evidence": self.require_executed_evidence,
         }
         return tuple(sorted(child_fingerprints.items()))
 
@@ -1801,6 +1809,7 @@ class ProjectBlueprintBundle:
     def to_dict(self) -> dict[str, Any]:
         return {
             "ok": self.ok,
+            "require_executed_evidence": self.require_executed_evidence,
             "project_blueprint_fingerprint": self.fingerprint,
             "canonical_projection_complete": self.canonical_projection_complete,
             "canonical_projection_blockers": list(self.canonical_projection_blockers),
@@ -1883,13 +1892,17 @@ def _project_model_test_alignment(
     evidence: ProjectBlueprintEvidence,
     inventory: ImplementationSurfaceInventory,
     binding_report: ModelImplementationBindingReport,
+    execution_evidence: ModelRegressionExecutionEvidencePackage | None = None,
+    require_executed_evidence: bool = False,
 ) -> ModelTestAlignmentReport:
-    """Build the real static model/code/test alignment review.
+    """Build model/code/test alignment and consume optional native leaves.
 
-    This review deliberately leaves execution as ``not_run``.  Its purpose in
-    a blueprint is to prove that a checker design names the exact model owner,
-    code contract, and test/native member.  Runtime success remains a separate
-    receipt-backed claim.
+    Without ``execution_evidence`` this remains a design-only review and every
+    generated test row is explicitly ``not_run``.  When supplied, a row is a
+    pass only if its exact case (or its authored source-case alias) appears in
+    the corresponding model owner's native projection and that owner's direct
+    immutable leaf receipt is independently current.  Parent composition is
+    never accepted as a test row.
     """
 
     surface_by_id = {row.surface_id: row for row in inventory.surfaces}
@@ -1938,7 +1951,11 @@ def _project_model_test_alignment(
                     ),
                     required=True,
                     required_test_kinds=("happy_path",),
-                    allow_shared_evidence=False,
+                    # The project blueprint emits one exact row per finite
+                    # case.  Sharing is permitted only within this one
+                    # owner-local obligation; each row still binds its own
+                    # case identity and native leaf projection.
+                    allow_shared_evidence=True,
                     allow_shared_implementation=False,
                     external_inputs=surface.parameters,
                     external_outputs=external_outputs,
@@ -1976,25 +1993,49 @@ def _project_model_test_alignment(
     }
     for owner in definition.owners:
         oracle_path = owner.oracles[0].source_id
+        native_owner = (
+            execution_evidence.owner(owner.owner_id)
+            if execution_evidence is not None
+            else None
+        )
         for case in owner.behavior_case_contracts:
             code_id = code_ids_by_block.get(case.behavior_block_id)
             if code_id is None:
                 continue
+            native_pass = bool(
+                native_owner is not None
+                and native_owner.receipt_is_current_pass
+                and native_owner.matches_case_id(case.case_id)
+            )
             test_evidence.append(
                 TestEvidence(
                     evidence_id=case.case_evidence_id,
                     test_name=case.case_id,
                     path=oracle_path,
                     command=(
-                        "block-local checker design; execution receipt is separate"
+                        f"native model owner {owner.owner_id} case projection"
+                        if execution_evidence is not None
+                        else "block-local checker design; execution receipt is separate"
                     ),
-                    result_status="not_run",
+                    result_status=("passed" if native_pass else "not_run"),
                     evidence_current=True,
                     test_kind=case_kind_to_test_kind[case.case_kind],
                     covered_obligations=(case.behavior_block_id,),
                     covered_code_contracts=(code_id,),
                     assertion_scope="external_contract",
                     evidence_role="primary",
+                    native_execution_verified=native_pass,
+                    native_execution_receipt_id=(
+                        native_owner.receipt_id if native_pass and native_owner else ""
+                    ),
+                    native_execution_receipt_fingerprint=(
+                        native_owner.receipt_fingerprint
+                        if native_pass and native_owner
+                        else ""
+                    ),
+                    native_execution_owner_id=(
+                        native_owner.owner_id if native_pass and native_owner else ""
+                    ),
                 )
             )
     return review_model_test_alignment(
@@ -2005,6 +2046,7 @@ def _project_model_test_alignment(
             test_evidence=tuple(test_evidence),
             allow_orphan_tests=True,
             require_implementation_blueprint=True,
+            require_executed_evidence=require_executed_evidence,
             implementation_binding_report=binding_report,
         )
     )
@@ -2176,20 +2218,32 @@ def _owner_surface_contracts(
             f"declared behavior cases target another oracle for {owner.owner_id}"
         )
     good_cases = tuple(case for case in declared_cases if case.case_kind == "good")
+    primary_good_cases = tuple(
+        case for case in good_cases if not case.protected_failure_ids
+    )
+    preservation_good_cases = tuple(
+        case for case in good_cases if case.protected_failure_ids
+    )
     boundary_cases = tuple(
         case for case in declared_cases if case.case_kind == "boundary"
     )
     bad_cases = tuple(case for case in declared_cases if case.case_kind == "bad")
     bound_failures = set(portable_binding.protected_failure_ids)
-    case_failures = {
+    bad_case_failures = {
         failure_id
         for case in bad_cases
         for failure_id in case.protected_failure_ids
     }
+    preserved_case_failures = {
+        failure_id
+        for case in preservation_good_cases
+        for failure_id in case.protected_failure_ids
+    }
+    case_failures = bad_case_failures | preserved_case_failures
     if (
-        len(good_cases) != 1
+        len(primary_good_cases) != 1
         or len(boundary_cases) != 1
-        or len(bad_cases) != len(bound_failures)
+        or len(bad_cases) != len(bound_failures - preserved_case_failures)
         or case_failures != bound_failures
         or any(
             set(case.protected_failure_ids) - bound_failures
@@ -2532,6 +2586,8 @@ def _behavior_readiness(
     topology_report: BlueprintTopologyReport,
     delegated_assertion_helpers: Sequence[DelegatedAssertionHelper] = (),
     delegated_helper_fingerprints: Mapping[str, str] | None = None,
+    execution_evidence: ModelRegressionExecutionEvidencePackage | None = None,
+    require_executed_evidence: bool = False,
 ) -> tuple[
     BehaviorBlueprintReport,
     ProjectResourceInventory,
@@ -2702,11 +2758,38 @@ def _behavior_readiness(
     for surface in supporting_surfaces:
         candidate = behavior_by_surface.get(surface.owning_surface_id)
         if candidate is not None:
+            authored_relation_kind = str(
+                getattr(surface, "supporting_relation_kind", "")
+            ).strip()
+            if authored_relation_kind:
+                if authored_relation_kind not in SUPPORTING_RELATION_KINDS:
+                    raise ProjectBlueprintError(
+                        "supporting surface relation kind is not current: "
+                        + authored_relation_kind
+                    )
+                relation_kind = authored_relation_kind
+            else:
+                # Older inventories did not carry a relation-kind field.  A
+                # role marker is an explicit, source-observed fact when one
+                # exists; otherwise retain the historical delegates default
+                # without inventing a stronger calls/reads/writes claim.
+                role_markers = tuple(
+                    sorted(
+                        set(getattr(surface, "roles", ()))
+                        & set(SUPPORTING_RELATION_KINDS)
+                    )
+                )
+                if len(role_markers) > 1:
+                    raise ProjectBlueprintError(
+                        "supporting surface has ambiguous relation-kind roles: "
+                        + ", ".join(role_markers)
+                    )
+                relation_kind = role_markers[0] if role_markers else "delegates"
             supporting_relations.append(
                 SupportingSurfaceRelation(
                     supporting_surface_id=surface.surface_id,
                     behavior_block_id=candidate.behavior_block_id,
-                    relation_kind="delegates",
+                    relation_kind=relation_kind,
                     evidence_id=f"supporting-edge:{surface.surface_id}:{candidate.behavior_block_id}",
                     evidence_fingerprint=surface.structure_fingerprint,
                     rationale="the active provider's exact owning-surface disposition binds this supporting member to one behavior block",
@@ -2760,11 +2843,65 @@ def _behavior_readiness(
                         ),
                     )
                 coverage.append(coverage_edge)
+                native_owner = (
+                    execution_evidence.owner(contract.owner_id)
+                    if execution_evidence is not None
+                    else None
+                )
+                native_case_executed = bool(
+                    native_owner is not None
+                    and native_owner.receipt_is_current_pass
+                    and native_owner.matches_case_id(case.case_id)
+                )
+                if native_case_executed:
+                    disposition = "pass"
+                    execution_owner_id = native_owner.owner_id
+                    receipt_id = native_owner.receipt_id
+                    receipt_fingerprint = native_owner.receipt_fingerprint
+                    reason = "native model-owner leaf executed the exact case"
+                    executed_case_ids = (
+                        native_owner.executed_behavior_case_ids
+                        if native_owner.native_case_bindings
+                        else native_owner.executed_case_ids
+                    )
+                elif execution_evidence is not None:
+                    disposition = "not_run"
+                    execution_owner_id = (
+                        native_owner.owner_id
+                        if native_owner is not None
+                        else contract.owner_id
+                    )
+                    receipt_id = ""
+                    receipt_fingerprint = ""
+                    reason = (
+                        "native model-owner evidence is missing, stale, or did not "
+                        "execute this exact case"
+                    )
+                    executed_case_ids = (
+                        (
+                            native_owner.executed_behavior_case_ids
+                            if native_owner.native_case_bindings
+                            else native_owner.executed_case_ids
+                        )
+                        if native_owner is not None
+                        else ()
+                    )
+                else:
+                    disposition = "not_run"
+                    execution_owner_id = f"execution-owner:{contract.owner_id}"
+                    receipt_id = ""
+                    receipt_fingerprint = ""
+                    reason = "no native execution package supplied"
+                    executed_case_ids = ()
                 coverage_execution.append(
                     CoverageExecutionEvidence(
                         coverage_id=coverage_id,
-                        execution_owner_id=f"execution-owner:{contract.owner_id}",
-                        disposition="not_run",
+                        execution_owner_id=execution_owner_id,
+                        disposition=disposition,
+                        receipt_id=receipt_id,
+                        receipt_fingerprint=receipt_fingerprint,
+                        executed_case_ids=executed_case_ids,
+                        reason=reason,
                     )
                 )
     contract_owner_by_block = {
@@ -2815,6 +2952,30 @@ def _behavior_readiness(
         planned_checker_fingerprints=planned_checker_fingerprints,
         delegated_assertion_helpers=delegated_assertion_helpers,
         delegated_helper_fingerprints=delegated_helper_fingerprints,
+        require_executed_evidence=require_executed_evidence,
+        evidence_receipts=(
+            tuple(
+                row.receipt
+                for row in execution_evidence.owners
+                if row.receipt is not None
+            )
+            if execution_evidence is not None
+            else ()
+        ),
+        receipt_verification_results=(
+            tuple(
+                row.verification
+                for row in execution_evidence.owners
+                if row.verification is not None
+            )
+            if execution_evidence is not None
+            else ()
+        ),
+        validation_owner_contracts=(
+            tuple(execution_evidence.validation_owner_contracts)
+            if execution_evidence is not None
+            else ()
+        ),
         expected_portable_fingerprints={
             catalog.portable_model_id: catalog.portable_model_fingerprint
             for catalog in evidence.portable_member_catalogs
@@ -3261,6 +3422,8 @@ def freeze_project_blueprint_evidence(
 
 def _project_target_layers(
     preparation: ProjectBlueprintPreparation,
+    *,
+    require_executed_evidence: bool = False,
 ) -> tuple[tuple[BlueprintLayerResult, ...], tuple[BlueprintGapRef, ...]]:
     inventory = preparation.inventory
     inventory_audit = preparation.implementation_inventory_audit
@@ -3417,12 +3580,23 @@ def _project_target_layers(
         pre_code_status=behavior_report.pre_code_status,
         executed_evidence_status=behavior_report.executed_evidence_status,
     )
-    add_layer(
-        "model_code_test",
+    execution_gate_pass = (
+        not require_executed_evidence
+        or (
+            behavior_report.execution_complete
+            and model_test_alignment_report.ok
+        )
+    )
+    model_code_test_pass = (
         behavior_report.complete
         and model_test_alignment_report.pre_code_status == "ready"
         and model_test_alignment_report.implementation_binding_report_fingerprint
-        == binding_report.fingerprint,
+        == binding_report.fingerprint
+        and execution_gate_pass
+    )
+    add_layer(
+        "model_code_test",
+        model_code_test_pass,
         (
             behavior_report.fingerprint,
             binding_report.fingerprint,
@@ -3433,6 +3607,11 @@ def _project_target_layers(
         message="exact model-code-test behavior coverage is incomplete",
         status=(
             "blocked"
+            if (
+                require_executed_evidence
+                and not execution_gate_pass
+            )
+            else "blocked"
             if any(row.severity == "blocked" for row in behavior_report.findings)
             else "incomplete"
         ),
@@ -3533,6 +3712,8 @@ def prepare_project_blueprint(
     implementation_inventory: ImplementationSurfaceInventory | None = None,
     delegated_assertion_helpers: Sequence[DelegatedAssertionHelper] = (),
     delegated_helper_fingerprints: Mapping[str, str] | None = None,
+    execution_evidence: ModelRegressionExecutionEvidencePackage | None = None,
+    require_executed_evidence: bool = False,
 ) -> ProjectBlueprintPreparation:
     """Build project-native reports without freezing or claiming target readiness."""
 
@@ -3810,6 +3991,8 @@ def prepare_project_blueprint(
         evidence=evidence,
         inventory=inventory,
         binding_report=binding_report,
+        execution_evidence=execution_evidence,
+        require_executed_evidence=require_executed_evidence,
     )
     declared_evidence_by_owner = {
         owner.model_element_id: dict(
@@ -3953,6 +4136,8 @@ def prepare_project_blueprint(
         topology_report=topology_report,
         delegated_assertion_helpers=delegated_assertion_helpers,
         delegated_helper_fingerprints=delegated_helper_fingerprints,
+        execution_evidence=execution_evidence,
+        require_executed_evidence=require_executed_evidence,
     )
     return ProjectBlueprintPreparation(
         definition=definition,
@@ -4050,13 +4235,17 @@ def _qualify_project_blueprint(
     *,
     scope: str = "whole",
     affected_surface_ids: Sequence[str] = (),
+    require_executed_evidence: bool = False,
 ) -> ProjectBlueprintBundle:
     """Compile one preparation against independently frozen provider evidence."""
 
     descriptor = _project_target_descriptor(
         preparation.definition, preparation.evidence
     )
-    layers, gaps = _project_target_layers(preparation)
+    layers, gaps = _project_target_layers(
+        preparation,
+        require_executed_evidence=require_executed_evidence,
+    )
     expected_frozen = freeze_project_blueprint_evidence(
         preparation,
         collect_project_blueprint_provider_results(preparation),
@@ -4167,6 +4356,7 @@ def _qualify_project_blueprint(
         definition=preparation.definition,
         project_evidence=preparation.evidence,
         frozen_target_evidence=frozen_target_evidence,
+        require_executed_evidence=require_executed_evidence,
     )
     affected_index, affected_objects = materialize_affected_blueprint_index(
         preparation.normalized_projection,
@@ -4305,6 +4495,7 @@ def _project_bundle_rebinding_blockers(
             frozen_target_evidence,
             scope=target_system_report.scope,
             affected_surface_ids=understanding_summary.affected_surface_ids,
+            require_executed_evidence=bundle.require_executed_evidence,
         )
     except ValueError:
         return tuple(sorted({*blockers, "invalid:canonical_projection:rederivation"}))
@@ -4367,6 +4558,8 @@ def build_project_blueprint(
     delegated_helper_fingerprints: Mapping[str, str] | None = None,
     scope: str = "whole",
     affected_surface_ids: Sequence[str] = (),
+    execution_evidence: ModelRegressionExecutionEvidencePackage | None = None,
+    require_executed_evidence: bool = False,
 ) -> ProjectBlueprintBundle:
     """Prepare and qualify using caller-supplied frozen target evidence."""
 
@@ -4379,12 +4572,15 @@ def build_project_blueprint(
         implementation_inventory=implementation_inventory,
         delegated_assertion_helpers=delegated_assertion_helpers,
         delegated_helper_fingerprints=delegated_helper_fingerprints,
+        execution_evidence=execution_evidence,
+        require_executed_evidence=require_executed_evidence,
     )
     return _qualify_project_blueprint(
         preparation,
         frozen_target_evidence,
         scope=scope,
         affected_surface_ids=affected_surface_ids,
+        require_executed_evidence=require_executed_evidence,
     )
 
 
@@ -4765,6 +4961,8 @@ def _child_model_from_document(value: Any) -> ChildModelEvidence:
         "estimated_state_count", "observed_state_count", "budgeted_incomplete",
         "unrelated_functional_areas", "structurally_cohesive", "is_legacy",
         "has_compatibility_contract", "overlaps_existing_model",
+        "owner_id", "parent_model_id", "claim_scope", "subtree_receipt_id",
+        "subtree_receipt_fingerprint", "is_leaf", "child_model_ids",
     }
     row = _exact_object(value, fields=fields, context="blueprint child model evidence")
     tuple_fields = {
@@ -4773,6 +4971,7 @@ def _child_model_from_document(value: Any) -> ChildModelEvidence:
         "contracts_in", "contracts_out", "depends_on", "risk_classes",
         "validation_evidence", "runtime_path_evidence_ids", "skipped_checks",
         "not_run_checks",
+        "child_model_ids",
     }
     kwargs = {name: tuple(str(item) for item in row[name]) for name in tuple_fields}
     return ChildModelEvidence(
@@ -4790,6 +4989,12 @@ def _child_model_from_document(value: Any) -> ChildModelEvidence:
         is_legacy=bool(row["is_legacy"]),
         has_compatibility_contract=bool(row["has_compatibility_contract"]),
         overlaps_existing_model=str(row["overlaps_existing_model"]),
+        owner_id=str(row["owner_id"]),
+        parent_model_id=str(row["parent_model_id"]),
+        claim_scope=str(row["claim_scope"]),
+        subtree_receipt_id=str(row["subtree_receipt_id"]),
+        subtree_receipt_fingerprint=str(row["subtree_receipt_fingerprint"]),
+        is_leaf=bool(row["is_leaf"]),
         **kwargs,
     )
 

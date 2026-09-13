@@ -35,6 +35,6 @@ def main() -> int:
     )
     return 0 if report.ok and semantic_report.ok and known_bad_ok else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:authoritative_model_system", main))

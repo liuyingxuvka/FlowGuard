@@ -96,6 +96,94 @@ class SkillNativeCheckTests(unittest.TestCase):
             (root / "native_check.py").write_text("print('changed')\n", encoding="utf-8")
             self.assertIsNone(_current_receipt_row(root, skill_id, None))
 
+    def test_native_launcher_output_is_isolated_from_repository_root_and_retained(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skill_id = build_fixture(root)
+            package_root = Path(__file__).resolve().parents[1]
+            (root / "native_check.py").write_text(
+                "from pathlib import Path\n"
+                "import os\n"
+                f"import sys\n"
+                f"sys.path.insert(0, {str(package_root)!r})\n"
+                "from flowguard.native_case_runner import native_main\n"
+                "def main():\n"
+                "    output = Path(os.environ['FLOWGUARD_OUTPUT_DIR'])\n"
+                "    (output / 'seen.txt').write_text('isolated\\n', encoding='utf-8')\n"
+                "    print('fixture-case: PASS')\n"
+                "    return 0\n"
+                "if __name__ == '__main__':\n"
+                "    raise SystemExit(native_main('model:fixture', main))\n",
+                encoding="utf-8",
+            )
+            receipts = root / "receipts"
+
+            result = run_native_skill_check(
+                root,
+                skill_id,
+                output_directory=receipts,
+                timeout_seconds=10,
+            )
+
+            self.assertTrue(result.ok, result.to_dict())
+            self.assertFalse((root / "native-source.json").exists())
+            self.assertFalse((root / "native-case-results.json").exists())
+            retained = sorted(
+                receipts.glob(
+                    "check-executions/flowguard-fixture/run-*/fixture-check-*/seen.txt"
+                )
+            )
+            self.assertEqual(1, len(retained))
+            self.assertEqual("isolated\n", retained[0].read_text(encoding="utf-8"))
+            self.assertTrue(
+                retained[0].resolve().is_relative_to(receipts.resolve()),
+                retained[0],
+            )
+            proof = json.loads(result.proof_path.read_text(encoding="utf-8"))
+            self.assertEqual("FLOWGUARD_OUTPUT_DIR", proof["output_isolation"])
+            self.assertIn(
+                "<WORKSPACE>/receipts/check-executions/flowguard-fixture/run-",
+                proof["execution_workspace_path_token"],
+            )
+
+    def test_native_workspace_bounds_long_windows_path_components(self):
+        """A long retained evidence root must not make a native check unlaunchable."""
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skill_id = build_fixture(root)
+            (root / "native_check.py").write_text("print('pass')\n", encoding="utf-8")
+            skill = root / ".agents/skills" / skill_id / ".skillguard"
+            source_path = skill / "contract-source.json"
+            contract_path = skill / "compiled-contract.json"
+            manifest_path = skill / "check-manifest.json"
+            source = json.loads(source_path.read_text(encoding="utf-8"))
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            long_check_id = "check-" + ("long-component-" * 9)
+            source["checks"][0]["check_id"] = long_check_id
+            source["native_check_bindings"][0]["check_id"] = long_check_id
+            contract["obligations"][0]["required_check_ids"] = [long_check_id]
+            manifest["checks"][0]["check_id"] = long_check_id
+            write_json(source_path, source)
+            write_json(contract_path, contract)
+            write_json(manifest_path, manifest)
+
+            evidence_root = root / ("e" * 100)
+            result = run_native_skill_check(
+                root,
+                skill_id,
+                output_directory=evidence_root,
+                timeout_seconds=10,
+            )
+
+            self.assertTrue(result.ok, result.to_dict())
+            self.assertTrue(result.proof_path.is_file())
+            self.assertLessEqual(
+                max(len(str(path)) for path in evidence_root.rglob("*")),
+                260,
+            )
+
     def test_receipt_binds_every_declared_native_command_input(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

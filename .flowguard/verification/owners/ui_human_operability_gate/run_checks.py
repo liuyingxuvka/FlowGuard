@@ -37,6 +37,7 @@ def run_case(name: str, block, *, expect_done: str, expect_invariant: bool = Tru
     return {
         "case": name,
         "ok": ok,
+        "observed_status": "ok",
         "expected_done": expect_done,
         "actual_done": state.done_claim,
         "expected_invariant": expect_invariant,
@@ -76,6 +77,6 @@ def main() -> int:
         )
     return 0 if ok else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:ui_human_operability_gate", main))

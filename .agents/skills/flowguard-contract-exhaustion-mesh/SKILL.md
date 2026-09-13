@@ -1,6 +1,6 @@
 ---
 name: flowguard-contract-exhaustion-mesh
-description: Use to generate canonical bad cases, Cartesian combinations, oracles, coverage shards, and receipts from a declared finite boundary, family seed, payload, transition, model mesh, coverage universe, or observed-problem backfeed.
+description: standalone FlowGuard satellite skill; Use to generate canonical bad cases, Cartesian combinations, oracles, coverage shards, and receipts from a declared finite boundary, family seed, payload, transition, model mesh, coverage universe, or observed-problem backfeed.
 ---
 
 # FlowGuard Contract Exhaustion Mesh
@@ -9,13 +9,15 @@ description: Use to generate canonical bad cases, Cartesian combinations, oracle
 Turn an owner-declared finite boundary into canonical cases and typed evidence handoffs; never act as a global bug oracle.
 
 ## Entrypoint Scope
-Route id: `contract_exhaustion_mesh`; role: `public_owner`; native owner: `contract_exhaustion_mesh`. This standalone FlowGuard satellite skill owns canonical finite-case generation.
+Route `contract_exhaustion_mesh` (`public_owner`); owns canonical finite-case generation.
 
 ## Local Material Routing
 After positive admission, read `references/contract_exhaustion_mesh_protocol.md` for feeders, finite universes, oracles, receipts, and consumers.
 
 ## Entrypoint Acceptance Map
-Accept finite dimensions/seeds; generate cases with oracles; block unbounded claims, missing feedback, stale receipts, or missing universe items; hand evidence to its owners.
+Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
+
+### Shared execution contract
 
 ## Use When
 - Use for same-class, payload, transition, state-closure, PPA, BCL, product-language, expected member/candidate inventory, facade delegation, parent/child closure, no-delta, or model-scoped Cartesian coverage.
@@ -30,14 +32,10 @@ Accept finite dimensions/seeds; generate cases with oracles; block unbounded cla
 4. Project stable case ids to Model-Test Alignment, TestMesh, ModelMesh, DevelopmentProcessFlow, and Risk Evidence Ledger.
 
 ## Hard Gates
-- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
+- Model-purpose gate: task-specific failure(s); native good/bad-per-failure/oracle/current evidence; Reusable types are not fixed-purpose; no mode/fallback; FlowGuard check engine: only FlowGuard-declared checks may support completion claims.
 - Broad/full claims require a complete `ContractCoverageUniverse`; reject/block/repair cases require actionable oracle feedback.
 - Matrix ready is not chain ready; composite acceptance remains required.
-- Only explicit reuse/publication or proven cross-project use
-  triggers strict `risk_template_library` closure.
 - When behavior authority is finite, generate missing/mismatched intent/commitment/path, wrong-path, parallel-success, stale-proof, omitted member/candidate, opaque-relation, facade, and invalid UI-exception cases. Expected inventories come from their owners, never from the smaller observed set.
 
 ## Output Requirements
 - Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, canonical coverage cases, gaps, shards, and receipts.
-

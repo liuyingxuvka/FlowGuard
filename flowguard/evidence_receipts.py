@@ -12,6 +12,7 @@ installed skill packages as universally current truth.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -22,6 +23,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from threading import RLock
 from types import MappingProxyType
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -76,6 +78,28 @@ _WINDOWS_ABSOLUTE_PATH = re.compile(r"(?i)(?<![A-Za-z0-9_])(?:[A-Z]:[\\/]|\\\\)[
 _POSIX_ABSOLUTE_PATH = re.compile(r"(?<![A-Za-z0-9_:.>/])/(?:[^\s\"']+)")
 _SAFE_TOKEN = re.compile(r"^<[A-Z_]+(?::[0-9a-f]{12,64})?>(?:/[^\\]*)?$")
 _SAFE_FILE_COMPONENT = re.compile(r"[^A-Za-z0-9_.-]+")
+
+# Receipt stores are append-only content-addressed directories.  A single
+# currentness invocation may ask for the same directory dozens of times (one
+# lookup per child owner and again for each aggregate verification).  Walking
+# the directory for every subject made a bounded owner batch look like an
+# endless freshness loop when the store contained historical attempts.  Keep a
+# process-local filename index keyed by the directory's own stat identity.  A
+# new receipt changes the directory mtime/ctime and invalidates the entry; the
+# actual selected files are still parsed and fingerprint-checked by
+# ``list_evidence_receipts`` on every call.  This is an I/O index only, never a
+# receipt-currentness cache.
+_RECEIPT_DIRECTORY_INDEX_LOCK = RLock()
+_RECEIPT_DIRECTORY_INDEX: dict[
+    str,
+    tuple[
+        int,
+        int,
+        tuple[Path, ...],
+        Mapping[str, tuple[Path, ...]],
+        Mapping[Path, int],
+    ],
+] = {}
 
 
 class ReceiptValidationError(ValueError):
@@ -837,6 +861,13 @@ class ReceiptVerificationContext:
     latest_child_receipt_ids: Mapping[str, str] = field(default_factory=dict)
     receipt_store_repository_root: str = ""
     receipt_store_output_directory: str = ""
+    receipt_store_subject_ids: tuple[str, ...] = ()
+    # Some authority routes already freeze an exact immutable receipt set
+    # (for example a model parent pointer plus its declared children).  Such
+    # routes must not rescan an append-only historical store merely to load
+    # receipts they have already named.  The normal empty value preserves the
+    # broad subject-scoped supersession audit used by ordinary callers.
+    receipt_store_receipt_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -878,6 +909,16 @@ class ReceiptVerificationContext:
             self,
             "receipt_store_output_directory",
             str(self.receipt_store_output_directory),
+        )
+        object.__setattr__(
+            self,
+            "receipt_store_subject_ids",
+            _unique_tuple(self.receipt_store_subject_ids),
+        )
+        object.__setattr__(
+            self,
+            "receipt_store_receipt_ids",
+            _unique_tuple(self.receipt_store_receipt_ids),
         )
 
 
@@ -1382,6 +1423,8 @@ def verify_evidence_receipt(
             store_values = list_evidence_receipts(
                 context.receipt_store_repository_root or ".",
                 output_directory=context.receipt_store_output_directory or None,
+                subject_ids=(context.receipt_store_subject_ids or None),
+                receipt_ids=(context.receipt_store_receipt_ids or None),
             )
             for item in store_values:
                 if item.receipt_id in receipt_store:
@@ -1793,6 +1836,22 @@ def _receipt_filename(receipt_id: str) -> str:
     return f"{safe}-{digest}.json"
 
 
+def _receipt_filename_prefix_for_subject(subject_id: str) -> str:
+    """Return the bounded filename prefix used by owner receipts for a subject.
+
+    Validation-owner receipts use the stable identity
+    ``receipt:validation-owner:<owner-id>:<content-address>``.  Selecting by
+    this prefix lets currentness checks inspect only the requested owners
+    instead of reparsing thousands of historical receipts in the store.  A
+    missing prefix is intentionally treated as an empty inventory by callers;
+    they then execute or block rather than assuming an unseen receipt is
+    current.
+    """
+
+    raw = f"receipt:{str(subject_id)}:"
+    return (_SAFE_FILE_COMPONENT.sub("_", raw).strip("._") or "receipt")[:96]
+
+
 def receipt_path(
     receipt_id: str,
     repository_root: str | os.PathLike[str] = ".",
@@ -1859,24 +1918,232 @@ def load_evidence_receipt(
     return receipt
 
 
+def _indexed_receipt_paths(
+    root: Path,
+    *,
+    filename_prefix: str = "",
+) -> tuple[Path, ...]:
+    """Return an append-only receipt filename slice with mtime invalidation.
+
+    ``Path.glob`` performs a directory enumeration for every requested
+    subject.  Currentness verification can legitimately request the same
+    store for many owners, so keep only the filename projection in memory and
+    invalidate it whenever the directory metadata changes.  No receipt bytes,
+    parsed objects, or verification results are cached here.
+    """
+
+    key = str(root.resolve())
+    try:
+        before = root.stat()
+    except OSError:
+        return ()
+    signature = (before.st_mtime_ns, before.st_ctime_ns)
+    with _RECEIPT_DIRECTORY_INDEX_LOCK:
+        cached = _RECEIPT_DIRECTORY_INDEX.get(key)
+        if cached is not None and cached[:2] == signature:
+            paths = cached[2]
+        else:
+            paths, path_mtimes = _scan_receipt_json_path_metadata(root)
+            # A concurrent append is not admitted into this projection.  The
+            # changed directory signature invalidates it on the next call,
+            # while the current call still verifies the exact selected files.
+            after = root.stat()
+            if (after.st_mtime_ns, after.st_ctime_ns) != signature:
+                paths, path_mtimes = _scan_receipt_json_path_metadata(root)
+                after = root.stat()
+            signature = (after.st_mtime_ns, after.st_ctime_ns)
+            by_prefix: dict[str, list[Path]] = {}
+            for path in paths:
+                by_prefix.setdefault(path.name[:96], []).append(path)
+            _RECEIPT_DIRECTORY_INDEX[key] = (
+                signature[0],
+                signature[1],
+                paths,
+                MappingProxyType(
+                    {
+                        prefix: tuple(values)
+                        for prefix, values in by_prefix.items()
+                    }
+                ),
+                MappingProxyType(dict(path_mtimes)),
+            )
+            cached = _RECEIPT_DIRECTORY_INDEX[key]
+        if filename_prefix:
+            # The subject-derived prefix is often shorter than the 96-byte
+            # bucket key (for example ``model:alpha``).  Use the bucket only
+            # when it can narrow the search without losing a shorter match;
+            # the exact startswith check below preserves the old glob
+            # semantics for every prefix length.
+            if len(filename_prefix) >= 96:
+                # Truncation at 96 characters can make two long subjects share
+                # a bucket; retain the exact startswith check for correctness.
+                prefix_paths = cached[3].get(filename_prefix, ())
+            else:
+                # Short owner prefixes cannot use the 96-byte bucket without
+                # losing candidates.  Filter the already-indexed filenames
+                # before parsing any JSON instead.  The previous fallback
+                # returned the entire store here, so every owner subject then
+                # parsed all historical receipts and turned one bounded
+                # observation into repeated quadratic I/O.
+                prefix_paths = cached[2]
+            return tuple(
+                path for path in prefix_paths if path.name.startswith(filename_prefix)
+            )
+        return paths
+
+
+def _scan_receipt_json_paths(root: Path) -> tuple[Path, ...]:
+    """Enumerate direct receipt files without following reparse links.
+
+    The canonical store is append-only and can contain thousands of historical
+    attempts.  ``Path.is_file()`` performs a separate ``stat`` for every entry
+    and follows junctions/symlinks, which can turn a currentness check into a
+    very slow or recursive filesystem walk on a busy Windows worktree.  The
+    directory is intentionally flat for content-addressed receipts, so use
+    ``os.scandir``'s directory-entry metadata and refuse reparse links.  This
+    changes only the enumeration mechanism; filename, schema, and receipt
+    verification remain authoritative below this helper.
+    """
+
+    paths, _path_mtimes = _scan_receipt_json_path_metadata(root)
+    return paths
+
+
+def _scan_receipt_json_path_metadata(
+    root: Path,
+) -> tuple[tuple[Path, ...], Mapping[Path, int]]:
+    """Enumerate receipt paths and their mtimes in one directory pass.
+
+    ``list_latest_evidence_receipts`` needs a deterministic newest-file
+    projection.  Calling ``Path.stat`` once per candidate for every subject
+    defeats the bounded projection on Windows when an append-only store has
+    thousands of historical receipts.  ``DirEntry.stat`` is already available
+    while the directory is being scanned and is materially cheaper; retain
+    that immutable index alongside the filename buckets.  The directory
+    signature still invalidates the index whenever a receipt is appended.
+    """
+
+    rows: list[tuple[Path, int]] = []
+    try:
+        with os.scandir(root) as entries:
+            for entry in entries:
+                if not entry.name.endswith(".json") or entry.is_symlink():
+                    continue
+                try:
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    stat = entry.stat(follow_symlinks=False)
+                except OSError:
+                    continue
+                rows.append((Path(entry.path), int(stat.st_mtime_ns)))
+    except OSError:
+        return (), MappingProxyType({})
+    rows.sort(key=lambda item: item[0])
+    return (
+        tuple(path for path, _mtime in rows),
+        MappingProxyType({path: mtime for path, mtime in rows}),
+    )
+
+
+def _indexed_receipt_path_mtimes(
+    root: Path,
+    *,
+    filename_prefix: str = "",
+) -> tuple[tuple[Path, int], ...]:
+    """Return indexed receipt paths with their one-pass filesystem mtimes."""
+
+    _indexed_receipt_paths(root, filename_prefix=filename_prefix)
+    key = str(root.resolve())
+    with _RECEIPT_DIRECTORY_INDEX_LOCK:
+        cached = _RECEIPT_DIRECTORY_INDEX.get(key)
+        if cached is None:
+            return ()
+        paths = cached[2]
+        mtimes = cached[4]
+        if filename_prefix:
+            paths = tuple(path for path in paths if path.name.startswith(filename_prefix))
+        return tuple((path, int(mtimes.get(path, -1))) for path in paths)
+
+
 def list_evidence_receipts(
     repository_root: str | os.PathLike[str] = ".",
     *,
     output_directory: str | os.PathLike[str] | None = None,
+    subject_ids: Sequence[str] | None = None,
+    receipt_ids: Sequence[str] | None = None,
 ) -> tuple[EvidenceReceipt, ...]:
+    """Load canonical receipts, optionally restricted to exact identities/subjects.
+
+    The unfiltered form remains the complete-store audit API.  Runtime owner
+    planning passes its frozen subject set so the store is addressed through
+    content-addressed filename prefixes rather than a repeated full scan.
+    A caller that already has an immutable receipt identity (for example a
+    parent receipt's declared child set) can pass ``receipt_ids`` to address
+    those files directly.  This is an I/O optimization only: every selected
+    file still goes through the same filename, schema, identity, and optional
+    subject checks below; no receipt is inferred or accepted from a cache.
+    """
+
     root = evidence_storage_root(repository_root, output_directory=output_directory)
     if not root.exists():
         return ()
+    requested_subjects = tuple(
+        sorted({str(item).strip() for item in (subject_ids or ()) if str(item).strip()})
+    )
+    requested_receipt_ids = tuple(
+        sorted({str(item).strip() for item in (receipt_ids or ()) if str(item).strip()})
+    )
+    if requested_receipt_ids:
+        # ``receipt_path`` performs the canonical identifier validation and
+        # derives the exact content-addressed filename.  A missing path is
+        # deliberately retained in the candidate set so the normal loader
+        # raises a visible missing/invalid receipt error rather than turning a
+        # declared identity into a cache miss.
+        paths = sorted(
+            {
+                receipt_path(
+                    receipt_id,
+                    repository_root,
+                    output_directory=output_directory,
+                )
+                for receipt_id in requested_receipt_ids
+            }
+        )
+    elif requested_subjects:
+        candidate_paths: set[Path] = set()
+        for subject_id in requested_subjects:
+            candidate_paths.update(
+                _indexed_receipt_paths(
+                    root,
+                    filename_prefix=_receipt_filename_prefix_for_subject(subject_id),
+                )
+            )
+        paths = sorted(candidate_paths)
+    else:
+        paths = list(_indexed_receipt_paths(root))
     receipts: list[EvidenceReceipt] = []
     seen_ids: set[str] = set()
-    for path in sorted(root.glob("*.json")):
+    def load_candidate(path: Path) -> tuple[Path, EvidenceReceipt]:
+        return path, load_evidence_receipt(path)
+
+    if len(paths) < 16:
+        loaded_candidates = tuple(load_candidate(path) for path in paths)
+    else:
+        # Receipt JSON is immutable and each file is independent.  Bound the
+        # read fan-out so a large historical store gains latency without
+        # turning currentness observation into an unbounded I/O storm.
+        with ThreadPoolExecutor(
+            max_workers=min(8, len(paths)),
+            thread_name_prefix="flowguard-receipt-load",
+        ) as executor:
+            loaded_candidates = tuple(executor.map(load_candidate, paths))
+    for path, receipt in loaded_candidates:
         # ``CURRENT.json`` is the immutable-store head pointer emitted by
         # validation runners, not an EvidenceReceipt.  It deliberately lives
         # beside the content-addressed receipt files, so it must not enter the
         # receipt inventory or be parsed as a receipt payload.
         if path.name == "CURRENT.json":
             continue
-        receipt = load_evidence_receipt(path)
         if path.name != _receipt_filename(receipt.receipt_id):
             raise ReceiptValidationError(
                 f"evidence receipt filename does not match receipt_id: {path.name}"
@@ -1885,9 +2152,75 @@ def list_evidence_receipts(
             raise ReceiptValidationError(
                 f"duplicate evidence receipt identity: {receipt.receipt_id}"
             )
+        if requested_subjects and receipt.subject_id not in requested_subjects:
+            continue
+        if requested_receipt_ids and receipt.receipt_id not in requested_receipt_ids:
+            continue
         receipts.append(receipt)
         seen_ids.add(receipt.receipt_id)
     return tuple(receipts)
+
+
+def list_latest_evidence_receipts(
+    repository_root: str | os.PathLike[str] = ".",
+    *,
+    output_directory: str | os.PathLike[str] | None = None,
+    subject_ids: Sequence[str],
+) -> tuple[EvidenceReceipt, ...]:
+    """Load one newest immutable receipt per requested subject.
+
+    This is a bounded planning projection for append-only stores with a large
+    history.  It indexes receipt filenames once, selects the newest file by
+    filesystem creation/update identity, then loads and validates only those
+    candidates.  The complete historical ``list_evidence_receipts`` API
+    remains available for audits and explicit receipt sets.
+    """
+
+    root = evidence_storage_root(repository_root, output_directory=output_directory)
+    if not root.exists():
+        return ()
+    requested = tuple(
+        sorted({str(item).strip() for item in subject_ids if str(item).strip()})
+    )
+    selected_paths: list[Path] = []
+    for subject_id in requested:
+        candidates = _indexed_receipt_path_mtimes(
+            root,
+            filename_prefix=_receipt_filename_prefix_for_subject(subject_id),
+        )
+        if not candidates:
+            continue
+        newest = max(candidates, key=lambda item: (item[1], item[0].name))[0]
+        selected_paths.append(newest)
+
+    def load_candidate(path: Path) -> EvidenceReceipt:
+        receipt = load_evidence_receipt(path)
+        if receipt.subject_id not in requested:
+            raise ReceiptValidationError(
+                f"latest evidence receipt subject mismatch: {path.name}"
+            )
+        if path.name != _receipt_filename(receipt.receipt_id):
+            raise ReceiptValidationError(
+                f"evidence receipt filename does not match receipt_id: {path.name}"
+            )
+        return receipt
+
+    if len(selected_paths) < 16:
+        loaded = tuple(load_candidate(path) for path in selected_paths)
+    else:
+        with ThreadPoolExecutor(
+            max_workers=min(8, len(selected_paths)),
+            thread_name_prefix="flowguard-latest-receipt-load",
+        ) as executor:
+            loaded = tuple(executor.map(load_candidate, selected_paths))
+    by_subject: dict[str, EvidenceReceipt] = {}
+    for receipt in loaded:
+        if receipt.subject_id in by_subject:
+            raise ReceiptValidationError(
+                f"duplicate latest evidence receipt subject: {receipt.subject_id}"
+            )
+        by_subject[receipt.subject_id] = receipt
+    return tuple(by_subject[subject_id] for subject_id in sorted(by_subject))
 
 
 def create_input_snapshot(
@@ -2027,6 +2360,7 @@ __all__ = [
     "fingerprint_value",
     "import_legacy_report",
     "list_evidence_receipts",
+    "list_latest_evidence_receipts",
     "load_evidence_receipt",
     "load_receipt",
     "minimum_revalidation",

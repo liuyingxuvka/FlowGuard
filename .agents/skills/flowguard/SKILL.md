@@ -6,32 +6,39 @@ description: Unified FlowGuard entry for behavior/state models, unclear routes, 
 # FlowGuard
 
 ## Purpose
-Select the smallest faithful owner/model and deepen only for exact evidence.
-The native owner is `model_first_function_flow` (`kernel`); role: `kernel`.
-Decide
-`use_flowguard`, `skip_with_reason`, or `needs_human_review` through
-`behavior_flow`, `argument_flow`, or `decision_flow`.
-
+Select the smallest faithful owner/model and deepen only for exact evidence. The native owner is `model_first_function_flow` (`kernel`); role: `kernel`.
+Decide `use_flowguard`, `skip_with_reason`, or `needs_human_review` through `behavior_flow`, `argument_flow`, or `decision_flow`.
 ## Entrypoint Scope
 Own ordinary behavior/state modeling, unclear or cross-route work, and
 provider-neutral behavior; clear satellites remain direct owners.
-
 ## Local Material Routing
 - Before selection, read only `references/route_index.md`.
-- After kernel selection, read `references/modeling_protocol.md`; it routes the
-  smallest required core/evidence protocol parts.
-- Use a clear peer satellite directly. Use this kernel when no satellite owns
-  the behavior, state, order, retry, effects, progress, portable, risk, or
-  closure work. Do not expose check-engine helpers as independently triggerable Codex skills.
+- After kernel selection, read `references/modeling_protocol.md`; it routes the smallest required core/evidence protocol parts.
+- Use a clear peer satellite directly; use this kernel when no satellite owns behavior, state, order, retry, effects, progress, portable, risk, or closure. Do not expose check-engine helpers as independently triggerable Codex skills.
+### Shared execution contract
+After kernel selection, load row `model_first_function_flow` from `references/route_execution_contract.md`. It is the single AI-facing source for `RouteContext`, lazy references, `execute|reuse_current|blocked|not_run`, zero-producer read-only behavior, exact reuse, finite producer budget, and stop conditions. The executable `RouteProfile` and the `Use When`/`Do Not Use When` boundary remain authoritative; this section does not widen a kernel request to a specialist or `full` execution.
+The DevelopmentProcessFlow internal `agent_workflow` mode is risk-admitted only:
+explicit rehearsal, cross-owner handoff/shared write, a post-validation-invalidating
+write, an agent/route workflow change, or multiple independent owners with
+irreversible side effects. Multiple skills/tools alone do not trigger it; simple
+read-only, single-owner, single-tool, targeted-test work remains `not_triggered`,
+while author-side native checks and internal/via-owner ownership stay intact.
 
 ## Entrypoint Acceptance Map
-`use_flowguard` means an owned ordinary model; `skip_with_reason` is trivial
-non-model work; `needs_human_review` means scope or evidence is unresolved.
+`use_flowguard` means an owned ordinary model; `skip_with_reason` is trivial non-model work; `needs_human_review` means scope or evidence is unresolved.
+
+Every entry decision also emits two separate fields:
+
+- `execution_profile`: `light`, `affected`, or `full` (how much current work may execute);
+- `modeling_mode`: `read_only_audit`, `model_first_change`,
+  `model_maintenance`, or `layered_boundary_proof` (what semantic model is
+  required).
+
+The decision must include `claim_boundary`, `selection_reason`, `closed_obligations`, `not_run_obligations`, and `escalation_triggers`. Default selection is `light` for read-only analysis, `affected` for ordinary code/model/test changes, and `full` only for release, integration, or an explicit whole-system claim. A satellite never auto-upgrades; `full` requires governed writes, formal/shadow/installed projections, OpenSpec status, owner DAG, and reverse semantic input frozen, else it names the missing trigger.
 
 ## Use When
 Use when a provider-neutral blueprint needs `Input x State -> Set(Output x State)`
 and no direct satellite owns the task.
-
 ## Do Not Use When
 Do not use it for a clear satellite route, grammar-only edits, or direct
 commands. Implementation and language remain downstream user-owned details.
@@ -44,8 +51,8 @@ commands. Implementation and language remain downstream user-owned details.
    history and revision deltas are never current intent.
 3. Resolve each demanded owner as `satisfied|not_triggered|unresolved|blocked`.
 4. Build the smallest faithful model with protected failures, state/effects,
-   completion evidence, and known-bad paths; run one current path-quality
-  Every new or materially changed model gets one current path-quality review.
+   completion evidence, and known-bad paths; run one current path-quality review.
+    Every new or materially changed model must state its owner, finite boundary, required evidence, and current path-quality disposition before it can support a completion claim.
 5. Run finite deep review only for an exact current trigger. Keep `observed`
    separate from `normative_target`, and return a bounded conclusion.
 6. Run declared checks, mature counterexamples to current evidence or a typed

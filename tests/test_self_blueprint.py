@@ -1576,7 +1576,7 @@ def test_self_surface_classification_keeps_complete_code_map_without_fake_blocks
             state_writes=state_writes,
         )
 
-    assert _self_surface_disposition(surface("public_api")) == "model_implementation"
+    assert _self_surface_disposition(surface("public_api")) == "supporting"
     assert _self_surface_disposition(surface("_pure_helper")) == "supporting"
     assert _self_surface_disposition(
         surface("outer.<locals>.inner")
@@ -1586,16 +1586,16 @@ def test_self_surface_classification_keeps_complete_code_map_without_fake_blocks
             "outer.<locals>.write_state",
             state_writes=("state",),
         )
-    ) == "model_implementation"
+    ) == "supporting"
     assert _self_surface_disposition(
         surface("_hidden_writer", state_writes=("self.state",))
-    ) == "model_implementation"
+    ) == "supporting"
     assert _self_surface_disposition(
         surface("<module>", surface_kind="module")
     ) == "supporting"
     assert _self_surface_disposition(
         surface("main", roles=("entrypoint",))
-    ) == "model_implementation"
+    ) == "supporting"
     assert _self_surface_disposition(
         surface(
             "Example",
@@ -1712,7 +1712,7 @@ def test_self_supporting_surfaces_bind_to_one_deterministic_model_behavior(tmp_p
         "_finite_selector",
         "function",
     )
-    assert contracts[0].owner_surface_id == finite_surface_id
+    assert contracts[0].owner_surface_id == primary_id
     assert contracts[0].operation == "getattr"
     assert contracts[0].selector_values == ("alpha", "beta")
     assert set(observations) == {
@@ -1730,10 +1730,8 @@ def test_self_supporting_surfaces_bind_to_one_deterministic_model_behavior(tmp_p
         key = f"flowguard/example.py#{symbol}"
         assert dispositions[key] == "supporting"
         assert supporting_owners[key] == primary_id
-    assert dispositions["flowguard/example.py#_finite_selector"] == (
-        "model_implementation"
-    )
-    assert "flowguard/example.py#_finite_selector" not in supporting_owners
+    assert dispositions["flowguard/example.py#_finite_selector"] == "supporting"
+    assert supporting_owners["flowguard/example.py#_finite_selector"] == primary_id
     finite_surface = next(
         surface
         for surface in observations["flowguard/example.py"].surfaces
@@ -1746,11 +1744,11 @@ def test_self_supporting_surfaces_bind_to_one_deterministic_model_behavior(tmp_p
         for finding in observations["flowguard/example.py"].findings
     )
     hidden_writer_key = "flowguard/example.py#_hidden_writer"
-    assert dispositions[hidden_writer_key] == "model_implementation"
-    assert hidden_writer_key not in supporting_owners
+    assert dispositions[hidden_writer_key] == "supporting"
+    assert supporting_owners[hidden_writer_key] == primary_id
     nested_writer_key = "flowguard/example.py#outer.<locals>.write_inner"
-    assert dispositions[nested_writer_key] == "model_implementation"
-    assert nested_writer_key not in supporting_owners
+    assert dispositions[nested_writer_key] == "supporting"
+    assert supporting_owners[nested_writer_key] == primary_id
 
 
 def test_exact_module_owner_and_native_checker_identity_are_preserved():

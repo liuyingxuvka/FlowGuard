@@ -1,6 +1,6 @@
 ---
 name: flowguard-existing-model-preflight
-description: Use before non-trivial existing-system work to identify current ownership and duplicate-boundary risk.
+description: standalone FlowGuard satellite skill; Use before non-trivial existing-system work to identify current ownership and duplicate-boundary risk.
 ---
 
 # FlowGuard Existing Model Preflight
@@ -12,13 +12,24 @@ does not replace the downstream owner or the FlowGuard check engine.
 FlowGuard satellite for existing-model boundaries, ownership, evidence, and duplicate risk.
 
 ## Entrypoint Scope
-It owns lookup, not the downstream route.
+This is a standalone FlowGuard satellite skill. It owns lookup, not the
+downstream route.
 
 ## Local Material Routing
-After admission, read `references/existing_model_preflight_protocol.md` for lookup and proof.
+After admission, read `references/existing_model_preflight_protocol.md` for
+compact authority-first lookup and proof. Conditional change details are
+named by that protocol only for implementation/model, whole-target, or
+composition/path-quality triggers.
 
 ## Entrypoint Acceptance Map
+Use row `existing_model_preflight` in
+`../flowguard/references/route_execution_contract.md`; AGENTS.md managed;
+fake mini-frameworks forbidden.
+
+### Entrypoint Acceptance Map
 Choose reuse, extend, child, new, or none; block duplicate ownership; select a downstream route.
+
+### Shared execution contract
 
 ## Use When
 - Use before non-trivial work where existing commitments, fields, or models may own the change.
@@ -35,10 +46,9 @@ Choose reuse, extend, child, new, or none; block duplicate ownership; select a d
 
 ## Hard Gates
 - Only an exact observed instance through the accepted revision and complete `CurrentEffectiveIntentView` is authoritative; history and path matches are candidates.
-- Model-purpose gate: freeze task-specific failure(s) and claim_boundary; bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks or caller-authored currentness.
+- Model-purpose gate: freeze task-specific failure(s) and claim_boundary; bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; FlowGuard check engine: only FlowGuard-declared checks may support completion claims. Require native currentness; forbid fake mini-frameworks.
 - Shared words never promote a wrong-plane hit; WorkContext is read-only. Missing or stale owner/provider/mesh/path-quality identity blocks the claim.
 - Lightweight path quality triggers ModelMaturation, not contraction, deep review, or code-edit authority.
-- Blueprint handoffs never copy native inventories; ArchitectureReduction needs current equivalence/facade or retirement proof.
 - Preflight proves lookup/scope only; ModelMaturation decides understanding and DevelopmentProcessFlow admission.
 
 ## Output Requirements

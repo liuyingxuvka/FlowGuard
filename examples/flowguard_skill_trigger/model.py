@@ -64,6 +64,11 @@ RISK_FLAGS = {
     "install_sync",
     "shadow_sync",
     "git_sync",
+    "cross_owner_handoff",
+    "shared_write",
+    "post_validation_write",
+    "agent_route_workflow_change",
+    "multiple_independent_owner_irreversible_side_effects",
     "behavior_preserving_contraction",
     "broad_behavior_inventory",
     "finite_bad_case_universe",
@@ -259,7 +264,21 @@ def required_checks_for(task: TaskDescription | TaskFact) -> tuple[str, ...]:
         checks.append("model_mesh")
     if flags & {"staged_validation", "validation_freshness", "release_confidence"}:
         checks.append("development_process_flow")
-    if flags & {"rough_plan", "plan_detailing", "multi_skill_workflow", "tool_or_plugin_order", "external_action", "install_sync", "shadow_sync", "git_sync"}:
+    if flags & {
+        "rough_plan",
+        "plan_detailing",
+        "multi_skill_workflow",
+        "tool_or_plugin_order",
+        "external_action",
+        "install_sync",
+        "shadow_sync",
+        "git_sync",
+        "cross_owner_handoff",
+        "shared_write",
+        "post_validation_write",
+        "agent_route_workflow_change",
+        "multiple_independent_owner_irreversible_side_effects",
+    }:
         checks.append("development_process_flow")
     if flags & {"model_test_alignment"}:
         checks.append("model_test_alignment")
@@ -314,6 +333,11 @@ def direct_route_candidates(task: TaskDescription | TaskFact | None) -> tuple[st
         "install_sync",
         "shadow_sync",
         "git_sync",
+        "cross_owner_handoff",
+        "shared_write",
+        "post_validation_write",
+        "agent_route_workflow_change",
+        "multiple_independent_owner_irreversible_side_effects",
     }:
         routes.append("development_process_flow")
     if flags & {"staged_validation", "validation_freshness", "release_confidence"}:
@@ -349,10 +373,12 @@ def development_simulator_modes_for(task: TaskDescription | TaskFact | None) -> 
     modes: list[str] = []
     if task.kind == "rough_plan" or flags & {"rough_plan", "plan_detailing"}:
         modes.append("plan_detailing")
-    if task.kind == "multi_skill_workflow" or flags & {
-        "multi_skill_workflow",
-        "tool_or_plugin_order",
-        "external_action",
+    if flags & {
+        "cross_owner_handoff",
+        "shared_write",
+        "post_validation_write",
+        "agent_route_workflow_change",
+        "multiple_independent_owner_irreversible_side_effects",
     }:
         modes.append("agent_workflow")
     if task.kind in {"process_change", "full_development_process"} or flags & {
@@ -931,7 +957,12 @@ TASK_ROUGH_PLAN = TaskDescription(
 TASK_MULTI_SKILL_WORKFLOW = TaskDescription(
     "multi-skill-workflow",
     "multi_skill_workflow",
-    ("multi_skill_workflow", "tool_or_plugin_order", "external_action"),
+    (
+        "multi_skill_workflow",
+        "tool_or_plugin_order",
+        "external_action",
+        "cross_owner_handoff",
+    ),
     production_code_exists=False,
 )
 TASK_FULL_DEVELOPMENT_SIMULATOR = TaskDescription(
@@ -943,6 +974,7 @@ TASK_FULL_DEVELOPMENT_SIMULATOR = TaskDescription(
         "multi_skill_workflow",
         "tool_or_plugin_order",
         "external_action",
+        "cross_owner_handoff",
         "staged_validation",
         "validation_freshness",
         "release_confidence",

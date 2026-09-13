@@ -329,6 +329,343 @@ class _FiniteSelectorCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+def _closed_nested_parameter_values(
+    root: ast.AST,
+    module: ast.Module | None,
+    parameter_name: str,
+) -> tuple[str, ...] | None:
+    """Prove a nested helper parameter finite from all of its local call sites.
+
+    A nested helper is closed over its immediate lexical parent when its name
+    neither escapes nor is rebound and every direct call supplies a selector
+    drawn from a finite literal domain.  This admits helpers such as
+    ``value(row, field)`` called only while iterating the keys of a literal
+    mapping, without pretending that an ordinary public function parameter is
+    finite.
+    """
+
+    if module is None or not isinstance(root, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return None
+    if root.decorator_list:
+        return None
+
+    module_parents: dict[ast.AST, ast.AST] = {}
+    for node in ast.walk(module):
+        for child in ast.iter_child_nodes(node):
+            module_parents[child] = node
+
+    current = module_parents.get(root)
+    lexical_parent: ast.FunctionDef | ast.AsyncFunctionDef | None = None
+    while current is not None:
+        if isinstance(current, (ast.ClassDef, ast.Lambda)):
+            return None
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            lexical_parent = current
+            break
+        current = module_parents.get(current)
+    if lexical_parent is None:
+        return None
+
+    positional_parameters = (
+        *root.args.posonlyargs,
+        *root.args.args,
+    )
+    positional_names = tuple(argument.arg for argument in positional_parameters)
+    keyword_only_names = tuple(argument.arg for argument in root.args.kwonlyargs)
+    if parameter_name in positional_names:
+        parameter_position = positional_names.index(parameter_name)
+        parameter_is_positional_only = parameter_position < len(root.args.posonlyargs)
+        parameter_is_keyword_only = False
+    elif parameter_name in keyword_only_names:
+        parameter_position = keyword_only_names.index(parameter_name)
+        parameter_is_positional_only = False
+        parameter_is_keyword_only = True
+    else:
+        return None
+
+    class _NestedHelperCallCollector(ast.NodeVisitor):
+        def __init__(self) -> None:
+            self.definition_count = 0
+            self.invalid_reference = False
+            self.calls: list[ast.Call] = []
+            self.assignments: dict[str, list[tuple[int, ast.AST]]] = {}
+
+        @staticmethod
+        def _contains_helper_reference(node: ast.AST) -> bool:
+            return any(
+                isinstance(candidate, ast.Name) and candidate.id == root.name
+                for candidate in ast.walk(node)
+            )
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            if node is root:
+                self.definition_count += 1
+                return
+            if node.name == root.name or self._contains_helper_reference(node):
+                self.invalid_reference = True
+
+        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+            if node is root:
+                self.definition_count += 1
+                return
+            if node.name == root.name or self._contains_helper_reference(node):
+                self.invalid_reference = True
+
+        def visit_ClassDef(self, node: ast.ClassDef) -> None:
+            if node.name == root.name or self._contains_helper_reference(node):
+                self.invalid_reference = True
+
+        def visit_Lambda(self, node: ast.Lambda) -> None:
+            if self._contains_helper_reference(node):
+                self.invalid_reference = True
+
+        def visit_Call(self, node: ast.Call) -> None:
+            if isinstance(node.func, ast.Name) and node.func.id == root.name:
+                if any(isinstance(argument, ast.Starred) for argument in node.args):
+                    self.invalid_reference = True
+                if any(keyword.arg is None for keyword in node.keywords):
+                    self.invalid_reference = True
+                self.calls.append(node)
+                for argument in node.args:
+                    self.visit(argument)
+                for keyword in node.keywords:
+                    self.visit(keyword.value)
+                return
+            final = _expr_name(node.func).rsplit(".", 1)[-1]
+            if final in {"eval", "exec", "globals", "locals"}:
+                self.invalid_reference = True
+            self.generic_visit(node)
+
+        def visit_Name(self, node: ast.Name) -> None:
+            if node.id == root.name:
+                self.invalid_reference = True
+
+        def visit_Assign(self, node: ast.Assign) -> None:
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    self.assignments.setdefault(target.id, []).append(
+                        (int(getattr(node, "lineno", 0)), node.value)
+                    )
+            self.generic_visit(node)
+
+        def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+            if isinstance(node.target, ast.Name) and node.value is not None:
+                self.assignments.setdefault(node.target.id, []).append(
+                    (int(getattr(node, "lineno", 0)), node.value)
+                )
+            self.generic_visit(node)
+
+    collector = _NestedHelperCallCollector()
+    for statement in lexical_parent.body:
+        collector.visit(statement)
+    if (
+        collector.definition_count != 1
+        or collector.invalid_reference
+        or not collector.calls
+    ):
+        return None
+
+    parent_parents: dict[ast.AST, ast.AST] = {}
+    for node in ast.walk(lexical_parent):
+        for child in ast.iter_child_nodes(node):
+            parent_parents[child] = node
+
+    module_assignments: dict[str, list[tuple[int, ast.AST]]] = {}
+    for statement in module.body:
+        if isinstance(statement, ast.Assign):
+            for target in statement.targets:
+                if isinstance(target, ast.Name):
+                    module_assignments.setdefault(target.id, []).append(
+                        (int(getattr(statement, "lineno", 0)), statement.value)
+                    )
+        elif (
+            isinstance(statement, ast.AnnAssign)
+            and isinstance(statement.target, ast.Name)
+            and statement.value is not None
+        ):
+            module_assignments.setdefault(statement.target.id, []).append(
+                (int(getattr(statement, "lineno", 0)), statement.value)
+            )
+
+    def assignment(name: str, before_line: int) -> ast.AST | None:
+        candidates = [
+            (line, value)
+            for line, value in collector.assignments.get(name, ())
+            if line < before_line
+        ]
+        if candidates:
+            return max(candidates, key=lambda row: row[0])[1]
+        return max(
+            module_assignments.get(name, ()),
+            default=(0, None),
+            key=lambda row: row[0],
+        )[1]
+
+    def raw_items(
+        expression: ast.AST,
+        *,
+        before_line: int,
+        seen: frozenset[str] = frozenset(),
+    ) -> tuple[ast.AST, ...] | None:
+        if isinstance(expression, (ast.Tuple, ast.List, ast.Set)):
+            return tuple(expression.elts)
+        if isinstance(expression, ast.Dict):
+            if any(key is None for key in expression.keys):
+                return None
+            return tuple(key for key in expression.keys if key is not None)
+        if isinstance(expression, ast.Name) and expression.id not in seen:
+            value = assignment(expression.id, before_line)
+            if value is None:
+                return None
+            return raw_items(
+                value,
+                before_line=before_line,
+                seen=seen | {expression.id},
+            )
+        if isinstance(expression, ast.Call) and len(expression.args) == 1:
+            final = _expr_name(expression.func).rsplit(".", 1)[-1]
+            if final in {"sorted", "tuple", "list", "set", "frozenset"}:
+                return raw_items(
+                    expression.args[0],
+                    before_line=before_line,
+                    seen=seen,
+                )
+        if (
+            isinstance(expression, ast.Call)
+            and isinstance(expression.func, ast.Attribute)
+            and expression.func.attr in {"items", "keys"}
+            and not expression.args
+        ):
+            value = expression.func.value
+            if isinstance(value, ast.Name):
+                value = assignment(value.id, before_line) or value
+            if not isinstance(value, ast.Dict) or any(
+                key is None for key in value.keys
+            ):
+                return None
+            if expression.func.attr == "keys":
+                return tuple(key for key in value.keys if key is not None)
+            return tuple(
+                ast.Tuple(elts=[key, item], ctx=ast.Load())
+                for key, item in zip(value.keys, value.values)
+                if key is not None
+            )
+        return None
+
+    def literal_strings(
+        expression: ast.AST,
+        *,
+        before_line: int,
+    ) -> tuple[str, ...] | None:
+        if isinstance(expression, ast.Constant) and isinstance(expression.value, str):
+            return (expression.value,)
+        items = raw_items(expression, before_line=before_line)
+        if items is None:
+            return None
+        values: list[str] = []
+        for item in items:
+            if not isinstance(item, ast.Constant) or not isinstance(item.value, str):
+                return None
+            values.append(item.value)
+        return tuple(sorted(set(values))) if values else None
+
+    def target_index(target: ast.AST, name: str) -> int | None:
+        if isinstance(target, ast.Name):
+            return 0 if target.id == name else None
+        if isinstance(target, (ast.Tuple, ast.List)):
+            for index, item in enumerate(target.elts):
+                if isinstance(item, ast.Name) and item.id == name:
+                    return index
+        return None
+
+    def loop_binding_values(
+        loop: ast.For | ast.AsyncFor | ast.comprehension,
+        name: str,
+        *,
+        before_line: int,
+    ) -> tuple[str, ...] | None:
+        index = target_index(loop.target, name)
+        if index is None:
+            return None
+        items = raw_items(loop.iter, before_line=before_line)
+        if items is None:
+            return None
+        values: list[str] = []
+        tuple_target = isinstance(loop.target, (ast.Tuple, ast.List))
+        for item in items:
+            selected = item
+            if tuple_target:
+                if not isinstance(item, (ast.Tuple, ast.List)) or index >= len(item.elts):
+                    return None
+                selected = item.elts[index]
+            if not isinstance(selected, ast.Constant) or not isinstance(
+                selected.value, str
+            ):
+                return None
+            values.append(selected.value)
+        return tuple(sorted(set(values))) if values else None
+
+    def expression_values(call: ast.Call, expression: ast.AST) -> tuple[str, ...] | None:
+        before_line = int(getattr(call, "lineno", 0))
+        if isinstance(expression, ast.Constant) and isinstance(expression.value, str):
+            return (expression.value,)
+        if isinstance(expression, ast.Name):
+            ancestor: ast.AST = call
+            while ancestor in parent_parents:
+                ancestor = parent_parents[ancestor]
+                if isinstance(ancestor, (ast.For, ast.AsyncFor)):
+                    values = loop_binding_values(
+                        ancestor,
+                        expression.id,
+                        before_line=before_line,
+                    )
+                    if values is not None:
+                        return values
+                if isinstance(
+                    ancestor,
+                    (ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp),
+                ):
+                    for generator in ancestor.generators:
+                        values = loop_binding_values(
+                            generator,
+                            expression.id,
+                            before_line=before_line,
+                        )
+                        if values is not None:
+                            return values
+                if ancestor is lexical_parent:
+                    break
+            value = assignment(expression.id, before_line)
+            if value is not None:
+                return literal_strings(value, before_line=before_line)
+            return None
+        return literal_strings(expression, before_line=before_line)
+
+    values: set[str] = set()
+    for call in collector.calls:
+        matching_keywords = tuple(
+            keyword
+            for keyword in call.keywords
+            if keyword.arg == parameter_name
+        )
+        if len(matching_keywords) > 1:
+            return None
+        expression: ast.AST | None = None
+        if not parameter_is_keyword_only and parameter_position < len(call.args):
+            if matching_keywords:
+                return None
+            expression = call.args[parameter_position]
+        elif matching_keywords and not parameter_is_positional_only:
+            expression = matching_keywords[0].value
+        if expression is None:
+            return None
+        call_values = expression_values(call, expression)
+        if call_values is None:
+            return None
+        values.update(call_values)
+    return tuple(sorted(values)) if values else None
+
+
 def _finite_selector_values(
     root: ast.AST,
     *,
@@ -336,9 +673,10 @@ def _finite_selector_values(
 ) -> tuple[tuple[str, tuple[str, ...]], ...]:
     """Derive finite selector domains from syntax owned by one surface.
 
-    Only literal collections, literal dict keys, finite loop bindings, and an
-    exact locals/globals membership expression are admitted.  Function
-    parameters and other open strings deliberately produce no domain.
+    Only literal collections, literal dict keys, finite loop bindings, an
+    exact locals/globals membership expression, and a non-escaping nested
+    helper whose complete local call set is finite are admitted.  Ordinary
+    public parameters and other open strings deliberately produce no domain.
     """
 
     collector = _FiniteSelectorCollector(root)
@@ -508,6 +846,10 @@ def _finite_selector_values(
             values = literal_strings(value, before_line=before_line)
             if values is not None:
                 return values
+
+        nested_values = _closed_nested_parameter_values(root, module, name)
+        if nested_values is not None:
+            return nested_values
 
         def terminal_guard(statements: Sequence[ast.stmt]) -> bool:
             return bool(statements) and all(

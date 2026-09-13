@@ -11,6 +11,8 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
+import pytest
+
 from flowguard.distribution_sync import (
     AUTHOR_OWNERSHIP_ARTIFACT,
     AUTHOR_PROJECTION_ID,
@@ -30,6 +32,11 @@ from flowguard.distribution_sync import (
     semantic_hash_bytes,
     uninstall_skill_suite,
     validate_installed_consumer_suite,
+)
+from flowguard.consumer_wire import (
+    CONSUMER_RELEASE_WIRE_POLICY_ID,
+    consumer_release_canonical_json_bytes,
+    consumer_release_wire_hash,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -149,6 +156,48 @@ class TreeInventoryTests(DistributionFixture):
         self.assertTrue(exclusion.reason)
         self.assertIn(exclusion.pattern, {rule.pattern for rule in DEFAULT_EXCLUSION_RULES})
 
+    def test_working_workspace_and_authority_staging_are_preserved_but_release_excluded(self) -> None:
+        workspace = self.source / self.members[0] / "work" / "flowguard" / "task-1" / "evidence.json"
+        workspace.parent.mkdir(parents=True)
+        workspace.write_text('{"temporary":true}\n', encoding="utf-8")
+        workspace_before = workspace.read_bytes()
+        staging = (
+            self.source
+            / self.members[0]
+            / ".flowguard"
+            / "models"
+            / "authority"
+            / "staging"
+            / "candidate.json"
+        )
+        staging.parent.mkdir(parents=True)
+        staging.write_text('{"candidate":true}\n', encoding="utf-8")
+        staging_before = staging.read_bytes()
+
+        report = inventory_skill_tree(self.source, member_ids=self.members)
+
+        paths = {item.relative_path for item in report.files}
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertNotIn(workspace.relative_to(self.source).as_posix(), paths)
+        self.assertNotIn(staging.relative_to(self.source).as_posix(), paths)
+        excluded = {
+            item.relative_path: item.rule_id for item in report.excluded_files
+        }
+        self.assertEqual("runtime_workspace", excluded[workspace.relative_to(self.source).as_posix()])
+        self.assertEqual("runtime_staging", excluded[staging.relative_to(self.source).as_posix()])
+        self.assertEqual(workspace_before, workspace.read_bytes())
+        self.assertEqual(staging_before, staging.read_bytes())
+
+    def test_governed_source_inside_python_cache_is_not_hidden(self) -> None:
+        hidden = self.source / self.members[0] / "__pycache__" / "governed.json"
+        hidden.parent.mkdir(parents=True)
+        hidden.write_text('{"source":true}\n', encoding="utf-8")
+
+        report = inventory_skill_tree(self.source, member_ids=self.members)
+
+        self.assertFalse(report.ok)
+        self.assertIn(hidden.relative_to(self.source).as_posix(), report.unsafe_paths)
+
 
 class ConsumerReleaseWireTests(DistributionFixture):
     def test_consumer_release_wire_identity_is_prefixed_lowercase_and_replayable(self) -> None:
@@ -191,6 +240,105 @@ class ConsumerReleaseWireTests(DistributionFixture):
             stored_manifest_hash,
             "sha256:" + hashlib.sha256(manifest_canonical).hexdigest(),
         )
+
+    def test_flowguard_wire_matches_skillguard_auditor_and_policy_fixture(self) -> None:
+        """Replay a producer manifest through the independent SkillGuard auditor."""
+
+        scripts_root = Path.home() / ".codex" / "skills" / "skillguard" / "scripts"
+        if not (scripts_root / "skillguard_v2").is_dir():
+            self.skipTest("the author-side SkillGuard auditor is not installed")
+        sys.path.insert(0, str(scripts_root))
+        try:
+            from skillguard_v2.consumer_distribution import (  # type: ignore
+                audit_consumer_distribution,
+            )
+        finally:
+            sys.path.remove(str(scripts_root))
+
+        inventory = inventory_skill_tree(self.source, member_ids=self.members)
+        member = self.members[0]
+        member_root = self.root / "consumer" / member
+        member_root.mkdir(parents=True)
+        for item in inventory.files:
+            if not item.relative_path.startswith(f"{member}/"):
+                continue
+            relative = Path(*item.relative_path.split("/")[1:])
+            destination = member_root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes((self.source / item.relative_path).read_bytes())
+        manifest = _consumer_release_bytes(member, inventory.files)
+        (member_root / CONSUMER_RELEASE_MANIFEST).write_bytes(manifest)
+
+        report = audit_consumer_distribution(member_root)
+        self.assertEqual("passed", report["status"], report)
+        self.assertEqual(CONSUMER_RELEASE_WIRE_POLICY_ID, "consumer.skill_distribution.wire.current")
+
+    def test_wire_fixture_rejects_pretty_uppercase_unprefixed_and_self_resealed_forms(self) -> None:
+        """All non-current wire forms fail the independent auditor."""
+
+        scripts_root = Path.home() / ".codex" / "skills" / "skillguard" / "scripts"
+        if not (scripts_root / "skillguard_v2").is_dir():
+            self.skipTest("the author-side SkillGuard auditor is not installed")
+        sys.path.insert(0, str(scripts_root))
+        try:
+            from skillguard_v2.consumer_distribution import (  # type: ignore
+                audit_consumer_distribution,
+            )
+        finally:
+            sys.path.remove(str(scripts_root))
+
+        inventory = inventory_skill_tree(self.source, member_ids=self.members)
+        member = self.members[0]
+        base_root = self.root / "consumer" / member
+        base_root.mkdir(parents=True)
+        for item in inventory.files:
+            if item.relative_path.startswith(f"{member}/"):
+                relative = Path(*item.relative_path.split("/")[1:])
+                destination = base_root / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes((self.source / item.relative_path).read_bytes())
+        payload = json.loads(_consumer_release_bytes(member, inventory.files).decode("utf-8"))
+
+        cases = {
+            "pretty": json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8") + b"\n",
+            "uppercase": None,
+            "unprefixed": None,
+            "self-resealed": None,
+        }
+        uppercase = dict(payload)
+        uppercase["release_id"] = str(uppercase["release_id"]).upper()
+        uppercase["manifest_hash"] = consumer_release_wire_hash({key: value for key, value in uppercase.items() if key != "manifest_hash"})
+        cases["uppercase"] = consumer_release_canonical_json_bytes(uppercase) + b"\n"
+        unprefixed = dict(payload)
+        unprefixed["release_id"] = str(unprefixed["release_id"]).removeprefix("sha256:")
+        unprefixed["manifest_hash"] = consumer_release_wire_hash({key: value for key, value in unprefixed.items() if key != "manifest_hash"})
+        cases["unprefixed"] = consumer_release_canonical_json_bytes(unprefixed) + b"\n"
+        resealed = dict(payload)
+        resealed["files"] = list(reversed(resealed["files"]))
+        resealed["manifest_hash"] = consumer_release_wire_hash({key: value for key, value in resealed.items() if key != "manifest_hash"})
+        cases["self-resealed"] = consumer_release_canonical_json_bytes(resealed) + b"\n"
+
+        manifest_path = base_root / CONSUMER_RELEASE_MANIFEST
+        for name, raw in cases.items():
+            manifest_path.write_bytes(raw)
+            report = audit_consumer_distribution(base_root)
+            self.assertEqual("blocked", report["status"], (name, report))
+
+    def test_structured_skillguard_key_and_retired_sentinel_policy_are_blocked_or_explicitly_negative(self) -> None:
+        marker = self.source / self.members[0] / "metadata.json"
+        marker.write_text(json.dumps({"skillguard_version": "author-only"}) + "\n", encoding="utf-8")
+        report = install_skill_suite(self.source, self.target, member_ids=self.members)
+        self.assertFalse(report.ok)
+        self.assertIn("consumer_skillguard_reference", {finding.code for finding in report.findings})
+
+        marker.unlink()
+        sentinel = self.source / self.members[0] / "skillguard_depth.py"
+        sentinel.write_text(
+            "# retired negative sentinel; not runtime\nskillguard_version = 'fixture'\n",
+            encoding="utf-8",
+        )
+        report = install_skill_suite(self.source, self.target, member_ids=self.members)
+        self.assertTrue(report.ok, report.to_dict())
 
     def test_configured_parity_rejects_partial_file_copy_and_reports_exclusions(self) -> None:
         install_skill_suite(self.source, self.target, member_ids=self.members)
@@ -235,6 +383,7 @@ class ConsumerReleaseWireTests(DistributionFixture):
         # observation for the generated projection, and one missing target.
         self.assertEqual(3, inventory.call_count)
 
+    @pytest.mark.flowguard_capability("path_escape.posix_symlink")
     @unittest.skipUnless(hasattr(os, "symlink"), "symlink support is unavailable")
     def test_symlink_is_never_treated_as_an_owned_regular_file(self) -> None:
         external = self.root / "outside.txt"
@@ -589,6 +738,7 @@ class AuthorProjectionSyncTests(AuthorSyncFixture):
         self.assertEqual(before, self.snapshot())
         self.assertNotIn("member_ids", inspect.signature(author_sync_skill_suite).parameters)
 
+    @pytest.mark.flowguard_capability("path_escape.posix_symlink")
     @unittest.skipUnless(hasattr(os, "symlink"), "symlink support is unavailable")
     def test_unsafe_link_inside_managed_member_blocks_without_writes(self) -> None:
         link = self.target / self.members[0] / "linked.txt"

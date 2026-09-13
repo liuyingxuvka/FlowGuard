@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import sys
 
 _FLOWGUARD_PROJECT_ROOT = Path(__file__).resolve().parents[4]
@@ -68,7 +69,26 @@ def run_workflow_suite() -> bool:
         "correct_topology_hazard_review: "
         + ("observed=OK expected=OK match=yes exact=yes" if exact_ok else "observed=VIOLATION expected=OK match=no")
     )
-    cases = [FormalWorkflowCase(broken.name, broken, False) for broken in model.build_broken_workflows()]
+    # Each known-bad variant has a minimal finite counterexample.  Running
+    # every five-step Cartesian sequence for every broken workflow repeats the
+    # same invariant violation and can dominate the owner runtime.  Keep the
+    # adversarial boundary explicit: the unanchored gate fails on its first
+    # action, the route omission needs anchor -> infer -> claim, and the
+    # compatibility omission needs legacy-history -> claim.
+    max_length_by_case = {
+        "topology_hazard_unanchored_hard_gate": 1,
+        "topology_hazard_full_without_route": 3,
+        "topology_hazard_compatibility_ignored": 2,
+    }
+    cases = [
+        FormalWorkflowCase(
+            broken.name,
+            broken,
+            False,
+            max_sequence_length=max_length_by_case[broken.name],
+        )
+        for broken in model.build_broken_workflows()
+    ]
     report = run_formal_workflow_suite(
         "model_topology_hazard_review",
         tuple(cases),
@@ -132,6 +152,20 @@ def main() -> int:
     helper_checks = run_helper_cases()
     return 0 if workflow_checks and helper_checks else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # Native evidence must never scan the repository root.  A root-level
+    # default re-ingests historical model/receipt JSON and turns this finite
+    # owner into an apparently non-terminating run.  Keep an invocation-local
+    # controlled workspace unless the caller deliberately supplies one.
+    os.environ.setdefault(
+        "FLOWGUARD_OUTPUT_DIR",
+        str(
+            _FLOWGUARD_PROJECT_ROOT
+            / "work"
+            / "flowguard"
+            / "native-owner-tests"
+            / f"model-topology-hazard-review-{os.getpid()}"
+        ),
+    )
+    raise SystemExit(native_main("model:model_topology_hazard_review", main))

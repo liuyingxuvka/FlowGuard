@@ -806,6 +806,20 @@ def test_projection_writer_preserves_prior_verified_output_on_failure(
     assert not list(tmp_path.glob(".canonical-output.backup-*"))
 
 
+def test_no_sibling_workspace_is_created(tmp_path):
+    project = tmp_path / "project"
+    (project / ".flowguard").mkdir(parents=True)
+    output_root = project / "canonical-output"
+
+    write_canonical_blueprint_projection(_canonical_projection("work-lane"), output_root)
+
+    assert not list(project.glob(".canonical-output.staging-*"))
+    assert not list(project.glob(".canonical-output.backup-*"))
+    work_lane = project / "work" / "flowguard" / "canonical-blueprint"
+    assert work_lane.is_dir()
+    assert not list(work_lane.glob(".canonical-output.staging-*"))
+
+
 def _canonical_projection(name: str) -> CanonicalBlueprintProjection:
     payload = ({"binding_id": f"binding:{name}"},)
     digest = fingerprint_value(list(payload))
@@ -913,6 +927,7 @@ def test_projection_writer_rejects_foreign_empty_directory_without_replacing_tre
     assert not list(tmp_path.glob(".canonical-output.staging-*"))
 
 
+@pytest.mark.flowguard_capability("path_escape.posix_symlink")
 def test_projection_writer_rejects_foreign_directory_symlink(tmp_path):
     output_root = tmp_path / "canonical-output"
     write_canonical_blueprint_projection(
@@ -936,6 +951,7 @@ def test_projection_writer_rejects_foreign_directory_symlink(tmp_path):
     assert manifest["blueprint_fingerprint"] == "sha256:first-blueprint"
 
 
+@pytest.mark.flowguard_capability("path_escape.windows_reparse")
 @pytest.mark.skipif(os.name != "nt", reason="junctions are a Windows reparse type")
 def test_projection_writer_rejects_foreign_directory_junction(tmp_path):
     output_root = tmp_path / "canonical-output"

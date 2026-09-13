@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flowguard"
-version = "0.68.16"
+version = "0.69.0"
 description = "Model-first workflow checks for AI agents and process preflights."
 requires-python = ">=3.11"
 dependencies = []
@@ -23,4 +23,9 @@ include = ["flowguard*", "examples*"]
 flowguard = ["consumer-suite-authority.json", "prompt_bundle_manifest.json"]
 
 [tool.pytest.ini_options]
-norecursedirs = ["build", "worktrees"]
+# The repository keeps retained FlowGuard receipts and shard workspaces under
+# ``work/``.  They are evidence storage, not pytest sources; pin collection to
+# the canonical test inventory so historical temporary artifacts cannot expand
+# the discovery surface or consume the collection watchdog.
+testpaths = ["tests"]
+norecursedirs = ["build", "work", "worktrees"]

@@ -5,23 +5,28 @@ from __future__ import annotations
 import hashlib
 from importlib import import_module
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 import re
 from typing import Any, Mapping, Sequence
 
 from .model_authority import (
+    BOUNDARY_CONTRACT_OWNER_ROUTE,
     LIFECYCLE_ACTIVE,
     SUBJECT_OBSERVED_IMPLEMENTATION,
     AuthorityEndpointRef,
     CoverageDimension,
     CoverageUniverse,
+    ModelAuthorityError,
     ModelRelation,
     ModelSystemSnapshot,
+    AcceptedBoundaryContract,
     build_model_instance_ref,
     canonical_fingerprint,
     file_fingerprint,
+    validate_accepted_boundary_contract_for_snapshot,
 )
+from .source_identity import functional_source_fingerprint
 from .model_regressions import (
     ModelRegressionEntry,
     ModelRegressionManifest,
@@ -38,6 +43,166 @@ from .behavior_commitment import (
 
 class ModelSystemInventoryError(ValueError):
     """Raised when existing owner artifacts cannot form a bounded snapshot."""
+
+
+def build_initial_intent_pending_snapshot(
+    candidate: ModelSystemSnapshot,
+) -> ModelSystemSnapshot:
+    """Mark a first-adoption snapshot as pending current intent.
+
+    First adoption must have a real, observable base-to-candidate transition;
+    changing a comment or snapshot label would make the transition arbitrary.
+    The pending state therefore records one explicit gap per materialized
+    model.  It is only a private staging state: callers must close every gap
+    with the normal intent-bootstrap, owner-evidence, and revision validators
+    before publishing a current pointer.
+    """
+
+    if not isinstance(candidate, ModelSystemSnapshot):
+        raise ModelSystemInventoryError(
+            "initial intent pending snapshot requires a typed model snapshot"
+        )
+    if (
+        candidate.subject_lane != SUBJECT_OBSERVED_IMPLEMENTATION
+        or candidate.lifecycle != LIFECYCLE_ACTIVE
+    ):
+        raise ModelSystemInventoryError(
+            "initial intent pending snapshot requires an active observed snapshot"
+        )
+    model_ids = tuple(
+        sorted(item.logical_model_id for item in candidate.model_instances)
+    )
+    if not model_ids:
+        raise ModelSystemInventoryError(
+            "initial intent pending snapshot requires materialized models"
+        )
+    initial_gaps = tuple(
+        f"initial_current_intent_unaccepted:{model_id}"
+        for model_id in model_ids
+    )
+    # Existing explicit gaps are retained.  This helper never turns an
+    # incomplete source into a falsely complete snapshot and is idempotent.
+    return replace(
+        candidate,
+        unresolved_gap_ids=tuple(
+            sorted(set(candidate.unresolved_gap_ids) | set(initial_gaps))
+        ),
+    )
+
+
+_NATIVE_OWNER_BINDINGS_SCHEMA = "flowguard.native_owner_model_bindings.v1"
+_NATIVE_OWNER_BINDINGS_RELATIVE_PATH = ".flowguard/structure/owner-bindings.json"
+
+
+def _load_native_owner_route_rows(
+    root: Path,
+    *,
+    model_ids: set[str],
+    system_id: str,
+) -> tuple[dict[str, tuple[str, ...]], str]:
+    """Read the optional native-owner declaration into snapshot-local routes.
+
+    Native owner declarations are a governed project input.  When present,
+    their route/model edges must be represented in the model-system snapshot;
+    otherwise a later owner-evidence pass can see routes in the declaration
+    that are absent from the candidate capability denominator.  Projects that
+    predate this declaration keep the historical model/test fallback by
+    returning an empty mapping.
+    """
+
+    path = root / _NATIVE_OWNER_BINDINGS_RELATIVE_PATH
+    if not path.is_file():
+        return {}, ""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ModelSystemInventoryError(
+            f"native owner declaration is unreadable: {path}"
+        ) from exc
+    if not isinstance(payload, Mapping):
+        raise ModelSystemInventoryError("native owner declaration must be an object")
+    required = {
+        "schema",
+        "system_id",
+        "candidate_model_ids",
+        "bindings",
+        "claim_boundary",
+    }
+    if set(payload) != required:
+        raise ModelSystemInventoryError(
+            "native owner declaration fields are not exact: "
+            f"missing={sorted(required - set(payload))}; "
+            f"unknown={sorted(set(payload) - required)}"
+        )
+    if payload["schema"] != _NATIVE_OWNER_BINDINGS_SCHEMA:
+        raise ModelSystemInventoryError(
+            "native owner declaration schema is not current"
+        )
+    if str(payload["system_id"]) != system_id:
+        raise ModelSystemInventoryError(
+            "native owner declaration system_id does not match the snapshot"
+        )
+    declared_ids = {
+        str(item).strip()
+        for item in payload["candidate_model_ids"]
+        if str(item).strip()
+    }
+    if declared_ids != model_ids:
+        raise ModelSystemInventoryError(
+            "native owner declaration model denominator is not exact: "
+            f"missing={sorted(model_ids - declared_ids)}; "
+            f"extra={sorted(declared_ids - model_ids)}"
+        )
+    raw_bindings = payload["bindings"]
+    if not isinstance(raw_bindings, list):
+        raise ModelSystemInventoryError(
+            "native owner declaration bindings must be an array"
+        )
+    route_models: dict[str, tuple[str, ...]] = {}
+    model_routes: dict[str, list[str]] = {}
+    for raw in raw_bindings:
+        if not isinstance(raw, Mapping) or set(raw) != {
+            "owner_route",
+            "model_ids",
+            "protected_failure_ids",
+        }:
+            raise ModelSystemInventoryError(
+                "native owner declaration binding fields are not exact"
+            )
+        route = str(raw["owner_route"]).strip()
+        route_ids = tuple(
+            sorted(
+                {
+                    str(item).strip()
+                    for item in raw["model_ids"]
+                    if str(item).strip()
+                }
+            )
+        )
+        if not route or not route_ids:
+            raise ModelSystemInventoryError(
+                "native owner declaration bindings require a route and models"
+            )
+        if route in route_models:
+            raise ModelSystemInventoryError(
+                f"native owner declaration duplicates route: {route}"
+            )
+        foreign = sorted(set(route_ids) - model_ids)
+        if foreign:
+            raise ModelSystemInventoryError(
+                f"native owner declaration names foreign models: {foreign}"
+            )
+        if not raw["protected_failure_ids"]:
+            raise ModelSystemInventoryError(
+                f"native owner declaration requires protected failures for {route}"
+            )
+        route_models[route] = route_ids
+        for model_id in route_ids:
+            model_routes.setdefault(model_id, []).append(route)
+    return {
+        model_id: tuple(sorted(routes))
+        for model_id, routes in model_routes.items()
+    }, file_fingerprint(path)
 
 
 @dataclass(frozen=True)
@@ -338,6 +503,166 @@ def _runtime_entry_available(value: str) -> bool:
     return callable(current) or isinstance(current, type)
 
 
+_SEMANTIC_SELF_MESH_PATH = (
+    ".flowguard/models/owners/authoritative_model_system/semantic_model_mesh.json"
+)
+_SEMANTIC_SELF_MESH_SCHEMA = "flowguard.semantic_self_mesh.v3"
+_SEMANTIC_MESH_TOP_LEVEL_FIELDS = frozenset(
+    {
+        "schema_version",
+        "mesh_id",
+        "claim_scope",
+        "derivation_base_snapshot_path",
+        "derivation_base_snapshot_fingerprint",
+        "current_manifest_path",
+        "observed_base_added_model_ids",
+        "observed_base_removed_model_ids",
+        "declared_model_count",
+        "semantic_universe_fingerprint",
+        "semantic_disposition_fingerprint",
+        "semantic_relation_fingerprint",
+        "semantic_model_status",
+        "whole_system_completion_claim",
+        "currentness_owner",
+        "claim_boundary",
+        "allowed_dispositions",
+        "semantic_parents",
+        "required_terminal_evidence",
+        "models",
+        "feedback_progress_contracts",
+    }
+)
+
+
+def _load_semantic_hierarchy(
+    root: Path,
+    *,
+    model_ids: set[str],
+) -> tuple[Path, str, tuple[dict[str, Any], ...], dict[str, dict[str, Any]]] | None:
+    """Load the authored semantic parent partition when one is present.
+
+    The semantic self-mesh predates the authoritative snapshot integration and
+    is intentionally a candidate artifact.  The snapshot may consume it only
+    as a *structural partition* after proving that its membership is exactly the
+    current materialized manifest.  A malformed or stale declaration therefore
+    blocks snapshot construction instead of silently falling back to a flat
+    root.  Repositories without this optional artifact retain the historical
+    single-root projection and all small fixture tests remain valid.
+    """
+
+    path = root / _SEMANTIC_SELF_MESH_PATH
+    if not path.is_file():
+        return None
+    payload = _load_json_object(path)
+    unknown = sorted(set(payload) - _SEMANTIC_MESH_TOP_LEVEL_FIELDS)
+    missing = sorted(_SEMANTIC_MESH_TOP_LEVEL_FIELDS - set(payload))
+    if unknown or missing:
+        details: list[str] = []
+        if missing:
+            details.append("missing=" + ",".join(missing))
+        if unknown:
+            details.append("unknown=" + ",".join(unknown))
+        raise ModelSystemInventoryError(
+            "semantic self-mesh top-level schema is not current ("
+            + "; ".join(details)
+            + ")"
+        )
+    if payload.get("schema_version") != _SEMANTIC_SELF_MESH_SCHEMA:
+        raise ModelSystemInventoryError("semantic self-mesh schema is not current")
+    if payload.get("current_manifest_path") != ".flowguard/models/regression-manifest.json":
+        raise ModelSystemInventoryError("semantic self-mesh current manifest path is not canonical")
+    declared = tuple(
+        str(row.get("model_id", "")).strip()
+        for row in payload.get("models", ())
+        if isinstance(row, Mapping)
+    )
+    if not declared or "" in declared or len(declared) != len(set(declared)):
+        raise ModelSystemInventoryError("semantic self-mesh model identity is invalid")
+    if set(declared) != set(model_ids):
+        missing_models = sorted(model_ids - set(declared))
+        foreign_models = sorted(set(declared) - model_ids)
+        details = []
+        if missing_models:
+            details.append("missing=" + ",".join(missing_models))
+        if foreign_models:
+            details.append("foreign=" + ",".join(foreign_models))
+        raise ModelSystemInventoryError(
+            "semantic self-mesh membership does not equal materialized manifest ("
+            + "; ".join(details)
+            + ")"
+        )
+    raw_parents = payload.get("semantic_parents")
+    if not isinstance(raw_parents, list) or not raw_parents:
+        raise ModelSystemInventoryError("semantic self-mesh requires semantic parents")
+    parents: list[dict[str, Any]] = []
+    parent_ids: set[str] = set()
+    for row in raw_parents:
+        if not isinstance(row, Mapping) or set(row) != {"parent_id", "purpose"}:
+            raise ModelSystemInventoryError("semantic self-mesh parent schema is not current")
+        parent_id = str(row.get("parent_id", "")).strip()
+        purpose = str(row.get("purpose", "")).strip()
+        if not parent_id or parent_id in parent_ids or len(purpose) < 24:
+            raise ModelSystemInventoryError(
+                f"semantic self-mesh parent is invalid: {parent_id or '<empty>'}"
+            )
+        parent_ids.add(parent_id)
+        parents.append({"parent_id": parent_id, "purpose": purpose})
+
+    model_rows: dict[str, dict[str, Any]] = {}
+    required_fields = {
+        "model_id",
+        "disposition",
+        "consumer_ids",
+        "rationale",
+        "structural_parent_id",
+        "cross_boundary_parent_ids",
+    }
+    allowed_fields = required_fields | {"scope_rationale"}
+    for raw_row in payload.get("models", ()):
+        if not isinstance(raw_row, Mapping):
+            raise ModelSystemInventoryError("semantic self-mesh model row must be an object")
+        row = dict(raw_row)
+        model_id = str(row.get("model_id", "")).strip()
+        if set(row) - allowed_fields or not required_fields.issubset(row):
+            raise ModelSystemInventoryError(f"semantic self-mesh model schema is invalid: {model_id}")
+        structural_parent_id = str(row.get("structural_parent_id", "")).strip()
+        if structural_parent_id not in parent_ids:
+            raise ModelSystemInventoryError(f"semantic self-mesh parent is unknown: {model_id}")
+        raw_cross = row.get("cross_boundary_parent_ids", ())
+        if isinstance(raw_cross, (str, bytes)) or not isinstance(raw_cross, Sequence):
+            raise ModelSystemInventoryError(f"semantic self-mesh cross-boundary parents are invalid: {model_id}")
+        cross = tuple(str(value).strip() for value in raw_cross)
+        if (
+            len(cross) != len(set(cross))
+            or structural_parent_id in cross
+            or any(value not in parent_ids for value in cross)
+        ):
+            raise ModelSystemInventoryError(f"semantic self-mesh cross-boundary parents are invalid: {model_id}")
+        consumers = row.get("consumer_ids", ())
+        if isinstance(consumers, (str, bytes)) or not isinstance(consumers, Sequence):
+            raise ModelSystemInventoryError(f"semantic self-mesh consumers are invalid: {model_id}")
+        consumer_values = tuple(str(value).strip() for value in consumers)
+        if len(consumer_values) != len(set(consumer_values)) or not consumer_values:
+            raise ModelSystemInventoryError(f"semantic self-mesh consumers are invalid: {model_id}")
+        for consumer in consumer_values:
+            if consumer.startswith("model:") and consumer.removeprefix("model:") not in model_ids:
+                raise ModelSystemInventoryError(
+                    f"semantic self-mesh consumer is unknown: {model_id}:{consumer}"
+                )
+        model_rows[model_id] = {
+            **row,
+            "model_id": model_id,
+            "structural_parent_id": structural_parent_id,
+            "cross_boundary_parent_ids": cross,
+            "consumer_ids": consumer_values,
+        }
+    if set(model_rows) != model_ids:
+        raise ModelSystemInventoryError("semantic self-mesh model rows are not exact current membership")
+    if str(payload.get("derivation_base_snapshot_fingerprint", "")).strip() == "":
+        raise ModelSystemInventoryError("semantic self-mesh derivation base fingerprint is empty")
+    return path, file_fingerprint(path), tuple(parents), model_rows
+
+
 def build_manifest_model_system_snapshot(
     root: str | Path,
     *,
@@ -346,6 +671,7 @@ def build_manifest_model_system_snapshot(
     subject_lane: str = SUBJECT_OBSERVED_IMPLEMENTATION,
     lifecycle: str = LIFECYCLE_ACTIVE,
     subject_revision: str = "",
+    accepted_boundary_contract: AcceptedBoundaryContract | None = None,
 ) -> ModelSystemSnapshot:
     """Join the regression manifest and existing native owners into one snapshot."""
 
@@ -372,8 +698,21 @@ def build_manifest_model_system_snapshot(
     )
     if not entries:
         raise ModelSystemInventoryError("no available manifest model instances")
+    # Many model owners intentionally share the same governed inputs.  Resolve
+    # each manifest selector once for this frozen snapshot instead of asking
+    # the filesystem to enumerate the same directory for every model.  The
+    # cache is invocation-local and stores only matched paths; every file is
+    # still fingerprinted into each owner's exact inventory below.
+    pattern_cache: dict[str, tuple[Path, ...]] = {}
+    fingerprint_cache: dict[str, str] = {}
     inventories = {
-        entry.model_id: resolve_entry_input_inventory(root_path, entry)
+        entry.model_id: resolve_entry_input_inventory(
+            root_path,
+            entry,
+            additional_patterns=manifest.shared_patterns_for(entry.model_id),
+            _pattern_cache=pattern_cache,
+            _fingerprint_cache=fingerprint_cache,
+        )
         for entry in entries
     }
     if not subject_revision:
@@ -417,11 +756,36 @@ def build_manifest_model_system_snapshot(
     instances = tuple(instances)
     by_id = {item.logical_model_id: item for item in instances}
     model_ids = set(by_id)
+    native_owner_route_by_model, native_owner_bindings_fingerprint = (
+        _load_native_owner_route_rows(
+            root_path,
+            model_ids=model_ids,
+            system_id=system_id,
+        )
+    )
+    semantic_hierarchy = _load_semantic_hierarchy(
+        root_path,
+        model_ids=model_ids,
+    )
+    semantic_mesh_path: Path | None = None
+    semantic_mesh_fingerprint = ""
+    semantic_parents: tuple[dict[str, Any], ...] = ()
+    semantic_models: dict[str, dict[str, Any]] = {}
+    if semantic_hierarchy is not None:
+        (
+            semantic_mesh_path,
+            semantic_mesh_fingerprint,
+            semantic_parents,
+            semantic_models,
+        ) = semantic_hierarchy
     path_to_model_id = {
         item.model_path.replace("\\", "/"): item.logical_model_id
         for item in instances
     }
-    manifest_fingerprint = file_fingerprint(manifest.path)
+    manifest_fingerprint = functional_source_fingerprint(
+        root_path,
+        ".flowguard/models/regression-manifest.json",
+    )
     root_owner = AuthorityEndpointRef(
         endpoint_kind="parent_closure",
         endpoint_id=f"system:{system_id}:model-regression-manifest",
@@ -498,6 +862,56 @@ def build_manifest_model_system_snapshot(
 
     purpose_covered: list[str] = []
     test_required: list[str] = []
+    # A current semantic self-mesh is a real authored partition of the
+    # manifest universe.  Materialize its seven (or otherwise declared)
+    # responsibility domains as parent-closure endpoints so the authority
+    # graph has an explicit root -> domain -> model hierarchy.  The fallback
+    # preserves the historical root -> model projection for small repositories
+    # that have not opted into the semantic partition artifact.
+    semantic_parent_endpoints: dict[str, AuthorityEndpointRef] = {}
+    if semantic_parents:
+        children_by_parent: dict[str, tuple[str, ...]] = {
+            parent["parent_id"]: tuple(
+                sorted(
+                    model_id
+                    for model_id, row in semantic_models.items()
+                    if row["structural_parent_id"] == parent["parent_id"]
+                )
+            )
+            for parent in semantic_parents
+        }
+        for parent in semantic_parents:
+            parent_id = parent["parent_id"]
+            endpoint = AuthorityEndpointRef(
+                endpoint_kind="parent_closure",
+                endpoint_id=parent_id,
+                fingerprint=canonical_fingerprint(
+                    {
+                        "semantic_mesh_path": _SEMANTIC_SELF_MESH_PATH,
+                        "semantic_mesh_fingerprint": semantic_mesh_fingerprint,
+                        "parent_id": parent_id,
+                        "purpose": parent["purpose"],
+                        "direct_child_model_ids": list(children_by_parent[parent_id]),
+                    }
+                ),
+                owner_route="model_mesh_maintenance",
+            )
+            semantic_parent_endpoints[parent_id] = endpoint
+            owner_refs.append(endpoint)
+            owner_ref_keys.add((endpoint.endpoint_kind, endpoint.endpoint_id))
+            relations.append(
+                ModelRelation(
+                    relation_id=_stable_id(
+                        "relation:semantic-system-contains",
+                        parent_id,
+                    ),
+                    kind="contains",
+                    source=root_owner,
+                    target=endpoint,
+                    evidence_fingerprints=(semantic_mesh_fingerprint,),
+                )
+            )
+
     for entry in entries:
         instance = by_id[entry.model_id]
         model_endpoint = AuthorityEndpointRef(
@@ -506,15 +920,108 @@ def build_manifest_model_system_snapshot(
             fingerprint=instance.fingerprint,
             owner_route="model_regression_manifest",
         )
-        relations.append(
-            ModelRelation(
-                relation_id=f"relation:system-contains:{entry.model_id}",
-                kind="contains",
-                source=root_owner,
-                target=model_endpoint,
-                evidence_fingerprints=(manifest_fingerprint,),
+        native_owner_routes = native_owner_route_by_model.get(entry.model_id, ())
+        for native_owner_route in native_owner_routes:
+            native_owner_endpoint = AuthorityEndpointRef(
+                endpoint_kind="parent_closure",
+                endpoint_id=f"native-owner-route:{native_owner_route}",
+                fingerprint=canonical_fingerprint(
+                    {
+                        "owner_bindings_path": _NATIVE_OWNER_BINDINGS_RELATIVE_PATH,
+                        "owner_bindings_fingerprint": (
+                            native_owner_bindings_fingerprint
+                        ),
+                        "owner_route": native_owner_route,
+                    }
+                ),
+                owner_route=native_owner_route,
             )
+            native_owner_key = (
+                native_owner_endpoint.endpoint_kind,
+                native_owner_endpoint.endpoint_id,
+            )
+            if native_owner_key not in owner_ref_keys:
+                owner_refs.append(native_owner_endpoint)
+                owner_ref_keys.add(native_owner_key)
+            relations.append(
+                ModelRelation(
+                    relation_id=_stable_id(
+                        "relation:model-realizes-native-owner",
+                        f"{entry.model_id}:{native_owner_route}",
+                    ),
+                    kind="realizes",
+                    source=model_endpoint,
+                    target=native_owner_endpoint,
+                    evidence_fingerprints=(
+                        native_owner_bindings_fingerprint,
+                    ),
+                )
+            )
+        structural_parent_id = semantic_models.get(entry.model_id, {}).get(
+            "structural_parent_id", ""
         )
+        if structural_parent_id:
+            parent_endpoint = semantic_parent_endpoints[structural_parent_id]
+            relations.append(
+                ModelRelation(
+                    relation_id=_stable_id(
+                        "relation:semantic-parent-contains-model",
+                        f"{structural_parent_id}:{entry.model_id}",
+                    ),
+                    kind="contains",
+                    source=parent_endpoint,
+                    target=model_endpoint,
+                    evidence_fingerprints=(semantic_mesh_fingerprint,),
+                )
+            )
+        else:
+            relations.append(
+                ModelRelation(
+                    relation_id=f"relation:system-contains:{entry.model_id}",
+                    kind="contains",
+                    source=root_owner,
+                    target=model_endpoint,
+                    evidence_fingerprints=(manifest_fingerprint,),
+                )
+            )
+        if structural_parent_id:
+            row = semantic_models[entry.model_id]
+            for cross_parent_id in row["cross_boundary_parent_ids"]:
+                cross_parent_endpoint = semantic_parent_endpoints[cross_parent_id]
+                relations.append(
+                    ModelRelation(
+                        relation_id=_stable_id(
+                            "relation:semantic-cross-boundary-support",
+                            f"{entry.model_id}:{cross_parent_id}",
+                        ),
+                        kind="depends_on",
+                        source=model_endpoint,
+                        target=cross_parent_endpoint,
+                        evidence_fingerprints=(semantic_mesh_fingerprint,),
+                    )
+                )
+            for consumer_id in row["consumer_ids"]:
+                if not consumer_id.startswith("model:"):
+                    continue
+                consumer_model_id = consumer_id.removeprefix("model:")
+                consumer_endpoint = AuthorityEndpointRef(
+                    endpoint_kind="model_instance",
+                    endpoint_id=f"model:{consumer_model_id}",
+                    fingerprint=by_id[consumer_model_id].fingerprint,
+                    owner_route="model_regression_manifest",
+                )
+                relations.append(
+                    ModelRelation(
+                        relation_id=_stable_id(
+                            "relation:semantic-model-affects-consumer",
+                            f"{entry.model_id}:{consumer_model_id}",
+                        ),
+                        kind="affects",
+                        source=model_endpoint,
+                        target=consumer_endpoint,
+                        evidence_fingerprints=(semantic_mesh_fingerprint,),
+                    )
+                )
         if entry.purpose_closure is None:
             continue
         purpose_endpoint = AuthorityEndpointRef(
@@ -1205,6 +1712,85 @@ def build_manifest_model_system_snapshot(
             }
         )
     )
+    if accepted_boundary_contract is not None:
+        if not isinstance(accepted_boundary_contract, AcceptedBoundaryContract):
+            raise ModelSystemInventoryError(
+                "accepted_boundary_contract must be a typed current contract"
+            )
+        if accepted_boundary_contract.boundary_source_id != coverage.boundary_id:
+            raise ModelSystemInventoryError(
+                "accepted boundary contract names a different coverage boundary"
+            )
+        if accepted_boundary_contract.boundary_source_fingerprint != coverage.fingerprint:
+            raise ModelSystemInventoryError(
+                "accepted boundary contract coverage fingerprint is stale"
+            )
+        if accepted_boundary_contract.model_id not in model_ids:
+            raise ModelSystemInventoryError(
+                "accepted boundary contract model is not in the candidate manifest"
+            )
+        endpoint = AuthorityEndpointRef(
+            endpoint_kind="boundary_contract",
+            endpoint_id=accepted_boundary_contract.contract_id,
+            fingerprint=accepted_boundary_contract.fingerprint,
+            owner_route=BOUNDARY_CONTRACT_OWNER_ROUTE,
+        )
+        endpoint_key = (endpoint.endpoint_kind, endpoint.endpoint_id)
+        existing = next(
+            (
+                item
+                for item in owner_refs
+                if (item.endpoint_kind, item.endpoint_id) == endpoint_key
+            ),
+            None,
+        )
+        if existing is not None:
+            if existing.fingerprint != endpoint.fingerprint:
+                raise ModelSystemInventoryError(
+                    "candidate already contains a foreign boundary contract endpoint"
+                )
+            if existing.owner_route != BOUNDARY_CONTRACT_OWNER_ROUTE:
+                raise ModelSystemInventoryError(
+                    "candidate boundary contract endpoint has a foreign owner route"
+                )
+        if existing is None:
+            owner_refs.append(endpoint)
+            owner_ref_keys.add(endpoint_key)
+        # Validate after the endpoint is part of the candidate topology.  The
+        # same helper is used by the producer and authority loader, so a
+        # candidate cannot merely append a boundary obligation id and bypass
+        # the accepted source/topology/axis/group/map proof.
+        provisional_snapshot = ModelSystemSnapshot(
+            snapshot_id=snapshot_id,
+            system_id=system_id,
+            subject_lane=subject_lane,
+            lifecycle=lifecycle,
+            subject_revision=subject_revision,
+            root_instance_fingerprints=(
+                by_id[
+                    "authoritative_model_system"
+                    if "authoritative_model_system" in by_id
+                    else sorted(by_id)[0]
+                ].fingerprint,
+            ),
+            model_instances=instances,
+            relations=tuple(relations),
+            coverage=coverage,
+            owner_artifact_refs=tuple(owner_refs),
+            unresolved_gap_ids=unresolved_gap_ids,
+            claim_boundary=(
+                "This provisional snapshot is used only to validate the current "
+                "accepted boundary contract against the manifest topology."
+            ),
+        )
+        try:
+            validate_accepted_boundary_contract_for_snapshot(
+                accepted_boundary_contract,
+                provisional_snapshot,
+                require_endpoint=True,
+            )
+        except ModelAuthorityError as exc:
+            raise ModelSystemInventoryError(str(exc)) from exc
     root_id = (
         "authoritative_model_system"
         if "authoritative_model_system" in by_id
@@ -1236,6 +1822,7 @@ __all__ = [
     "AffectedAuthorityInventory",
     "ManifestModelInventory",
     "ModelSystemInventoryError",
+    "build_initial_intent_pending_snapshot",
     "build_manifest_model_system_snapshot",
     "inspect_manifest_model_inventory",
     "load_affected_authority_inventory",

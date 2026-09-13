@@ -24,6 +24,8 @@ from .contract_exhaustion import (
     ContractExhaustionPlan,
     ContractInteractionGroup,
     ContractOracle,
+    _PartitionedProductVerificationContext,
+    bind_partition_context_to_plan,
 )
 from .export import to_jsonable
 from .behavior_plane import (
@@ -4018,6 +4020,7 @@ def default_behavior_commitment_coverage_universe(
         required_interaction_group_ids=tuple(group.group_id for group in groups),
         required_coverage_receipt_ids=(f"contract_coverage:{model_id}",),
         require_full_product=True,
+        allow_partitioned_product=True,
         metadata={
             "owner_route": BEHAVIOR_COMMITMENT_ROUTE_ID,
             "downstream_path_authority": PRIMARY_PATH_ROUTE_ID,
@@ -4031,10 +4034,18 @@ def behavior_commitment_contract_exhaustion_plan(
     model_id: str = BEHAVIOR_COMMITMENT_ROUTE_ID,
     claim_scope: str = BCL_SCOPE_FULL,
     max_combinations: int = 10000,
+    authority_state: Any | None = None,
+    partition_context: _PartitionedProductVerificationContext | None = None,
 ) -> ContractExhaustionPlan:
-    """Build the canonical ContractExhaustionMesh plan for the ledger."""
+    """Build the canonical ContractExhaustionMesh plan for the ledger.
 
-    return ContractExhaustionPlan(
+    Broad partitioned coverage is bound to an accepted model-authority state
+    when one is supplied.  Without that state the returned plan remains
+    intentionally unbound and the ContractExhaustion hard gate reports the
+    missing authority denominator instead of inventing one.
+    """
+
+    plan = ContractExhaustionPlan(
         plan_id,
         model_id=model_id,
         axes=default_behavior_commitment_axes(model_id=model_id),
@@ -4071,7 +4082,19 @@ def behavior_commitment_contract_exhaustion_plan(
         required_route_ids=("model_test_alignment", "test_mesh_maintenance", "risk_evidence_ledger", PRIMARY_PATH_ROUTE_ID),
         require_model_coverage_receipt=True,
         require_coverage_universe=True,
+        metadata={
+            # ContractExhaustionMesh owns finite matrix generation here.  The
+            # acceptance ids remain required downstream obligations; terminal
+            # CompositeHandoffResult receipts are produced by the consuming
+            # route owners, not fabricated during matrix review.
+            "composite_handoff_results_deferred": True,
+        },
         coverage_universe=default_behavior_commitment_coverage_universe(model_id=model_id, claim_scope=claim_scope),
+    )
+    return bind_partition_context_to_plan(
+        plan,
+        authority_state=authority_state,
+        partition_context=partition_context,
     )
 
 

@@ -74,7 +74,6 @@ REVISION_REMOVAL_DISPOSITIONS = frozenset(
     {"replace", "retire", "migrate", "scope_out"}
 )
 
-
 def _wire_pair(
     value: Any,
     field_name: str,
@@ -862,6 +861,24 @@ def derive_revision_affected_closure(
     affected_ids.update(
         f"unresolved_gap:{item}" for item in current_diff.changed_gap_ids
     )
+    # The first-adoption transaction uses one explicit pending-intent gap per
+    # materialized model.  A gap is not an untyped global blocker: it belongs
+    # to the exact model endpoint named by its suffix and must therefore pull
+    # that model (and only its declared typed relations) into the affected
+    # closure.  Reject malformed/foreign initial gaps instead of silently
+    # assigning them to a generic owner.
+    initial_gap_prefix = "initial_current_intent_unaccepted:"
+    all_model_ids = set(base_models) | set(candidate_models)
+    for gap_id in current_diff.changed_gap_ids:
+        if not gap_id.startswith(initial_gap_prefix):
+            continue
+        logical_model_id = gap_id[len(initial_gap_prefix) :]
+        if not logical_model_id or logical_model_id not in all_model_ids:
+            raise ModelAuthorityError(
+                "initial current-intent gap names a non-materialized model: "
+                f"{gap_id}"
+            )
+        affected_endpoint_ids.add(_model_endpoint_id(logical_model_id))
     affected_ids.update(current_diff.changed_system_property_ids)
     affected_ids.update(current_diff.changed_owner_artifact_ids)
 
@@ -937,8 +954,19 @@ def derive_revision_affected_closure(
         "depends_on",
         "delegates_to",
         "consumes",
+        # A changed implementation invalidates the caller/delegator that
+        # depends on it.  Keep the direction explicit rather than relying on
+        # an untyped relation fallback.
+        "invokes",
     }
-    forward_only = {"produces_for"}
+    forward_only = {
+        "produces_for",
+        # The source is the changing implementation/affecting component and
+        # the target is the affected contract/model.  Affected-only closure
+        # therefore follows the declared source -> target edge.
+        "affects",
+        "implements",
+    }
     changed = True
     while changed:
         changed = False
@@ -1738,13 +1766,15 @@ class ModelRevisionSet:
     def evidence_complete(self) -> bool:
         required = tuple(item.identity_key for item in self.required_evidence_refs)
         completed = tuple(item.identity_key for item in self.completed_evidence_refs)
+        required_coverage_ids = tuple(sorted(self.affected_closure_ids))
+        completed_coverage_ids = tuple(sorted(self.affected_closure_ids))
         return (
             required == completed
             and all(item.passing for item in self.completed_evidence_refs)
             and self._coverage_union(self.required_evidence_refs)
-            == self.affected_closure_ids
+            == required_coverage_ids
             and self._coverage_union(self.completed_evidence_refs)
-            == self.affected_closure_ids
+            == completed_coverage_ids
         )
 
     def _intent_expressible_changed_model_ids(self) -> tuple[str, ...]:
@@ -2554,19 +2584,21 @@ def validate_revision_set_snapshots(
         raise ModelAuthorityError(
             "revision affected closure fingerprint is stale or incomplete"
         )
+    required_coverage_ids = tuple(sorted(derived_closure.affected_ids))
     if (
         revision_set._coverage_union(revision_set.required_evidence_refs)
-        != derived_closure.affected_ids
+        != required_coverage_ids
     ):
         raise ModelAuthorityError(
-            "revision required evidence does not cover the complete derived closure exactly"
+            "revision required evidence does not cover the complete executable-owner closure exactly"
         )
+    completed_coverage_ids = tuple(sorted(derived_closure.affected_ids))
     if revision_set.completed_evidence_refs and (
         revision_set._coverage_union(revision_set.completed_evidence_refs)
-        != derived_closure.affected_ids
+        != completed_coverage_ids
     ):
         raise ModelAuthorityError(
-            "revision completed evidence does not cover the complete derived closure exactly"
+            "revision completed evidence does not cover the complete executable-owner closure exactly"
         )
 
 

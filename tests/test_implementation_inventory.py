@@ -6,15 +6,18 @@ import unittest
 from unittest import mock
 
 from flowguard.implementation_inventory import (
+    BoundaryExclusion,
     DynamicSelectorContract,
     IMPLEMENTATION_DISPOSITION_MODEL,
     IMPLEMENTATION_DISPOSITION_SUPPORTING,
+    SUPPORTING_RELATION_KINDS,
     ImplementationDiscoveryResult,
     ImplementationFileDisposition,
     ImplementationInventoryError,
     ImplementationSurface,
     ImplementationSurfaceInventory,
     SoftwareBoundary,
+    _current_inventory_fingerprint,
     audit_implementation_surface_inventory,
     build_implementation_surface_inventory,
     implementation_behavior_surface_ids,
@@ -32,6 +35,10 @@ from flowguard.implementation_inventory_python import (
     project_python_implementation_observation,
 )
 from flowguard.source_identity import source_file_fingerprint
+from flowguard.validation_ownership import (
+    project_manifest_semantic_fingerprint,
+    validation_task_body_fingerprint,
+)
 
 
 SOURCE = """STATE = {}
@@ -55,6 +62,125 @@ if __name__ == "__main__":
 
 
 class ImplementationInventoryTests(unittest.TestCase):
+    def test_project_manifest_uses_same_semantic_fingerprint_as_validation_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest = root / ".flowguard" / "project.toml"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(
+                "[flowguard]\nadopted_package_version = '1.0.0'\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                _current_inventory_fingerprint(
+                    manifest,
+                    relative=".flowguard/project.toml",
+                ),
+                project_manifest_semantic_fingerprint(manifest),
+            )
+
+    def test_openspec_task_progress_uses_semantic_fingerprint_in_review(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            task_path = root / "openspec" / "changes" / "demo" / "tasks.md"
+            task_path.parent.mkdir(parents=True)
+            task_path.write_text("- [ ] 1. Preserve this task wording\n", encoding="utf-8")
+            disposition = ImplementationFileDisposition(
+                path="openspec/changes/demo/tasks.md",
+                category="excluded",
+                content_fingerprint=validation_task_body_fingerprint(task_path),
+                disposition=IMPLEMENTATION_DISPOSITION_SUPPORTING,
+                reason="OpenSpec progress is tracked semantically",
+            )
+            inventory = ImplementationSurfaceInventory(
+                inventory_id="inventory:task-progress",
+                boundary=SoftwareBoundary(
+                    "boundary:task-progress",
+                    "revision:task-progress",
+                    exclusions=(
+                        BoundaryExclusion(
+                            "openspec/changes/**/tasks.md",
+                            "task progress is not implementation code",
+                        ),
+                    ),
+                ),
+                manifest_fingerprint="fp:task-progress",
+                file_dispositions=(disposition,),
+                surfaces=(),
+                findings=(),
+                claim_boundary="task progress fingerprint policy",
+            )
+
+            task_path.write_text("- [x] 1. Preserve this task wording\n", encoding="utf-8")
+            self.assertTrue(
+                review_implementation_surface_inventory(inventory, root=root).ok
+            )
+
+            task_path.write_text("- [x] 1. Changed task wording\n", encoding="utf-8")
+            report = review_implementation_surface_inventory(inventory, root=root)
+            self.assertFalse(report.ok)
+            self.assertIn("stale_file_fingerprint", {item.code for item in report.findings})
+
+    def test_openspec_task_raw_fingerprint_is_rejected_as_wrong_kind(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            task_path = root / "openspec" / "changes" / "demo" / "tasks.md"
+            task_path.parent.mkdir(parents=True)
+            task_path.write_text("- [x] 1. Preserve this task wording\n", encoding="utf-8")
+            disposition = ImplementationFileDisposition(
+                path="openspec/changes/demo/tasks.md",
+                category="excluded",
+                content_fingerprint=source_file_fingerprint(task_path),
+                disposition=IMPLEMENTATION_DISPOSITION_SUPPORTING,
+                reason="fixture with intentionally wrong raw hash kind",
+            )
+            inventory = ImplementationSurfaceInventory(
+                inventory_id="inventory:task-raw-kind",
+                boundary=SoftwareBoundary(
+                    "boundary:task-raw-kind",
+                    "revision:task-raw-kind",
+                    exclusions=(
+                        BoundaryExclusion(
+                            "openspec/changes/**/tasks.md",
+                            "task progress is not implementation code",
+                        ),
+                    ),
+                ),
+                manifest_fingerprint="fp:task-raw-kind",
+                file_dispositions=(disposition,),
+                surfaces=(),
+                findings=(),
+                claim_boundary="task progress fingerprint policy",
+            )
+
+            report = review_implementation_surface_inventory(inventory, root=root)
+            self.assertFalse(report.ok)
+            self.assertIn("stale_file_fingerprint", {item.code for item in report.findings})
+
+    def test_supporting_relation_kind_round_trips_as_explicit_surface_fact(self) -> None:
+        surface = ImplementationSurface(
+            surface_id="surface:supporting-calls",
+            path="src/app.py",
+            symbol="helper",
+            surface_kind="helper",
+            parent_surface_id="",
+            content_fingerprint="fp:source",
+            structure_fingerprint="fp:helper",
+            disposition=IMPLEMENTATION_DISPOSITION_SUPPORTING,
+            owning_surface_id="surface:owner",
+            supporting_relation_kind="calls",
+        )
+
+        assert SUPPORTING_RELATION_KINDS == {
+            "calls",
+            "delegates",
+            "reads_for",
+            "writes_for",
+        }
+        payload = surface.to_dict()
+        assert payload["supporting_relation_kind"] == "calls"
+        assert ImplementationSurface.from_dict(payload) == surface
+
     def test_provider_disposition_owns_behavior_denominator_without_losing_support_facts(self) -> None:
         owner = ImplementationSurface(
             surface_id="surface:owner",
@@ -787,6 +913,112 @@ def save(value):
             }
             self.assertNotIn(by_symbol["projected"].surface_id, dynamic_gaps)
             self.assertIn(by_symbol["open_selector"].surface_id, dynamic_gaps)
+
+    def test_nested_helper_selector_is_finite_only_when_all_local_calls_are_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self._repository(
+                Path(temporary),
+                source=(
+                    "def outer(row):\n"
+                    "    def value(item, field, default=None):\n"
+                    "        return getattr(item, field, default)\n"
+                    "    expected = {'alpha': 1, 'beta': 2}\n"
+                    "    return tuple(\n"
+                    "        value(row, field, None)\n"
+                    "        for field, expected_value in expected.items()\n"
+                    "        if expected_value\n"
+                    "    )\n"
+                ),
+            )
+            raw = discover_python_implementation_surfaces(
+                root=root,
+                file_disposition=self._python_file_disposition(
+                    root / "src" / "app.py"
+                ),
+            )
+            by_symbol = {surface.symbol: surface for surface in raw.surfaces}
+            helper = by_symbol["outer.<locals>.value"]
+            owner = by_symbol["outer"]
+            helper_key = implementation_surface_key(
+                "src/app.py",
+                "outer.<locals>.value",
+            )
+            supporting_owners = {helper_key: owner.surface_id}
+
+            self.assertEqual(
+                dict(helper.dynamic_selector_values)["getattr"],
+                ("alpha", "beta"),
+            )
+            contracts = derive_static_dynamic_selector_contracts(
+                raw,
+                supporting_owners=supporting_owners,
+            )
+            helper_contract = next(
+                contract
+                for contract in contracts
+                if contract.surface_key == helper_key
+                and contract.operation == "getattr"
+            )
+            self.assertEqual(helper_contract.owner_surface_id, owner.surface_id)
+            self.assertEqual(helper_contract.selector_values, ("alpha", "beta"))
+
+            dispositions = {
+                implementation_surface_key("src/app.py", surface.symbol): (
+                    IMPLEMENTATION_DISPOSITION_MODEL
+                )
+                for surface in raw.surfaces
+            }
+            dispositions[helper_key] = IMPLEMENTATION_DISPOSITION_SUPPORTING
+            projected = project_python_implementation_observation(
+                raw,
+                surface_dispositions=dispositions,
+                supporting_owners=supporting_owners,
+                dynamic_selector_contracts=contracts,
+            )
+            projected_helper = next(
+                surface
+                for surface in projected.surfaces
+                if surface.symbol == "outer.<locals>.value"
+            )
+            self.assertIn("dynamic_bounded", projected_helper.roles)
+            self.assertFalse(
+                any(
+                    finding.code == "dynamic_python_surface"
+                    and finding.surface_id == helper.surface_id
+                    for finding in projected.findings
+                )
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self._repository(
+                Path(temporary),
+                source=(
+                    "def outer(row, selected):\n"
+                    "    def value(item, field, default=None):\n"
+                    "        return getattr(item, field, default)\n"
+                    "    first = value(row, 'alpha', None)\n"
+                    "    return first, value(row, selected, None)\n"
+                ),
+            )
+            raw = discover_python_implementation_surfaces(
+                root=root,
+                file_disposition=self._python_file_disposition(
+                    root / "src" / "app.py"
+                ),
+            )
+            by_symbol = {surface.symbol: surface for surface in raw.surfaces}
+            helper = by_symbol["outer.<locals>.value"]
+            helper_key = implementation_surface_key(
+                "src/app.py",
+                "outer.<locals>.value",
+            )
+            self.assertNotIn("getattr", dict(helper.dynamic_selector_values))
+            self.assertFalse(
+                any(
+                    contract.surface_key == helper_key
+                    for contract in derive_static_dynamic_selector_contracts(raw)
+                )
+            )
 
     def test_serialization_is_canonical_strict_and_content_addressed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

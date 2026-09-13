@@ -11,6 +11,19 @@ The layout contract SHALL describe path/role/kind/safety shape. It SHALL NOT sto
 - **WHEN** the compact current contract is valid and every present entry belongs to one allowed destination
 - **THEN** the layout audit SHALL pass without requiring empty roots and without hashing member contents
 
+#### Scenario: Complete current layout passes
+
+- **WHEN** the manifest is current, the nine roots exist, and every inspected
+  entry belongs to exactly one declared role
+- **THEN** the layout audit SHALL pass without writing any file
+
+#### Scenario: Missing or stale layout blocks
+
+- **WHEN** `.flowguard`, `layout.toml`, a required role, or the current schema
+  is missing or stale
+- **THEN** the layout audit SHALL block before model, test, or evidence
+  authority is read
+
 #### Scenario: Runtime evidence grows
 
 - **WHEN** a current evidence root gains a valid receipt or object that is not a layout-shape violation
@@ -21,6 +34,8 @@ The layout contract SHALL describe path/role/kind/safety shape. It SHALL NOT sto
 
 - **WHEN** a top-level retired root, path escape, reparse point, bytecode/cache entry, or ambiguous current path exists
 - **THEN** layout audit SHALL block before model, test, or evidence authority is read
+
+## ADDED Requirements
 
 ### Requirement: Layout observation is bounded and shape-only
 

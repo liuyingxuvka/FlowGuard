@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 
 from flowguard.model_authority import (
+    AuthorityEndpointRef,
+    ModelRelation,
     REVISION_EVIDENCE_PASS,
     REVISION_EVIDENCE_REQUIRED,
     ModelAuthorityError,
@@ -195,6 +197,73 @@ def test_v5_accepts_full_current_path_quality_superset_for_one_added_model() -> 
             subject.model_id for subject in revision.path_quality_subjects
         ) == ("alpha", "beta")
         assert revision.path_quality_acceptance_ready
+
+
+@pytest.mark.parametrize(
+    ("relation_kind", "changed_endpoint", "expected_endpoint"),
+    (
+        ("affects", "purpose:alpha", "purpose:beta"),
+        ("implements", "purpose:alpha", "purpose:beta"),
+        ("invokes", "purpose:beta", "purpose:alpha"),
+    ),
+)
+def test_revision_closure_transfers_explicit_relation_semantics(
+    relation_kind, changed_endpoint, expected_endpoint
+) -> None:
+    """A changed native endpoint follows only its declared relation direction."""
+
+    base = _snapshot(("alpha", "beta"), snapshot_id="relation-base")
+    refs = {
+        ref.endpoint_id: ref
+        for ref in base.owner_artifact_refs
+    }
+    source = refs["purpose:alpha"]
+    target = refs["purpose:beta"]
+    relation_id = f"relation:{relation_kind}:alpha-beta"
+    extra = ModelRelation(
+        relation_id=relation_id,
+        kind=relation_kind,
+        source=source,
+        target=target,
+        evidence_fingerprints=(SHA_C,),
+    )
+    base = replace(
+        base,
+        relations=(*base.relations, extra),
+    )
+
+    changed_ref = replace(
+        refs[changed_endpoint],
+        fingerprint="sha256:" + "e" * 64,
+    )
+    candidate_refs = tuple(
+        changed_ref if ref.endpoint_id == changed_endpoint else ref
+        for ref in base.owner_artifact_refs
+    )
+
+    def swap_endpoint(endpoint: AuthorityEndpointRef) -> AuthorityEndpointRef:
+        return changed_ref if endpoint.endpoint_id == changed_endpoint else endpoint
+
+    candidate_relations = tuple(
+        replace(
+            relation,
+            source=swap_endpoint(relation.source),
+            target=swap_endpoint(relation.target),
+        )
+        for relation in base.relations
+    )
+    candidate = replace(
+        base,
+        snapshot_id="relation-candidate",
+        owner_artifact_refs=candidate_refs,
+        relations=candidate_relations,
+    )
+    diff = derive_revision_snapshot_diff(base, candidate)
+    closure = derive_revision_affected_closure(base, candidate, diff)
+
+    expected_id = f"parent_closure:{expected_endpoint}"
+    assert expected_id in closure.affected_ids
+    assert f"model_relation:{relation_id}" in closure.edge_ids
 
 
 def test_v5_full_current_path_quality_rejects_missing_changed_model() -> None:

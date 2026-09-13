@@ -19,8 +19,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from model import run_review  # noqa: E402
 
-
-if __name__ == "__main__":
+from flowguard.native_case_runner import native_main
+def _native_owner_main() -> int:
     report = run_review()
     print(report.format_text())
-    raise SystemExit(0 if report.ok else 1)
+    return 0 if report.ok else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(native_main("model:test_evidence_mesh", _native_owner_main))

@@ -26,6 +26,7 @@ from flowguard.formal_runner import (
     run_formal_workflow_suite,
 )
 import model
+from flowguard.validation_ownership import nested_owner_launch_allowed
 
 
 GOOD_LABELS = (
@@ -148,6 +149,14 @@ def run_formal_bad_case_suite():
 
 
 def run_native_pytest_contract() -> bool:
+    if not nested_owner_launch_allowed(
+        "implementation_blueprint", "implementation_blueprint:native_pytest"
+    ):
+        print(
+            "implementation-blueprint native tests: REUSED_CURRENT "
+            "(outer validation plan owns the declared pytest producer; no relaunch)"
+        )
+        return True
     completed = subprocess.run(
         [
             sys.executable,
@@ -187,6 +196,6 @@ def main() -> int:
         return 0
     return 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:implementation_blueprint", main))

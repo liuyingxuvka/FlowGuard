@@ -685,6 +685,26 @@ def main() -> int:
             for member in _state(required_run).report.members
         )
     )
+    dynamic_add_ok = bool(
+        _accepted(added_run)
+        and _state(added_run).report.reported_count == current_count + 1
+    )
+    dynamic_remove_ok = bool(
+        _accepted(removed_run)
+        and _state(removed_run).report.reported_count == current_count - 1
+    )
+    dynamic_role_swap_ok = bool(
+        _accepted(role_run)
+        and _state(role_run).report.reported_count == current_count
+    )
+    dynamic_required_file_ok = bool(
+        _accepted(required_run)
+        and any(
+            member.member_id == required_member_id
+            and required_file in member.required_files
+            for member in _state(required_run).report.members
+        )
+    )
 
     missing, missing_id = _missing_member(current)
     extra, extra_id = _extra_member(current)
@@ -799,6 +819,31 @@ def main() -> int:
         and current_state.release_readiness == "not_owned"
     )
 
+    exact_missing_ok = _rejected_with(missing_run, "missing_declared_member", member_id=missing_id)
+    exact_extra_ok = _rejected_with(extra_run, "extra_reserved_member", member_id=extra_id)
+    exact_duplicate_ok = _rejected_with(duplicate_run, "duplicate_discovered_member", member_id=duplicate_id)
+    exact_misclassified_ok = _rejected_with(
+        misclassified_run,
+        "discovered_member_role_mismatch",
+        member_id=misclassified_id,
+    )
+    exact_helper_public_ok = _rejected_with(
+        helper_public_run,
+        "internal_helper_exposed_public",
+        member_id=helper_public_id,
+    )
+    exact_required_file_ok = _rejected_with(
+        missing_file_run,
+        "required_member_file_missing",
+        member_id=missing_file_id,
+        file_suffix=missing_file_relative,
+    )
+    exact_fixed_count_ok = _rejected_with(fixed_count_run, "fixed_count_mismatch")
+    exact_fixed_parallel_ok = _rejected_with(
+        fixed_count_run,
+        "fixed_count_parallel_authority",
+    )
+
     _print_case("current_real_suite_map_and_route_registry", _accepted(current_run))
     _print_case("dynamic_add_remove_role_and_required_file", dynamic_ok)
     _print_case("exact_member_and_file_findings", exact_findings_ok)
@@ -814,6 +859,66 @@ def main() -> int:
             "release_readiness=not_owned"
         )
 
+    native_cases = [
+        ("current_real_suite_map_and_route_registry", _accepted(current_run), "good"),
+        ("dynamic_add", dynamic_add_ok, "good"),
+        ("dynamic_remove", dynamic_remove_ok, "good"),
+        ("dynamic_role_swap", dynamic_role_swap_ok, "good"),
+        ("dynamic_required_file", dynamic_required_file_ok, "good"),
+        ("evidence_domains_remain_separate", domains_separate, "good"),
+        ("missing_declared_member", exact_missing_ok, "bad"),
+        ("extra_reserved_member", exact_extra_ok, "bad"),
+        ("duplicate_discovered_member", exact_duplicate_ok, "bad"),
+        ("discovered_member_role_mismatch", exact_misclassified_ok, "bad"),
+        ("internal_helper_exposed_public", exact_helper_public_ok, "bad"),
+        ("required_member_file_missing", exact_required_file_ok, "bad"),
+        ("fixed_count_mismatch", exact_fixed_count_ok, "bad"),
+        ("fixed_count_parallel_authority", exact_fixed_parallel_ok, "bad"),
+    ]
+    native_cases.extend(
+        (f"stale_{field_name}", _stale_rejected(stale_runs[field_name]), "bad")
+        for field_name in stale_fields
+    )
+    native_cases.extend(
+        (
+            f"broken_member_{name}",
+            not run.model_report.ok,
+            "bad",
+        )
+        for name, run in broken_member_runs.items()
+    )
+    native_cases.extend(
+        (
+            name,
+            not run.model_report.ok,
+            "bad",
+        )
+        for name, run in (
+            ("broken_fixed", broken_fixed),
+            ("broken_stale", broken_stale),
+            ("broken_collapsed", broken_collapsed),
+            ("broken_overclaim", broken_overclaim),
+        )
+    )
+    print(
+        json.dumps(
+            {
+                "native_cases": [
+                    {
+                        "name": name,
+                        "ok": bool(ok),
+                        "observed_status": "ok" if kind == "good" else "violation",
+                        "case_kind": kind,
+                        "projection_priority": 60,
+                        "projection_source": "structured",
+                    }
+                    for name, ok, kind in native_cases
+                ]
+            },
+            sort_keys=True,
+        )
+    )
+
     return 0 if all(
         (
             _accepted(current_run),
@@ -825,6 +930,6 @@ def main() -> int:
         )
     ) else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:codex_skill_satellites", main))

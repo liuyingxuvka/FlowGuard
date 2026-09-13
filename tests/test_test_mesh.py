@@ -17,6 +17,7 @@ from flowguard import (
     TEST_LAYER_CONTRACT_COMBINATION_SHARD,
     TEST_LAYER_LEAF_MATRIX_CELL,
     TestMeshPlan,
+    TestMeshReport,
     TestPartitionItem,
     TestResultReuseTicket,
     TestSuiteEvidence,
@@ -780,6 +781,96 @@ class TestMeshTests(unittest.TestCase):
         self.assertEqual("final_receipt_required", report.decision)
         self.assertIn("background_incomplete", [finding.code for finding in report.findings])
         self.assertIn("leaf_matrix_cell_evidence_missing", [finding.code for finding in report.findings])
+
+    def test_strict_testmesh_composes_recursive_subtree_reports_and_counts(self):
+        leaf_report = TestMeshReport(
+            ok=True,
+            parent_suite_id="leaf",
+            decision="pass",
+            decision_scope="whole_domain",
+            recursive_test_count=2,
+            recursive_selected_count=2,
+            recursive_planned_count=2,
+            recursive_executed_count=2,
+        )
+        component_report = TestMeshReport(
+            ok=True,
+            parent_suite_id="component",
+            decision="pass",
+            decision_scope="whole_domain",
+            child_reports=(leaf_report,),
+            recursive_test_count=2,
+            recursive_selected_count=2,
+            recursive_planned_count=2,
+            recursive_executed_count=2,
+        )
+        plan = TestMeshPlan(
+            parent_suite_id="root",
+            child_suites=(
+                suite(
+                    "component",
+                    is_leaf=False,
+                    child_suite_ids=("leaf",),
+                    test_count=1,
+                    selected_count=1,
+                    planned_count=1,
+                    executed_count=1,
+                    diagnostic_campaign_id="campaign:component",
+                    diagnostic_boundary="declared_complete",
+                ),
+            ),
+            target_split_derivation=target(
+                "recursive-model",
+                ("component",),
+                (),
+            ),
+            subtree_reports=(component_report.to_dict(),),
+            decision_scope="whole_domain",
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertEqual(3, report.recursive_test_count)
+        self.assertEqual(3, report.recursive_executed_count)
+        self.assertEqual(
+            ("testmesh:component",),
+            tuple(item["report_id"] for item in report.child_reports),
+        )
+
+    def test_strict_testmesh_rejects_tampered_recursive_report_fingerprint(self):
+        child_report = TestMeshReport(
+            ok=True,
+            parent_suite_id="component",
+            decision="pass",
+            decision_scope="whole_domain",
+            recursive_test_count=1,
+            recursive_selected_count=1,
+            recursive_planned_count=1,
+            recursive_executed_count=1,
+        )
+        tampered = child_report.to_dict()
+        tampered["report_fingerprint"] = "sha256:" + "0" * 64
+        plan = TestMeshPlan(
+            parent_suite_id="root",
+            child_suites=(
+                suite(
+                    "component",
+                    is_leaf=False,
+                    child_suite_ids=(),
+                ),
+            ),
+            subtree_reports=(tampered,),
+            decision_scope="whole_domain",
+        )
+
+        report = review_test_mesh(plan)
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "subtree_report_not_verified",
+            {finding.code for finding in report.findings},
+        )
 
     def test_missing_partition_owner_blocks_parent_green(self):
         plan = TestMeshPlan(

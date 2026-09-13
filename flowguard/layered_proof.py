@@ -13,6 +13,10 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from ._normalization import string_sequence as _as_tuple
+from .contract_exhaustion import (
+    CONTRACT_GENERATION_LOCAL_CARTESIAN,
+    ContractProductSignature,
+)
 from .export import to_jsonable
 from .model_path_quality import (
     PathQualityMaterialReview,
@@ -23,6 +27,7 @@ from .model_path_quality import (
     review_path_quality_material,
 )
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
+from .recursive_hierarchy import is_verified_subtree_receipt
 
 
 PROOF_STATUS_PASSED = "passed"
@@ -134,6 +139,12 @@ class ChildProofContract:
     is_leaf: bool = False
     leaf_matrix_id: str = ""
     split_required: bool = False
+    owner_id: str = ""
+    parent_model_id: str = ""
+    claim_scope: str = ""
+    subtree_receipt_id: str = ""
+    subtree_receipt_fingerprint: str = ""
+    subtree_receipt: Any | None = None
     rationale: str = ""
 
     def __post_init__(self) -> None:
@@ -153,6 +164,15 @@ class ChildProofContract:
         object.__setattr__(self, "contracts_out", _as_tuple(self.contracts_out))
         object.__setattr__(self, "leaf_matrix_id", str(self.leaf_matrix_id))
         object.__setattr__(self, "rationale", str(self.rationale))
+        object.__setattr__(self, "owner_id", str(self.owner_id))
+        object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
+        object.__setattr__(self, "claim_scope", str(self.claim_scope))
+        object.__setattr__(self, "subtree_receipt_id", str(self.subtree_receipt_id))
+        object.__setattr__(
+            self,
+            "subtree_receipt_fingerprint",
+            str(self.subtree_receipt_fingerprint),
+        )
 
     def has_current_pass(self) -> bool:
         return self.evidence_status in PASSING_PROOF_STATUSES and self.evidence_current
@@ -177,6 +197,16 @@ class ChildProofContract:
             "is_leaf": self.is_leaf,
             "leaf_matrix_id": self.leaf_matrix_id,
             "split_required": self.split_required,
+            "owner_id": self.owner_id,
+            "parent_model_id": self.parent_model_id,
+            "claim_scope": self.claim_scope,
+            "subtree_receipt_id": self.subtree_receipt_id,
+            "subtree_receipt_fingerprint": self.subtree_receipt_fingerprint,
+            "subtree_receipt": (
+                self.subtree_receipt.to_dict()
+                if hasattr(self.subtree_receipt, "to_dict")
+                else to_jsonable(self.subtree_receipt)
+            ),
             "rationale": self.rationale,
         }
 
@@ -187,6 +217,13 @@ class ChildReattachmentProof:
 
     child_model_id: str
     consumed_evidence_id: str = ""
+    consumed_model_fingerprint: str = ""
+    consumed_owner_id: str = ""
+    consumed_parent_model_id: str = ""
+    consumed_claim_scope: str = ""
+    consumed_obligation_ids: tuple[str, ...] = ()
+    consumed_subtree_receipt_id: str = ""
+    consumed_subtree_receipt_fingerprint: str = ""
     consumed_path_quality_result_fingerprint: str = ""
     expected_inputs: tuple[str, ...] = ()
     expected_outputs: tuple[str, ...] = ()
@@ -203,6 +240,17 @@ class ChildReattachmentProof:
     def __post_init__(self) -> None:
         object.__setattr__(self, "child_model_id", str(self.child_model_id))
         object.__setattr__(self, "consumed_evidence_id", str(self.consumed_evidence_id))
+        object.__setattr__(self, "consumed_model_fingerprint", str(self.consumed_model_fingerprint))
+        object.__setattr__(self, "consumed_owner_id", str(self.consumed_owner_id))
+        object.__setattr__(self, "consumed_parent_model_id", str(self.consumed_parent_model_id))
+        object.__setattr__(self, "consumed_claim_scope", str(self.consumed_claim_scope))
+        object.__setattr__(self, "consumed_obligation_ids", _as_tuple(self.consumed_obligation_ids))
+        object.__setattr__(self, "consumed_subtree_receipt_id", str(self.consumed_subtree_receipt_id))
+        object.__setattr__(
+            self,
+            "consumed_subtree_receipt_fingerprint",
+            str(self.consumed_subtree_receipt_fingerprint),
+        )
         object.__setattr__(
             self,
             "consumed_path_quality_result_fingerprint",
@@ -219,6 +267,13 @@ class ChildReattachmentProof:
         return {
             "child_model_id": self.child_model_id,
             "consumed_evidence_id": self.consumed_evidence_id,
+            "consumed_model_fingerprint": self.consumed_model_fingerprint,
+            "consumed_owner_id": self.consumed_owner_id,
+            "consumed_parent_model_id": self.consumed_parent_model_id,
+            "consumed_claim_scope": self.consumed_claim_scope,
+            "consumed_obligation_ids": list(self.consumed_obligation_ids),
+            "consumed_subtree_receipt_id": self.consumed_subtree_receipt_id,
+            "consumed_subtree_receipt_fingerprint": self.consumed_subtree_receipt_fingerprint,
             "consumed_path_quality_result_fingerprint": (
                 self.consumed_path_quality_result_fingerprint
             ),
@@ -327,9 +382,27 @@ class LeafBoundaryMatrix:
     complete: bool = True
     too_large_for_leaf: bool = False
     split_required: bool = False
+    degenerate_boundary_disposition: str = ""
     scoped_exemption: str = ""
     evidence_current: bool = True
+    # ``product_signature`` remains the compact fingerprint used by older
+    # callers.  New callers may provide the full ContractProductSignature (or
+    # the explicit canonical_product_signature field); the reviewer always
+    # compares that typed identity to a kernel-derived signature.
+    product_signature: str | ContractProductSignature | Mapping[str, Any] = ""
+    canonical_product: tuple[str, ...] = ()
     rationale: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+    # Explicit input/state axis identities and their content fingerprints.  A
+    # matrix with no supplied ids gets the stable ``input``/``state`` ids so
+    # existing one-input/one-state fixtures remain source compatible while
+    # still receiving a deterministic kernel-owned fingerprint.
+    input_axis_id: str = ""
+    state_axis_id: str = ""
+    input_axis_fingerprint: str = ""
+    state_axis_fingerprint: str = ""
+    axis_fingerprints: Mapping[str, str] = field(default_factory=dict)
+    canonical_product_signature: ContractProductSignature | Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "leaf_model_id", str(self.leaf_model_id))
@@ -338,8 +411,113 @@ class LeafBoundaryMatrix:
         object.__setattr__(self, "state_cases", _as_tuple(self.state_cases))
         object.__setattr__(self, "expected_cell_ids", _as_tuple(self.expected_cell_ids))
         object.__setattr__(self, "cells", tuple(self.cells))
+        object.__setattr__(self, "degenerate_boundary_disposition", str(self.degenerate_boundary_disposition).strip())
         object.__setattr__(self, "scoped_exemption", str(self.scoped_exemption))
         object.__setattr__(self, "rationale", str(self.rationale))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+        object.__setattr__(self, "canonical_product", _as_tuple(self.canonical_product))
+        # Normalize a typed/mapping product supplied through either field.  A
+        # supplied stale fingerprint is intentionally retained for review;
+        # construction must not silently repair evidence supplied by a
+        # caller.
+        supplied_product = self.product_signature
+        supplied_canonical = self.canonical_product_signature
+        if supplied_canonical is None and isinstance(
+            supplied_product, (ContractProductSignature, Mapping)
+        ):
+            supplied_canonical = _coerce_leaf_product_signature(supplied_product)
+            supplied_product = supplied_canonical.fingerprint if supplied_canonical else ""
+        elif supplied_canonical is not None:
+            supplied_canonical = _coerce_leaf_product_signature(supplied_canonical)
+        object.__setattr__(self, "canonical_product_signature", supplied_canonical)
+        object.__setattr__(self, "product_signature", str(supplied_product or ""))
+
+        raw_axis_fingerprints = {
+            str(axis_id): str(fingerprint)
+            for axis_id, fingerprint in dict(self.axis_fingerprints).items()
+        }
+        input_axis_id = str(self.input_axis_id or "")
+        state_axis_id = str(self.state_axis_id or "")
+        if not input_axis_id:
+            input_axis_id = next(
+                (
+                    candidate
+                    for candidate in ("input", "input_axis")
+                    if candidate in raw_axis_fingerprints
+                ),
+                "input",
+            )
+        if not state_axis_id:
+            state_axis_id = next(
+                (
+                    candidate
+                    for candidate in ("state", "state_axis")
+                    if candidate in raw_axis_fingerprints
+                ),
+                "state",
+            )
+        # A supplied canonical signature can carry the axis ids.  Use those
+        # only when the matrix did not name ids itself; values remain owned by
+        # this matrix's input_cases/state_cases and are checked below.
+        if supplied_canonical is not None:
+            signature_axis_ids = tuple(supplied_canonical.axis_ids)
+            if not self.input_axis_id and signature_axis_ids:
+                input_axis_id = signature_axis_ids[0]
+            if not self.state_axis_id and len(signature_axis_ids) > 1:
+                state_axis_id = signature_axis_ids[1]
+        object.__setattr__(self, "input_axis_id", input_axis_id)
+        object.__setattr__(self, "state_axis_id", state_axis_id)
+
+        if self.input_cases:
+            raw_axis_fingerprints.setdefault(
+                input_axis_id,
+                str(self.input_axis_fingerprint)
+                or _leaf_axis_fingerprint(
+                    self.leaf_model_id, input_axis_id, "input", self.input_cases
+                ),
+            )
+        if self.state_cases:
+            raw_axis_fingerprints.setdefault(
+                state_axis_id,
+                str(self.state_axis_fingerprint)
+                or _leaf_axis_fingerprint(
+                    self.leaf_model_id, state_axis_id, "state", self.state_cases
+                ),
+            )
+        # Explicit singular fields override a map entry, which makes stale
+        # singular declarations observable rather than silently discarded.
+        if self.input_axis_fingerprint:
+            raw_axis_fingerprints[input_axis_id] = str(self.input_axis_fingerprint)
+        if self.state_axis_fingerprint:
+            raw_axis_fingerprints[state_axis_id] = str(self.state_axis_fingerprint)
+        object.__setattr__(self, "axis_fingerprints", dict(sorted(raw_axis_fingerprints.items())))
+        object.__setattr__(
+            self,
+            "input_axis_fingerprint",
+            str(raw_axis_fingerprints.get(input_axis_id, "")),
+        )
+        object.__setattr__(
+            self,
+            "state_axis_fingerprint",
+            str(raw_axis_fingerprints.get(state_axis_id, "")),
+        )
+        if self.input_cases and self.state_cases:
+            canonical_product = _cartesian_cell_ids(self.input_cases, self.state_cases)
+            if not self.canonical_product:
+                object.__setattr__(self, "canonical_product", canonical_product)
+            expected_product_signature = _canonical_leaf_product_signature(self)
+            if self.canonical_product_signature is None:
+                object.__setattr__(
+                    self,
+                    "canonical_product_signature",
+                    expected_product_signature,
+                )
+            if not self.product_signature:
+                object.__setattr__(
+                    self,
+                    "product_signature",
+                    expected_product_signature.fingerprint,
+                )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -353,10 +531,113 @@ class LeafBoundaryMatrix:
             "complete": self.complete,
             "too_large_for_leaf": self.too_large_for_leaf,
             "split_required": self.split_required,
+            "degenerate_boundary_disposition": self.degenerate_boundary_disposition,
             "scoped_exemption": self.scoped_exemption,
             "evidence_current": self.evidence_current,
+            "product_signature": self.product_signature,
+            "canonical_product": list(self.canonical_product),
             "rationale": self.rationale,
+            "metadata": to_jsonable(dict(self.metadata)),
+            "input_axis_id": self.input_axis_id,
+            "state_axis_id": self.state_axis_id,
+            "input_axis_fingerprint": self.input_axis_fingerprint,
+            "state_axis_fingerprint": self.state_axis_fingerprint,
+            "axis_fingerprints": dict(self.axis_fingerprints),
+            "canonical_product_signature": (
+                self.canonical_product_signature.to_dict()
+                if self.canonical_product_signature is not None
+                else None
+            ),
         }
+
+
+def _coerce_leaf_product_signature(
+    value: ContractProductSignature | Mapping[str, Any] | None,
+) -> ContractProductSignature | None:
+    """Normalize the typed product signature accepted by a leaf matrix."""
+
+    if value is None:
+        return None
+    if isinstance(value, ContractProductSignature):
+        return value
+    if isinstance(value, Mapping):
+        return ContractProductSignature(
+            signature_id=str(value.get("signature_id", "")),
+            model_id=str(value.get("model_id", "")),
+            interaction_group_id=str(value.get("interaction_group_id", "")),
+            axis_ids=value.get("axis_ids", ()),
+            axis_value_ids=value.get("axis_value_ids", {}),
+            expected_cardinality=value.get("expected_cardinality", 0),
+            partition_revision=str(value.get("partition_revision", "")),
+            generation_kind=str(
+                value.get("generation_kind", CONTRACT_GENERATION_LOCAL_CARTESIAN)
+            ),
+            shard_plan_fingerprint=str(value.get("shard_plan_fingerprint", "")),
+            fingerprint=str(value.get("fingerprint", "")),
+            axis_fingerprints=value.get("axis_fingerprints", {}),
+            parent_interface_contract_id=str(
+                value.get("parent_interface_contract_id", "")
+            ),
+            refinement_contract_id=str(value.get("refinement_contract_id", "")),
+            interface_model_ids=value.get("interface_model_ids", ()),
+        )
+    raise TypeError(
+        "canonical_product_signature must be a ContractProductSignature or mapping"
+    )
+
+
+def _leaf_axis_fingerprint(
+    leaf_model_id: str,
+    axis_id: str,
+    axis_kind: str,
+    cases: Sequence[str],
+) -> str:
+    """Derive the only supported fingerprint for a leaf finite axis."""
+
+    from .model_authority import canonical_fingerprint
+
+    return canonical_fingerprint(
+        {
+            "leaf_model_id": str(leaf_model_id),
+            "axis_id": str(axis_id),
+            "axis_kind": str(axis_kind),
+            "cases": list(cases),
+        }
+    )
+
+
+def _canonical_leaf_product_signature(
+    matrix: LeafBoundaryMatrix,
+) -> ContractProductSignature:
+    """Build a typed product identity from the matrix's finite axes only."""
+
+    axis_ids = (matrix.input_axis_id, matrix.state_axis_id)
+    return ContractProductSignature(
+        signature_id=f"contract_product:{matrix.leaf_model_id}:{matrix.matrix_id or 'leaf'}",
+        model_id=matrix.leaf_model_id,
+        interaction_group_id=matrix.matrix_id or f"{matrix.leaf_model_id}:leaf",
+        axis_ids=axis_ids,
+        axis_value_ids={
+            matrix.input_axis_id: tuple(matrix.input_cases),
+            matrix.state_axis_id: tuple(matrix.state_cases),
+        },
+        expected_cardinality=len(matrix.input_cases) * len(matrix.state_cases),
+        partition_revision=str(
+            matrix.metadata.get("partition_revision", "")
+            if isinstance(matrix.metadata, Mapping)
+            else ""
+        ),
+        generation_kind=CONTRACT_GENERATION_LOCAL_CARTESIAN,
+        shard_plan_fingerprint=str(
+            matrix.metadata.get("shard_plan_fingerprint", "")
+            if isinstance(matrix.metadata, Mapping)
+            else ""
+        ),
+        axis_fingerprints={
+            matrix.input_axis_id: matrix.input_axis_fingerprint,
+            matrix.state_axis_id: matrix.state_axis_fingerprint,
+        },
+    )
 
 
 @dataclass(frozen=True)
@@ -385,6 +666,8 @@ class LayeredBoundaryProofPlan:
     path_quality_results: tuple[PathQualityResult | Mapping[str, Any], ...] = ()
     path_quality_currentness_id: str = ""
     path_quality_result_set_fingerprint: str = ""
+    subtree_receipts: tuple[Any, ...] = ()
+    strict: bool | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "proof_id", str(self.proof_id))
@@ -393,6 +676,9 @@ class LayeredBoundaryProofPlan:
         object.__setattr__(self, "child_contracts", tuple(self.child_contracts))
         object.__setattr__(self, "reattachment_proofs", tuple(self.reattachment_proofs))
         object.__setattr__(self, "leaf_matrices", tuple(self.leaf_matrices))
+        object.__setattr__(self, "subtree_receipts", tuple(self.subtree_receipts))
+        if self.strict is not None:
+            object.__setattr__(self, "strict", bool(self.strict))
         object.__setattr__(self, "allowed_shared_responsibilities", _as_tuple(self.allowed_shared_responsibilities))
         object.__setattr__(self, "allowed_shared_functions", _as_tuple(self.allowed_shared_functions))
         object.__setattr__(self, "allowed_shared_state", _as_tuple(self.allowed_shared_state))
@@ -461,7 +747,35 @@ class LayeredBoundaryProofPlan:
             "path_quality_result_set_fingerprint": (
                 self.path_quality_result_set_fingerprint
             ),
+            "subtree_receipts": [
+                receipt.to_dict() if hasattr(receipt, "to_dict") else to_jsonable(receipt)
+                for receipt in self.subtree_receipts
+            ],
+            "strict": self.is_strict(),
         }
+
+    def is_strict(self) -> bool:
+        """Whether this plan makes declaration-only shortcuts unavailable."""
+
+        # Broad scopes are hard gates.  An explicit ``strict=False`` may opt a
+        # routine/design plan out of strict checks, but it must not downgrade
+        # a full/release/whole-domain/system claim and thereby reopen the
+        # caller-denominator shortcut.
+        broad_scope = self.claim_scope in {
+            "full",
+            "release",
+            "whole_domain",
+            "whole-domain",
+            "whole_system",
+            "whole-system",
+            "parent_confidence",
+            "parent-confidence",
+        }
+        if broad_scope:
+            return True
+        if self.strict is not None:
+            return bool(self.strict)
+        return False
 
 
 @dataclass(frozen=True)
@@ -743,6 +1057,120 @@ def _child_evidence_findings(plan: LayeredBoundaryProofPlan) -> list[LayeredBoun
                     metadata=child.to_dict(),
                 )
             )
+    return findings
+
+
+def _subtree_receipt_findings(plan: LayeredBoundaryProofPlan) -> list[LayeredBoundaryFinding]:
+    """Require a verified, exact child subtree receipt for every non-leaf.
+
+    A plain ``passed``/``current`` child row is intentionally insufficient in
+    strict full/release plans.  The receipt is checked by identity as well as
+    status so a receipt from another model, owner, parent, scope, or
+    obligation set cannot be reattached accidentally.
+    """
+
+    if not plan.is_strict():
+        return []
+    findings: list[LayeredBoundaryFinding] = []
+    receipt_by_id = {
+        str(getattr(receipt, "receipt_id", "") or (receipt.get("receipt_id", "") if isinstance(receipt, Mapping) else "")): receipt
+        for receipt in plan.subtree_receipts
+    }
+
+    def value(receipt: Any, name: str, default: Any = "") -> Any:
+        if isinstance(receipt, Mapping):
+            return receipt.get(name, default)
+        return getattr(receipt, name, default)
+
+    for child in plan.child_contracts:
+        if not child.owner_id:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "child_owner_id_missing",
+                    "strict child proof must name its single owner id",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                )
+            )
+        if not child.model_fingerprint:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "child_model_fingerprint_missing",
+                    "strict child proof must freeze the model fingerprint",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                )
+            )
+        if child.parent_model_id and child.parent_model_id != plan.parent_model_id:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "child_parent_model_mismatch",
+                    "child proof names a different parent model",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                    metadata={"expected": plan.parent_model_id, "actual": child.parent_model_id},
+                )
+            )
+        if child.claim_scope and child.claim_scope != plan.claim_scope:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "child_claim_scope_mismatch",
+                    "child proof claim scope differs from the parent proof scope",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                    metadata={"expected": plan.claim_scope, "actual": child.claim_scope},
+                )
+            )
+        if child.is_leaf:
+            continue
+        receipt = child.subtree_receipt
+        if receipt is None and child.subtree_receipt_id:
+            receipt = receipt_by_id.get(child.subtree_receipt_id)
+        if receipt is None:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "child_subtree_receipt_missing",
+                    "strict non-leaf child must consume a verified subtree receipt",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                )
+            )
+            continue
+        if not is_verified_subtree_receipt(receipt):
+            findings.append(
+                LayeredBoundaryFinding(
+                    "child_subtree_receipt_not_verified",
+                    "non-leaf child receipt is not a verified terminal receipt",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                    metadata={"receipt": to_jsonable(receipt)},
+                )
+            )
+        expected_values = {
+            "receipt_id": child.subtree_receipt_id,
+            "fingerprint": child.subtree_receipt_fingerprint,
+            "model_id": child.child_model_id,
+            "model_fingerprint": child.model_fingerprint,
+            "owner_id": child.owner_id,
+            "parent_model_id": plan.parent_model_id,
+            "claim_scope": plan.claim_scope,
+            "obligation_ids": tuple(child.responsibilities),
+        }
+        for name, expected in expected_values.items():
+            if not expected:
+                continue
+            actual = value(receipt, name, ()) if name == "obligation_ids" else value(receipt, name, "")
+            actual_values = _as_tuple(actual) if name == "obligation_ids" else str(actual)
+            if actual_values != expected:
+                findings.append(
+                    LayeredBoundaryFinding(
+                        f"child_subtree_receipt_{name}_mismatch",
+                        f"child subtree receipt {name} does not match the exact parent contract",
+                        parent_model_id=plan.parent_model_id,
+                        child_model_id=child.child_model_id,
+                        metadata={"expected": expected, "actual": actual_values},
+                    )
+                )
     return findings
 
 
@@ -1044,7 +1472,76 @@ def _review_one_leaf_matrix(
             )
         )
 
-    expected_cell_ids = _effective_expected_cell_ids(matrix)
+    explicit_degenerate = _leaf_degenerate_is_allowed(plan, matrix)
+    if plan.is_strict():
+        if not matrix.input_cases or not matrix.state_cases:
+            if explicit_degenerate:
+                findings.append(
+                    LayeredBoundaryFinding(
+                        "leaf_matrix_degenerate_boundary_scoped",
+                        "leaf proof uses an explicitly declared degenerate boundary disposition and remains scoped",
+                        severity="warning",
+                        parent_model_id=plan.parent_model_id,
+                        child_model_id=child.child_model_id,
+                        metadata=matrix.to_dict(),
+                    )
+                )
+            else:
+                findings.append(
+                    LayeredBoundaryFinding(
+                        "leaf_matrix_canonical_axes_missing",
+                        "full or release leaf proof requires non-empty input and state axes generated by the kernel",
+                        parent_model_id=plan.parent_model_id,
+                        child_model_id=child.child_model_id,
+                        metadata=matrix.to_dict(),
+                    )
+                )
+        else:
+            findings.extend(_leaf_axis_findings(plan, child, matrix))
+            findings.extend(_leaf_product_signature_findings(plan, child, matrix))
+
+    declared_expected_cell_ids = _effective_expected_cell_ids(matrix)
+    expected_cell_ids = declared_expected_cell_ids
+    canonical_expected_cell_ids: tuple[str, ...] = ()
+    if matrix.input_cases and matrix.state_cases:
+        canonical_expected_cell_ids = _cartesian_cell_ids(
+            matrix.input_cases,
+            matrix.state_cases,
+        )
+        if matrix.canonical_product and tuple(matrix.canonical_product) != canonical_expected_cell_ids:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "leaf_matrix_canonical_product_mismatch",
+                    "leaf canonical product does not match the Input x State axes",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                    metadata={
+                        "expected": canonical_expected_cell_ids,
+                        "actual": matrix.canonical_product,
+                        "matrix": matrix.to_dict(),
+                    },
+                )
+            )
+        # In a strict full/release claim the kernel-derived product is the
+        # denominator.  A caller-supplied expected list remains a diagnostic
+        # comparison only and cannot shrink or expand the covered universe.
+        if plan.is_strict():
+            expected_cell_ids = canonical_expected_cell_ids
+    if plan.is_strict() and matrix.input_cases and matrix.state_cases:
+        if matrix.expected_cell_ids and tuple(matrix.expected_cell_ids) != canonical_expected_cell_ids:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "leaf_matrix_expected_cells_not_canonical",
+                    "full or release leaf proof cannot use a self-reported denominator outside the canonical Input x State product",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                    metadata={
+                        "expected_cell_ids": list(matrix.expected_cell_ids),
+                        "canonical_expected_cell_ids": list(canonical_expected_cell_ids),
+                        "matrix": matrix.to_dict(),
+                    },
+                )
+            )
     cell_id_counts: dict[str, int] = {}
     for cell in matrix.cells:
         cell_id_counts[cell.cell_id] = cell_id_counts.get(cell.cell_id, 0) + 1
@@ -1060,9 +1557,27 @@ def _review_one_leaf_matrix(
             )
         )
 
-    findings.extend(_cartesian_matrix_findings(plan, child, matrix, expected_cell_ids))
+    # Compare an explicitly supplied denominator against the canonical
+    # product, while using the canonical product itself for strict coverage.
+    findings.extend(
+        _cartesian_matrix_findings(
+            plan,
+            child,
+            matrix,
+            declared_expected_cell_ids,
+            allow_degenerate=explicit_degenerate,
+        )
+    )
     cell_ids = set(cell_id_counts)
     missing_cells = tuple(sorted(set(expected_cell_ids) - cell_ids))
+    # Keep the historical ``leaf_matrix_missing_cell`` diagnostic for an
+    # explicitly supplied denominator as well.  In a strict proof the
+    # canonical Input x State product is the authoritative denominator, but
+    # a caller-declared cell that is absent from the evidence is still a
+    # useful concrete gap (and must not disappear merely because the caller
+    # also declared an extra/non-canonical cell).
+    declared_missing_cells = tuple(sorted(set(declared_expected_cell_ids) - cell_ids))
+    missing_cells = tuple(sorted(set(missing_cells) | set(declared_missing_cells)))
     if missing_cells:
         findings.append(
             LayeredBoundaryFinding(
@@ -1070,9 +1585,39 @@ def _review_one_leaf_matrix(
                 "leaf boundary matrix is missing expected Input x State cells",
                 parent_model_id=plan.parent_model_id,
                 child_model_id=child.child_model_id,
-                metadata={"missing_cells": missing_cells, "matrix": matrix.to_dict()},
+                metadata={
+                    "missing_cells": missing_cells,
+                    "canonical_missing_cells": tuple(
+                        sorted(set(expected_cell_ids) - cell_ids)
+                    ),
+                    "declared_missing_cells": declared_missing_cells,
+                    "matrix": matrix.to_dict(),
+                },
             )
         )
+    if (
+        plan.is_strict()
+        and canonical_expected_cell_ids
+        and matrix.expected_cell_ids
+        and tuple(matrix.expected_cell_ids) != canonical_expected_cell_ids
+    ):
+        caller_missing_cells = tuple(
+            sorted(set(matrix.expected_cell_ids) - cell_ids)
+        )
+        if caller_missing_cells:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "leaf_matrix_declared_cell_missing",
+                    "caller-supplied expected cells are incomplete; canonical coverage remains kernel-derived",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                    metadata={
+                        "declared_missing_cells": caller_missing_cells,
+                        "canonical_expected_cell_ids": list(canonical_expected_cell_ids),
+                        "matrix": matrix.to_dict(),
+                    },
+                )
+            )
     unexpected_cells = tuple(sorted(cell_ids - set(expected_cell_ids)))
     if unexpected_cells:
         findings.append(
@@ -1152,6 +1697,160 @@ def _review_one_leaf_matrix(
     return findings
 
 
+def _leaf_degenerate_is_allowed(
+    plan: LayeredBoundaryProofPlan,
+    matrix: LeafBoundaryMatrix,
+) -> bool:
+    """Whether a strict leaf has an explicit, scoped degenerate boundary."""
+
+    return bool(
+        plan.is_strict()
+        and plan.allow_scoped_leaf_exemptions
+        and matrix.degenerate_boundary_disposition.startswith("degenerate:")
+        and matrix.scoped_exemption
+    )
+
+
+def _leaf_axis_findings(
+    plan: LayeredBoundaryProofPlan,
+    child: ChildProofContract,
+    matrix: LeafBoundaryMatrix,
+) -> list[LayeredBoundaryFinding]:
+    """Validate the two kernel-owned finite axis identities for a leaf."""
+
+    findings: list[LayeredBoundaryFinding] = []
+    if not matrix.input_cases or not matrix.state_cases:
+        return findings
+    expected = {
+        matrix.input_axis_id: _leaf_axis_fingerprint(
+            matrix.leaf_model_id,
+            matrix.input_axis_id,
+            "input",
+            matrix.input_cases,
+        ),
+        matrix.state_axis_id: _leaf_axis_fingerprint(
+            matrix.leaf_model_id,
+            matrix.state_axis_id,
+            "state",
+            matrix.state_cases,
+        ),
+    }
+    if matrix.input_axis_id == matrix.state_axis_id:
+        findings.append(
+            LayeredBoundaryFinding(
+                "leaf_matrix_duplicate_axis",
+                "leaf input and state axes must be distinct finite axes",
+                parent_model_id=plan.parent_model_id,
+                child_model_id=child.child_model_id,
+                metadata={"axis_id": matrix.input_axis_id, "matrix": matrix.to_dict()},
+            )
+        )
+    actual = dict(matrix.axis_fingerprints)
+    for axis_id, expected_fingerprint in expected.items():
+        supplied = str(actual.get(axis_id, ""))
+        if not supplied:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "leaf_matrix_axis_fingerprint_missing",
+                    "leaf finite axis has no content fingerprint",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                    metadata={
+                        "axis_id": axis_id,
+                        "expected": expected_fingerprint,
+                        "matrix": matrix.to_dict(),
+                    },
+                )
+            )
+        elif supplied != expected_fingerprint:
+            findings.append(
+                LayeredBoundaryFinding(
+                    "leaf_matrix_axis_fingerprint_mismatch",
+                    "leaf finite axis fingerprint does not match its declared cases",
+                    parent_model_id=plan.parent_model_id,
+                    child_model_id=child.child_model_id,
+                    metadata={
+                        "axis_id": axis_id,
+                        "expected": expected_fingerprint,
+                        "actual": supplied,
+                        "matrix": matrix.to_dict(),
+                    },
+                )
+            )
+    extra_axis_ids = tuple(sorted(set(actual) - set(expected)))
+    if extra_axis_ids:
+        findings.append(
+            LayeredBoundaryFinding(
+                "leaf_matrix_foreign_axis",
+                "leaf boundary matrix declares an axis outside its input/state finite boundary",
+                parent_model_id=plan.parent_model_id,
+                child_model_id=child.child_model_id,
+                metadata={"axis_ids": extra_axis_ids, "matrix": matrix.to_dict()},
+            )
+        )
+    return findings
+
+
+def _leaf_product_signature_findings(
+    plan: LayeredBoundaryProofPlan,
+    child: ChildProofContract,
+    matrix: LeafBoundaryMatrix,
+) -> list[LayeredBoundaryFinding]:
+    """Require a typed ContractProductSignature for a strict non-degenerate leaf."""
+
+    if not matrix.input_cases or not matrix.state_cases:
+        return []
+    expected = _canonical_leaf_product_signature(matrix)
+    actual = matrix.canonical_product_signature
+    findings: list[LayeredBoundaryFinding] = []
+    if actual is None:
+        findings.append(
+            LayeredBoundaryFinding(
+                "leaf_matrix_product_signature_missing",
+                "strict leaf proof requires a typed canonical ContractProductSignature",
+                parent_model_id=plan.parent_model_id,
+                child_model_id=child.child_model_id,
+                metadata={"expected": expected.to_dict(), "matrix": matrix.to_dict()},
+            )
+        )
+        return findings
+    if not actual.is_self_consistent():
+        findings.append(
+            LayeredBoundaryFinding(
+                "leaf_matrix_product_signature_invalid",
+                "leaf canonical ContractProductSignature is not self-consistent",
+                parent_model_id=plan.parent_model_id,
+                child_model_id=child.child_model_id,
+                metadata={"expected": expected.to_dict(), "actual": actual.to_dict()},
+            )
+        )
+    if actual.identity_payload() != expected.identity_payload():
+        findings.append(
+            LayeredBoundaryFinding(
+                "leaf_matrix_product_signature_mismatch",
+                "leaf product signature does not match the kernel-derived Input x State axes",
+                parent_model_id=plan.parent_model_id,
+                child_model_id=child.child_model_id,
+                metadata={"expected": expected.to_dict(), "actual": actual.to_dict()},
+            )
+        )
+    if matrix.product_signature != expected.fingerprint:
+        findings.append(
+            LayeredBoundaryFinding(
+                "leaf_matrix_product_signature_mismatch",
+                "leaf compact product signature is not the canonical typed product fingerprint",
+                parent_model_id=plan.parent_model_id,
+                child_model_id=child.child_model_id,
+                metadata={
+                    "expected": expected.fingerprint,
+                    "actual": matrix.product_signature,
+                    "matrix": matrix.to_dict(),
+                },
+            )
+        )
+    return findings
+
+
 def _cartesian_cell_ids(input_cases: Sequence[str], state_cases: Sequence[str]) -> tuple[str, ...]:
     return tuple(f"{input_case}:{state_case}" for input_case in input_cases for state_case in state_cases)
 
@@ -1169,9 +1868,13 @@ def _cartesian_matrix_findings(
     child: ChildProofContract,
     matrix: LeafBoundaryMatrix,
     expected_cell_ids: Sequence[str],
+    *,
+    allow_degenerate: bool = False,
 ) -> list[LayeredBoundaryFinding]:
     findings: list[LayeredBoundaryFinding] = []
     if bool(matrix.input_cases) != bool(matrix.state_cases):
+        if allow_degenerate:
+            return findings
         findings.append(
             LayeredBoundaryFinding(
                 "leaf_matrix_missing_cartesian_axis",
@@ -1262,6 +1965,15 @@ def _decision_for_findings(findings: Sequence[LayeredBoundaryFinding]) -> str:
         ("leaf_split_required", "leaf_split_required"),
         ("child_split_required", "child_split_required"),
         ("leaf_matrix_missing", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_canonical_axes_missing", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_axis_fingerprint_missing", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_axis_fingerprint_mismatch", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_foreign_axis", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_duplicate_axis", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_product_signature_missing", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_product_signature_invalid", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_product_signature_mismatch", "leaf_boundary_matrix_required"),
+        ("leaf_matrix_canonical_product_mismatch", "leaf_boundary_matrix_required"),
         ("leaf_matrix_missing_cartesian_axis", "leaf_boundary_matrix_required"),
         ("leaf_matrix_not_cartesian", "leaf_boundary_matrix_required"),
         ("leaf_matrix_duplicate_cell", "leaf_boundary_matrix_required"),
@@ -1334,6 +2046,7 @@ def review_layered_boundary_proof(plan: LayeredBoundaryProofPlan) -> LayeredBoun
         noun="risk class",
     ))
     findings.extend(_child_evidence_findings(plan))
+    findings.extend(_subtree_receipt_findings(plan))
     findings.extend(_reattachment_findings(plan))
     findings.extend(_leaf_matrix_findings(plan))
 

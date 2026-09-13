@@ -60,6 +60,20 @@ def main() -> int:
                 model.broken_accept_without_replay_workflow(),
                 False,
             ),
+            FormalWorkflowCase(
+                "broken_rejection_base_model_loss",
+                model.broken_rejection_base_model_loss_workflow(),
+                False,
+                external_inputs=(model.EXTERNAL_INPUTS[3],),
+                max_sequence_length=1,
+            ),
+            FormalWorkflowCase(
+                "broken_rollback_base_model_loss",
+                model.broken_rollback_base_model_loss_workflow(),
+                False,
+                external_inputs=(model.EXTERNAL_INPUTS[0],),
+                max_sequence_length=1,
+            ),
         ),
         initial_states=(model.initial_state(),),
         external_inputs=model.EXTERNAL_INPUTS,
@@ -71,6 +85,6 @@ def main() -> int:
     )
     return 0 if correct_ok and report.ok else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:task_local_prediction_replay", main))

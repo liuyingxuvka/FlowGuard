@@ -17,7 +17,11 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from ._normalization import canonical_json_text as _canonical_json
-from .skill_suite import FLOWGUARD_SKILL_ROOT, validate_skill_suite
+from .skill_suite import (
+    FLOWGUARD_SKILL_ROOT,
+    SkillSuiteReport,
+    validate_skill_suite,
+)
 
 
 CONTRACT_SOURCE_SCHEMA = "skillguard.contract_source.v2"
@@ -559,9 +563,17 @@ def compile_skill_contract(
     return compiled, manifest, tuple(findings), ()
 
 
-def compile_skill_suite(root: str | Path = ".", *, write: bool = False) -> ContractCompileReport:
+def compile_skill_suite(
+    root: str | Path = ".",
+    *,
+    write: bool = False,
+    inventory: SkillSuiteReport | None = None,
+) -> ContractCompileReport:
     root_path = Path(root).resolve()
-    inventory = validate_skill_suite(root_path, check_private_inventories=False)
+    if inventory is None:
+        inventory = validate_skill_suite(root_path, check_private_inventories=False)
+    elif Path(inventory.root).resolve() != root_path:
+        raise ValueError("skill suite inventory root does not match compiler root")
     member_ids = inventory.declared_member_ids
     findings: list[ContractCompileFinding] = []
     hashes: dict[str, str] = {}

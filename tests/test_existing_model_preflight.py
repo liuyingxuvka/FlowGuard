@@ -1,4 +1,5 @@
 import unittest
+import hashlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -36,6 +37,7 @@ from flowguard.existing_model_preflight import (
     ExistingIntentSurface,
     PREFLIGHT_INVENTORY_BROAD,
 )
+from flowguard.model_authority_store import read_selected_model_closure
 
 
 def model_hit(**kwargs) -> ModelContextHit:
@@ -465,6 +467,182 @@ class ExistingModelPreflightTests(unittest.TestCase):
             )
             self.assertTrue(full.relevant_models[0].function_blocks)
             self.assertEqual(3, len(broad.relevant_models))
+
+    def test_light_selected_navigation_skips_global_audit_and_deduplicates_shared_input(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".flowguard" / "behavior" / "inventory").mkdir(parents=True)
+
+            def write(relative: str, text: str) -> Path:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text, encoding="utf-8")
+                return path
+
+            def sha(path: Path) -> str:
+                payload = path.read_bytes()
+                canonical = payload.decode("utf-8").replace("\r\n", "\n").encode("utf-8")
+                return "sha256:" + hashlib.sha256(canonical).hexdigest()
+
+            shared = write(".flowguard/inputs/shared.json", '{"version": 1}\n')
+            alpha_model = write(".flowguard/models/alpha.py", "alpha\n")
+            alpha_runner = write(".flowguard/runners/alpha.py", "run-alpha\n")
+            beta_model = write(".flowguard/models/beta.py", "beta\n")
+            beta_runner = write(".flowguard/runners/beta.py", "run-beta\n")
+
+            def instance(model_id: str, model_path: Path, runner_path: Path):
+                return SimpleNamespace(
+                    logical_model_id=model_id,
+                    model_kind="state_machine",
+                    model_path=model_path.relative_to(root).as_posix(),
+                    model_sha256=sha(model_path),
+                    runner_path=runner_path.relative_to(root).as_posix(),
+                    runner_sha256=sha(runner_path),
+                    fingerprint=f"sha256:{model_id}",
+                    purpose_closure_fingerprint=f"sha256:purpose-{model_id}",
+                    inputs=(
+                        SimpleNamespace(
+                            path=shared.relative_to(root).as_posix(),
+                            sha256=sha(shared),
+                        ),
+                    ),
+                )
+
+            alpha = instance("alpha", alpha_model, alpha_runner)
+            beta = instance("beta", beta_model, beta_runner)
+            relation = SimpleNamespace(
+                relation_id="relation:alpha-affects-beta",
+                kind="affects",
+                evidence_fingerprints=(),
+                source=SimpleNamespace(
+                    endpoint_kind="model_instance",
+                    endpoint_id="model:alpha",
+                    fingerprint=alpha.fingerprint,
+                    owner_route="models",
+                ),
+                target=SimpleNamespace(
+                    endpoint_kind="model_instance",
+                    endpoint_id="model:beta",
+                    fingerprint=beta.fingerprint,
+                    owner_route="models",
+                ),
+            )
+            snapshot = SimpleNamespace(
+                fingerprint="sha256:snapshot",
+                subject_revision="revision:test",
+                unresolved_gap_ids=(),
+                model_instances=(alpha, beta),
+                relations=(relation,),
+            )
+            lookup = SimpleNamespace(
+                status="performed",
+                selected_plane="agent_operation",
+                primary_hits=(
+                    BehaviorCommitmentHit(
+                        "commitment:alpha",
+                        "agent_operation",
+                        "alpha",
+                        100,
+                    ),
+                ),
+                related_hits=(),
+                candidate_hits=(),
+                plane_ambiguity=False,
+                ledger_fingerprint="sha256:ledger",
+            )
+
+            with (
+                patch(
+                    "flowguard.existing_model_preflight.load_observed_model_system",
+                    return_value=(None, snapshot),
+                ),
+                patch(
+                    "flowguard.existing_model_preflight.audit_model_authority",
+                    side_effect=AssertionError("light navigation invoked global audit"),
+                ),
+                patch(
+                    "flowguard.existing_model_preflight.query_behavior_commitments_from_path",
+                    return_value=lookup,
+                ),
+            ):
+                preflight = existing_model_preflight_from_project(
+                    root,
+                    "inspect alpha",
+                    mode="light",
+                )
+
+            self.assertEqual("pass", preflight.authority_integrity)
+            self.assertEqual("current", preflight.selected_source_currentness)
+            self.assertEqual(
+                ("alpha", "beta"),
+                tuple(item.model_id for item in preflight.relevant_models),
+            )
+            self.assertEqual(1, preflight.selected_read_counts[shared.relative_to(root).as_posix()])
+            self.assertEqual(0, preflight.selected_closure["producer_count"])
+            self.assertEqual(0, preflight.selected_closure["write_count"])
+
+    def test_selected_source_stale_returns_as_of_map_without_execution_claim(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            model_path = root / ".flowguard" / "models" / "alpha.py"
+            runner_path = root / ".flowguard" / "runners" / "alpha.py"
+            input_path = root / ".flowguard" / "inputs" / "alpha.json"
+            for path, value in (
+                (model_path, "accepted-model\n"),
+                (runner_path, "accepted-runner\n"),
+                (input_path, "{}\n"),
+            ):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(value, encoding="utf-8")
+
+            def sha(path: Path) -> str:
+                payload = path.read_bytes()
+                canonical = payload.decode("utf-8").replace("\r\n", "\n").encode("utf-8")
+                return "sha256:" + hashlib.sha256(canonical).hexdigest()
+
+            model = SimpleNamespace(
+                logical_model_id="alpha",
+                model_kind="state_machine",
+                model_path=model_path.relative_to(root).as_posix(),
+                model_sha256=sha(model_path),
+                runner_path=runner_path.relative_to(root).as_posix(),
+                runner_sha256=sha(runner_path),
+                fingerprint="sha256:alpha",
+                purpose_closure_fingerprint="sha256:purpose-alpha",
+                inputs=(
+                    SimpleNamespace(
+                        path=input_path.relative_to(root).as_posix(),
+                        sha256=sha(input_path),
+                    ),
+                ),
+            )
+            snapshot = SimpleNamespace(
+                fingerprint="sha256:snapshot",
+                subject_revision="revision:test",
+                unresolved_gap_ids=(),
+                model_instances=(model,),
+                relations=(),
+            )
+            model_path.write_text("changed-after-acceptance\n", encoding="utf-8")
+
+            result = read_selected_model_closure(
+                root,
+                selected_model_ids=("alpha",),
+                snapshot=snapshot,
+            )
+
+            self.assertEqual("pass", result.authority_integrity)
+            self.assertEqual("stale", result.selected_source_currentness)
+            self.assertEqual("not_run", result.execution_evidence_status)
+            self.assertEqual(("alpha",), result.selected_model_ids)
+            self.assertIn(
+                "selected_source_stale:.flowguard/models/alpha.py",
+                result.stale_obligations,
+            )
+            self.assertEqual(
+                1,
+                dict(result.read_counts)[".flowguard/models/alpha.py"],
+            )
 
     def test_blocked_modeled_lookup_never_uses_root_lexical_or_file_fallback(self):
         with TemporaryDirectory() as directory:

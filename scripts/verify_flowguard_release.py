@@ -16,6 +16,8 @@ from flowguard.release_verification import (
     RELEASE_PHASE_PUBLISHED,
     RELEASE_PHASE_TAG,
     RELEASE_PHASES,
+    ReleaseTarget,
+    save_release_verification_receipt,
     verify_local_candidate,
     verify_published_release,
     verify_tagged_release,
@@ -38,6 +40,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Validation-owner receipt root; defaults to .flowguard/evidence/validation-owners.",
     )
     parser.add_argument("--repository", help="Expected GitHub owner/repository for published verification.")
+    parser.add_argument(
+        "--target",
+        required=True,
+        help="Explicit target descriptor JSON. Required for target-neutral external releases.",
+    )
+    parser.add_argument(
+        "--candidate-receipt",
+        help="Immutable local-candidate receipt consumed by tag/published phases.",
+    )
+    parser.add_argument(
+        "--output",
+        help="Write the immutable verification receipt JSON to this path.",
+    )
     parser.add_argument("--json", action="store_true")
     return parser
 
@@ -63,6 +78,12 @@ def main(argv: list[str] | None = None) -> int:
         "receipt_root": receipt_root,
         "version": version,
     }
+    target = ReleaseTarget.from_json(args.target)
+    if args.phase in {RELEASE_PHASE_TAG, RELEASE_PHASE_PUBLISHED} and not args.candidate_receipt:
+        raise SystemExit("--candidate-receipt is required for target-neutral tag/published verification")
+    common["target"] = target
+    if args.candidate_receipt:
+        common["candidate_receipt"] = args.candidate_receipt
     if args.phase == RELEASE_PHASE_LOCAL_CANDIDATE:
         receipt = verify_local_candidate(root, **common)
     elif args.phase == RELEASE_PHASE_TAG:
@@ -75,6 +96,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:  # argparse owns the finite phase set.
         raise AssertionError(f"unhandled release phase: {args.phase}")
+    if args.output:
+        save_release_verification_receipt(receipt, args.output)
     print(
         json.dumps(receipt.to_dict(), indent=2, ensure_ascii=True)
         if args.json

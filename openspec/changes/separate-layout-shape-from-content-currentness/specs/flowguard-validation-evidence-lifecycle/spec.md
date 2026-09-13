@@ -20,6 +20,8 @@ FlowGuard validation writers SHALL store complete stdout/stderr as one determini
 - **WHEN** a child stdout stream parses as a large JSON object
 - **THEN** the child result SHALL record its fingerprint and bounded diagnostics while any required complete object remains recoverable from one stream artifact
 
+## ADDED Requirements
+
 ### Requirement: Ordinary validation disposes unreachable evidence after publication
 
 Validation and simulator execution SHALL publish the terminal result and current head before classifying prior runs. After the head and pins are replayed, unreachable unpublished work and unpinned collectible runs SHALL be quarantined and purged within the same lifecycle operation. Current, explicitly pinned, and actively leased evidence SHALL never be deleted. Ordinary validation SHALL not perform an unbounded forensic byte scrub.

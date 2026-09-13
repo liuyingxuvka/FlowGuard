@@ -14,6 +14,8 @@ from .contract_exhaustion import (
     ContractExhaustionPlan,
     ContractInteractionGroup,
     ContractOracle,
+    _PartitionedProductVerificationContext,
+    bind_partition_context_to_plan,
 )
 from .export import to_jsonable
 from .proof_artifact import (
@@ -1321,6 +1323,7 @@ def default_primary_path_authority_coverage_universe(
         required_interaction_group_ids=tuple(group.group_id for group in groups),
         required_coverage_receipt_ids=(f"contract_coverage:{model_id}",),
         require_full_product=True,
+        allow_partitioned_product=True,
         metadata={"owner_route": PRIMARY_PATH_ROUTE_ID},
     )
 
@@ -1331,10 +1334,17 @@ def primary_path_authority_contract_exhaustion_plan(
     model_id: str = PRIMARY_PATH_ROUTE_ID,
     claim_scope: str = PPA_CLAIM_SCOPE_FULL,
     max_combinations: int = 10000,
+    authority_state: Any | None = None,
+    partition_context: _PartitionedProductVerificationContext | None = None,
 ) -> ContractExhaustionPlan:
-    """Build the canonical ContractExhaustionMesh plan for this route."""
+    """Build the canonical ContractExhaustionMesh plan for this route.
 
-    return ContractExhaustionPlan(
+    A broad partitioned matrix is only authority-backed when the caller passes
+    the current accepted model-authority state (or an already-derived context).
+    An unbound plan remains fail-closed at review time.
+    """
+
+    plan = ContractExhaustionPlan(
         plan_id,
         model_id=model_id,
         axes=default_primary_path_authority_axes(model_id=model_id),
@@ -1368,10 +1378,22 @@ def primary_path_authority_contract_exhaustion_plan(
         required_route_ids=("model_test_alignment", "test_mesh_maintenance", "risk_evidence_ledger"),
         require_model_coverage_receipt=True,
         require_coverage_universe=True,
+        metadata={
+            # This route emits the finite PPA matrix and its downstream
+            # acceptance ids first.  Native terminal handoff receipts are
+            # owned by the consuming route checks and are never synthesized
+            # by the matrix planner.
+            "composite_handoff_results_deferred": True,
+        },
         coverage_universe=default_primary_path_authority_coverage_universe(
             model_id=model_id,
             claim_scope=claim_scope,
         ),
+    )
+    return bind_partition_context_to_plan(
+        plan,
+        authority_state=authority_state,
+        partition_context=partition_context,
     )
 
 

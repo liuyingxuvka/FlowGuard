@@ -7,6 +7,7 @@ import hashlib
 import json
 import sys
 import threading
+import types
 from pathlib import Path
 from typing import Sequence
 
@@ -14,9 +15,23 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
+# The public ``flowguard`` package eagerly imports every route and helper so
+# normal consumers get one complete API surface.  This manifest runner only
+# needs the model-regression module and its relative dependencies; executing
+# the public initializer here turns a bounded validation start into minutes of
+# Windows file reads.  Install a package namespace with the same path, but no
+# eager initializer, so the runner keeps source-relative imports and package
+# identity while loading only the owned execution lane.
+if "flowguard" not in sys.modules:
+    _internal_package = types.ModuleType("flowguard")
+    _internal_package.__path__ = [str(REPOSITORY_ROOT / "flowguard")]
+    _internal_package.__package__ = "flowguard"
+    sys.modules["flowguard"] = _internal_package
+
 from flowguard.model_regressions import (
     ModelRegressionManifest,
     audit_manifest,
+    resolve_current_full_model_regression_parent,
     run_manifest_regressions,
 )
 
@@ -42,10 +57,48 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--shard", help="Stable shard in N/M form.")
     parser.add_argument("--jobs", type=int, default=1)
     parser.add_argument("--timeout", type=float, help="Override each child timeout in seconds.")
+    parser.add_argument(
+        "--model-parent-receipt",
+        help=(
+            "Exact current full-model parent artifact to verify read-only. "
+            "When supplied, no model producer is launched and historical "
+            "parent artifacts are never searched."
+        ),
+    )
     parser.add_argument("--output-dir")
+    parser.add_argument(
+        "--receipt-dir",
+        help=(
+            "Content-addressed owner-receipt root for this execution. "
+            "Use a fresh transaction directory when the default store "
+            "contains a large historical backlog."
+        ),
+    )
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--full", action="store_true")
     parser.add_argument("--audit-only", action="store_true")
+    parser.add_argument(
+        "--authority-kind",
+        choices=("standalone", "child", "parent"),
+        default="standalone",
+        help=(
+            "Authority kind for the retained terminal run. Full-suite model "
+            "children use 'child'; standalone invocations keep the default."
+        ),
+    )
+    parser.add_argument(
+        "--parent-scope",
+        default="",
+        help="Normalized parent scope required when --authority-kind=child.",
+    )
+    parser.add_argument(
+        "--require-executed-evidence",
+        action="store_true",
+        help=(
+            "Require every native model runner to emit one explicit "
+            "FLOWGUARD_EXECUTED_CASE_IDS JSON marker."
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -61,6 +114,54 @@ def main(argv: Sequence[str] | None = None) -> int:
                 + [f"error: {item}" for item in audit.errors]
             ))
             return 0 if audit.ok else 2
+        if args.model_parent_receipt:
+            if args.tier != "full" or args.model or args.shard:
+                raise ValueError(
+                    "--model-parent-receipt requires an unsharded full-tier selection"
+                )
+            current = resolve_current_full_model_regression_parent(
+                args.root,
+                receipt_dir=args.receipt_dir,
+            )
+            requested = Path(args.model_parent_receipt).expanduser().resolve()
+            actual = Path(current.parent_artifact_path).resolve()
+            root_path = Path(args.root).expanduser().resolve()
+            if root_path not in requested.parents or requested.is_symlink():
+                raise ValueError(
+                    "--model-parent-receipt must be a non-symlink path inside --root"
+                )
+            if requested != actual:
+                raise ValueError(
+                    "--model-parent-receipt is not the typed current parent artifact: "
+                    f"expected {actual}, got {requested}"
+                )
+            payload = {
+                "schema_version": "flowguard.model_regression_parent_reuse.v1",
+                "command": "flowguard-model-regressions",
+                "status": "pass",
+                "ok": True,
+                "claim_scope": "full",
+                "tier": "full",
+                "parent_receipt_path": str(actual),
+                "parent_receipt_fingerprint": current.parent_artifact_fingerprint,
+                "selected_model_ids": [item.model_id for item in current.children],
+                "executed_model_ids": [],
+                "reused_model_ids": [item.model_id for item in current.children],
+                "producer_invocations": 0,
+                "native_producer_invocations": 0,
+                "claim_boundary": (
+                    "The exact typed current model parent and its child receipts "
+                    "were independently verified; this invocation launched no "
+                    "model producer."
+                ),
+            }
+            if args.json:
+                print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                print("status: pass")
+                print(f"parent_receipt_path: {actual}")
+                print("producer_invocations: 0")
+            return 0
         cancel = threading.Event()
         report = run_manifest_regressions(
             args.root,
@@ -72,6 +173,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             output_dir=args.output_dir,
             cancel_event=cancel,
             progress=None if args.json else _progress,
+            receipt_dir=args.receipt_dir,
+            require_executed_case_ids=args.require_executed_evidence,
+            authority_kind=args.authority_kind,
+            parent_scope=args.parent_scope,
         )
     except (ValueError, OSError) as exc:
         payload = {

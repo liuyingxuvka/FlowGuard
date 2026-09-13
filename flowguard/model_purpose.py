@@ -66,24 +66,49 @@ class FailureProofBinding:
     failure_id: str
     known_bad_case_id: str
     oracle_id: str
+    # Most protected-failure obligations are negative assertions: the named
+    # case must be rejected.  A small but important class of obligations is a
+    # repair-preservation assertion: the same named case is deliberately
+    # reused by the positive native proof and must remain passing after a
+    # repair.  Keeping this polarity on the binding prevents a catalog label
+    # from being silently interpreted as a second negative test.
+    expected_case_kind: str = "bad"
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "FailureProofBinding":
-        unknown = set(payload) - {"failure_id", "known_bad_case_id", "oracle_id"}
+        unknown = set(payload) - {
+            "failure_id",
+            "known_bad_case_id",
+            "oracle_id",
+            "expected_case_kind",
+        }
         if unknown:
             raise ModelPurposeError(f"unknown failure binding fields: {sorted(unknown)}")
+        expected_case_kind = str(payload.get("expected_case_kind", "bad")).strip().lower()
+        if expected_case_kind not in {"bad", "good"}:
+            raise ModelPurposeError(
+                "expected_case_kind must be either 'bad' or 'good'"
+            )
         return cls(
             failure_id=_clean_id(payload.get("failure_id"), "failure_id"),
             known_bad_case_id=_clean_id(payload.get("known_bad_case_id"), "known_bad_case_id"),
             oracle_id=_clean_id(payload.get("oracle_id"), "oracle_id"),
+            expected_case_kind=expected_case_kind,
         )
 
     def to_dict(self) -> dict[str, str]:
-        return {
+        payload = {
             "failure_id": self.failure_id,
             "known_bad_case_id": self.known_bad_case_id,
             "oracle_id": self.oracle_id,
         }
+        # Omit the default so existing negative purpose closures retain their
+        # exact content identity.  A positive preservation assertion is
+        # explicit in the serialized contract and therefore participates in
+        # the closure fingerprint.
+        if self.expected_case_kind != "bad":
+            payload["expected_case_kind"] = self.expected_case_kind
+        return payload
 
 
 @dataclass(frozen=True)

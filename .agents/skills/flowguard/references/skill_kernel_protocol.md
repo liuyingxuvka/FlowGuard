@@ -70,6 +70,9 @@ work to `flowguard` instead of taking ownership.
 `plan_detailing` and `agent_workflow` are internal DevelopmentProcessFlow
 routes. They are selected inside `flowguard-development-process-flow` and have
 no independent Codex skill, alias, forwarding entrypoint, or fallback path.
+`agent_workflow` is risk-admitted only; ordinary work, capability labels, or a
+multi-skill description without an explicit workflow-risk fact stays
+`not_triggered` and must not load the rehearsal protocol.
 
 ## Sub-Protocols Own
 

@@ -4,6 +4,23 @@ Use this protocol to classify the modeling mode, preserve current evidence seman
 
 ## Lightest mode
 
+Execution depth and modeling mode are orthogonal.  Emit both on every entry
+decision and keep their claims separate:
+
+| execution_profile | default modeling_mode | boundary |
+| --- | --- | --- |
+| `light` | `read_only_audit` | read-only shape/currentness; no native producer |
+| `affected` | `model_first_change` | exact changed-path closure and explicit owners |
+| `full` | `layered_boundary_proof` | frozen whole-system owner DAG and terminal evidence |
+
+`model_maintenance` may be selected for a stale artifact while remaining
+`light` or `affected`; a specialist route does not upgrade to `full`.  Full
+admission requires governed writes, formal/shadow/installed projections,
+OpenSpec, owner DAG, and reverse semantic input to be frozen.  Return
+`claim_boundary`, `selection_reason`, `closed_obligations`,
+`not_run_obligations`, and `escalation_triggers`; never hide a missing gate by
+falling back to another profile.
+
 - `read_only_audit`: inspect existing models/replays/adoption and stale fallbacks; do not create a model solely for read-only work.
 - `model_first_change`: create/update a fit-for-risk model before production behavior changes.
 - `model_maintenance`: upgrade stale model, replay, adoption, or old-schema artifacts before trusting them.

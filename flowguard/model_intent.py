@@ -25,7 +25,7 @@ from .model_authority import (
     _text,
     canonical_fingerprint,
 )
-from .source_identity import source_file_fingerprint
+from .source_identity import assert_current_source_path, source_file_fingerprint
 
 
 MODEL_INTENT_CONTRIBUTION_SCHEMA = "flowguard.model_intent_contribution.v1"
@@ -267,7 +267,12 @@ def _resolved_project_source(
             "intent source is not a regular file: "
             f"{contribution.contribution_id}: {contribution.source_ref}"
         )
-    return resolved, resolved.relative_to(root).as_posix()
+    project_ref = resolved.relative_to(root).as_posix()
+    try:
+        assert_current_source_path(project_ref)
+    except ValueError as exc:
+        raise ModelAuthorityError(str(exc)) from exc
+    return resolved, project_ref
 
 
 def verify_model_intent_sources(
@@ -316,6 +321,12 @@ def verify_model_intent_sources(
 
     frozen: list[ModelIntentSourceIdentity] = []
     for item in items:
+        source_ref = item.source_ref.replace("\\", "/")
+        if source_ref.startswith((".flowguard/", "work/flowguard")):
+            try:
+                assert_current_source_path(source_ref)
+            except ValueError as exc:
+                raise ModelAuthorityError(str(exc)) from exc
         if not item.work_context_id:
             resolved, project_ref = _resolved_project_source(root_path, item)
             try:

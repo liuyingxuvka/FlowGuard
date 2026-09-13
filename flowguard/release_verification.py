@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import importlib.metadata
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -12,6 +13,10 @@ import subprocess
 import tomllib
 from typing import Any, Callable, Mapping, Sequence
 
+from .completion_epoch import (
+    COMPLETION_CLAIM_SCOPE_RELEASE,
+    normalize_completion_claim_scope,
+)
 from .evidence_receipts import (
     EvidenceReceipt,
     ReceiptVerificationResult,
@@ -70,6 +75,94 @@ class ReleaseCheck:
 
 
 @dataclass(frozen=True)
+class ReleaseTarget:
+    """Target-owned release identity consumed by the common verifier.
+
+    FlowGuard's package/version is deliberately not part of this identity.
+    A target may be FlowGuard itself, but the verifier has no self-repository
+    fast path: all repositories provide this same descriptor.
+    """
+
+    target_id: str
+    version: str
+    tag: str
+    repository: str = ""
+    default_branch: str = ""
+    distribution_kind: str = "source_only"
+    required_source_paths: tuple[str, ...] = ()
+    required_check_ids: tuple[str, ...] = ()
+    assets: tuple[tuple[str, str], ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "target_id", str(self.target_id).strip())
+        object.__setattr__(self, "version", str(self.version).strip())
+        object.__setattr__(self, "tag", str(self.tag).strip())
+        object.__setattr__(self, "repository", str(self.repository).strip())
+        object.__setattr__(self, "default_branch", str(self.default_branch).strip())
+        object.__setattr__(self, "distribution_kind", str(self.distribution_kind).strip())
+        object.__setattr__(self, "required_source_paths", tuple(dict.fromkeys(str(p).replace("\\", "/") for p in self.required_source_paths)))
+        object.__setattr__(self, "required_check_ids", tuple(dict.fromkeys(str(p) for p in self.required_check_ids)))
+        normalized_assets: list[tuple[str, str]] = []
+        for item in self.assets:
+            if isinstance(item, Mapping):
+                path = str(item.get("path", ""))
+                digest = str(item.get("sha256", ""))
+            else:
+                path, digest = item
+                path, digest = str(path), str(digest)
+            normalized_assets.append((path.replace("\\", "/"), digest))
+        object.__setattr__(self, "assets", tuple(dict.fromkeys(normalized_assets)))
+        if not self.target_id or not self.version or not self.tag:
+            raise ValueError("release target requires target_id, version, and tag")
+        if self.distribution_kind not in {"source_only", "source_and_assets"}:
+            raise ValueError("release target distribution_kind is invalid")
+        if not self.tag.startswith("v") or self.tag[1:] != self.version:
+            raise ValueError("release target tag must be v-prefixed version")
+        for path in (*self.required_source_paths, *(path for path, _ in self.assets)):
+            if not path or Path(path).is_absolute() or ".." in Path(path).parts:
+                raise ValueError(f"release target path must be relative: {path}")
+        if self.distribution_kind == "source_only" and self.assets:
+            raise ValueError("source_only release target cannot declare assets")
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "ReleaseTarget":
+        assets = value.get("assets", ())
+        if not isinstance(assets, Sequence) or isinstance(assets, (str, bytes)):
+            raise ValueError("release target assets must be an array")
+        return cls(
+            target_id=str(value.get("target_id", "")),
+            version=str(value.get("version", "")),
+            tag=str(value.get("tag", "")),
+            repository=str(value.get("repository", "")),
+            default_branch=str(value.get("default_branch", "")),
+            distribution_kind=str(value.get("distribution_kind", "source_only")),
+            required_source_paths=tuple(value.get("required_source_paths", ())),
+            required_check_ids=tuple(value.get("required_check_ids", ())),
+            assets=tuple(assets),
+        )
+
+    @classmethod
+    def from_json(cls, path: str | Path) -> "ReleaseTarget":
+        value = json.loads(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(value, Mapping):
+            raise ValueError("release target JSON must be an object")
+        return cls.from_dict(value)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "target_id": self.target_id,
+            "version": self.version,
+            "tag": self.tag,
+            "repository": self.repository,
+            "default_branch": self.default_branch,
+            "distribution_kind": self.distribution_kind,
+            "required_source_paths": list(self.required_source_paths),
+            "required_check_ids": list(self.required_check_ids),
+            "assets": [{"path": path, "sha256": digest} for path, digest in self.assets],
+        }
+
+
+@dataclass(frozen=True)
 class ReleaseVerificationReceipt:
     phase: str
     version: str
@@ -83,7 +176,13 @@ class ReleaseVerificationReceipt:
     upstream_receipt_ids: tuple[str, ...] = ()
     artifact_paths: tuple[str, ...] = ()
     release_url: str = ""
+    target_id: str = ""
+    target_fingerprint: str = ""
     claim_boundary: str = ""
+    # Release verification is a distinct claim boundary.  The functional
+    # parent it consumes may be local_validation (or the legacy full parent),
+    # but this receipt itself must never be serialized as a local claim.
+    claim_scope: str = COMPLETION_CLAIM_SCOPE_RELEASE
 
     def __post_init__(self) -> None:
         if self.phase not in RELEASE_PHASES:
@@ -99,6 +198,15 @@ class ReleaseVerificationReceipt:
             "artifact_paths",
             tuple(dict.fromkeys(str(item) for item in self.artifact_paths if item)),
         )
+        object.__setattr__(
+            self,
+            "claim_scope",
+            normalize_completion_claim_scope(self.claim_scope),
+        )
+        if self.claim_scope != COMPLETION_CLAIM_SCOPE_RELEASE:
+            raise ValueError(
+                "release verification receipts must use the release claim scope"
+            )
         if not self.claim_boundary:
             object.__setattr__(self, "claim_boundary", _phase_claim_boundary(self.phase))
 
@@ -130,6 +238,9 @@ class ReleaseVerificationReceipt:
                 "upstream_receipt_ids": list(self.upstream_receipt_ids),
                 "checks": [check.to_dict() for check in self.checks],
                 "release_url": self.release_url,
+                "target_id": self.target_id,
+                "target_fingerprint": self.target_fingerprint,
+                "claim_scope": self.claim_scope,
             }
         )
 
@@ -163,7 +274,10 @@ class ReleaseVerificationReceipt:
             "blockers": [check.check_id for check in self.checks if not check.ok],
             "artifact_paths": list(self.artifact_paths),
             "release_url": self.release_url,
+            "target_id": self.target_id,
+            "target_fingerprint": self.target_fingerprint,
             "claim_boundary": self.claim_boundary,
+            "claim_scope": self.claim_scope,
         }
 
     def format_text(self) -> str:
@@ -175,6 +289,7 @@ class ReleaseVerificationReceipt:
             f"commit: {self.commit or '<not-bound>'}",
             f"status: {self.status}",
             f"receipt_id: {self.receipt_id}",
+            f"claim_scope: {self.claim_scope}",
         ]
         lines.extend(
             f"- {check.check_id}: {check.status} - {check.message}"
@@ -184,6 +299,73 @@ class ReleaseVerificationReceipt:
             lines.append(f"release_url: {self.release_url}")
         lines.append(f"claim_boundary: {self.claim_boundary}")
         return "\n".join(lines)
+
+
+def release_target_fingerprint(target: ReleaseTarget) -> str:
+    return fingerprint_value(target.to_dict())
+
+
+def load_release_verification_receipt(path: str | Path) -> ReleaseVerificationReceipt:
+    value = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(value, Mapping):
+        raise ValueError("release verification receipt must be a JSON object")
+    checks = tuple(
+        ReleaseCheck(
+            check_id=str(item.get("check_id", "")),
+            status=str(item.get("status", "")),
+            message=str(item.get("message", "")),
+            details=dict(item.get("details", {})),
+        )
+        for item in value.get("checks", ())
+        if isinstance(item, Mapping)
+    )
+    receipt = ReleaseVerificationReceipt(
+        phase=str(value.get("phase", "")),
+        version=str(value.get("version", "")),
+        tag=str(value.get("tag", "")),
+        commit=str(value.get("commit", "")),
+        checks=checks,
+        parent_receipt_id=str(value.get("parent_receipt_id", "")),
+        parent_receipt_fingerprint=str(value.get("parent_receipt_fingerprint", "")),
+        validation_input_manifest_fingerprint=str(value.get("validation_input_manifest_fingerprint", "")),
+        release_tree_manifest_fingerprint=str(value.get("release_tree_manifest_fingerprint", "")),
+        upstream_receipt_ids=tuple(value.get("upstream_receipt_ids", ())),
+        artifact_paths=tuple(value.get("artifact_paths", ())),
+        release_url=str(value.get("release_url", "")),
+        claim_boundary=str(value.get("claim_boundary", "")),
+        target_id=str(value.get("target_id", "")),
+        target_fingerprint=str(value.get("target_fingerprint", "")),
+        claim_scope=str(value.get("claim_scope", COMPLETION_CLAIM_SCOPE_RELEASE)),
+    )
+    supplied = str(value.get("receipt_fingerprint", ""))
+    if supplied and supplied != receipt.receipt_fingerprint:
+        raise ValueError("release verification receipt fingerprint is stale")
+    if str(value.get("receipt_id", "")) and value["receipt_id"] != receipt.receipt_id:
+        raise ValueError("release verification receipt id is stale")
+    if value.get("ok") is True and not receipt.ok:
+        raise ValueError("release verification receipt falsely claims pass")
+    return receipt
+
+
+def save_release_verification_receipt(receipt: ReleaseVerificationReceipt, path: str | Path) -> Path:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(receipt.to_dict(), indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    return target
+
+
+def replace_release_receipt_checks(
+    receipt: ReleaseVerificationReceipt,
+    extra_checks: Sequence[ReleaseCheck],
+) -> ReleaseVerificationReceipt:
+    # Keep this helper sequence-shaped.  Callers that add one check commonly
+    # pass a single ``ReleaseCheck``; accepting that value here avoids a
+    # second producer/rebuild path while preserving the immutable receipt.
+    if isinstance(extra_checks, ReleaseCheck):
+        additions = (extra_checks,)
+    else:
+        additions = tuple(extra_checks)
+    return replace(receipt, checks=tuple(receipt.checks) + additions)
 
 
 @dataclass(frozen=True)
@@ -299,6 +481,7 @@ def _load_parent_binding(
     *,
     parent_receipt: EvidenceReceipt | str | Path,
     receipt_root: Path,
+    require_release_tree: bool = True,
 ) -> _ParentBinding:
     parent: EvidenceReceipt | None = None
     verification: ReceiptVerificationResult | None = None
@@ -313,7 +496,12 @@ def _load_parent_binding(
                 output_directory=receipt_root,
             )
         )
-        verification = verify_parent_receipt(parent, root, receipt_root)
+        verification = verify_parent_receipt(
+            parent,
+            root,
+            receipt_root,
+            release_tree_current=require_release_tree,
+        )
     except (OSError, TypeError, ValueError) as error:
         load_error = f"{type(error).__name__}: {error}"
 
@@ -338,8 +526,10 @@ def _load_parent_binding(
             ),
             _check(
                 "release.release_tree_manifest_binding",
-                False,
-                "the parent must bind ReleaseTreeManifest",
+                not require_release_tree,
+                "the parent must bind ReleaseTreeManifest"
+                if require_release_tree
+                else "release tree is bound by the candidate, not the functional parent",
             ),
         )
         return _ParentBinding(None, None, checks, artifact_paths=artifacts)
@@ -391,7 +581,11 @@ def _load_parent_binding(
     subject_ok = (
         parent.subject_id == VALIDATION_PARENT_SUBJECT_ID
         and parent.subject_kind == VALIDATION_PARENT_SUBJECT_KIND
-        and parent.claim_scope == "full"
+        # A release verifier consumes the functional parent; it does not
+        # require that parent to have already been relabelled as release.
+        # ReleaseTreeManifest binding below remains mandatory, so a
+        # local_validation parent cannot become a release pass by relabelling.
+        and parent.claim_scope in {"full", "local_validation", "release"}
         and parent.result_status == "pass"
         and parent.exit_code == 0
         and not parent.blockers
@@ -410,6 +604,8 @@ def _load_parent_binding(
         and release_tree_snapshot.raw_sha256 == release_tree_fingerprint
         and current_release_tree_fingerprint == release_tree_fingerprint
     )
+    if not require_release_tree:
+        release_tree_binding_ok = True
     checks = (
         _check(
             "release.parent_receipt_exact",
@@ -419,6 +615,7 @@ def _load_parent_binding(
             receipt_fingerprint=parent.fingerprint,
             subject_id=parent.subject_id,
             verification=verification.to_dict() if verification else {},
+            parent_claim_scope=parent.claim_scope,
             error=load_error,
         ),
         _check(
@@ -435,7 +632,9 @@ def _load_parent_binding(
         _check(
             "release.release_tree_manifest_binding",
             release_tree_binding_ok,
-            "the parent receipt binds the exact prospective ReleaseTreeManifest",
+            "the parent receipt binds the exact prospective ReleaseTreeManifest"
+            if require_release_tree
+            else "release tree binding is deferred to the candidate receipt",
             expected=release_tree_fingerprint,
             current=current_release_tree_fingerprint,
             snapshot_raw_sha256=(
@@ -554,6 +753,94 @@ def _local_candidate_checks(
     )
 
 
+def _target_candidate_checks(
+    root: Path,
+    *,
+    target: ReleaseTarget,
+    parent: EvidenceReceipt | None,
+) -> tuple[ReleaseCheck, ...]:
+    """Validate only the explicit target contract, not FlowGuard metadata."""
+
+    required_paths: list[str] = []
+    missing_paths: list[str] = []
+    for relative in target.required_source_paths:
+        candidate = (root / relative).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            missing_paths.append(relative)
+            continue
+        required_paths.append(relative)
+        if not candidate.is_file():
+            missing_paths.append(relative)
+    source_ok = not missing_paths
+
+    covered = set(parent.covered_obligations) if parent is not None else set()
+    required_checks_ok = all(item in covered for item in target.required_check_ids)
+
+    asset_results: list[dict[str, str]] = []
+    assets_ok = target.distribution_kind == "source_only" or bool(target.assets)
+    if target.distribution_kind == "source_and_assets":
+        for relative, expected_digest in target.assets:
+            candidate = (root / relative).resolve()
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                assets_ok = False
+                asset_results.append({"path": relative, "status": "outside-root"})
+                continue
+            if not candidate.is_file():
+                assets_ok = False
+                asset_results.append({"path": relative, "status": "missing"})
+                continue
+            actual_digest = hashlib.sha256(candidate.read_bytes()).hexdigest()
+            digest_ok = not expected_digest or actual_digest == expected_digest
+            assets_ok = assets_ok and digest_ok
+            asset_results.append(
+                {
+                    "path": relative,
+                    "status": "pass" if digest_ok else "digest-mismatch",
+                    "expected": expected_digest,
+                    "actual": actual_digest,
+                }
+            )
+
+    return (
+        _check(
+            "release.target_identity",
+            bool(target.target_id and target.version and target.tag),
+            "the explicit target descriptor supplies the release identity",
+            target_id=target.target_id,
+            version=target.version,
+            tag=target.tag,
+            repository=target.repository,
+            default_branch=target.default_branch,
+            distribution_kind=target.distribution_kind,
+        ),
+        _check(
+            "release.target_source_paths",
+            source_ok,
+            "all target-declared release source paths exist inside the target root",
+            required_paths=required_paths,
+            missing_paths=missing_paths,
+        ),
+        _check(
+            "release.target_required_checks",
+            required_checks_ok,
+            "the functional parent covers every target-declared release check",
+            required_check_ids=list(target.required_check_ids),
+            covered_obligations=sorted(covered),
+        ),
+        _check(
+            "release.target_assets",
+            assets_ok,
+            "target distribution assets match the explicit source/assets policy",
+            distribution_kind=target.distribution_kind,
+            assets=asset_results,
+        ),
+    )
+
+
 def _model_authority_git_reachability_check(root: Path) -> ReleaseCheck:
     try:
         required_paths = model_authority_release_paths(root)
@@ -616,28 +903,57 @@ def verify_local_candidate(
     installed_version: str | None = None,
     schema_version: str | None = None,
     source_path: str | Path | None = None,
+    target: ReleaseTarget | Mapping[str, Any] | None = None,
 ) -> ReleaseVerificationReceipt:
     root_path = Path(root).resolve()
     receipt_root_path = Path(receipt_root).resolve()
+    target_obj = (
+        target
+        if isinstance(target, ReleaseTarget)
+        else ReleaseTarget.from_dict(target)
+        if isinstance(target, Mapping)
+        else None
+    )
     version_error = ""
     try:
-        selected_version = version or _project_version(root_path)
+        selected_version = (target_obj.version if target_obj else None) or version or _project_version(root_path)
     except (OSError, KeyError, TypeError, ValueError) as error:
         selected_version = version or ""
         version_error = f"{type(error).__name__}: {error}"
-    tag = f"v{selected_version}" if selected_version else ""
+    tag = target_obj.tag if target_obj else (f"v{selected_version}" if selected_version else "")
     binding = _load_parent_binding(
         root_path,
         parent_receipt=parent_receipt,
         receipt_root=receipt_root_path,
+        require_release_tree=target_obj is None,
     )
-    checks = binding.checks + _local_candidate_checks(
-        root_path,
-        selected_version=selected_version,
-        installed_version=installed_version,
-        schema_version=schema_version,
-        source_path=source_path,
-    ) + (_model_authority_git_reachability_check(root_path),)
+    if target_obj is None:
+        checks = binding.checks + _local_candidate_checks(
+            root_path,
+            selected_version=selected_version,
+            installed_version=installed_version,
+            schema_version=schema_version,
+            source_path=source_path,
+        ) + (_model_authority_git_reachability_check(root_path),)
+    else:
+        checks = binding.checks + _target_candidate_checks(
+            root_path,
+            target=target_obj,
+            parent=binding.receipt,
+        )
+        if version and version != target_obj.version:
+            checks += (_check("release.target_version_argument", False, "--version disagrees with target descriptor", expected=target_obj.version, actual=version),)
+        if target_obj.repository:
+            # Repository is checked again at the published phase; recording it
+            # here keeps the candidate self-describing without consulting Git.
+            checks += (_check("release.target_repository_declared", True, "target repository is explicitly declared", repository=target_obj.repository),)
+        try:
+            candidate_tree = manifest_fingerprint(release_tree_manifest(root_path))
+        except (OSError, TypeError, ValueError) as error:
+            candidate_tree = ""
+            checks += (_check("release.candidate_tree_manifest", False, "candidate tree could not be captured", error=f"{type(error).__name__}: {error}"),)
+        else:
+            checks += (_check("release.candidate_tree_manifest", bool(candidate_tree), "candidate binds the prospective release tree", fingerprint=candidate_tree),)
     if version_error:
         checks = checks + (
             _check(
@@ -661,9 +977,12 @@ def verify_local_candidate(
         ),
         release_tree_manifest_fingerprint=(
             binding.release_tree_manifest_fingerprint
+            or next((check.details.get("fingerprint", "") for check in checks if check.check_id == "release.candidate_tree_manifest"), "")
         ),
         upstream_receipt_ids=(parent_id,) if parent_id else (),
         artifact_paths=binding.artifact_paths,
+        target_id=target_obj.target_id if target_obj else "",
+        target_fingerprint=release_target_fingerprint(target_obj) if target_obj else "",
     )
 
 
@@ -676,18 +995,48 @@ def verify_tagged_release(
     installed_version: str | None = None,
     schema_version: str | None = None,
     source_path: str | Path | None = None,
+    target: ReleaseTarget | Mapping[str, Any] | None = None,
+    candidate_receipt: str | Path | ReleaseVerificationReceipt | None = None,
     command_runner: CommandRunner = _command_runner,
 ) -> ReleaseVerificationReceipt:
     root_path = Path(root).resolve()
-    local = verify_local_candidate(
-        root_path,
-        parent_receipt=parent_receipt,
-        receipt_root=receipt_root,
-        version=version,
-        installed_version=installed_version,
-        schema_version=schema_version,
-        source_path=source_path,
+    target_obj = (
+        target
+        if isinstance(target, ReleaseTarget)
+        else ReleaseTarget.from_dict(target)
+        if isinstance(target, Mapping)
+        else None
     )
+    supplied_candidate_receipt_id = ""
+    if candidate_receipt is not None:
+        local = (
+            candidate_receipt
+            if isinstance(candidate_receipt, ReleaseVerificationReceipt)
+            else load_release_verification_receipt(candidate_receipt)
+        )
+        supplied_candidate_receipt_id = local.receipt_id
+        candidate_ok = (
+            local.phase == RELEASE_PHASE_LOCAL_CANDIDATE
+            and local.ok
+            and (target_obj is None or local.target_fingerprint == release_target_fingerprint(target_obj))
+            and (target_obj is None or local.target_id == target_obj.target_id)
+            and (version is None or local.version == version)
+        )
+        local = replace_release_receipt_checks(
+            local,
+            (_check("release.candidate_receipt_exact", candidate_ok, "the supplied local candidate receipt is immutable and matches the requested target", candidate_receipt=str(candidate_receipt))),
+        )
+    else:
+        local = verify_local_candidate(
+            root_path,
+            parent_receipt=parent_receipt,
+            receipt_root=receipt_root,
+            version=version,
+            installed_version=installed_version,
+            schema_version=schema_version,
+            source_path=source_path,
+            target=target_obj,
+        )
     tag_ref = f"refs/tags/{local.tag}"
     local_tag_object = command_runner(
         (
@@ -745,7 +1094,7 @@ def verify_tagged_release(
             and bool(local.release_tree_manifest_fingerprint)
             and committed_tree_fingerprint
             == local.release_tree_manifest_fingerprint,
-            "the committed tree matches the parent receipt's ReleaseTreeManifest",
+            "the committed tree matches the immutable candidate release tree",
             expected=local.release_tree_manifest_fingerprint,
             committed=committed_tree_fingerprint,
             error=tree_error,
@@ -765,8 +1114,12 @@ def verify_tagged_release(
         release_tree_manifest_fingerprint=(
             local.release_tree_manifest_fingerprint
         ),
-        upstream_receipt_ids=(local.receipt_id,),
+        # Keep the upstream edge pointed at the immutable candidate artifact,
+        # not at the derived tag receipt after the phase-local check is added.
+        upstream_receipt_ids=(supplied_candidate_receipt_id or local.receipt_id,),
         artifact_paths=local.artifact_paths,
+        target_id=local.target_id,
+        target_fingerprint=local.target_fingerprint,
     )
 
 
@@ -798,9 +1151,18 @@ def verify_published_release(
     installed_version: str | None = None,
     schema_version: str | None = None,
     source_path: str | Path | None = None,
+    target: ReleaseTarget | Mapping[str, Any] | None = None,
+    candidate_receipt: str | Path | ReleaseVerificationReceipt | None = None,
     command_runner: CommandRunner = _command_runner,
 ) -> ReleaseVerificationReceipt:
     root_path = Path(root).resolve()
+    target_obj = (
+        target
+        if isinstance(target, ReleaseTarget)
+        else ReleaseTarget.from_dict(target)
+        if isinstance(target, Mapping)
+        else None
+    )
     tagged = verify_tagged_release(
         root_path,
         parent_receipt=parent_receipt,
@@ -809,6 +1171,8 @@ def verify_published_release(
         installed_version=installed_version,
         schema_version=schema_version,
         source_path=source_path,
+        target=target_obj,
+        candidate_receipt=candidate_receipt,
         command_runner=command_runner,
     )
 
@@ -821,9 +1185,10 @@ def verify_published_release(
         if remote_result.returncode == 0
         else ""
     )
-    selected_repository = repository or detected_repository
+    selected_repository = repository or (target_obj.repository if target_obj else "") or detected_repository
     repository_ok = bool(selected_repository) and (
-        not repository or repository == detected_repository
+        not (repository or (target_obj.repository if target_obj else ""))
+        or selected_repository == detected_repository
     )
 
     tag_ref = f"refs/tags/{tagged.tag}"
@@ -942,6 +1307,8 @@ def verify_published_release(
         upstream_receipt_ids=(tagged.receipt_id,),
         artifact_paths=tagged.artifact_paths,
         release_url=str(release_payload.get("url") or ""),
+        target_id=tagged.target_id,
+        target_fingerprint=tagged.target_fingerprint,
     )
 
 
@@ -952,7 +1319,11 @@ __all__ = [
     "RELEASE_PHASES",
     "RELEASE_VERIFICATION_SCHEMA",
     "ReleaseCheck",
+    "ReleaseTarget",
     "ReleaseVerificationReceipt",
+    "load_release_verification_receipt",
+    "release_target_fingerprint",
+    "save_release_verification_receipt",
     "verify_local_candidate",
     "verify_published_release",
     "verify_tagged_release",

@@ -203,6 +203,26 @@ class EvidenceExecutionLeaseTests(unittest.TestCase):
                 settle_interrupted_execution_leases(lock_root, request)
             self.assertEqual(1, len(tuple(lock_root.glob("execution-*.lock"))))
 
+    @unittest.skipUnless(os.name == "nt", "Windows PID reuse behavior")
+    def test_recycled_pid_is_not_treated_as_the_interrupted_producer(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            lock_root = Path(temporary) / "leases"
+            row = self._residual(lock_root, owner_id="owner:reused", resource_key="resource:reused")
+            request = self._settlement_request([row])
+            lease_path = next(lock_root.glob("execution-*.lock"))
+            lease = json.loads(lease_path.read_text(encoding="utf-8"))
+            lease["acquired_at_epoch"] = 1000.0
+            lease["process_id"] = 999999
+            lease_path.write_text(json.dumps(lease), encoding="utf-8")
+            with patch(
+                "flowguard.evidence_lifecycle._process_start_epoch",
+                return_value=0.5,
+            ), patch("flowguard.evidence_lifecycle.os.kill", return_value=None):
+                request["process_id"] = 999999
+                incident = settle_interrupted_execution_leases(lock_root, request)
+            self.assertEqual("interrupted", incident["status"])
+            self.assertFalse(tuple(lock_root.glob("execution-*.lock")))
+
     def test_same_owner_resource_blocks_different_execution_identity(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             lock_root = Path(temporary) / "leases"
@@ -413,10 +433,55 @@ class EvidenceLifecycleTests(unittest.TestCase):
             )
 
             self.assertEqual(
-                "child", read_current_head(run.parent)["authority_kind"]
+                "child",
+                read_current_head(
+                    run.parent,
+                    expected_authority_kind="child",
+                )["authority_kind"],
             )
             with self.assertRaisesRegex(EvidenceLifecycleError, "authority-kind mismatch"):
                 read_current_head(run.parent, expected_authority_kind="parent")
+            with self.assertRaisesRegex(
+                EvidenceLifecycleError, "requires expected_authority_kind"
+            ):
+                read_current_head(run.parent)
+
+    def test_child_cannot_replace_parent_current_pointer(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            parent = root / "scope" / "parent"
+            write_json_atomic(parent / "result.json", {"status": "pass"})
+            publish_run(
+                parent,
+                kind="fixture-parent",
+                status="pass",
+                result_path=parent / "result.json",
+                authority_kind="parent",
+            )
+
+            child = root / "scope" / "child"
+            write_json_atomic(child / "result.json", {"status": "pass"})
+            with self.assertRaisesRegex(
+                EvidenceLifecycleError,
+                "child evidence cannot overwrite parent CURRENT head",
+            ):
+                publish_run(
+                    child,
+                    kind="fixture-child",
+                    status="pass",
+                    result_path=child / "result.json",
+                    authority_kind="child",
+                    parent_scope="fixture-parent",
+                )
+
+            self.assertEqual(
+                "parent",
+                read_current_head(
+                    parent.parent,
+                    expected_authority_kind="parent",
+                )["authority_kind"],
+            )
+            self.assertFalse((child / "evidence-run.json").exists())
 
     def test_publish_hashes_the_serialized_manifest_without_rereading_it(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

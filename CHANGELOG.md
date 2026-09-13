@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.69.0 - 2026-09-04
+
+- Added recursive multi-level model and TestMesh closure with exact parent,
+  child, cross-child, finite-product, and terminal-receipt bindings.
+- Hardened model execution evidence so completed leaves are derived from native
+  execution receipts rather than caller-supplied case lists.
+- Added a frozen completion-readiness gate and exact parent-receipt reuse path,
+  preventing freshness checks from causing repeated full validation loops.
+- Kept architecture-reduction candidates fail-closed until observable
+  equivalence or complete retirement evidence exists.
+
 ## v0.68.16 - 2026-08-26
 
 - Added direct-current reverse implementation-surface discovery with exact

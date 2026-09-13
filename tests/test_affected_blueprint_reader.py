@@ -1,16 +1,22 @@
 from dataclasses import replace
+import json
 from types import SimpleNamespace
+from contextlib import redirect_stdout
+from io import StringIO
 from unittest import mock
 
 import pytest
 
 import flowguard
 import flowguard.affected_blueprint_reader as affected_reader_module
+from flowguard.__main__ import main
 from flowguard.affected_blueprint_reader import (
     AffectedBlueprintIndex,
     AffectedBlueprintReadError,
     AffectedBlueprintReader,
     _materialize_topology_invalidation_edges,
+    AffectedTopologyInvalidationEdge,
+    build_affected_task_context,
     materialize_affected_blueprint_index,
     read_affected_blueprint_understanding,
 )
@@ -27,6 +33,7 @@ from flowguard.target_system_blueprint import (
     BlueprintReadinessLedger,
     ModelPathQualityBlueprintBinding,
 )
+from flowguard.existing_model_preflight import ExistingModelPreflight, ModelContextHit
 
 
 def _path_quality_binding() -> ModelPathQualityBlueprintBinding:
@@ -609,7 +616,7 @@ def _topology_invalidation_fixture():
     return projection, index, shard_payloads, dict(objects)
 
 
-def test_child_seed_propagates_to_ancestor_and_sibling_without_unrelated_loads():
+def test_child_seed_propagates_to_ancestor_without_reopening_unrelated_siblings():
     projection, index, shard_payloads, objects = _topology_invalidation_fixture()
     loaded_shards = []
     loaded_objects = []
@@ -631,17 +638,13 @@ def test_child_seed_propagates_to_ancestor_and_sibling_without_unrelated_loads()
     assert result.requested_seed_ids == ("surface:child-a",)
     assert result.affected_ids == (
         "model:child-a",
-        "model:child-b",
         "model:parent",
         "surface:child-a",
-        "surface:child-b",
         "surface:parent",
     )
     assert result.propagated_affected_ids == (
         "model:child-a",
-        "model:child-b",
         "model:parent",
-        "surface:child-b",
         "surface:parent",
     )
     typed_edges = {
@@ -654,19 +657,14 @@ def test_child_seed_propagates_to_ancestor_and_sibling_without_unrelated_loads()
         "ancestor",
         "model:parent",
     ) in typed_edges
-    assert (
-        "model:child-a",
-        "model:child-b",
-        "sibling",
-        "model:parent",
-    ) in typed_edges
+    assert not any(edge[2] == "sibling" for edge in typed_edges)
     assert (
         "model:parent",
         "model:child-a",
         "child",
         "model:parent",
     ) in typed_edges
-    assert loaded_shards == ["shard:child-a", "shard:child-b", "shard:parent"]
+    assert loaded_shards == ["shard:child-a", "shard:parent"]
     assert not any("unrelated" in object_id for object_id in loaded_objects)
     assert "topology-relation:relation:child-a-parent" in loaded_objects
     assert "topology-relation:relation:child-b-parent" in loaded_objects
@@ -969,7 +967,10 @@ def test_sibling_invalidation_edges_scale_linearly_for_flat_model_families():
             "consumer_id": "model:parent",
         }
 
-    edges, _ = _materialize_topology_invalidation_edges(objects)
+    edges, _ = _materialize_topology_invalidation_edges(
+        objects,
+        include_sibling_invalidation=True,
+    )
     sibling_edges = tuple(edge for edge in edges if edge.edge_kind == "sibling")
 
     assert len(sibling_edges) == 2 * (child_count - 1)
@@ -1032,6 +1033,75 @@ def test_understanding_is_derived_from_affected_content_without_whole_builder():
     assert result.gap_count == 0
     assert result.implementation_admitted is True
     projection.to_dict.assert_not_called()
+
+
+def test_basic_cli_navigation_without_projection_is_success_with_scoped_deep_gap(
+    tmp_path,
+):
+    preflight = ExistingModelPreflight(
+        "preflight:basic-navigation",
+        "locate alpha owner",
+        mode="light",
+        inventory_scope="selected_owner_closure",
+        existing_modeled_system=True,
+        grounding_state="modeled_current",
+        authority_required=True,
+        authority_status="pass",
+        authority_integrity="pass",
+        selected_source_currentness="current",
+        execution_evidence_status="not_run",
+        authority_snapshot_fingerprint="sha256:snapshot",
+        authority_subject_revision="revision:accepted",
+        as_of={
+            "snapshot_fingerprint": "sha256:snapshot",
+            "subject_revision": "revision:accepted",
+        },
+        relevant_models=(
+            ModelContextHit(
+                model_id="alpha",
+                model_path=".flowguard/models/alpha.py",
+                evidence_id="model-authority:sha256:alpha",
+                evidence_tier="authoritative_observed",
+                evidence_current=True,
+            ),
+        ),
+        selected_model_paths=(".flowguard/models/alpha.py",),
+        selected_runner_paths=(".flowguard/runners/alpha.py",),
+        selected_input_paths=(".flowguard/inputs/alpha.json",),
+        selected_closure={
+            "selected_model_ids": ["alpha"],
+            "producer_count": 0,
+            "write_count": 0,
+        },
+    )
+    output = StringIO()
+    with mock.patch(
+        "flowguard.existing_model_preflight.existing_model_preflight_from_project",
+        return_value=preflight,
+    ), redirect_stdout(output):
+        exit_code = main(
+            [
+                "affected-blueprint-understanding",
+                "--root",
+                str(tmp_path),
+                "--task-summary",
+                "locate alpha owner",
+                "--json",
+            ]
+        )
+
+    payload = json.loads(output.getvalue())
+    assert exit_code == 0
+    assert payload["ok"] is True
+    assert payload["status"] == "basic_navigation"
+    assert payload["selected_model_ids"] == ["alpha"]
+    assert payload["as_of"]["snapshot_fingerprint"] == "sha256:snapshot"
+    assert payload["producer_count"] == 0
+    assert payload["write_count"] == 0
+    deep_gap = next(
+        gap for gap in payload["gaps"] if gap["code"] == "deep_projection_not_requested"
+    )
+    assert deep_gap["severity"] == "scoped"
 
 
 def test_affected_understanding_loads_only_exact_compact_path_quality() -> None:
@@ -1247,3 +1317,386 @@ def test_affected_understanding_api_has_one_existing_kernel_owner():
     for route_id, route_names in flowguard.FLOWGUARD_ROUTE_API.items():
         if route_id != "model_first_function_flow":
             assert names.isdisjoint(route_names), route_id
+
+
+def test_task_context_resolves_changed_surface_coordinates_and_owner():
+    _projection_value, index, shard_payloads, object_payloads = _understanding_fixture(
+        blocked=True
+    )
+    read_result = AffectedBlueprintReader(
+        index,
+        load_shard=shard_payloads.__getitem__,
+        load_object=object_payloads.__getitem__,
+    ).read(("surface:a",))
+
+    context = affected_reader_module.build_affected_task_context(
+        read_result,
+        index,
+        changed_paths=("pkg\\module.py",),
+        surface_catalog={
+            "surface:a": {
+                "path": "pkg/module.py",
+                "symbol": "run",
+                "line_start": 11,
+                "line_end": 27,
+                "owner_id": "owner:a",
+                "content_fingerprint": "sha256:" + "a" * 64,
+                "calls": ("surface:b",),
+            }
+        },
+    )
+
+    row = context["selected_change_points"][0]
+    assert row["surface_id"] == "surface:a"
+    assert row["path"] == "pkg/module.py"
+    assert row["symbol"] == "run"
+    assert row["line_start"] == 11 and row["line_end"] == 27
+    assert row["owner_id"] == "owner:a"
+    assert row["evidence_class"] == "observed_structure"
+    assert row["calls"] == ["surface:b"]
+    assert not any(
+        path.get("edge_kind") == "calls"
+        for path in context["impact_paths"]
+    )
+
+
+def test_task_context_preserves_structured_contract_and_verified_intent():
+    _projection_value, index, shard_payloads, object_payloads = _understanding_fixture(
+        blocked=True
+    )
+    reader_result = AffectedBlueprintReader(
+        index,
+        load_shard=shard_payloads.__getitem__,
+        load_object=object_payloads.__getitem__,
+    ).read(("surface:a",))
+    objects = dict(reader_result.objects)
+    objects["behavior:a"] = {
+        "kind": "behavior_block",
+        "behavior_block_id": "behavior:a",
+        "implementation_surface_id": "surface:a",
+        "model_element_id": "model:a",
+        "owner_id": "owner:a",
+        "owner_contract_id": "contract:a",
+        "function_relation": "Input x State -> Set(Output x State)",
+        "source_fingerprint": "sha256:" + "b" * 64,
+        "dimensions": [
+            {"dimension": "input", "semantics": "x is a finite bit"},
+            {"dimension": "state", "semantics": "pre-state bit"},
+            {"dimension": "output", "semantics": "xor result"},
+        ],
+        "semantic_spec_ids": ["semantic:a"],
+        "oracle_ids": ["oracle:a"],
+        "intent_contribution_ids": ["intent:a"],
+        "portable_binding_ids": ["binding:a"],
+        "referenced_object_ids": [
+            "owner:a",
+            "intent:a",
+            "semantic:a",
+            "oracle:a",
+            "binding:a",
+            "case:a",
+        ],
+    }
+    objects.update(
+        {
+            "intent:a": {
+                "contribution_id": "intent:a",
+                "source_kind": "requirement",
+                "source_id": "req:a",
+                "source_owner_id": "owner:req",
+                "source_fingerprint": "sha256:" + "c" * 64,
+                "expectation_id": "expect:a",
+                "expectation_fingerprint": "sha256:" + "d" * 64,
+                "disposition": "accepted",
+                "rationale": "accepted finite behavior",
+            },
+            "semantic:a": {
+                "semantic_spec_id": "semantic:a",
+                "semantics": {"input": "finite bit"},
+            },
+            "oracle:a": {
+                "oracle_id": "oracle:a",
+                "semantics": {"output": "xor"},
+            },
+            "binding:a": {
+                "kind": "portable_behavior_binding",
+                "binding_id": "binding:a",
+                "behavior_block_id": "behavior:a",
+                "input_field_mappings": {"x": "x"},
+                "state_field_mappings": {"s": "state"},
+                "output_field_mappings": {"y": "result"},
+                "invariant_ids": ["invariant:a"],
+                "protected_failure_ids": ["failure:a"],
+            },
+            "case:a": {
+                "kind": "behavior_case_contract",
+                "case_id": "case:a",
+                "behavior_block_id": "behavior:a",
+                "case_kind": "good",
+                "input_values": {"x": "1"},
+                "initial_state": {"s": "0"},
+                "expected_output": {"y": "1"},
+                "expected_state": {"s": "1"},
+                "expected_effects": ["none"],
+                "expected_errors": [],
+                "oracle_id": "oracle:a",
+            },
+        }
+    )
+    rich_result = replace(reader_result, objects=tuple(sorted(objects.items())))
+    current_snapshot = "sha256:" + "e" * 64
+    with mock.patch(
+        "flowguard.model_authority_store.load_current_model_authority_state",
+        return_value=SimpleNamespace(
+            snapshot=SimpleNamespace(
+                fingerprint=current_snapshot,
+                subject_revision="revision:accepted",
+            ),
+            head=SimpleNamespace(
+                fingerprint="sha256:" + "f" * 64,
+                subject_revision="revision:accepted",
+                accepted_revision_set_fingerprint="revision-set:current",
+            ),
+            accepted_revision=None,
+        ),
+    ):
+        context = affected_reader_module.build_affected_task_context(
+            rich_result,
+            index,
+                accepted_snapshot={
+                    "verified": True,
+                    "as_of": "revision:accepted",
+                    "snapshot_fingerprint": current_snapshot,
+                    "authority_head_fingerprint": "sha256:" + "f" * 64,
+                    "accepted_revision_set_fingerprint": "revision-set:current",
+                    "affected_index_fingerprint": index.fingerprint,
+                    "blueprint_fingerprint": index.blueprint_fingerprint,
+                    "claim_boundary": "accepted snapshot only",
+                },
+            authority_root="fixture-root",
+        )
+
+    assert context["accepted_intent"][0]["accepted_revision"] == "revision:accepted"
+    assert context["accepted_intent"][0]["evidence_class"] == "accepted_contract"
+    preserve = context["must_preserve"][0]
+    assert preserve["inputs"]["semantics"] == "x is a finite bit"
+    assert preserve["case_contracts"][0]["expected_state"] == {"s": "1"}
+    assert preserve["oracle_members"][0]["oracle_id"] == "oracle:a"
+    assert not any(
+        gap["code"] == "accepted_snapshot_unavailable"
+        for gap in context["gaps"]
+    )
+
+
+def test_task_context_does_not_trust_caller_verified_snapshot_without_authority():
+    _projection_value, index, shard_payloads, object_payloads = _understanding_fixture(
+        blocked=True
+    )
+    reader_result = AffectedBlueprintReader(
+        index,
+        load_shard=shard_payloads.__getitem__,
+        load_object=object_payloads.__getitem__,
+    ).read(("surface:a",))
+    context = affected_reader_module.build_affected_task_context(
+        reader_result,
+        index,
+        accepted_snapshot={
+            "verified": True,
+            "status": "verified",
+            "as_of": "caller-fake-revision",
+            "snapshot_fingerprint": "sha256:" + "c" * 64,
+        },
+        accepted_snapshot_verified=True,
+    )
+
+    assert context["accepted_snapshot"]["status"] == "unavailable"
+    assert context["accepted_snapshot"]["verification_reason"] == (
+        "authority root was not supplied"
+    )
+    assert any(
+        gap["code"] == "accepted_snapshot_unavailable"
+        for gap in context["gaps"]
+    )
+
+
+def test_task_context_binds_verified_snapshot_to_the_loaded_affected_index():
+    _projection_value, index, shard_payloads, object_payloads = _understanding_fixture(
+        blocked=True
+    )
+    reader_result = AffectedBlueprintReader(
+        index,
+        load_shard=shard_payloads.__getitem__,
+        load_object=object_payloads.__getitem__,
+    ).read(("surface:a",))
+    current_snapshot = "sha256:" + "e" * 64
+    with mock.patch(
+        "flowguard.model_authority_store.load_current_model_authority_state",
+        return_value=SimpleNamespace(
+            snapshot=SimpleNamespace(
+                fingerprint=current_snapshot,
+                subject_revision="revision:accepted",
+            ),
+            head=SimpleNamespace(
+                fingerprint="sha256:" + "f" * 64,
+                subject_revision="revision:accepted",
+                accepted_revision_set_fingerprint="revision-set:current",
+            ),
+            accepted_revision=None,
+        ),
+    ):
+        context = affected_reader_module.build_affected_task_context(
+            reader_result,
+            index,
+            accepted_snapshot={
+                "verified": True,
+                "as_of": "revision:accepted",
+                "snapshot_fingerprint": current_snapshot,
+                "authority_head_fingerprint": "sha256:" + "f" * 64,
+                "accepted_revision_set_fingerprint": "revision-set:current",
+                "affected_index_fingerprint": "sha256:" + "0" * 64,
+                "blueprint_fingerprint": index.blueprint_fingerprint,
+            },
+            authority_root="fixture-root",
+        )
+
+    assert context["accepted_snapshot"]["status"] == "unavailable"
+    assert context["accepted_snapshot"]["verification_reason"] == (
+        "accepted snapshot affected index fingerprint is stale"
+    )
+    assert any(
+        gap["code"] == "accepted_snapshot_unavailable"
+        for gap in context["gaps"]
+    )
+
+
+def test_modified_surface_catalog_cannot_replace_loaded_owner_or_coordinates():
+    _projection_value, index, shard_payloads, object_payloads = _understanding_fixture(
+        blocked=True
+    )
+    reader_result = AffectedBlueprintReader(
+        index,
+        load_shard=shard_payloads.__getitem__,
+        load_object=object_payloads.__getitem__,
+    ).read(("surface:a",))
+    objects = dict(reader_result.objects)
+    objects["behavior:a"] = {
+        "kind": "behavior_block",
+        "behavior_block_id": "behavior:a",
+        "implementation_surface_id": "surface:a",
+        "owner_id": "owner:canonical",
+        "source_fingerprint": "sha256:" + "b" * 64,
+    }
+    rich_result = replace(reader_result, objects=tuple(sorted(objects.items())))
+    context = affected_reader_module.build_affected_task_context(
+        rich_result,
+        index,
+        changed_paths=("wrong/path.py",),
+        surface_catalog={
+            "_flowguard_catalog_identity": {
+                "affected_index_fingerprint": index.fingerprint,
+                "blueprint_fingerprint": index.blueprint_fingerprint,
+            },
+            "surfaces": [
+                {
+                    "surface_id": "surface:a",
+                    "path": "wrong/path.py",
+                    "symbol": "wrong_symbol",
+                    "owner_id": "owner:caller",
+                    "source_fingerprint": "sha256:" + "c" * 64,
+                }
+            ],
+        },
+    )
+
+    assert any(
+        gap["code"] == "surface_catalog_identity_mismatch"
+        for gap in context["gaps"]
+    )
+    selected = context["selected_change_points"]
+    assert not selected
+    assert any(gap["code"] == "unknown_change_point" for gap in context["gaps"])
+
+
+def test_task_context_impact_paths_use_typed_edges_only():
+    _projection_value, index, shard_payloads, object_payloads = _understanding_fixture(
+        blocked=True
+    )
+    edge = AffectedTopologyInvalidationEdge(
+        source_id="surface:a",
+        target_id="surface:b",
+        edge_kind="delegates_to",
+        evidence_object_ids=("topology:evidence",),
+    )
+    object_fingerprints = dict(index.object_fingerprints)
+    object_fingerprints["topology:evidence"] = fingerprint_value(
+        {"kind": "topology-evidence"}
+    )
+    index = replace(
+        index,
+        object_fingerprints=tuple(sorted(object_fingerprints.items())),
+        topology_invalidation_edges=(edge,),
+    )
+    read_result = AffectedBlueprintReader(
+        index,
+        load_shard=shard_payloads.__getitem__,
+        load_object=object_payloads.__getitem__,
+    ).read(("surface:a",))
+    context = affected_reader_module.build_affected_task_context(read_result, index)
+
+    paths = context["impact_paths"]
+    assert any(
+        row["edge_kind"] == "delegates_to"
+        and row["evidence_refs"] == ["topology:evidence"]
+        and row["reason"] == "declared delegation dependency"
+        for row in paths
+    )
+    assert all(row["evidence_class"] == "observed_structure" for row in paths)
+
+
+def test_task_context_impact_paths_use_only_edges_traversed_by_seed_closure():
+    _projection, index, shard_payloads, objects = _topology_invalidation_fixture()
+    read_result = AffectedBlueprintReader(
+        index,
+        load_shard=shard_payloads.__getitem__,
+        load_object=objects.__getitem__,
+    ).read(("surface:child-a",))
+    context = affected_reader_module.build_affected_task_context(read_result, index)
+
+    assert all(
+        not (
+            row["source_id"] == "model:parent"
+            and row["target_id"] == "model:child-b"
+        )
+        for row in context["impact_paths"]
+    )
+    assert all(
+        row["source_id"] != "model:parent"
+        or row["target_id"] != "model:child-b"
+        for row in context["impact_paths"]
+    )
+
+
+def test_task_context_consumes_reader_reason_paths_without_a_second_bfs():
+    _projection, index, shard_payloads, objects = _topology_invalidation_fixture()
+    read_result = AffectedBlueprintReader(
+        index,
+        load_shard=shard_payloads.__getitem__,
+        load_object=objects.__getitem__,
+    ).read(("surface:child-a",))
+
+    assert read_result.traversed_topology_paths
+    with mock.patch.object(
+        affected_reader_module,
+        "deque",
+        side_effect=AssertionError("task context must not run a second BFS"),
+    ):
+        context = affected_reader_module.build_affected_task_context(
+            read_result,
+            index,
+        )
+
+    assert context["impact_paths"]
+    assert not any(
+        row["target_id"] == "model:child-b"
+        for row in context["impact_paths"]
+    )

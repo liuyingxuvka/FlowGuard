@@ -61,9 +61,47 @@ def _sha256(path: Path) -> str:
     return f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
 
 
-def _repository_files(root: Path) -> tuple[Path, ...]:
+def _repository_files(
+    root: Path,
+    input_inventory: Sequence[Mapping[str, str]] | None = None,
+) -> tuple[Path, ...]:
+    # A model shard proof only needs to guard the exact model/runner/shared
+    # input inventory already frozen by its owner contract.  Walking every
+    # tracked and ordinary untracked file made close-out scale with the whole
+    # worktree (including unrelated temporary material) and could spend many
+    # minutes in ``git ls-files``.  Keep the old repository-wide path only for
+    # direct legacy callers that do not supply the frozen inventory.
+    if input_inventory is not None:
+        paths: list[Path] = []
+        for item in input_inventory:
+            relative = str(item.get("path", "")).replace("\\", "/")
+            if not relative or relative.startswith("<"):
+                continue
+            candidate = (root / relative).resolve()
+            if root not in candidate.parents and candidate != root:
+                raise ValueError(f"shard-safety input escapes repository: {relative}")
+            paths.append(candidate)
+        return tuple(dict.fromkeys(paths))
+
+    # Legacy direct calls retain their historical tracked/untracked guard.
+    # The production model-regression path always supplies the frozen list.
     completed = subprocess.run(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        [
+            "git",
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "--",
+            ".",
+            ":!work/**",
+            ":!worktrees/**",
+            ":!.flowguard/evidence/**",
+            ":!.flowguard/history/**",
+            ":!.flowguard/models/authority/**",
+            ":!.flowguard/structure/reverse-surfaces/**",
+        ],
         cwd=root,
         capture_output=True,
         check=False,
@@ -77,12 +115,80 @@ def _repository_files(root: Path) -> tuple[Path, ...]:
     )
 
 
-def _repository_snapshot(root: Path) -> dict[str, str]:
+def _repository_snapshot(
+    root: Path,
+    input_inventory: Sequence[Mapping[str, str]] | None = None,
+) -> dict[str, str]:
     result: dict[str, str] = {}
-    for path in _repository_files(root):
+    for path in _repository_files(root, input_inventory):
         relative = path.relative_to(root).as_posix()
-        result[relative] = _sha256(path) if path.is_file() else "<missing>"
+        try:
+            stat = path.stat()
+        except OSError:
+            result[relative] = "<missing>"
+            continue
+        if not path.is_file():
+            result[relative] = "<non-file>"
+            continue
+        # The shard proof's repository boundary is a zero-mutation guard, not
+        # a second content-authority manifest.  Model/runner inputs already
+        # carry exact SHA-256 fingerprints; use metadata here so serial and
+        # parallel proof copies do not reopen thousands of slow Windows files.
+        result[relative] = (
+            f"size={stat.st_size};mtime_ns={stat.st_mtime_ns};"
+            f"ctime_ns={getattr(stat, 'st_ctime_ns', 0)};mode={stat.st_mode}"
+        )
     return result
+
+
+def _repository_status_snapshot(root: Path) -> dict[str, str]:
+    """Capture the tracked/untracked repository status without hashing files.
+
+    The shard-safety contract has two distinct guards: the frozen model input
+    inventory and a zero-mutation guard for the surrounding repository.  The
+    input inventory is intentionally narrow for normal model execution, but a
+    runner is still forbidden from editing a shared file that is outside that
+    inventory.  Git's porcelain status is the bounded, content-level witness
+    for that second rule; it avoids reopening and hashing the whole worktree.
+    """
+
+    completed = subprocess.run(
+        [
+            "git",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "-z",
+            "--",
+            ".",
+        ],
+        cwd=root,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError("git repository status is required for shard-safety proof")
+
+    raw = bytes(completed.stdout)
+    tokens = [item.decode("utf-8", errors="surrogateescape") for item in raw.split(b"\0") if item]
+    states: dict[str, str] = {}
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        # A normal porcelain token is ``XY path``.  With -z, rename/copy
+        # records carry the paired path as a second token without a status
+        # prefix; retain both paths in the mutation receipt.
+        path = token[3:] if len(token) >= 3 and token[2] == " " else token
+        status = token[:2] if len(token) >= 2 else ""
+        if path:
+            states[path.replace("\\", "/")] = status
+        if status[:1] in {"R", "C"} and index + 1 < len(tokens):
+            paired = tokens[index + 1]
+            if len(paired) < 3 or paired[2] != " ":
+                states[paired.replace("\\", "/")] = status
+                index += 1
+        index += 1
+    return states
 
 
 def _semantic_projection(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -115,7 +221,14 @@ def _semantic_projection(payload: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _run_copy(root: Path, entry: ModelRegressionEntry, run_id: str, output_dir: Path) -> ShardSafetyRun:
+def _run_copy(
+    root: Path,
+    entry: ModelRegressionEntry,
+    run_id: str,
+    output_dir: Path,
+    *,
+    timeout: float | None = None,
+) -> ShardSafetyRun:
     output_dir.mkdir(parents=True, exist_ok=False)
     env = dict(os.environ)
     pythonpath = str(root)
@@ -139,7 +252,7 @@ def _run_copy(root: Path, entry: ModelRegressionEntry, run_id: str, output_dir: 
         errors="replace",
         capture_output=True,
         check=False,
-        timeout=entry.timeout_seconds,
+        timeout=(entry.timeout_seconds if timeout is None else timeout),
     )
     result_path = output_dir / "result.json"
     payload: Mapping[str, Any] = {}
@@ -180,8 +293,16 @@ def prove_model_shard_safety(
     entry: ModelRegressionEntry,
     *,
     output_dir: str | Path | None = None,
+    timeout: float | None = None,
+    additional_patterns: Sequence[str] = (),
 ) -> dict[str, Any]:
-    """Run one serial baseline and concurrent copies under isolated output roots."""
+    """Run one serial baseline and concurrent copies under isolated output roots.
+
+    ``timeout`` is the caller's frozen execution budget.  When omitted, the
+    manifest entry timeout remains authoritative.  The model-regression CLI
+    passes its explicit override here so shard-safety copies cannot silently
+    fall back to a shorter per-entry timeout than the surrounding run.
+    """
 
     root_path = Path(root).resolve()
     contract = dict(entry.shard_safety_proof)
@@ -196,12 +317,23 @@ def prove_model_shard_safety(
         else Path(tempfile.mkdtemp(prefix=f"flowguard-shard-proof-{entry.model_id}-"))
     )
     proof_root.mkdir(parents=True, exist_ok=True)
-    before_repository = _repository_snapshot(root_path)
-    before_inventory = resolve_entry_input_inventory(root_path, entry)
+    before_inventory = resolve_entry_input_inventory(
+        root_path,
+        entry,
+        additional_patterns=additional_patterns,
+    )
+    before_repository = _repository_snapshot(root_path, before_inventory)
+    before_status = _repository_status_snapshot(root_path)
     before_input_fingerprint = input_inventory_fingerprint(before_inventory)
     started = time.time()
 
-    serial = _run_copy(root_path, entry, "serial-baseline", proof_root / "serial")
+    serial = _run_copy(
+        root_path,
+        entry,
+        "serial-baseline",
+        proof_root / "serial",
+        timeout=timeout,
+    )
     with ThreadPoolExecutor(max_workers=copies, thread_name_prefix="flowguard-shard-proof") as executor:
         futures = tuple(
             executor.submit(
@@ -210,22 +342,32 @@ def prove_model_shard_safety(
                 entry,
                 f"parallel-{index + 1}",
                 proof_root / f"parallel-{index + 1}",
+                timeout=timeout,
             )
             for index in range(copies)
         )
         parallel = tuple(future.result() for future in futures)
     runs = (serial, *parallel)
 
-    after_inventory = resolve_entry_input_inventory(root_path, entry)
-    after_input_fingerprint = input_inventory_fingerprint(after_inventory)
-    after_repository = _repository_snapshot(root_path)
-    repository_mutations = tuple(
-        sorted(
-            path
-            for path in set(before_repository) | set(after_repository)
-            if before_repository.get(path) != after_repository.get(path)
-        )
+    after_inventory = resolve_entry_input_inventory(
+        root_path,
+        entry,
+        additional_patterns=additional_patterns,
     )
+    after_input_fingerprint = input_inventory_fingerprint(after_inventory)
+    after_repository = _repository_snapshot(root_path, after_inventory)
+    after_status = _repository_status_snapshot(root_path)
+    # Input-file content changes are already covered by the exact before/after
+    # inventory fingerprints.  Do not report their normal execution metadata
+    # churn as a second repository mutation; the surrounding repository guard
+    # below is reserved for paths outside the frozen input inventory.
+    metadata_mutations: set[str] = set()
+    status_mutations = {
+        path
+        for path in set(before_status) | set(after_status)
+        if before_status.get(path) != after_status.get(path)
+    }
+    repository_mutations = tuple(sorted(metadata_mutations | status_mutations))
     projections = tuple(run.projection for run in runs)
     semantic_equivalence = bool(projections) and all(item == projections[0] for item in projections[1:])
     overlaps = _overlapping_artifacts(runs)

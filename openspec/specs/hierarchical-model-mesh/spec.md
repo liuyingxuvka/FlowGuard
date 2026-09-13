@@ -40,14 +40,19 @@ review.
 - **THEN** the mesh review evaluates that child boundary separately from the top-level parent boundary
 
 ### Requirement: Mesh activation triggers
-FlowGuard SHALL trigger hierarchical mesh review when a project has three or
-more models, when a single model crosses a configured large-model threshold,
-when a budgeted model group remains incomplete, or when a model contains
-several unrelated functional areas.
+FlowGuard SHALL trigger hierarchical mesh review when related models share a
+parent, partition, interaction, affected dependency, stale child evidence,
+cross-model refinement, or whole-flow claim; it SHALL also trigger when a
+single model crosses a configured large-model threshold, when a budgeted model
+group remains incomplete, or when a model contains several unrelated functional
+areas.
 
-#### Scenario: Quantity trigger
-- **WHEN** a project has three or more local FlowGuard models
-- **THEN** the mesh review reports that architecture review is required
+#### Scenario: Unrelated model count is not a trigger
+- **WHEN** a project has three or more unrelated local FlowGuard models and no
+  shared parent, partition, interaction, affected dependency, stale child
+  evidence, cross-model refinement, or whole-flow claim
+- **THEN** the mesh review records that model count alone did not trigger it
+- **AND** no broad mesh execution is required solely because of the count
 
 #### Scenario: Large-model trigger
 - **WHEN** a model has an estimated or observed state count above the configured threshold
@@ -351,3 +356,60 @@ ModelMesh SHALL propagate the current path-quality subject, conclusion, unresolv
 #### Scenario: Child deep details are not required
 - **WHEN** a parent claim needs only the child's current compact result
 - **THEN** the mesh carries the summary and fingerprint without loading or duplicating deep details
+
+### Requirement: Recursive subtree receipt closure
+Every non-leaf node in a hierarchical ModelMesh SHALL consume one exact-current
+canonical subtree receipt for its direct children. The receipt SHALL bind the
+node identity, structural parent, direct-child identity set, descendant-universe
+fingerprint, partition fingerprint, owner, subject, obligations, toolchain,
+environment, and terminal verification. A normal child evidence flag or a
+string-only child receipt id SHALL NOT satisfy this requirement.
+
+#### Scenario: Non-leaf child has no descendant receipt
+- **WHEN** a parent names a child that declares its own children
+- **AND** that child has only ordinary passing evidence without a verified
+  subtree receipt
+- **THEN** the parent mesh SHALL remain blocked
+- **AND** the child-local result SHALL NOT be promoted to parent coverage
+
+#### Scenario: Recursive child receipt is exact and current
+- **WHEN** every non-leaf child consumes an exact-current subtree receipt and
+  each leaf consumes an exact-current finite coverage receipt
+- **THEN** the parent MAY compose the verified subtree receipts bottom-up
+- **AND** the parent SHALL preserve every child producer, subject, scope, and
+  obligation identity
+
+### Requirement: Kernel-derived finite leaf denominator
+For full, release, whole-domain, or parent-confidence claims, every leaf SHALL
+declare finite fingerprinted input and state axes. The kernel SHALL derive the
+canonical Cartesian cell set and its typed `ContractProductSignature`. A
+recursive hierarchy node and its terminal subtree receipt SHALL carry the same
+axis ids, axis fingerprints, canonical cell set, and typed product signature.
+Caller-supplied expected cell ids MAY be compared but SHALL NOT define the
+coverage denominator.
+
+#### Scenario: Caller shrinks the expected set
+- **WHEN** the caller supplies fewer expected cell ids than the canonical input
+  and state product
+- **THEN** the leaf review SHALL report a denominator mismatch
+- **AND** the leaf SHALL NOT be complete
+
+#### Scenario: Local product uses a foreign axis
+- **WHEN** a model-local interaction group references an axis belonging to a
+  different model
+- **THEN** the group SHALL be blocked
+- **AND** a cross-model product SHALL be accepted only as a typed interface
+  product with an explicit refinement contract
+
+### Requirement: Recursive test-mesh accounting
+Every non-leaf TestMesh report SHALL consume exact child terminal reports and
+recompute local and descendant planned, executed, failed, and not-run totals.
+The parent total SHALL equal local totals plus direct-child subtree totals, and
+every leaf cell or shard SHALL have exactly one current native owner unless an
+explicit shared-evidence contract names one primary owner.
+
+#### Scenario: Descendant totals disagree
+- **WHEN** a non-leaf suite self-reports complete but its descendant report has
+  planned cases not represented in the parent totals
+- **THEN** TestMesh SHALL block the parent report
+- **AND** a parent self-reported count SHALL NOT hide descendant not-run cases

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import sys
 
 _FLOWGUARD_PROJECT_ROOT = Path(__file__).resolve().parents[4]
@@ -119,17 +120,25 @@ def semantic_mesh_bad_cases() -> tuple[tuple[str, model.SelfMaintenanceAction], 
 
 
 def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
-    correct_ok = run_exact_workflow_case(
-        "receipt-bound correct model",
-        workflow=model.build_correct_workflow(),
-        initial_state=model.initial_state(),
-        external_input_sequence=model.EXTERNAL_INPUTS * model.MAX_SEQUENCE_LENGTH,
-        invariants=model.INVARIANTS,
-        final_state_predicate=lambda state: state.done_claim == "accepted",
-    )
-    report = run_formal_workflow_suite(
-        "self_maintenance_mesh",
-        (
+    # The self-maintenance suite is a terminal regression producer.  It still
+    # exhausts every finite input sequence, but does not need to retain the
+    # complete trace object for every known-bad case.  Keeping only bounded
+    # witnesses prevents the self-check from crossing the supervisor timeout
+    # merely because diagnostic traces are accumulated repeatedly.
+    previous_compact = os.environ.get("FLOWGUARD_COMPACT_TRACE_STORAGE")
+    os.environ["FLOWGUARD_COMPACT_TRACE_STORAGE"] = "1"
+    try:
+        correct_ok = run_exact_workflow_case(
+            "receipt-bound correct model",
+            workflow=model.build_correct_workflow(),
+            initial_state=model.initial_state(),
+            external_input_sequence=model.EXTERNAL_INPUTS * model.MAX_SEQUENCE_LENGTH,
+            invariants=model.INVARIANTS,
+            final_state_predicate=lambda state: state.done_claim == "accepted",
+        )
+        report = run_formal_workflow_suite(
+            "self_maintenance_mesh",
+            (
             FormalWorkflowCase(
                 "broken_synthetic_all_flags",
                 model.build_broken_synthetic_all_flags_workflow(),
@@ -344,16 +353,21 @@ def run_workflow_suite(*, typed_topology_ok: bool) -> bool:
                 ),
                 max_sequence_length=6,
             ),
-        ),
-        initial_states=(model.initial_state(),),
-        external_inputs=model.EXTERNAL_INPUTS,
-        invariants=model.INVARIANTS,
-        max_sequence_length=model.MAX_SEQUENCE_LENGTH,
-        terminal_predicate=model.terminal_predicate,
-        required_labels=REQUIRED_LABELS,
-        protected_error_class="self_maintenance_incomplete",
-    )
-    return correct_ok and report.ok and typed_topology_ok
+            ),
+            initial_states=(model.initial_state(),),
+            external_inputs=model.EXTERNAL_INPUTS,
+            invariants=model.INVARIANTS,
+            max_sequence_length=model.MAX_SEQUENCE_LENGTH,
+            terminal_predicate=model.terminal_predicate,
+            required_labels=REQUIRED_LABELS,
+            protected_error_class="self_maintenance_incomplete",
+        )
+        return correct_ok and report.ok and typed_topology_ok
+    finally:
+        if previous_compact is None:
+            os.environ.pop("FLOWGUARD_COMPACT_TRACE_STORAGE", None)
+        else:
+            os.environ["FLOWGUARD_COMPACT_TRACE_STORAGE"] = previous_compact
 
 
 def run_semantic_mesh_verification_review() -> bool:
@@ -451,7 +465,14 @@ def run_receipt_parent_review() -> bool:
     report = run_skill_self_governance(
         ROOT,
         verification_contexts=contexts,
-        save_parent_receipt=True,
+        # The native owner is itself the immutable producer for this
+        # regression.  Writing the shared default skill-suite parent receipt
+        # here creates a cross-owner filesystem side effect and can block
+        # otherwise shard-safe model regressions running in parallel.  The
+        # governance result is still fully verified and captured by
+        # ``native_main``; publication of a parent receipt belongs to the
+        # explicit self-governance publication route, not this leaf runner.
+        save_parent_receipt=False,
     )
     print(report.format_text())
     print()
@@ -538,6 +559,6 @@ def main() -> int:
         return 0
     return 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:self_maintenance_mesh", main))

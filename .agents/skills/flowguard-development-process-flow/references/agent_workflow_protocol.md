@@ -1,15 +1,16 @@
 # Internal Agent Workflow Protocol
 
 `agent_workflow` is an internal `development_process_flow` route for capability
-selection and sequencing across installed Codex skills, tools, plugins, or
-external actions. Requests naming AgentWorkflowRehearsal or multi-capability
-workflow review enter `flowguard-development-process-flow`; no separate Codex
-skill, forwarding entrypoint, alias, or fallback route exists.
+selection and sequencing across skills, tools, plugins, or external actions.
+Requests explicitly naming AgentWorkflowRehearsal or carrying an admitted
+cross-owner/shared-write, post-validation-invalidating-write, agent/route
+workflow-change, or multiple-independent-owner irreversible-risk fact enter
+`flowguard-development-process-flow`; no public alias exists. Capability labels
+alone stay `not_triggered`.
 
-The route may reference OpenSpec, LogicGuard, public FlowGuard owners, browser
-tools, GitHub, document plugins, or local skills as inventory entries. It does
-not execute or supervise them. Each owning capability retains its own work and
-validation.
+The route references other skills, tools, plugins, or external actions as
+inventory only; it does not execute or supervise them, and each owner retains
+its work and validation.
 
 ## Fresh Inventory
 

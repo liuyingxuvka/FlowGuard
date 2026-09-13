@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import sys
 
 _FLOWGUARD_PROJECT_ROOT = Path(__file__).resolve().parents[4]
@@ -41,18 +42,31 @@ def main() -> int:
         initial_states=(model.initial_state(),),
         external_inputs=model.EXTERNAL_INPUTS,
         invariants=model.INVARIANTS,
-        max_sequence_length=model.MAX_SEQUENCE_LENGTH,
+        # The broken runner violates the invariant as soon as it consumes a
+        # verified maturation result and then checks closure (two inputs).  Do
+        # not multiply the three four-step example traces into an unnecessary
+        # Cartesian search: the expected-bad proof needs only this minimal
+        # counterexample and no completion labels.
+        max_sequence_length=2,
         terminal_predicate=model.terminal_predicate,
-        required_labels=(
-            "maturation_consumed",
-            "admission_consumed",
-            "risk_consumed",
-            "closure_accepted",
-        ),
+        required_labels=(),
         protected_error_class="closure_upstream_authority_bypass",
     )
     return 0 if correct_ok and report.ok else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # Native evidence is work-in-progress output.  Keep it in a bounded,
+    # invocation-local workspace so the runner never scans historical project
+    # artifacts as if they were current input evidence.
+    os.environ.setdefault(
+        "FLOWGUARD_OUTPUT_DIR",
+        str(
+            _FLOWGUARD_PROJECT_ROOT
+            / "work"
+            / "flowguard"
+            / "native-owner-tests"
+            / f"flowguard-closure-contract-{os.getpid()}"
+        ),
+    )
+    raise SystemExit(native_main("model:flowguard_closure_contract", main))

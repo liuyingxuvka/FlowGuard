@@ -16,6 +16,36 @@ The mesh does not expand every child state graph. Each child remains responsible
 for its own internal states and invariants. The parent boundary only reads the
 child's contract and evidence summary.
 
+## Current FlowGuard authority projection
+
+The repository's `semantic_model_mesh.json` is the authored responsibility
+partition for the current 51-model manifest. The authoritative model-system
+snapshot now materializes that partition as three structural levels:
+
+```text
+system:flowguard:model-regression-manifest
+  -> semantic-parent:<responsibility-domain>
+       -> model:<logical_model_id>
+```
+
+Each of the 51 models has exactly one structural responsibility domain. The
+seven domains are `authority-and-understanding`, `model-mesh-and-composition`,
+`behavior-contracts-and-evidence`, `architecture-and-lifecycle`,
+`agent-guidance-and-skills`, `development-release-and-adoption`, and
+`ui-and-human-operability`. Their direct-child sets are derived from the
+semantic artifact, fingerprinted with the artifact itself, and emitted as
+`contains` relations. The inventory refuses to build a snapshot when the
+semantic membership is not exactly the materialized manifest, so a changed or
+partially updated partition cannot silently look current.
+
+`cross_boundary_parent_ids` are deliberately emitted as `depends_on` relations,
+not `contains` relations. They describe support or influence across domains and
+therefore do not give a model a second structural parent. Model `consumer_ids`
+are emitted as `affects` edges between model instances, which gives an AI an
+impact path without turning a consumer dependency into hierarchy. The semantic
+artifact remains a candidate topology declaration; terminal confidence still
+requires the independent model-owner, native-case, test, and release gates.
+
 When parent confidence also claims that the underlying code stays inside model
 boundaries, add layered boundary proof. The parent checks coverage and child
 disjointness, consumes current child reattachment evidence, and requires every
@@ -63,18 +93,72 @@ partition map without this derivation is not enough for green mesh confidence.
 
 ## When To Trigger It
 
-Run a hierarchical mesh review when either quantity or scale suggests the model
+Run a hierarchical mesh review when topology or scale suggests the model
 architecture needs review:
 
-- the project has three or more local FlowGuard models;
+- related models share a parent, partition, interaction, affected dependency,
+  stale child evidence, cross-model refinement, or whole-flow claim;
 - one model has estimated or observed state count above the configured large
   model threshold, defaulting to `10_000`;
 - a budgeted model group still has pending states and is incomplete;
 - one model contains several unrelated functional areas;
 - a legacy model is being reused as authority in a new parent/child hierarchy.
 
-Quantity means coordination risk. Scale means split risk. Either one is enough
-to ask the mesh whether the current model layout is still healthy.
+Model count by itself is not a trigger. Topology means coordination risk; scale
+means split risk. Either one is enough to ask the mesh whether the current model
+layout is still healthy.
+
+## Recursive Closure
+
+An arbitrary-depth hierarchy is closed from leaves upward. A leaf supplies a
+kernel-derived finite input/state product and one current receipt per cell. In
+the recursive wire form, the leaf node and its terminal subtree receipt both
+carry the input/state axis ids, axis fingerprints, canonical cell denominator,
+and typed `ContractProductSignature`; a compact product id by itself is not
+coverage evidence. A
+non-leaf supplies an exact current subtree receipt for its direct children;
+ordinary `passed` flags or string child ids are not a substitute. Every parent
+receipt recomputes its local and descendant totals and binds the direct-child
+set, partition fingerprint, descendant-universe fingerprint, owner, subject,
+obligations, toolchain, and environment. Cross-model combinations use typed
+interface/refinement contracts rather than the local Cartesian product.
+
+The recursive reviewer can also consume native producer rows directly. Pass
+`native_case_contracts` and `native_case_results` to
+`review_recursive_hierarchy(...)` with `require_native_execution=True` when a
+terminal claim must include executed evidence. The reviewer checks each
+owner's exact case ids, all declared dimensions, oracle members, current
+input/model/code/test fingerprints, and the raw artifact hash. It then
+promotes receipts in post-order: a parent is not execution-verified until its
+own native result and every direct child's native result are verified. A
+structure-only review remains available by omitting these arguments, but its
+`verified_receipt_ids` must not be presented as proof that code actually ran.
+
+The same rule applies to nested validation owners. A parent may launch a
+standalone child only when that child is not already selected by the outer
+owner plan (`FLOWGUARD_SELECTED_OWNER_IDS`). If it is selected, the parent
+returns an explicit `reuse_required`/blocked projection and consumes the
+child's current receipt instead of launching a second producer. This keeps
+three claims distinct: structural composition, native execution, and
+cross-sibling interaction.
+
+The finite composition rule is deliberately explicit. A parent may declare a
+set of disjoint child-local products with `allow_partitioned_product`; this is
+the bounded alternative to materialising one enormous cross-system table. The
+exception only removes the *monolithic* product requirement. Each local
+product still needs its kernel-derived denominator, product signature, shard
+receipts, and terminal result, and every cross-child route needs a typed
+handoff obligation plus an independently produced terminal handoff result. A
+parent cannot turn generated handoff ids, child summaries, or a count into
+execution evidence.
+
+For the terminal workflow, keep all governed model/code/test/spec/skill writes
+in the mutable phase. Freeze one `CompletionEpoch`, observe source once,
+execute only the affected owners, batch-refresh child receipts, compare live
+source immediately before parent save, and then perform integrity-only parent
+verification. The output-only epoch ledger must be the last state transition;
+writing a receipt or progress file must not make the source epoch stale or
+trigger a second full validation.
 
 ## Partition Maps
 

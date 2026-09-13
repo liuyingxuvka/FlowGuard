@@ -5,10 +5,14 @@ import textwrap
 import threading
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
+import flowguard.model_regressions as model_regressions
 from flowguard.model_regressions import MANIFEST_SCHEMA, run_manifest_regressions
 from flowguard.model_purpose import build_model_purpose_closure, file_fingerprint
+from flowguard.validation_ownership import ValidationOwnerPlanRow
+from flowguard.validation_results import ValidationChildResult
 
 
 class ModelRegressionOrchestratorTests(unittest.TestCase):
@@ -315,7 +319,7 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
         self.assertEqual("2", (root / "alpha-invocations.txt").read_text(encoding="utf-8"))
         self.assertEqual("1", (root / "beta-invocations.txt").read_text(encoding="utf-8"))
 
-    def test_one_manifest_entry_change_executes_only_that_model(self):
+    def test_budget_only_manifest_entry_change_reuses_that_model(self):
         script = (
             "from pathlib import Path\n"
             "model_id = __import__('os').environ['FLOWGUARD_MODEL_ID']\n"
@@ -359,9 +363,23 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
 
         self.assertTrue(first.ok, first.to_dict())
         self.assertTrue(second.ok, second.to_dict())
+        self.assertEqual(
+            first.parent_receipt_fingerprint,
+            second.parent_receipt_fingerprint,
+        )
+        self.assertEqual(0, second.to_validation_result().counts["producer_invocations"])
+        first_by_id = {item.model_id: item for item in first.results}
         by_id = {item.model_id: item for item in second.results}
         self.assertEqual("reuse_current", by_id["alpha"].execution_disposition)
-        self.assertEqual("execute", by_id["beta"].execution_disposition)
+        self.assertEqual("reuse_current", by_id["beta"].execution_disposition)
+        self.assertEqual(
+            first_by_id["alpha"].model_instance_fingerprint,
+            by_id["alpha"].model_instance_fingerprint,
+        )
+        self.assertEqual(
+            first_by_id["beta"].model_instance_fingerprint,
+            by_id["beta"].model_instance_fingerprint,
+        )
         self.assertEqual(
             "1",
             (root / "alpha-manifest-invocations.txt").read_text(
@@ -369,11 +387,116 @@ class ModelRegressionOrchestratorTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
-            "2",
+            "1",
             (root / "beta-manifest-invocations.txt").read_text(
                 encoding="utf-8"
             ),
         )
+
+    def test_tightened_budget_reexecutes_only_leaf_over_new_cap(self):
+        script = (
+            "import time\n"
+            "from pathlib import Path\n"
+            "model_id = __import__('os').environ['FLOWGUARD_MODEL_ID']\n"
+            "path = Path(f'{model_id}-budget-invocations.txt')\n"
+            "count = int(path.read_text() if path.exists() else '0')\n"
+            "path.write_text(str(count + 1), encoding='utf-8')\n"
+            "time.sleep(0.05)\n"
+        )
+        root = self.make_repo(
+            [
+                {"model_id": "alpha", "script": script, "timeout_seconds": 2},
+                {"model_id": "beta", "script": script, "timeout_seconds": 2},
+            ]
+        )
+        with patch("flowguard.model_regressions._tracked_paths", return_value=()):
+            first = run_manifest_regressions(
+                root,
+                tier="full",
+                output_dir=root / "outputs" / "out-first",
+            )
+            manifest_path = root / ".flowguard" / "models" / "regression-manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            alpha = next(item for item in manifest["models"] if item["model_id"] == "alpha")
+            alpha["timeout_seconds"] = 0.001
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            second = run_manifest_regressions(
+                root,
+                tier="full",
+                output_dir=root / "outputs" / "out-second",
+            )
+
+        self.assertTrue(first.ok, first.to_dict())
+        by_id = {item.model_id: item for item in second.results}
+        self.assertEqual("execute", by_id["alpha"].execution_disposition)
+        self.assertEqual("reuse_current", by_id["beta"].execution_disposition)
+        self.assertEqual(
+            "1",
+            (root / "beta-budget-invocations.txt").read_text(encoding="utf-8"),
+        )
+
+    def test_tightened_budget_marks_only_the_over_cap_leaf_resource_incompatible(self):
+        alpha_receipt = object()
+        beta_receipt = object()
+        rows = (
+            ValidationOwnerPlanRow(
+                owner_id="model:alpha",
+                disposition="reuse_current",
+                owner_identity="sha256:" + "a" * 64,
+                reason="current terminal receipt",
+            ),
+            ValidationOwnerPlanRow(
+                owner_id="model:beta",
+                disposition="reuse_current",
+                owner_identity="sha256:" + "b" * 64,
+                reason="current terminal receipt",
+            ),
+        )
+        receipts = {
+            "model:alpha": alpha_receipt,
+            "model:beta": beta_receipt,
+        }
+        entries = {
+            "model:alpha": SimpleNamespace(timeout_seconds=0.5),
+            "model:beta": SimpleNamespace(timeout_seconds=2.0),
+        }
+
+        def child_for(receipt, _receipt_root):
+            child_id = "alpha" if receipt is alpha_receipt else "beta"
+            return ValidationChildResult(
+                child_id=child_id,
+                status="pass",
+                payload={
+                    "model_result": {
+                        "status": "pass",
+                        "seconds": 1.0,
+                    }
+                },
+            )
+
+        with patch(
+            "flowguard.model_regressions.child_from_owner_receipt",
+            side_effect=child_for,
+        ):
+            refreshed = model_regressions._demote_policy_incompatible_model_rows(
+                rows,
+                receipts,
+                entries,
+                receipt_root=Path("unused"),
+                timeout_override=None,
+            )
+
+        by_owner = {row.owner_id: row for row in refreshed}
+        self.assertEqual("execute", by_owner["model:alpha"].disposition)
+        self.assertEqual(
+            ("resource_incompatible",),
+            by_owner["model:alpha"].findings,
+        )
+        self.assertTrue(
+            by_owner["model:alpha"].reason.startswith("resource_incompatible:")
+        )
+        self.assertEqual("reuse_current", by_owner["model:beta"].disposition)
+        self.assertEqual((), by_owner["model:beta"].findings)
 
 
 if __name__ == "__main__":

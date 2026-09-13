@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest import mock
 
@@ -70,6 +71,86 @@ def test_understanding_projection_never_serializes_summary_or_gap():
     assert payload["implementation_admitted"] is False
     summary.to_dict.assert_not_called()
     gap.to_dict.assert_not_called()
+
+
+def test_understanding_task_context_keeps_gap_refs_and_fits_32kib():
+    gap_rows = [
+        {
+            "gap_id": f"task-gap:{index:04d}",
+            "status": "blocked",
+            "message": "important blocker " + ("x" * 1200),
+            "evidence_refs": [f"evidence:{index:04d}"],
+        }
+        for index in range(96)
+    ]
+    context = {
+        "schema_version": "flowguard.affected_task_context.v1",
+        "fingerprint": "sha256:context",
+        "blueprint_fingerprint": "sha256:blueprint",
+        "logical_fingerprint": "sha256:logical",
+        "index_fingerprint": "sha256:index",
+        "status": "blocked",
+        "task_summary": "summary",
+        "selected_change_points": [
+            {
+                "surface_id": f"surface:{index:04d}",
+                "path": "pkg/module.py",
+                "symbol": "run",
+                "source_fingerprint": "sha256:" + "a" * 64,
+                "description": "y" * 1800,
+            }
+            for index in range(96)
+        ],
+        "accepted_intent": [],
+        "must_preserve": [],
+        "impact_paths": [],
+        "validation": [],
+        "gaps": gap_rows,
+        "gap_count": len(gap_rows),
+        "blocker_count": len(gap_rows),
+        "evidence_boundaries": {
+            "observed_structure": [],
+            "accepted_contract": [],
+            "executed_evidence": [],
+            "unresolved": [row["gap_id"] for row in gap_rows],
+        },
+        "claim_boundary": "read-only task map",
+    }
+    summary = SimpleNamespace(
+        scope="affected",
+        target_system_id="target:a",
+        target_profile="software",
+        subject_revision="revision:a",
+        descriptor_fingerprint="sha256:descriptor",
+        blueprint_fingerprint="sha256:blueprint",
+        logical_fingerprint="sha256:logical",
+        index_fingerprint="sha256:index",
+        fingerprint="sha256:understanding",
+        layer_statuses=(("model_code_test", "blocked"),),
+        deepest_proven_layer="implementation_inventory",
+        first_gap=None,
+        gap_count=len(gap_rows),
+        affected_ids=("surface:0000",),
+        pre_code_status="blocked",
+        executed_evidence_status="not_run",
+        implementation_admitted=False,
+        task_context=context,
+    )
+
+    payload = BlueprintCompactProjection.understanding(summary)
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    projected = payload["task_context"]
+    assert len(encoded) <= 32 * 1024
+    assert projected["gap_count"] == len(gap_rows)
+    assert projected["blocker_count"] == len(gap_rows)
+    assert projected["gap_refs"] == [row["gap_id"] for row in gap_rows]
+    assert projected["omitted_counts"]["gaps"] > 0
+    assert projected["continuation"]["object_refs"]["gaps"]
 
 
 def test_self_qualification_projection_never_serializes_blueprint():

@@ -6,6 +6,8 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from flowguard import (
     BCL_ACTOR_END_USER,
     BCL_CHANGE_BOOTSTRAP_LEDGER,
@@ -294,6 +296,7 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         refresh_behavior_commitment_source_inventory(candidate, root)
 
+    @pytest.mark.flowguard_capability("path_escape.posix_symlink")
     def test_symlink_escape_is_rejected_when_supported(self):
         with tempfile.TemporaryDirectory() as project_temporary, tempfile.TemporaryDirectory() as outside_temporary:
             root = Path(project_temporary)

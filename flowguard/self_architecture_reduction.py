@@ -113,6 +113,7 @@ from .validation_owner_execution import (
     publish_supervised_validation_owner_result,
 )
 from .process_supervision import run_supervised
+from .execution_profiles import ValidationExecutionPolicy
 
 
 SELF_ARCHITECTURE_REDUCTION_SCHEMA = (
@@ -3658,6 +3659,11 @@ class SelfArchitectureReductionReview:
     # affected revalidation.
     applied_candidate_ids: tuple[str, ...] = ()
     application_evidence_fingerprint: str = ""
+    # Candidate-level unresolved state is separate from unresolved universe
+    # members/steps.  A complete source inventory can still contain a
+    # candidate with no proof or typed retain authority; that candidate must
+    # keep cleanup release blocked.
+    unresolved_candidate_ids: tuple[str, ...] = ()
     review_fingerprint: str = field(init=False)
 
     def __post_init__(self) -> None:
@@ -3742,6 +3748,27 @@ class SelfArchitectureReductionReview:
         expected_candidate_ids = {
             candidate.candidate_id for candidate in self.candidates
         }
+        typed_retain_candidate_ids = {
+            candidate_id
+            for disposition in self.retain_dispositions
+            for candidate_id in disposition.candidate_ids
+        }
+        resolved_candidate_ids = {
+            *self.reduction_report.ready_candidate_ids,
+            *typed_retain_candidate_ids,
+            *{
+                candidate.candidate_id
+                for candidate in self.candidates
+                if str(candidate.metadata.get("disposition", "")) == "contract"
+            },
+        }
+        expected_unresolved_candidate_ids = tuple(
+            sorted(expected_candidate_ids - resolved_candidate_ids)
+        )
+        if tuple(self.unresolved_candidate_ids) != expected_unresolved_candidate_ids:
+            raise ValueError(
+                "self reduction unresolved candidate ids do not match current candidate decisions"
+            )
         assessed_candidate_ids = {
             row.candidate_id
             for row in self.reduction_report.step_assessments
@@ -3794,6 +3821,7 @@ class SelfArchitectureReductionReview:
             or not self.step_decision_complete
             or self.unresolved_member_ids
             or self.unresolved_step_ids
+            or self.unresolved_candidate_ids
             or self.safe_unapplied_candidate_ids
         ):
             raise ValueError(
@@ -3835,6 +3863,7 @@ class SelfArchitectureReductionReview:
             and self.step_decision_complete
             and not self.unresolved_member_ids
             and not self.unresolved_step_ids
+            and not self.unresolved_candidate_ids
         )
 
     @property
@@ -3930,6 +3959,7 @@ class SelfArchitectureReductionReview:
             },
             "unresolved_member_ids": list(self.unresolved_member_ids),
             "unresolved_step_ids": list(self.unresolved_step_ids),
+            "unresolved_candidate_ids": list(self.unresolved_candidate_ids),
             "safe_unapplied_candidate_ids": list(
                 self.safe_unapplied_candidate_ids
             ),
@@ -5420,7 +5450,9 @@ def _execute_semantic_proof_owner(
     supervised = run_supervised(
         current.contract.command,
         cwd=root,
-        timeout_seconds=current.contract.timeout_seconds,
+        timeout_seconds=ValidationExecutionPolicy.from_project(root).owner_timeout(
+            current.contract.owner_id
+        ),
     )
     if not supervised.ok:
         raise ValueError(
@@ -5580,6 +5612,7 @@ def execute_flowguard_self_reduction_proofs(
     *,
     expected_candidate_inventory_fingerprint: str,
     selections: tuple[SelfReductionProofSelection, ...],
+    model_receipt_dir: str | Path | None = None,
 ) -> tuple[SelfReductionProofRecord, ...]:
     """Execute one frozen candidate batch, reusing exact-current proof owners first."""
 
@@ -5611,7 +5644,12 @@ def execute_flowguard_self_reduction_proofs(
         )
 
     root_path = _resolved_repository_root(root)
-    bundle = build_flowguard_self_blueprint(root_path)
+    build_kwargs = (
+        {"model_receipt_dir": model_receipt_dir}
+        if model_receipt_dir is not None
+        else {}
+    )
+    bundle = build_flowguard_self_blueprint(root_path, **build_kwargs)
     build_input_identity = getattr(bundle, "build_input_identity", None)
     if not isinstance(build_input_identity, SelfBlueprintBuildInputIdentity):
         raise TypeError(
@@ -5705,8 +5743,16 @@ def execute_flowguard_self_reduction_proofs(
         tuple(sorted(records, key=lambda record: record.candidate_id)),
     )
     _recheck_verified_proof_currentness(root_path, verified)
+    capture_kwargs = (
+        {"model_receipt_dir": model_receipt_dir}
+        if model_receipt_dir is not None
+        else {}
+    )
     if (
-        capture_flowguard_self_blueprint_build_input_identity(root_path)
+        capture_flowguard_self_blueprint_build_input_identity(
+            root_path,
+            **capture_kwargs,
+        )
         != build_input_identity
     ):
         raise ValueError(
@@ -5726,6 +5772,7 @@ def _self_reduction_completion_status(
     unresolved_member_ids: tuple[str, ...],
     unresolved_step_ids: tuple[str, ...],
     action_authorized_candidate_ids: tuple[str, ...],
+    unresolved_candidate_ids: tuple[str, ...] = (),
 ) -> tuple[bool, bool, str]:
     """Keep audit completion, pending action, and cleanup closure distinct."""
 
@@ -5741,6 +5788,7 @@ def _self_reduction_completion_status(
         and step_decision_complete
         and not unresolved_member_ids
         and not unresolved_step_ids
+        and not unresolved_candidate_ids
         and not action_authorized_candidate_ids
     )
     status = (
@@ -5756,6 +5804,7 @@ def _review_current_flowguard_self_architecture_reduction(
     *,
     bundle: FlowGuardSelfBlueprintBundle,
     build_input_identity: SelfBlueprintBuildInputIdentity | None = None,
+    model_receipt_dir: str | Path | None = None,
 ) -> SelfArchitectureReductionReview:
     """Review one bundle that was built from ``root`` by a trusted caller."""
 
@@ -6163,6 +6212,23 @@ def _review_current_flowguard_self_architecture_reduction(
         and len(reduction_report.step_assessments) == len(candidates)
         and not unresolved_step_ids
     )
+    typed_retain_candidate_ids = {
+        candidate_id
+        for disposition in retain_dispositions
+        for candidate_id in disposition.candidate_ids
+    }
+    resolved_candidate_ids = {
+        *ready_candidate_ids,
+        *typed_retain_candidate_ids,
+        *{
+            candidate.candidate_id
+            for candidate in candidates
+            if str(candidate.metadata.get("disposition", "")) == "contract"
+        },
+    }
+    unresolved_candidate_ids = tuple(
+        sorted(set(expected) - resolved_candidate_ids)
+    )
     member_ids = {row.member_id for row in reduction_universe.members}
     audit_accounted = bool(
         candidate_inventory_independent
@@ -6193,10 +6259,17 @@ def _review_current_flowguard_self_architecture_reduction(
         unresolved_member_ids=unresolved_member_ids,
         unresolved_step_ids=unresolved_step_ids,
         action_authorized_candidate_ids=action_authorized_candidate_ids,
+        unresolved_candidate_ids=unresolved_candidate_ids,
     )
     _recheck_verified_proof_currentness(root, verified_proofs)
-    fresh_build_input_identity = (
-        capture_flowguard_self_blueprint_build_input_identity(root)
+    capture_kwargs = (
+        {"model_receipt_dir": model_receipt_dir}
+        if model_receipt_dir is not None
+        else {}
+    )
+    fresh_build_input_identity = capture_flowguard_self_blueprint_build_input_identity(
+        root,
+        **capture_kwargs,
     )
     if fresh_build_input_identity != build_input_identity:
         raise ValueError(
@@ -6234,33 +6307,66 @@ def _review_current_flowguard_self_architecture_reduction(
         unresolved_member_ids=unresolved_member_ids,
         unresolved_step_ids=unresolved_step_ids,
         safe_unapplied_candidate_ids=safe_unapplied,
+        unresolved_candidate_ids=unresolved_candidate_ids,
         status=status,
     )
 
 
 def review_flowguard_self_architecture_reduction(
     root: str = ".",
+    *,
+    require_executed_evidence: bool = False,
+    model_receipt_dir: str | Path | None = None,
 ) -> SelfArchitectureReductionReview:
     """Standalone direct path: build one bundle and review that exact bundle."""
 
-    bundle = build_flowguard_self_blueprint(root)
+    # Keep one call path so the executed-evidence gate cannot silently drift
+    # between the default and strict branches.  The flag is an input to the
+    # authoritative self-blueprint builder, never a post-hoc claim override.
+    build_kwargs = (
+        {"require_executed_evidence": True}
+        if require_executed_evidence
+        else {}
+    )
+    if model_receipt_dir is not None:
+        build_kwargs["model_receipt_dir"] = model_receipt_dir
+    bundle = build_flowguard_self_blueprint(root, **build_kwargs)
+    review_kwargs = {}
+    if model_receipt_dir is not None:
+        review_kwargs["model_receipt_dir"] = model_receipt_dir
     return _review_current_flowguard_self_architecture_reduction(
         root,
         bundle=bundle,
         build_input_identity=bundle.build_input_identity,
+        **review_kwargs,
     )
 
 
 def build_flowguard_self_architecture_reduction_review(
     root: str = ".",
+    *,
+    require_executed_evidence: bool = False,
+    model_receipt_dir: str | Path | None = None,
 ) -> tuple[FlowGuardSelfBlueprintBundle, SelfArchitectureReductionReview]:
     """Use one authoritative bundle plus one final currentness comparator."""
 
-    bundle = build_flowguard_self_blueprint(root)
+    build_kwargs = (
+        {"require_executed_evidence": True}
+        if require_executed_evidence
+        else {}
+    )
+    if model_receipt_dir is not None:
+        build_kwargs["model_receipt_dir"] = model_receipt_dir
+    bundle = build_flowguard_self_blueprint(root, **build_kwargs)
     review = _review_current_flowguard_self_architecture_reduction(
         root,
         bundle=bundle,
         build_input_identity=bundle.build_input_identity,
+        **(
+            {"model_receipt_dir": model_receipt_dir}
+            if model_receipt_dir is not None
+            else {}
+        ),
     )
     return bundle, review
 

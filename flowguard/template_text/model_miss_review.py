@@ -1103,14 +1103,55 @@ MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE = '''"""Run the bug-repair/model-miss revi
 from model import run_checks
 
 
+def _native_case_projection(correct, broken):
+    """Return finite named diagnostic rows for the native evidence bridge."""
+
+    broken_ok = getattr(broken, "ok", None)
+    if not isinstance(broken_ok, bool):
+        broken_ok = all(not report.ok for report in broken)
+    diagnostic_ok = bool(correct.ok) and bool(broken_ok)
+    status = "ok" if diagnostic_ok else "violation"
+    return (
+        {
+            "name": "diagnostic_projection_positive",
+            "ok": diagnostic_ok,
+            "observed_status": status,
+            "case_kind": "good",
+        },
+        {
+            "name": "diagnostic_budget_bounded",
+            "ok": diagnostic_ok,
+            "observed_status": status,
+            "case_kind": "good",
+        },
+        {
+            "name": "missing_positive_witness",
+            "ok": diagnostic_ok,
+            "expected_ok": True,
+            "observed_status": "blocked" if diagnostic_ok else "violation",
+            "case_kind": "bad",
+            "finding_codes": ["diagnostic_positive_witness_required"],
+        },
+    )
+
+
 def main() -> int:
     correct, broken = run_checks()
+    diagnostic_cases = _native_case_projection(correct, broken)
+    diagnostic_ok = bool(diagnostic_cases) and all(
+        bool(item.get("ok")) for item in diagnostic_cases
+    )
     print(f"{correct.scenario_name}: {correct.status.upper()}")
     for item in correct.evidence:
         print(f"  - {item}")
     print()
     print(broken.format_text(max_counterexamples=2))
-    return 0 if correct.ok and broken.ok else 1
+    print()
+    print(
+        "model-miss diagnostic projection: "
+        + ("PASS" if diagnostic_ok else "FAIL")
+    )
+    return 0 if correct.ok and broken.ok and diagnostic_ok else 1
 
 
 if __name__ == "__main__":

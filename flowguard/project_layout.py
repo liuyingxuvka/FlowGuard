@@ -22,10 +22,15 @@ import re
 import stat
 import tomllib
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Mapping
+from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import Any, Iterable, Mapping
 
 from .observation_metrics import InvocationMetrics
+from .runtime_artifacts import (
+    classify_runtime_artifact,
+    is_governed_source_in_runtime_cache,
+    is_non_authority_path,
+)
 
 
 PROJECT_LAYOUT_SCHEMA = "flowguard.project_layout.v3"
@@ -79,7 +84,6 @@ RETIRED_LAYOUT_COMPONENTS = frozenset(
         "materialization",
         "bundle",
         "bundles",
-        "__pycache__",
         ".pytest_cache",
         ".mypy_cache",
         ".ruff_cache",
@@ -100,6 +104,36 @@ CURRENT_AUTHORITY_ROLES = frozenset(
 # silently become part of the current control plane.
 _SAFE_COMPONENT_RE = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9._-]*|[A-Za-z0-9][A-Za-z0-9._-]*)$")
 _OWNER_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+_SHA256_FINGERPRINT_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+
+# ``project.toml`` is intentionally the only current project/adoption record.
+# Keep this small gate in the layout owner so a caller cannot read a valid
+# shape and then silently fall back to an alternate project or model pointer.
+# The full semantic authority audit remains owned by model_authority_store.
+_PROJECT_MANIFEST_REQUIRED_FIELDS = frozenset(
+    {
+        "repository",
+        "adopted_package_version",
+        "schema_version",
+        "last_verified_at",
+        "last_verified_by",
+        "agents_path",
+    }
+)
+_MODEL_AUTHORITY_REQUIRED_FIELDS = frozenset(
+    {
+        "system_id",
+        "observed_snapshot_path",
+        "observed_snapshot_fingerprint",
+        "subject_revision",
+        "coverage_status",
+        "generation",
+        "accepted_revision_set_fingerprint",
+        "previous_snapshot_fingerprint",
+        "activation_receipt_fingerprint",
+        "head_fingerprint",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -349,9 +383,12 @@ def current_layout_readme_text() -> str:
             "model/check owner, not by an empty-directory rule.",
             "",
             "`evidence/` is immutable proof and `history/` is provenance only.",
-            "Transient work and diagnostic projections belong outside the current",
-            "control-plane roots; neither can become model or execution authority",
-            "without a direct current rewrite.",
+            "A controlled `work/flowguard/<task-id>/` workspace may remain during",
+            "work, but it is excluded from layout/source/release authority and is",
+            "only explicitly reclaimable. `models/authority/staging/` has the same",
+            "candidate-only boundary; it cannot become current authority by naming",
+            "alone. Do not hide arbitrary source files under a temporary-looking",
+            "directory.",
             "",
             "This navigation file is not evidence and is not used to bypass any",
             "layout, model, receipt, consumer, or release gate.",
@@ -393,8 +430,10 @@ def _model_authority_metadata(root_path: Path) -> tuple[str, str]:
     """Read only the pointer identity needed by the layout contract.
 
     The layout gate never validates or consumes the pointed-to model.  It only
-    records the current pointer and a fingerprint of the declared section so a
-    later authority reader can detect that the layout identity changed.
+    records the current pointer and a stable fingerprint of that pointer. The
+    mutable snapshot/revision/head fields belong to the model-authority store;
+    including them here would make every legitimate activation rewrite the
+    layout and create a model/layout freshness cycle.
     """
 
     manifest_path = root_path / ".flowguard" / "project.toml"
@@ -404,8 +443,8 @@ def _model_authority_metadata(root_path: Path) -> tuple[str, str]:
         section = payload.get("model_authority")
         if not isinstance(section, Mapping):
             return "", ""
-        normalized = {str(key): section[key] for key in sorted(section)}
-        return ".flowguard/project.toml#model_authority", _canonical_json_fingerprint(normalized)
+        pointer = ".flowguard/project.toml#model_authority"
+        return pointer, _canonical_json_fingerprint({"pointer": pointer})
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
         return "", ""
 
@@ -434,8 +473,27 @@ def _layout_inventory(
             traversal_findings=tuple(traversal_findings),
         )
     rows: list[dict[str, str]] = []
+    observed_relative_paths = tuple(
+        path.relative_to(flowguard_root).as_posix() for path in observation.paths
+    )
+    runtime_only_dirs = _runtime_only_layout_directories(observed_relative_paths)
     for path in observation.paths:
         rel = path.relative_to(flowguard_root).as_posix()
+        # Known working artifacts are intentionally observed for diagnostics,
+        # but never participate in current layout shape or role fingerprints.
+        # This keeps a generated cache or candidate staging file from making
+        # the current manifest stale while preserving every byte on disk.
+        try:
+            if (
+                rel in runtime_only_dirs
+                or is_non_authority_path(f".flowguard/{rel}")
+                or _is_model_authority_control_plane_member(rel)
+            ):
+                continue
+        except ValueError:
+            # The guarded walker/inspector owns path-name safety findings.  Do
+            # not silently classify an unsafe spelling as a working artifact.
+            pass
         parts = Path(rel).parts
         if not parts or parts[0] not in CANONICAL_ROLE_ROOT_NAMES:
             continue
@@ -483,6 +541,488 @@ def _finding(
         recommendation=recommendation,
         metadata=metadata or {},
     )
+
+
+def _sha256_file(path: Path) -> str:
+    """Hash one already-validated regular file without loading it in memory."""
+
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while True:
+            chunk = stream.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
+def _model_snapshot_file_fingerprint(path: Path) -> str:
+    """Return the identity used by a content-addressed model snapshot.
+
+    Ordinary layout fixtures and legacy human-authored snapshots are validated
+    by their raw file digest.  A current ``ModelSystemSnapshot`` is different:
+    its filename and project pointer use the snapshot's canonical identity
+    fingerprint, while pretty-printed JSON (and Windows line endings) are only
+    its serialization.  Parse and validate that typed artifact when possible,
+    falling back to the raw digest for non-model fixture files so the layout
+    audit remains useful without becoming a second model-authority reader.
+    """
+
+    raw_fingerprint = _sha256_file(path)
+    try:
+        from .model_authority import ModelSystemSnapshot
+
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        snapshot = ModelSystemSnapshot.from_dict(payload)
+    except (OSError, UnicodeError, TypeError, ValueError, KeyError):
+        return raw_fingerprint
+    return snapshot.fingerprint
+
+
+def _normalize_relative_pointer(value: Any) -> str | None:
+    """Normalize a manifest pointer while rejecting escapes and rooted paths."""
+
+    raw = str(value or "").strip()
+    posix = PurePosixPath(raw.replace("\\", "/"))
+    windows = PureWindowsPath(raw)
+    if (
+        not raw
+        or raw.startswith(("/", "\\"))
+        or posix.is_absolute()
+        or windows.is_absolute()
+        or bool(windows.drive)
+        or ".." in posix.parts
+    ):
+        return None
+    return posix.as_posix()
+
+
+def _light_project_control_plane_findings(
+    root_path: Path,
+    *,
+    layout_header: Mapping[str, Any] | None = None,
+) -> list[ProjectLayoutFinding]:
+    """Apply the cheap project/adoption/sole-pointer gate.
+
+    This deliberately validates only the identity-bearing control-plane
+    records.  Full model semantics, accepted revision checks, and snapshot
+    payload validation remain owned by ``model_authority_store``.  A newly
+    adopted project may legitimately have no model authority yet; once an
+    authority section is declared, its one content-addressed snapshot pointer
+    and the adoption record become hard requirements.
+    """
+
+    findings: list[ProjectLayoutFinding] = []
+    flowguard_root = root_path / ".flowguard"
+    project_path = flowguard_root / "project.toml"
+    project_rel = ".flowguard/project.toml"
+
+    try:
+        project_exists = project_path.exists() or project_path.is_symlink()
+    except OSError as exc:
+        findings.append(
+            _finding(
+                "layout_project_manifest_unreadable",
+                path=project_rel,
+                message=f"The current project manifest cannot be inspected safely: {exc}",
+                recommendation="Repair the regular .flowguard/project.toml and rerun the audit; do not consult an alternate project record.",
+            )
+        )
+        return findings
+    if not project_exists:
+        findings.append(
+            _finding(
+                "layout_project_manifest_missing",
+                path=project_rel,
+                message="The current .flowguard project manifest is missing.",
+                recommendation="Create one current project.toml before using this layout as project or model authority; do not read a historical manifest.",
+            )
+        )
+        return findings
+    try:
+        if _path_is_reparse_or_symlink(project_path):
+            findings.append(
+                _finding(
+                    "layout_project_manifest_reparse_or_symlink",
+                    path=project_rel,
+                    message="The current project manifest is a symlink, junction, or other reparse point.",
+                    recommendation="Replace it with one manually owned regular project.toml and rebuild the current project identity.",
+                )
+            )
+            return findings
+        if not project_path.is_file():
+            findings.append(
+                _finding(
+                    "layout_project_manifest_not_file",
+                    path=project_rel,
+                    message="The current project manifest is not a regular file.",
+                    recommendation="Replace it with one regular .flowguard/project.toml; do not use a directory or alternate path as project authority.",
+                )
+            )
+            return findings
+        project_payload = tomllib.loads(project_path.read_bytes().decode("utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        findings.append(
+            _finding(
+                "layout_project_manifest_invalid",
+                path=project_rel,
+                message=f"The current project manifest cannot be parsed: {exc}",
+                recommendation="Rewrite .flowguard/project.toml in the current direct format and rerun the audit.",
+            )
+        )
+        return findings
+    if not isinstance(project_payload, Mapping):
+        findings.append(
+            _finding(
+                "layout_project_manifest_invalid",
+                path=project_rel,
+                message="The current project manifest must be a TOML table.",
+                recommendation="Rewrite .flowguard/project.toml as a TOML table with flowguard and adoption policy records.",
+            )
+        )
+        return findings
+
+    flowguard_section = project_payload.get("flowguard")
+    policy_section = project_payload.get("policy")
+    authority_section = project_payload.get("model_authority")
+    if not isinstance(flowguard_section, Mapping):
+        findings.append(
+            _finding(
+                "layout_project_section_missing",
+                path=project_rel,
+                message="The current project manifest has no [flowguard] identity table.",
+                recommendation="Rewrite the direct current project record with one [flowguard] table; do not infer identity from a fallback file.",
+            )
+        )
+        flowguard_section = {}
+
+    # A schema-only [flowguard] table is the existing lightweight scaffold
+    # contract.  Full adoption records opt into the stricter project/policy
+    # checks through an adopted version, a policy table, or model authority.
+    adopted = bool(
+        str(flowguard_section.get("adopted_package_version", "")).strip()
+        or isinstance(policy_section, Mapping)
+        or isinstance(authority_section, Mapping)
+    )
+    if adopted:
+        missing_fields = sorted(
+            field_name
+            for field_name in _PROJECT_MANIFEST_REQUIRED_FIELDS
+            if not isinstance(flowguard_section.get(field_name), str)
+            or not str(flowguard_section.get(field_name)).strip()
+        )
+        if missing_fields:
+            findings.append(
+                _finding(
+                    "layout_project_identity_incomplete",
+                    path=project_rel,
+                    message="The adopted project manifest is missing one or more required identity fields.",
+                    recommendation="Restore the complete current project/adoption record before relying on this layout.",
+                    metadata={"missing_fields": missing_fields},
+                )
+            )
+        if not isinstance(policy_section, Mapping):
+            findings.append(
+                _finding(
+                    "layout_adoption_policy_missing",
+                    path=project_rel,
+                    message="An adopted project must declare one [policy] table.",
+                    recommendation="Restore the current adoption policy table; do not infer policy from an older manifest.",
+                )
+            )
+        elif policy_section.get("require_adoption_log") is not True:
+            findings.append(
+                _finding(
+                    "layout_adoption_policy_invalid",
+                    path=project_rel,
+                    message="The adopted project must explicitly require its current adoption log.",
+                    recommendation="Set policy.require_adoption_log = true in the current project record.",
+                    metadata={"observed": policy_section.get("require_adoption_log")},
+                )
+            )
+
+    # Initial project adoption writes the log immediately after its post-write
+    # layout audit.  That one bootstrap state has no model authority yet and
+    # is therefore allowed to be temporarily log-less.  A minimal scaffold
+    # still needs the log path, but its historical empty-file fixture remains
+    # compatible.  A full adopted project becomes content-gated once it
+    # exposes the sole model-authority section.
+    bootstrap_without_authority = adopted and not isinstance(authority_section, Mapping)
+    adoption_log_required = not bootstrap_without_authority
+    adoption_log_content_required = adopted and isinstance(authority_section, Mapping)
+    adoption_log_path = flowguard_root / "adoption_log.jsonl"
+    adoption_log_rel = ".flowguard/adoption_log.jsonl"
+    try:
+        adoption_log_exists = adoption_log_path.exists() or adoption_log_path.is_symlink()
+    except OSError as exc:
+        findings.append(
+            _finding(
+                "layout_adoption_log_unreadable",
+                path=adoption_log_rel,
+                message=f"The current adoption log cannot be inspected safely: {exc}",
+                recommendation="Repair the regular current adoption log and rerun the audit; do not consult a fallback log.",
+            )
+        )
+        adoption_log_exists = False
+    if not adoption_log_exists:
+        if adoption_log_required:
+            findings.append(
+                _finding(
+                    "layout_adoption_log_missing",
+                    path=adoption_log_rel,
+                    message="The current adoption log is missing.",
+                    recommendation="Restore one current .flowguard/adoption_log.jsonl before claiming project currentness.",
+                )
+            )
+    else:
+        try:
+            if _path_is_reparse_or_symlink(adoption_log_path):
+                findings.append(
+                    _finding(
+                        "layout_adoption_log_reparse_or_symlink",
+                        path=adoption_log_rel,
+                        message="The current adoption log is a symlink, junction, or other reparse point.",
+                        recommendation="Replace it with one manually owned regular adoption_log.jsonl; do not follow the redirected log.",
+                    )
+                )
+            elif not adoption_log_path.is_file():
+                findings.append(
+                    _finding(
+                        "layout_adoption_log_not_file",
+                        path=adoption_log_rel,
+                        message="The current adoption log is not a regular file.",
+                        recommendation="Replace it with one regular .flowguard/adoption_log.jsonl; do not use a directory as the adoption record.",
+                    )
+                )
+            elif adoption_log_content_required and adoption_log_path.stat().st_size == 0:
+                findings.append(
+                    _finding(
+                        "layout_adoption_log_empty",
+                        path=adoption_log_rel,
+                        message="The adopted project adoption log is empty.",
+                        recommendation="Append the current adoption record before relying on project currentness.",
+                    )
+                )
+        except OSError as exc:
+            findings.append(
+                _finding(
+                    "layout_adoption_log_unreadable",
+                    path=adoption_log_rel,
+                    message=f"The current adoption log cannot be inspected safely: {exc}",
+                    recommendation="Repair the regular current adoption log and rerun the audit; do not consult a fallback log.",
+                )
+            )
+
+    # The model authority section is optional during initial adoption, but
+    # once present it must be the one exact current section and its declared
+    # snapshot must be an in-root regular file with matching bytes.
+    if authority_section is None:
+        declared_pointer = ""
+        if isinstance(layout_header, Mapping):
+            declared_pointer = str(layout_header.get("model_authority_pointer", "")).strip()
+        if declared_pointer:
+            findings.append(
+                _finding(
+                    "layout_model_authority_missing",
+                    path=project_rel,
+                    message="The layout declares a model-authority pointer but project.toml has no sole [model_authority] section.",
+                    recommendation="Restore one current model-authority section and rebuild the layout identity; do not follow a detached pointer.",
+                )
+            )
+        return findings
+    if not isinstance(authority_section, Mapping):
+        findings.append(
+            _finding(
+                "layout_model_authority_schema_mismatch",
+                path=project_rel,
+                message="The sole model-authority record must be a TOML table.",
+                recommendation="Rewrite one exact [model_authority] table in project.toml; do not add an alternate pointer section.",
+            )
+        )
+        return findings
+    observed_keys = {str(key) for key in authority_section}
+    if observed_keys != _MODEL_AUTHORITY_REQUIRED_FIELDS:
+        findings.append(
+            _finding(
+                "layout_model_authority_schema_mismatch",
+                path=project_rel,
+                message="The sole model-authority section has missing or alternate pointer fields.",
+                recommendation="Keep exactly the current model-authority field set and rebuild its identity; do not retain a parallel pointer.",
+                metadata={
+                    "missing_fields": sorted(_MODEL_AUTHORITY_REQUIRED_FIELDS - observed_keys),
+                    "unknown_fields": sorted(observed_keys - _MODEL_AUTHORITY_REQUIRED_FIELDS),
+                },
+            )
+        )
+
+    string_fields = _MODEL_AUTHORITY_REQUIRED_FIELDS - {"generation"}
+    for field_name in sorted(string_fields):
+        value = authority_section.get(field_name)
+        if not isinstance(value, str) or (field_name != "previous_snapshot_fingerprint" and not value.strip()):
+            findings.append(
+                _finding(
+                    "layout_model_authority_field_invalid",
+                    path=project_rel,
+                    message=f"model_authority.{field_name} must be a non-empty TOML string.",
+                    recommendation="Restore the exact current model-authority field value and rebuild the pointer identity.",
+                    metadata={"field": field_name},
+                )
+            )
+    generation = authority_section.get("generation")
+    if (
+        not isinstance(generation, int)
+        or isinstance(generation, bool)
+        or generation < 1
+    ):
+        findings.append(
+            _finding(
+                "layout_model_authority_field_invalid",
+                path=project_rel,
+                message="model_authority.generation must be a TOML integer.",
+                recommendation="Restore the current integer generation in the sole model-authority section.",
+                metadata={"field": "generation"},
+            )
+        )
+    for field_name in (
+        "observed_snapshot_fingerprint",
+        "accepted_revision_set_fingerprint",
+        "activation_receipt_fingerprint",
+        "head_fingerprint",
+    ):
+        value = authority_section.get(field_name)
+        if isinstance(value, str) and not _SHA256_FINGERPRINT_RE.fullmatch(value):
+            findings.append(
+                _finding(
+                    "layout_model_authority_fingerprint_invalid",
+                    path=project_rel,
+                    message=f"model_authority.{field_name} is not a canonical sha256 fingerprint.",
+                    recommendation="Rebuild the current model-authority identity from its accepted source and snapshot.",
+                    metadata={"field": field_name},
+                )
+            )
+    previous_fingerprint = authority_section.get("previous_snapshot_fingerprint")
+    if isinstance(previous_fingerprint, str) and previous_fingerprint and not _SHA256_FINGERPRINT_RE.fullmatch(previous_fingerprint):
+        findings.append(
+            _finding(
+                "layout_model_authority_fingerprint_invalid",
+                path=project_rel,
+                message="model_authority.previous_snapshot_fingerprint is not empty or a canonical sha256 fingerprint.",
+                recommendation="Restore the predecessor snapshot fingerprint or explicitly use the empty bootstrap value.",
+                metadata={"field": "previous_snapshot_fingerprint"},
+            )
+        )
+
+    pointer_value = authority_section.get("observed_snapshot_path")
+    normalized_pointer = _normalize_relative_pointer(pointer_value)
+    if normalized_pointer is None:
+        findings.append(
+            _finding(
+                "layout_model_authority_pointer_invalid",
+                path=project_rel,
+                message="The sole observed_snapshot_path must be repository-relative and cannot escape the project root.",
+                recommendation="Rewrite the current relative snapshot pointer; absolute, rooted, and parent-traversing paths are blocked.",
+            )
+        )
+        return findings
+    pointer_classification = _layout_runtime_classification(normalized_pointer)
+    if pointer_classification is not None:
+        findings.append(
+            _finding(
+                "layout_model_authority_pointer_working_path",
+                path=normalized_pointer,
+                message="The current model-authority pointer cannot target a working, staged, cached, or opaque path.",
+                recommendation="Point current authority only at the content-addressed snapshot under models/authority/snapshots; keep candidate/staging bytes non-authoritative.",
+                metadata={"kind": pointer_classification.kind},
+            )
+        )
+        return findings
+
+    snapshot_path = root_path / Path(*PurePosixPath(normalized_pointer).parts)
+    cursor = root_path
+    path_safe = True
+    for component in PurePosixPath(normalized_pointer).parts:
+        cursor = cursor / component
+        try:
+            if (cursor.exists() or cursor.is_symlink()) and _path_is_reparse_or_symlink(cursor):
+                findings.append(
+                    _finding(
+                        "layout_model_authority_snapshot_reparse_or_symlink",
+                        path=normalized_pointer,
+                        message="The sole model snapshot pointer traverses a symlink, junction, or other reparse point.",
+                        recommendation="Replace every pointer path component with a manually owned regular path and rebuild the authority identity.",
+                    )
+                )
+                path_safe = False
+                break
+        except OSError as exc:
+            findings.append(
+                _finding(
+                    "layout_model_authority_snapshot_unreadable",
+                    path=normalized_pointer,
+                    message=f"The sole model snapshot path cannot be inspected safely: {exc}",
+                    recommendation="Repair the current regular snapshot path and rerun the audit; do not consult an alternate snapshot.",
+                )
+            )
+            path_safe = False
+            break
+    if not path_safe:
+        return findings
+    try:
+        snapshot_exists = snapshot_path.exists() or snapshot_path.is_symlink()
+        if not snapshot_exists:
+            findings.append(
+                _finding(
+                    "layout_model_authority_snapshot_missing",
+                    path=normalized_pointer,
+                    message="The sole model snapshot pointer does not resolve to a current file.",
+                    recommendation="Restore the exact content-addressed snapshot before relying on model authority.",
+                )
+            )
+            return findings
+        if _path_is_reparse_or_symlink(snapshot_path):
+            findings.append(
+                _finding(
+                    "layout_model_authority_snapshot_reparse_or_symlink",
+                    path=normalized_pointer,
+                    message="The sole model snapshot is a symlink, junction, or other reparse point.",
+                    recommendation="Replace it with the manually owned content-addressed snapshot; do not follow the redirected target.",
+                )
+            )
+            return findings
+        if not snapshot_path.is_file():
+            findings.append(
+                _finding(
+                    "layout_model_authority_snapshot_not_file",
+                    path=normalized_pointer,
+                    message="The sole model snapshot pointer does not resolve to a regular file.",
+                    recommendation="Restore one regular content-addressed snapshot file and rebuild the current authority identity.",
+                )
+            )
+            return findings
+        live_fingerprint = _model_snapshot_file_fingerprint(snapshot_path)
+    except OSError as exc:
+        findings.append(
+            _finding(
+                "layout_model_authority_snapshot_unreadable",
+                path=normalized_pointer,
+                message=f"The sole model snapshot cannot be read safely: {exc}",
+                recommendation="Repair the current regular snapshot and rerun the audit; do not consult an alternate snapshot.",
+            )
+        )
+        return findings
+    declared_fingerprint = authority_section.get("observed_snapshot_fingerprint")
+    if isinstance(declared_fingerprint, str) and _SHA256_FINGERPRINT_RE.fullmatch(declared_fingerprint):
+        if live_fingerprint != declared_fingerprint:
+            findings.append(
+                _finding(
+                    "layout_model_authority_snapshot_fingerprint_stale",
+                    path=normalized_pointer,
+                    message="The sole model snapshot bytes do not match observed_snapshot_fingerprint.",
+                    recommendation="Rebuild the current model authority from the exact content-addressed snapshot; do not accept stale evidence.",
+                    metadata={"expected": declared_fingerprint, "observed": live_fingerprint},
+                )
+            )
+    return findings
 
 
 def _parse_manifest(
@@ -539,6 +1079,14 @@ def _parse_manifest(
             )
         )
         return None, findings
+    if root_path is not None:
+        layout_header = payload.get("flowguard_layout")
+        findings.extend(
+            _light_project_control_plane_findings(
+                root_path,
+                layout_header=layout_header if isinstance(layout_header, Mapping) else None,
+            )
+        )
     expected_sections = {"flowguard_layout", "roots", "role_authority", "inventory"}
     if set(payload) != expected_sections:
         findings.append(
@@ -786,6 +1334,79 @@ def _path_is_reparse_or_symlink(path: Path) -> bool:
     return bool(attributes & reparse_mask)
 
 
+def _layout_runtime_classification(relative: str):
+    """Classify one path relative to ``.flowguard`` without hiding bad names."""
+
+    try:
+        return classify_runtime_artifact(
+            relative
+            if relative.replace("\\", "/").startswith(".flowguard/")
+            else f".flowguard/{relative}"
+        )
+    except ValueError:
+        return None
+
+
+def _is_non_authority_layout_member(relative: str) -> bool:
+    classification = _layout_runtime_classification(relative)
+    return classification is not None and classification.non_authority
+
+
+def _is_model_authority_control_plane_member(relative: str) -> bool:
+    """Return whether a generated authority payload is governed by its pointer.
+
+    Snapshot, revision, activation, bootstrap, and rollback bytes are
+    content-addressed control-plane outputs. Their own authority store and
+    the release-tree owner validate the exact pointed-to paths; they are not
+    executable layout members. Keeping these payload names out of the shape
+    inventory prevents every legitimate model activation from invalidating
+    the layout and then recursively invalidating the model identity again.
+    ``models/authority`` itself remains a current structural member, and
+    ``staging`` continues to use the explicit non-authority/runtime boundary.
+    """
+
+    parts = PurePosixPath(str(relative).replace("\\", "/")).parts
+    return (
+        len(parts) >= 3
+        and parts[0] == "models"
+        and parts[1] == "authority"
+        and parts[2]
+        in {
+            "snapshots", "revisions", "activations", "bootstraps", "rollbacks",
+            "rollback-contracts", "boundary-contracts",
+        }
+    )
+
+
+def _runtime_only_layout_directories(relative_paths: Iterable[str]) -> frozenset[str]:
+    """Find structural parents created solely for a known working root.
+
+    ``models/authority`` is a legitimate current directory when it contains
+    snapshots/revisions, but it should not appear in the shape merely because
+    an otherwise empty authority tree contains ``staging/``.  The parent is
+    excluded only when every observed descendant is already classified as
+    non-authority material.
+    """
+
+    normalized = tuple(
+        str(relative).replace("\\", "/").rstrip("/")
+        for relative in relative_paths
+        if str(relative)
+    )
+    candidates = {"models/authority"}
+    return frozenset(
+        candidate
+        for candidate in candidates
+        if candidate in normalized
+        and any(item.startswith(candidate + "/") for item in normalized)
+        and all(
+            _is_non_authority_layout_member(item)
+            for item in normalized
+            if item.startswith(candidate + "/")
+        )
+    )
+
+
 def _walk_layout_entries(
     flowguard_root: Path,
     *,
@@ -967,6 +1588,11 @@ def _inspect_entries(
     else:
         paths, traversal_findings = observation.paths, list(observation.traversal_findings)
     findings.extend(traversal_findings)
+    runtime_paths: list[str] = []
+    runtime_kinds: dict[str, int] = {}
+    runtime_only_dirs = _runtime_only_layout_directories(
+        tuple(path.relative_to(flowguard_root).as_posix() for path in paths)
+    )
     for path in paths:
         rel = _relative(path, flowguard_root)
         try:
@@ -989,6 +1615,48 @@ def _inspect_entries(
                     recommendation="Replace the link with a manually owned regular path and rebuild affected identities.",
                 )
             )
+        path_name_safe = all(
+            _SAFE_COMPONENT_RE.fullmatch(component)
+            for component in Path(rel).parts
+        )
+        if not path_name_safe:
+            findings.append(
+                _finding(
+                    "layout_path_name_invalid",
+                    path=rel,
+                    message="A layout path contains a name outside the current portable naming grammar.",
+                    recommendation="Rename the path manually and rebuild the affected current manifest/identities.",
+                )
+            )
+        # Path safety is checked before classification.  In particular, a
+        # reparse point named ``__pycache__`` is still a hard blocker and is
+        # never made harmless by the runtime-artifact filter.
+        classification = (
+            None if redirected or not path_name_safe else _layout_runtime_classification(rel)
+        )
+        if classification is not None:
+            # Evidence/history roots are already intentionally opaque and
+            # have long-standing zero-finding semantics.  Only working/cache
+            # observations need the aggregated informational reminder.
+            if classification.kind not in {"opaque_evidence", "opaque_history"}:
+                runtime_paths.append(rel)
+                runtime_kinds[classification.kind] = (
+                    runtime_kinds.get(classification.kind, 0) + 1
+                )
+            if is_governed_source_in_runtime_cache(f".flowguard/{rel}"):
+                findings.append(
+                    _finding(
+                        "layout_runtime_governed_source",
+                        path=rel,
+                        message="A source-like .py/.json/.toml file cannot be hidden inside a Python runtime cache.",
+                        recommendation="Classify the file under its owning current role or keep only generated cache bytes; do not use a runtime directory to bypass governance.",
+                        metadata={"kind": classification.kind},
+                    )
+                )
+            # Known runtime/staging/evidence paths are not current layout
+            # members.  The single aggregated informational finding below is
+            # the only reminder; no cleanup is performed by an audit.
+            continue
         for component in Path(rel).parts:
             if _component_is_retired(component):
                 findings.append(
@@ -1001,7 +1669,6 @@ def _inspect_entries(
                     )
                 )
             if component.casefold() in {
-                "__pycache__",
                 ".pytest_cache",
                 ".mypy_cache",
                 ".ruff_cache",
@@ -1016,32 +1683,15 @@ def _inspect_entries(
                         "layout_tool_cache",
                         path=rel,
                         message=f"Tool cache or bytecode directory '{component}' cannot be part of the current layout.",
-                        recommendation="Remove the generated cache as a proven disposable artifact, then rebuild the current layout identity; do not move it into another authority root.",
+                        recommendation="Classify the material under a current role or record an explicit retirement/history disposition; audit does not delete or relocate working bytes.",
                         metadata={"component": component},
                     )
                 )
-        if Path(rel).suffix.casefold() in BYTECODE_SUFFIXES:
-            findings.append(
-                _finding(
-                    "layout_bytecode_artifact",
-                    path=rel,
-                    message="Python bytecode cannot be a current FlowGuard layout member.",
-                    recommendation="Remove the generated bytecode as a proven disposable artifact and rebuild the current layout identity.",
-                )
-            )
-        if not all(_SAFE_COMPONENT_RE.fullmatch(component) for component in Path(rel).parts):
-            findings.append(
-                _finding(
-                    "layout_path_name_invalid",
-                    path=rel,
-                    message="A layout path contains a name outside the current portable naming grammar.",
-                    recommendation="Rename the path manually and rebuild the affected current manifest/identities.",
-                )
-            )
         first = Path(rel).parts[0] if Path(rel).parts else ""
         if first in CANONICAL_ROLE_ROOT_NAMES:
             role = dict(CANONICAL_ROLE_ROOTS)[first]
-            role_counts[role] = role_counts.get(role, 0) + 1
+            if rel not in runtime_only_dirs and not _is_non_authority_layout_member(rel):
+                role_counts[role] = role_counts.get(role, 0) + 1
             name_lower = Path(rel).name.casefold()
             if first == "evidence" and len(Path(rel).parts) == 2 and (
                 name_lower in {"model.py", "model.toml", "model-authority.json", "model-system.json"}
@@ -1092,6 +1742,25 @@ def _inspect_entries(
                         recommendation="Place it under one current role root or give it an explicit historical/retired disposition before continuing.",
                     )
                 )
+    if runtime_paths:
+        findings.append(
+            _finding(
+                "layout_runtime_artifact",
+                message=(
+                    "Known working/runtime artifacts are preserved on disk but "
+                    "excluded from current layout identity, source identity, and release projection."
+                ),
+                recommendation=(
+                    "No cleanup is required for layout currentness; reclaim these bytes only through an explicit, separately authorized cleanup."
+                ),
+                severity="info",
+                metadata={
+                    "kinds": dict(sorted(runtime_kinds.items())),
+                    "paths": tuple(sorted(runtime_paths)),
+                    "count": len(runtime_paths),
+                },
+            )
+        )
     # Detect direct files under .flowguard that are old owner/model/check material.
     for path in (entry for entry in paths if entry.parent == flowguard_root):
         if path.name in CANONICAL_FILES or path.name in CANONICAL_ROLE_ROOT_NAMES:
@@ -1175,7 +1844,24 @@ def _inventory_findings(
                 recommendation="Rebuild the current manifest with an exact role-member inventory.",
             )
         )
-    declared_members = tuple(sorted(members, key=lambda row: row["path"]))
+    # Older manifests may have been generated before working-artifact
+    # exclusion was introduced.  Treat only the explicitly recognized runtime
+    # roots/files as non-authority on both sides of reconciliation; arbitrary
+    # ``tmp``/``stage``-looking names remain governed members and are never
+    # hidden by this compatibility projection.
+    declared_members = tuple(
+        sorted(
+            (row for row in members if not _is_non_authority_layout_member(row["path"])),
+            key=lambda row: row["path"],
+        )
+    )
+    declared_role_fingerprints = {
+        role: _canonical_json_fingerprint(
+            [row for row in declared_members if row["role"] == role]
+        )
+        for role in sorted(CANONICAL_ROLE_ROOT_NAMES)
+    }
+    declared_inventory_fingerprint = _canonical_json_fingerprint(declared_members)
     actual_members = tuple(sorted(actual_members, key=lambda row: row["path"]))
     declared_by_case: dict[str, list[str]] = {}
     for row in declared_members:
@@ -1238,37 +1924,47 @@ def _inventory_findings(
                     },
                 )
             )
-        if inventory.get("fingerprint") != actual_fingerprint:
+        if declared_inventory_fingerprint != actual_fingerprint:
             findings.append(
                 _finding(
                     "layout_inventory_fingerprint_stale",
                     path=PROJECT_LAYOUT_MANIFEST,
                     message="The declared role-member inventory fingerprint is stale.",
                     recommendation="Regenerate the current inventory and rebuild affected identities.",
-                    metadata={"expected": actual_fingerprint, "observed": inventory.get("fingerprint")},
+                    metadata={
+                        "expected": actual_fingerprint,
+                        "observed": inventory.get("fingerprint"),
+                        "normalized_observed": declared_inventory_fingerprint,
+                    },
                 )
             )
-        if inventory.get("member_count") != len(actual_members):
+        if len(declared_members) != len(actual_members):
             findings.append(
                 _finding(
                     "layout_inventory_count_mismatch",
                     path=PROJECT_LAYOUT_MANIFEST,
                     message="The declared inventory member count is stale.",
                     recommendation="Regenerate the current inventory before continuing.",
-                    metadata={"expected": len(actual_members), "observed": inventory.get("member_count")},
+                    metadata={
+                        "expected": len(actual_members),
+                        "observed": inventory.get("member_count"),
+                        "normalized_observed": len(declared_members),
+                    },
                 )
             )
         declared_roles = inventory.get("role_fingerprints")
-        if not isinstance(declared_roles, Mapping) or {
-            str(key): str(value) for key, value in declared_roles.items()
-        } != actual_role_fingerprints:
+        if not isinstance(declared_roles, Mapping) or declared_role_fingerprints != actual_role_fingerprints:
             findings.append(
                 _finding(
                     "layout_role_fingerprint_stale",
                     path=PROJECT_LAYOUT_MANIFEST,
                     message="One or more current role fingerprints are stale.",
                     recommendation="Regenerate the direct current role inventory and rebuild affected model/test/receipt identities.",
-                    metadata={"expected": actual_role_fingerprints, "observed": dict(declared_roles or {})},
+                    metadata={
+                        "expected": actual_role_fingerprints,
+                        "observed": dict(declared_roles or {}),
+                        "normalized_observed": declared_role_fingerprints,
+                    },
                 )
             )
     return actual_fingerprint, findings

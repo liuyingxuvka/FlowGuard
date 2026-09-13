@@ -35,7 +35,10 @@ def test_current_reverse_surface_ui_like_actions_are_explicitly_governed() -> No
         for row in _expanded(mapping)
         if row["surface_id"] in discovered_ui
     }
-    assert len(discovered_ui) == 91
+    # The current source observation includes the four UI-like action
+    # surfaces added by the forward/reverse closure work.  Keep this explicit
+    # denominator tied to the checked-in current discovery artifact.
+    assert len(discovered_ui) == 95
     assert set(mapped) == discovered_ui
     assert all(
         row["disposition"] in {"governed", "internal_proven"}
@@ -115,9 +118,9 @@ def test_current_reverse_surface_map_has_no_blocked_or_unmodeled_rows() -> None:
     discovery_by_id = {row["surface_id"]: row for row in discovery["surfaces"]}
     # The current denominator is the exact source observation after the
     # module/class/function call-graph closure repair.  The current direct
-    # source freeze contains 15,024 explicitly authored observations; no
+    # source freeze contains 15,517 explicitly authored observations; no
     # predecessor denominator is inherited.
-    assert len(expanded) == len(discovered_ids) == 15024
+    assert len(expanded) == len(discovered_ids) == 15517
     assert {row["surface_id"] for row in expanded} == discovered_ids
     assert not any(row["disposition"] == "blocked_gap" for row in expanded)
     assert not any(

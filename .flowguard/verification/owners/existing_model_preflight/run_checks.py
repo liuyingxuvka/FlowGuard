@@ -293,6 +293,6 @@ def main() -> int:
     owner_identity_ok = run_exact_owner_identity_review()
     return 0 if exact_ok and report.ok and owner_identity_ok else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:existing_model_preflight", main))

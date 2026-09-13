@@ -10,6 +10,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,6 +47,11 @@ PROOF_SCHEMA = "flowguard.skill_native_check_proof.v1"
 SUITE_MAP_PATH = Path(".skillguard/flowguard-suite/suite-map.json")
 SKILL_ROOT = Path(".agents/skills")
 _ABSOLUTE_PATH = re.compile(r"(?i)(?:[A-Z]:[\\/]|\\\\)[^\s\"']+")
+# A few Windows consumers still reject paths near the legacy MAX_PATH
+# boundary, even when the Python process itself is long-path aware. Keep
+# retained native evidence comfortably below that boundary while preserving
+# readable names for ordinary short roots.
+_NATIVE_PATH_BUDGET = 220
 
 
 def _now() -> str:
@@ -207,6 +213,49 @@ def _input_snapshots(
     return tuple(snapshots)
 
 
+def _native_execution_workspace(evidence_root: Path, skill_id: str) -> Path:
+    """Create one retained, owner-local workspace for a native invocation.
+
+    Native owner launchers may emit structured evidence through the
+    ``FLOWGUARD_OUTPUT_DIR`` contract.  Leaving that variable unset makes a
+    launcher fall back to its process cwd (the repository root), after which
+    the producer would recursively inspect the whole checkout on its next
+    pass.  Keep each invocation under the evidence root, but give it a fresh
+    directory so a rerun cannot accidentally consume a previous invocation's
+    JSON as if it were current output.  These workspaces are intentionally
+    retained; cleanup is a separate, explicit lifecycle action.
+    """
+
+    safe_skill = re.sub(r"[^A-Za-z0-9_.-]+", "-", str(skill_id)).strip(".-") or "skill"
+    execution_root = (evidence_root / "check-executions" / safe_skill).resolve()
+    if len(str(execution_root)) >= _NATIVE_PATH_BUDGET:
+        # The full owner id remains in the receipt/proof. The filesystem
+        # component only needs to remain stable and safely bounded.
+        short_skill = hashlib.sha256(str(skill_id).encode("utf-8")).hexdigest()[:12]
+        execution_root = (evidence_root / "check-executions" / f"s-{short_skill}").resolve()
+    try:
+        execution_root.relative_to(evidence_root.resolve())
+    except ValueError as exc:
+        raise ValueError("native execution workspace escapes the evidence root") from exc
+    if execution_root.exists() and execution_root.is_symlink():
+        raise ValueError("native execution workspace cannot be a symlink")
+    execution_root.mkdir(parents=True, exist_ok=True)
+    return Path(tempfile.mkdtemp(prefix="run-", dir=str(execution_root))).resolve()
+
+
+def _native_check_prefix(execution_root: Path, check_id: str) -> str:
+    """Choose a readable check prefix without exhausting Windows path space."""
+
+    safe_check = re.sub(r"[^A-Za-z0-9_.-]+", "-", str(check_id)).strip(".-") or "native-check"
+    candidate = str(execution_root / f"{safe_check}-")
+    # Reserve room for tempfile's random suffix and a normal child artifact
+    # name. Long check ids use a stable digest instead of failing mkdir.
+    if len(candidate) + 32 <= _NATIVE_PATH_BUDGET:
+        return f"{safe_check}-"
+    digest = hashlib.sha256(str(check_id).encode("utf-8")).hexdigest()[:12]
+    return f"c-{digest}-"
+
+
 def _validate_binding(
     source: Mapping[str, Any],
     contract: Mapping[str, Any],
@@ -333,7 +382,7 @@ def run_native_skill_check(
     skill_id: str,
     *,
     output_directory: str | Path | None = None,
-    timeout_seconds: float = 300.0,
+    timeout_seconds: float = 900.0,
 ) -> NativeSkillReceiptResult:
     """Execute declared native bindings and emit one immutable child receipt."""
 
@@ -362,16 +411,42 @@ def run_native_skill_check(
     log_path = evidence_root / "logs" / f"{skill_id}.log"
     proof_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.parent.mkdir(parents=True, exist_ok=True)
+    execution_root = _native_execution_workspace(evidence_root, skill_id)
 
     runs: list[NativeCheckRun] = []
     log_sections: list[str] = []
     blockers = list(binding_blockers)
     for check in native_checks:
         declared = _check_command(check)
+        check_id = str(check.get("check_id", "native-check")).strip() or "native-check"
+        check_workspace = Path(
+            tempfile.mkdtemp(
+                prefix=_native_check_prefix(execution_root, check_id),
+                dir=str(execution_root),
+            )
+        ).resolve()
         started_at = _now()
         stdout = ""
         stderr = ""
         timed_out = False
+        child_environment = dict(os.environ)
+        # Native checks may create temporary Git repositories.  An outer
+        # completion/readiness invocation can set a private index for its
+        # read-only source snapshot; passing that same path to a temporary
+        # repository lets Git truncate the parent's index and makes the final
+        # freshness gate falsely report a changed authority.  Keep the
+        # private index in the coordinator only.
+        child_environment.pop("GIT_INDEX_FILE", None)
+        child_environment.update(
+            {
+                "FLOWGUARD_OUTPUT_DIR": str(check_workspace),
+                "FLOWGUARD_OWNER_ID": skill_id,
+                "FLOWGUARD_NATIVE_CHECK_ID": check_id,
+                "PYTHONDONTWRITEBYTECODE": "1",
+                "PYTHONUTF8": "1",
+                "PYTHONIOENCODING": "utf-8",
+            }
+        )
         try:
             completed = subprocess.run(
                 _execution_command(declared),
@@ -380,6 +455,7 @@ def run_native_skill_check(
                 capture_output=True,
                 check=False,
                 timeout=timeout_seconds,
+                env=child_environment,
             )
             exit_code = completed.returncode
             stdout = completed.stdout
@@ -428,6 +504,8 @@ def run_native_skill_check(
         "skill_id": skill_id,
         "producer_id": PRODUCER_ID,
         "producer_version": _package_version(),
+        "output_isolation": "FLOWGUARD_OUTPUT_DIR",
+        "execution_workspace_path_token": tokenize_path(execution_root, workspace_root=root),
         "contract_hash": str(contract.get("contract_hash", "")),
         "check_manifest_hash": fingerprint_value(manifest),
         "suite_map_hash": suite_inventory_hash,
@@ -453,10 +531,19 @@ def run_native_skill_check(
             "flowguard_version": _package_version(),
         }
     )
+    # Supersession is scoped to this owner.  Reading the unfiltered append-only
+    # store here made a multi-owner run rescan and deserialize every historical
+    # receipt once per owner, turning a bounded pass into quadratic I/O as the
+    # store grew.  The subject-indexed reader preserves the same immutable
+    # identity/filename/schema validation while limiting observation to this
+    # exact owner.
     existing = tuple(
         item.receipt_id
-        for item in list_evidence_receipts(root, output_directory=output_directory)
-        if item.subject_id == skill_id
+        for item in list_evidence_receipts(
+            root,
+            output_directory=output_directory,
+            subject_ids=(skill_id,),
+        )
     )
     receipt_id = f"receipt:{skill_id}:{proof_fingerprint.split(':', 1)[-1][:24]}"
     receipt = EvidenceReceipt(
@@ -491,6 +578,11 @@ def run_native_skill_check(
         metadata={
             "proof_artifact_path_token": tokenize_path(proof_path, workspace_root=root),
             "log_path_token": tokenize_path(log_path, workspace_root=root),
+            "native_execution_workspace_path_token": tokenize_path(
+                execution_root,
+                workspace_root=root,
+            ),
+            "output_isolation": "FLOWGUARD_OUTPUT_DIR",
             "native_binding_ids": [item.binding_id for item in runs],
         },
     )
@@ -513,8 +605,18 @@ def _resolve_workspace_token(root: Path, token: str) -> Path | None:
 def build_current_native_receipt_context(
     receipt: EvidenceReceipt,
     repository_root: str | Path,
+    *,
+    suite_inventory_hash: str | None = None,
 ) -> ReceiptVerificationContext | None:
-    """Recompute a child context from current files and proof artifacts."""
+    """Recompute a child context from current files and proof artifacts.
+
+    ``validate_skill_suite`` is an intentionally complete source walk.  A
+    resume run may verify many historical receipts, but the suite hash is a
+    single current input shared by every member.  Accepting the caller's
+    already-validated hash keeps that finite observation from repeating the
+    same repository walk once per receipt; omitting it preserves the direct
+    API's original self-contained behavior.
+    """
 
     if receipt.producer_id != PRODUCER_ID:
         return None
@@ -525,7 +627,8 @@ def build_current_native_receipt_context(
         contract = _read_json(skill_dir / COMPILED_CONTRACT_FILE)
         manifest = _read_json(skill_dir / CHECK_MANIFEST_FILE)
         _read_json(root / SUITE_MAP_PATH)
-        suite_inventory_hash = validate_skill_suite(root).inventory_hash
+        if suite_inventory_hash is None:
+            suite_inventory_hash = validate_skill_suite(root).inventory_hash
         proof_token = str(receipt.metadata.get("proof_artifact_path_token", ""))
         proof_path = _resolve_workspace_token(root, proof_token)
         if proof_path is None:

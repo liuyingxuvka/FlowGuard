@@ -17,6 +17,6 @@ import sys
 
 import model
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(model.main())
+    raise SystemExit(native_main("model:template_public_release", model.main))

@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import subprocess
 import sys
@@ -14,7 +15,12 @@ from flowguard.shard_safety import CONTRACT_SCHEMA, prove_model_shard_safety
 
 
 class ModelShardSafetyProofTests(unittest.TestCase):
-    def _repository(self, *, mutate_shared: bool = False) -> tuple[tempfile.TemporaryDirectory, Path, ModelRegressionEntry]:
+    def _repository(
+        self,
+        *,
+        mutate_shared: bool = False,
+        sleep_seconds: float = 0.0,
+    ) -> tuple[tempfile.TemporaryDirectory, Path, ModelRegressionEntry]:
         temporary = tempfile.TemporaryDirectory()
         root = Path(temporary.name)
         model_dir = root / ".flowguard" / "sample"
@@ -30,11 +36,13 @@ class ModelShardSafetyProofTests(unittest.TestCase):
                 f"""
                 import json
                 import os
+                import time
                 from pathlib import Path
 
                 root = Path(__file__).resolve().parents[2]
                 output = Path(os.environ["FLOWGUARD_OUTPUT_DIR"])
                 output.mkdir(parents=True, exist_ok=True)
+                time.sleep({sleep_seconds})
                 {mutation}
                 payload = {{
                     "ok": True,
@@ -100,6 +108,21 @@ class ModelShardSafetyProofTests(unittest.TestCase):
         self.assertFalse(receipt["ok"])
         self.assertFalse(receipt["checks"]["zero_repository_mutation"])
         self.assertEqual(["shared.txt"], receipt["repository_mutations"])
+
+    def test_explicit_timeout_override_applies_to_serial_and_parallel_copies(self):
+        temporary, root, entry = self._repository(sleep_seconds=0.2)
+        self.addCleanup(temporary.cleanup)
+        short_entry = dataclasses.replace(entry, timeout_seconds=0.01)
+
+        receipt = prove_model_shard_safety(
+            root,
+            short_entry,
+            output_dir=root.parent / f"{root.name}-proof",
+            timeout=1.0,
+        )
+
+        self.assertTrue(receipt["ok"], receipt)
+        self.assertTrue(all(receipt["checks"].values()))
 
     def test_internal_proof_directory_is_short_and_keeps_identity_in_receipt(self):
         output_root = Path("C:/evidence") / ("readable-release-run-" * 6)

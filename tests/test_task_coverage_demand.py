@@ -15,6 +15,9 @@ from flowguard.task_coverage_demand import (
     COVERAGE_TIER_STANDARD,
     MODEL_MESH_TOPOLOGY_TRIGGERS,
     OwnerCoverageResolution,
+    STRUCTURE_CHANGE_KINDS,
+    STRUCTURE_SURFACE_PREFIXES,
+    TEST_MESH_CHANGE_KINDS,
     TASK_FACT_DISPOSITION_OMITTED,
     TASK_FACT_DISPOSITION_UNKNOWN,
     TASK_FACT_SOURCE_CURRENT_MODEL,
@@ -165,6 +168,50 @@ class TaskCoverageDemandTests(unittest.TestCase):
             row for row in demand.rows if row.owner_route == "model_mesh_maintenance"
         )
         self.assertFalse(mesh.triggered)
+
+    def test_explicit_structural_change_demands_code_structure_structure_mesh_and_test_mesh(self) -> None:
+        self.assertIn("module_split", STRUCTURE_CHANGE_KINDS)
+        self.assertTrue(STRUCTURE_SURFACE_PREFIXES)
+        self.assertIn("module_split", TEST_MESH_CHANGE_KINDS)
+        demand = compile_task_coverage_demand(
+            TaskFacts(
+                "task:module-split",
+                "split one existing module behind a stable facade",
+                change_kinds=("module_split",),
+                affected_surface_ids=("module:checkout",),
+            )
+        )
+        rows = {row.owner_route: row for row in demand.rows if row.triggered}
+        for owner_route in (
+            "code_structure_recommendation",
+            "structure_mesh_maintenance",
+            "test_mesh_maintenance",
+        ):
+            self.assertIn(owner_route, rows)
+            self.assertTrue(rows[owner_route].triggered)
+        self.assertEqual(COVERAGE_TIER_DEEP, demand.presentation_tier)
+
+    def test_structural_owner_routes_do_not_infer_from_affected_surface_count(self) -> None:
+        demand = compile_task_coverage_demand(
+            TaskFacts(
+                "task:many-unrelated-surfaces",
+                "inspect unrelated surfaces",
+                affected_surface_ids=(
+                    "surface:one",
+                    "surface:two",
+                    "surface:three",
+                    "surface:four",
+                ),
+            )
+        )
+        rows = {row.owner_route: row for row in demand.rows}
+        for owner_route in (
+            "code_structure_recommendation",
+            "structure_mesh_maintenance",
+            "test_mesh_maintenance",
+        ):
+            self.assertIn(owner_route, rows)
+            self.assertFalse(rows[owner_route].triggered)
 
     def test_omitted_independent_fact_remains_in_denominator_and_blocks(self) -> None:
         demand = compile_task_coverage_demand(

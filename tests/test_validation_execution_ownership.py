@@ -21,6 +21,7 @@ from flowguard.validation_ownership import (
     ValidationOwnerContract,
     ValidationOwnerCurrent,
     ValidationObservationFreshness,
+    VALIDATION_CLAIM_SCOPE_LOCAL,
     assert_validation_owner_receipt_integrity,
     assert_validation_owner_observation_fresh,
     build_child_bound_owner_receipt_context,
@@ -28,10 +29,15 @@ from flowguard.validation_ownership import (
     build_owner_current_from_observation,
     build_validation_owner_plan,
     build_validation_parent_current,
+    dependency_receipt_bindings,
     filter_resolved_input_manifest,
+    find_reusable_owner_receipt,
     manifest_fingerprint,
     observe_validation_owners,
     plan_validation_owners,
+    nested_owner_launch_allowed,
+    selected_owner_ids,
+    assert_nested_owner_launch_allowed,
     resolve_input_manifest,
     save_child_bound_owner_receipt,
     save_child_bound_owner_receipt_from_observation,
@@ -73,6 +79,26 @@ def evidence_files(receipt_root: Path) -> tuple[str, ...]:
 
 
 class ValidationExecutionOwnershipTests(unittest.TestCase):
+    def test_nested_owner_selection_blocks_duplicate_launch_without_fuzzy_matching(self):
+        selected = ("model:child", "named:nested")
+        self.assertEqual(
+            frozenset(selected), selected_owner_ids(selected)
+        )
+        self.assertFalse(
+            nested_owner_launch_allowed(
+                "model:parent", "child", selected=selected
+            )
+        )
+        self.assertTrue(
+            nested_owner_launch_allowed(
+                "model:parent", "child-extra", selected=selected
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "consume its current receipt"):
+            assert_nested_owner_launch_allowed(
+                "model:parent", "child", selected=selected
+            )
+
     def test_literal_manifest_projection_skips_general_pattern_matching(self) -> None:
         manifest = (
             {"path": "source.txt", "sha256": "sha256:source"},
@@ -175,6 +201,90 @@ class ValidationExecutionOwnershipTests(unittest.TestCase):
                     root,
                     receipt_root,
                 )
+
+    def test_new_dependency_receipt_invalidates_old_consumer_reuse(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self._repository(Path(temporary))
+            receipt_root = root / "receipts"
+            dependency_contract = contract("dependency")
+            consumer_contract = contract(
+                "consumer",
+                dependencies=("dependency",),
+            )
+            contracts = (dependency_contract, consumer_contract)
+
+            first_dependency = execute_validation_owner_command(
+                build_owner_current(
+                    root,
+                    dependency_contract,
+                    all_contracts=contracts,
+                ),
+                root,
+                receipt_root,
+                all_contracts=contracts,
+                child_id="dependency",
+                evidence_context={"fixture": "dependency-1"},
+                summary="dependency pass",
+                claim_boundary="Only the dependency fixture.",
+            )
+            self.assertTrue(first_dependency.ok)
+            assert first_dependency.receipt is not None
+
+            first_binding = [
+                {
+                    "owner_id": owner_id,
+                    "receipt_id": receipt_id,
+                    "receipt_fingerprint": fingerprint,
+                }
+                for owner_id, receipt_id, fingerprint in dependency_receipt_bindings(
+                    {"dependency": first_dependency.receipt}
+                )
+            ]
+            first_consumer = execute_validation_owner_command(
+                build_owner_current(
+                    root,
+                    consumer_contract,
+                    all_contracts=contracts,
+                ),
+                root,
+                receipt_root,
+                all_contracts=contracts,
+                child_id="consumer",
+                evidence_context={
+                    "fixture": "consumer-1",
+                    "dependency_receipt_bindings": first_binding,
+                },
+                summary="consumer pass",
+                claim_boundary="Only the consumer fixture.",
+            )
+            self.assertTrue(first_consumer.ok)
+            assert first_consumer.receipt is not None
+
+            # A later dependency producer result can keep the source inputs
+            # unchanged while changing the consumed evidence identity.  It is
+            # represented here as a valid content-addressed receipt object;
+            # the consumer must still reject its older binding.
+            second_dependency = replace(
+                first_dependency.receipt,
+                metadata={"fixture": "dependency-2"},
+            )
+            self.assertNotEqual(
+                first_dependency.receipt.fingerprint,
+                second_dependency.fingerprint,
+            )
+
+            selected, verification = find_reusable_owner_receipt(
+                build_owner_current(
+                    root,
+                    consumer_contract,
+                    all_contracts=contracts,
+                ),
+                root,
+                receipt_root,
+                dependency_receipts={"dependency": second_dependency},
+            )
+            self.assertIsNone(selected)
+            self.assertIsNone(verification)
 
     def test_observation_freshness_detects_source_and_environment_drift(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -412,6 +522,31 @@ class ValidationExecutionOwnershipTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "changed after owner-plan freeze"):
                 build_validation_parent_current(root, plan)
 
+    def test_local_parent_does_not_bind_or_rebuild_release_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self._repository(Path(temporary))
+            plan = build_validation_owner_plan(
+                root,
+                (contract("a"),),
+                receipt_root=root / "receipts",
+                claim_scope=VALIDATION_CLAIM_SCOPE_LOCAL,
+            )
+            self.assertEqual((), plan.release_tree_manifest)
+            first = build_validation_parent_current(root, plan)
+
+            # A packaging/report file is outside this local functional owner.
+            # It must not reopen the functional parent or launch a producer.
+            (root / "release-only-report.txt").write_text(
+                "report\n",
+                encoding="utf-8",
+            )
+            second = build_validation_parent_current(root, plan)
+            self.assertEqual(first.parent_identity, second.parent_identity)
+            self.assertEqual(
+                manifest_fingerprint(()),
+                second.release_tree_snapshot.raw_sha256,
+            )
+
     def test_evidence_outputs_do_not_refresh_source_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = self._repository(Path(temporary))
@@ -421,6 +556,44 @@ class ValidationExecutionOwnershipTests(unittest.TestCase):
             output.write_text('{"status":"pass"}\n', encoding="utf-8")
             after = manifest_fingerprint(validation_input_manifest(root))
             self.assertEqual(before, after)
+
+    def test_run_artifacts_are_excluded_for_tracked_and_untracked_git_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self._repository(Path(temporary))
+            tracked = root / ".flowguard" / "run_artifacts" / "tracked.json"
+            untracked = root / ".flowguard" / "run_artifacts" / "untracked.json"
+            tracked.parent.mkdir(parents=True)
+            tracked.write_text('{"tracked": true}\n', encoding="utf-8")
+            subprocess.run(("git", "add", str(tracked.relative_to(root))), cwd=root, check=True)
+            subprocess.run(
+                ("git", "commit", "-q", "-m", "tracked run artifact"),
+                cwd=root,
+                check=True,
+            )
+            untracked.write_text('{"untracked": true}\n', encoding="utf-8")
+
+            rows = resolve_input_manifest(root, (".flowguard/**/*.json",))
+
+            self.assertNotIn(".flowguard/run_artifacts/tracked.json", {row["path"] for row in rows})
+            self.assertNotIn(".flowguard/run_artifacts/untracked.json", {row["path"] for row in rows})
+
+    def test_run_artifacts_are_excluded_when_git_candidate_lookup_falls_back(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self._repository(Path(temporary))
+            artifact = root / ".flowguard" / "run_artifacts" / "fallback.json"
+            artifact.parent.mkdir(parents=True)
+            artifact.write_text('{"fallback": true}\n', encoding="utf-8")
+
+            with patch(
+                "flowguard.validation_ownership._git_candidate_paths",
+                return_value=None,
+            ):
+                rows = resolve_input_manifest(root, (".flowguard/**/*.json",))
+
+            self.assertNotIn(
+                ".flowguard/run_artifacts/fallback.json",
+                {row["path"] for row in rows},
+            )
 
     def test_history_and_reverse_surface_payloads_do_not_enter_source_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -489,6 +662,30 @@ class ValidationExecutionOwnershipTests(unittest.TestCase):
                 paths,
             )
             self.assertNotIn(".agents/skills/flowguard/noise.py", paths)
+
+    def test_git_candidates_union_tracked_and_untracked_literal_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self._repository(Path(temporary))
+            tracked = root / "tracked.json"
+            untracked = root / "untracked.json"
+            tracked.write_text('{"tracked": true}\n', encoding="utf-8")
+            untracked.write_text('{"untracked": true}\n', encoding="utf-8")
+            subprocess.run(("git", "add", "tracked.json"), cwd=root, check=True)
+            subprocess.run(
+                ("git", "commit", "-q", "-m", "tracked input"),
+                cwd=root,
+                check=True,
+            )
+
+            rows = resolve_input_manifest(
+                root,
+                ("tracked.json", "untracked.json"),
+            )
+
+            self.assertEqual(
+                {"tracked.json", "untracked.json"},
+                {row["path"] for row in rows},
+            )
 
     def test_child_bound_owner_receipt_consumes_real_verified_child(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -10,6 +10,12 @@ The existing project-adoption version gate SHALL run the bounded current layout-
 - **THEN** project adoption SHALL report `project_layout_invalid`
 - **AND** model/test/evidence authority SHALL not be consulted
 
+#### Scenario: Current layout allows authority checks
+
+- **WHEN** the layout passes with a current manifest and conserved inventory
+- **THEN** adoption MAY proceed to model and suite checks, each with its own
+  current identity and claim boundary
+
 #### Scenario: Light adoption passes without deep work
 
 - **WHEN** shape, adoption controls, and the current pointer are valid

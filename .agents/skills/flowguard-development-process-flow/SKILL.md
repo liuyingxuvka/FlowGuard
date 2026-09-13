@@ -1,25 +1,26 @@
 ---
 name: flowguard-development-process-flow
-description: Order staged work, freshness, sync, release, and process claims.
+description: standalone FlowGuard satellite skill; Order staged work, freshness, sync, release, and process claims.
 ---
 
 # FlowGuard Development Process Flow
 
 ## Purpose
-Order stages, validation, sync, and release.
+Order.
 
 ## Entrypoint Scope
-Public owner: `public_owner`; simulator: execution_freshness, artifact versions,
-payload schemas, and conditional process optimization.
+Owner `public_owner`; covers freshness.
 
 ## Local Material Routing
-Read `references/development_process_flow_protocol.md`; for rough plans,
-multi-skill/tool work, or distribution/release load respectively
-`references/plan_detailing_protocol.md`, `references/agent_workflow_protocol.md`,
-or `references/distribution_release_protocol.md`.
+After admission, read `references/development_process_flow_protocol.md`; load
+`references/plan_detailing_protocol.md`,
+`references/agent_workflow_protocol.md`, or
+`references/distribution_release_protocol.md` only for named triggers.
 
 ## Entrypoint Acceptance Map
-Accept stages, versions, owners, evidence; return order/revalidation.
+Use row `development_process_flow` in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
+
+### Shared execution contract
 
 ## Use When
 - Use for staged work, artifact versions, sync, and release claims.
@@ -28,7 +29,7 @@ Accept stages, versions, owners, evidence; return order/revalidation.
 - Keep specialists; unclear routing goes to `flowguard`.
 
 ## Required Workflow
-1. Register stages, writes, evidence, peers, WorkContexts; `plan_detailing_compiler` and `agent_workflow_rehearsal` detail order. Optimize only `diagnostic_boundary_choice`; isolate `safe_parallel`.
+1. Register stages/writes/evidence/peers. Use internal `plan_detailing_compiler` only for rough plans. Admit internal `agent_workflow_rehearsal` only for explicit rehearsal, cross-owner/shared write, post-validation-invalidating write, route change, or multiple-owner irreversible effects; otherwise record `not_triggered`. Multiple skills/tools or public entry alone do not trigger it; it is not a standalone public skill. Optimize `diagnostic_boundary_choice`; isolate `safe_parallel`.
 2. Freeze owners `execute|reuse_current|blocked`; plan-only starts none. Revalidate affected obligations. One invocation shares observation, source check, leaf publication, and receipt reconciliation.
 3. Order: owner/intent -> lightweight path quality -> deep review -> implementation -> affected validation -> revision -> activation; refresh drift.
 4. Verify one ModelMaturation receipt; user choice cannot close missing evidence.
@@ -36,8 +37,7 @@ Accept stages, versions, owners, evidence; return order/revalidation.
 6. Accept one `ModelRevisionSet` atomically; delta is not complete `CurrentEffectiveIntentView`. Write evidence before pointer; freeze release identities before final gate.
 
 ## Hard Gates
-- Model-purpose gate: freeze task-specific failure(s)/claim_boundary; bind native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims. Require real FlowGuard check engine and AGENTS.md managed record; forbid a fake mini-framework. Activation/reverse share lock/CAS; stale head stops.
-- Authorization bounds attempts, not confidence. Unknown owner/impact, active lease, or missing revalidation blocks.
+- Model-purpose gate: task-specific failure(s); native good/bad-per-failure/oracle/current evidence; Reusable types are not fixed-purpose; no mode/fallback; FlowGuard check engine: only FlowGuard-declared checks may support completion claims. Stale head stops.
 - `single_clear_path` proceeds directly; an exact deep trigger blocks implementation/activation until closed. Unchanged models reuse exact current results.
 - ModelMaturation owns path quality; DPF verifies order/currentness. No
   target-generation step belongs to validation or release.
@@ -46,4 +46,4 @@ Accept stages, versions, owners, evidence; return order/revalidation.
 - Invocation-local reuse is not authority. Never repeat semantics or scan receipts per leaf; missing freshness/reconciliation is `not_run`.
 
 ## Output Requirements
-- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, phases, freshness; edges mean order, invalidation, or required revalidation. Freeze source/model/install/release; native-directory views keep static and execution status separate.
+- Return evidence, failures, blockers, skipped_checks, residual_risk, claim_boundary, typed_next_actions, phases, and freshness; edges mean order, invalidation, or required revalidation. Freeze source/model/install/release; keep static and execution status separate.

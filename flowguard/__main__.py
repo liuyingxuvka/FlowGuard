@@ -6,6 +6,7 @@ import argparse
 import fnmatch
 import hashlib
 import json
+import mmap
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,6 +40,240 @@ def _strict_json_loads(value: str) -> object:
             ValueError(f"non-finite JSON number: {item}")
         ),
     )
+
+
+class _JsonObjectStoreLocator:
+    """Read one member from a content-addressed JSON object store.
+
+    Affected blueprint reads are intentionally closure-first.  The index is
+    small and is parsed eagerly, but the shard/object stores can contain the
+    whole target blueprint.  This locator memory-maps the store and scans only
+    the top-level member envelopes; it materializes JSON for the exact member
+    requested by the reader and never builds a Python mapping for unrelated
+    members.  The lexical index is built once per invocation. Requested
+    members may be read in any order after that pass without rewinding and
+    rescanning the store. Only the exact requested value is materialized;
+    unrelated values remain represented by byte offsets.
+    """
+
+    def __init__(self, path: Path, context: str) -> None:
+        self.path = path
+        self.context = context
+        self._handle = None
+        self._mapping = None
+        self._started = False
+        self._offsets: dict[str, tuple[int, int]] | None = None
+        self._cache: dict[str, object] = {}
+
+    def _open(self) -> None:
+        if self._started:
+            return
+        self._started = True
+        try:
+            if self.path.is_symlink():
+                raise ValueError(f"{self.context} must not be a symlink")
+            self._handle = self.path.open("rb")
+            self._mapping = mmap.mmap(self._handle.fileno(), 0, access=mmap.ACCESS_READ)
+        except (OSError, ValueError) as exc:
+            # A failed open must not leave a half-open locator behind.  The
+            # previous cursor implementation used ``_finished`` here; the
+            # bounded offset index no longer has that state, and retaining a
+            # stale ``_started`` flag would make a later retry silently use a
+            # missing mapping.  Close any partially-created handle and reset
+            # only invocation-local state before surfacing the typed error.
+            mapping = self._mapping
+            handle = self._handle
+            self._mapping = None
+            self._handle = None
+            self._started = False
+            self._offsets = None
+            self._cache.clear()
+            if mapping is not None:
+                mapping.close()
+            if handle is not None:
+                handle.close()
+            raise ValueError(f"cannot open {self.context}: {exc}") from exc
+
+    @staticmethod
+    def _whitespace(byte: int) -> bool:
+        return byte in (9, 10, 13, 32)
+
+    def _skip_whitespace(self, position: int) -> int:
+        assert self._mapping is not None
+        size = len(self._mapping)
+        while position < size and self._whitespace(self._mapping[position]):
+            position += 1
+        return position
+
+    def _scan_string_end(self, start: int) -> int:
+        """Return the exclusive end of a JSON string beginning at *start*."""
+
+        assert self._mapping is not None
+        if start >= len(self._mapping) or self._mapping[start] != ord('"'):
+            raise ValueError(f"{self.context} contains a non-string object key")
+        index = start + 1
+        escaped = False
+        while index < len(self._mapping):
+            byte = self._mapping[index]
+            if escaped:
+                escaped = False
+            elif byte == ord('\\'):
+                escaped = True
+            elif byte == ord('"'):
+                return index + 1
+            elif byte < 0x20:
+                raise ValueError(f"{self.context} contains a control byte in a key")
+            index += 1
+        raise ValueError(f"{self.context} contains an unterminated JSON string")
+
+    def _scan_value_end(self, start: int) -> int:
+        """Find one complete JSON value without materializing it."""
+
+        assert self._mapping is not None
+        start = self._skip_whitespace(start)
+        if start >= len(self._mapping):
+            raise ValueError(f"{self.context} ends before an object value")
+        first = self._mapping[start]
+        if first == ord('"'):
+            return self._scan_string_end(start)
+        if first in (ord('{'), ord('[')):
+            stack = [first]
+            index = start + 1
+            escaped = False
+            in_string = False
+            while index < len(self._mapping):
+                byte = self._mapping[index]
+                if in_string:
+                    if escaped:
+                        escaped = False
+                    elif byte == ord('\\'):
+                        escaped = True
+                    elif byte == ord('"'):
+                        in_string = False
+                    elif byte < 0x20:
+                        raise ValueError(
+                            f"{self.context} contains a control byte in a value"
+                        )
+                else:
+                    if byte == ord('"'):
+                        in_string = True
+                    elif byte in (ord('{'), ord('[')):
+                        stack.append(byte)
+                    elif byte in (ord('}'), ord(']')):
+                        expected = ord('}') if stack[-1] == ord('{') else ord(']')
+                        if byte != expected:
+                            raise ValueError(
+                                f"{self.context} contains mismatched JSON delimiters"
+                            )
+                        stack.pop()
+                        if not stack:
+                            return index + 1
+                index += 1
+            raise ValueError(f"{self.context} contains an unterminated JSON value")
+
+        # Primitive values have no nested delimiters.  The target value is
+        # validated by _strict_json_loads below; for unrelated values this
+        # bounded scan avoids constructing an object that the affected walk
+        # does not consume.
+        index = start
+        while index < len(self._mapping) and self._mapping[index] not in (
+            ord(','),
+            ord('}'),
+        ) and not self._whitespace(self._mapping[index]):
+            index += 1
+        if index == start:
+            raise ValueError(f"{self.context} contains an empty JSON value")
+        return index
+
+    def _decode_slice(self, start: int, end: int) -> object:
+        assert self._mapping is not None
+        try:
+            raw = bytes(self._mapping[start:end]).decode("utf-8")
+            return _strict_json_loads(raw)
+        except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
+            raise ValueError(f"invalid JSON in {self.context}: {exc}") from exc
+
+    def _build_index(self) -> None:
+        """Validate and index all top-level members in one lexical pass."""
+
+        if self._offsets is not None:
+            return
+        self._open()
+        assert self._mapping is not None
+        position = self._skip_whitespace(0)
+        if position >= len(self._mapping) or self._mapping[position] != ord('{'):
+            raise ValueError(f"{self.context} must be a JSON object")
+        position += 1
+        offsets: dict[str, tuple[int, int]] = {}
+        while True:
+            position = self._skip_whitespace(position)
+            if position >= len(self._mapping):
+                raise ValueError(f"{self.context} ends before its closing brace")
+            if self._mapping[position] == ord('}'):
+                position += 1
+                if self._skip_whitespace(position) != len(self._mapping):
+                    raise ValueError(f"{self.context} has trailing JSON data")
+                self._offsets = offsets
+                return
+            key_start = position
+            key_end = self._scan_string_end(key_start)
+            decoded_key = self._decode_slice(key_start, key_end)
+            if not isinstance(decoded_key, str):
+                raise ValueError(f"{self.context} contains a non-string object key")
+            if decoded_key in offsets:
+                raise ValueError(
+                    f"{self.context} contains duplicate object key: {decoded_key}"
+                )
+            position = self._skip_whitespace(key_end)
+            if position >= len(self._mapping) or self._mapping[position] != ord(':'):
+                raise ValueError(f"{self.context} is missing ':' after {decoded_key}")
+            value_start = self._skip_whitespace(position + 1)
+            value_end = self._scan_value_end(value_start)
+            separator_position = self._skip_whitespace(value_end)
+            if separator_position >= len(self._mapping):
+                raise ValueError(f"{self.context} ends before its next separator")
+            separator = self._mapping[separator_position]
+            if separator not in (ord(','), ord('}')):
+                raise ValueError(f"{self.context} has an invalid object separator")
+            offsets[decoded_key] = (value_start, value_end)
+            position = separator_position + 1
+            if separator == ord('}'):
+                if self._skip_whitespace(position) != len(self._mapping):
+                    raise ValueError(f"{self.context} has trailing JSON data")
+                self._offsets = offsets
+                return
+
+    def load(self, object_id: str) -> object:
+        key = str(object_id)
+        if key in self._cache:
+            return self._cache[key]
+        self._build_index()
+        assert self._offsets is not None
+        offsets = self._offsets.get(key)
+        if offsets is None:
+            raise KeyError(key)
+        value = self._decode_slice(*offsets)
+        self._cache[key] = value
+        return value
+
+    def close(self) -> None:
+        mapping = self._mapping
+        handle = self._handle
+        self._mapping = None
+        self._handle = None
+        self._started = False
+        self._offsets = None
+        self._cache.clear()
+        if mapping is not None:
+            mapping.close()
+        if handle is not None:
+            handle.close()
+
+    def __del__(self) -> None:  # pragma: no cover - best-effort interpreter cleanup
+        try:
+            self.close()
+        except Exception:
+            pass
 
 
 def _parse_json_mapping_arg(value: str, option_name: str) -> dict[str, object]:
@@ -157,6 +392,212 @@ def _read_json_object(path: str | Path) -> dict[str, object]:
     return payload
 
 
+def _resolve_initial_input_path(
+    value: object,
+    *,
+    staging_root: Path,
+    field_name: str,
+    required: bool = True,
+) -> Path | None:
+    raw = str(value or "").strip()
+    if not raw:
+        if required:
+            raise ValueError(f"initial input requires {field_name}")
+        return None
+    path = Path(raw)
+    resolved = (staging_root / path).resolve() if not path.is_absolute() else path.resolve()
+    if staging_root not in resolved.parents:
+        raise ValueError(f"initial input {field_name} must remain inside staging root")
+    if not resolved.is_file() or resolved.is_symlink():
+        raise ValueError(f"initial input {field_name} is missing or symlinked: {resolved}")
+    return resolved
+
+
+def _resolve_initial_input_directory(
+    value: object,
+    *,
+    staging_root: Path,
+    field_name: str,
+) -> Path | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    path = Path(raw)
+    resolved = (staging_root / path).resolve() if not path.is_absolute() else path.resolve()
+    if staging_root not in resolved.parents:
+        raise ValueError(f"initial input {field_name} must remain inside staging root")
+    if resolved.is_symlink():
+        raise ValueError(f"initial input {field_name} must not be a symlink")
+    if resolved.exists() and not resolved.is_dir():
+        raise ValueError(f"initial input {field_name} is not a directory: {resolved}")
+    return resolved
+
+
+def _run_initial_current_model_authority(args: argparse.Namespace) -> int:
+    """Run the bounded first-adoption transaction in a private staging root."""
+
+    from .model_authority import AcceptedBoundaryContract
+    from .model_authority_store import (
+        bootstrap_initial_current_model_authority,
+    )
+
+    payload = _read_json_object(args.initial_input)
+    required = {
+        "schema",
+        "model_parent_receipt",
+        "intent_bootstrap_input",
+        "revision_set_id",
+        "task_id",
+        "activation_receipt_id",
+        "claim_boundary",
+    }
+    optional = {
+        "snapshot_id",
+        "evidence_fingerprint",
+        "receipt_root",
+        "boundary_contract",
+        "native_owner_evidence",
+        "path_quality_material",
+        "no_declared_intent_rationale_id",
+        "no_declared_intent_evidence_fingerprints",
+        "no_declared_intent_rationale",
+        "decision_reason",
+    }
+    missing = sorted(required - set(payload))
+    unknown = sorted(set(payload) - required - optional)
+    if missing or unknown:
+        raise ValueError(
+            "initial current input fields are not current: "
+            f"missing={missing}, unknown={unknown}"
+        )
+    if payload["schema"] != "flowguard.model_initial_current_input.v1":
+        raise ValueError("initial current input schema is not current")
+    staging_root = Path(args.staging_root).resolve()
+    root = Path(args.root).resolve()
+    if staging_root == root:
+        raise ValueError("initial current staging root must be isolated from target root")
+    if staging_root.is_symlink() or not staging_root.is_dir():
+        raise ValueError(
+            "initial current staging root must be an existing non-symlink directory"
+        )
+    snapshot_id = str(payload.get("snapshot_id") or args.snapshot_id)
+    evidence_fingerprint = str(
+        payload.get("evidence_fingerprint") or args.evidence_fingerprint or ""
+    )
+    if not evidence_fingerprint:
+        raise ValueError("initial current input requires evidence_fingerprint")
+    def path_value(name: str, *, required: bool = True) -> Path | None:
+        return _resolve_initial_input_path(
+            payload.get(name),
+            staging_root=staging_root,
+            field_name=name,
+            required=required,
+        )
+
+    parent_path = path_value("model_parent_receipt")
+    intent_path = path_value("intent_bootstrap_input")
+    boundary_path = path_value("boundary_contract", required=False)
+    native_path = path_value("native_owner_evidence", required=False)
+    path_quality_path = path_value("path_quality_material", required=False)
+    boundary_contract = (
+        AcceptedBoundaryContract.from_dict(_read_json_object(boundary_path))
+        if boundary_path is not None
+        else None
+    )
+    intent_payload = _read_json_object(intent_path)
+    expected_intent_fields = {
+        "schema",
+        "receipt_id",
+        "rationale",
+        "claim_boundary",
+        "current_design_contributions",
+        "legacy_entry_dispositions",
+    }
+    if set(intent_payload) != expected_intent_fields:
+        raise ValueError("intent_bootstrap_input fields are not exact")
+    if intent_payload["schema"] != MODEL_REVISION_INTENT_BOOTSTRAP_INPUT_SCHEMA:
+        raise ValueError("intent bootstrap input schema is not current")
+    from .model_intent import ModelIntentContribution
+    from .model_intent_authority import (
+        LegacyIntentBootstrapDisposition,
+        build_current_intent_bootstrap_receipt,
+    )
+    current_design = tuple(
+        ModelIntentContribution.from_dict(item)
+        for item in intent_payload["current_design_contributions"]
+    )
+    legacy_dispositions = tuple(
+        LegacyIntentBootstrapDisposition.from_dict(item)
+        for item in intent_payload["legacy_entry_dispositions"]
+    )
+    native_contracts = native_receipts = native_verifications = ()
+    if native_path is not None:
+        (
+            native_contracts,
+            native_receipts,
+            native_verifications,
+        ) = _load_native_owner_evidence(native_path)
+    from .model_path_quality import PathQualityResult, PathQualitySubject
+    path_subjects = path_results = ()
+    if path_quality_path is not None:
+        quality_payload = _read_json_object(path_quality_path)
+        if set(quality_payload) != {"subjects", "results"}:
+            raise ValueError("path_quality_material fields are not exact")
+        path_subjects = tuple(
+            PathQualitySubject.from_dict(item) for item in quality_payload["subjects"]
+        )
+        path_results = tuple(
+            PathQualityResult.from_dict(item) for item in quality_payload["results"]
+        )
+    no_intent_evidence = tuple(
+        (str(key), str(value))
+        for key, value in dict(
+            payload.get("no_declared_intent_evidence_fingerprints") or {}
+        ).items()
+    )
+    report = bootstrap_initial_current_model_authority(
+        root,
+        staging_root=staging_root,
+        expected_absent_manifest_fingerprint=(
+            args.expected_absent_manifest_fingerprint
+        ),
+        snapshot_id=snapshot_id,
+        bootstrap_evidence_fingerprint=evidence_fingerprint,
+        model_parent_receipt=parent_path,
+        receipt_root=_resolve_initial_input_directory(
+            payload.get("receipt_root") or args.receipt_root,
+            staging_root=staging_root,
+            field_name="receipt_root",
+        ),
+        revision_set_id=str(payload["revision_set_id"]),
+        task_id=str(payload["task_id"]),
+        activation_receipt_id=str(payload["activation_receipt_id"]),
+        current_design_intent_contributions=current_design,
+        legacy_entry_dispositions=legacy_dispositions,
+        intent_receipt_id=str(intent_payload["receipt_id"]),
+        intent_rationale=str(intent_payload["rationale"]),
+        intent_claim_boundary=str(intent_payload["claim_boundary"]),
+        native_owner_contracts=native_contracts,
+        native_owner_receipts=native_receipts,
+        native_owner_verification_results=native_verifications,
+        accepted_boundary_contract=boundary_contract,
+        path_quality_subjects=path_subjects,
+        path_quality_results=path_results,
+        no_declared_intent_rationale_id=str(
+            payload.get("no_declared_intent_rationale_id") or ""
+        ),
+        no_declared_intent_evidence_fingerprints=no_intent_evidence,
+        no_declared_intent_rationale=str(
+            payload.get("no_declared_intent_rationale") or ""
+        ),
+        decision_reason=str(
+            payload.get("decision_reason") or payload["claim_boundary"]
+        ),
+    )
+    _emit_payload(report, as_json=args.json)
+    return 0
+
+
 def _strict_json_object(
     value: object,
     *,
@@ -207,11 +648,11 @@ def _load_native_owner_evidence(
         "projected_inputs",
         "dependency_owner_ids",
         "resource_keys",
+        "resource_argv_options",
         "toolchain_selectors",
         "environment_selectors",
         "external_component_bindings",
         "work_context_artifact_roles",
-        "timeout_seconds",
         "termination_policy",
         "required",
     }
@@ -231,6 +672,7 @@ def _load_native_owner_evidence(
             "obligation_ids",
             "dependency_owner_ids",
             "resource_keys",
+            "resource_argv_options",
             "toolchain_selectors",
             "environment_selectors",
             "work_context_artifact_roles",
@@ -486,6 +928,7 @@ def _emit_payload(payload: dict[str, object], *, as_json: bool) -> None:
 
 def _run_model_system_command(args: argparse.Namespace) -> int:
     from .model_authority import (
+        AcceptedBoundaryContract,
         ModelRevisionSet,
         ModelRollbackContract,
         load_model_system_snapshot,
@@ -522,34 +965,26 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
             _emit_payload(payload, as_json=args.json)
             return 0 if report.ok else 1
         if args.model_system_action == "bootstrap":
-            snapshot = (
-                load_model_system_snapshot(args.snapshot)
-                if args.snapshot
-                else build_manifest_model_system_snapshot(
-                    args.root,
-                    snapshot_id=args.snapshot_id,
-                )
+            if args.initial_input:
+                if not args.staging_root or not args.expected_absent_manifest_fingerprint:
+                    raise ValueError(
+                        "initial current bootstrap requires --staging-root and "
+                        "--expected-absent-manifest-fingerprint"
+                    )
+                return _run_initial_current_model_authority(args)
+            raise ValueError(
+                "model-system-bootstrap no longer publishes generation one; "
+                "provide --initial-input for a bounded current transaction"
             )
-            head = bootstrap_model_authority(
-                args.root,
-                snapshot,
-                bootstrap_evidence_fingerprint=args.evidence_fingerprint,
-            )
-            _emit_payload(
-                {
-                    "status": "pass",
-                    "head": head.to_dict(),
-                    "snapshot": snapshot.to_dict(),
-                },
-                as_json=args.json,
-            )
-            return 0
         if args.model_system_action == "rebuild":
             report = rebuild_model_authority(
                 args.root,
                 staging_root=args.staging_root,
                 expected_old_section_fingerprint=(
-                    args.expected_old_section_fingerprint
+                    args.expected_old_section_fingerprint or ""
+                ),
+                expected_absent_manifest_fingerprint=(
+                    args.expected_absent_manifest_fingerprint or ""
                 ),
                 target_system_id=args.target_system_id,
                 target_generation=args.target_generation,
@@ -560,13 +995,20 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
             from .model_revision_owner_evidence import (
                 produce_model_revision_owner_evidence,
             )
+            from .model_authority import AcceptedBoundaryContract
 
+            owner_boundary_contract = None
+            if args.boundary_contract:
+                owner_boundary_contract = AcceptedBoundaryContract.from_dict(
+                    _read_json_object(args.boundary_contract)
+                )
             report = produce_model_revision_owner_evidence(
                 args.root,
                 model_parent_receipt=args.model_parent_receipt,
                 snapshot_id=args.snapshot_id,
                 receipt_root=args.receipt_root or None,
                 output_path=args.output,
+                accepted_boundary_contract=owner_boundary_contract,
             )
             _emit_payload(report.to_dict(), as_json=args.json)
             return 0
@@ -667,12 +1109,18 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
                 _bootstrap_head, bootstrap_base = load_observed_model_system(
                     args.root
                 )
+                bootstrap_boundary_contract = None
+                if args.boundary_contract:
+                    bootstrap_boundary_contract = AcceptedBoundaryContract.from_dict(
+                        _read_json_object(args.boundary_contract)
+                    )
                 bootstrap_candidate = build_manifest_model_system_snapshot(
                     args.root,
                     snapshot_id=args.snapshot_id,
                     system_id=bootstrap_base.system_id,
                     subject_lane=bootstrap_base.subject_lane,
                     lifecycle=bootstrap_base.lifecycle,
+                    accepted_boundary_contract=bootstrap_boundary_contract,
                 )
                 effective_intent_bootstrap_receipt = (
                     build_current_intent_bootstrap_receipt(
@@ -729,6 +1177,11 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
                     PathQualityResult.from_dict(item)
                     for item in path_quality_payload["results"]
                 )
+            accepted_boundary_contract = None
+            if args.boundary_contract:
+                accepted_boundary_contract = AcceptedBoundaryContract.from_dict(
+                    _read_json_object(args.boundary_contract)
+                )
             report = build_current_model_revision(
                 args.root,
                 model_parent_receipt=args.model_parent_receipt,
@@ -752,6 +1205,7 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
                 native_owner_verification_results=(
                     native_owner_verification_results
                 ),
+                accepted_boundary_contract=accepted_boundary_contract,
                 path_quality_subjects=path_quality_subjects,
                 path_quality_results=path_quality_results,
                 no_declared_intent_rationale_id=(
@@ -987,7 +1441,34 @@ def _add_model_system_parsers(
         "--snapshot-id",
         default="snapshot:observed-bootstrap",
     )
-    bootstrap.add_argument("--evidence-fingerprint", required=True)
+    bootstrap.add_argument(
+        "--evidence-fingerprint",
+        default="",
+        help="Bootstrap evidence fingerprint (required by initial-input workflow).",
+    )
+    bootstrap.add_argument(
+        "--staging-root",
+        default="",
+        help="Isolated staging root used by the first-current transaction.",
+    )
+    bootstrap.add_argument(
+        "--initial-input",
+        default="",
+        help=(
+            "Strict flowguard.model_initial_current_input.v1 aggregate.  When "
+            "present, bootstrap completes a generation-two current transaction."
+        ),
+    )
+    bootstrap.add_argument(
+        "--receipt-root",
+        default="",
+        help="Optional staging receipt root referenced by initial-input.",
+    )
+    bootstrap.add_argument(
+        "--expected-absent-manifest-fingerprint",
+        default="",
+        help="Full target manifest fingerprint required before first publication.",
+    )
     bootstrap.add_argument("--json", action="store_true")
     bootstrap.set_defaults(
         handler=_run_model_system_command,
@@ -1003,7 +1484,19 @@ def _add_model_system_parsers(
     )
     rebuild.add_argument("--root", default=".")
     rebuild.add_argument("--staging-root", required=True)
-    rebuild.add_argument("--expected-old-section-fingerprint", required=True)
+    rebuild_precondition = rebuild.add_mutually_exclusive_group(required=True)
+    rebuild_precondition.add_argument(
+        "--expected-old-section-fingerprint",
+        default="",
+    )
+    rebuild_precondition.add_argument(
+        "--expected-absent-manifest-fingerprint",
+        default="",
+        help=(
+            "Full project-manifest fingerprint required when the target has no "
+            "model_authority section yet."
+        ),
+    )
     rebuild.add_argument("--target-system-id", default="")
     rebuild.add_argument("--target-generation", type=int, default=2)
     rebuild.add_argument("--json", action="store_true")
@@ -1027,6 +1520,14 @@ def _add_model_system_parsers(
         "--receipt-root",
         default="",
         help="Model owner receipt store; defaults to the project current store.",
+    )
+    owner_evidence.add_argument(
+        "--boundary-contract",
+        default="",
+        help=(
+            "Content-addressed v2 boundary contract JSON used to bind the "
+            "candidate snapshot during owner-evidence composition."
+        ),
     )
     owner_evidence.add_argument(
         "--output",
@@ -1092,6 +1593,15 @@ def _add_model_system_parsers(
                 "Strict JSON object containing current typed subjects and compact "
                 "results for every added or replaced model. When omitted, a "
                 "behavior-changing revision stays incomplete."
+            ),
+        )
+        parser.add_argument(
+            "--boundary-contract",
+            default="",
+            help=(
+                "Content-addressed v2 boundary contract JSON. Its semantic "
+                "fingerprint is pointer-free; authority binds it during the "
+                "candidate/revision transition."
             ),
         )
         parser.add_argument("--no-declared-intent-rationale-id", default="")
@@ -1588,6 +2098,25 @@ def _run_project_layout_audit_command(args: argparse.Namespace) -> int:
 
     from .project_layout import audit_project_layout
     from .observation_metrics import InvocationMetrics
+    from .execution_profiles import (
+        OPERATION_KIND_READ_ONLY,
+        select_execution_profile,
+    )
+
+    profile_decision = select_execution_profile(
+        args.profile,
+        operation_kind=getattr(
+            args, "operation_kind", OPERATION_KIND_READ_ONLY
+        ),
+        route_kind=getattr(args, "route_kind", ""),
+        modeling_mode=getattr(args, "modeling_mode", None),
+        changed_paths=tuple(args.changed_path or ()),
+        governed_writes_frozen=bool(getattr(args, "governed_writes_frozen", False)),
+        projections_frozen=bool(getattr(args, "projections_frozen", False)),
+        openspec_frozen=bool(getattr(args, "openspec_frozen", False)),
+        owner_dag_frozen=bool(getattr(args, "owner_dag_frozen", False)),
+        reverse_input_frozen=bool(getattr(args, "reverse_input_frozen", False)),
+    )
 
     if args.profile == "affected" and not args.changed_path:
         payload = {
@@ -1609,6 +2138,7 @@ def _run_project_layout_audit_command(args: argparse.Namespace) -> int:
                 }
             ],
         }
+        payload.update(profile_decision.to_dict())
         print(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) if args.json else "FlowGuard currentness: blocked\nreason: affected profile requires --changed-path")
         return 1
 
@@ -1655,13 +2185,32 @@ def _run_project_layout_audit_command(args: argparse.Namespace) -> int:
             ),
         }
     )
+    payload.update(profile_decision.to_dict())
+    # Preserve the native layout audit result.  A profile can be admitted
+    # (for example, a light read-only profile) while the observed layout is
+    # still invalid; admission must never turn that native blocker into a
+    # terminal ``pass`` projection.
+    if not report.ok:
+        payload["status"] = "blocked"
+        payload["ok"] = False
+    if not profile_decision.ok:
+        payload["status"] = "blocked"
+        payload["ok"] = False
+        payload.setdefault("findings", []).extend(
+            {
+                "code": trigger,
+                "severity": "blocked",
+                "message": f"execution profile admission is blocked: {trigger}",
+            }
+            for trigger in profile_decision.escalation_triggers
+        )
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False))
     else:
         print(report.format_text())
         print(f"profile: {args.profile}")
         print("checks not run: " + ", ".join(checks_not_run))
-    return 0 if report.ok else 1
+    return 0 if bool(payload.get("ok")) else 1
 
 
 def _run_artifact_upgrade_command(args: argparse.Namespace) -> int:
@@ -1954,6 +2503,13 @@ def _run_simulator_command(args: argparse.Namespace) -> int:
             output_dir=output_dir,
             cancel_event=threading.Event(),
             command="flowguard-simulator",
+            # A simulator invocation must return evidence that is usable for
+            # this invocation, not merely an old owner receipt whose native
+            # artifact may have lived under a caller-owned temporary output
+            # directory.  The model runner still reuses a strict current
+            # native artifact when it is retained; only missing/invalid native
+            # projections are executed once and then published.
+            require_executed_case_ids=True,
         )
         validation = report.to_validation_result()
         if args.json:
@@ -2027,6 +2583,26 @@ def _run_implementation_behavior_surface_audit_command(args: argparse.Namespace)
         compact_implementation_behavior_surface_audit,
         discover_implementation_behavior_surfaces,
     )
+    from .execution_profiles import (
+        OPERATION_KIND_READ_ONLY,
+        select_execution_profile,
+    )
+
+    execution_profile = getattr(args, "profile", "light")
+    profile_decision = select_execution_profile(
+        execution_profile,
+        operation_kind=getattr(
+            args, "operation_kind", OPERATION_KIND_READ_ONLY
+        ),
+        route_kind=getattr(args, "route_kind", ""),
+        modeling_mode=getattr(args, "modeling_mode", None),
+        changed_paths=tuple(getattr(args, "changed_path", ()) or ()),
+        governed_writes_frozen=bool(getattr(args, "governed_writes_frozen", False)),
+        projections_frozen=bool(getattr(args, "projections_frozen", False)),
+        openspec_frozen=bool(getattr(args, "openspec_frozen", False)),
+        owner_dag_frozen=bool(getattr(args, "owner_dag_frozen", False)),
+        reverse_input_frozen=bool(getattr(args, "reverse_input_frozen", False)),
+    )
 
     try:
         if args.surface_discovery:
@@ -2046,7 +2622,7 @@ def _run_implementation_behavior_surface_audit_command(args: argparse.Namespace)
             args.root,
             args.surface_map,
             discovery=discovery,
-            currentness_profile=getattr(args, "profile", "light"),
+            currentness_profile=("full" if execution_profile == "full" else "light"),
         )
     except (PublicBehaviorSurfaceAuditError, OSError, ValueError) as exc:
         _emit_payload(
@@ -2066,6 +2642,20 @@ def _run_implementation_behavior_surface_audit_command(args: argparse.Namespace)
             discovery_artifact=args.surface_discovery,
             surface_map_artifact=args.surface_map,
         )
+    if isinstance(payload, dict):
+        payload.update(profile_decision.to_dict())
+        if not profile_decision.ok:
+            payload["status"] = "blocked"
+            payload["ok"] = False
+            findings = payload.setdefault("findings", [])
+            findings.extend(
+                {
+                    "code": trigger,
+                    "severity": "blocked",
+                    "message": f"execution profile admission is blocked: {trigger}",
+                }
+                for trigger in profile_decision.escalation_triggers
+            )
     _emit_payload(payload, as_json=args.json)
     return 0 if report.get("status") == "passed" else 1
 
@@ -2154,13 +2744,26 @@ def _run_flowguard_self_blueprint_check_command(args: argparse.Namespace) -> int
     )
 
     try:
+        require_executed_evidence = bool(
+            getattr(args, "require_executed_evidence", False)
+        )
+        build_kwargs = (
+            {"require_executed_evidence": True}
+            if require_executed_evidence
+            else {}
+        )
+        model_receipt_dir = str(
+            getattr(args, "model_receipt_dir", "") or ""
+        ).strip()
+        if model_receipt_dir:
+            build_kwargs["model_receipt_dir"] = model_receipt_dir
         if getattr(args, "include_architecture_reduction", False):
-            (
-                bundle,
-                reduction_report,
-            ) = build_flowguard_self_architecture_reduction_review(args.root)
+            bundle, reduction_report = build_flowguard_self_architecture_reduction_review(
+                args.root,
+                **build_kwargs,
+            )
         else:
-            bundle = build_flowguard_self_blueprint(args.root)
+            bundle = build_flowguard_self_blueprint(args.root, **build_kwargs)
             reduction_report = None
     except (FlowGuardSelfBlueprintError, OSError, ValueError) as exc:
         _emit_payload(
@@ -2433,14 +3036,51 @@ def _run_affected_blueprint_understanding_command(args: argparse.Namespace) -> i
     from .affected_blueprint_reader import (
         AffectedBlueprintIndex,
         AffectedBlueprintReadError,
+        load_affected_blueprint_projection,
         read_affected_blueprint_understanding,
     )
+
+    if bool(getattr(args, "accepted_snapshot_verified", False)):
+        _emit_payload(
+            {
+                **_blueprint_error_payload(
+                    "caller_snapshot_verification_not_accepted",
+                    ValueError(
+                        "--accepted-snapshot-verified is caller-declared metadata; "
+                        "only the native authority loader may establish accepted currentness"
+                    ),
+                ),
+                "producer_count": 0,
+            },
+            as_json=args.json,
+        )
+        return 2
     from .blueprint_compact_projection import BlueprintCompactProjection
+
+    root = Path(args.root or ".").resolve()
+
+    def resolve_input(path: str) -> Path:
+        """Resolve CLI inputs relative to the declared task root.
+
+        The stores are explicit content-addressed inputs and may intentionally
+        live outside the project root (for example a caller-owned evidence
+        bundle).  We therefore normalize relative paths here without silently
+        rewriting or copying the evidence.
+        """
+
+        candidate = Path(path)
+        return (root / candidate).resolve() if not candidate.is_absolute() else candidate.resolve()
 
     def load_store(path: str, context: str) -> dict[str, object]:
         try:
-            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+            payload = _strict_json_loads(
+                resolve_input(path).read_text(encoding="utf-8")
+            )
         except (OSError, json.JSONDecodeError) as exc:
+            raise AffectedBlueprintReadError(
+                f"cannot load {context}: {exc}"
+            ) from exc
+        except ValueError as exc:
             raise AffectedBlueprintReadError(
                 f"cannot load {context}: {exc}"
             ) from exc
@@ -2448,31 +3088,460 @@ def _run_affected_blueprint_understanding_command(args: argparse.Namespace) -> i
             raise AffectedBlueprintReadError(f"{context} must be a JSON object")
         return {str(key): value for key, value in payload.items()}
 
-    try:
-        index = AffectedBlueprintIndex.from_dict(
-            load_store(args.index, "affected blueprint index")
+    def load_optional_object(path: str | None, context: str) -> Mapping[str, Any] | None:
+        if not path:
+            return None
+        payload = load_store(path, context)
+        return payload
+
+    projection_root_arg = getattr(args, "projection_root", None)
+    manual_paths = tuple(
+        value
+        for value in (
+            getattr(args, "index", None),
+            getattr(args, "shard_store", None),
+            getattr(args, "object_store", None),
         )
-        shards = load_store(args.shard_store, "affected blueprint shard store")
-        objects = load_store(args.object_store, "affected blueprint object store")
-        result = read_affected_blueprint_understanding(
-            index,
-            affected_ids=args.affected_id,
-            load_shard=shards.__getitem__,
-            load_object=objects.__getitem__,
-        )
-    except (AffectedBlueprintReadError, KeyError, TypeError, ValueError) as exc:
+        if value
+    )
+    if projection_root_arg and manual_paths:
         _emit_payload(
-            _blueprint_error_payload(
-                "affected_blueprint_understanding_invalid", exc
-            ),
+            {
+                **_blueprint_error_payload(
+                    "projection_arguments_conflict",
+                    ValueError(
+                        "--projection-root cannot be combined with --index, "
+                        "--shard-store, or --object-store"
+                    ),
+                ),
+                "producer_count": 0,
+            },
             as_json=args.json,
         )
         return 2
-    _emit_payload(
-        BlueprintCompactProjection.understanding(result),
-        as_json=args.json,
-    )
+    if not projection_root_arg and manual_paths and len(manual_paths) != 3:
+        _emit_payload(
+            {
+                **_blueprint_error_payload(
+                    "projection_location_required",
+                    ValueError(
+                        "manual affected reads require --index, --shard-store, "
+                        "and --object-store together"
+                    ),
+                ),
+                "producer_count": 0,
+            },
+            as_json=args.json,
+        )
+        return 2
+
+    # With no projection or explicit stores, retain the small model-owner
+    # navigation that an AI can use to locate the right map. This branch is
+    # read-only and never invokes a blueprint producer.
+    if not projection_root_arg and not manual_paths:
+        preflight_error = ""
+        try:
+            from .existing_model_preflight import existing_model_preflight_from_project
+
+            preflight = existing_model_preflight_from_project(
+                root,
+                args.task_summary or "",
+                changed_paths=tuple(args.changed_path or ()),
+                mode="light",
+                inventory_scope="selected_owner_closure",
+            )
+            owner_candidates = [
+                {
+                    "model_id": str(getattr(row, "model_id", "")),
+                    "model_path": str(getattr(row, "model_path", "")),
+                    "evidence_id": str(getattr(row, "evidence_id", "")),
+                    "evidence_current": bool(getattr(row, "evidence_current", False)),
+                }
+                for row in getattr(preflight, "relevant_models", ())
+            ]
+            authority_integrity = str(
+                getattr(preflight, "authority_integrity", "")
+                or getattr(preflight, "authority_status", "")
+                or "unavailable"
+            )
+            selected_currentness = str(
+                getattr(preflight, "selected_source_currentness", "")
+                or (
+                    "current"
+                    if owner_candidates
+                    and all(row["evidence_current"] for row in owner_candidates)
+                    else "not_selected"
+                )
+            )
+            execution_evidence_status = str(
+                getattr(preflight, "execution_evidence_status", "")
+                or "not_run"
+            )
+            as_of = dict(getattr(preflight, "as_of", {}) or {})
+            stale_obligations = list(
+                getattr(preflight, "stale_obligations", ()) or ()
+            )
+            stale_obligation_details = [
+                dict(item)
+                for item in (
+                    getattr(preflight, "stale_obligation_details", ()) or ()
+                )
+            ]
+            selected_model_paths = list(
+                getattr(preflight, "selected_model_paths", ()) or ()
+            )
+            selected_runner_paths = list(
+                getattr(preflight, "selected_runner_paths", ()) or ()
+            )
+            selected_input_paths = list(
+                getattr(preflight, "selected_input_paths", ()) or ()
+            )
+            selected_intent_paths = list(
+                getattr(preflight, "selected_intent_paths", ()) or ()
+            )
+            selected_contract_paths = list(
+                getattr(preflight, "selected_contract_paths", ()) or ()
+            )
+            selected_closure = dict(
+                getattr(preflight, "selected_closure", {}) or {}
+            )
+            selected_model_ids = list(
+                selected_closure.get("selected_model_ids")
+                or [row["model_id"] for row in owner_candidates]
+            )
+            authority = {
+                "status": str(getattr(preflight, "authority_status", "")),
+                "integrity": authority_integrity,
+                "selected_source_currentness": selected_currentness,
+                "execution_evidence_status": execution_evidence_status,
+                "snapshot_fingerprint": str(
+                    getattr(preflight, "authority_snapshot_fingerprint", "")
+                ),
+                "subject_revision": str(
+                    getattr(preflight, "authority_subject_revision", "")
+                ),
+                "as_of": as_of,
+            }
+        except Exception as exc:
+            owner_candidates = []
+            preflight_error = str(exc)
+            authority_integrity = "unavailable"
+            selected_currentness = "unavailable"
+            execution_evidence_status = "not_run"
+            as_of = {}
+            stale_obligations = []
+            stale_obligation_details = []
+            selected_model_paths = []
+            selected_runner_paths = []
+            selected_input_paths = []
+            selected_intent_paths = []
+            selected_contract_paths = []
+            selected_closure = {}
+            selected_model_ids = []
+            authority = {
+                "status": "unavailable",
+                "integrity": authority_integrity,
+                "selected_source_currentness": selected_currentness,
+                "execution_evidence_status": execution_evidence_status,
+                "as_of": as_of,
+                "error": preflight_error,
+            }
+
+        authority_ok = authority_integrity in {"pass", "pass_with_gaps"}
+        basic_navigation_ok = authority_ok and bool(owner_candidates)
+        if basic_navigation_ok:
+            basic_status = (
+                "basic_navigation_stale"
+                if selected_currentness in {"stale", "unavailable"}
+                else "basic_navigation"
+            )
+            basic_gap_severity = "scoped"
+            basic_exit = 0
+        elif authority_ok:
+            basic_status = "basic_navigation_owner_unresolved"
+            basic_gap_severity = "blocked"
+            basic_exit = 2
+        else:
+            basic_status = "basic_navigation_unavailable"
+            basic_gap_severity = "blocked"
+            basic_exit = 2
+
+        gaps = [
+            {
+                "code": "deep_projection_not_requested",
+                "message": (
+                    "No projection-root or explicit affected stores were supplied; "
+                    "basic owner navigation is returned without invoking a producer."
+                ),
+                "severity": "scoped",
+            }
+        ]
+        if stale_obligations:
+            gaps.extend(
+                {
+                    "code": "selected_source_stale",
+                    "message": obligation,
+                    "severity": "scoped",
+                }
+                for obligation in stale_obligations
+            )
+        _emit_payload(
+            {
+                "ok": basic_navigation_ok,
+                "status": basic_status,
+                "scope": "affected",
+                "changed_paths": list(args.changed_path or ()),
+                "owner_candidates": owner_candidates,
+                "selected_model_ids": selected_model_ids,
+                "authority": authority,
+                "authority_integrity": authority_integrity,
+                "selected_source_currentness": selected_currentness,
+                "selected_currentness": selected_currentness,
+                "execution_evidence_status": execution_evidence_status,
+                "execution_status": execution_evidence_status,
+                "as_of": as_of,
+                "as_of_map": as_of,
+                "stale_obligations": stale_obligations,
+                "stale_obligation_details": stale_obligation_details,
+                "selected_model_paths": selected_model_paths,
+                "selected_runner_paths": selected_runner_paths,
+                "selected_input_paths": selected_input_paths,
+                "selected_intent_paths": selected_intent_paths,
+                "selected_contract_paths": selected_contract_paths,
+                "selected_closure": selected_closure,
+                "producer_count": 0,
+                "write_count": 0,
+                "claim_boundary": (
+                    "Basic selected-owner navigation is an as-of read. It does not "
+                    "claim deep projection, current execution, release, or whole-system "
+                    "live inventory."
+                ),
+                "gaps": gaps,
+            },
+            as_json=args.json,
+        )
+        return basic_exit
+
+    # Keep cleanup ownership explicit.  Using ``locals()`` here made the
+    # implementation inventory report an open dynamic surface even though the
+    # two stores are a fixed part of this command's protocol.  Explicit
+    # initialization also makes the error path and the close path equivalent.
+    shard_store: _JsonObjectStoreLocator | None = None
+    object_store: _JsonObjectStoreLocator | None = None
+    projection_bundle = None
+    try:
+        if projection_root_arg:
+            projection_argument_text = str(projection_root_arg)
+            projection_argument = Path(projection_argument_text)
+            # Treat both POSIX and Windows separators as path separators.  A
+            # caller may submit a Windows-style relative path while the
+            # checker is running under WSL; ``Path.parts`` alone would treat
+            # ``..\\outside`` as one literal filename and return a misleading
+            # missing-root error instead of the required traversal finding.
+            normalized_projection_parts = tuple(
+                part
+                for part in projection_argument_text.replace("\\", "/").split("/")
+                if part
+            )
+            if not projection_argument.is_absolute() and ".." in normalized_projection_parts:
+                raise AffectedBlueprintReadError(
+                    "projection_path_traversal: --projection-root must not contain '..'"
+                )
+            projection_bundle = load_affected_blueprint_projection(
+                resolve_input(str(projection_root_arg)),
+                authority_root=root,
+                accepted_snapshot=load_optional_object(
+                    args.accepted_snapshot, "affected accepted snapshot"
+                ),
+            )
+            if projection_bundle.unknown_entries:
+                raise AffectedBlueprintReadError(
+                    "projection_unknown_entry: "
+                    + ", ".join(projection_bundle.unknown_entries)
+                )
+            index = projection_bundle.index
+            requested_ids = tuple(args.affected_id or ())
+            if not requested_ids:
+                requested_ids, unknown_paths = projection_bundle.changed_path_candidates(
+                    tuple(args.changed_path or ())
+                )
+                if unknown_paths:
+                    raise AffectedBlueprintReadError(
+                        "unknown_change_point: " + ", ".join(unknown_paths)
+                    )
+            if not requested_ids:
+                raise AffectedBlueprintReadError(
+                    "affected_id_required: projection-root reads require "
+                    "--affected-id or one uniquely registered --changed-path"
+                )
+            load_shard = projection_bundle.load_shard
+            load_object = projection_bundle.load_object
+            surface_catalog = load_optional_object(
+                args.surface_catalog, "affected surface catalog"
+            ) or projection_bundle.surface_catalog
+            accepted_snapshot = projection_bundle.accepted_snapshot
+        else:
+            index = AffectedBlueprintIndex.from_dict(
+                load_store(args.index, "affected blueprint index")
+            )
+            requested_ids = tuple(args.affected_id or ())
+            shard_store = _JsonObjectStoreLocator(
+                resolve_input(args.shard_store), "affected blueprint shard store"
+            )
+            object_store = _JsonObjectStoreLocator(
+                resolve_input(args.object_store), "affected blueprint object store"
+            )
+            load_shard = shard_store.load
+            load_object = object_store.load
+            surface_catalog = load_optional_object(
+                args.surface_catalog, "affected surface catalog"
+            )
+            accepted_snapshot = load_optional_object(
+                args.accepted_snapshot, "affected accepted snapshot"
+            )
+        result = read_affected_blueprint_understanding(
+            index,
+            affected_ids=requested_ids,
+            load_shard=load_shard,
+            load_object=load_object,
+            task_summary=args.task_summary or "",
+            changed_paths=tuple(args.changed_path or ()),
+            surface_catalog=surface_catalog,
+            accepted_snapshot=accepted_snapshot,
+            authority_root=root,
+            authority_state=(
+                projection_bundle.authority_state
+                if projection_bundle is not None
+                else None
+            ),
+        )
+    except (AffectedBlueprintReadError, KeyError, TypeError, ValueError) as exc:
+        error_code = (
+            "projection_root_invalid"
+            if projection_root_arg
+            else "affected_blueprint_understanding_invalid"
+        )
+        _emit_payload(
+            {
+                **_blueprint_error_payload(error_code, exc),
+                "producer_count": 0,
+            },
+            as_json=args.json,
+        )
+        return 2
+    finally:
+        # Explicitly close memory maps after the read; the stores are inputs,
+        # never generated artifacts, and remain untouched for later consumers.
+        for store in (shard_store, object_store):
+            if isinstance(store, _JsonObjectStoreLocator):
+                store.close()
+    payload = BlueprintCompactProjection.understanding(result)
+    if projection_bundle is not None:
+        payload["projection"] = {
+            "root": str(projection_bundle.projection_root),
+            "projection_fingerprint": projection_bundle.projection_fingerprint,
+            "blueprint_fingerprint": projection_bundle.blueprint_fingerprint,
+            "authority_snapshot_fingerprint": projection_bundle.authority_snapshot_fingerprint,
+            "authority_head_fingerprint": projection_bundle.authority_head_fingerprint,
+            "claim_boundary": (
+                "Selective current projection identity and affected closure only; "
+                "no producer or whole-blueprint builder was invoked."
+            ),
+        }
+    _emit_payload(payload, as_json=args.json)
     return 0
+
+
+def _run_affected_impact_plan_command(args: argparse.Namespace) -> int:
+    """Build or validate one current-only affected owner-impact receipt."""
+
+    from .affected_blueprint_reader import AffectedBlueprintReadError, AffectedImpactPlan
+    from .validation_ownership import (
+        ValidationOwnerContract,
+        build_affected_impact_plan,
+        validate_affected_impact_plan,
+    )
+
+    def load_json(path: str, context: str) -> Any:
+        try:
+            value = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise AffectedBlueprintReadError(f"cannot load {context}: {exc}") from exc
+        return value
+
+    try:
+        contracts_payload = load_json(args.contracts, "affected owner contracts")
+        if isinstance(contracts_payload, Mapping):
+            contracts_payload = contracts_payload.get("contracts", ())
+        if not isinstance(contracts_payload, (list, tuple)):
+            raise AffectedBlueprintReadError("affected owner contracts must be an array")
+        contracts = tuple(ValidationOwnerContract.from_dict(item) for item in contracts_payload)
+        component_bindings = (
+            load_json(args.components, "affected component bindings")
+            if args.components
+            else None
+        )
+        if args.validate:
+            plan = validate_affected_impact_plan(
+                load_json(args.validate, "affected impact plan"),
+                selected_member_ids=tuple(args.member or ()),
+            )
+        else:
+            def parse_edges(values: Sequence[str]) -> tuple[tuple[str, str], ...]:
+                rows = []
+                for value in values:
+                    parts = tuple(item.strip() for item in str(value).split("->"))
+                    if len(parts) != 2 or not all(parts):
+                        raise AffectedBlueprintReadError(
+                            f"edge must use source->target syntax: {value}"
+                        )
+                    rows.append((parts[0], parts[1]))
+                return tuple(rows)
+
+            dispositions = (
+                load_json(args.owner_dispositions, "affected owner dispositions")
+                if args.owner_dispositions
+                else None
+            )
+            identities = (
+                load_json(args.owner_identities, "affected owner identities")
+                if args.owner_identities
+                else None
+            )
+            receipts = (
+                load_json(args.owner_receipts, "affected owner receipts")
+                if args.owner_receipts
+                else None
+            )
+            plan = build_affected_impact_plan(
+                args.root,
+                contracts,
+                changed_paths=tuple(args.changed_path or ()),
+                component_bindings=component_bindings,
+                parent_edges=parse_edges(tuple(args.parent_edge or ())),
+                cross_boundary_edges=parse_edges(tuple(args.cross_boundary_edge or ())),
+                sibling_edges=parse_edges(tuple(args.sibling_edge or ())),
+                owner_dispositions=dispositions,
+                owner_identities=identities,
+                owner_receipts=receipts,
+            )
+        payload = plan.to_dict()
+        if args.output:
+            output_path = Path(args.output).expanduser().resolve()
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            payload["artifact_path"] = str(output_path)
+    except (AffectedBlueprintReadError, OSError, TypeError, ValueError, KeyError) as exc:
+        _emit_payload(
+            _blueprint_error_payload("affected_impact_plan_invalid", exc),
+            as_json=True,
+        )
+        return 2
+    _emit_payload(payload, as_json=True)
+    return 0 if plan.ok else 1
 
 
 def _load_project_blueprint_bundle(args: argparse.Namespace):
@@ -2828,11 +3897,29 @@ def _add_project_layout_parser(
         help="Currentness claim boundary; profiles never fall back to one another.",
     )
     parser.add_argument(
+        "--modeling-mode",
+        choices=("read_only_audit", "model_first_change", "model_maintenance", "layered_boundary_proof"),
+        default=None,
+        help="Semantic modeling boundary; independent from execution profile.",
+    )
+    parser.add_argument(
+        "--operation-kind",
+        choices=("read_only", "change", "qualification"),
+        default="read_only",
+        help="Typed operation fact used for profile selection.",
+    )
+    parser.add_argument("--route-kind", default="", help="Optional specialist route kind; it never auto-upgrades a profile.")
+    parser.add_argument(
         "--changed-path",
         action="append",
         default=[],
         help="Exact changed path for the affected profile; repeat as needed.",
     )
+    parser.add_argument("--governed-writes-frozen", action="store_true")
+    parser.add_argument("--projections-frozen", action="store_true")
+    parser.add_argument("--openspec-frozen", action="store_true")
+    parser.add_argument("--owner-dag-frozen", action="store_true")
+    parser.add_argument("--reverse-input-frozen", action="store_true")
     parser.set_defaults(handler=_run_project_layout_audit_command)
 
 
@@ -3002,6 +4089,32 @@ def _add_portable_model_parsers(
 def _add_implementation_blueprint_parsers(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
+    impact = subparsers.add_parser(
+        "affected-impact-plan",
+        help=(
+            "Build or validate one exact current changed-path impact plan; "
+            "no native producer is started by this command."
+        ),
+    )
+    impact.add_argument("--root", default=".", help="Target project root.")
+    impact.add_argument("--contracts", required=True, help="JSON array of ValidationOwnerContract rows.")
+    impact.add_argument(
+        "--components",
+        default="",
+        help="Explicit current path/component/owner binding JSON; omission permits only one unambiguous contract match.",
+    )
+    impact.add_argument("--changed-path", action="append", default=[])
+    impact.add_argument("--parent-edge", action="append", default=[])
+    impact.add_argument("--cross-boundary-edge", action="append", default=[])
+    impact.add_argument("--sibling-edge", action="append", default=[])
+    impact.add_argument("--owner-dispositions", default="")
+    impact.add_argument("--owner-identities", default="")
+    impact.add_argument("--owner-receipts", default="")
+    impact.add_argument("--validate", default="", help="Validate an existing current impact-plan receipt instead of building one.")
+    impact.add_argument("--member", action="append", default=[], help="Optional exact member comparison against a machine plan.")
+    impact.add_argument("--output", default="", help="Optional path for the content-addressed plan receipt.")
+    impact.set_defaults(handler=_run_affected_impact_plan_command)
+
     inventory = subparsers.add_parser(
         "implementation-inventory-audit",
         help="Read-only audit of one current implementation-surface inventory.",
@@ -3044,13 +4157,31 @@ def _add_implementation_blueprint_parsers(
     )
     reverse_surface.add_argument(
         "--profile",
-        choices=("light", "full"),
+        choices=("light", "affected", "full"),
         default="light",
         help=(
-            "Currentness check profile. light reuses unchanged source pointers; "
-            "full rereads every source file for exact release-grade validation."
+            "Execution profile. light is read-only, affected is an exact changed "
+            "slice, and full is release-grade only after all freeze gates."
         ),
     )
+    reverse_surface.add_argument(
+        "--modeling-mode",
+        choices=("read_only_audit", "model_first_change", "model_maintenance", "layered_boundary_proof"),
+        default=None,
+        help="Semantic modeling boundary; independent from execution profile.",
+    )
+    reverse_surface.add_argument(
+        "--operation-kind",
+        choices=("read_only", "change", "qualification"),
+        default="read_only",
+    )
+    reverse_surface.add_argument("--route-kind", default="")
+    reverse_surface.add_argument("--changed-path", action="append", default=[])
+    reverse_surface.add_argument("--governed-writes-frozen", action="store_true")
+    reverse_surface.add_argument("--projections-frozen", action="store_true")
+    reverse_surface.add_argument("--openspec-frozen", action="store_true")
+    reverse_surface.add_argument("--owner-dag-frozen", action="store_true")
+    reverse_surface.add_argument("--reverse-input-frozen", action="store_true")
     reverse_surface.add_argument("--json", action="store_true")
     reverse_surface.set_defaults(handler=_run_implementation_behavior_surface_audit_command)
 
@@ -3110,6 +4241,22 @@ def _add_implementation_blueprint_parsers(
         help=(
             "Require the composed architecture-reduction review to have no "
             "unresolved candidate and no authorized cleanup left unapplied."
+        ),
+    )
+    self_check.add_argument(
+        "--require-executed-evidence",
+        action="store_true",
+        help=(
+            "Require current direct model-owner receipts and explicit native "
+            "executed-case IDs for blueprint coverage."
+        ),
+    )
+    self_check.add_argument(
+        "--model-receipt-dir",
+        default="",
+        help=(
+            "Use this exact model-owner receipt store for the read-only self "
+            "blueprint; no receipt history scan or copying is performed."
         ),
     )
     self_check.add_argument(
@@ -3185,25 +4332,67 @@ def _add_implementation_blueprint_parsers(
         ),
     )
     affected_understanding.add_argument(
+        "--root",
+        default=".",
+        help=(
+            "Bounded task root used to resolve relative evidence inputs and to "
+            "anchor the task-context snapshot."
+        ),
+    )
+    affected_understanding.add_argument(
         "--index",
-        required=True,
         help="Strict current affected-blueprint index JSON path.",
     )
     affected_understanding.add_argument(
         "--shard-store",
-        required=True,
         help="JSON object mapping exact shard ids to content-addressed payloads.",
     )
     affected_understanding.add_argument(
         "--object-store",
-        required=True,
         help="JSON object mapping exact object ids to content-addressed payloads.",
+    )
+    affected_understanding.add_argument(
+        "--projection-root",
+        help=(
+            "Existing canonical projection directory. It is read selectively "
+            "and is mutually exclusive with the three explicit store inputs."
+        ),
     )
     affected_understanding.add_argument(
         "--affected-id",
         action="append",
-        required=True,
+        default=[],
         help="Exact affected behavior, model, surface, resource, test, or workflow id; repeatable.",
+    )
+    # Keep this option optional so a projection-root invocation can resolve a
+    # unique seed from --changed-path, while explicit store invocations remain
+    # compatible with the original affected-id protocol.
+    affected_understanding.add_argument(
+        "--changed-path",
+        action="append",
+        default=[],
+        help="Changed source path used only to explain the affected task scope; repeatable.",
+    )
+    affected_understanding.add_argument(
+        "--task-summary",
+        default="",
+        help="Short caller-declared task intent preserved in the read-only task context.",
+    )
+    affected_understanding.add_argument(
+        "--surface-catalog",
+        help="Optional JSON object mapping surface ids to source coordinates/owners.",
+    )
+    affected_understanding.add_argument(
+        "--accepted-snapshot",
+        help="Optional JSON object containing the accepted model/code snapshot identity.",
+    )
+    affected_understanding.add_argument(
+        "--accepted-snapshot-verified",
+        action="store_true",
+        help=(
+            "Deprecated caller assertion; accepted currentness is never established "
+            "from this flag and its use is rejected."
+        ),
     )
     affected_understanding.add_argument("--json", action="store_true")
     affected_understanding.set_defaults(
@@ -3376,6 +4565,173 @@ def _add_evidence_lifecycle_parsers(
     )
 
 
+def _add_completion_readiness_parser(
+    subparsers: argparse._SubParsersAction,
+) -> None:
+    """Register the canonical public readiness envelope command."""
+
+    readiness = subparsers.add_parser(
+        "completion-readiness",
+        help=(
+            "Build one bounded read-only completion-readiness envelope; "
+            "does not start a heavy producer."
+        ),
+    )
+    readiness.add_argument("--root", default=".")
+    readiness.add_argument("--objective-change", default="")
+    readiness.add_argument(
+        "--completion-objective-change",
+        help=(
+            "Named current OpenSpec change whose reviewed artifacts derive the "
+            "explicit completion objective identity"
+        ),
+    )
+    readiness.add_argument(
+        "--completion-work-id",
+        help="Stable identity for this completion task's finite budget.",
+    )
+    readiness.add_argument(
+        "--completion-authorization",
+        help=(
+            "Explicit typed same-work authorization for one new finite "
+            "completion cycle; the artifact must be inside the repository."
+        ),
+    )
+    readiness.add_argument(
+        "--claim-scope",
+        choices=("local_validation", "release"),
+        default="local_validation",
+        help="Use local_validation for ordinary work; release is explicit.",
+    )
+    readiness.add_argument("--completion-repair-link")
+    readiness.add_argument("--repair-from-epoch")
+    readiness.add_argument("--repair-regression-evidence")
+    readiness.add_argument("--receipt-dir")
+    readiness.add_argument("--model-receipt-dir")
+    readiness.add_argument(
+        "--model-parent-receipt",
+        help=(
+            "Exact typed current full-model parent artifact forwarded to the "
+            "readiness plan; it is verified without historical discovery."
+        ),
+    )
+    readiness.add_argument("--formal-root")
+    readiness.add_argument(
+        "--shadow-root",
+        help="Required only for an explicit release claim.",
+    )
+    readiness.add_argument("--installed-root")
+    readiness.add_argument("--output-dir", required=True)
+    readiness.add_argument("--gate-timeout", type=float, default=900.0)
+    readiness.add_argument("--model-jobs", type=int, default=1)
+    readiness.add_argument("--model-timeout", type=float)
+    readiness.add_argument(
+        "--require-executed-evidence",
+        action="store_true",
+        help=(
+            "Freeze readiness with the same strict native model-owner and "
+            "direct-leaf evidence requirement used by the final parent."
+        ),
+    )
+    readiness.add_argument("--skillguard", default="all")
+    readiness.add_argument("--json", action="store_true")
+
+    def _handler(args: argparse.Namespace) -> int:
+        from .completion_readiness import main as readiness_main
+
+        argv: list[str] = ["--root", str(args.root), "--output-dir", str(args.output_dir)]
+        if args.shadow_root:
+            argv.extend(("--shadow-root", str(args.shadow_root)))
+        # These options are declared on the same parser above.  Spell out the
+        # finite forwarding table so the implementation inventory can prove
+        # the command boundary without admitting an open ``getattr`` selector.
+        forwarded_values = (
+            (args.objective_change, "--objective-change"),
+            (args.completion_objective_change, "--completion-objective-change"),
+            (args.completion_work_id, "--completion-work-id"),
+            (args.completion_authorization, "--completion-authorization"),
+            (args.claim_scope, "--claim-scope"),
+            (args.completion_repair_link, "--completion-repair-link"),
+            (args.repair_from_epoch, "--repair-from-epoch"),
+            (args.repair_regression_evidence, "--repair-regression-evidence"),
+            (args.receipt_dir, "--receipt-dir"),
+            (args.model_receipt_dir, "--model-receipt-dir"),
+            (args.model_parent_receipt, "--model-parent-receipt"),
+            (args.formal_root, "--formal-root"),
+            (args.installed_root, "--installed-root"),
+            (args.gate_timeout, "--gate-timeout"),
+            (args.model_jobs, "--model-jobs"),
+            (args.model_timeout, "--model-timeout"),
+            (args.require_executed_evidence, "--require-executed-evidence"),
+            (args.skillguard, "--skillguard"),
+        )
+        for value, option in forwarded_values:
+            if option == "--require-executed-evidence":
+                if value:
+                    argv.append(option)
+            elif value is not None and value != "":
+                argv.extend((option, str(value)))
+        if args.json:
+            argv.append("--json")
+        return readiness_main(argv)
+
+    readiness.set_defaults(handler=_handler)
+
+
+def _add_release_verify_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    """Expose the target-neutral release consumer to installed projects."""
+
+    release = subparsers.add_parser(
+        "release-verify",
+        help="Verify a target descriptor and its functional release evidence.",
+    )
+    release.add_argument("--root", default=".")
+    release.add_argument("--target", required=True, help="Target descriptor JSON.")
+    release.add_argument("--phase", choices=("local-candidate", "tag", "published"), required=True)
+    release.add_argument("--parent-receipt", required=True)
+    release.add_argument("--receipt-root", default="")
+    release.add_argument("--candidate-receipt", default="")
+    release.add_argument("--repository", default="")
+    release.add_argument("--output", default="")
+    release.add_argument("--json", action="store_true")
+
+    def _handler(args: argparse.Namespace) -> int:
+        from .release_verification import (
+            ReleaseTarget,
+            save_release_verification_receipt,
+            verify_local_candidate,
+            verify_published_release,
+            verify_tagged_release,
+        )
+
+        try:
+            target = ReleaseTarget.from_json(args.target)
+            if args.phase in {"tag", "published"} and not args.candidate_receipt:
+                raise ValueError("--candidate-receipt is required for tag/published")
+            common = {
+                "parent_receipt": args.parent_receipt,
+                "receipt_root": args.receipt_root or Path(args.root) / ".flowguard" / "evidence" / "validation-owners",
+                "target": target,
+            }
+            if args.phase == "local-candidate":
+                receipt = verify_local_candidate(args.root, **common)
+            elif args.phase == "tag":
+                receipt = verify_tagged_release(args.root, candidate_receipt=args.candidate_receipt, **common)
+            else:
+                receipt = verify_published_release(args.root, repository=args.repository or None, candidate_receipt=args.candidate_receipt, **common)
+            if args.output:
+                save_release_verification_receipt(receipt, args.output)
+            _emit_payload(receipt.to_dict(), as_json=args.json)
+            return 0 if receipt.ok else 1
+        except (OSError, TypeError, ValueError) as exc:
+            _emit_payload({"status": "blocked", "error": str(exc)}, as_json=args.json)
+            return 1
+
+    release.set_defaults(handler=_handler)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m flowguard",
@@ -3398,6 +4754,8 @@ def main(argv: list[str] | None = None) -> int:
     _add_model_system_parsers(subparsers)
     _add_model_maturation_parser(subparsers)
     _add_project_layout_parser(subparsers)
+    _add_completion_readiness_parser(subparsers)
+    _add_release_verify_parser(subparsers)
     _add_project_adoption_parser(
         subparsers,
         "project-audit",

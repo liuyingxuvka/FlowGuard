@@ -107,9 +107,9 @@ For `path_sensitive=true`, attach Primary Path Authority evidence with
 second path checker. If PPA is blocked, the commitment is blocked.
 
 The canonical binding emits singular `primary_path_id` for the same intent and
-commitment. Accept legacy `primary_path_ids` input only when it contains one
-distinct non-empty id and does not conflict with a singular value. Never choose
-authority by list order; ambiguity blocks broad confidence.
+commitment. The legacy plural `primary_path_ids` input is retired and rejected
+at runtime; migration evidence is archive-only. Never choose authority by list
+order; ambiguity blocks broad confidence.
 
 For broad done, release, publish, archive, production, or full confidence,
 project the ledger through `behavior_commitment_contract_exhaustion_plan()`.

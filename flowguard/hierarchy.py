@@ -16,6 +16,7 @@ from .model_path_quality import (
     path_quality_result_set_fingerprint,
     review_path_quality_material,
 )
+from .recursive_hierarchy import is_verified_subtree_receipt
 
 
 OWNERSHIP_CHILD = "child"
@@ -166,6 +167,13 @@ class ChildModelEvidence:
     risk_classes: tuple[str, ...] = ()
     validation_evidence: tuple[str, ...] = ()
     runtime_path_evidence_ids: tuple[str, ...] = ()
+    owner_id: str = ""
+    parent_model_id: str = ""
+    claim_scope: str = ""
+    subtree_receipt_id: str = ""
+    subtree_receipt_fingerprint: str = ""
+    is_leaf: bool = True
+    child_model_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_id", str(self.model_id))
@@ -185,6 +193,13 @@ class ChildModelEvidence:
         object.__setattr__(self, "risk_classes", _as_tuple(self.risk_classes))
         object.__setattr__(self, "validation_evidence", _as_tuple(self.validation_evidence))
         object.__setattr__(self, "runtime_path_evidence_ids", _as_tuple(self.runtime_path_evidence_ids))
+        object.__setattr__(self, "owner_id", str(self.owner_id))
+        object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
+        object.__setattr__(self, "claim_scope", str(self.claim_scope))
+        object.__setattr__(self, "subtree_receipt_id", str(self.subtree_receipt_id))
+        object.__setattr__(self, "subtree_receipt_fingerprint", str(self.subtree_receipt_fingerprint))
+        object.__setattr__(self, "is_leaf", bool(self.is_leaf))
+        object.__setattr__(self, "child_model_ids", _as_tuple(self.child_model_ids))
         object.__setattr__(self, "evidence_tier", str(self.evidence_tier))
         object.__setattr__(self, "skipped_checks", _as_tuple(self.skipped_checks))
         object.__setattr__(self, "not_run_checks", _as_tuple(self.not_run_checks))
@@ -236,6 +251,13 @@ class ChildModelEvidence:
             "is_legacy": self.is_legacy,
             "has_compatibility_contract": self.has_compatibility_contract,
             "overlaps_existing_model": self.overlaps_existing_model,
+            "owner_id": self.owner_id,
+            "parent_model_id": self.parent_model_id,
+            "claim_scope": self.claim_scope,
+            "subtree_receipt_id": self.subtree_receipt_id,
+            "subtree_receipt_fingerprint": self.subtree_receipt_fingerprint,
+            "is_leaf": self.is_leaf,
+            "child_model_ids": list(self.child_model_ids),
         }
 
 
@@ -660,6 +682,12 @@ class HierarchyPartitionMap:
     path_quality_results: tuple[PathQualityResult | Mapping[str, Any], ...] = ()
     path_quality_currentness_id: str = ""
     path_quality_result_set_fingerprint: str = ""
+    subtree_receipts: tuple[Any, ...] = ()
+    claim_scope: str = "routine"
+    strict: bool | None = None
+    native_receipt_store_repository_root: str = ""
+    native_receipt_store_output_directory: str = ""
+    native_receipt_verification_contexts: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
@@ -671,6 +699,25 @@ class HierarchyPartitionMap:
         object.__setattr__(self, "boundary_changes", tuple(self.boundary_changes))
         object.__setattr__(self, "coverage_receipts", tuple(self.coverage_receipts))
         object.__setattr__(self, "required_coverage_receipt_ids", _as_tuple(self.required_coverage_receipt_ids))
+        object.__setattr__(self, "subtree_receipts", tuple(self.subtree_receipts))
+        object.__setattr__(self, "claim_scope", str(self.claim_scope))
+        object.__setattr__(
+            self,
+            "native_receipt_store_repository_root",
+            str(self.native_receipt_store_repository_root),
+        )
+        object.__setattr__(
+            self,
+            "native_receipt_store_output_directory",
+            str(self.native_receipt_store_output_directory),
+        )
+        object.__setattr__(
+            self,
+            "native_receipt_verification_contexts",
+            {str(key): value for key, value in dict(self.native_receipt_verification_contexts).items()},
+        )
+        if self.strict is not None:
+            object.__setattr__(self, "strict", bool(self.strict))
         required_models, subjects, results = normalize_path_quality_material(
             self.required_path_quality_model_ids,
             self.path_quality_subjects,
@@ -736,6 +783,29 @@ class HierarchyPartitionMap:
             "path_quality_result_set_fingerprint": (
                 self.path_quality_result_set_fingerprint
             ),
+            "subtree_receipts": [
+                receipt.to_dict() if hasattr(receipt, "to_dict") else to_jsonable(receipt)
+                for receipt in self.subtree_receipts
+            ],
+            "claim_scope": self.claim_scope,
+            "strict": self.is_strict(),
+            "native_receipt_store_repository_root": self.native_receipt_store_repository_root,
+            "native_receipt_store_output_directory": self.native_receipt_store_output_directory,
+            "native_receipt_verification_context_ids": sorted(
+                self.native_receipt_verification_contexts
+            ),
+        }
+
+    def is_strict(self) -> bool:
+        if self.strict is not None:
+            return bool(self.strict)
+        return self.claim_scope in {
+            "full",
+            "release",
+            "whole_domain",
+            "whole-domain",
+            "whole_system",
+            "whole-system",
         }
 
 
@@ -2088,6 +2158,157 @@ def _coverage_receipt_findings(partition_map: HierarchyPartitionMap) -> list[Hie
                     },
                 )
             )
+        if partition_map.is_strict() and required_child_ids:
+            # ModelMesh and ContractExhaustion share the same native child
+            # receipt verifier. A strict hierarchy must not silently accept
+            # the legacy id-set projection used by routine callers.
+            try:
+                from .contract_exhaustion import (
+                    ModelContractCoverageReceipt,
+                    review_native_child_evidence,
+                )
+
+                if isinstance(receipt, ModelContractCoverageReceipt):
+                    native_receipt = receipt
+                elif isinstance(receipt, Mapping):
+                    native_receipt = ModelContractCoverageReceipt(**dict(receipt))
+                else:
+                    native_receipt = None
+                if native_receipt is None:
+                    raise ValueError("coverage receipt is not a native model coverage receipt")
+                for native_finding in review_native_child_evidence(
+                    native_receipt,
+                    claim_scope=partition_map.claim_scope,
+                    receipt_store_repository_root=partition_map.native_receipt_store_repository_root,
+                    receipt_store_output_directory=partition_map.native_receipt_store_output_directory,
+                    verification_contexts=partition_map.native_receipt_verification_contexts,
+                ):
+                    findings.append(
+                        HierarchyMeshFinding(
+                            native_finding.code,
+                            native_finding.message,
+                            severity=native_finding.severity,
+                            model_id=model_id,
+                            item_id=receipt_id,
+                            metadata=native_finding.metadata,
+                        )
+                    )
+            except (TypeError, ValueError) as exc:
+                findings.append(
+                    HierarchyMeshFinding(
+                        "model_coverage_native_binding_invalid",
+                        "strict parent coverage receipt cannot be converted to a native evidence binding",
+                        model_id=model_id,
+                        item_id=receipt_id,
+                        metadata={"error": str(exc)},
+                    )
+                )
+    return findings
+
+
+def _subtree_receipt_findings(partition_map: HierarchyPartitionMap) -> list[HierarchyMeshFinding]:
+    """Check exact subtree receipt consumption for strict ModelMesh parents."""
+
+    if not partition_map.is_strict():
+        return []
+    findings: list[HierarchyMeshFinding] = []
+    receipts_by_id = {
+        str(getattr(receipt, "receipt_id", "") or (receipt.get("receipt_id", "") if isinstance(receipt, Mapping) else "")): receipt
+        for receipt in partition_map.subtree_receipts
+    }
+
+    def value(receipt: Any, name: str, default: Any = "") -> Any:
+        if isinstance(receipt, Mapping):
+            return receipt.get(name, default)
+        return getattr(receipt, name, default)
+
+    for child in partition_map.child_models:
+        non_leaf = not child.is_leaf or bool(child.child_model_ids)
+        if not child.owner_id:
+            findings.append(
+                HierarchyMeshFinding(
+                    "model_child_owner_id_missing",
+                    "strict ModelMesh child must name one owner id",
+                    model_id=child.model_id,
+                )
+            )
+        if not child.model_fingerprint:
+            findings.append(
+                HierarchyMeshFinding(
+                    "model_child_fingerprint_missing",
+                    "strict ModelMesh child must freeze its model fingerprint",
+                    model_id=child.model_id,
+                )
+            )
+        if child.parent_model_id and child.parent_model_id != partition_map.parent_model_id:
+            findings.append(
+                HierarchyMeshFinding(
+                    "model_child_parent_mismatch",
+                    "strict ModelMesh child names a different parent model",
+                    model_id=child.model_id,
+                    metadata={
+                        "expected": partition_map.parent_model_id,
+                        "actual": child.parent_model_id,
+                    },
+                )
+            )
+        if child.claim_scope and child.claim_scope != partition_map.claim_scope:
+            findings.append(
+                HierarchyMeshFinding(
+                    "model_child_scope_mismatch",
+                    "strict ModelMesh child claim scope differs from its parent",
+                    model_id=child.model_id,
+                    metadata={"expected": partition_map.claim_scope, "actual": child.claim_scope},
+                )
+            )
+        if not non_leaf:
+            continue
+        receipt = receipts_by_id.get(child.subtree_receipt_id)
+        if receipt is None:
+            findings.append(
+                HierarchyMeshFinding(
+                    "model_child_subtree_receipt_missing",
+                    "strict non-leaf ModelMesh child must consume a verified subtree receipt",
+                    model_id=child.model_id,
+                    item_id=child.subtree_receipt_id,
+                )
+            )
+            continue
+        if not is_verified_subtree_receipt(receipt):
+            findings.append(
+                HierarchyMeshFinding(
+                    "model_child_subtree_receipt_not_verified",
+                    "non-leaf ModelMesh child receipt is not a verified terminal receipt",
+                    model_id=child.model_id,
+                    item_id=child.subtree_receipt_id,
+                    metadata={"receipt": to_jsonable(receipt)},
+                )
+            )
+        expected = {
+            "receipt_id": child.subtree_receipt_id,
+            "fingerprint": child.subtree_receipt_fingerprint,
+            "model_id": child.model_id,
+            "model_fingerprint": child.model_fingerprint,
+            "owner_id": child.owner_id,
+            "parent_model_id": partition_map.parent_model_id,
+            "claim_scope": partition_map.claim_scope,
+            "obligation_ids": tuple(child.validation_evidence or child.functions_owned),
+        }
+        for name, expected_value in expected.items():
+            if not expected_value:
+                continue
+            actual = value(receipt, name, ()) if name == "obligation_ids" else value(receipt, name, "")
+            actual_value = _as_tuple(actual) if name == "obligation_ids" else str(actual)
+            if actual_value != expected_value:
+                findings.append(
+                    HierarchyMeshFinding(
+                        f"model_child_subtree_receipt_{name}_mismatch",
+                        f"child subtree receipt {name} does not match the exact ModelMesh contract",
+                        model_id=child.model_id,
+                        item_id=child.subtree_receipt_id,
+                        metadata={"expected": expected_value, "actual": actual_value},
+                    )
+                )
     return findings
 
 
@@ -2128,6 +2349,7 @@ def review_hierarchical_mesh(
     if partition_map.coverage_receipts or partition_map.required_coverage_receipt_ids:
         activation_reasons.append("model_coverage_receipts")
     findings.extend(coverage_receipt_findings)
+    findings.extend(_subtree_receipt_findings(partition_map))
     closure_report = None
     if partition_map.closure_model is None and _partition_requires_closure_model(partition_map):
         findings.append(

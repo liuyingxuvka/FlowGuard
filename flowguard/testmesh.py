@@ -42,6 +42,7 @@ from .model_path_quality import (
     path_quality_result_set_fingerprint,
     review_path_quality_material,
 )
+from .model_authority import canonical_fingerprint
 from .test_reuse import (
     TestResultReuseTicket,
     coerce_test_result_reuse_ticket,
@@ -87,6 +88,86 @@ TEST_SCOPE_RELEASE = "release"
 
 _DIAGNOSTIC_BOUNDARIES = {"targeted", "declared_complete", "budgeted"}
 _COVERAGE_DISPOSITIONS = {"modeled", "delegated", "scoped"}
+
+
+_REPORT_FIELD_NAMES = frozenset(
+    {
+        "report_id",
+        "report_fingerprint",
+        "parent_suite_id",
+        "decision",
+        "decision_scope",
+        "child_reports",
+        "ok",
+        "recursive_test_count",
+        "recursive_selected_count",
+        "recursive_planned_count",
+        "recursive_executed_count",
+        "recursive_skipped_count",
+        "recursive_failed_count",
+        "recursive_not_run_count",
+    }
+)
+
+
+def _report_field(report: Any, name: str, default: Any = "") -> Any:
+    """Read one of the finite recursive TestMesh report fields.
+
+    The report adapter intentionally accepts only the fixed wire fields used
+    by the recursive parent proof.  It does not perform open attribute
+    dispatch: an unknown selector is a programming/schema error, while
+    object reports are read from their concrete instance dictionary.  This
+    keeps the helper's selector domain finite and owner-local for the
+    implementation inventory without weakening the mapping representation.
+    """
+
+    if name not in _REPORT_FIELD_NAMES:
+        raise KeyError(f"unsupported recursive TestMesh report field: {name}")
+    if isinstance(report, Mapping):
+        return report.get(name, default)
+    try:
+        fields = vars(report)
+    except TypeError:
+        return default
+    return fields.get(name, default)
+
+
+def _recursive_report_identity_payload(report: Any) -> dict[str, Any]:
+    """Build the canonical identity that a parent may consume.
+
+    The helper deliberately ignores findings and free-form summaries.  Those
+    are explanatory output; the terminal identity is the report id, scope,
+    exact child report ids, and independently recomputed accounting totals.
+    """
+
+    return {
+        "report_id": str(_report_field(report, "report_id", "")),
+        "parent_suite_id": str(_report_field(report, "parent_suite_id", "")),
+        "decision": str(_report_field(report, "decision", "")),
+        "decision_scope": str(_report_field(report, "decision_scope", "")),
+        "child_report_ids": [
+            str(_report_field(child, "report_id", ""))
+            for child in (_report_field(report, "child_reports", ()) or ())
+        ],
+        "recursive_test_count": int(_report_field(report, "recursive_test_count", 0) or 0),
+        "recursive_selected_count": int(_report_field(report, "recursive_selected_count", 0) or 0),
+        "recursive_planned_count": int(_report_field(report, "recursive_planned_count", 0) or 0),
+        "recursive_executed_count": int(_report_field(report, "recursive_executed_count", 0) or 0),
+        "recursive_skipped_count": int(_report_field(report, "recursive_skipped_count", 0) or 0),
+        "recursive_failed_count": int(_report_field(report, "recursive_failed_count", 0) or 0),
+        "recursive_not_run_count": int(_report_field(report, "recursive_not_run_count", 0) or 0),
+    }
+
+
+def _recursive_report_is_canonical(report: Any) -> bool:
+    report_id = str(_report_field(report, "report_id", ""))
+    report_fingerprint = str(_report_field(report, "report_fingerprint", ""))
+    return bool(
+        report_id
+        and report_fingerprint
+        and report_fingerprint
+        == canonical_fingerprint(_recursive_report_identity_payload(report))
+    )
 
 
 @dataclass(frozen=True)
@@ -215,6 +296,13 @@ class TestSuiteEvidence:
     path_quality_subject_fingerprints: Mapping[str, str] = field(default_factory=dict)
     path_quality_result_fingerprints: Mapping[str, str] = field(default_factory=dict)
     path_quality_currentness_ids: Mapping[str, str] = field(default_factory=dict)
+    owner_id: str = ""
+    parent_suite_id: str = ""
+    claim_scope: str = ""
+    is_leaf: bool = True
+    child_suite_ids: tuple[str, ...] = ()
+    subtree_report_id: str = ""
+    subtree_report_fingerprint: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "suite_id", str(self.suite_id))
@@ -290,6 +378,13 @@ class TestSuiteEvidence:
                     )
                 },
             )
+        object.__setattr__(self, "owner_id", str(self.owner_id))
+        object.__setattr__(self, "parent_suite_id", str(self.parent_suite_id))
+        object.__setattr__(self, "claim_scope", str(self.claim_scope))
+        object.__setattr__(self, "is_leaf", bool(self.is_leaf))
+        object.__setattr__(self, "child_suite_ids", _as_tuple(self.child_suite_ids))
+        object.__setattr__(self, "subtree_report_id", str(self.subtree_report_id))
+        object.__setattr__(self, "subtree_report_fingerprint", str(self.subtree_report_fingerprint))
 
     def is_release_only(self) -> bool:
         return self.release_required or self.layer == TEST_LAYER_RELEASE
@@ -495,6 +590,13 @@ class TestSuiteEvidence:
             "path_quality_currentness_ids": dict(
                 self.path_quality_currentness_ids
             ),
+            "owner_id": self.owner_id,
+            "parent_suite_id": self.parent_suite_id,
+            "claim_scope": self.claim_scope,
+            "is_leaf": self.is_leaf,
+            "child_suite_ids": list(self.child_suite_ids),
+            "subtree_report_id": self.subtree_report_id,
+            "subtree_report_fingerprint": self.subtree_report_fingerprint,
         }
 
 
@@ -569,11 +671,16 @@ class TestMeshPlan:
     path_quality_currentness_id: str = ""
     current_model_fingerprints: Mapping[str, str] = field(default_factory=dict)
     path_quality_result_set_fingerprint: str = ""
+    subtree_reports: tuple[Any, ...] = ()
+    strict: bool | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_suite_id", str(self.parent_suite_id))
         object.__setattr__(self, "partition_items", tuple(self.partition_items))
         object.__setattr__(self, "child_suites", tuple(self.child_suites))
+        object.__setattr__(self, "subtree_reports", tuple(self.subtree_reports))
+        if self.strict is not None:
+            object.__setattr__(self, "strict", bool(self.strict))
         object.__setattr__(self, "required_leaf_cell_ids", _as_tuple(self.required_leaf_cell_ids))
         object.__setattr__(self, "required_coverage_shard_ids", _as_tuple(self.required_coverage_shard_ids))
         object.__setattr__(self, "required_evidence_tier", str(self.required_evidence_tier))
@@ -698,6 +805,23 @@ class TestMeshPlan:
             "path_quality_result_set_fingerprint": (
                 self.path_quality_result_set_fingerprint
             ),
+            "subtree_reports": [
+                report.to_dict() if hasattr(report, "to_dict") else to_jsonable(report)
+                for report in self.subtree_reports
+            ],
+            "strict": self.is_strict(),
+        }
+
+    def is_strict(self) -> bool:
+        if self.strict is not None:
+            return bool(self.strict)
+        return self.decision_scope in {
+            TEST_SCOPE_RELEASE,
+            "full",
+            "whole_domain",
+            "whole-domain",
+            "whole_system",
+            "whole-system",
         }
 
 
@@ -735,6 +859,8 @@ class TestMeshFinding:
 class TestMeshReport:
     """Structured outcome of a TestMesh review."""
 
+    __test__ = False
+
     ok: bool
     parent_suite_id: str
     decision: str
@@ -749,6 +875,16 @@ class TestMeshReport:
     path_quality_result_set_fingerprint: str = ""
     path_quality_verified_model_ids: tuple[str, ...] = ()
     path_quality_blocked_model_ids: tuple[str, ...] = ()
+    child_reports: tuple[Any, ...] = ()
+    recursive_test_count: int = 0
+    recursive_selected_count: int = 0
+    recursive_planned_count: int = 0
+    recursive_executed_count: int = 0
+    recursive_skipped_count: int = 0
+    recursive_failed_count: int = 0
+    recursive_not_run_count: int = 0
+    report_id: str = ""
+    report_fingerprint: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_suite_id", str(self.parent_suite_id))
@@ -787,6 +923,29 @@ class TestMeshReport:
             "path_quality_blocked_model_ids",
             _as_tuple(self.path_quality_blocked_model_ids),
         )
+        object.__setattr__(self, "child_reports", tuple(self.child_reports))
+        for field_name in (
+            "recursive_test_count",
+            "recursive_selected_count",
+            "recursive_planned_count",
+            "recursive_executed_count",
+            "recursive_skipped_count",
+            "recursive_failed_count",
+            "recursive_not_run_count",
+        ):
+            object.__setattr__(self, field_name, int(getattr(self, field_name)))
+        object.__setattr__(self, "report_id", str(self.report_id))
+        object.__setattr__(self, "report_fingerprint", str(self.report_fingerprint))
+        if not self.report_id:
+            object.__setattr__(self, "report_id", f"testmesh:{self.parent_suite_id}")
+        if not self.report_fingerprint:
+            from .model_authority import canonical_fingerprint
+
+            object.__setattr__(
+                self,
+                "report_fingerprint",
+                canonical_fingerprint(self.identity_payload()),
+            )
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -797,6 +956,14 @@ class TestMeshReport:
 
     def blocker_count(self) -> int:
         return sum(1 for finding in self.findings if finding.severity == "blocker")
+
+    def identity_payload(self) -> dict[str, Any]:
+        return _recursive_report_identity_payload(self)
+
+    def is_canonical(self) -> bool:
+        """Whether this report's supplied fingerprint matches its identity."""
+
+        return _recursive_report_is_canonical(self)
 
     def format_text(self, max_findings: int = 10) -> str:
         lines = [
@@ -845,6 +1012,19 @@ class TestMeshReport:
             "path_quality_blocked_model_ids": list(
                 self.path_quality_blocked_model_ids
             ),
+            "child_reports": [
+                report.to_dict() if hasattr(report, "to_dict") else to_jsonable(report)
+                for report in self.child_reports
+            ],
+            "recursive_test_count": self.recursive_test_count,
+            "recursive_selected_count": self.recursive_selected_count,
+            "recursive_planned_count": self.recursive_planned_count,
+            "recursive_executed_count": self.recursive_executed_count,
+            "recursive_skipped_count": self.recursive_skipped_count,
+            "recursive_failed_count": self.recursive_failed_count,
+            "recursive_not_run_count": self.recursive_not_run_count,
+            "report_id": self.report_id,
+            "report_fingerprint": self.report_fingerprint,
             "summary": self.summary,
         }
 
@@ -892,8 +1072,13 @@ def _decision_for_findings(findings: Sequence[TestMeshFinding]) -> str:
         ("missing_target_split_rationale", "target_split_derivation_required"),
         ("leaf_matrix_cell_owner_missing", "leaf_matrix_cell_evidence_required"),
         ("leaf_matrix_cell_evidence_missing", "leaf_matrix_cell_evidence_required"),
+        ("leaf_matrix_cell_owner_ambiguous", "leaf_matrix_cell_evidence_required"),
+        ("leaf_matrix_cell_owner_duplicate", "leaf_matrix_cell_evidence_required"),
         ("contract_coverage_shard_owner_missing", "contract_coverage_shard_evidence_required"),
         ("contract_coverage_shard_evidence_missing", "contract_coverage_shard_evidence_required"),
+        ("contract_coverage_shard_owner_ambiguous", "contract_coverage_shard_evidence_required"),
+        ("contract_coverage_shard_owner_duplicate", "contract_coverage_shard_evidence_required"),
+        ("subtree_report_", "subtree_report_required"),
         ("coverage_gap", "coverage_gap_blocked"),
         ("duplicate_partition_owner", "ownership_conflict"),
         ("duplicate_state_owner", "ownership_conflict"),
@@ -1698,6 +1883,40 @@ def _leaf_matrix_evidence_findings(plan: TestMeshPlan) -> list[TestMeshFinding]:
                     },
                 )
             )
+        elif plan.is_strict() and any(not suite.owner_id for suite in current_owners):
+            findings.append(
+                TestMeshFinding(
+                    "leaf_matrix_native_owner_missing",
+                    "full or release TestMesh proof requires a non-empty native owner id for every leaf cell",
+                    item_id=cell_id,
+                    metadata={
+                        "owner_suite_ids": [suite.suite_id for suite in current_owners],
+                        "missing_owner_suite_ids": [
+                            suite.suite_id for suite in current_owners if not suite.owner_id
+                        ],
+                    },
+                )
+            )
+        elif plan.is_strict() and len(current_owners) != 1:
+            findings.append(
+                TestMeshFinding(
+                    "leaf_matrix_cell_owner_ambiguous",
+                    "full or release TestMesh proof requires exactly one current native owner per leaf cell",
+                    item_id=cell_id,
+                    metadata={
+                        "owner_suite_ids": [suite.suite_id for suite in current_owners],
+                    },
+                )
+            )
+        elif plan.is_strict() and len(owners) != 1:
+            findings.append(
+                TestMeshFinding(
+                    "leaf_matrix_cell_owner_duplicate",
+                    "a leaf cell has more than one declared native owner",
+                    item_id=cell_id,
+                    metadata={"owner_suite_ids": [suite.suite_id for suite in owners]},
+                )
+            )
     for shard_id in plan.required_coverage_shard_ids:
         owners = tuple(shard_owners.get(shard_id, ()))
         current_owners = tuple(
@@ -1717,7 +1936,202 @@ def _leaf_matrix_evidence_findings(plan: TestMeshPlan) -> list[TestMeshFinding]:
                     },
                 )
             )
+        elif plan.is_strict() and any(not suite.owner_id for suite in current_owners):
+            findings.append(
+                TestMeshFinding(
+                    "contract_coverage_shard_native_owner_missing",
+                    "full or release TestMesh proof requires a non-empty native owner id for every coverage shard",
+                    item_id=shard_id,
+                    metadata={
+                        "owner_suite_ids": [suite.suite_id for suite in current_owners],
+                        "missing_owner_suite_ids": [
+                            suite.suite_id for suite in current_owners if not suite.owner_id
+                        ],
+                    },
+                )
+            )
+        elif plan.is_strict() and len(current_owners) != 1:
+            findings.append(
+                TestMeshFinding(
+                    "contract_coverage_shard_owner_ambiguous",
+                    "full or release TestMesh proof requires exactly one current native owner per coverage shard",
+                    item_id=shard_id,
+                    metadata={
+                        "owner_suite_ids": [suite.suite_id for suite in current_owners],
+                    },
+                )
+            )
+        elif plan.is_strict() and len(owners) != 1:
+            findings.append(
+                TestMeshFinding(
+                    "contract_coverage_shard_owner_duplicate",
+                    "a contract coverage shard has more than one declared native owner",
+                    item_id=shard_id,
+                    metadata={"owner_suite_ids": [suite.suite_id for suite in owners]},
+                )
+            )
     return findings
+
+
+def _subtree_report_findings(
+    plan: TestMeshPlan,
+) -> tuple[list[TestMeshFinding], tuple[Any, ...]]:
+    """Require exact recursive TestMesh reports for non-leaf child suites."""
+
+    # Routine reviews may expose a partial hierarchy for planning, but only a
+    # strict full/release claim is licensed to consume terminal recursive
+    # reports as proof.  Keeping this boundary explicit prevents a routine
+    # parent from accidentally inheriting a release-only receipt obligation.
+    if not plan.is_strict():
+        return [], ()
+
+    reports_by_id: dict[str, Any] = {}
+    findings: list[TestMeshFinding] = []
+    for report in plan.subtree_reports:
+        report_id = str(
+            getattr(report, "report_id", "")
+            or (report.get("report_id", "") if isinstance(report, Mapping) else "")
+        )
+        if not report_id:
+            findings.append(
+                TestMeshFinding(
+                    "subtree_report_id_missing",
+                    "recursive TestMesh report must expose a stable report id",
+                )
+            )
+            continue
+        if report_id in reports_by_id:
+            findings.append(
+                TestMeshFinding(
+                    "subtree_report_duplicate",
+                    "recursive TestMesh report id appears more than once",
+                    item_id=report_id,
+                )
+            )
+        reports_by_id[report_id] = report
+
+    expected_report_ids: set[str] = set()
+    for suite in plan.child_suites:
+        non_leaf = not suite.is_leaf or bool(suite.child_suite_ids)
+        if not non_leaf:
+            continue
+        report_id = suite.subtree_report_id or f"testmesh:{suite.suite_id}"
+        expected_report_ids.add(report_id)
+        report = reports_by_id.get(report_id)
+        if report is None:
+            findings.append(
+                TestMeshFinding(
+                    "subtree_report_missing",
+                    "non-leaf child suite must consume one recursive TestMesh report",
+                    suite_id=suite.suite_id,
+                    item_id=report_id,
+                )
+            )
+            continue
+        expected_values = {
+            "report_id": report_id,
+            "parent_suite_id": suite.suite_id,
+            "decision_scope": plan.decision_scope,
+        }
+        if suite.subtree_report_fingerprint:
+            expected_values["report_fingerprint"] = suite.subtree_report_fingerprint
+        for name, expected in expected_values.items():
+            actual = str(_report_field(report, name, ""))
+            if actual != str(expected):
+                findings.append(
+                    TestMeshFinding(
+                        f"subtree_report_{name}_mismatch",
+                        f"recursive TestMesh report {name} does not match its parent suite",
+                        suite_id=suite.suite_id,
+                        item_id=report_id,
+                        metadata={"expected": expected, "actual": actual},
+                    )
+                )
+        if not _recursive_report_is_canonical(report):
+            findings.append(
+                TestMeshFinding(
+                    "subtree_report_not_verified",
+                    "non-leaf child suite consumes a report without an exact canonical fingerprint",
+                    suite_id=suite.suite_id,
+                    item_id=report_id,
+                    metadata={
+                        "expected_fingerprint": canonical_fingerprint(
+                            _recursive_report_identity_payload(report)
+                        ),
+                        "actual_fingerprint": str(
+                            _report_field(report, "report_fingerprint", "")
+                        ),
+                    },
+                )
+            )
+        if not bool(_report_field(report, "ok", False)):
+            findings.append(
+                TestMeshFinding(
+                    "subtree_report_not_green",
+                    "non-leaf child suite consumes a blocked recursive TestMesh report",
+                    suite_id=suite.suite_id,
+                    item_id=report_id,
+                )
+            )
+        declared_children = set(suite.child_suite_ids)
+        if declared_children:
+            child_reports = tuple(_report_field(report, "child_reports", ()) or ())
+            report_children = {
+                str(_report_field(child_report, "parent_suite_id", ""))
+                for child_report in child_reports
+            }
+            if report_children != declared_children:
+                findings.append(
+                    TestMeshFinding(
+                        "subtree_report_child_set_mismatch",
+                        "recursive TestMesh report does not contain the exact declared child suite set",
+                        suite_id=suite.suite_id,
+                        item_id=report_id,
+                        metadata={
+                            "expected": sorted(declared_children),
+                            "actual": sorted(report_children),
+                        },
+                    )
+                )
+            for child_report in child_reports:
+                child_report_id = str(_report_field(child_report, "report_id", ""))
+                if not _recursive_report_is_canonical(child_report):
+                    findings.append(
+                        TestMeshFinding(
+                            "subtree_report_child_not_verified",
+                            "recursive TestMesh report contains a child without an exact canonical fingerprint",
+                            suite_id=suite.suite_id,
+                            item_id=child_report_id,
+                            metadata={
+                                "expected_fingerprint": canonical_fingerprint(
+                                    _recursive_report_identity_payload(child_report)
+                                )
+                                if child_report_id
+                                else "",
+                                "actual_fingerprint": str(
+                                    _report_field(child_report, "report_fingerprint", "")
+                                ),
+                            },
+                        )
+                    )
+                if not bool(_report_field(child_report, "ok", False)):
+                    findings.append(
+                        TestMeshFinding(
+                            "subtree_report_child_not_green",
+                            "recursive TestMesh report contains a blocked child report",
+                            suite_id=suite.suite_id,
+                            item_id=child_report_id,
+                        )
+                    )
+    for report_id in sorted(set(reports_by_id) - expected_report_ids):
+        findings.append(
+            TestMeshFinding(
+                "subtree_report_unknown",
+                "TestMesh plan supplied a recursive report that no child suite consumes",
+                item_id=report_id,
+            )
+        )
+    return findings, tuple(reports_by_id[report_id] for report_id in sorted(expected_report_ids) if report_id in reports_by_id)
 
 
 def _path_quality_review(plan: TestMeshPlan) -> PathQualityMaterialReview:
@@ -1917,8 +2331,26 @@ def review_test_mesh(plan: TestMeshPlan) -> TestMeshReport:
     suite_findings, release_obligations = _suite_evidence_findings(plan)
     findings.extend(suite_findings)
     findings.extend(_leaf_matrix_evidence_findings(plan))
+    subtree_findings, child_reports = _subtree_report_findings(plan)
+    findings.extend(subtree_findings)
     decision = _decision_for_findings(findings)
     blockers = _blocker_findings(findings)
+    recursive_values = {
+        "recursive_test_count": sum(suite.test_count for suite in plan.child_suites),
+        "recursive_selected_count": sum(suite.selected_count for suite in plan.child_suites),
+        "recursive_planned_count": sum(suite.planned_count for suite in plan.child_suites),
+        "recursive_executed_count": sum(suite.executed_count for suite in plan.child_suites),
+        "recursive_skipped_count": sum(suite.skipped_count for suite in plan.child_suites),
+        "recursive_failed_count": sum(suite.failed_count for suite in plan.child_suites),
+        "recursive_not_run_count": sum(suite.not_run_count for suite in plan.child_suites),
+    }
+    for child_report in child_reports:
+        if isinstance(child_report, Mapping):
+            for field_name in recursive_values:
+                recursive_values[field_name] += int(child_report.get(field_name, 0) or 0)
+        else:
+            for field_name in recursive_values:
+                recursive_values[field_name] += int(getattr(child_report, field_name, 0) or 0)
     return TestMeshReport(
         ok=not blockers,
         parent_suite_id=plan.parent_suite_id,
@@ -1945,6 +2377,8 @@ def review_test_mesh(plan: TestMeshPlan) -> TestMeshReport:
             if model_id not in set(path_quality_blocked_model_ids)
         ),
         path_quality_blocked_model_ids=path_quality_blocked_model_ids,
+        child_reports=child_reports,
+        **recursive_values,
     )
 
 

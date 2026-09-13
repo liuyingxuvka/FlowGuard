@@ -24,6 +24,13 @@ from .trace import Trace
 from .workflow import TerminalPredicate, Workflow, WorkflowPath
 
 
+# A terminal owner needs to retain a bounded witness set, not one copy of the
+# same failure for every finite input sequence. The normal interactive
+# explorer remains lossless; this cap is used only when
+# FLOWGUARD_COMPACT_TRACE_STORAGE=1 is explicitly selected by a bounded runner.
+_COMPACT_FINDING_LIMIT = 256
+
+
 ReachabilityPredicate = Callable[[Any, Trace], bool]
 
 
@@ -134,14 +141,23 @@ class Explorer:
             # and a bounded witness sample for reachability.
             input_count = len(self.external_inputs)
             sequence_count = sum(input_count**length for length in range(1, self.max_sequence_length + 1))
-            sequences = (
-                sequence
-                for length in range(1, self.max_sequence_length + 1)
-                for sequence in product(self.external_inputs, repeat=length)
-            )
+            materialized_sequences: tuple[tuple[Any, ...], ...] = ()
         else:
-            sequences = enumerate_input_sequences(self.external_inputs, self.max_sequence_length)
-            sequence_count = len(sequences)
+            materialized_sequences = enumerate_input_sequences(
+                self.external_inputs, self.max_sequence_length
+            )
+            sequence_count = len(materialized_sequences)
+
+        def sequence_factory() -> Iterable[tuple[Any, ...]]:
+            """Return a fresh finite sequence iterator for one initial state."""
+
+            if compact_trace_storage:
+                return (
+                    sequence
+                    for length in range(1, self.max_sequence_length + 1)
+                    for sequence in product(self.external_inputs, repeat=length)
+                )
+            return iter(materialized_sequences)
         violations: list[InvariantViolation] = []
         dead_branches: list[DeadBranch] = []
         exception_branches: list[ExceptionBranch] = []
@@ -162,7 +178,10 @@ class Explorer:
             )
 
         for initial_state in self.initial_states:
-            for sequence in sequences:
+            # A compact run must not share one exhausted generator across
+            # initial states: every finite initial-state/sequence pair is an
+            # independent exploration obligation.
+            for sequence in sequence_factory():
                 active = (
                     WorkflowPath(
                         current_input=None,
@@ -180,8 +199,16 @@ class Explorer:
                             trace=path.trace.with_external_inputs(sequence),
                             terminal_predicate=self.terminal_predicate,
                         )
-                        dead_branches.extend(run.dead_branches)
-                        exception_branches.extend(run.exception_branches)
+                        if compact_trace_storage:
+                            dead_room = _COMPACT_FINDING_LIMIT - len(dead_branches)
+                            if dead_room > 0:
+                                dead_branches.extend(run.dead_branches[:dead_room])
+                            exception_room = _COMPACT_FINDING_LIMIT - len(exception_branches)
+                            if exception_room > 0:
+                                exception_branches.extend(run.exception_branches[:exception_room])
+                        else:
+                            dead_branches.extend(run.dead_branches)
+                            exception_branches.extend(run.exception_branches)
                         for completed_path in run.completed_paths:
                             observed_trace_count += 1
                             if not compact_trace_storage or len(observed_paths) < 256:
@@ -191,7 +218,13 @@ class Explorer:
                                 seen = {step.label for path in observed_paths for step in path.trace.steps}
                                 if any(label in labels and label not in seen for label in self.required_labels):
                                     observed_paths.append(completed_path)
-                            violations.extend(self._check_path_invariants(completed_path))
+                            path_violations = self._check_path_invariants(completed_path)
+                            if compact_trace_storage:
+                                violation_room = _COMPACT_FINDING_LIMIT - len(violations)
+                                if violation_room > 0:
+                                    violations.extend(path_violations[:violation_room])
+                            else:
+                                violations.extend(path_violations)
                         next_active.extend(run.completed_paths)
                     active = tuple(next_active)
                     if not active:
@@ -226,7 +259,7 @@ class Explorer:
             dead_branches=tuple(dead_branches),
             exception_branches=tuple(exception_branches),
             reachability_failures=tuple(reachability_failures),
-            explored_sequences=() if compact_trace_storage else sequences,
+            explored_sequences=() if compact_trace_storage else materialized_sequences,
             assumption_card=self.assumption_card,
         )
 

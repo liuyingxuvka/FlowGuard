@@ -89,6 +89,13 @@ class MaintenanceObligationTests(unittest.TestCase):
     def test_self_model_checks_pass(self):
         env = os.environ.copy()
         env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
+        # native_main scans FLOWGUARD_OUTPUT_DIR for current owner evidence.
+        # Keep this subprocess bounded to one run-owned evidence directory;
+        # scanning the repository root would ingest historical JSON and make a
+        # perfectly finite model check look non-terminating.
+        output_dir = ROOT / "work" / "flowguard" / "native-owner-tests" / f"maintenance-obligation-{os.getpid()}"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        env["FLOWGUARD_OUTPUT_DIR"] = str(output_dir)
         result = subprocess.run(
             [
                 sys.executable,

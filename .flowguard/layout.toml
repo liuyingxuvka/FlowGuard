@@ -6,7 +6,7 @@ canonical_root = ".flowguard"
 project_identity = "https://github.com/liuyingxuvka/FlowGuard"
 project_identity_fingerprint = "sha256:679b44c3f8a1524c9ad0b94bf53f88d53207fda549edc5f4819a8be07685c9ef"
 model_authority_pointer = ".flowguard/project.toml#model_authority"
-model_authority_fingerprint = "sha256:2950d534f3aadc12c93c30724040d25507287e8103f607d10bdd1c722f647fc5"
+model_authority_fingerprint = "sha256:172d819f0a9ca21f80c90a6647a3e5bb29ea80621096d37bde0deb18ef8d33f1"
 non_authority_roots = ["evidence", "history"]
 
 [roots]
@@ -28,9 +28,9 @@ history = "non_authority"
 [inventory]
 schema = "flowguard.project_layout_shape.v1"
 mode = "exact"
-fingerprint = "sha256:dafded9b7dca93e7efb985bf03f79f6651f0a27b6a0d73d393cd1415aacb1ea8"
-member_count = 302
-role_fingerprints = {behavior = "sha256:e09ce2edfc5f3f05628275dd4370c4b5b6613718a48ddb18d5a97ea14a975382", evidence = "sha256:72120b541d7e9c4c917b986f5b4a70ea045358de5f80e2f5cdf3e24009c3215a", history = "sha256:5d4f5f98a6f27cf1daf19c629bf0ebad0419dbd32d1cb36cae0aec63a826d23f", models = "sha256:c8988d4308fa28689ba00277fc8c6bd1d5891eb94d78176155c95f380304000b", structure = "sha256:985afe258d406c488f07ee89d27e0aa9bb82a0c5d1cbd207b517d81b0a3d23f9", verification = "sha256:185ed6cb8482d4039957b3c1829d8b913ed8e26e30ac4abda32d082b63201ffc"}
+fingerprint = "sha256:9a375c5e4465090381d19cf057ee1b72e0a2d07120b65c3b817120ecbf2e2233"
+member_count = 294
+role_fingerprints = {behavior = "sha256:a43f97c448b2804e8af1b2e94a1dba326f5565f7bef2a7ac4aeb0414fe59c76e", evidence = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945", history = "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945", models = "sha256:4ff2d40bf5f6cd50a5dc2649ce0c1acdc106f763df64a828ffe08fcd9285b0ac", structure = "sha256:e8ee6852b5353b51265b7253e3ef6c905577fe6c72ba2479de8b7fe8243ef780", verification = "sha256:185ed6cb8482d4039957b3c1829d8b913ed8e26e30ac4abda32d082b63201ffc"}
 
 [[inventory.members]]
 path = "behavior"
@@ -43,7 +43,17 @@ role = "behavior"
 kind = "directory"
 
 [[inventory.members]]
+path = "behavior/inventory/behavior_inventory_evidence.inputs.json"
+role = "behavior"
+kind = "file"
+
+[[inventory.members]]
 path = "behavior/inventory/behavior_inventory_evidence.json"
+role = "behavior"
+kind = "file"
+
+[[inventory.members]]
+path = "behavior/inventory/behavior_inventory_evidence.receipt.json"
 role = "behavior"
 kind = "file"
 
@@ -53,19 +63,14 @@ role = "behavior"
 kind = "file"
 
 [[inventory.members]]
-path = "behavior/inventory/ledger.json"
+path = "behavior/inventory/behavior_inventory_evidence.terminal.json"
 role = "behavior"
 kind = "file"
 
 [[inventory.members]]
-path = "evidence"
-role = "evidence"
-kind = "directory"
-
-[[inventory.members]]
-path = "history"
-role = "history"
-kind = "directory"
+path = "behavior/inventory/ledger.json"
+role = "behavior"
+kind = "file"
 
 [[inventory.members]]
 path = "models"
@@ -74,26 +79,6 @@ kind = "directory"
 
 [[inventory.members]]
 path = "models/authority"
-role = "models"
-kind = "directory"
-
-[[inventory.members]]
-path = "models/authority/activations"
-role = "models"
-kind = "directory"
-
-[[inventory.members]]
-path = "models/authority/activations/403af9e9f72f67a7ce30cd916f55cf895526a1847358e34a6acaa5d02a9699ad.json"
-role = "models"
-kind = "file"
-
-[[inventory.members]]
-path = "models/authority/activations/d0c9bb71422fbc2b91e65fe3793e61d9d9b5893ce71677eb6d09a4511fab25a1.json"
-role = "models"
-kind = "file"
-
-[[inventory.members]]
-path = "models/authority/bootstraps"
 role = "models"
 kind = "directory"
 
@@ -203,37 +188,7 @@ role = "models"
 kind = "directory"
 
 [[inventory.members]]
-path = "models/authority/revisions"
-role = "models"
-kind = "directory"
-
-[[inventory.members]]
-path = "models/authority/revisions/4d25201331a302c52628120f6174478f444afc344e1ad4562f0dcd417e23e7be.json"
-role = "models"
-kind = "file"
-
-[[inventory.members]]
-path = "models/authority/revisions/6cbcb37ca9a92f3c664fc1241434cf8f8f85d2597d37d89ab485ea24dc1ba007.json"
-role = "models"
-kind = "file"
-
-[[inventory.members]]
-path = "models/authority/snapshots"
-role = "models"
-kind = "directory"
-
-[[inventory.members]]
-path = "models/authority/snapshots/36aca0a93c42800d7abc84054f1f39524b4b37bf8313911e585e0f45e468836a.json"
-role = "models"
-kind = "file"
-
-[[inventory.members]]
-path = "models/authority/snapshots/5ca7f053631c2e40c3ba5989960654e8ccff8f017b5bde24e287cc6c140465be.json"
-role = "models"
-kind = "file"
-
-[[inventory.members]]
-path = "models/authority/snapshots/7a7f4f238f2e5d09f262f8240fda433296ee7d9d457379cf526a81edd34a7418.json"
+path = "models/native-case-mapping.json"
 role = "models"
 kind = "file"
 
@@ -974,6 +929,11 @@ kind = "file"
 
 [[inventory.members]]
 path = "structure/reverse-surfaces/implementation-surface-0005.json"
+role = "structure"
+kind = "file"
+
+[[inventory.members]]
+path = "structure/reverse-surfaces/implementation-surface-0006.json"
 role = "structure"
 kind = "file"
 

@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import io
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
@@ -140,6 +141,30 @@ class ExplorerProgressTests(unittest.TestCase):
         progress_lines = [line for line in stderr.splitlines() if "[flowguard] progress" in line]
         self.assertEqual(1, len(progress_lines))
         self.assertIn("progress 100% work=1/1", progress_lines[0])
+
+    def test_compact_storage_restarts_sequences_for_each_initial_state(self):
+        """Compact enumeration must cover every initial-state/sequence pair."""
+
+        explorer_kwargs = {
+            "workflow": Workflow((RecordInput(),), name="recording"),
+            "initial_states": (State(), State(("bad",))),
+            "external_inputs": ("a", "b"),
+            "invariants": (lambda state, trace: "bad" not in state.seen,),
+            "max_sequence_length": 2,
+            "progress_steps": 0,
+        }
+
+        with patch.dict(os.environ, {"FLOWGUARD_COMPACT_TRACE_STORAGE": "0"}):
+            materialized_report = Explorer(**explorer_kwargs).explore()
+        with patch.dict(os.environ, {"FLOWGUARD_COMPACT_TRACE_STORAGE": "1"}):
+            compact_report = Explorer(**explorer_kwargs).explore()
+
+        self.assertFalse(materialized_report.ok)
+        self.assertFalse(compact_report.ok)
+        self.assertEqual(materialized_report.summary, compact_report.summary)
+        self.assertEqual("sequences=6 initial_states=2 traces=20", compact_report.summary)
+        self.assertEqual(len(materialized_report.violations), len(compact_report.violations))
+        self.assertGreater(len(compact_report.violations), 0)
 
     def test_runner_inherits_explorer_progress(self):
         plan = FlowGuardCheckPlan(

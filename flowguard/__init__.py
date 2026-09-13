@@ -70,20 +70,27 @@ from .project_layout import (
 )
 from .storage_audit import STORAGE_AUDIT_SCHEMA, StorageAuditReport, audit_storage
 from .model_authority import (
+    AcceptedBoundaryContract,
     CoverageUniverse,
     ModelAuthorityHead,
     ModelInstanceRef,
     ModelRevisionSet,
     ModelSystemSnapshot,
+    boundary_topology_fingerprint,
+    build_boundary_contract,
+    build_boundary_contract_from_snapshot,
     build_model_instance_ref,
 )
 from .model_authority_store import (
     activate_model_revision_set,
     audit_model_authority,
     bootstrap_model_authority,
+    bootstrap_initial_current_model_authority,
     rebuild_model_authority,
     load_current_accepted_revision_set,
     load_observed_model_system,
+    read_selected_model_closure,
+    SelectedModelClosureRead,
     rollback_observed_model_system,
 )
 from .model_intent_authority import (
@@ -101,6 +108,7 @@ from .model_intent_authority import (
 from .model_system_inventory import (
     AffectedAuthorityComponent,
     AffectedAuthorityInventory,
+    build_initial_intent_pending_snapshot,
     build_manifest_model_system_snapshot,
     load_affected_authority_inventory,
 )
@@ -874,6 +882,8 @@ from .runtime_gateway import (
 from . import agent_workflow_rehearsal as _agent_workflow_rehearsal
 from . import closure_contract as _closure_contract
 from . import contract_exhaustion as _contract_exhaustion
+from . import completion_epoch as _completion_epoch
+from . import completion_objective as _completion_objective
 from . import coverage_inventory as _coverage_inventory
 from . import development_process_flow as _development_process_flow
 from . import development_process_strategy as _development_process_strategy
@@ -881,6 +891,7 @@ from . import development_process_simulator as _development_process_simulator
 from . import existing_model_preflight as _existing_model_preflight
 from . import field_lifecycle as _field_lifecycle
 from . import hierarchy as _hierarchy
+from . import recursive_hierarchy as _recursive_hierarchy
 from . import maintenance_obligation as _maintenance_obligation
 from . import plan_intake as _plan_intake
 from . import primary_path_authority as _primary_path_authority
@@ -943,6 +954,8 @@ from . import validation_results as _validation_results
 from .self_maintenance import *  # noqa: F403
 from .closure_contract import *  # noqa: F403
 from .contract_exhaustion import *  # noqa: F403
+from .completion_epoch import *  # noqa: F403
+from .completion_objective import *  # noqa: F403
 from .field_lifecycle import *  # noqa: F403
 from .maintenance_obligation import *  # noqa: F403
 from .plan_intake import *  # noqa: F403
@@ -958,8 +971,11 @@ from .implementation_blueprint import *  # noqa: F403
 from .canonical_blueprint_projection import *  # noqa: F403
 from .blueprint_topology import *  # noqa: F403
 from .affected_blueprint_reader import *  # noqa: F403
+from .execution_profiles import *  # noqa: F403
 from .blueprint_compact_projection import *  # noqa: F403
 from .software_blueprint_readiness import *  # noqa: F403
+from .native_case_protocol import *  # noqa: F403
+from .native_case_mapping import *  # noqa: F403
 from .target_system_blueprint import *  # noqa: F403
 from .target_native_qualification import *  # noqa: F403
 from .project_blueprint import *  # noqa: F403
@@ -975,6 +991,7 @@ from .self_reduction_inventory import *  # noqa: F403
 from .task_coverage_demand import *  # noqa: F403
 from .understanding_readiness import *  # noqa: F403
 from .route_topology import *  # noqa: F403
+from .recursive_hierarchy import *  # noqa: F403
 from .development_process_simulator import *  # noqa: F403
 from .development_process_strategy import *  # noqa: F403
 from .development_process_flow import (
@@ -1302,6 +1319,10 @@ from .recurring_model_miss import (
     MODEL_MISS_BACKFEED_COVERAGE_GAP,
     MODEL_MISS_BACKFEED_DISPOSITIONS,
     MODEL_MISS_BACKFEED_REUSE_EXISTING,
+    MODEL_MISS_REVIEW_STATUS_PREPARED,
+    MODEL_MISS_REVIEW_STATUS_BLOCKED,
+    MODEL_MISS_REVIEW_STATUS_CLOSED,
+    MODEL_MISS_REVIEW_STATUSES,
     UI_MODEL_MISS_ACTION_GRAMMAR_CONFLICT,
     UI_MODEL_MISS_AFFORDANCE_MISMATCH,
     UI_MODEL_MISS_BOUNDARY_MISSING,
@@ -1477,6 +1498,7 @@ FLOWGUARD_GOVERNANCE_API = tuple(
 MODEL_SYSTEM_AUTHORITY_API = (
     "AffectedAuthorityComponent",
     "AffectedAuthorityInventory",
+    "AcceptedBoundaryContract",
     "CoverageUniverse",
     "CurrentEffectiveIntentView",
     "EffectiveIntentBootstrapReceipt",
@@ -1502,6 +1524,9 @@ MODEL_SYSTEM_AUTHORITY_API = (
     "rebuild_model_authority",
     "bootstrap_current_effective_intent_view",
     "build_manifest_model_system_snapshot",
+    "build_boundary_contract",
+    "build_boundary_contract_from_snapshot",
+    "boundary_topology_fingerprint",
     "build_current_effective_intent_view",
     "build_current_intent_bootstrap_receipt",
     "build_current_model_revision",
@@ -1562,6 +1587,7 @@ _PROCESS_OPTIMIZATION_API = tuple(
 DEVELOPMENT_PROCESS_FLOW_ROUTE_API = tuple(
     dict.fromkeys(
         tuple(name for name in _development_process_flow.__all__ if name in globals())
+        + tuple(name for name in _completion_epoch.__all__ if name in globals())
         + _PROCESS_OPTIMIZATION_API
     )
 )
@@ -1576,7 +1602,14 @@ EXISTING_MODEL_PREFLIGHT_ROUTE_API = tuple(
     )
 )
 FIELD_LIFECYCLE_MESH_API = tuple(_field_lifecycle.__all__)
-MODEL_MESH_ROUTE_API = tuple(name for name in _hierarchy.__all__ if name in globals())
+MODEL_MESH_ROUTE_API = tuple(
+    dict.fromkeys(
+        tuple(name for name in _hierarchy.__all__ if name in globals())
+        + tuple(name for name in _recursive_hierarchy.__all__ if name in globals())
+    )
+)
+COMPLETION_EPOCH_API = tuple(_completion_epoch.__all__)
+COMPLETION_OBJECTIVE_API = tuple(_completion_objective.__all__)
 MAINTENANCE_OBLIGATION_MEMORY_API = tuple(_maintenance_obligation.__all__)
 MODEL_MISS_REVIEW_ROUTE_API = tuple(
     dict.fromkeys(
@@ -1742,6 +1775,7 @@ MODELING_HELPER_API = (
     "ScenarioMatrixBuilder",
     *FLOWGUARD_SELF_MAINTENANCE_ROUTE_API,
     *ROUTE_TOPOLOGY_API,
+    *MODEL_MESH_ROUTE_API,
     *CONTRACT_EXHAUSTION_MESH_API,
     *BEHAVIOR_COMMITMENT_LEDGER_ROUTE_API,
     *PRIMARY_PATH_AUTHORITY_ROUTE_API,
@@ -2487,6 +2521,10 @@ REPORTING_HELPER_API = (
     "MODEL_MISS_BACKFEED_COVERAGE_GAP",
     "MODEL_MISS_BACKFEED_DISPOSITIONS",
     "MODEL_MISS_BACKFEED_REUSE_EXISTING",
+    "MODEL_MISS_REVIEW_STATUS_PREPARED",
+    "MODEL_MISS_REVIEW_STATUS_BLOCKED",
+    "MODEL_MISS_REVIEW_STATUS_CLOSED",
+    "MODEL_MISS_REVIEW_STATUSES",
     "ModelMissBehaviorBackfeed",
     "ModelMissBehaviorContext",
     "UI_MODEL_MISS_ACTION_GRAMMAR_CONFLICT",
@@ -3110,11 +3148,11 @@ _ROUTE_STARTER_API_GROUPS = {
         "ContractDimension",
         "ContractMutationCase",
         "ModelContractCoverageReceipt",
+        "NativeChildEvidenceBinding",
         "ContractExhaustionPlan",
         "ContractExhaustionReport",
         "review_contract_exhaustion",
         "contract_exhaustion_to_model_obligations",
-        "contract_exhaustion_to_test_mesh_cell_ids",
         "contract_exhaustion_to_test_mesh_shard_ids",
         "contract_exhaustion_to_coverage_receipt_ids",
     ),

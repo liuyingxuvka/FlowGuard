@@ -33,13 +33,18 @@
 
 ## 4. Native completion (parent-owned)
 
-- [ ] 4.1 Populate the current assessment from real native owners for every
-  required layer under one frozen source/model/toolchain/environment identity.
-- [ ] 4.2 Run the external UI, clean-install consumer, platform/provider,
-  fault-matrix, incident-backfeed, and release gates; retain not-run gaps.
-- [ ] 4.3 Consume the assessment only after project-audit and current model
-  authority are unblocked; do not reuse stale receipts or run `--resume` as an
-  audit shortcut.
+- [ ] 4.1 Freeze the assessment input contract and owner matrix for every
+  required layer, including source/model/toolchain/environment identities and
+  the exact executed/reused/not-run projection. The post-archive final owner
+  will populate the assessment from native receipts; this task does not mark
+  an assessment complete by editing its own task list.
+- [ ] 4.2 Prepare the external UI, clean-install consumer, platform/provider,
+  fault-matrix, incident-backfeed, and release owner contracts, preserving
+  typed not-run gaps. Any post-archive or remote gate is an output-only
+  release operation and is not executed by this source-controlled task.
+- [ ] 4.3 Specify the post-archive consumption gate: project-audit and current
+  model authority must be independently unblocked before the assessment is
+  consumed; stale receipts and `--resume` audit shortcuts remain rejected.
 - [x] 4.4 Define and implement the mandatory human-readable `.flowguard`
   layout contract with explicit behavior, models, structure, verification,
   evidence, audits, projections, history, and work roles; retire ambiguous
@@ -48,9 +53,10 @@
   adoption stop before model-authority reads when the layout is missing,
   stale, unknown, colliding, or retired; allow bootstrap only for an empty
   target and create a descriptive non-authoritative README.
-- [ ] 4.6 Directly rewrite FlowGuard's existing dirty control-plane tree into
-  the current layout, with a per-artifact disposition and rebuilt current
-  identities; do not implement a generic migration or fallback reader.
+- [ ] 4.6 Prepare the direct rewrite disposition for FlowGuard's existing dirty
+  control-plane tree, including per-artifact target roles and rebuilt identity
+  inputs. Apply the rewrite before the post-archive final freeze; do not
+  implement a generic migration or fallback reader.
 
 ## 5. Independent evidence and reverse closure
 
@@ -89,29 +95,32 @@ surface/trace receipts remain non-terminal.
   identities outside each evidence row and reject a proof artifact that only
   agrees with caller-authored values copied from itself. Older assessments
   without this current field require direct manual rewrite.
-- [ ] 5.5 Do not mark the broad DNA claim complete until reverse-closure,
-  receipt replay, runtime leaves, real UI or verified N/A, fault matrix,
-  installation, and source/model authority are all current under one frozen
-  identity.
+- [ ] 5.5 Freeze the broad-DNA completion contract and its required reverse-
+  closure, receipt-replay, runtime-leaf, UI/N/A, fault, installation, and
+  source/model owner lanes. The broad claim and final receipt are produced
+  only after archive by the unique parent gate; this task never self-certifies
+  by changing its checkbox.
 
 ## 6. Native owner closure sequence
 
 - [ ] 6.1 Freeze the source, accepted model head, toolchain, environment,
   surface inventory, contract universe, UI-like action inventory, fault matrix,
   platform/provider matrix, installation matrix, observed-miss set, and release
-  identity before any broad owner execution.
-- [ ] 6.2 Produce one independently replayable terminal receipt for each
-  required DNA layer; distinguish executed, exact same-unit reused, skipped,
-  not-run, stale, blocked, and not-applicable states without collapsing them.
-- [ ] 6.3 Verify real UI or a verifier-backed no-GUI disposition. Fixture-only
-  browser strings, booleans, screenshots without runtime identity, and fake
-  manual methods are non-terminal.
-- [ ] 6.4 Execute the finite contract/fault/recovery matrix against the native
-  target, collecting root cause, user-visible result, terminal effect, and
-  recovery outcome for each required case.
-- [ ] 6.5 Reconcile clean external consumer, installation/rollback/recovery,
-  platform/provider, observed-miss backfeed, and release identities as
-  separate claim lanes; one lane's receipt must never authorize another.
-- [ ] 6.6 After every source/model/owner change, invalidate affected receipts,
-  rebuild the owner plan, and run one final full owner only after all affected
-  lanes are current.
+  identity as the pre-archive input contract. Do not run the final parent here.
+- [ ] 6.2 Define the post-archive owner receipt matrix: one independently
+  replayable terminal receipt per required DNA layer, with executed, exact
+  same-unit reused, skipped, not-run, stale, blocked, and not-applicable
+  states preserved as distinct output rows.
+- [ ] 6.3 Define the real-UI or verifier-backed no-GUI gate and its required
+  runtime identity. Fixture-only browser strings, booleans, screenshots
+  without runtime identity, and fake manual methods remain non-terminal.
+- [ ] 6.4 Define the finite contract/fault/recovery matrix and the terminal
+  fields each native owner must emit. Actual target execution is a post-archive
+  output operation under the unique final parent.
+- [ ] 6.5 Define separate reconciliation contracts for clean external
+  consumer, installation/rollback/recovery, platform/provider, observed-miss
+  backfeed, and release identities. No lane receipt authorizes another lane.
+- [ ] 6.6 Freeze the affected-receipt invalidation and owner-plan rebuild rule
+  for the post-archive gate. After the immutable freeze, run exactly one final
+  full owner; never edit this task list or launch a second full owner to refresh
+  its result.

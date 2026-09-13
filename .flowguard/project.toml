@@ -1,8 +1,8 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.68.16"
+adopted_package_version = "0.69.0"
 schema_version = "1.0"
-last_verified_at = "2026-08-13T02:06:30+00:00"
+last_verified_at = "2026-09-04T21:55:16+00:00"
 last_verified_by = "FlowGuard project-adopt"
 agents_path = "AGENTS.md"
 
@@ -13,14 +13,27 @@ upgrade_existing_artifacts_when_project_version_is_older = true
 require_adoption_log = true
 require_model_update_for_behavior_changes = true
 
+[flowguard_execution]
+schema = "flowguard.resource_policy.v1"
+invocation_timeout_seconds = 7200
+observation_timeout_seconds = 120
+collection_timeout_seconds = 600
+pytest_shard_timeout_seconds = 2400
+
+[flowguard_execution.owner_timeout_seconds]
+model_regressions_full = 1800
+pytest = 6000
+self_maintenance_review = 1800
+skill_native_checks = 3600
+
 [model_authority]
 system_id = "flowguard"
-observed_snapshot_path = ".flowguard/models/authority/snapshots/7a7f4f238f2e5d09f262f8240fda433296ee7d9d457379cf526a81edd34a7418.json"
-observed_snapshot_fingerprint = "sha256:7a7f4f238f2e5d09f262f8240fda433296ee7d9d457379cf526a81edd34a7418"
-subject_revision = "source-inventory:d0368e39b1928f2ee2b21b145a92bd17ef6eaf3d1eb19694c128d39a1e6a7317"
+observed_snapshot_path = ".flowguard/models/authority/snapshots/341e0d06faec9fc7955ba43b0a10045077687a255d39ddd0ef1549839e7f00d4.json"
+observed_snapshot_fingerprint = "sha256:341e0d06faec9fc7955ba43b0a10045077687a255d39ddd0ef1549839e7f00d4"
+subject_revision = "source-inventory:e953e1a3aebe08d0147498b845d13a89ae468f883ed485b0a61cec198ec335be"
 coverage_status = "complete_within_declared_boundary"
-generation = 174
-accepted_revision_set_fingerprint = "sha256:4d25201331a302c52628120f6174478f444afc344e1ad4562f0dcd417e23e7be"
-previous_snapshot_fingerprint = "sha256:5ca7f053631c2e40c3ba5989960654e8ccff8f017b5bde24e287cc6c140465be"
-activation_receipt_fingerprint = "sha256:403af9e9f72f67a7ce30cd916f55cf895526a1847358e34a6acaa5d02a9699ad"
-head_fingerprint = "sha256:ff0db383d35a96d3ed1434d0f5ca62138bae19647309417b9d2595d36dc0bced"
+generation = 102
+accepted_revision_set_fingerprint = "sha256:5348fc0450cb26907a1ebfb43839fb4cd62dbbf95ea2af512f59a1e466ad759f"
+previous_snapshot_fingerprint = "sha256:4de649807daea4ac1598874ad8a98a56637ec7aa07c3d4cdd8f680cd2b2ec260"
+activation_receipt_fingerprint = "sha256:87d118d6ce4f031c0446fdf5e98e6039a0c3cbdc127369680aa1a4a803b3895b"
+head_fingerprint = "sha256:ac95848ea5a07048fa6e78e8b6eab21f339b6e1bc839cdbe03e2500cac1cdd96"

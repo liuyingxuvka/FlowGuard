@@ -3644,6 +3644,43 @@ def test_composed_builder_builds_current_bundle_once_and_reviews_that_bundle():
     )
 
 
+def test_composed_builder_forwards_explicit_model_receipt_store_to_review():
+    current_identity = _build_input_identity()
+    bundle = SimpleNamespace(ok=True, build_input_identity=current_identity)
+    reduction = SimpleNamespace(ok=True)
+    receipt_root = "model-receipts-current"
+
+    with (
+        mock.patch(
+            "flowguard.self_architecture_reduction.build_flowguard_self_blueprint",
+            return_value=bundle,
+        ) as build,
+        mock.patch(
+            "flowguard.self_architecture_reduction._review_current_flowguard_self_architecture_reduction",
+            return_value=reduction,
+        ) as review,
+    ):
+        actual_bundle, actual_review = (
+            build_flowguard_self_architecture_reduction_review(
+                "current-root",
+                model_receipt_dir=receipt_root,
+            )
+        )
+
+    assert actual_bundle is bundle
+    assert actual_review is reduction
+    build.assert_called_once_with(
+        "current-root",
+        model_receipt_dir=receipt_root,
+    )
+    review.assert_called_once_with(
+        "current-root",
+        bundle=bundle,
+        build_input_identity=current_identity,
+        model_receipt_dir=receipt_root,
+    )
+
+
 def test_composed_self_check_fails_when_reduction_review_is_blocked():
     bundle = SimpleNamespace(
         ok=True,

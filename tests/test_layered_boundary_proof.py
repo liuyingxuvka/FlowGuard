@@ -17,6 +17,7 @@ from flowguard.model_path_quality import (
     PathQualitySubject,
     canonical_fingerprint,
 )
+from flowguard.recursive_hierarchy import VerifiedSubtreeReceipt
 
 
 def path_fp(value):
@@ -99,7 +100,11 @@ def proof_artifact(artifact_id="proof:validate-submit", *covered):
 def child(**overrides):
     data = {
         "child_model_id": "validate-submit",
+        "model_fingerprint": path_fp("model:validate-submit"),
         "evidence_id": "validate-submit:v1",
+        "owner_id": "owner:validate-submit",
+        "parent_model_id": "checkout",
+        "claim_scope": "full",
         "responsibilities": ("validate-submit",),
         "functions_owned": ("validate",),
         "inputs_accepted": ("submit.empty", "submit.valid"),
@@ -132,6 +137,8 @@ def matrix(**overrides):
     data = {
         "leaf_model_id": "validate-submit",
         "matrix_id": "validate-submit:matrix:v1",
+        "input_cases": ("submit.empty",),
+        "state_cases": ("idle",),
         "expected_cell_ids": ("submit.empty:idle",),
         "cells": (cell(),),
     }
@@ -305,6 +312,76 @@ class LayeredBoundaryProofTests(unittest.TestCase):
         self.assertEqual("child_disjointness_blocked", report.decision)
         self.assertIn("child_overlap_function", codes(report))
 
+    def test_strict_non_leaf_rejects_generic_passed_subtree_projection(self):
+        non_leaf = child(
+            child_model_id="normalize-submit",
+            model_fingerprint=path_fp("model:normalize-submit"),
+            owner_id="owner:normalize-submit",
+            parent_model_id="checkout",
+            claim_scope="full",
+            responsibilities=("normalize-submit",),
+            functions_owned=("normalize",),
+            is_leaf=False,
+            subtree_receipt_id="subtree:normalize-submit",
+            subtree_receipt_fingerprint=path_fp("receipt:normalize-submit"),
+            subtree_receipt={
+                "receipt_id": "subtree:normalize-submit",
+                "model_id": "normalize-submit",
+                "owner_id": "owner:normalize-submit",
+                "parent_model_id": "checkout",
+                "claim_scope": "full",
+                "model_fingerprint": path_fp("model:normalize-submit"),
+                "obligation_ids": ["normalize-submit"],
+                "status": "passed",
+                "current": True,
+                "terminal": True,
+                "fingerprint": path_fp("receipt:normalize-submit"),
+            },
+        )
+        report = review_layered_boundary_proof(
+            plan(
+                child_contracts=(child(), non_leaf),
+                claim_scope="full",
+                strict=True,
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn("child_subtree_receipt_not_verified", codes(report))
+
+    def test_strict_non_leaf_accepts_canonical_subtree_receipt(self):
+        receipt = VerifiedSubtreeReceipt(
+            receipt_id="subtree:normalize-submit",
+            model_id="normalize-submit",
+            owner_id="owner:normalize-submit",
+            parent_model_id="checkout",
+            claim_scope="full",
+            model_fingerprint=path_fp("model:normalize-submit"),
+            obligation_ids=("normalize-submit",),
+        )
+        non_leaf = child(
+            child_model_id="normalize-submit",
+            model_fingerprint=path_fp("model:normalize-submit"),
+            owner_id="owner:normalize-submit",
+            parent_model_id="checkout",
+            claim_scope="full",
+            responsibilities=("normalize-submit",),
+            functions_owned=("normalize",),
+            is_leaf=False,
+            subtree_receipt_id=receipt.receipt_id,
+            subtree_receipt_fingerprint=receipt.fingerprint,
+            subtree_receipt=receipt,
+        )
+        report = review_layered_boundary_proof(
+            plan(
+                child_contracts=(child(), non_leaf),
+                claim_scope="full",
+                strict=True,
+            )
+        )
+
+        self.assertNotIn("child_subtree_receipt_not_verified", codes(report))
+
     def test_stale_reattachment_blocks_parent_confidence(self):
         report = review_layered_boundary_proof(
             plan(reattachment_proofs=(reattachment(consumed_evidence_id="validate-submit:old"),))
@@ -322,6 +399,152 @@ class LayeredBoundaryProofTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual("leaf_boundary_matrix_required", report.decision)
         self.assertIn("leaf_matrix_missing_cell", codes(report))
+
+    def test_strict_leaf_denominator_is_kernel_derived_for_a_two_by_two_matrix(self):
+        report = review_layered_boundary_proof(
+            plan(
+                leaf_matrices=(
+                    matrix(
+                        input_cases=("submit.empty", "submit.valid"),
+                        state_cases=("idle", "seen"),
+                        # A caller-declared one-cell denominator must not
+                        # shrink the four-cell kernel product.
+                        expected_cell_ids=("submit.empty:idle",),
+                        cells=(cell(),),
+                    ),
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_boundary_matrix_required", report.decision)
+        self.assertIn("leaf_matrix_expected_cells_not_canonical", codes(report))
+        self.assertIn("leaf_matrix_missing_cell", codes(report))
+
+    def test_full_scope_cannot_be_downgraded_by_strict_false(self):
+        report = review_layered_boundary_proof(
+            plan(
+                strict=False,
+                leaf_matrices=(
+                    matrix(
+                        input_cases=("submit.empty", "submit.valid"),
+                        state_cases=("idle", "seen"),
+                        expected_cell_ids=("submit.empty:idle",),
+                        cells=(cell(),),
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_boundary_matrix_required", report.decision)
+        self.assertIn("leaf_matrix_expected_cells_not_canonical", codes(report))
+
+    def test_strict_leaf_requires_both_finite_axes(self):
+        report = review_layered_boundary_proof(
+            plan(
+                leaf_matrices=(
+                    matrix(
+                        input_cases=(),
+                        state_cases=("idle",),
+                        expected_cell_ids=(),
+                        cells=(),
+                    ),
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_boundary_matrix_required", report.decision)
+        self.assertIn("leaf_matrix_canonical_axes_missing", codes(report))
+        self.assertIn("leaf_matrix_missing_cartesian_axis", codes(report))
+
+    def test_strict_leaf_rejects_foreign_axis_fingerprint_entry(self):
+        base = matrix()
+        axis_fingerprints = dict(base.axis_fingerprints)
+        axis_fingerprints["foreign"] = path_fp("foreign-axis")
+        report = review_layered_boundary_proof(
+            plan(leaf_matrices=(matrix(axis_fingerprints=axis_fingerprints),))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_boundary_matrix_required", report.decision)
+        self.assertIn("leaf_matrix_foreign_axis", codes(report))
+
+    def test_strict_leaf_rejects_foreign_axis_content_fingerprint(self):
+        report = review_layered_boundary_proof(
+            plan(
+                leaf_matrices=(
+                    matrix(input_axis_fingerprint=path_fp("foreign-axis-content")),
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_boundary_matrix_required", report.decision)
+        self.assertIn("leaf_matrix_axis_fingerprint_mismatch", codes(report))
+
+    def test_strict_leaf_rejects_noncanonical_product_signature(self):
+        report = review_layered_boundary_proof(
+            plan(
+                leaf_matrices=(
+                    matrix(product_signature=path_fp("foreign-product")),
+                )
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_boundary_matrix_required", report.decision)
+        self.assertIn("leaf_matrix_product_signature_mismatch", codes(report))
+
+    def test_strict_leaf_rejects_noncanonical_product_tuple(self):
+        report = review_layered_boundary_proof(
+            plan(leaf_matrices=(matrix(canonical_product=("foreign:cell",)),))
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_boundary_matrix_required", report.decision)
+        self.assertIn("leaf_matrix_canonical_product_mismatch", codes(report))
+
+    def test_singleton_split_is_allowed_only_with_explicit_scoped_disposition(self):
+        report = review_layered_boundary_proof(
+            plan(
+                allow_scoped_leaf_exemptions=True,
+                leaf_matrices=(
+                    matrix(
+                        input_cases=("submit.empty",),
+                        state_cases=(),
+                        expected_cell_ids=("submit.empty:idle",),
+                        cells=(cell(),),
+                        degenerate_boundary_disposition="degenerate:constant-state",
+                        scoped_exemption="state axis is fixed by the leaf contract",
+                    ),
+                ),
+            )
+        )
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertIn("leaf_matrix_degenerate_boundary_scoped", codes(report))
+
+    def test_singleton_split_without_scoped_disposition_remains_blocked(self):
+        report = review_layered_boundary_proof(
+            plan(
+                allow_scoped_leaf_exemptions=True,
+                leaf_matrices=(
+                    matrix(
+                        input_cases=("submit.empty",),
+                        state_cases=(),
+                        expected_cell_ids=("submit.empty:idle",),
+                        cells=(cell(),),
+                    ),
+                ),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertEqual("leaf_boundary_matrix_required", report.decision)
+        self.assertIn("leaf_matrix_canonical_axes_missing", codes(report))
+        self.assertIn("leaf_matrix_missing_cartesian_axis", codes(report))
 
     def test_leaf_matrix_must_match_cartesian_axes(self):
         report = review_layered_boundary_proof(

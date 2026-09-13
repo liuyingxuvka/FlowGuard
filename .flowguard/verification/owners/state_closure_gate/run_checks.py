@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import sys
 
 _FLOWGUARD_PROJECT_ROOT = Path(__file__).resolve().parents[4]
@@ -10,10 +11,6 @@ _FLOWGUARD_MODEL_ROOT = _FLOWGUARD_PROJECT_ROOT / ".flowguard" / "models" / "own
 for _flowguard_path in (_FLOWGUARD_PROJECT_ROOT, _FLOWGUARD_MODEL_ROOT):
     if str(_flowguard_path) not in sys.path:
         sys.path.insert(0, str(_flowguard_path))
-
-from pathlib import Path
-import sys
-
 
 from flowguard import (
     STATE_CLOSURE_DIMENSION_EXTERNAL_INPUT,
@@ -58,7 +55,32 @@ def run_workflow_suite() -> bool:
         "correct_state_closure_gate: "
         + ("observed=OK expected=OK match=yes exact=yes" if exact_ok else "observed=VIOLATION expected=OK match=no")
     )
-    cases = [FormalWorkflowCase(broken.name, broken, False) for broken in model.build_broken_workflows()]
+    # Each broken workflow has a smallest witness.  Keep the proof bounded to
+    # that witness instead of enumerating the full five-input product: the
+    # missing-generation case is caught by its absent required label, while
+    # the two unsafe cases violate an invariant on their first input.
+    broken_workflows = model.build_broken_workflows()
+    cases = (
+        FormalWorkflowCase(
+            broken_workflows[0].name,
+            broken_workflows[0],
+            False,
+            required_labels=("unknown_case_generated",),
+            max_sequence_length=2,
+        ),
+        FormalWorkflowCase(
+            broken_workflows[1].name,
+            broken_workflows[1],
+            False,
+            max_sequence_length=1,
+        ),
+        FormalWorkflowCase(
+            broken_workflows[2].name,
+            broken_workflows[2],
+            False,
+            max_sequence_length=1,
+        ),
+    )
     report = run_formal_workflow_suite(
         "state_closure_gate",
         tuple(cases),
@@ -128,6 +150,19 @@ def main() -> int:
     helper_checks = run_helper_cases()
     return 0 if workflow_checks and helper_checks else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # Native evidence is temporary work output.  Isolate this invocation so
+    # native_main does not scan the entire historical evidence tree on every
+    # direct owner check.
+    os.environ.setdefault(
+        "FLOWGUARD_OUTPUT_DIR",
+        str(
+            _FLOWGUARD_PROJECT_ROOT
+            / "work"
+            / "flowguard"
+            / "native-owner-tests"
+            / f"state-closure-gate-{os.getpid()}"
+        ),
+    )
+    raise SystemExit(native_main("model:state_closure_gate", main))

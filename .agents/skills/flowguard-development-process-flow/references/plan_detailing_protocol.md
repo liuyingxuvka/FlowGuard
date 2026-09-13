@@ -38,8 +38,9 @@ both fields empty.
 1. `plan_detail_to_plan_intake()` preserves sources and risk surfaces.
 2. `plan_detail_to_step_contracts()` creates receipt gates.
 3. `plan_detail_to_development_process()` preserves lifecycle ownership.
-4. `plan_detail_to_agent_workflow_plan()` feeds the internal
-   `agent_workflow` route when multiple capabilities or external actions apply.
+4. `plan_detail_to_agent_workflow_plan()` projects into internal
+   `agent_workflow` only after risk admission; labels alone keep plans
+   `not_triggered`.
 5. UI and payload obligations go to their public native owners.
 
 ## Read-only WorkContext boundary

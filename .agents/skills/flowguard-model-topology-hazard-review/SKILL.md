@@ -1,6 +1,6 @@
 ---
 name: flowguard-model-topology-hazard-review
-description: Use when a locally green FlowGuard model needs topology-grounded future-use hazard review for broad claims, business paths, old/new disposition, side effects, terminals, loops, external boundaries, or parent/child compression.
+description: standalone FlowGuard satellite skill; Use when a locally green FlowGuard model needs topology-grounded future-use hazard review for broad claims, business paths, old/new disposition, side effects, terminals, loops, external boundaries, or parent/child compression.
 ---
 
 # FlowGuard Model Topology Hazard Review
@@ -9,13 +9,15 @@ description: Use when a locally green FlowGuard model needs topology-grounded fu
 Infer actionable future-use hazards from the actual model topology and usage intent; keep unanchored AI concerns observation-only.
 
 ## Entrypoint Scope
-Route id: `model_topology_hazard_review`; role: `public_owner`; native owner: `model_topology_hazard_review`. This standalone FlowGuard satellite skill owns topology-anchored risk routing, not generic brainstorming.
+Route `model_topology_hazard_review` (`public_owner`); owns topology-anchored risk routing, not brainstorming.
 
 ## Local Material Routing
-Read `references/topology_hazard_protocol.md` for `TopologyDigest`, `UsageIntent`, business-path identity, anchors, dispositions, and completion rules.
+After admission, read `references/topology_hazard_protocol.md` for `TopologyDigest`, `UsageIntent`, business-path identity, anchors, dispositions, and completion rules.
 
 ## Entrypoint Acceptance Map
-Accept a current topology digest, usage intent, and evidence boundary; promote only anchored hazards; block unresolved high-impact paths/loops/side effects; hand model, test, reduction, process, and risk work to typed owners.
+Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden. Unanchored concerns remain observations and do not start a producer.
+
+### Shared execution contract
 
 ## Use When
 - Use before broad done/release/publish confidence when local green may hide duplicate/conflicting paths, broad terminals, repeatable side effects, compatibility paths, or closure/liveness hazards.
@@ -30,14 +32,10 @@ Accept a current topology digest, usage intent, and evidence boundary; promote o
 4. Resolve, scope with rationale, or issue typed owner-route handoffs and maintenance obligations.
 
 ## Hard Gates
-- Model-purpose gate: pre-build/change freeze task-specific failure(s)/boundary; bind candidate to native good/bad-per-failure/oracle/current evidence. Reusable types are not fixed-purpose: no mode/fallback; only FlowGuard-declared checks may support completion claims.
-- Require the real FlowGuard check engine and AGENTS.md managed record; forbid fake mini-frameworks.
+- Model-purpose gate: task-specific failure(s); native good/bad-per-failure/oracle/current evidence; Reusable types are not fixed-purpose; no mode/fallback; FlowGuard check engine: only FlowGuard-declared checks may support completion claims.
 - Unanchored concerns cannot block confidence; anchored hazards need current evidence, owner route, or explicit scoped disposition.
 - Keep path conflicts, loop liveness, and compatibility/history visible.
-- Only explicit reuse/publication or proven cross-project use
-  triggers strict `risk_template_library` closure.
 - Portable liveness/fairness requires canonical checker evidence for the same graph; prose/metadata and stale or truncated reports cannot pass.
 
 ## Output Requirements
 - Return anchored candidates, confidence effects, `evidence`, `failures`, `blockers`, `skipped_checks`, `residual_risk`, `claim_boundary`, and `typed_next_actions`.
-

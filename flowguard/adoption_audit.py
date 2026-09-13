@@ -219,11 +219,23 @@ def _flowguard_python_files(root: Path) -> tuple[Path, ...]:
     if not flowguard_dir.exists():
         return ()
     try:
+        # Adoption audit is a current-model check, not an evidence/archive
+        # crawler.  The old unrestricted ``.flowguard.rglob('*.py')`` walked
+        # every retained validation run, receipt workspace, and historical
+        # quarantine directory; as the project grew this made one ordinary
+        # adoption test consume minutes and made local closure appear stuck.
+        # Current model authority lives in direct ``.flowguard/*.py`` files
+        # and ``.flowguard/models``.  Generated evidence remains inspectable
+        # by its owning route and is deliberately outside this audit's claim.
+        candidates = list(flowguard_dir.glob("*.py"))
+        models_dir = flowguard_dir / "models"
+        if models_dir.is_dir():
+            candidates.extend(models_dir.rglob("*.py"))
         return tuple(
             sorted(
                 (
                     path
-                    for path in flowguard_dir.rglob("*.py")
+                    for path in candidates
                     if "__pycache__" not in path.parts
                 ),
                 key=lambda path: str(path).lower(),

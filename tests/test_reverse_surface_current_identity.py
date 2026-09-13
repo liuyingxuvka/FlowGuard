@@ -13,6 +13,34 @@ from flowguard.behavior_surface_audit import (
 )
 
 
+def test_reverse_owner_contract_binds_exact_semantic_map_fingerprint():
+    semantic_map_fingerprint = "sha256:" + "a" * 64
+    contract = reverse_owner_authority.build_reverse_owner_contract(
+        route="fixture-owner",
+        model_ids=("fixture-model",),
+        authority_identity={
+            "head_fingerprint": "sha256:" + "1" * 64,
+            "snapshot_fingerprint": "sha256:" + "2" * 64,
+            "revision_set_fingerprint": "sha256:" + "3" * 64,
+            "activation_receipt_fingerprint": "sha256:" + "4" * 64,
+        },
+        discovery_fingerprint="sha256:" + "5" * 64,
+        owner_bindings_fingerprint="sha256:" + "6" * 64,
+        route_set_fingerprint="sha256:" + "7" * 64,
+        model_parent_fingerprint="sha256:" + "8" * 64,
+        semantic_map_fingerprint=semantic_map_fingerprint,
+        child_receipts={
+            "fixture-model": SimpleNamespace(
+                fingerprint="sha256:" + "9" * 64
+            )
+        },
+    )
+
+    assert dict(contract.projected_inputs)["reverse-surface:semantic-map"] == (
+        semantic_map_fingerprint
+    )
+
+
 def _fixture_root(tmp_path: Path) -> Path:
     (tmp_path / "app.py").write_text(
         "def run():\n    return 1\n",

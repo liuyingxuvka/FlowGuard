@@ -21,7 +21,12 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping, Sequence
 
 from ._normalization import canonical_json_text as _canonical_json
+from .consumer_wire import (
+    consumer_release_canonical_json_bytes,
+    consumer_release_wire_hash,
+)
 from .suite_contract import FLOWGUARD_EXPECTED_MEMBER_COUNT
+from .runtime_artifacts import is_governed_source_in_runtime_cache
 
 
 DISTRIBUTION_SCHEMA = "flowguard.skill_distribution.v1"
@@ -40,6 +45,7 @@ CONSUMER_RELEASE_CLAIM = (
     "This manifest identifies target-owned consumer files only. It carries no "
     "author contract, receipt, router, session, cache, or execution authority."
 )
+CONSUMER_RELEASE_WIRE_POLICY_ID = "consumer.skill_distribution.wire.current"
 CONSUMER_SUITE_AUTHORITY_SCHEMA = "flowguard.consumer_suite_authority.v1"
 CONSUMER_SUITE_AUTHORITY_ARTIFACT = "flowguard_consumer_suite_authority"
 CONSUMER_SUITE_AUTHORITY_MANIFEST = "consumer-suite-authority.json"
@@ -58,6 +64,55 @@ PARITY_ROLES = frozenset(
 )
 
 
+_WINDOWS_DRIVE_ROOT_RE = re.compile(r"^(?P<drive>[A-Za-z]):[\\/](?P<rest>.*)$")
+
+
+def _root_identity_aliases(value: str | Path) -> frozenset[str]:
+    """Return stable aliases for one local or WSL-mounted absolute root.
+
+    Ownership manifests are authored on the host that owns the Codex
+    installation and therefore record that host's absolute spelling (for
+    example ``C:\\Users\\liu_y\\.codex\\skills``).  A formal Linux runner
+    can inspect the same physical tree through WSL (``/mnt/c/Users/...``).
+    These are one target, not two installations.  Keep the ordinary exact
+    string comparison, and add only the explicit drive-letter/``/mnt`` alias;
+    unrelated roots remain unequal.
+    """
+
+    raw = str(value).strip()
+    if not raw:
+        return frozenset()
+    normalized = raw.replace("\\", "/").rstrip("/")
+    aliases = {normalized.casefold()}
+    windows = _WINDOWS_DRIVE_ROOT_RE.match(normalized)
+    if windows:
+        drive = windows.group("drive").lower()
+        rest = windows.group("rest").lstrip("/")
+        aliases.add(f"/mnt/{drive}/{rest}".rstrip("/").casefold())
+    else:
+        mounted = re.match(r"^/mnt/(?P<drive>[A-Za-z])(?:/(?P<rest>.*))?$", normalized)
+        if mounted:
+            drive = mounted.group("drive").upper()
+            rest = (mounted.group("rest") or "").lstrip("/")
+            aliases.add(f"{drive}:/{rest}".rstrip("/").casefold())
+    return frozenset(aliases)
+
+
+def _target_root_identity_matches(recorded: str, target_root: Path) -> bool:
+    """Check recorded ownership root against the active root across WSL.
+
+    The comparison is deliberately narrower than suffix matching: only an
+    exact path or the reversible Windows-drive ↔ WSL-``/mnt`` spelling is
+    accepted.  This preserves the ownership boundary while allowing the
+    same installed projection to be audited by the Linux formal runner.
+    """
+
+    return bool(
+        _root_identity_aliases(recorded)
+        & _root_identity_aliases(target_root.resolve())
+    )
+
+
 @dataclass(frozen=True)
 class ExclusionRule:
     rule_id: str
@@ -71,6 +126,27 @@ class ExclusionRule:
 DEFAULT_EXCLUSION_RULES = (
     ExclusionRule("python_bytecode", "*/__pycache__/*", "generated Python bytecode is not a release-owned skill artifact"),
     ExclusionRule("python_bytecode", "*.pyc", "generated Python bytecode is not a release-owned skill artifact"),
+    ExclusionRule("python_bytecode", "*.pyo", "generated Python bytecode is not a release-owned skill artifact"),
+    ExclusionRule(
+        "runtime_workspace",
+        "*/work/flowguard/*",
+        "controlled working evidence may remain on disk but is not a consumer artifact",
+    ),
+    ExclusionRule(
+        "runtime_staging",
+        "*/.flowguard/models/authority/staging/*",
+        "model-authority staging candidates are never consumer artifacts",
+    ),
+    ExclusionRule(
+        "runtime_evidence",
+        "*/.flowguard/evidence/*",
+        "opaque execution evidence is not a consumer artifact",
+    ),
+    ExclusionRule(
+        "runtime_history",
+        "*/.flowguard/history/*",
+        "historical context is not a consumer artifact",
+    ),
     ExclusionRule(
         "author_control",
         "*/.skillguard/*",
@@ -384,6 +460,15 @@ def inventory_skill_tree(
                 continue
             rule = _find_rule(relative, exclusion_rules)
             if rule is not None:
+                if rule.rule_id == "python_bytecode" and is_governed_source_in_runtime_cache(
+                    relative
+                ):
+                    # A source-like file under __pycache__ is not generated
+                    # bytecode.  Keep it out of the release inventory, but
+                    # mark the inventory unsafe so the cache name cannot hide
+                    # governed source from the consumer boundary.
+                    unsafe.append(relative)
+                    continue
                 excluded.append(ExcludedFile(relative, rule.rule_id, rule.pattern, rule.reason))
                 continue
             files.append(FileFingerprint.from_path(file_path, relative))
@@ -489,14 +574,14 @@ def _consumer_release_bytes(
         "files": member_files,
         "author_control_excluded": True,
     }
-    release_id = _wire_hash(_canonical_json(identity).encode("utf-8"))
+    release_id = consumer_release_wire_hash(identity)
     manifest = {
         **identity,
         "release_id": release_id,
         "claim_boundary": CONSUMER_RELEASE_CLAIM,
     }
-    manifest["manifest_hash"] = _wire_hash(_canonical_json(manifest).encode("utf-8"))
-    return (_canonical_json(manifest) + "\n").encode("utf-8")
+    manifest["manifest_hash"] = consumer_release_wire_hash(manifest)
+    return consumer_release_canonical_json_bytes(manifest) + b"\n"
 
 
 def _consumer_source_inventory(
@@ -886,14 +971,29 @@ def _consumer_text_findings(
     root: Path,
     files: Sequence[FileFingerprint],
 ) -> tuple[DistributionFinding, ...]:
+    """Reject author-runtime references in text and structured JSON keys.
+
+    Word-boundary-only scans miss keys such as ``skillguard_version``.  The
+    consumer boundary is shared with SkillGuard, so the same negative policy
+    is applied here and to the independent auditor.  One explicitly named
+    ``skillguard_depth.py`` fixture may describe a retired negative path, but
+    it is never allowed to import or execute SkillGuard.
+    """
+
     findings: list[DistributionFinding] = []
     text_suffixes = {
         ".md", ".txt", ".json", ".jsonl", ".yaml", ".yml", ".toml",
         ".py", ".ps1", ".sh", ".js", ".ts", ".tsx", ".jsx", ".html",
         ".css", ".xml", ".ini", ".cfg",
     }
+    retired_sentinel = re.compile(
+        r"(?is)(?=.*\b(?:retired|negative|sentinel)\b)(?=.*\bnot[ -]?runtime\b)"
+    )
     patterns = (
-        ("consumer_skillguard_reference", re.compile(r"(?i)\bskillguard\b|\.skillguard")),
+        (
+            "consumer_skillguard_reference",
+            re.compile(r"(?i)(?<![a-z0-9])skillguard(?:\.py|[_./:-]|\b)|\.skillguard"),
+        ),
         (
             "consumer_portfolio_authority_reference",
             re.compile(r"(?i)\bportfolio[_ -](?:receipt|reuse|evidence|graduation)\b"),
@@ -909,7 +1009,13 @@ def _consumer_text_findings(
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeError):
             continue
+        sentinel = (
+            path.name.casefold() == "skillguard_depth.py"
+            and bool(retired_sentinel.search(text))
+        )
         for code, pattern in patterns:
+            if sentinel and code == "consumer_skillguard_reference":
+                continue
             if pattern.search(text):
                 findings.append(
                     DistributionFinding(
@@ -918,6 +1024,30 @@ def _consumer_text_findings(
                         item.relative_path,
                     )
                 )
+        if path.suffix.casefold() == ".json":
+            try:
+                payload = json.loads(text)
+            except (TypeError, ValueError):
+                payload = None
+
+            def visit(value: object, location: str = "$") -> None:
+                if isinstance(value, Mapping):
+                    for key, child in value.items():
+                        key_text = str(key)
+                        if "skillguard" in key_text.casefold() and not sentinel:
+                            findings.append(
+                                DistributionFinding(
+                                    "consumer_skillguard_reference",
+                                    "consumer files must not require or instruct use of author-side SkillGuard state",
+                                    f"{item.relative_path}:{location}.{key_text}",
+                                )
+                            )
+                        visit(child, f"{location}.{key_text}")
+                elif isinstance(value, list):
+                    for index, child in enumerate(value):
+                        visit(child, f"{location}[{index}]")
+
+            visit(payload)
     return tuple(findings)
 
 
@@ -977,21 +1107,15 @@ def _consumer_release_findings(
             "files": expected_files,
             "author_control_excluded": True,
         }
-        expected_release_id = _wire_hash(
-            _canonical_json(identity).encode("utf-8")
-        )
+        expected_release_id = consumer_release_wire_hash(identity)
         expected_payload = {
             **identity,
             "release_id": expected_release_id,
             "claim_boundary": CONSUMER_RELEASE_CLAIM,
         }
-        expected_manifest_hash = _wire_hash(
-            _canonical_json(expected_payload).encode("utf-8")
-        )
+        expected_manifest_hash = consumer_release_wire_hash(expected_payload)
         expected_payload["manifest_hash"] = expected_manifest_hash
-        expected_manifest_bytes = (
-            _canonical_json(expected_payload) + "\n"
-        ).encode("utf-8")
+        expected_manifest_bytes = consumer_release_canonical_json_bytes(expected_payload) + b"\n"
         if manifest_raw != expected_manifest_bytes:
             findings.append(
                 DistributionFinding(
@@ -1707,7 +1831,10 @@ def validate_installed_consumer_suite(
                     OWNERSHIP_MANIFEST_NAME,
                 )
             )
-        if str(manifest.get("target_root", "")) != str(target_root):
+        if not _target_root_identity_matches(
+            str(manifest.get("target_root", "")),
+            target_root,
+        ):
             findings.append(
                 DistributionFinding(
                     "ownership_target_mismatch",
@@ -2001,7 +2128,10 @@ def _owned_projection_findings(
                 },
             )
         )
-    if str(manifest.get("target_root", "")) != str(target_root):
+    if not _target_root_identity_matches(
+        str(manifest.get("target_root", "")),
+        target_root,
+    ):
         findings.append(
             DistributionFinding(
                 "author_sync_target_ownership_mismatch",

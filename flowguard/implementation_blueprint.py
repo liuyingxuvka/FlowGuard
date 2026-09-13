@@ -2731,8 +2731,20 @@ def _restore_previous_projection(
 def write_canonical_blueprint_projection(
     projection: CanonicalBlueprintProjection,
     output_root: str | Path,
+    *,
+    work_root: str | Path | None = None,
 ) -> tuple[Path, ...]:
-    """Stage, revalidate, and failure-atomically activate one projection."""
+    """Stage, revalidate, and failure-atomically activate one projection.
+
+    The staging tree is a work artifact, not a sibling of the canonical
+    output.  Older code used ``tempfile.mkdtemp(..., dir=root.parent)`` which
+    left ``.canonical-output.staging-*`` directories beside the project
+    package.  Besides violating the project boundary, that made a failed
+    activation look like a second workspace.  Prefer the project-owned
+    ``work/flowguard/canonical-blueprint`` lane; callers that have a dedicated
+    task work root may pass it explicitly.  The output tree is still activated
+    with the same compare-and-swap/rollback protocol.
+    """
 
     requested_root = Path(output_root)
     if _path_exists_no_follow(requested_root):
@@ -2749,8 +2761,41 @@ def write_canonical_blueprint_projection(
 
     files = serialize_canonical_blueprint_projection(projection)
     expected_staging_snapshot = _expected_projection_snapshot(files)
+    # Resolve a project-owned work lane without scanning the repository.  A
+    # canonical projection normally lives below ``<project>/.flowguard``;
+    # walking the already-known parent chain is bounded and does not promote
+    # any file found there to source authority.  ``work_root`` is the explicit
+    # escape hatch for callers whose projection is intentionally outside a
+    # project checkout.
+    if work_root is not None:
+        staging_parent = Path(work_root).expanduser().resolve()
+    else:
+        project_root: Path | None = None
+        for candidate in (root, *root.parents):
+            if (candidate / ".flowguard").is_dir() or (candidate / ".git").exists():
+                project_root = candidate
+                break
+        if project_root is None:
+            # Tests and standalone consumers may use a temporary output root
+            # without a repository marker.  Keep the lane inside the output
+            # root's known parent rather than creating a hidden sibling next
+            # to the package.
+            project_root = root.parent
+        staging_parent = project_root / "work" / "flowguard" / "canonical-blueprint"
+    staging_parent = staging_parent.resolve()
+    if staging_parent == Path(staging_parent.anchor) or staging_parent == root:
+        raise BlueprintValidationError("blueprint staging work root is too broad")
+    staging_parent.mkdir(parents=True, exist_ok=True)
+    # Reparse points in a caller-provided work lane would let an otherwise
+    # bounded write escape the project.  Do not follow them.
+    if _path_exists_no_follow(staging_parent):
+        staging_stat = os.lstat(staging_parent)
+        if _is_reparse_stat(staging_stat):
+            raise BlueprintValidationError(
+                "blueprint staging work root cannot be a reparse point"
+            )
     staging = Path(
-        tempfile.mkdtemp(prefix=f".{root.name}.staging-", dir=root.parent)
+        tempfile.mkdtemp(prefix=f".{root.name}.staging-", dir=staging_parent)
     ).resolve()
     backup = root.parent / f".{root.name}.backup-{uuid.uuid4().hex}"
     root_moved = False

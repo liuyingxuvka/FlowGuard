@@ -141,6 +141,6 @@ def main() -> int:
     )
     return 0 if correct_ok and classification_ok and report.ok else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:compositional_verification_kernel", main))

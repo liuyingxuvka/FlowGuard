@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-08-12
+goal: Make source package identity, consumer authority, installed projection,
+  and release identity agree at FlowGuard v0.68.14.

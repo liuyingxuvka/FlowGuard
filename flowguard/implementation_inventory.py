@@ -15,7 +15,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping, Sequence
 
 from .portable_model import canonical_identity, canonical_json_bytes
-from .source_identity import source_file_fingerprint
+from .source_identity import functional_source_fingerprint
 from .validation_ownership import (
     filter_resolved_input_manifest,
     resolve_input_manifest,
@@ -31,6 +31,9 @@ IMPLEMENTATION_DISPOSITION_EXTERNAL = "external"
 IMPLEMENTATION_DISPOSITION_SCOPED_OUT = "scoped_out"
 IMPLEMENTATION_DISPOSITION_DEAD_RETIRE = "dead_retire"
 IMPLEMENTATION_DISPOSITION_UNRESOLVED = "unresolved"
+SUPPORTING_RELATION_KINDS = frozenset(
+    {"calls", "delegates", "reads_for", "writes_for"}
+)
 IMPLEMENTATION_DISPOSITIONS = (
     IMPLEMENTATION_DISPOSITION_MODEL,
     IMPLEMENTATION_DISPOSITION_SUPPORTING,
@@ -95,11 +98,14 @@ def _strict_object(
     *,
     context: str,
     required: Sequence[str],
+    optional: Sequence[str] = (),
 ) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ImplementationInventoryError(f"{context} must be an object")
-    if set(value) != set(required):
-        difference = sorted(set(value) ^ set(required))
+    expected = set(required)
+    allowed = expected | set(optional)
+    if not expected <= set(value) or not set(value) <= allowed:
+        difference = sorted(set(value) ^ expected)
         raise ImplementationInventoryError(
             f"{context} fields differ from the current schema: {difference}"
         )
@@ -524,6 +530,7 @@ class ImplementationSurface:
     line_start: int = 0
     line_end: int = 0
     discovery_adapter_id: str = ""
+    supporting_relation_kind: str = ""
 
     def __post_init__(self) -> None:
         _text(self.surface_id, context="surface_id")
@@ -553,6 +560,14 @@ class ImplementationSurface:
         ):
             if not isinstance(getattr(self, name), str):
                 raise ImplementationInventoryError(f"surface:{self.surface_id}.{name} must be a string")
+        if not isinstance(self.supporting_relation_kind, str):
+            raise ImplementationInventoryError(
+                f"surface:{self.surface_id}.supporting_relation_kind must be a string"
+            )
+        if self.supporting_relation_kind and self.supporting_relation_kind not in SUPPORTING_RELATION_KINDS:
+            raise ImplementationInventoryError(
+                f"surface:{self.surface_id} has an invalid supporting relation kind"
+            )
         _text(self.content_fingerprint, context=f"surface:{self.surface_id}.content_fingerprint")
         _text(self.structure_fingerprint, context=f"surface:{self.surface_id}.structure_fingerprint")
         for name in (
@@ -647,7 +662,7 @@ class ImplementationSurface:
         return self.disposition in TERMINAL_IMPLEMENTATION_DISPOSITIONS
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "surface_id": self.surface_id,
             "path": self.path,
             "symbol": self.symbol,
@@ -677,6 +692,12 @@ class ImplementationSurface:
             "line_end": self.line_end,
             "discovery_adapter_id": self.discovery_adapter_id,
         }
+        # Keep the current artifact shape stable for surfaces without an
+        # authored relation.  A non-empty value is an explicit semantic fact
+        # and therefore participates in the surface/inventory fingerprint.
+        if self.supporting_relation_kind:
+            payload["supporting_relation_kind"] = self.supporting_relation_kind
+        return payload
 
     @classmethod
     def from_dict(cls, value: Any) -> "ImplementationSurface":
@@ -705,7 +726,12 @@ class ImplementationSurface:
             "line_end",
             "discovery_adapter_id",
         )
-        data = _strict_object(value, context="implementation surface", required=fields)
+        data = _strict_object(
+            value,
+            context="implementation surface",
+            required=fields,
+            optional=("supporting_relation_kind",),
+        )
         selector_sources = data["dynamic_selector_source_fingerprints"]
         if not isinstance(selector_sources, Mapping):
             raise ImplementationInventoryError(
@@ -737,6 +763,7 @@ class ImplementationSurface:
                 and name != "dynamic_selector_source_fingerprints"
                 and name != "dynamic_selector_values"
             },
+            supporting_relation_kind=str(data.get("supporting_relation_kind", "")),
             **tuple_fields,
             dynamic_selector_source_fingerprints=tuple(
                 (str(operation), str(fingerprint))
@@ -971,6 +998,15 @@ class ImplementationInventoryAuditReport:
 
 
 DiscoveryAdapter = Callable[..., ImplementationDiscoveryResult]
+
+
+def _current_inventory_fingerprint(path: Path, *, relative: str) -> str:
+    """Hash one inventory file with the same policy as its input manifest."""
+
+    root = path.resolve()
+    for _part in PurePosixPath(relative.replace("\\", "/")).parts:
+        root = root.parent
+    return functional_source_fingerprint(root, relative)
 
 
 def _boundary_manifest(
@@ -1344,7 +1380,7 @@ def review_implementation_surface_inventory(
                     )
                 )
                 continue
-            if source_file_fingerprint(path) != item.content_fingerprint:
+            if _current_inventory_fingerprint(path, relative=item.path) != item.content_fingerprint:
                 findings.append(
                     ImplementationInventoryFinding(
                         "stale_file_fingerprint",
@@ -1426,6 +1462,7 @@ __all__ = [
     "IMPLEMENTATION_DISPOSITION_DEAD_RETIRE",
     "IMPLEMENTATION_DISPOSITION_UNRESOLVED",
     "IMPLEMENTATION_DISPOSITIONS",
+    "SUPPORTING_RELATION_KINDS",
     "TERMINAL_IMPLEMENTATION_DISPOSITIONS",
     "IMPLEMENTATION_FILE_CATEGORIES",
     "IMPLEMENTATION_SURFACE_KINDS",

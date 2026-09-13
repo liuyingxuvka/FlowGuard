@@ -255,6 +255,6 @@ def main() -> int:
     output_dir.joinpath("result.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return 0 if ok else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:ui_flow_structure_skill", main))

@@ -52,6 +52,82 @@ MODEL_MESH_TOPOLOGY_TRIGGERS = frozenset(
     }
 )
 
+# Structural ownership is an explicit fact, never an inference from the
+# number of affected files/models/surfaces.  These trigger vocabularies cover
+# the implementation boundaries shared by CodeStructure, StructureMesh, and
+# TestMesh while leaving ordinary implementation and unrelated model counts
+# on their existing routes.
+STRUCTURE_CHANGE_KINDS = frozenset(
+    {
+        "architecture",
+        "structural",
+        "structure",
+        "code_structure",
+        "module",
+        "module_add",
+        "module_remove",
+        "module_rename",
+        "module_split",
+        "module_merge",
+        "package",
+        "package_split",
+        "package_merge",
+        "function",
+        "function_add",
+        "function_remove",
+        "function_rename",
+        "function_split",
+        "function_merge",
+        "facade",
+        "adapter",
+        "wrapper",
+        "ownership",
+        "boundary",
+        "config_boundary",
+        "entrypoint",
+        "public_entrypoint",
+        "public_api",
+        "command_surface",
+    }
+)
+STRUCTURE_SURFACE_PREFIXES = (
+    "module:",
+    "package:",
+    "function:",
+    "facade:",
+    "adapter:",
+    "wrapper:",
+    "owner:",
+    "boundary:",
+    "structure:",
+    "code_structure:",
+    "entrypoint:",
+)
+TEST_MESH_CHANGE_KINDS = frozenset(
+    {
+        *STRUCTURE_CHANGE_KINDS,
+        "test",
+        "test_add",
+        "test_remove",
+        "test_rename",
+        "test_split",
+        "test_merge",
+        "checker",
+        "fixture",
+        "oracle",
+        "coverage",
+        "test_mesh",
+    }
+)
+TEST_MESH_SURFACE_PREFIXES = (
+    *STRUCTURE_SURFACE_PREFIXES,
+    "test:",
+    "checker:",
+    "fixture:",
+    "oracle:",
+    "coverage:",
+)
+
 TASK_FACT_SOURCE_REQUEST = "request"
 TASK_FACT_SOURCE_CURRENT_MODEL = "current_model"
 TASK_FACT_SOURCE_PUBLIC_SURFACE = "public_surface"
@@ -613,6 +689,9 @@ def _default_rules() -> tuple[CoverageRule, ...]:
         CoverageRule("behavior-owner", _coverage_owner("behavior_commitment_ledger"), ("external-behavior-ownership",), "external behavior needs one primary owner", change_kind_triggers=("external_behavior", "public_api", "command", "prompt", "skill"), minimum_tier=COVERAGE_TIER_STANDARD),
         CoverageRule("ui-owner", _coverage_owner("ui_flow_structure"), ("ui-journey", "ui-operability"), "affected UI needs journey and operability coverage", change_kind_triggers=("ui",), surface_prefix_triggers=("ui:", "screen:", "view:"), minimum_tier=COVERAGE_TIER_DEEP),
         CoverageRule("field-owner", _coverage_owner("field_lifecycle_mesh"), ("field-lifecycle",), "persisted or renamed fields need lifecycle coverage", change_kind_triggers=("field_add", "field_remove", "field_rename", "field_migration", "persistence"), minimum_tier=COVERAGE_TIER_DEEP),
+        CoverageRule("code-structure-owner", _coverage_owner("code_structure_recommendation"), ("code-structure-recommendation",), "structural implementation changes need model-derived code-structure ownership", change_kind_triggers=tuple(STRUCTURE_CHANGE_KINDS), surface_prefix_triggers=STRUCTURE_SURFACE_PREFIXES, minimum_tier=COVERAGE_TIER_DEEP),
+        CoverageRule("structure-mesh-owner", _coverage_owner("structure_mesh_maintenance"), ("structure-mesh",), "structural implementation changes need StructureMesh ownership", change_kind_triggers=tuple(STRUCTURE_CHANGE_KINDS), surface_prefix_triggers=STRUCTURE_SURFACE_PREFIXES, minimum_tier=COVERAGE_TIER_DEEP),
+        CoverageRule("test-mesh-structure-owner", _coverage_owner("test_mesh_maintenance"), ("test-mesh-structure",), "structural changes need TestMesh evidence hierarchy ownership", change_kind_triggers=tuple(TEST_MESH_CHANGE_KINDS), surface_prefix_triggers=TEST_MESH_SURFACE_PREFIXES, minimum_tier=COVERAGE_TIER_DEEP),
         CoverageRule("mesh-owner", _coverage_owner("model_mesh_maintenance"), ("affected-model-topology",), "affected model relationships need mesh governance", topology_triggers=tuple(MODEL_MESH_TOPOLOGY_TRIGGERS), minimum_tier=COVERAGE_TIER_DEEP),
         CoverageRule("test-owner", _coverage_owner("model_test_alignment"), ("model-test-alignment",), "changed behavior needs explicit evidence ownership", implementation_trigger=True, change_kind_triggers=("behavior", "test", "contract", "public_api"), minimum_tier=COVERAGE_TIER_STANDARD),
         CoverageRule("release-owner", _coverage_owner("development_process_flow"), ("release-identity", "distribution-parity", "full-validation"), "release needs frozen validation and distribution evidence", release_trigger=True, minimum_tier=COVERAGE_TIER_RELEASE),
@@ -853,6 +932,10 @@ __all__ = [
     "CoverageRule",
     "DEFAULT_COVERAGE_RULES",
     "MODEL_MESH_TOPOLOGY_TRIGGERS",
+    "STRUCTURE_CHANGE_KINDS",
+    "STRUCTURE_SURFACE_PREFIXES",
+    "TEST_MESH_CHANGE_KINDS",
+    "TEST_MESH_SURFACE_PREFIXES",
     "OwnerCoverageResolution",
     "TASK_FACT_DISPOSITION_CONTRADICTORY",
     "TASK_FACT_DISPOSITION_DECLARED",

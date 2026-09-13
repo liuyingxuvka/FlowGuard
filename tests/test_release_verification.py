@@ -15,6 +15,9 @@ from flowguard.release_verification import (
     RELEASE_PHASE_PUBLISHED,
     RELEASE_PHASE_TAG,
     RELEASE_VERIFICATION_SCHEMA,
+    ReleaseTarget,
+    load_release_verification_receipt,
+    save_release_verification_receipt,
     _command_runner,
     _model_authority_git_reachability_check,
     _remote_tag_commit,
@@ -201,6 +204,23 @@ class ReleaseVerificationTests(unittest.TestCase):
             started_at=owner_receipt.started_at,
             finished_at=owner_receipt.finished_at,
         )
+        self.target_descriptor = self.root / "release-target.json"
+        self.target_descriptor.write_text(
+            json.dumps(
+                {
+                    "target_id": "fixture-release",
+                    "version": "1.2.3",
+                    "tag": "v1.2.3",
+                    "repository": "example/flowguard",
+                    "default_branch": "main",
+                    "distribution_kind": "source_only",
+                    "required_source_paths": ["README.md", "fixture-check.py"],
+                    "required_check_ids": ["obligation:fixture-release"],
+                    "assets": [],
+                }
+            ),
+            encoding="utf-8",
+        )
 
     def _local(self, **overrides):
         arguments = {
@@ -300,6 +320,8 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.assertTrue(receipt.ok, payload)
         self.assertEqual(RELEASE_PHASE_LOCAL_CANDIDATE, receipt.phase)
         self.assertEqual(RELEASE_VERIFICATION_SCHEMA, payload["schema_version"])
+        self.assertEqual("release", receipt.claim_scope)
+        self.assertEqual("release", payload["claim_scope"])
         self.assertEqual(self.parent_receipt.receipt_id, receipt.parent_receipt_id)
         self.assertEqual(
             self.parent_receipt.fingerprint,
@@ -708,9 +730,12 @@ class ReleaseVerificationTests(unittest.TestCase):
                 RELEASE_PHASE_LOCAL_CANDIDATE,
                 "--parent-receipt",
                 self.parent_receipt.receipt_id,
+                "--target",
+                str(self.target_descriptor),
             ]
         )
         self.assertEqual(RELEASE_PHASE_LOCAL_CANDIDATE, parsed.phase)
+        self.assertEqual(str(self.target_descriptor), parsed.target)
         self.assertFalse(hasattr(parsed, "evidence"))
         with self.assertRaisesRegex(
             SystemExit,
@@ -722,6 +747,8 @@ class ReleaseVerificationTests(unittest.TestCase):
                     RELEASE_PHASE_LOCAL_CANDIDATE,
                     "--parent-receipt",
                     self.parent_receipt.receipt_id,
+                    "--target",
+                    str(self.target_descriptor),
                     "--tag",
                     "1.2.3",
                 ]
@@ -760,6 +787,10 @@ class ReleaseVerificationTests(unittest.TestCase):
                             phase,
                             "--parent-receipt",
                             self.parent_receipt.receipt_id,
+                            "--target",
+                            str(self.target_descriptor),
+                            "--candidate-receipt",
+                            str(self.root / "candidate-receipt.json"),
                             "--json",
                         ]
                     )
@@ -770,6 +801,77 @@ class ReleaseVerificationTests(unittest.TestCase):
                     self.parent_receipt.receipt_id,
                     verifier.call_args.kwargs["parent_receipt"],
                 )
+
+    def test_target_neutral_external_python_descriptor_ignores_flowguard_self_metadata(self) -> None:
+        target = ReleaseTarget(
+            target_id="external-python-fixture",
+            version="1.2.3",
+            tag="v1.2.3",
+            default_branch="main",
+            required_source_paths=("README.md", "fixture-check.py"),
+            required_check_ids=("obligation:fixture-release",),
+        )
+        receipt = verify_local_candidate(
+            self.root,
+            parent_receipt=self.parent_receipt.receipt_id,
+            receipt_root=self.receipt_root,
+            target=target,
+        )
+        self.assertTrue(receipt.ok, receipt.to_dict())
+        self.assertEqual("external-python-fixture", receipt.target_id)
+        self.assertFalse(any(item.check_id == "release.editable_install" for item in receipt.checks))
+
+    def test_target_neutral_external_non_python_descriptor_uses_declared_files(self) -> None:
+        (self.root / "package.json").write_text(
+            '{"name":"external-node-fixture","version":"2.4.1"}\n',
+            encoding="utf-8",
+        )
+        target = ReleaseTarget(
+            target_id="external-node-fixture",
+            version="2.4.1",
+            tag="v2.4.1",
+            default_branch="main",
+            required_source_paths=("package.json",),
+            required_check_ids=("obligation:fixture-release",),
+        )
+        receipt = verify_local_candidate(
+            self.root,
+            parent_receipt=self.parent_receipt.receipt_id,
+            receipt_root=self.receipt_root,
+            target=target,
+        )
+        self.assertTrue(receipt.ok, receipt.to_dict())
+        self.assertEqual("2.4.1", receipt.version)
+
+    def test_candidate_receipt_is_immutable_input_to_tag_phase(self) -> None:
+        target = ReleaseTarget(
+            target_id="external-python-fixture",
+            version="1.2.3",
+            tag="v1.2.3",
+            default_branch="main",
+            required_source_paths=("README.md",),
+            required_check_ids=("obligation:fixture-release",),
+        )
+        local = verify_local_candidate(
+            self.root,
+            parent_receipt=self.parent_receipt.receipt_id,
+            receipt_root=self.receipt_root,
+            target=target,
+        )
+        candidate_path = self.root / "candidate.json"
+        save_release_verification_receipt(local, candidate_path)
+        loaded = load_release_verification_receipt(candidate_path)
+        self.assertEqual(local.receipt_id, loaded.receipt_id)
+        self._tag()
+        tagged = verify_tagged_release(
+            self.root,
+            parent_receipt=self.parent_receipt.receipt_id,
+            receipt_root=self.receipt_root,
+            target=target,
+            candidate_receipt=candidate_path,
+        )
+        self.assertTrue(tagged.ok, tagged.to_dict())
+        self.assertEqual((local.receipt_id,), tagged.upstream_receipt_ids)
 
     @mock.patch("flowguard.release_verification.subprocess.run")
     @mock.patch("flowguard.release_verification.shutil.which")

@@ -56,6 +56,7 @@ from .model_path_quality import (
 )
 from .model_regressions import ModelRegressionEntry, ModelRegressionManifest
 from .model_system_inventory import build_manifest_model_system_snapshot
+from .source_identity import functional_source_fingerprint
 from .scenario import Scenario
 from .workflow import Workflow
 
@@ -961,37 +962,70 @@ def _runner_called_owner_symbols(runner_path: Path) -> tuple[str, ...]:
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             local_functions[node.name] = node
     root = local_functions.get("main")
+    guarded_body: tuple[ast.stmt, ...] = ()
     if root is None:
-        return ()
+        # A native runner may use the conventional module-level
+        # ``if __name__ == "__main__"`` entrypoint without wrapping it in a
+        # named ``main`` function.  Treat that guard body as the executable
+        # root so the entrypoint graph remains inspectable.  Returning an
+        # empty graph here incorrectly created a provider gap for every
+        # otherwise valid local owner runner and prevented current path
+        # quality material from being compiled.
+        for node in tree.body:
+            if not isinstance(node, ast.If):
+                continue
+            test = node.test
+            if not (
+                isinstance(test, ast.Compare)
+                and isinstance(test.left, ast.Name)
+                and test.left.id == "__name__"
+                and len(test.ops) == 1
+                and isinstance(test.ops[0], ast.Eq)
+                and len(test.comparators) == 1
+                and isinstance(test.comparators[0], ast.Constant)
+                and test.comparators[0].value == "__main__"
+            ):
+                continue
+            guarded_body = tuple(test_node for test_node in node.body)
+            break
+        if not guarded_body:
+            return ()
     calls: list[tuple[int, str]] = []
     visited: set[str] = set()
+
+    def visit_nodes(nodes: Sequence[ast.AST]) -> None:
+        for statement in nodes:
+            for node in ast.walk(statement):
+                if not isinstance(node, ast.Call):
+                    continue
+                if isinstance(node.func, ast.Name):
+                    name = node.func.id
+                    if name in local_functions:
+                        visit(local_functions[name])
+                    elif name in direct_imports:
+                        calls.append((node.lineno, direct_imports[name]))
+                elif (
+                    isinstance(node.func, ast.Attribute)
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id in module_imports
+                ):
+                    calls.append(
+                        (
+                            node.lineno,
+                            f"{module_imports[node.func.value.id]}:{node.func.attr}",
+                        )
+                    )
 
     def visit(function: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         if function.name in visited:
             return
         visited.add(function.name)
-        for node in ast.walk(function):
-            if not isinstance(node, ast.Call):
-                continue
-            if isinstance(node.func, ast.Name):
-                name = node.func.id
-                if name in local_functions:
-                    visit(local_functions[name])
-                elif name in direct_imports:
-                    calls.append((node.lineno, direct_imports[name]))
-            elif (
-                isinstance(node.func, ast.Attribute)
-                and isinstance(node.func.value, ast.Name)
-                and node.func.value.id in module_imports
-            ):
-                calls.append(
-                    (
-                        node.lineno,
-                        f"{module_imports[node.func.value.id]}:{node.func.attr}",
-                    )
-                )
+        visit_nodes((function,))
 
-    visit(root)
+    if root is not None:
+        visit(root)
+    else:
+        visit_nodes(guarded_body)
     ordered: list[str] = []
     for _line, symbol in sorted(calls):
         if symbol not in ordered:
@@ -1079,6 +1113,7 @@ def _add_purpose_material(
             "kind": "protected_failure_native_oracle",
             "failure_id": binding.failure_id,
             "known_bad_case_id": binding.known_bad_case_id,
+            "expected_case_kind": binding.expected_case_kind,
             "oracle_id": binding.oracle_id,
             "evidence_check_ids": list(purpose.evidence_check_ids),
             "purpose_closure_fingerprint": purpose.closure_fingerprint,
@@ -1257,6 +1292,12 @@ def _augment_provider_gaps(
         conclusion="unresolved",
         unresolved_ids=unresolved,
         detail_evidence_fingerprint=detail,
+        # Adding a provider gap also adds a deep-trigger witness.  Preserve
+        # the lightweight mode when the caller requested it, but explicitly
+        # promote the optimization depth so dataclasses.replace does not
+        # reject a valid triggered result as an inconsistent lightweight
+        # record.
+        optimization_depth="deep_required",
     )
 
 
@@ -1634,7 +1675,15 @@ def compile_flowguard_self_path_quality_material(
         raise SelfPathQualityError("candidate_snapshot must be a ModelSystemSnapshot")
     root_path = Path(root).resolve()
     manifest = ModelRegressionManifest.load(root_path)
-    manifest_fingerprint = file_fingerprint(manifest.path)
+    # Model-system snapshots bind current source inputs through the canonical
+    # functional projection (see ``build_manifest_model_system_snapshot``).
+    # Use that same identity here; the raw byte fingerprint would include
+    # control-plane fields such as per-owner timeout budgets and incorrectly
+    # reject an otherwise exact current snapshot.
+    manifest_fingerprint = functional_source_fingerprint(
+        root_path,
+        ".flowguard/models/regression-manifest.json",
+    )
     manifest_refs = tuple(
         item
         for item in candidate_snapshot.owner_artifact_refs
@@ -1701,7 +1750,7 @@ def compile_flowguard_self_path_quality_material(
             item.path
             for item in instance.inputs
             if not (root_path / item.path).is_file()
-            or file_fingerprint(root_path / item.path) != item.sha256
+            or functional_source_fingerprint(root_path, item.path) != item.sha256
         )
         if stale_inputs:
             global_gaps.append(

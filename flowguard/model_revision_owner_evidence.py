@@ -23,7 +23,13 @@ from .evidence_receipts import (
     load_evidence_receipt,
     verify_evidence_receipt,
 )
-from .model_authority import ModelAuthorityError, ModelSystemSnapshot
+from .model_authority import (
+    BOUNDARY_CONTRACT_OWNER_ROUTE,
+    AcceptedBoundaryContract,
+    ModelAuthorityError,
+    ModelSystemSnapshot,
+    validate_accepted_boundary_contract_for_snapshot,
+)
 from .model_authority_store import load_observed_model_system
 from .model_revision_builder import (
     _VerifiedModelParent,
@@ -428,6 +434,7 @@ class _FrozenRevisionInputs:
     candidate_snapshot: ModelSystemSnapshot
     snapshot_diff: RevisionSnapshotDiff
     affected_closure: RevisionAffectedClosure
+    boundary_validator_fingerprint: str = ""
 
 
 @dataclass(frozen=True)
@@ -464,7 +471,10 @@ def _candidate_native_owner_route_universe(
     """
 
     routes = {"model_mesh_maintenance", "model_test_alignment"}
-    routes.update(item.owner_route for item in snapshot.owner_artifact_refs)
+    routes.update(
+        item.owner_route
+        for item in snapshot.owner_artifact_refs
+    )
     for relation in snapshot.relations:
         for endpoint in (relation.source, relation.target):
             routes.add(
@@ -475,7 +485,12 @@ def _candidate_native_owner_route_universe(
     return tuple(sorted(routes))
 
 
-def _freeze_revision_inputs(root: Path, snapshot_id: str) -> _FrozenRevisionInputs:
+def _freeze_revision_inputs(
+    root: Path,
+    snapshot_id: str,
+    *,
+    accepted_boundary_contract: AcceptedBoundaryContract | None = None,
+) -> _FrozenRevisionInputs:
     head, base = load_observed_model_system(root)
     candidate = build_manifest_model_system_snapshot(
         root,
@@ -483,6 +498,7 @@ def _freeze_revision_inputs(root: Path, snapshot_id: str) -> _FrozenRevisionInpu
         system_id=base.system_id,
         subject_lane=base.subject_lane,
         lifecycle=base.lifecycle,
+        accepted_boundary_contract=accepted_boundary_contract,
     )
     diff = derive_revision_snapshot_diff(base, candidate)
     closure = derive_revision_affected_closure(base, candidate, diff)
@@ -490,12 +506,22 @@ def _freeze_revision_inputs(root: Path, snapshot_id: str) -> _FrozenRevisionInpu
         raise ModelAuthorityError(
             "current manifest does not differ from the observed model authority"
         )
+    boundary_validator_fingerprint = ""
+    if accepted_boundary_contract is not None:
+        boundary_validator_fingerprint = (
+            validate_accepted_boundary_contract_for_snapshot(
+                accepted_boundary_contract,
+                candidate,
+                require_endpoint=True,
+            )
+        )
     return _FrozenRevisionInputs(
         observed_head_fingerprint=head.fingerprint,
         base_snapshot=base,
         candidate_snapshot=candidate,
         snapshot_diff=diff,
         affected_closure=closure,
+        boundary_validator_fingerprint=boundary_validator_fingerprint,
     )
 
 
@@ -503,8 +529,14 @@ def _assert_frozen_revision_inputs(
     root: Path,
     snapshot_id: str,
     frozen: _FrozenRevisionInputs,
+    *,
+    accepted_boundary_contract: AcceptedBoundaryContract | None = None,
 ) -> None:
-    current = _freeze_revision_inputs(root, snapshot_id)
+    current = _freeze_revision_inputs(
+        root,
+        snapshot_id,
+        accepted_boundary_contract=accepted_boundary_contract,
+    )
     comparisons = (
         (
             "observed authority head",
@@ -530,6 +562,11 @@ def _assert_frozen_revision_inputs(
             "affected closure",
             frozen.affected_closure.fingerprint,
             current.affected_closure.fingerprint,
+        ),
+        (
+            "boundary structural validator",
+            frozen.boundary_validator_fingerprint,
+            current.boundary_validator_fingerprint,
         ),
     )
     changed = tuple(name for name, expected, actual in comparisons if expected != actual)
@@ -905,6 +942,16 @@ def _owner_contracts(
                 ),
             ),
         ]
+        if (
+            owner_route == BOUNDARY_CONTRACT_OWNER_ROUTE
+            and frozen.boundary_validator_fingerprint
+        ):
+            projected_inputs.append(
+                (
+                    "model-revision:boundary-contract-validator",
+                    frozen.boundary_validator_fingerprint,
+                )
+            )
         projected_inputs.extend(
             (
                 f"model-regression:child:{child.model_id}",
@@ -920,7 +967,6 @@ def _owner_contracts(
                 obligation_ids=affected_ids,
                 projected_inputs=tuple(projected_inputs),
                 resource_keys=(f"model-revision-owner:{owner_route}",),
-                timeout_seconds=60.0,
             )
         )
     return tuple(contracts)
@@ -1009,6 +1055,7 @@ def verify_model_revision_owner_evidence_bundle(
     bundle: ModelRevisionOwnerEvidenceBundle,
     receipt_root: str | Path | None = None,
     verified_parent: _VerifiedModelParent | None = None,
+    accepted_boundary_contract: AcceptedBoundaryContract | None = None,
 ) -> VerifiedModelRevisionOwnerEvidence:
     """Re-derive bundle currentness instead of trusting caller projections.
 
@@ -1030,7 +1077,11 @@ def verify_model_revision_owner_evidence_bundle(
     if not snapshot_id:
         raise ModelAuthorityError("candidate snapshot id is required")
 
-    frozen = _freeze_revision_inputs(root_path, snapshot_id)
+    frozen = _freeze_revision_inputs(
+        root_path,
+        snapshot_id,
+        accepted_boundary_contract=accepted_boundary_contract,
+    )
     (
         plans,
         mapped_children,
@@ -1141,7 +1192,15 @@ def verify_model_revision_owner_evidence_bundle(
         canonical_receipts.append(canonical)
         derived_results.append(derived)
 
-    _assert_frozen_revision_inputs(root_path, snapshot_id, frozen)
+    if accepted_boundary_contract is None:
+        _assert_frozen_revision_inputs(root_path, snapshot_id, frozen)
+    else:
+        _assert_frozen_revision_inputs(
+            root_path,
+            snapshot_id,
+            frozen,
+            accepted_boundary_contract=accepted_boundary_contract,
+        )
     try:
         freshness = assert_validation_owner_observation_fresh(
             validation_observation,
@@ -1153,6 +1212,10 @@ def verify_model_revision_owner_evidence_bundle(
                     f"validation-owner:{contract.owner_id}"
                     for contract in expected_contracts
                 ),
+            ),
+            receipt_ids=tuple(
+                item[1]
+                for item in validation_observation.receipt_inventory_identities
             ),
         )
     except ValueError as exc:
@@ -1225,6 +1288,10 @@ def assert_verified_model_revision_owner_evidence_current(
                     for receipt in verified.bundle.receipts
                 ),
             ),
+            receipt_ids=tuple(
+                item[1]
+                for item in verified.validation_observation.receipt_inventory_identities
+            ),
         )
     except ValueError as exc:
         raise ModelAuthorityError(str(exc)) from exc
@@ -1289,6 +1356,7 @@ def produce_model_revision_owner_evidence(
     snapshot_id: str,
     output_path: str | Path,
     receipt_root: str | Path | None = None,
+    accepted_boundary_contract: AcceptedBoundaryContract | None = None,
 ) -> ModelRevisionOwnerEvidenceReport:
     """Create a strict owner-evidence bundle without executing model checks."""
 
@@ -1323,7 +1391,11 @@ def produce_model_revision_owner_evidence(
 
     manifest_path = root_path / ".flowguard" / "project.toml"
     with project_manifest_lock(manifest_path):
-        frozen = _freeze_revision_inputs(root_path, snapshot_id)
+        frozen = _freeze_revision_inputs(
+            root_path,
+            snapshot_id,
+            accepted_boundary_contract=accepted_boundary_contract,
+        )
         (
             plans,
             mapped_children,
@@ -1349,7 +1421,15 @@ def produce_model_revision_owner_evidence(
         # Rebuild the revision semantics once, then perform one fresh identity
         # comparison over the already verified model children.  No native child
         # verifier is repeated here.
-        _assert_frozen_revision_inputs(root_path, snapshot_id, frozen)
+        if accepted_boundary_contract is None:
+            _assert_frozen_revision_inputs(root_path, snapshot_id, frozen)
+        else:
+            _assert_frozen_revision_inputs(
+                root_path,
+                snapshot_id,
+                frozen,
+                accepted_boundary_contract=accepted_boundary_contract,
+            )
         try:
             freshness = assert_validation_owner_observation_fresh(
                 validation_observation,
@@ -1357,6 +1437,10 @@ def produce_model_revision_owner_evidence(
                 receipt_store,
                 additional_receipt_subject_ids=(
                     "validation-owner:model-regression-parent",
+                ),
+                receipt_ids=tuple(
+                    item[1]
+                    for item in validation_observation.receipt_inventory_identities
                 ),
             )
         except ValueError as exc:
@@ -1420,6 +1504,11 @@ def produce_model_revision_owner_evidence(
                     ),
                     "required_model_ids": list(
                         plans[contract.owner_id].required_model_ids
+                    ),
+                    "boundary_contract_validator_fingerprint": (
+                        frozen.boundary_validator_fingerprint
+                        if contract.owner_id == BOUNDARY_CONTRACT_OWNER_ROUTE
+                        else ""
                     ),
                 },
                 claim_boundary=(

@@ -102,6 +102,15 @@ class DevelopmentProcessSimulationRequest:
     execution_freshness_evidence_ids: tuple[str, ...] = ()
     accepted_scope: str = ""
     metadata: Mapping[str, Any] | None = None
+    # ``multiple_skills_or_tools`` and ``external_side_effects`` are retained
+    # as compatibility/context facts.  They are intentionally not sufficient
+    # to admit the internal AgentWorkflowRehearsal mode: a multi-capability
+    # description can still be a safe, single-owner, read-only operation.
+    cross_owner_handoff: bool = False
+    shared_write: bool = False
+    post_validation_write: bool = False
+    agent_route_workflow_change: bool = False
+    multiple_independent_owner_irreversible_side_effects: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "request_id", str(self.request_id))
@@ -162,6 +171,11 @@ class DevelopmentProcessSimulationRequest:
             "execution_freshness_evidence_ids": list(self.execution_freshness_evidence_ids),
             "accepted_scope": self.accepted_scope,
             "metadata": to_jsonable(self.metadata),
+            "cross_owner_handoff": self.cross_owner_handoff,
+            "shared_write": self.shared_write,
+            "post_validation_write": self.post_validation_write,
+            "agent_route_workflow_change": self.agent_route_workflow_change,
+            "multiple_independent_owner_irreversible_side_effects": self.multiple_independent_owner_irreversible_side_effects,
         }
 
 
@@ -270,6 +284,35 @@ class DevelopmentProcessSimulatorReport:
         return "\n".join(lines)
 
 
+def _agent_workflow_admission_reasons(
+    request: DevelopmentProcessSimulationRequest,
+) -> tuple[str, ...]:
+    """Return only the facts that justify internal workflow rehearsal.
+
+    The older ``multiple_skills_or_tools`` and ``external_side_effects`` fields
+    describe the task surface, but do not by themselves prove that rehearsal
+    is valuable.  Keeping the admission predicate explicit prevents a cheap
+    single-owner/tool operation from expanding the prompt and evidence graph.
+    """
+
+    reasons: list[str] = []
+    if request.explicit_agent_workflow:
+        reasons.append("explicit_agent_workflow")
+    for field_name, reason in (
+        ("cross_owner_handoff", "cross_owner_handoff"),
+        ("shared_write", "shared_write"),
+        ("post_validation_write", "post_validation_write"),
+        ("agent_route_workflow_change", "agent_route_workflow_change"),
+        (
+            "multiple_independent_owner_irreversible_side_effects",
+            "multiple_independent_owner_irreversible_side_effects",
+        ),
+    ):
+        if getattr(request, field_name):
+            reasons.append(reason)
+    return tuple(reasons)
+
+
 def _select_modes(request: DevelopmentProcessSimulationRequest) -> list[DevelopmentProcessModeDecision]:
     decisions: list[DevelopmentProcessModeDecision] = []
 
@@ -295,13 +338,14 @@ def _select_modes(request: DevelopmentProcessSimulationRequest) -> list[Developm
             )
         )
 
-    if request.multiple_skills_or_tools or request.external_side_effects:
+    agent_workflow_reasons = _agent_workflow_admission_reasons(request)
+    if agent_workflow_reasons:
         decisions.append(
             DevelopmentProcessModeDecision(
                 SIMULATOR_MODE_AGENT_WORKFLOW,
                 SIMULATOR_MODE_TO_ROUTE_TARGET[SIMULATOR_MODE_AGENT_WORKFLOW],
                 SIMULATOR_MODE_TO_REVIEW[SIMULATOR_MODE_AGENT_WORKFLOW],
-                "skill/tool/plugin order, skipped candidates, side effects, or gates affect the outcome",
+                "risk-admitted AgentWorkflowRehearsal: " + ", ".join(agent_workflow_reasons),
                 request.agent_workflow_evidence_ids,
             )
         )

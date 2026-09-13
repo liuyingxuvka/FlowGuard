@@ -324,6 +324,6 @@ def main() -> int:
         print("default replacement field lifecycle model checks passed")
     return 0 if ok else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:default_replacement_field_lifecycle", main))

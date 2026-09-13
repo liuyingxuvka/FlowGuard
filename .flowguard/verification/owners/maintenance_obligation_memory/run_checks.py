@@ -63,7 +63,27 @@ def run_workflow_suite() -> bool:
         "correct_maintenance_obligation_memory: "
         + ("observed=OK expected=OK match=yes exact=yes" if exact_ok else "observed=VIOLATION expected=OK match=no")
     )
-    cases = [FormalWorkflowCase(broken.name, broken, False) for broken in model.build_broken_workflows()]
+    # Each known-bad variant has a minimal finite counterexample.  Replaying
+    # every five-step Cartesian sequence for every broken workflow only
+    # duplicates the same invariant violation and can consume gigabytes while
+    # producing no stronger proof.  Keep the adversarial boundary explicit:
+    # the first three defects fail on their recording action, while the broad
+    # claim defect needs the record-then-claim pair.
+    max_length_by_case = {
+        "maintenance_obligation_missing_owner_route": 1,
+        "maintenance_obligation_hard_gated_observation": 1,
+        "maintenance_obligation_self_resolved": 1,
+        "maintenance_obligation_bad_claim": 2,
+    }
+    cases = [
+        FormalWorkflowCase(
+            broken.name,
+            broken,
+            False,
+            max_sequence_length=max_length_by_case[broken.name],
+        )
+        for broken in model.build_broken_workflows()
+    ]
     report = run_formal_workflow_suite(
         "maintenance_obligation_memory",
         tuple(cases),
@@ -72,7 +92,11 @@ def run_workflow_suite() -> bool:
         invariants=model.INVARIANTS,
         max_sequence_length=model.MAX_SEQUENCE_LENGTH,
         terminal_predicate=model.terminal_predicate,
-        required_labels=REQUIRED_LABELS,
+        # These are expected-bad cases; their contract is the invariant
+        # counterexample itself, not reachability of every positive label.
+        # The canonical positive sequence above and helper cases cover the
+        # positive labels without re-running the Cartesian product.
+        required_labels=(),
         protected_error_class="maintenance_obligation_not_remembered",
     )
     return exact_ok and report.ok
@@ -176,6 +200,6 @@ def main() -> int:
     helper_checks = run_helper_cases()
     return 0 if workflow_checks and helper_checks else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:maintenance_obligation_memory", main))

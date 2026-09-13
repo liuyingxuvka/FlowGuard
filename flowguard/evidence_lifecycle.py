@@ -16,6 +16,8 @@ import shutil
 import stat as _stat
 import time
 import uuid
+import ctypes
+from ctypes import wintypes
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -471,8 +473,60 @@ def settle_cleanup_unconfirmed_lease(
         ) from exc
 
 
-def _process_is_alive(process_id: int) -> bool:
-    """Return whether one process id is still live without changing it."""
+def _process_start_epoch(process_id: int) -> float | None:
+    """Return a process creation time when the host exposes one.
+
+    Windows can recycle a PID long after an interrupted producer has left a
+    lease behind.  Treating the recycled PID as the old producer would force
+    operators to wait for an unrelated application (often a browser) to
+    exit.  The timestamp is read-only and deliberately best-effort; when it
+    cannot be read, callers retain the conservative live-process behavior.
+    """
+
+    if os.name != "nt":
+        return None
+    process_query_limited_information = 0x1000
+    handle = ctypes.windll.kernel32.OpenProcess(
+        process_query_limited_information,
+        False,
+        int(process_id),
+    )
+    if not handle:
+        return None
+    try:
+        creation = wintypes.FILETIME()
+        exit_time = wintypes.FILETIME()
+        kernel_time = wintypes.FILETIME()
+        user_time = wintypes.FILETIME()
+        ok = ctypes.windll.kernel32.GetProcessTimes(
+            handle,
+            ctypes.byref(creation),
+            ctypes.byref(exit_time),
+            ctypes.byref(kernel_time),
+            ctypes.byref(user_time),
+        )
+        if not ok:
+            return None
+        ticks = (int(creation.dwHighDateTime) << 32) | int(creation.dwLowDateTime)
+        # FILETIME is 100 ns ticks since 1601-01-01; Unix time starts in 1970.
+        return ticks / 10_000_000.0 - 11_644_473_600.0
+    finally:
+        ctypes.windll.kernel32.CloseHandle(handle)
+
+
+def _process_is_alive(
+    process_id: int,
+    *,
+    lease_acquired_at_epoch: float | None = None,
+) -> bool:
+    """Return whether one producer process is still live without changing it.
+
+    A PID that predates the lease by a substantial margin is a recycled PID,
+    not evidence that the interrupted producer is still running.  The small
+    grace window avoids classifying a producer that acquired its lease shortly
+    after process start as recycled.  Unknown process-start metadata remains
+    fail-closed and is treated as live.
+    """
 
     if process_id == os.getpid():
         return True
@@ -484,6 +538,10 @@ def _process_is_alive(process_id: int) -> bool:
         return True
     except OSError:
         return False
+    if lease_acquired_at_epoch is not None:
+        started_at = _process_start_epoch(process_id)
+        if started_at is not None and started_at + 300.0 < float(lease_acquired_at_epoch):
+            return False
     return True
 
 
@@ -567,9 +625,6 @@ def settle_interrupted_execution_leases(
             raise EvidenceLifecycleError(f"zero-descendant {label} must be normalized text")
     if not isinstance(lease_rows, Sequence) or isinstance(lease_rows, (str, bytes)) or not lease_rows:
         raise EvidenceLifecycleError("interruption settlement requires at least one exact lease")
-    if _process_is_alive(process_id):
-        raise EvidenceLifecycleError("interrupted execution process is still live")
-
     normalized_rows: list[dict[str, str]] = []
     identities: set[tuple[str, str]] = set()
     for index, raw in enumerate(lease_rows):
@@ -596,9 +651,35 @@ def settle_interrupted_execution_leases(
     normalized_rows.sort(key=lambda row: (row["owner_id"], row["resource_key"]))
 
     root = Path(lock_root).resolve()
+    # Read the exact lease episode before deciding whether a live PID belongs
+    # to that episode.  Windows may recycle a stale producer PID for an
+    # unrelated process; compare its creation time with the oldest requested
+    # lease rather than killing or waiting on that unrelated process.
+    acquired_at_values: list[float] = []
+    for row in normalized_rows:
+        current = read_evidence_execution_lease(
+            root,
+            owner_id=row["owner_id"],
+            resource_key=row["resource_key"],
+            execution_key=row["execution_key"],
+        )
+        if current is not None:
+            acquired = current.get("acquired_at_epoch")
+            if isinstance(acquired, (int, float)) and not isinstance(acquired, bool):
+                acquired_at_values.append(float(acquired))
+    lease_acquired_at_epoch = min(acquired_at_values) if acquired_at_values else None
+    if _process_is_alive(
+        process_id,
+        lease_acquired_at_epoch=lease_acquired_at_epoch,
+    ):
+        raise EvidenceLifecycleError("interrupted execution process is still live")
+
     incident_root = root.parent / "interrupted-incidents"
     with _interruption_settlement_lock(root):
-        if _process_is_alive(process_id):
+        if _process_is_alive(
+            process_id,
+            lease_acquired_at_epoch=lease_acquired_at_epoch,
+        ):
             raise EvidenceLifecycleError("interrupted execution process became live during settlement")
         snapshots: list[dict[str, Any]] = []
         source_paths: list[Path] = []
@@ -723,6 +804,25 @@ def publish_run(
     if not result.is_file():
         raise EvidenceLifecycleError(f"terminal result is missing: {result}")
     result_sha = _sha256_file(result)
+    scope_root = run_path.parent
+    current_path = scope_root / "CURRENT.json"
+    if update_head and current_path.exists():
+        # One scope has one CURRENT namespace.  A child run may be nested in
+        # the same filesystem scope as a full parent, but it must not replace
+        # the parent's current pointer (and the inverse replacement is
+        # equally ambiguous).  Callers that need both authorities must give
+        # them distinct scope roots.
+        existing = _load_json(current_path)
+        existing_kind = existing.get("authority_kind")
+        if existing_kind != authority_kind:
+            if authority_kind == "child" and existing_kind == "parent":
+                raise EvidenceLifecycleError(
+                    "child evidence cannot overwrite parent CURRENT head"
+                )
+            raise EvidenceLifecycleError(
+                "evidence authority kind cannot overwrite the existing "
+                f"CURRENT head ({existing_kind!r} -> {authority_kind!r})"
+            )
     manifest_body = {
         "schema_version": RUN_SCHEMA,
         "kind": str(kind),
@@ -749,7 +849,6 @@ def publish_run(
         _atomic_write(manifest_path, manifest_bytes)
     manifest_sha = _sha256_bytes(manifest_bytes)
     if update_head:
-        scope_root = run_path.parent
         head = {
             "schema_version": HEAD_SCHEMA,
             "scope": scope_root.name,
@@ -786,7 +885,19 @@ def read_current_head(
     *,
     expected_authority_kind: str | None = None,
 ) -> dict[str, Any]:
-    """Read one current pointer and optionally enforce its authority boundary."""
+    """Read one current pointer with an explicit authority boundary.
+
+    A scope may contain a standalone, child, or parent pointer, but callers
+    must state which authority they intend to consume.  Omitting that
+    expectation is rejected instead of allowing a child receipt to be used as
+    a full-parent current result by accident.
+    """
+
+    if expected_authority_kind not in {"standalone", "child", "parent"}:
+        raise EvidenceLifecycleError(
+            "read_current_head requires expected_authority_kind to be "
+            "standalone, child, or parent"
+        )
 
     path = Path(scope_root).resolve() / "CURRENT.json"
     payload = dict(_load_json(path))
@@ -795,7 +906,7 @@ def read_current_head(
     authority_kind = payload.get("authority_kind")
     if authority_kind not in {"standalone", "child", "parent"}:
         raise EvidenceLifecycleError("current head has no valid authority_kind")
-    if expected_authority_kind is not None and authority_kind != expected_authority_kind:
+    if authority_kind != expected_authority_kind:
         raise EvidenceLifecycleError(
             "current-head authority-kind mismatch: "
             f"expected {expected_authority_kind}, observed {authority_kind}"

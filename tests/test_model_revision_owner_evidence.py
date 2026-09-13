@@ -8,6 +8,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 from flowguard.__main__ import _load_native_owner_evidence, main
+from flowguard.behavior_commitment import (
+    BCL_SOURCE_DOC,
+    BehaviorCommitmentLedger,
+    BehaviorSourceSurface,
+    refresh_behavior_commitment_source_inventory,
+    write_behavior_commitment_ledger,
+)
 from flowguard.evidence_receipts import (
     RECEIPT_STATUS_PASS,
     ReceiptVerificationResult,
@@ -89,6 +96,30 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
                 "The owner-evidence fixture keeps one current design source.\n",
                 encoding="utf-8",
             )
+        # The real model parent performs a strict pre-lease audit of semantic
+        # source inventories.  Keep this isolated fixture honest by providing
+        # a small, current BCL ledger for its one design source instead of
+        # weakening that production gate for tests.
+        fixture_ledger = BehaviorCommitmentLedger(
+            ledger_id="fixture-owner-evidence-ledger",
+            project_boundary="owner-evidence-fixture",
+            source_surfaces=(
+                BehaviorSourceSurface(
+                    surface_id="fixture-current-design",
+                    surface_kind=BCL_SOURCE_DOC,
+                    label="fixture current design",
+                    source_ref="docs/current-design.md",
+                ),
+            ),
+        )
+        fixture_ledger = refresh_behavior_commitment_source_inventory(
+            fixture_ledger,
+            target_root,
+        )
+        write_behavior_commitment_ledger(
+            target_root / ".flowguard" / "behavior" / "inventory" / "ledger.json",
+            fixture_ledger,
+        )
         entries = []
         for model_id in model_ids:
             model_dir = target_root / ".flowguard" / "models" / "owners" / model_id

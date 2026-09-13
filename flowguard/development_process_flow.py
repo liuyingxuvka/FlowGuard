@@ -25,6 +25,51 @@ from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_a
 from .validation_ownership import verify_parent_receipt
 PROCESS_SCOPE_ROUTINE = "routine"
 PROCESS_SCOPE_RELEASE = "release"
+# DPF historically exposed ``routine``/``release`` as decision scopes.  The
+# completion/release boundary is named independently so a plain done claim
+# remains local by default and cannot be promoted merely by its wording.
+PROCESS_CLAIM_SCOPE_LOCAL_VALIDATION = "local_validation"
+PROCESS_CLAIM_SCOPE_RELEASE = "release"
+PROCESS_CLAIM_SCOPES = frozenset(
+    {
+        PROCESS_CLAIM_SCOPE_LOCAL_VALIDATION,
+        PROCESS_CLAIM_SCOPE_RELEASE,
+    }
+)
+
+
+def _normalize_process_claim_scope(
+    value: Any,
+    *,
+    decision_scope: str = PROCESS_SCOPE_ROUTINE,
+) -> str:
+    """Normalize the explicit DPF claim boundary.
+
+    ``routine`` is accepted only as a compatibility spelling for the new
+    ``local_validation`` boundary.  An explicit release decision cannot be
+    silently downgraded to a local claim, while an ordinary routine plan may
+    opt into an explicit release claim when it really is a release request.
+    """
+
+    raw = str(value or "").strip().lower()
+    decision = str(decision_scope or PROCESS_SCOPE_ROUTINE).strip().lower()
+    if not raw:
+        return (
+            PROCESS_CLAIM_SCOPE_RELEASE
+            if decision == PROCESS_SCOPE_RELEASE
+            else PROCESS_CLAIM_SCOPE_LOCAL_VALIDATION
+        )
+    if raw == PROCESS_SCOPE_ROUTINE:
+        raw = PROCESS_CLAIM_SCOPE_LOCAL_VALIDATION
+    if raw not in PROCESS_CLAIM_SCOPES:
+        raise ValueError(
+            "claim_scope must be local_validation or release"
+        )
+    if decision == PROCESS_SCOPE_RELEASE and raw != PROCESS_CLAIM_SCOPE_RELEASE:
+        raise ValueError(
+            "release decision_scope cannot use the local_validation claim scope"
+        )
+    return raw
 
 PROCESS_EVIDENCE_PASSED = "passed"
 PROCESS_EVIDENCE_FAILED = "failed"
@@ -935,6 +980,10 @@ class DevelopmentProcessPlan:
     path_quality_required_model_ids: tuple[str, ...] = ()
     path_quality_deep_triggered_model_ids: tuple[str, ...] = ()
     path_quality_steps: tuple[ModelPathQualityProcessStep, ...] = ()
+    # Explicit claim boundary.  Empty is a compatibility sentinel resolved
+    # from the legacy decision_scope during construction; it is never emitted
+    # on the wire.
+    claim_scope: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "process_id", str(self.process_id))
@@ -944,6 +993,14 @@ class DevelopmentProcessPlan:
         object.__setattr__(self, "validation_requirements", tuple(self.validation_requirements))
         object.__setattr__(self, "freshness_rules", tuple(self.freshness_rules))
         object.__setattr__(self, "decision_scope", str(self.decision_scope))
+        object.__setattr__(
+            self,
+            "claim_scope",
+            _normalize_process_claim_scope(
+                self.claim_scope,
+                decision_scope=self.decision_scope,
+            ),
+        )
         object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
         object.__setattr__(
             self,
@@ -1032,6 +1089,7 @@ class DevelopmentProcessPlan:
             ],
             "freshness_rules": [rule.to_dict() for rule in self.freshness_rules],
             "decision_scope": self.decision_scope,
+            "claim_scope": self.claim_scope,
             "require_proof_artifacts": self.require_proof_artifacts,
             "release_deferred_allowed": self.release_deferred_allowed,
             "behavior_plane": self.behavior_plane,
@@ -1169,11 +1227,20 @@ class DevelopmentProcessFlowReport:
     revalidation_recommendations: tuple[RevalidationRecommendation, ...] = ()
     revalidation_optimality_boundary: str = ""
     summary: str = ""
+    claim_scope: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "process_id", str(self.process_id))
         object.__setattr__(self, "decision", str(self.decision))
         object.__setattr__(self, "decision_scope", str(self.decision_scope))
+        object.__setattr__(
+            self,
+            "claim_scope",
+            _normalize_process_claim_scope(
+                self.claim_scope,
+                decision_scope=self.decision_scope,
+            ),
+        )
         object.__setattr__(
             self,
             "process_optimization_status",
@@ -1204,6 +1271,7 @@ class DevelopmentProcessFlowReport:
             f"status: {'OK' if self.ok else 'BLOCKED'}",
             f"process: {self.process_id}",
             f"scope: {self.decision_scope}",
+            f"claim_scope: {self.claim_scope}",
             f"decision: {self.decision}",
             f"process_optimization: {self.process_optimization_status}",
             f"findings: {len(self.findings)}",
@@ -1254,6 +1322,7 @@ class DevelopmentProcessFlowReport:
             "process_id": self.process_id,
             "decision": self.decision,
             "decision_scope": self.decision_scope,
+            "claim_scope": self.claim_scope,
             "process_optimization_status": self.process_optimization_status,
             "findings": [finding.to_dict() for finding in self.findings],
             "release_obligations": list(self.release_obligations),
@@ -1813,7 +1882,7 @@ def _requirement_findings(
             if _evidence_is_current(evidence, stale_by_evidence.get(evidence.evidence_id, {}))
         )
         deferred_release = (
-            plan.decision_scope == PROCESS_SCOPE_ROUTINE
+            plan.claim_scope == PROCESS_CLAIM_SCOPE_LOCAL_VALIDATION
             and plan.release_deferred_allowed
             and release_only
             and not current_candidates
@@ -1836,7 +1905,7 @@ def _requirement_findings(
         code = "missing_required_revalidation"
         if requirement.v_model_pair:
             code = "missing_v_model_validation_pair"
-        if plan.decision_scope == PROCESS_SCOPE_RELEASE and release_only:
+        if plan.claim_scope == PROCESS_CLAIM_SCOPE_RELEASE and release_only:
             code = "release_evidence_not_current"
         findings.append(
             ProcessFlowFinding(
@@ -1930,8 +1999,9 @@ def _requirement_findings(
             reason = next(iter(stale_reasons.values()))[1]
         scopes = tuple(dict.fromkeys(requirement.scope for requirement in covered_requirements))
         blocks_claim_scopes = list(scopes)
-        if plan.decision_scope not in blocks_claim_scopes:
-            blocks_claim_scopes.append(plan.decision_scope)
+        for claim_scope in (plan.decision_scope, plan.claim_scope):
+            if claim_scope not in blocks_claim_scopes:
+                blocks_claim_scopes.append(claim_scope)
         artifact_ids = tuple(
             dict.fromkeys(
                 artifact_id
@@ -1966,8 +2036,9 @@ def _requirement_findings(
     for requirement_id in sorted(set(missing) - coverable):
         requirement = missing[requirement_id][0]
         blocks_claim_scopes = [requirement.scope]
-        if plan.decision_scope not in blocks_claim_scopes:
-            blocks_claim_scopes.append(plan.decision_scope)
+        for claim_scope in (plan.decision_scope, plan.claim_scope):
+            if claim_scope not in blocks_claim_scopes:
+                blocks_claim_scopes.append(claim_scope)
         recommendations.append(
             RevalidationRecommendation(
                 requirement_id,
@@ -2061,11 +2132,15 @@ def _full_validation_parent_findings(
             action.action_type == "claim_done"
             and (
                 plan.decision_scope == PROCESS_SCOPE_RELEASE
+                or plan.claim_scope == PROCESS_CLAIM_SCOPE_RELEASE
                 or action.decision_scope == PROCESS_SCOPE_RELEASE
             )
         )
     )
-    if not broad_actions and plan.decision_scope != PROCESS_SCOPE_RELEASE:
+    if not broad_actions and (
+        plan.decision_scope != PROCESS_SCOPE_RELEASE
+        and plan.claim_scope != PROCESS_CLAIM_SCOPE_RELEASE
+    ):
         return []
     receipt_ids = plan.full_validation_parent_receipt_ids
     if len(receipt_ids) != 1:
@@ -2616,6 +2691,7 @@ def review_development_process_flow(plan: DevelopmentProcessPlan) -> Development
         process_id=plan.process_id,
         decision=_decision_for_findings(findings),
         decision_scope=plan.decision_scope,
+        claim_scope=plan.claim_scope,
         process_optimization_status=process_optimization_status,
         findings=tuple(findings),
         release_obligations=tuple(release_obligations),
@@ -2698,6 +2774,9 @@ __all__ = [
     "PROCESS_EVIDENCE_UI_TASK_COVERAGE",
     "PROCESS_SCOPE_RELEASE",
     "PROCESS_SCOPE_ROUTINE",
+    "PROCESS_CLAIM_SCOPE_LOCAL_VALIDATION",
+    "PROCESS_CLAIM_SCOPE_RELEASE",
+    "PROCESS_CLAIM_SCOPES",
     "ActionEffect",
     "DevelopmentProcessFlowReport",
     "DevelopmentProcessPlan",

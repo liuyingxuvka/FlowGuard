@@ -16,10 +16,13 @@ from .evidence_receipts import (
     verify_evidence_receipt,
 )
 from .model_authority import (
+    AcceptedBoundaryContract,
     REVISION_EVIDENCE_PASS,
     REVISION_EVIDENCE_REQUIRED,
     ModelAuthorityError,
     ModelSystemSnapshot,
+    validate_accepted_boundary_contract_for_snapshot,
+    write_content_addressed_boundary_contract,
     _reject_duplicate_json_keys,
 )
 from .model_authority_store import (
@@ -66,7 +69,7 @@ from .model_revision_set import (
 )
 from .model_system_inventory import build_manifest_model_system_snapshot
 from .project_manifest import project_manifest_lock
-from .source_identity import source_file_fingerprint
+from .source_identity import functional_source_fingerprint, source_file_fingerprint
 from .validation_ownership import (
     OWNER_RECEIPT_KIND,
     OWNER_REUSE_CURRENT,
@@ -297,7 +300,10 @@ def _verify_model_parent_receipt(
             "current model-regression manifest is invalid: "
             + "; ".join(audit.errors)
         )
-    if str(payload["manifest_sha256"]) != source_file_fingerprint(manifest.path):
+    if str(payload["manifest_sha256"]) != functional_source_fingerprint(
+        root,
+        ".flowguard/models/regression-manifest.json",
+    ):
         raise ModelAuthorityError("model parent receipt manifest fingerprint is stale")
     entries = select_entries(manifest, tier="full")
     selected_ids = tuple(entry.model_id for entry in entries)
@@ -313,10 +319,44 @@ def _verify_model_parent_receipt(
         )
 
     contracts = tuple(_model_owner_contract(root, manifest, entry) for entry in entries)
+    # The parent receipt already declares the exact immutable child receipt
+    # identities.  Address only those files during currentness observation;
+    # scanning the historical model-owner store would reparse thousands of
+    # unrelated attempts while adding no evidence.  The normal owner
+    # observation still derives current contexts and independently verifies
+    # each selected receipt, so this is a bounded lookup rather than a
+    # freshness shortcut.
+    declared_child_receipt_ids = tuple(
+        str(children_by_model[model_id]["receipt_id"])
+        for model_id in selected_ids
+    )
+    # Check the parent-declared identities before the exact-id observation.
+    # ``list_evidence_receipts(..., receipt_ids=...)`` deliberately reports a
+    # missing declared path as a visible load error; translate that low-level
+    # absence into the parent-boundary diagnostic so callers can distinguish a
+    # rebound child from a generic observation failure without falling back to
+    # a historical subject scan.
+    for model_id in selected_ids:
+        declared = children_by_model[model_id]
+        try:
+            declared_receipt = load_evidence_receipt(
+                declared["receipt_id"],
+                root,
+                output_directory=receipt_root,
+            )
+        except (OSError, ValueError) as exc:
+            raise ModelAuthorityError(
+                f"model parent child is not the exact current receipt: {model_id}"
+            ) from exc
+        if declared_receipt.fingerprint != declared["receipt_fingerprint"]:
+            raise ModelAuthorityError(
+                f"model parent child is not the exact current receipt: {model_id}"
+            )
     observation = observe_validation_owners(
         root,
         contracts,
         receipt_root=receipt_root,
+        receipt_ids=declared_child_receipt_ids,
     )
     rows = observation.rows
     currents = observation.current_by_owner
@@ -410,6 +450,14 @@ def _verify_model_parent_receipt(
         receipt_root,
         child_receipts=tuple(exact_children),
         child_verification_results=tuple(child_verifications),
+        # The model-parent pointer and its declared child identities form an
+        # already verified immutable boundary.  Restrict this one composition
+        # check to those exact files; ordinary receipt verification keeps its
+        # historical supersession scan when no boundary is supplied.
+        receipt_store_receipt_ids=(
+            execution_receipt.receipt_id,
+            *declared_child_receipt_ids,
+        ),
     )
     parent_verification = verify_evidence_receipt(
         execution_receipt,
@@ -782,6 +830,7 @@ def build_current_model_revision(
     native_owner_contracts: Iterable[ValidationOwnerContract] = (),
     native_owner_receipts: Iterable[EvidenceReceipt] = (),
     native_owner_verification_results: Iterable[ReceiptVerificationResult] = (),
+    accepted_boundary_contract: AcceptedBoundaryContract | None = None,
     path_quality_subjects: Iterable[PathQualitySubject | Mapping[str, Any]] = (),
     path_quality_results: Iterable[PathQualityResult | Mapping[str, Any]] = (),
     no_declared_intent_rationale_id: str = "",
@@ -899,7 +948,14 @@ def build_current_model_revision(
             system_id=base.system_id,
             subject_lane=base.subject_lane,
             lifecycle=base.lifecycle,
+            accepted_boundary_contract=accepted_boundary_contract,
         )
+        if accepted_boundary_contract is not None:
+            validate_accepted_boundary_contract_for_snapshot(
+                accepted_boundary_contract,
+                candidate,
+                require_endpoint=True,
+            )
         validate_candidate_intent_source_input_bindings(
             candidate,
             active_contributions,
@@ -986,6 +1042,7 @@ def build_current_model_revision(
                 bundle=supplied_bundle,
                 receipt_root=receipt_store,
                 verified_parent=verified_parent,
+                accepted_boundary_contract=accepted_boundary_contract,
             )
             frozen_identities = (
                 (
@@ -1111,7 +1168,14 @@ def build_current_model_revision(
             system_id=base.system_id,
             subject_lane=base.subject_lane,
             lifecycle=base.lifecycle,
+            accepted_boundary_contract=accepted_boundary_contract,
         )
+        if accepted_boundary_contract is not None:
+            validate_accepted_boundary_contract_for_snapshot(
+                accepted_boundary_contract,
+                final_candidate,
+                require_endpoint=True,
+            )
         validate_candidate_intent_source_input_bindings(
             final_candidate,
             active_contributions,
@@ -1156,6 +1220,11 @@ def build_current_model_revision(
                 revision_contributions=contributions,
                 revision_dispositions=contribution_dispositions,
                 candidate_view=current_effective_intent_view,
+            )
+        if accepted_boundary_contract is not None:
+            write_content_addressed_boundary_contract(
+                root_path,
+                accepted_boundary_contract,
             )
         candidate_path, revision_path = _write_content_addressed_pair(
             destination,

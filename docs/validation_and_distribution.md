@@ -279,21 +279,21 @@ bootstrap receipt or a later refinement receipt is model-authority evidence;
 neither replaces any of the ten validation-owner receipts.
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output candidate-receipt.json --json
 ```
 
 After committing, verify the immutable local tag against the parent-bound
 release tree:
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.8 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase tag --tag v0.68.8 --candidate-receipt candidate-receipt.json --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output tag-receipt.json --json
 ```
 
 After pushing the tag and creating an asset-free GitHub Release, verify the
 peeled remote tag and release metadata:
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.8 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase published --tag v0.68.8 --candidate-receipt candidate-receipt.json --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
 ```
 
 The published phase reuses the local checks and additionally requires the
@@ -556,19 +556,19 @@ FlowGuard v0.68.8 只发布源码。本地发布结论必须绑定当前 10 个�
 后续 refinement 回执属于模型权威证据，不能代替十个验证负责人的任何一份回执。
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output candidate-receipt.json --json
 ```
 
 提交完成后，先把本地不可变 tag 与父回执绑定的发布树进行比较：
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.8 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase tag --tag v0.68.8 --candidate-receipt candidate-receipt.json --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output tag-receipt.json --json
 ```
 
 推送 tag 并创建零资产 GitHub Release 后，再验证剥离后的远端 tag 和 Release 元数据：
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.8 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase published --tag v0.68.8 --candidate-receipt candidate-receipt.json --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
 ```
 
 published 阶段会重新检查本地条件，并要求远端 tag 指向同一提交、Release 已发布且不是 draft、资产列表为空。若发布后验证失败，应发布新的修正版，不能移动已有 tag。

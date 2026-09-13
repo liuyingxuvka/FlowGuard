@@ -794,7 +794,7 @@ _VALIDATION_OWNER_CONTRACT_FIELDS = (
     "environment_selectors",
     "external_component_bindings",
     "work_context_artifact_roles",
-    "timeout_seconds",
+    "resource_argv_options",
     "termination_policy",
     "required",
 )

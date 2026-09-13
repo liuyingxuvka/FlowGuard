@@ -316,6 +316,45 @@ class BrokenAcceptWithoutReplay(DecideRevision):
         )
 
 
+class BrokenRejectionBaseModelLoss(DecideRevision):
+    """Counterexample: rejecting a candidate also erases the base model."""
+
+    name = "BrokenRejectionBaseModelLoss"
+
+    def apply(self, input_obj: RevisionProposed, state: State) -> Iterable[FunctionResult]:
+        for result in super().apply(input_obj, state):
+            if isinstance(result.output, RevisionRejected):
+                next_state = replace(
+                    result.new_state,
+                    base_model_ids=tuple(
+                        item
+                        for item in result.new_state.base_model_ids
+                        if item != result.output.request_id
+                    ),
+                )
+                yield replace(result, new_state=next_state)
+            else:
+                yield result
+
+
+class BrokenRollbackBaseModelLoss(RollbackRevision):
+    """Counterexample: rollback erases the base model it must restore."""
+
+    name = "BrokenRollbackBaseModelLoss"
+
+    def apply(self, input_obj: RevisionAccepted, state: State) -> Iterable[FunctionResult]:
+        for result in super().apply(input_obj, state):
+            next_state = replace(
+                result.new_state,
+                base_model_ids=tuple(
+                    item
+                    for item in result.new_state.base_model_ids
+                    if item != input_obj.request_id
+                ),
+            )
+            yield replace(result, new_state=next_state)
+
+
 def accepted_candidates_have_current_replay(state: State, _trace) -> InvariantResult:
     invalid = tuple(
         item
@@ -432,6 +471,32 @@ def broken_accept_without_replay_workflow() -> Workflow:
             RollbackRevision(),
         ),
         name="broken_accept_without_replay",
+    )
+
+
+def broken_rejection_base_model_loss_workflow() -> Workflow:
+    return Workflow(
+        (
+            FreezePrediction(),
+            ReplayProduction(),
+            ProposeRevision(),
+            BrokenRejectionBaseModelLoss(),
+            RollbackRevision(),
+        ),
+        name="broken_rejection_base_model_loss",
+    )
+
+
+def broken_rollback_base_model_loss_workflow() -> Workflow:
+    return Workflow(
+        (
+            FreezePrediction(),
+            ReplayProduction(),
+            ProposeRevision(),
+            DecideRevision(),
+            BrokenRollbackBaseModelLoss(),
+        ),
+        name="broken_rollback_base_model_loss",
     )
 
 

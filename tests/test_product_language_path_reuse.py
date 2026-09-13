@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import flowguard
+from tests._partition_context_fixtures import accepted_authority_state
 from flowguard import (
     BCL_ACTOR_END_USER,
     BCL_COMMITMENT_WORKFLOW,
@@ -770,8 +771,14 @@ def test_family_reduction_and_background_inventory_cannot_be_shrunk_or_faked():
 
 
 def test_exhaustion_contracts_include_identity_omission_and_ui_language_faults():
-    behavior_plan = behavior_commitment_contract_exhaustion_plan(max_combinations=50000)
-    path_plan = primary_path_authority_contract_exhaustion_plan(max_combinations=50000)
+    behavior_plan = behavior_commitment_contract_exhaustion_plan(
+        max_combinations=50000,
+        authority_state=accepted_authority_state("behavior_commitment_ledger"),
+    )
+    path_plan = primary_path_authority_contract_exhaustion_plan(
+        max_combinations=50000,
+        authority_state=accepted_authority_state("primary_path_authority"),
+    )
     behavior_report = review_contract_exhaustion(behavior_plan)
     path_report = review_contract_exhaustion(path_plan)
     behavior_axes = {axis.axis_id for axis in behavior_plan.axes}

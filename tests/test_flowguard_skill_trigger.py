@@ -2,7 +2,11 @@ import subprocess
 import sys
 import unittest
 
-from examples.flowguard_skill_trigger.model import run_skill_trigger_review
+from examples.flowguard_skill_trigger.model import (
+    TaskDescription,
+    development_simulator_modes_for,
+    run_skill_trigger_review,
+)
 
 
 class FlowguardSkillTriggerTests(unittest.TestCase):
@@ -70,6 +74,16 @@ class FlowguardSkillTriggerTests(unittest.TestCase):
         }
         for name in expected:
             self.assertEqual("expected_violation_observed", self.statuses[name])
+
+    def test_low_risk_multi_tool_surface_does_not_admit_agent_workflow(self):
+        task = TaskDescription(
+            "low-risk-multi-tool",
+            "multi_skill_workflow",
+            ("multi_skill_workflow", "tool_or_plugin_order"),
+            production_code_exists=False,
+        )
+
+        self.assertNotIn("agent_workflow", development_simulator_modes_for(task))
 
     def test_skill_trigger_script_succeeds(self):
         completed = subprocess.run(

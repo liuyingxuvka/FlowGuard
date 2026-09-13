@@ -120,7 +120,8 @@ class DocumentationCommandTests(unittest.TestCase):
     def test_release_verification_commands_are_documented_bilingually(self):
         command = (
             "python scripts/verify_flowguard_release.py --root . "
-            "--phase local-candidate --parent-receipt <parent-receipt-id>"
+            "--target release-target.json --phase local-candidate "
+            "--parent-receipt <parent-receipt-id>"
         )
         self.assertIn("## Release Closure", self.guide)
         self.assertIn("### 发布闭环", self.guide)

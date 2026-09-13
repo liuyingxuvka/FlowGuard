@@ -21,7 +21,7 @@
 
 | 公开版本 | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.68.16` | `1.0` | 仅使用 Python 标准库 | MIT |
+| `v0.69.0` | `1.0` | 仅使用 Python 标准库 | MIT |
 
 [English](./README.md) · [快速开始](#快速开始) · [概念介绍](./docs/concept.md) · [文档地图](#文档地图)
 
@@ -744,16 +744,19 @@ python -m flowguard risk-template-search "completion evidence"
 
 运行 `python -m flowguard --help` 查看完整的当前命令列表。
 
-FlowGuard v0.68.16 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
+FlowGuard v0.69.0 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
 或 GitHub Release asset。
 
 验证冻结的 source candidate、不可变 tag 和已发布 release 这三个独立身份：
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
-python scripts/verify_flowguard_release.py --root . --phase tag --tag v0.68.16 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --json
-python scripts/verify_flowguard_release.py --root . --phase published --tag v0.68.16 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output candidate-receipt.json --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase tag --candidate-receipt candidate-receipt.json --tag v0.69.0 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output tag-receipt.json --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase published --candidate-receipt candidate-receipt.json --tag v0.69.0 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
 ```
+
+同一个描述文件驱动任意软件目标的收敛；详见
+[`docs/release_target_descriptor.md`](./docs/release_target_descriptor.md)。
 
 ## 与 Guard Family 的关系
 

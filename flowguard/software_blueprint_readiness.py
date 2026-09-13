@@ -584,6 +584,11 @@ class CoverageExecutionEvidence:
     disposition: str
     receipt_id: str = ""
     receipt_fingerprint: str = ""
+    # Native case ids are repeated on each edge row so the immutable edge
+    # disposition remains independently inspectable after projection.  Empty
+    # means no dynamic execution package was supplied; it is not a pass.
+    executed_case_ids: tuple[str, ...] = ()
+    reason: str = ""
 
     def __post_init__(self) -> None:
         if not self.coverage_id or not self.execution_owner_id:
@@ -604,14 +609,22 @@ class CoverageExecutionEvidence:
             raise SoftwareBlueprintReadinessError(
                 "non-pass coverage execution cannot carry a passing receipt"
             )
+        object.__setattr__(
+            self,
+            "executed_case_ids",
+            _tuple(self.executed_case_ids),
+        )
+        object.__setattr__(self, "reason", str(self.reason))
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "coverage_id": self.coverage_id,
             "execution_owner_id": self.execution_owner_id,
             "disposition": self.disposition,
             "receipt_id": self.receipt_id,
             "receipt_fingerprint": self.receipt_fingerprint,
+            "executed_case_ids": list(self.executed_case_ids),
+            "reason": self.reason,
         }
 
 
@@ -1638,18 +1651,23 @@ def _executed_evidence_status(
     rows: Sequence[CoverageExecutionEvidence],
     findings: Sequence[ReadinessFinding],
 ) -> str:
+    dispositions = tuple(row.disposition for row in rows)
+    if not dispositions:
+        return "not_run"
     if findings:
         return "blocked"
-    dispositions = tuple(row.disposition for row in rows)
-    if not dispositions or any(
-        disposition in {"not_run", "not_applicable"}
-        for disposition in dispositions
-    ):
-        return "not_run"
     if any(disposition == "blocked" for disposition in dispositions):
         return "blocked"
     if any(disposition == "fail" for disposition in dispositions):
         return "failed"
+    # A partially executed matrix is not a pass.  Keep this explicit even
+    # when the caller did not request the hard evidence gate; consumers can
+    # distinguish a complete pass from a stale/partial run without guessing.
+    if any(
+        disposition in {"not_run", "not_applicable"}
+        for disposition in dispositions
+    ):
+        return "not_run"
     if all(disposition == "pass" for disposition in dispositions):
         return "passed"
     return "blocked"
@@ -1687,6 +1705,7 @@ def review_behavior_blueprint(
     evidence_receipts: Sequence[EvidenceReceipt] = (),
     receipt_verification_results: Sequence[ReceiptVerificationResult] = (),
     validation_owner_contracts: Sequence[ValidationOwnerContract] = (),
+    require_executed_evidence: bool = False,
 ) -> BehaviorBlueprintReport:
     """Check exact behavior, helper, coverage, and test-node denominators."""
 
@@ -2353,7 +2372,7 @@ def review_behavior_blueprint(
         covered_failures = {
             failure_id
             for row in rows
-            if row.case_kind == "bad"
+            if row.case_kind in {"bad", "good"}
             for failure_id in row.protected_failure_ids
         }
         missing_failures = set(contract.protected_failure_ids) - covered_failures
@@ -2910,6 +2929,22 @@ def review_behavior_blueprint(
             )
         )
 
+    if require_executed_evidence:
+        required_execution_gaps = sorted(
+            row.coverage_id
+            for row in coverage_execution_evidence
+            if row.disposition in {"not_run", "not_applicable", "blocked"}
+        )
+        if required_execution_gaps:
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_required",
+                    "the requested executed-evidence gate requires every coverage edge to have a native terminal pass",
+                    tuple(required_execution_gaps),
+                    "blocked",
+                )
+            )
+
     owner_contracts_by_id: dict[str, list[ValidationOwnerContract]] = {}
     for owner_contract in validation_owner_contracts:
         owner_contracts_by_id.setdefault(owner_contract.owner_id, []).append(
@@ -2997,9 +3032,40 @@ def review_behavior_blueprint(
             )
         )
 
+    edge_by_coverage_for_execution = {
+        edge.coverage_id: edge for edge in coverage_edges
+    }
+
+    def native_case_matches(row: CoverageExecutionEvidence) -> bool:
+        edge = edge_by_coverage_for_execution.get(row.coverage_id)
+        if edge is None or not row.executed_case_ids:
+            return False
+        # The projector has already consumed the strict native binding table.
+        # Only the exact blueprint case identity is valid here; source IDs,
+        # parameter IDs, suffixes, and counts are not aliases.
+        return edge.case_id in set(row.executed_case_ids)
+
     for row in coverage_execution_evidence:
         if row.disposition != "pass":
             continue
+        if require_executed_evidence and not row.executed_case_ids:
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_case_ids_missing",
+                    "passing coverage evidence has no explicit native executed_case_ids projection",
+                    (row.coverage_id, row.execution_owner_id),
+                    "blocked",
+                )
+            )
+        elif require_executed_evidence and not native_case_matches(row):
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_case_missing",
+                    "native executed_case_ids do not include the exact coverage case",
+                    (row.coverage_id, row.execution_owner_id),
+                    "blocked",
+                )
+            )
         owner_contract_rows = owner_contracts_by_id.get(row.execution_owner_id, [])
         if len(owner_contract_rows) != 1:
             execution_findings.append(
@@ -3012,15 +3078,6 @@ def review_behavior_blueprint(
             )
             continue
         owner_contract = owner_contract_rows[0]
-        if row.coverage_id not in owner_contract.obligation_ids:
-            execution_findings.append(
-                ReadinessFinding(
-                    "coverage_execution_owner_member_missing",
-                    "validation-owner contract omits the exact coverage member",
-                    (row.coverage_id, row.execution_owner_id),
-                    "blocked",
-                )
-            )
 
         receipt_rows = receipts_by_id.get(row.receipt_id, [])
         if len(receipt_rows) != 1:
@@ -3034,6 +3091,33 @@ def review_behavior_blueprint(
             )
             continue
         receipt = receipt_rows[0]
+        # Model-regression owners publish one direct leaf receipt whose
+        # immutable child proof carries native case IDs.  That owner contract
+        # intentionally covers the model obligation rather than copying 6xN
+        # blueprint edges into the receipt.  The exact edge is accepted here
+        # only when its native case projection matches the edge and the
+        # receipt covers the model obligation; it is never accepted for a
+        # parent/aggregate receipt.
+        model_owner_id = row.execution_owner_id.removeprefix("model:")
+        native_model_leaf = (
+            row.execution_owner_id.startswith("model:")
+            and owner_contract.obligation_ids
+            == (f"model-regression:{model_owner_id}",)
+            and native_case_matches(row)
+            and f"model-regression:{model_owner_id}"
+            in receipt.covered_obligations
+            and not receipt.required_child_receipts
+            and not receipt.consumed_child_receipts
+        )
+        if row.coverage_id not in owner_contract.obligation_ids and not native_model_leaf:
+            execution_findings.append(
+                ReadinessFinding(
+                    "coverage_execution_owner_member_missing",
+                    "validation-owner contract omits the exact coverage member",
+                    (row.coverage_id, row.execution_owner_id),
+                    "blocked",
+                )
+            )
         if receipt.fingerprint != row.receipt_fingerprint:
             execution_findings.append(
                 ReadinessFinding(
@@ -3081,7 +3165,16 @@ def review_behavior_blueprint(
                     "blocked",
                 )
             )
-        if row.coverage_id not in receipt.covered_obligations:
+        model_owner_id = row.execution_owner_id.removeprefix("model:")
+        native_model_leaf = (
+            row.execution_owner_id.startswith("model:")
+            and owner_contract.obligation_ids
+            == (f"model-regression:{model_owner_id}",)
+            and native_case_matches(row)
+            and f"model-regression:{model_owner_id}"
+            in receipt.covered_obligations
+        )
+        if row.coverage_id not in receipt.covered_obligations and not native_model_leaf:
             execution_findings.append(
                 ReadinessFinding(
                     "coverage_execution_receipt_member_missing",
@@ -3125,7 +3218,7 @@ def review_behavior_blueprint(
                     "blocked",
                 )
             )
-        if row.coverage_id not in verification.satisfied_obligations:
+        if row.coverage_id not in verification.satisfied_obligations and not native_model_leaf:
             execution_findings.append(
                 ReadinessFinding(
                     "coverage_execution_verification_member_missing",

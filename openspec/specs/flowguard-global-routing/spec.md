@@ -204,9 +204,18 @@ PlanDetailing, and AgentWorkflowRehearsal by simulator mode and ownership
 rather than exposing three competing first entries.
 
 #### Scenario: Multi-skill plan composes routes
-- **WHEN** a plan discussion produces structured PlanDetail rows and the work involves multiple skills, tools, agents, or side effects
+- **WHEN** a plan discussion produces structured PlanDetail rows and the work
+  has an explicit rehearsal request, a cross-owner handoff/shared write, a
+  post-validation-invalidating write, an agent/route workflow change, or
+  multiple independent owners with irreversible side effects
 - **THEN** global routing records `agent_workflow` in the simulator and hands
   the PlanDetail projection to AgentWorkflowRehearsal before execution
+
+#### Scenario: Low-risk plan does not force workflow rehearsal
+- **WHEN** a plan uses one owner and one tool for read-only targeted checks
+- **AND** no explicit rehearsal or risk-admission fact is present
+- **THEN** global routing keeps AgentWorkflowRehearsal `not_triggered`
+- **AND** the owning route remains responsible for its native checks
 
 #### Scenario: Execution freshness composes routes
 - **WHEN** the same plan enters implementation, validation, done, release, archive, or publish review

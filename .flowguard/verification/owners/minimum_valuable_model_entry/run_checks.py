@@ -133,8 +133,15 @@ def main() -> int:
         protected_error_class="minimum_valuable_model_missing_contract_or_binding",
     )
     projection_ok = run_narrow_entry_projection_review()
+    # Stable native positive selector for the exact ordinary workflow.  The
+    # helper above is still displayed for humans, but this line is the
+    # machine-readable producer contract consumed by the current mapping.
+    print(
+        "minimum_valuable_model_entry: "
+        + ("exact model pass" if ordinary_ok else "failed")
+    )
     return 0 if ordinary_ok and rejection_ok and report.ok and projection_ok else 1
 
-
+from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(native_main("model:minimum_valuable_model_entry", main))

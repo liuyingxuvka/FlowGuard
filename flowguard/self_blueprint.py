@@ -71,12 +71,25 @@ from .model_authority import REVISION_ACCEPTED
 from .model_authority_store import (
     ModelAuthorityAuditReport,
     audit_model_authority,
+    load_observed_model_system,
 )
 from .model_test_alignment import ModelTestAlignmentReport
 from .model_regressions import (
     CurrentModelRegressionParentEvidence,
+    ModelRegressionExecutionEvidencePackage,
     ModelRegressionEvidenceError,
+    ModelRegressionManifest,
+    _model_owner_contract,
+    build_model_regression_execution_evidence,
     resolve_current_full_model_regression_parent,
+)
+from .native_case_mapping import (
+    NativeCaseMappingError,
+    load_native_case_mapping,
+)
+from .self_path_quality import (
+    FlowGuardSelfPathQualityMaterial,
+    compile_flowguard_self_path_quality_material,
 )
 from .source_identity import source_file_fingerprint
 from .test_inventory import (
@@ -338,6 +351,7 @@ class SelfBlueprintBuildInputIdentity:
     activation_receipt_fingerprint: str
     model_regression_evidence_fingerprint: str
     provider_contract_fingerprint: str
+    native_case_mapping_fingerprint: str = ""
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -352,7 +366,13 @@ class SelfBlueprintBuildInputIdentity:
             "activation_receipt_fingerprint",
             "model_regression_evidence_fingerprint",
             "provider_contract_fingerprint",
+            "native_case_mapping_fingerprint",
         ):
+            # A missing registry is retained as an explicit legacy/static
+            # identity.  When a registry exists its fingerprint is mandatory
+            # and therefore participates in freshness.
+            if field_name == "native_case_mapping_fingerprint":
+                continue
             if not str(getattr(self, field_name, "")):
                 raise FlowGuardSelfBlueprintError(
                     f"self-blueprint build input identity omits {field_name}"
@@ -385,6 +405,7 @@ class SelfBlueprintBuildInputIdentity:
                 self.model_regression_evidence_fingerprint
             ),
             "provider_contract_fingerprint": self.provider_contract_fingerprint,
+            "native_case_mapping_fingerprint": self.native_case_mapping_fingerprint,
         }
 
     @cached_property
@@ -417,6 +438,7 @@ class FlowGuardSelfBlueprintBundle:
     # truth. It is not a disk export, copied directory, or transport bundle.
     project_bundle: Any | None = None
     dna_qualification: TargetSystemDnaQualification | None = None
+    execution_evidence: ModelRegressionExecutionEvidencePackage | None = None
 
     @cached_property
     def readiness_ledger(self) -> BlueprintReadinessLedger:
@@ -516,7 +538,32 @@ class FlowGuardSelfBlueprintBundle:
                 "test_node_dispositions": len(
                     self.behavior_report.test_node_dispositions
                 ),
+                "execution_owner_count": (
+                    self.execution_evidence.owner_count
+                    if self.execution_evidence is not None
+                    else 0
+                ),
+                "execution_planned_case_count": (
+                    self.execution_evidence.planned_case_count
+                    if self.execution_evidence is not None
+                    else 0
+                ),
+                "execution_executed_case_count": (
+                    self.execution_evidence.executed_case_count
+                    if self.execution_evidence is not None
+                    else 0
+                ),
+                "execution_coverage_edge_count": (
+                    self.execution_evidence.coverage_edge_count
+                    if self.execution_evidence is not None
+                    else 0
+                ),
             },
+            "execution_evidence": (
+                self.execution_evidence.to_dict()
+                if self.execution_evidence is not None
+                else None
+            ),
         }
 
 
@@ -860,29 +907,17 @@ def _discover_surface_declarations(
 
 
 def _self_surface_disposition(surface: ImplementationSurface) -> str:
-    """Classify one observed Python surface without removing it from the DNA."""
+    """Keep every observation in DNA without inventing a behavior contract.
 
-    normalized_path = surface.path.replace("\\", "/")
-    if normalized_path.startswith(".flowguard/") and normalized_path.endswith(
-        "/run_checks.py"
-    ):
-        return IMPLEMENTATION_DISPOSITION_SUPPORTING
-    if normalized_path.startswith(".flowguard/") and normalized_path.endswith(
-        "/model.py"
-    ):
-        return IMPLEMENTATION_DISPOSITION_SUPPORTING
-    if surface.surface_kind in {"module", "class"}:
-        return IMPLEMENTATION_DISPOSITION_SUPPORTING
-    if surface.behavior_bearing:
-        return IMPLEMENTATION_DISPOSITION_MODEL
-    leaf = surface.symbol.rsplit(".", 1)[-1]
-    if ".<locals>." in surface.symbol:
-        return IMPLEMENTATION_DISPOSITION_SUPPORTING
-    if surface.surface_kind not in {"function", "method", "entrypoint"}:
-        return IMPLEMENTATION_DISPOSITION_SUPPORTING
-    if leaf.startswith("_"):
-        return IMPLEMENTATION_DISPOSITION_SUPPORTING
-    return IMPLEMENTATION_DISPOSITION_MODEL
+    Public names, writes, effects, and entrypoint roles are implementation
+    observations rather than proof that a surface independently owns an
+    ``Input x State -> Set(Output x State)`` contract.  The provider-declared
+    composite contract is the sole promotion authority in
+    ``_discover_surface_declarations``; every other observed surface remains a
+    supporting implementation owned by that composite.
+    """
+
+    return IMPLEMENTATION_DISPOSITION_SUPPORTING
 
 
 def _manifest_entries(root: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
@@ -1187,6 +1222,25 @@ def _project_owners(
             provenance_fingerprints=provenance,
         )
         failure_bindings = purpose.get("failure_bindings", ())
+        failure_case_kind_by_case = {
+            str(item.get("known_bad_case_id", "")): str(
+                item.get("expected_case_kind", "bad")
+            ).strip().lower()
+            for item in failure_bindings
+            if isinstance(item, Mapping) and item.get("known_bad_case_id")
+        }
+        invalid_failure_case_kinds = sorted(
+            {
+                kind
+                for kind in failure_case_kind_by_case.values()
+                if kind not in {"bad", "good"}
+            }
+        )
+        if invalid_failure_case_kinds:
+            raise FlowGuardSelfBlueprintError(
+                "self-blueprint failure binding has an unsupported expected case kind: "
+                + ", ".join(invalid_failure_case_kinds)
+            )
         oracle_semantics = {
             "input": "known_good_case=" + str(purpose.get("known_good_case_id", "")),
             "output": "evidence_checks=" + ",".join(
@@ -1196,6 +1250,15 @@ def _project_owners(
                 str(item.get("known_bad_case_id", ""))
                 for item in failure_bindings
                 if isinstance(item, Mapping)
+                and str(item.get("expected_case_kind", "bad")).strip().lower()
+                == "bad"
+            ),
+            "repair_preservation": "known_good_cases=" + ",".join(
+                str(item.get("known_bad_case_id", ""))
+                for item in failure_bindings
+                if isinstance(item, Mapping)
+                and str(item.get("expected_case_kind", "bad")).strip().lower()
+                == "good"
             ),
             "order": "assert declared order when applicable; otherwise explicit not_applicable",
             "retry": "assert declared retry ownership when applicable; otherwise explicit not_applicable",
@@ -1418,6 +1481,7 @@ def _project_owners(
                 case_kind: str,
                 rule_suffix: str,
                 failure_id: str = "",
+                preserved_failure_ids: tuple[str, ...] = (),
             ) -> None:
                 case_id = (
                     f"behavior-case:{surface.surface_id}:{case_kind}:"
@@ -1486,7 +1550,11 @@ def _project_owners(
                         case_evidence_id=checker_id,
                         case_evidence_fingerprint=checker_fingerprint,
                         value_mode="symbolic_contract",
-                        protected_failure_ids=((failure_id,) if failure_id else ()),
+                        protected_failure_ids=(
+                            (failure_id,)
+                            if failure_id
+                            else tuple(preserved_failure_ids)
+                        ),
                         parameter_case_id=case_id,
                         source_case_id=source_case_id,
                     )
@@ -1510,18 +1578,36 @@ def _project_owners(
                 rule_suffix="accepted",
             )
             add_declared_case(
-                source_case_id=f"boundary:{owner}:{closure_fingerprint}",
+                # Boundary identity is stable across runner/source revisions;
+                # the closure fingerprint remains a separate evidence input.
+                # Embedding it here made the same boundary look like a new
+                # case on every model revision and defeated exact reuse.
+                source_case_id=f"boundary:{owner}",
                 case_kind="boundary",
                 rule_suffix="boundary",
             )
             if is_composite_surface:
                 for bad_case_id in known_bad_case_ids:
-                    add_declared_case(
-                        source_case_id=bad_case_id,
-                        case_kind="bad",
-                        rule_suffix=f"protected:{failure_by_case[bad_case_id]}",
-                        failure_id=failure_by_case[bad_case_id],
-                    )
+                    failure_id = failure_by_case[bad_case_id]
+                    expected_case_kind = failure_case_kind_by_case[bad_case_id]
+                    if expected_case_kind == "good":
+                        # A repair-preservation obligation intentionally
+                        # reuses a positive native case.  It is a second
+                        # projection of the same finite evidence, not a
+                        # fabricated negative input.
+                        add_declared_case(
+                            source_case_id=bad_case_id,
+                            case_kind="good",
+                            rule_suffix=f"preserved:{failure_id}",
+                            preserved_failure_ids=(failure_id,),
+                        )
+                    else:
+                        add_declared_case(
+                            source_case_id=bad_case_id,
+                            case_kind="bad",
+                            rule_suffix=f"protected:{failure_id}",
+                            failure_id=failure_id,
+                        )
         primary_binding = next(
             binding
             for binding in portable_behavior_bindings
@@ -2778,13 +2864,21 @@ def _self_path_quality_bindings(
     *,
     observed_snapshot_fingerprint: str,
     owners: Sequence[ProjectBlueprintOwner],
+    current_material: FlowGuardSelfPathQualityMaterial | None = None,
 ) -> tuple[ModelPathQualityBlueprintBinding, ...]:
-    """Project accepted current path evidence onto blueprint owner identities.
+    """Project current path evidence onto blueprint owner identities.
 
-    The accepted revision remains authoritative.  This function only replaces
-    the provider-local logical model id and model-instance fingerprint with the
-    equivalent blueprint model-obligation id and its owner closure fingerprint.
-    Compact conclusions and referenced deep-evidence identities are preserved.
+    A revision's path-quality denominator is intentionally affected-only.  The
+    self blueprint, however, has a whole-software owner denominator.  When the
+    current revision carries only its affected rows, the same native
+    ModelMaturation provider compiles the complete current self material once
+    for this derived view.  This does not create another authority pointer or
+    inherit a stale sibling row: the compiler binds every row to the exact
+    observed snapshot and independently reviews the complete finite manifest.
+
+    ``current_material`` is optional to keep the low-level projection strict
+    and useful for unit tests.  Without it, the accepted revision must carry
+    the complete denominator as it did historically.
     """
 
     if (
@@ -2795,7 +2889,32 @@ def _self_path_quality_bindings(
         raise FlowGuardSelfBlueprintError(
             "path-quality revision is not the accepted observed snapshot"
         )
-    required_ids = tuple(revision.required_path_quality_model_ids)
+    if current_material is not None:
+        if not isinstance(current_material, FlowGuardSelfPathQualityMaterial):
+            raise FlowGuardSelfBlueprintError(
+                "current self path-quality material must use the native typed producer"
+            )
+        if (
+            current_material.candidate_snapshot_fingerprint
+            != observed_snapshot_fingerprint
+            or not current_material.review.ok
+            or current_material.global_gaps
+        ):
+            raise FlowGuardSelfBlueprintError(
+                "native current self path-quality material is stale, blocked, or incomplete"
+            )
+        required_ids = tuple(current_material.review.required_model_ids)
+        path_quality_subjects = tuple(current_material.review.subjects)
+        path_quality_results = tuple(current_material.review.results)
+        revision_required_ids = set(revision.required_path_quality_model_ids)
+        if not revision_required_ids.issubset(set(required_ids)):
+            raise FlowGuardSelfBlueprintError(
+                "native current self path-quality denominator omits an affected revision model"
+            )
+    else:
+        required_ids = tuple(revision.required_path_quality_model_ids)
+        path_quality_subjects = tuple(revision.path_quality_subjects)
+        path_quality_results = tuple(revision.path_quality_results)
     if (
         not required_ids
         or required_ids != tuple(sorted(required_ids))
@@ -2806,15 +2925,15 @@ def _self_path_quality_bindings(
         )
 
     subjects_by_model = {
-        subject.model_id: subject for subject in revision.path_quality_subjects
+        subject.model_id: subject for subject in path_quality_subjects
     }
     results_by_subject = {
         result.subject_fingerprint: result
-        for result in revision.path_quality_results
+        for result in path_quality_results
     }
     if (
-        len(subjects_by_model) != len(tuple(revision.path_quality_subjects))
-        or len(results_by_subject) != len(tuple(revision.path_quality_results))
+        len(subjects_by_model) != len(path_quality_subjects)
+        or len(results_by_subject) != len(path_quality_results)
         or set(subjects_by_model) != set(required_ids)
         or set(results_by_subject)
         != {subjects_by_model[model_id].fingerprint for model_id in required_ids}
@@ -2968,6 +3087,7 @@ def _consumed_self_blueprint_build_input_identity(
     files: Sequence[ImplementationFileDisposition],
     semantic_mesh: Mapping[str, Any],
     model_regression_evidence: CurrentModelRegressionParentEvidence,
+    native_case_mapping_fingerprint: str = "",
 ) -> SelfBlueprintBuildInputIdentity:
     subject_revision = str(authority.get("subject_revision", ""))
     observed_snapshot_fingerprint = str(
@@ -3011,11 +3131,14 @@ def _consumed_self_blueprint_build_input_identity(
         provider_contract_fingerprint=(
             _self_blueprint_provider_contract_fingerprint()
         ),
+        native_case_mapping_fingerprint=native_case_mapping_fingerprint,
     )
 
 
 def capture_flowguard_self_blueprint_build_input_identity(
     root: str | Path,
+    *,
+    model_receipt_dir: str | Path | None = None,
 ) -> SelfBlueprintBuildInputIdentity:
     """Recompute exact builder inputs without materializing the full blueprint.
 
@@ -3069,14 +3192,35 @@ def capture_flowguard_self_blueprint_build_input_identity(
         / ".flowguard/models/owners/authoritative_model_system/semantic_model_mesh.json"
     )
     try:
+        resolver_kwargs = (
+            {"receipt_dir": model_receipt_dir}
+            if model_receipt_dir is not None
+            else {}
+        )
         model_regression_evidence = resolve_current_full_model_regression_parent(
-            root_path
+            root_path,
+            **resolver_kwargs,
         )
     except ModelRegressionEvidenceError as exc:
         raise FlowGuardSelfBlueprintError(
             "self-blueprint build-input capture lacks independently verified "
             f"current model evidence: {exc}"
         ) from exc
+    native_case_mapping_fingerprint = ""
+    native_case_mapping_path = (
+        root_path / ".flowguard" / "models" / "native-case-mapping.json"
+    )
+    if native_case_mapping_path.exists():
+        try:
+            native_case_mapping = load_native_case_mapping(
+                native_case_mapping_path
+            )
+            native_case_mapping.assert_current_manifest(root_path)
+            native_case_mapping_fingerprint = native_case_mapping.mapping_fingerprint
+        except NativeCaseMappingError as exc:
+            raise FlowGuardSelfBlueprintError(
+                f"native case mapping registry is invalid: {exc}"
+            ) from exc
     return _consumed_self_blueprint_build_input_identity(
         authority_report=authority_report,
         authority=authority,
@@ -3085,6 +3229,7 @@ def capture_flowguard_self_blueprint_build_input_identity(
         files=files,
         semantic_mesh=semantic_mesh,
         model_regression_evidence=model_regression_evidence,
+        native_case_mapping_fingerprint=native_case_mapping_fingerprint,
     )
 
 
@@ -3165,14 +3310,24 @@ def _validate_self_blueprint_materialization_invariants(bundle: Any) -> None:
         protected_failures = {
             failure_id
             for case in cases
-            if case.case_kind == "bad"
+            if case.case_kind in {"bad", "good"}
             for failure_id in case.protected_failure_ids
         }
+        primary_good_count = sum(
+            case.case_kind == "good" and not case.protected_failure_ids
+            for case in cases
+        )
+        preservation_good_count = sum(
+            case.case_kind == "good" and bool(case.protected_failure_ids)
+            for case in cases
+        )
+        bad_count = kinds.count("bad")
         if (
             len(cases) != expected_count
-            or kinds.count("good") != 1
+            or primary_good_count != 1
             or kinds.count("boundary") != 1
-            or kinds.count("bad") != len(contract.protected_failure_ids)
+            or bad_count + preservation_good_count
+            != len(contract.protected_failure_ids)
             or protected_failures != set(contract.protected_failure_ids)
             or any(
                 case.parameter_case_id != case.case_id or not case.source_case_id
@@ -3213,6 +3368,9 @@ def _validate_self_blueprint_materialization_invariants(bundle: Any) -> None:
 
 def build_flowguard_self_blueprint(
     root: str | Path,
+    *,
+    require_executed_evidence: bool = False,
+    model_receipt_dir: str | Path | None = None,
 ) -> FlowGuardSelfBlueprintBundle:
     root_path = Path(root).resolve()
     authority_report = _require_current_model_authority(root_path)
@@ -3312,22 +3470,93 @@ def build_flowguard_self_blueprint(
         resources,
         observed_snapshot_fingerprint=observed_snapshot_fingerprint,
     )
+    current_self_path_quality = None
+    if set(accepted_revision.required_path_quality_model_ids) != set(entries):
+        # An incremental accepted revision is allowed to carry only its exact
+        # affected model denominator.  Build the whole self view from the
+        # native ModelMaturation provider once, against the same observed
+        # snapshot, so unchanged owners are neither inherited nor re-run by a
+        # caller-controlled retry loop.
+        _observed_head, observed_snapshot = load_observed_model_system(root_path)
+        current_self_path_quality = compile_flowguard_self_path_quality_material(
+            root_path,
+            observed_snapshot,
+        )
     path_quality_bindings = _self_path_quality_bindings(
         accepted_revision,
         observed_snapshot_fingerprint=observed_snapshot_fingerprint,
         owners=owners,
+        current_material=current_self_path_quality,
     )
     semantic_mesh_path = root_path / ".flowguard/models/owners/authoritative_model_system/semantic_model_mesh.json"
     semantic_mesh = _load_json_object(semantic_mesh_path)
     try:
+        resolver_kwargs = (
+            {"receipt_dir": model_receipt_dir}
+            if model_receipt_dir is not None
+            else {}
+        )
         model_regression_evidence = resolve_current_full_model_regression_parent(
-            root_path
+            root_path,
+            **resolver_kwargs,
         )
     except ModelRegressionEvidenceError as exc:
         raise FlowGuardSelfBlueprintError(
             "FlowGuard self-blueprint lacks one unique exact-current full model "
             f"parent with independently verified children: {exc}"
         ) from exc
+    # The parent proves only exact composition.  Project behavior execution
+    # consumes each independently verified model-owner leaf and its explicit
+    # native case projection; it never treats the parent receipt as a leaf.
+    model_manifest = ModelRegressionManifest.load(root_path)
+    model_entries = {
+        entry.model_id: entry for entry in model_manifest.entries
+    }
+    model_owner_contracts = tuple(
+        _model_owner_contract(
+            root_path,
+            model_manifest,
+            model_entries[owner.owner_id.removeprefix("model:")],
+        )
+        for owner in owners
+        if owner.owner_id.removeprefix("model:") in model_entries
+    )
+    # The checked-in registry is an optional projection for legacy/static
+    # blueprint reads, but once present it becomes the only native-to-behavior
+    # mapping source.  Never inspect the audit Markdown at runtime or derive a
+    # binding from a similar case name.  A malformed registry is a hard input
+    # error; an incomplete registry is carried into the execution package as a
+    # visible binding-inventory gap.
+    native_case_bindings_by_owner = {}
+    native_case_mapping_fingerprint = ""
+    native_case_mapping_path = (
+        root_path / ".flowguard" / "models" / "native-case-mapping.json"
+    )
+    if native_case_mapping_path.exists():
+        try:
+            native_case_mapping = load_native_case_mapping(native_case_mapping_path)
+            native_case_mapping.assert_current_manifest(root_path)
+        except NativeCaseMappingError as exc:
+            raise FlowGuardSelfBlueprintError(
+                f"native case mapping registry is invalid: {exc}"
+            ) from exc
+        native_case_bindings_by_owner = dict(native_case_mapping.bindings_by_owner)
+        native_case_mapping_fingerprint = native_case_mapping.mapping_fingerprint
+    required_case_ids_by_owner = {
+        owner.owner_id: tuple(
+            case.case_id for case in owner.behavior_case_contracts
+        )
+        for owner in owners
+    }
+    execution_evidence = build_model_regression_execution_evidence(
+        model_regression_evidence,
+        required_case_ids_by_owner=required_case_ids_by_owner,
+        coverage_edge_count=sum(
+            6 * len(owner.behavior_case_contracts) for owner in owners
+        ),
+        validation_owner_contracts=model_owner_contracts,
+        native_case_bindings_by_owner=native_case_bindings_by_owner,
+    )
     build_input_identity = _consumed_self_blueprint_build_input_identity(
         authority_report=authority_report,
         authority=authority,
@@ -3336,6 +3565,7 @@ def build_flowguard_self_blueprint(
         files=files,
         semantic_mesh=semantic_mesh,
         model_regression_evidence=model_regression_evidence,
+        native_case_mapping_fingerprint=native_case_mapping_fingerprint,
     )
     (
         topology_nodes,
@@ -3522,6 +3752,8 @@ def build_flowguard_self_blueprint(
             row.helper_id: row.source_fingerprint
             for row in delegated_assertion_helpers
         },
+        execution_evidence=execution_evidence,
+        require_executed_evidence=require_executed_evidence,
     )
     provider_results = collect_project_blueprint_provider_results(preparation)
     frozen_target_evidence = freeze_project_blueprint_evidence(
@@ -3530,6 +3762,7 @@ def build_flowguard_self_blueprint(
     bundle = _qualify_project_blueprint(
         preparation,
         frozen_target_evidence,
+        require_executed_evidence=require_executed_evidence,
         affected_surface_ids=tuple(
             row.surface_id
             for row in preparation.inventory.surfaces
@@ -3635,6 +3868,7 @@ def build_flowguard_self_blueprint(
         build_input_identity=build_input_identity,
         project_bundle=bundle,
         dna_qualification=dna_qualification,
+        execution_evidence=execution_evidence,
     )
 
 

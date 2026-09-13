@@ -28,6 +28,23 @@ def _relation(
 
 
 class CanonicalRelationHandoffTests(unittest.TestCase):
+
+    def test_evidence_current_rejects_truthy_non_boolean_values(self):
+        relation = {
+            "relation_id": "relation:strict-bool",
+            "relation_type": "shared_mechanism",
+            "source_endpoint_kind": "model",
+            "source_endpoint_id": "model:a",
+            "target_endpoint_kind": "model",
+            "target_endpoint_id": "model:b",
+        }
+        for value in ("false", "true", 0, 1, None, [], {}):
+            with self.subTest(value=value):
+                with self.assertRaises(TypeError):
+                    CanonicalRelationHandoff(
+                        relations=(relation,),
+                        evidence_current=value,
+                    )
     def test_keeps_only_exact_current_relation_inputs(self):
         relation = _relation()
         handoff = CanonicalRelationHandoff(

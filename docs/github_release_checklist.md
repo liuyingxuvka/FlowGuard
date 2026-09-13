@@ -170,7 +170,16 @@ The final parent must remain in the foreground. If it times out or is
 interrupted, confirm the complete descendant process tree is gone before
 starting another owner. Bind the resulting parent receipt to the frozen local
 candidate with `scripts/verify_flowguard_release.py`; after that succeeds, do
-not edit, install, synchronize, or stage again before commit and tag.
+not edit, install, synchronize, stage, or change any OpenSpec checkbox again.
+
+This is an explicit post-archive gate. The source-controlled OpenSpec change
+must already be archived before the command above starts. The final parent,
+commit, tag, publication, published-identity comparison, and predictive-KB
+postflight are output evidence and release operations; none may be made to
+look complete by editing `openspec/changes/**/tasks.md` after the parent runs.
+If a post-archive operation discovers a governed source or specification
+defect, stop and create a new version/change; never move the tag or reopen the
+completed source task list inside the same completion epoch.
 
 ## Source-only Release
 

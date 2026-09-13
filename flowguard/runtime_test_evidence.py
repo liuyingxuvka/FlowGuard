@@ -731,6 +731,55 @@ class RuntimeTestEvidenceReport:
         return _count_projection(self.leaves)
 
     @property
+    def executed_case_ids(self) -> tuple[str, ...]:
+        """Concrete native leaf identities that actually reached execution.
+
+        The projection is derived only from reconciled concrete leaves.  It
+        never expands a static parent node, trusts a parent count, or invents
+        parameter IDs.  Reused leaves are intentionally excluded: callers
+        that want the full current evidence set can use ``executed_or_reused``.
+        """
+
+        return tuple(
+            leaf.pytest_nodeid
+            for leaf in self.leaves
+            if leaf.execution_status == RUNTIME_TEST_EXECUTION_EXECUTED
+        )
+
+    @property
+    def executed_or_reused_case_ids(self) -> tuple[str, ...]:
+        """Concrete leaf identities with either a native execution or reuse."""
+
+        return tuple(
+            leaf.pytest_nodeid
+            for leaf in self.leaves
+            if leaf.execution_status
+            in {
+                RUNTIME_TEST_EXECUTION_EXECUTED,
+                RUNTIME_TEST_EXECUTION_REUSED,
+            }
+        )
+
+    @property
+    def execution_complete(self) -> bool:
+        """Whether every planned leaf is a terminal native pass with no gaps."""
+
+        return bool(
+            self.leaves
+            and self.counts["planned_count"] > 0
+            and self.ok
+            and all(
+                leaf.planned
+                and leaf.selected
+                and leaf.execution_status
+                == RUNTIME_TEST_EXECUTION_EXECUTED
+                and leaf.outcome == RUNTIME_TEST_OUTCOME_PASSED
+                for leaf in self.leaves
+                if leaf.planned
+            )
+        )
+
+    @property
     def ok(self) -> bool:
         return not any(item.severity == "blocker" for item in self.findings)
 

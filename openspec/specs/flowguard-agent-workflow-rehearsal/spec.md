@@ -10,12 +10,16 @@ FlowGuard SHALL treat AgentWorkflowRehearsal as the `agent_workflow` mode owned
 by `flowguard-development-process-flow`. It SHALL NOT be installed, routed,
 aliased, or invoked as a separate public skill.
 
-#### Scenario: Generic multi-skill work enters simulator first
+#### Scenario: Generic multi-skill work reaches the simulator front door
 - **WHEN** an agent is asked to plan non-trivial work involving several skills,
   tools, plugins, external actions, skipped-skill consequences, or side effects
   without explicitly naming AgentWorkflowRehearsal
 - **THEN** Codex routes first to `flowguard-development-process-flow`
-- **AND** the owner records and executes its internal `agent_workflow` mode
+- **AND** the owner records `agent_workflow` only when explicit rehearsal,
+  cross-owner/shared-write, post-validation-invalidating-write,
+  agent/route-workflow-change, or multiple-independent-owner irreversible-risk
+  facts are present
+- **AND** capability labels alone leave the internal mode `not_triggered`
 
 #### Scenario: Explicit rehearsal selects the owner mode
 - **WHEN** the user or an existing FlowGuard artifact explicitly asks for
@@ -179,7 +183,7 @@ AgentWorkflowRehearsal SHALL expose a completion ledger in its report with plann
 - **THEN** the report lists the affected step or skill in the completion ledger's blocked or required-recheck fields
 
 ### Requirement: Rehearsal consumes plan-detail handoff for plan discussions
-AgentWorkflowRehearsal SHALL treat a PlanDetail projection as the structured workflow handoff when a non-trivial plan discussion selects multiple skills, tools, agents, side effects, or validation routes.
+AgentWorkflowRehearsal SHALL treat a PlanDetail projection as the structured workflow handoff when a non-trivial plan discussion has passed the internal risk-admission gate and selects multiple skills, tools, agents, side effects, or validation routes.
 
 #### Scenario: Multi-skill plan uses projected steps
 - **WHEN** a PlanDetail projection supplies selected skills, ordered steps, evidence gates, side effects, and rework targets
