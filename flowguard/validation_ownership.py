@@ -649,10 +649,14 @@ def _git_candidate_paths(
         # bounded pathspec queries, then union their relative paths.  The
         # output-only exclusions remain on the untracked query so a broad
         # selector cannot reopen immutable evidence/history/run trees.
+        # Keep the tracked query to positive pathspec batches only.  Mixing a
+        # large literal batch with the exclusion pathspecs can make supported
+        # Windows Git builds drop otherwise valid late-batch matches.  Apply
+        # the same canonical output filter to the union below instead.
         tracked = _git_bytes_from_pathspec_file(
             root,
             ("ls-files", "-z", "--cached"),
-            (*git_patterns, *_GIT_OUTPUT_EXCLUDES),
+            git_patterns,
         )
         untracked = _git_bytes_from_pathspec_file(
             root,
@@ -681,9 +685,11 @@ def _git_candidate_paths(
     return tuple(
         sorted(
             {
-                item.decode("utf-8").replace("\\", "/")
+                relative
                 for item in raw.split(b"\0")
                 if item
+                for relative in (item.decode("utf-8").replace("\\", "/"),)
+                if not _is_evidence_output(relative)
             }
         )
     )

@@ -1,0 +1,3018 @@
+{
+  "claim_boundary": "Author-side semantic map for one FlowGuard skill. It proves exact current joins only; it does not replace native check execution or release evidence.",
+  "current_obligation_ids": [
+    "obligation:flowguard:plane-boundary",
+    "obligation:flowguard:native-authority",
+    "obligation:flowguard:evidence-closure",
+    "obligation:flowguard:model-maturation-closure",
+    "obligation:flowguard:understanding-readiness",
+    "obligation:flowguard:model-revision-build"
+  ],
+  "decision_rules": [
+    {
+      "proof_ref": ".skillguard/contract-source.json#obligations",
+      "reason": "The target author directly assigns each source observation to the current skill contract; no name, history, test, or fallback inference is used.",
+      "rule_id": "decision:flowguard-skill-current-source-boundary"
+    }
+  ],
+  "full_surface_ids": [
+    "api:assets/guard_closure_contract.py:main",
+    "api:assets/guard_closure_contract.py:review_many",
+    "api:assets/guard_closure_contract.py:review_report",
+    "api:assets/model_template/model.py:Accepted",
+    "api:assets/model_template/model.py:BrokenStoreAccepted",
+    "api:assets/model_template/model.py:BrokenValidateInput",
+    "api:assets/model_template/model.py:Input",
+    "api:assets/model_template/model.py:Rejected",
+    "api:assets/model_template/model.py:State",
+    "api:assets/model_template/model.py:StoreAccepted",
+    "api:assets/model_template/model.py:Stored",
+    "api:assets/model_template/model.py:ValidateInput",
+    "api:assets/model_template/model.py:broken_workflow",
+    "api:assets/model_template/model.py:build_workflow",
+    "api:assets/model_template/model.py:every_store_was_accepted",
+    "api:assets/model_template/model.py:initial_state",
+    "api:assets/model_template/model.py:no_duplicate_stores",
+    "api:assets/model_template/model.py:terminal_predicate",
+    "api:assets/model_template/run_checks.py:build_plan",
+    "api:assets/model_template/run_checks.py:known_bad_proof_from_summary",
+    "api:assets/model_template/run_checks.py:main",
+    "api:assets/toolchain_preflight.py:check_toolchain",
+    "api:assets/toolchain_preflight.py:install_editable",
+    "api:assets/toolchain_preflight.py:main",
+    "artifact:agents/openai.yaml",
+    "component:assets/guard_closure_contract.py",
+    "component:assets/toolchain_preflight.py",
+    "config:.skillguard/contract-source.json",
+    "effect:assets/model_template/model.py:BrokenStoreAccepted",
+    "effect:assets/model_template/model.py:BrokenValidateInput",
+    "effect:assets/model_template/model.py:StoreAccepted",
+    "effect:assets/model_template/model.py:ValidateInput",
+    "effect:assets/toolchain_preflight.py:install_editable",
+    "fault:assets/model_template/model.py:Rejected",
+    "fault:assets/model_template/model.py:ValidateInput",
+    "fault:assets/model_template/model.py:every_store_was_accepted",
+    "fault:assets/model_template/model.py:no_duplicate_stores",
+    "script:assets/guard_closure_contract.py",
+    "script:assets/model_template/run_checks.py",
+    "script:assets/toolchain_preflight.py",
+    "template:SKILL.md",
+    "template:references/adoption_protocol.md",
+    "template:references/code_structure_recommendation_protocol.md",
+    "template:references/conformance_adoption_protocol.md",
+    "template:references/development_process_flow_protocol.md",
+    "template:references/framework_upgrade_protocol.md",
+    "template:references/invariant_examples.md",
+    "template:references/long_check_protocol.md",
+    "template:references/model_mesh_protocol.md",
+    "template:references/model_miss_protocol.md",
+    "template:references/model_test_alignment_protocol.md",
+    "template:references/modeling_core_protocol.md",
+    "template:references/modeling_evidence_protocol.md",
+    "template:references/modeling_protocol.md",
+    "template:references/project_integration.md",
+    "template:references/route_execution_contract.md",
+    "template:references/route_index.md",
+    "template:references/skill_kernel_protocol.md",
+    "template:references/structure_mesh_protocol.md",
+    "template:references/test_mesh_protocol.md"
+  ],
+  "map_hash": "sha256:89b90ccf4106c05bc5b89085c60a5eb7f4abeca0173cb72aaa3873739cc95f74",
+  "map_id": "map:flowguard:surface-semantics-direct-current-r2",
+  "obligation_bindings": [
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard:plane-boundary",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard:plane-boundary",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "api:assets/guard_closure_contract.py:main",
+        "api:assets/guard_closure_contract.py:review_many",
+        "api:assets/guard_closure_contract.py:review_report",
+        "api:assets/model_template/model.py:Accepted",
+        "api:assets/model_template/model.py:BrokenStoreAccepted",
+        "api:assets/model_template/model.py:BrokenValidateInput",
+        "api:assets/model_template/model.py:Input",
+        "api:assets/model_template/model.py:Rejected",
+        "api:assets/model_template/model.py:State",
+        "api:assets/model_template/model.py:StoreAccepted",
+        "api:assets/model_template/model.py:Stored",
+        "api:assets/model_template/model.py:ValidateInput",
+        "api:assets/model_template/model.py:broken_workflow",
+        "api:assets/model_template/model.py:build_workflow",
+        "api:assets/model_template/model.py:every_store_was_accepted",
+        "api:assets/model_template/model.py:initial_state",
+        "api:assets/model_template/model.py:no_duplicate_stores",
+        "api:assets/model_template/model.py:terminal_predicate",
+        "api:assets/model_template/run_checks.py:build_plan",
+        "api:assets/model_template/run_checks.py:known_bad_proof_from_summary",
+        "api:assets/model_template/run_checks.py:main",
+        "api:assets/toolchain_preflight.py:check_toolchain",
+        "api:assets/toolchain_preflight.py:install_editable",
+        "api:assets/toolchain_preflight.py:main",
+        "artifact:agents/openai.yaml",
+        "component:assets/guard_closure_contract.py",
+        "component:assets/toolchain_preflight.py",
+        "config:.skillguard/contract-source.json",
+        "effect:assets/model_template/model.py:BrokenStoreAccepted",
+        "effect:assets/model_template/model.py:BrokenValidateInput",
+        "effect:assets/model_template/model.py:StoreAccepted",
+        "effect:assets/model_template/model.py:ValidateInput",
+        "effect:assets/toolchain_preflight.py:install_editable",
+        "fault:assets/model_template/model.py:Rejected",
+        "fault:assets/model_template/model.py:ValidateInput",
+        "fault:assets/model_template/model.py:every_store_was_accepted",
+        "fault:assets/model_template/model.py:no_duplicate_stores",
+        "script:assets/guard_closure_contract.py",
+        "script:assets/model_template/run_checks.py",
+        "script:assets/toolchain_preflight.py",
+        "template:SKILL.md",
+        "template:references/adoption_protocol.md",
+        "template:references/code_structure_recommendation_protocol.md",
+        "template:references/conformance_adoption_protocol.md",
+        "template:references/development_process_flow_protocol.md",
+        "template:references/framework_upgrade_protocol.md",
+        "template:references/invariant_examples.md",
+        "template:references/long_check_protocol.md",
+        "template:references/model_mesh_protocol.md",
+        "template:references/model_miss_protocol.md",
+        "template:references/model_test_alignment_protocol.md",
+        "template:references/modeling_core_protocol.md",
+        "template:references/modeling_evidence_protocol.md",
+        "template:references/modeling_protocol.md",
+        "template:references/project_integration.md",
+        "template:references/route_execution_contract.md",
+        "template:references/route_index.md",
+        "template:references/skill_kernel_protocol.md",
+        "template:references/structure_mesh_protocol.md",
+        "template:references/test_mesh_protocol.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard:native-authority",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard:native-authority",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard:evidence-closure",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard:evidence-closure",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md",
+        "template:references/adoption_protocol.md",
+        "template:references/code_structure_recommendation_protocol.md",
+        "template:references/conformance_adoption_protocol.md",
+        "template:references/development_process_flow_protocol.md",
+        "template:references/framework_upgrade_protocol.md",
+        "template:references/invariant_examples.md",
+        "template:references/long_check_protocol.md",
+        "template:references/model_mesh_protocol.md",
+        "template:references/model_miss_protocol.md",
+        "template:references/model_test_alignment_protocol.md",
+        "template:references/modeling_core_protocol.md",
+        "template:references/modeling_evidence_protocol.md",
+        "template:references/modeling_protocol.md",
+        "template:references/project_integration.md",
+        "template:references/route_execution_contract.md",
+        "template:references/route_index.md",
+        "template:references/skill_kernel_protocol.md",
+        "template:references/structure_mesh_protocol.md",
+        "template:references/test_mesh_protocol.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard:model-maturation-closure",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard:model-maturation-closure",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard:understanding-readiness",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard:understanding-readiness",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard:model-revision-build",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard:model-revision-build",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md"
+      ]
+    }
+  ],
+  "schema_version": "flowguard.skill_surface_semantic_map.v1",
+  "source_discovery_fingerprint": "sha256:32fbd9bde7c564a3e6ec2a125e22fb55bd700cdc921f810c92f319d6496d2b7b",
+  "surface_bindings": [
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/guard_closure_contract.py:main"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.guard_closure_contract.main",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.guard_closure_contract.main",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:9f2c458003c511d24b964b5b",
+      "route_id": "api:assets.guard_closure_contract.main",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:3f3e87fbc9673dcc9196872d0c4489bd2632fbbf647ead3706c3829303456724",
+      "source_path": "assets/guard_closure_contract.py",
+      "surface_id": "api:assets/guard_closure_contract.py:main",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/guard_closure_contract.py:review_many"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.guard_closure_contract.review_many",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.guard_closure_contract.review_many",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:a0652f96c5574bac3d0bcbff",
+      "route_id": "api:assets.guard_closure_contract.review_many",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:3f3e87fbc9673dcc9196872d0c4489bd2632fbbf647ead3706c3829303456724",
+      "source_path": "assets/guard_closure_contract.py",
+      "surface_id": "api:assets/guard_closure_contract.py:review_many",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/guard_closure_contract.py:review_report"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.guard_closure_contract.review_report",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.guard_closure_contract.review_report",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:2c14e96cfa9be29122ded1c6",
+      "route_id": "api:assets.guard_closure_contract.review_report",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:3f3e87fbc9673dcc9196872d0c4489bd2632fbbf647ead3706c3829303456724",
+      "source_path": "assets/guard_closure_contract.py",
+      "surface_id": "api:assets/guard_closure_contract.py:review_report",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:Accepted"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.Accepted",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.Accepted",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:eb843cb19bd0c45023f5187c",
+      "route_id": "api:assets.model_template.model.Accepted",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:Accepted",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:BrokenStoreAccepted"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.BrokenStoreAccepted",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.BrokenStoreAccepted",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:7c1a1c1029ed15d7c0b67bb1",
+      "route_id": "api:assets.model_template.model.BrokenStoreAccepted",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:BrokenStoreAccepted",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:BrokenValidateInput"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.BrokenValidateInput",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.BrokenValidateInput",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:f1b5fbc484a3b7fe9df73d3b",
+      "route_id": "api:assets.model_template.model.BrokenValidateInput",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:BrokenValidateInput",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:Input"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.Input",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.Input",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:591a683dfce392e51330cdff",
+      "route_id": "api:assets.model_template.model.Input",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:Input",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:Rejected"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.Rejected",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.Rejected",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:85ff42e397f4111f53a7981e",
+      "route_id": "api:assets.model_template.model.Rejected",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:Rejected",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:State"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.State",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.State",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:de379f65159a466f111cf715",
+      "route_id": "api:assets.model_template.model.State",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:State",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:StoreAccepted"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.StoreAccepted",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.StoreAccepted",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:689b372ef2c9c7ce3efe248a",
+      "route_id": "api:assets.model_template.model.StoreAccepted",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:StoreAccepted",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:Stored"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.Stored",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.Stored",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:c71c32e603215ea40b7adad4",
+      "route_id": "api:assets.model_template.model.Stored",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:Stored",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:ValidateInput"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.ValidateInput",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.ValidateInput",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:9cb9cd55eac234f185d631ba",
+      "route_id": "api:assets.model_template.model.ValidateInput",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:ValidateInput",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:broken_workflow"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.broken_workflow",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.broken_workflow",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:bfc56b6ab9dbd366c3c97f4e",
+      "route_id": "api:assets.model_template.model.broken_workflow",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:broken_workflow",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:build_workflow"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.build_workflow",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.build_workflow",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:c8844003b070f14e7b10965c",
+      "route_id": "api:assets.model_template.model.build_workflow",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:build_workflow",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:every_store_was_accepted"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.every_store_was_accepted",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.every_store_was_accepted",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:c76aeee0c7d86c331500b425",
+      "route_id": "api:assets.model_template.model.every_store_was_accepted",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:every_store_was_accepted",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:initial_state"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.initial_state",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.initial_state",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:25b5ae0ff8c44fb01100c11b",
+      "route_id": "api:assets.model_template.model.initial_state",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:initial_state",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:no_duplicate_stores"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.no_duplicate_stores",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.no_duplicate_stores",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:62ed5a300d9371e3c0674c9d",
+      "route_id": "api:assets.model_template.model.no_duplicate_stores",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:no_duplicate_stores",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/model.py:terminal_predicate"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.terminal_predicate",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.terminal_predicate",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:141fd6c9cb1f2496c539478c",
+      "route_id": "api:assets.model_template.model.terminal_predicate",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "api:assets/model_template/model.py:terminal_predicate",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/run_checks.py:build_plan"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.run_checks.build_plan",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.run_checks.build_plan",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:d740bca8e35393d5653bbc9c",
+      "route_id": "api:assets.model_template.run_checks.build_plan",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:c2505068d8d04abd4244c9de1a2e9f7e73b87a92566731808f56f75696d57e97",
+      "source_path": "assets/model_template/run_checks.py",
+      "surface_id": "api:assets/model_template/run_checks.py:build_plan",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/run_checks.py:known_bad_proof_from_summary"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.run_checks.known_bad_proof_from_summary",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.run_checks.known_bad_proof_from_summary",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:3e0c66ed454dc1c19342fe77",
+      "route_id": "api:assets.model_template.run_checks.known_bad_proof_from_summary",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:c2505068d8d04abd4244c9de1a2e9f7e73b87a92566731808f56f75696d57e97",
+      "source_path": "assets/model_template/run_checks.py",
+      "surface_id": "api:assets/model_template/run_checks.py:known_bad_proof_from_summary",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/model_template/run_checks.py:main"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.run_checks.main",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.run_checks.main",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:059a9f536d28303c3fd7a822",
+      "route_id": "api:assets.model_template.run_checks.main",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:c2505068d8d04abd4244c9de1a2e9f7e73b87a92566731808f56f75696d57e97",
+      "source_path": "assets/model_template/run_checks.py",
+      "surface_id": "api:assets/model_template/run_checks.py:main",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/toolchain_preflight.py:check_toolchain"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.toolchain_preflight.check_toolchain",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.toolchain_preflight.check_toolchain",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:8238a184eef32a32fa5e9a36",
+      "route_id": "api:assets.toolchain_preflight.check_toolchain",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a1547dadd6a86c3bef4ee3abcfc4de4deadcccc8fffbc6471c169193a8d88a1d",
+      "source_path": "assets/toolchain_preflight.py",
+      "surface_id": "api:assets/toolchain_preflight.py:check_toolchain",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/toolchain_preflight.py:install_editable"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.toolchain_preflight.install_editable",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.toolchain_preflight.install_editable",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:be4d823600ae9bcd876073bf",
+      "route_id": "api:assets.toolchain_preflight.install_editable",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a1547dadd6a86c3bef4ee3abcfc4de4deadcccc8fffbc6471c169193a8d88a1d",
+      "source_path": "assets/toolchain_preflight.py",
+      "surface_id": "api:assets/toolchain_preflight.py:install_editable",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:api:assets/toolchain_preflight.py:main"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.toolchain_preflight.main",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "api",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.toolchain_preflight.main",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:02a892147c05f6dfe31c56cb",
+      "route_id": "api:assets.toolchain_preflight.main",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a1547dadd6a86c3bef4ee3abcfc4de4deadcccc8fffbc6471c169193a8d88a1d",
+      "source_path": "assets/toolchain_preflight.py",
+      "surface_id": "api:assets/toolchain_preflight.py:main",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:artifact:agents/openai.yaml"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "artifact:agents/openai.yaml",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "artifact",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "agents/openai.yaml",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:d9efd0b752469e1fc3464d11",
+      "route_id": "artifact:agents/openai.yaml",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:4410b117aea481216686c101ce3d8e821911557095c6cf296a290b21d1fafd9e",
+      "source_path": "agents/openai.yaml",
+      "surface_id": "artifact:agents/openai.yaml",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "component_members": [
+        "_as_list",
+        "_load"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:component:assets/guard_closure_contract.py"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "component:assets.guard_closure_contract",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "component",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.guard_closure_contract.__private_components__",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "component",
+      "review_group_id": "group:component:43d54e0cd91a1c007d3754d4",
+      "route_id": "component:assets.guard_closure_contract",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:3f3e87fbc9673dcc9196872d0c4489bd2632fbbf647ead3706c3829303456724",
+      "source_path": "assets/guard_closure_contract.py",
+      "surface_id": "component:assets/guard_closure_contract.py",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "component_members": [
+        "_has_flowguard_package",
+        "_pythonpath_env",
+        "_run_import",
+        "_source_candidates",
+        "_source_root"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:component:assets/toolchain_preflight.py"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "component:assets.toolchain_preflight",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "component",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.toolchain_preflight.__private_components__",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "component",
+      "review_group_id": "group:component:9b48790942f1cb1e5c537f31",
+      "route_id": "component:assets.toolchain_preflight",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a1547dadd6a86c3bef4ee3abcfc4de4deadcccc8fffbc6471c169193a8d88a1d",
+      "source_path": "assets/toolchain_preflight.py",
+      "surface_id": "component:assets/toolchain_preflight.py",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:config:.skillguard/contract-source.json"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "config:.skillguard/contract-source.json",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "config",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:native-authority",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": ".skillguard/contract-source.json",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:10513a60240614296b758ebb",
+      "route_id": "config:.skillguard/contract-source.json",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:2a3bde33bd10dd1c8793237b73b4b021fe4cf0d6b1f60cc6bb825f37f923c642",
+      "source_path": ".skillguard/contract-source.json",
+      "surface_id": "config:.skillguard/contract-source.json",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:effect:assets/model_template/model.py:BrokenStoreAccepted"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.BrokenStoreAccepted",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "effect",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.BrokenStoreAccepted",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "component",
+      "review_group_id": "group:component:34229faf98d96de33c9fb714",
+      "route_id": "effect:assets.model_template.model.BrokenStoreAccepted",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "effect:assets/model_template/model.py:BrokenStoreAccepted",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:effect:assets/model_template/model.py:BrokenValidateInput"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.BrokenValidateInput",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "effect",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.BrokenValidateInput",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "component",
+      "review_group_id": "group:component:34229faf98d96de33c9fb714",
+      "route_id": "effect:assets.model_template.model.BrokenValidateInput",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "effect:assets/model_template/model.py:BrokenValidateInput",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:effect:assets/model_template/model.py:StoreAccepted"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.StoreAccepted",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "effect",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.StoreAccepted",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "component",
+      "review_group_id": "group:component:34229faf98d96de33c9fb714",
+      "route_id": "effect:assets.model_template.model.StoreAccepted",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "effect:assets/model_template/model.py:StoreAccepted",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:effect:assets/model_template/model.py:ValidateInput"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.ValidateInput",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "effect",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.ValidateInput",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "component",
+      "review_group_id": "group:component:34229faf98d96de33c9fb714",
+      "route_id": "effect:assets.model_template.model.ValidateInput",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "effect:assets/model_template/model.py:ValidateInput",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:effect:assets/toolchain_preflight.py:install_editable"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.toolchain_preflight.install_editable",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "effect",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.toolchain_preflight.install_editable",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "component",
+      "review_group_id": "group:component:9b48790942f1cb1e5c537f31",
+      "route_id": "effect:assets.toolchain_preflight.install_editable",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a1547dadd6a86c3bef4ee3abcfc4de4deadcccc8fffbc6471c169193a8d88a1d",
+      "source_path": "assets/toolchain_preflight.py",
+      "surface_id": "effect:assets/toolchain_preflight.py:install_editable",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:fault:assets/model_template/model.py:Rejected"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.Rejected",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "fault",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.Rejected",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "component",
+      "review_group_id": "group:component:34229faf98d96de33c9fb714",
+      "route_id": "fault:assets.model_template.model.Rejected",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "fault:assets/model_template/model.py:Rejected",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:fault:assets/model_template/model.py:ValidateInput"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.ValidateInput",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "fault",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.ValidateInput",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "component",
+      "review_group_id": "group:component:34229faf98d96de33c9fb714",
+      "route_id": "fault:assets.model_template.model.ValidateInput",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "fault:assets/model_template/model.py:ValidateInput",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:fault:assets/model_template/model.py:every_store_was_accepted"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.every_store_was_accepted",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "fault",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.every_store_was_accepted",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "component",
+      "review_group_id": "group:component:34229faf98d96de33c9fb714",
+      "route_id": "fault:assets.model_template.model.every_store_was_accepted",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "fault:assets/model_template/model.py:every_store_was_accepted",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:fault:assets/model_template/model.py:no_duplicate_stores"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.model.no_duplicate_stores",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "fault",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets.model_template.model.no_duplicate_stores",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "component",
+      "review_group_id": "group:component:34229faf98d96de33c9fb714",
+      "route_id": "fault:assets.model_template.model.no_duplicate_stores",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a98792a4e22b570f4b7b3d8dec05c939ae25f68061026e416c0c45aff929eca9",
+      "source_path": "assets/model_template/model.py",
+      "surface_id": "fault:assets/model_template/model.py:no_duplicate_stores",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:script:assets/guard_closure_contract.py"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.guard_closure_contract.main",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "script",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets/guard_closure_contract.py",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:9ab457fb20dcf088c919d358",
+      "route_id": "entry:assets/guard_closure_contract.py",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:3f3e87fbc9673dcc9196872d0c4489bd2632fbbf647ead3706c3829303456724",
+      "source_path": "assets/guard_closure_contract.py",
+      "surface_id": "script:assets/guard_closure_contract.py",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:script:assets/model_template/run_checks.py"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.model_template.run_checks.main",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "script",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets/model_template/run_checks.py",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:d2b6d8054631d03cffb369f2",
+      "route_id": "entry:assets/model_template/run_checks.py",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:c2505068d8d04abd4244c9de1a2e9f7e73b87a92566731808f56f75696d57e97",
+      "source_path": "assets/model_template/run_checks.py",
+      "surface_id": "script:assets/model_template/run_checks.py",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:script:assets/toolchain_preflight.py"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "assets.toolchain_preflight.main",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "script",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "assets/toolchain_preflight.py",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:d06950fd7451ec2569cd9d2c",
+      "route_id": "entry:assets/toolchain_preflight.py",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:a1547dadd6a86c3bef4ee3abcfc4de4deadcccc8fffbc6471c169193a8d88a1d",
+      "source_path": "assets/toolchain_preflight.py",
+      "surface_id": "script:assets/toolchain_preflight.py",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:SKILL.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:SKILL.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:model-maturation-closure",
+        "obligation:flowguard:model-revision-build",
+        "obligation:flowguard:native-authority",
+        "obligation:flowguard:plane-boundary",
+        "obligation:flowguard:understanding-readiness"
+      ],
+      "name": "SKILL.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:45d8dca86b7e8a7dd698b75b",
+      "route_id": "template:SKILL.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:3707ca692617a0ce00fdd83e0000fcf783fa95076494996f795a65925f56419b",
+      "source_path": "SKILL.md",
+      "surface_id": "template:SKILL.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/adoption_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/adoption_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/adoption_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:0bae0e7f97befaa96fb7581e",
+      "route_id": "template:references/adoption_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:ad8760e59ee6bdb433ee87131a53b6667dd0bfb33c0eef7ff8b17ff8706a9be7",
+      "source_path": "references/adoption_protocol.md",
+      "surface_id": "template:references/adoption_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/code_structure_recommendation_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/code_structure_recommendation_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/code_structure_recommendation_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:8c57c3aa50e94f345eef6ed6",
+      "route_id": "template:references/code_structure_recommendation_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:d159f2a98aa20687c94cc513b6df8455b46bc20d30fdecb143b4d82916ad1db1",
+      "source_path": "references/code_structure_recommendation_protocol.md",
+      "surface_id": "template:references/code_structure_recommendation_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/conformance_adoption_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/conformance_adoption_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/conformance_adoption_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:3cb6de6288e9f9443657c06f",
+      "route_id": "template:references/conformance_adoption_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:2020581c1986a304863a2a14ff212e0add85fde3c86c4151f281a358e53d4920",
+      "source_path": "references/conformance_adoption_protocol.md",
+      "surface_id": "template:references/conformance_adoption_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/development_process_flow_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/development_process_flow_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/development_process_flow_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:bb0af87cc74455794d56422f",
+      "route_id": "template:references/development_process_flow_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:ebd3ed3d34598af33d47018b217d650cc2b644b88b6262171a624ee35d7f0078",
+      "source_path": "references/development_process_flow_protocol.md",
+      "surface_id": "template:references/development_process_flow_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/framework_upgrade_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/framework_upgrade_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/framework_upgrade_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:ba00e587eacb2c01ffe4757e",
+      "route_id": "template:references/framework_upgrade_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:092d55e16f02d25ee2ba5df88633fd94413eaa135f6bf6bc0d76fc068cc8e1f6",
+      "source_path": "references/framework_upgrade_protocol.md",
+      "surface_id": "template:references/framework_upgrade_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/invariant_examples.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/invariant_examples.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/invariant_examples.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:b684773669bb566b17c9cda8",
+      "route_id": "template:references/invariant_examples.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:04a2cd7f22a4c1ea5432095e5e9f3e39154ac8b8576ac6aa3b52b85d0061f927",
+      "source_path": "references/invariant_examples.md",
+      "surface_id": "template:references/invariant_examples.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/long_check_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/long_check_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/long_check_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:9a70a54eef8abec64f0ba0c8",
+      "route_id": "template:references/long_check_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:6ac7434ec7a8bf8e57af9f076cdff728e6dd54538a25c5d1497c19f0a5c741b8",
+      "source_path": "references/long_check_protocol.md",
+      "surface_id": "template:references/long_check_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/model_mesh_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/model_mesh_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/model_mesh_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:59addea94b15ff29764e6d0f",
+      "route_id": "template:references/model_mesh_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:d2f94b9f5e574f746468ba8161d3e753a161a5c07beccf7d50ea5ef2796fc407",
+      "source_path": "references/model_mesh_protocol.md",
+      "surface_id": "template:references/model_mesh_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/model_miss_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/model_miss_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/model_miss_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:9c7d5d9a8227217830c8819f",
+      "route_id": "template:references/model_miss_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:8d12dce0cf4519d2b84fbb551cbd257f6503dff19827e4d834992f57138f3957",
+      "source_path": "references/model_miss_protocol.md",
+      "surface_id": "template:references/model_miss_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/model_test_alignment_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/model_test_alignment_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/model_test_alignment_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:832104a43a03da99dac174ae",
+      "route_id": "template:references/model_test_alignment_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:3f0c16dc248cea234a7cec36d7d8a56fac98d5b4e8823212bbd0ef76ff3be63d",
+      "source_path": "references/model_test_alignment_protocol.md",
+      "surface_id": "template:references/model_test_alignment_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/modeling_core_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/modeling_core_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/modeling_core_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:db9a43a55365b4106161f1fe",
+      "route_id": "template:references/modeling_core_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:aede1b49420bced07af5b22b9ab158e29910964d73fa2ddafd3a8453f5f82745",
+      "source_path": "references/modeling_core_protocol.md",
+      "surface_id": "template:references/modeling_core_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/modeling_evidence_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/modeling_evidence_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/modeling_evidence_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:75b5683510b622c60bfe87fd",
+      "route_id": "template:references/modeling_evidence_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:d8c814b86c172d0bad2f29b90c7765821548a8d1377153cd5ec8dc19b90c9979",
+      "source_path": "references/modeling_evidence_protocol.md",
+      "surface_id": "template:references/modeling_evidence_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/modeling_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/modeling_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/modeling_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:4434715677483f6c20362da3",
+      "route_id": "template:references/modeling_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:76fcc76d6699291ba81d5408a28fe340cbaf4d1a6072193ff2e02bf70e9ed65d",
+      "source_path": "references/modeling_protocol.md",
+      "surface_id": "template:references/modeling_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/project_integration.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/project_integration.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/project_integration.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:bd5cc01e4c9274aecbd083b5",
+      "route_id": "template:references/project_integration.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:4e67a96991819cf2591e2287aa5a466b6a959a325e385b0771c0f9c2a76f35b1",
+      "source_path": "references/project_integration.md",
+      "surface_id": "template:references/project_integration.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/route_execution_contract.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/route_execution_contract.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/route_execution_contract.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:69f10989f81978a3f6f5ff9b",
+      "route_id": "template:references/route_execution_contract.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:1d8aabe20d023eb9294d01ba34c503cf9d7cdc78b54858a8ee4b79d2fd591f9e",
+      "source_path": "references/route_execution_contract.md",
+      "surface_id": "template:references/route_execution_contract.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/route_index.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/route_index.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/route_index.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:504d0a0846efa2d2c79c7847",
+      "route_id": "template:references/route_index.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:454e8112efbca9e712c104961f61f2d00bdf543bbee1af0242113f33ec10c9b0",
+      "source_path": "references/route_index.md",
+      "surface_id": "template:references/route_index.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/skill_kernel_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/skill_kernel_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/skill_kernel_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:992b40bacf8f36a9eb77c934",
+      "route_id": "template:references/skill_kernel_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:5faf1fb9daec6394dc1067072a72c478fb814ccb2dfca499283d2bd6c7e98106",
+      "source_path": "references/skill_kernel_protocol.md",
+      "surface_id": "template:references/skill_kernel_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/structure_mesh_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/structure_mesh_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/structure_mesh_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:0b4a1f346dbfe30cdc026247",
+      "route_id": "template:references/structure_mesh_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:e292165dd761b439bdc9e4321fecc374d96cbececacbbf68c85e41792eb9a994",
+      "source_path": "references/structure_mesh_protocol.md",
+      "surface_id": "template:references/structure_mesh_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard:template:references/test_mesh_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_first_function_flow"
+      ],
+      "function_id": "template:references/test_mesh_protocol.md",
+      "intent_id": "intent:flowguard:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard:evidence-closure",
+        "obligation:flowguard:plane-boundary"
+      ],
+      "name": "references/test_mesh_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard:surface-contract"
+      ],
+      "owner_id": "model_first_function_flow",
+      "required_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:559b8606e587bf82db109fe8",
+      "route_id": "template:references/test_mesh_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:46f8608841dcd4b49d70af7d9275b8c0b0b78352032be57945092b7c8d8ba0d7",
+      "source_path": "references/test_mesh_protocol.md",
+      "surface_id": "template:references/test_mesh_protocol.md",
+      "write_authority": "target-skill-author"
+    }
+  ],
+  "target_skill_id": "flowguard"
+}

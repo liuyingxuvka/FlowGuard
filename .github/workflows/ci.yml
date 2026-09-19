@@ -39,7 +39,7 @@ jobs:
         run: npm install -g @fission-ai/openspec@1.7.0
 
       - name: Install FlowGuard
-        run: python -m pip install -e .
+        run: python -m pip install -e ".[dev]"
 
       - name: Install FlowGuard consumer skills
         run: python scripts/install_flowguard_skills.py install --source . --json
@@ -51,10 +51,10 @@ jobs:
         run: openspec validate --all --strict
 
       - name: Self-maintenance model checks
-        run: python .flowguard/self_maintenance_mesh/run_checks.py
+        run: python .flowguard/verification/owners/self_maintenance_mesh/run_checks.py
 
       - name: Focused unit tests
-        run: python -m unittest tests.test_api_surface tests.test_skill_docs tests.test_project_adoption tests.test_public_templates
+        run: python -m pytest -q tests/test_api_surface.py tests/test_skill_docs.py tests/test_project_adoption.py tests/test_public_templates.py
 
   deep-checks:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_deep_checks == 'true')
@@ -78,7 +78,7 @@ jobs:
         run: npm install -g @fission-ai/openspec@1.7.0
 
       - name: Install FlowGuard
-        run: python -m pip install -e .
+        run: python -m pip install -e ".[dev]"
 
       - name: Install FlowGuard consumer skills
         run: python scripts/install_flowguard_skills.py install --source . --json
@@ -90,7 +90,7 @@ jobs:
         run: openspec validate --all --strict
 
       - name: Full unit regression
-        run: python -m unittest discover -s tests
+        run: python -m pytest -q
 
       - name: Aggregate FlowGuard model regressions
         run: python scripts/run_flowguard_model_regressions.py --root .

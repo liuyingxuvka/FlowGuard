@@ -3,7 +3,7 @@
 SkillGuard's installed current compiler is the sole writer for maintained skill
 contracts.  This module deliberately does not compile an alternate format and
 does not retain former V1 readers.  It gives FlowGuard's suite checks a small,
-portable way to verify the three current authority files and reject residual
+portable way to verify the five current authority files and reject residual
 former control surfaces before the official SkillGuard checks run.
 """
 
@@ -30,6 +30,8 @@ CHECK_MANIFEST_SCHEMA = "skillguard.check_manifest.v2"
 CONTRACT_SOURCE_FILE = ".skillguard/contract-source.json"
 COMPILED_CONTRACT_FILE = ".skillguard/compiled-contract.json"
 CHECK_MANIFEST_FILE = ".skillguard/check-manifest.json"
+SURFACE_INVENTORY_FILE = ".skillguard/surface-inventory.json"
+SURFACE_SEMANTIC_MAP_FILE = ".skillguard/surface-semantic-map.json"
 COMPILER_VERSION = "flowguard.current_skillguard_parity_reader.v1"
 
 _SHA256_RE = re.compile(r"^[A-F0-9]{64}$")
@@ -466,6 +468,12 @@ def _load_json_object(path: Path) -> dict[str, Any]:
     return value
 
 
+def _sorted_string_list(value: Any) -> tuple[str, ...] | None:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        return None
+    return tuple(sorted(value))
+
+
 def compile_skill_contract(
     skill_dir: str | Path, *, write: bool = False
 ) -> tuple[
@@ -492,8 +500,12 @@ def compile_skill_contract(
         source = load_contract_source(skill_path)
         compiled_path = skill_path / COMPILED_CONTRACT_FILE
         manifest_path = skill_path / CHECK_MANIFEST_FILE
+        surface_inventory_path = skill_path / SURFACE_INVENTORY_FILE
+        surface_map_path = skill_path / SURFACE_SEMANTIC_MAP_FILE
         compiled = _load_json_object(compiled_path)
         manifest = _load_json_object(manifest_path)
+        surface_inventory = _load_json_object(surface_inventory_path)
+        surface_map = _load_json_object(surface_map_path)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         findings.append(
             ContractCompileFinding(
@@ -538,6 +550,68 @@ def compile_skill_contract(
         findings.append(ContractCompileFinding("compiled_contract_hash_invalid", contract_hash, skill_path.name, str(compiled_path)))
     if _SHA256_RE.fullmatch(manifest_hash) is None:
         findings.append(ContractCompileFinding("check_manifest_hash_invalid", manifest_hash, skill_path.name, str(manifest_path)))
+
+    expected_skill_id = str(source.get("skill_id", ""))
+    for surface_name, surface_path, surface_data in (
+        ("surface_inventory", surface_inventory_path, surface_inventory),
+        ("surface_semantic_map", surface_map_path, surface_map),
+    ):
+        if surface_data.get("target_skill_id") != expected_skill_id:
+            findings.append(
+                ContractCompileFinding(
+                    "surface_projection_identity_mismatch",
+                    f"{surface_name}.target_skill_id={surface_data.get('target_skill_id', '')!r}; expected {expected_skill_id!r}",
+                    skill_path.name,
+                    str(surface_path),
+                )
+            )
+        if _sorted_string_list(surface_data.get("current_obligation_ids")) is None:
+            findings.append(
+                ContractCompileFinding(
+                    "surface_projection_obligations_invalid",
+                    "current_obligation_ids must be a string list",
+                    skill_path.name,
+                    str(surface_path),
+                )
+            )
+
+    inventory_fingerprint = str(surface_inventory.get("full_discovery_fingerprint", ""))
+    map_fingerprint = str(surface_map.get("source_discovery_fingerprint", ""))
+    if not inventory_fingerprint or inventory_fingerprint != map_fingerprint:
+        findings.append(
+            ContractCompileFinding(
+                "surface_discovery_identity_mismatch",
+                f"inventory={inventory_fingerprint}; map={map_fingerprint}",
+                skill_path.name,
+                str(surface_map_path),
+            )
+        )
+    inventory_surface_ids = _sorted_string_list(surface_inventory.get("full_surface_ids"))
+    map_surface_ids = _sorted_string_list(surface_map.get("full_surface_ids"))
+    if (
+        inventory_surface_ids is not None
+        and map_surface_ids is not None
+        and inventory_surface_ids != map_surface_ids
+    ):
+        findings.append(
+            ContractCompileFinding(
+                "surface_id_projection_mismatch",
+                "surface inventory and semantic map must expose the same full_surface_ids",
+                skill_path.name,
+                str(surface_map_path),
+            )
+        )
+    inventory_obligations = _sorted_string_list(surface_inventory.get("current_obligation_ids"))
+    map_obligations = _sorted_string_list(surface_map.get("current_obligation_ids"))
+    if inventory_obligations is None or map_obligations is None or inventory_obligations != map_obligations:
+        findings.append(
+            ContractCompileFinding(
+                "surface_obligation_projection_mismatch",
+                "surface inventory and semantic map must expose the same current_obligation_ids",
+                skill_path.name,
+                str(surface_map_path),
+            )
+        )
 
     fingerprints = compiled.get("source_fingerprints")
     manifest_fingerprints = manifest.get("source_fingerprints")

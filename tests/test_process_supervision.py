@@ -87,9 +87,19 @@ class ProcessSupervisionTests(unittest.TestCase):
         # The launch observation may race a short-lived Windows launcher.  A
         # later confirmed empty containment/tree observation is authoritative
         # for cleanup; only an unknown final observation remains blocking.
+        observations = [None]
+
+        def observe_until_known(*_args, **_kwargs):
+            # The production code may need more than one observation while a
+            # short-lived launcher exits.  Model the contract (one transient
+            # unknown, then a stable empty tree) rather than a fixed query
+            # count that turns an extra legitimate observation into
+            # StopIteration.
+            return observations.pop(0) if observations else {}
+
         with mock.patch(
             "flowguard.process_supervision._windows_process_tree_observation",
-            side_effect=[None, {}, {}, {}],
+            side_effect=observe_until_known,
         ):
             result = run_supervised(
                 (sys.executable, "-c", "pass"),

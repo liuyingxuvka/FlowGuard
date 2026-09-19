@@ -17,12 +17,10 @@ provider-neutral behavior; clear satellites remain direct owners.
 - Use a clear peer satellite directly; use this kernel when no satellite owns behavior, state, order, retry, effects, progress, portable, risk, or closure. Do not expose check-engine helpers as independently triggerable Codex skills.
 ### Shared execution contract
 After kernel selection, load row `model_first_function_flow` from `references/route_execution_contract.md`. It is the single AI-facing source for `RouteContext`, lazy references, `execute|reuse_current|blocked|not_run`, zero-producer read-only behavior, exact reuse, finite producer budget, and stop conditions. The executable `RouteProfile` and the `Use When`/`Do Not Use When` boundary remain authoritative; this section does not widen a kernel request to a specialist or `full` execution.
-The DevelopmentProcessFlow internal `agent_workflow` mode is risk-admitted only:
-explicit rehearsal, cross-owner handoff/shared write, a post-validation-invalidating
-write, an agent/route workflow change, or multiple independent owners with
-irreversible side effects. Multiple skills/tools alone do not trigger it; simple
-read-only, single-owner, single-tool, targeted-test work remains `not_triggered`,
-while author-side native checks and internal/via-owner ownership stay intact.
+The DevelopmentProcessFlow internal `agent_workflow` mode is admitted only for
+explicit rehearsal, cross-owner/shared-write work, a post-validation-invalidating
+write, a route/workflow change, or multiple irreversible owners. Simple
+read-only, single-owner targeted work remains `not_triggered`.
 
 ## Entrypoint Acceptance Map
 `use_flowguard` means an owned ordinary model; `skip_with_reason` is trivial non-model work; `needs_human_review` means scope or evidence is unresolved.
@@ -34,7 +32,11 @@ Every entry decision also emits two separate fields:
   `model_maintenance`, or `layered_boundary_proof` (what semantic model is
   required).
 
-The decision must include `claim_boundary`, `selection_reason`, `closed_obligations`, `not_run_obligations`, and `escalation_triggers`. Default selection is `light` for read-only analysis, `affected` for ordinary code/model/test changes, and `full` only for release, integration, or an explicit whole-system claim. A satellite never auto-upgrades; `full` requires governed writes, formal/shadow/installed projections, OpenSpec status, owner DAG, and reverse semantic input frozen, else it names the missing trigger.
+The decision must include `claim_boundary`, `selection_reason`, `closed_obligations`,
+`not_run_obligations`, and `escalation_triggers`. Use `light` for read-only
+analysis, `affected` for ordinary code/model/test changes, and `full` only for
+release, integration, or an explicit whole-system claim. A satellite never
+auto-upgrades; a `full` claim names every missing trigger instead of guessing.
 
 ## Use When
 Use when a provider-neutral blueprint needs `Input x State -> Set(Output x State)`
@@ -59,20 +61,17 @@ commands. Implementation and language remain downstream user-owned details.
    external/scoped/stalled/bounded terminal, and independently verify receipts.
 7. Code work requires DevelopmentProcessFlow admission
    (`ready|ready_scoped|no_code_requested|blocked|stale`).
-8. Before model/evidence loading, require the target project's current
-   FlowGuard layout manifest and a read-only layout audit. Missing, stale,
-   unknown, duplicated, or forbidden roles/paths—including `dna`, `dna_audit`,
-   `tmp`, or `run_artifacts`—block; directly rewrite accepted old material
-   into the current layout, with no migration or compatibility reader.
-9. Run both behavior directions: forward intent/model obligations and reverse
-   observed public behavior, effects, faults, recovery, installation,
-   configuration, UI-like actions, and significant private components. Group
-   one governed component or provide typed `internal_proven`,
-   `retired_proven`, or `not_applicable_proven` proof. Every surface and model
-   obligation needs a two-way link plus current owner/check/receipt/disposition.
-10. Every call-graph edge must resolve to an exact current static or declared
-    external target. Dynamic/ambiguous/unknown targets are blockers, never
-    typed completion observations or guessed bindings.
+8. Before model/evidence loading, run a read-only layout audit for the admitted
+   claim boundary. Missing or stale required roles block that claim; a clean
+   consumer may return bounded `not_initialized` diagnostics without creating
+   current state.
+9. Close forward obligations and reverse behavior only inside the admitted
+   boundary. `light`/`affected` preserve unresolved in-bound gaps as blockers;
+   out-of-bound unknowns remain explicit `out_of_scope`/`not_run`. Only `full`
+   or an explicit release claim requires global reverse closure and projections.
+10. Resolve call-graph edges inside that closure to exact current targets.
+    Dynamic or ambiguous in-bound edges block; outside-boundary edges remain
+    typed gaps rather than guessed bindings.
 
 ## Hard Gates
 - Detailed handoffs live in `references/modeling_core_protocol.md` and
@@ -97,10 +96,11 @@ commands. Implementation and language remain downstream user-owned details.
   only. Identity/schema mismatch requires direct-current rewrite disposition;
   do not add a fallback, alias, dual reader, compatibility branch, or one-click
   upgrade path.
-- Reverse closure is required, not an optional report: discovered denominator,
-  component expansion, two-way links, owner/test/receipt joins, and typed
-  non-governed proofs must be exact. `blocked_gap`, missing receipts, and
-  unresolved private behavior are not completion.
+- Reverse closure is required for the admitted claim, not an optional report:
+  discovered denominator, component expansion, two-way links, owner/test/
+  receipt joins, and typed non-governed proofs must be exact. In-bound
+  `blocked_gap`, missing receipts, and unresolved private behavior are not
+  completion; out-of-bound gaps stay visibly typed.
 
 ## Output Requirements
 Return evidence, failures, blockers, skipped checks, residual risk, claim

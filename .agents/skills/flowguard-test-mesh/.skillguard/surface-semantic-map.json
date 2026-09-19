@@ -1,0 +1,349 @@
+{
+  "claim_boundary": "Author-side semantic map for one FlowGuard skill. It proves exact current joins only; it does not replace native check execution or release evidence.",
+  "current_obligation_ids": [
+    "obligation:flowguard-test-mesh:plane-boundary",
+    "obligation:flowguard-test-mesh:native-authority",
+    "obligation:flowguard-test-mesh:evidence-closure"
+  ],
+  "decision_rules": [
+    {
+      "proof_ref": ".skillguard/contract-source.json#obligations",
+      "reason": "The target author directly assigns each source observation to the current skill contract; no name, history, test, or fallback inference is used.",
+      "rule_id": "decision:flowguard-skill-current-source-boundary"
+    }
+  ],
+  "map_hash": "sha256:0485ce7f035ece6959995cfcec557dbe6222240560cfc0a98f82431e4aaeadb2",
+  "map_id": "map:flowguard-test-mesh:surface-semantics-direct-current-r2",
+  "obligation_bindings": [
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-test-mesh:plane-boundary",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-test-mesh:plane-boundary",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "artifact:agents/openai.yaml",
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md",
+        "template:references/test_mesh_long_check_protocol.md",
+        "template:references/test_mesh_protocol.md",
+        "template:references/test_mesh_release_protocol.md",
+        "template:references/test_mesh_reuse_protocol.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-test-mesh:native-authority",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-test-mesh:native-authority",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-test-mesh:evidence-closure",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-test-mesh:evidence-closure",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md",
+        "template:references/test_mesh_long_check_protocol.md",
+        "template:references/test_mesh_protocol.md",
+        "template:references/test_mesh_release_protocol.md",
+        "template:references/test_mesh_reuse_protocol.md"
+      ]
+    }
+  ],
+  "schema_version": "flowguard.skill_surface_semantic_map.v1",
+  "source_discovery_fingerprint": "sha256:58f7092dc249343f4f8aa9fcd6d7f929bdd37cd7a3f99030cec4e873e2ff2333",
+  "surface_bindings": [
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-test-mesh:artifact:agents/openai.yaml"
+      ],
+      "execution_owner_ids": [
+        "test_mesh_maintenance"
+      ],
+      "function_id": "artifact:agents/openai.yaml",
+      "intent_id": "intent:flowguard-test-mesh:current-skill-contract",
+      "kind": "artifact",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-test-mesh:plane-boundary"
+      ],
+      "name": "agents/openai.yaml",
+      "obligation_ids": [
+        "obligation:flowguard-test-mesh:surface-contract"
+      ],
+      "owner_id": "test_mesh_maintenance",
+      "required_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:d9efd0b752469e1fc3464d11",
+      "route_id": "artifact:agents/openai.yaml",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:3224c9ba4df4394e1bce656db34c5ec41a0ff4c4cd3a1e5b9251b614bef884c6",
+      "source_path": "agents/openai.yaml",
+      "surface_id": "artifact:agents/openai.yaml",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-test-mesh:config:.skillguard/contract-source.json"
+      ],
+      "execution_owner_ids": [
+        "test_mesh_maintenance"
+      ],
+      "function_id": "config:.skillguard/contract-source.json",
+      "intent_id": "intent:flowguard-test-mesh:current-skill-contract",
+      "kind": "config",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-test-mesh:native-authority",
+        "obligation:flowguard-test-mesh:plane-boundary"
+      ],
+      "name": ".skillguard/contract-source.json",
+      "obligation_ids": [
+        "obligation:flowguard-test-mesh:surface-contract"
+      ],
+      "owner_id": "test_mesh_maintenance",
+      "required_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:10513a60240614296b758ebb",
+      "route_id": "config:.skillguard/contract-source.json",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:fbaae2ea80bd9059930f221029d81edc2c82fe81e39813f8d4ce6ab7a922d3c8",
+      "source_path": ".skillguard/contract-source.json",
+      "surface_id": "config:.skillguard/contract-source.json",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-test-mesh:template:SKILL.md"
+      ],
+      "execution_owner_ids": [
+        "test_mesh_maintenance"
+      ],
+      "function_id": "template:SKILL.md",
+      "intent_id": "intent:flowguard-test-mesh:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-test-mesh:evidence-closure",
+        "obligation:flowguard-test-mesh:native-authority",
+        "obligation:flowguard-test-mesh:plane-boundary"
+      ],
+      "name": "SKILL.md",
+      "obligation_ids": [
+        "obligation:flowguard-test-mesh:surface-contract"
+      ],
+      "owner_id": "test_mesh_maintenance",
+      "required_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:45d8dca86b7e8a7dd698b75b",
+      "route_id": "template:SKILL.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:4d8d181ce33d761779538be1d99151a2b710c8929829b5ac5aca98891f4a8175",
+      "source_path": "SKILL.md",
+      "surface_id": "template:SKILL.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-test-mesh:template:references/test_mesh_long_check_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "test_mesh_maintenance"
+      ],
+      "function_id": "template:references/test_mesh_long_check_protocol.md",
+      "intent_id": "intent:flowguard-test-mesh:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-test-mesh:evidence-closure",
+        "obligation:flowguard-test-mesh:plane-boundary"
+      ],
+      "name": "references/test_mesh_long_check_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-test-mesh:surface-contract"
+      ],
+      "owner_id": "test_mesh_maintenance",
+      "required_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:2475aa10e0e26c8ab572f1b8",
+      "route_id": "template:references/test_mesh_long_check_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:347ad882ead7bf9f893759b63dff2193003e90971fea61c16cb4060b1c99b9ea",
+      "source_path": "references/test_mesh_long_check_protocol.md",
+      "surface_id": "template:references/test_mesh_long_check_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-test-mesh:template:references/test_mesh_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "test_mesh_maintenance"
+      ],
+      "function_id": "template:references/test_mesh_protocol.md",
+      "intent_id": "intent:flowguard-test-mesh:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-test-mesh:evidence-closure",
+        "obligation:flowguard-test-mesh:plane-boundary"
+      ],
+      "name": "references/test_mesh_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-test-mesh:surface-contract"
+      ],
+      "owner_id": "test_mesh_maintenance",
+      "required_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:559b8606e587bf82db109fe8",
+      "route_id": "template:references/test_mesh_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:00fe4b770c464a27755af1bf240597a3ba16e72f4702f8e3c2a5cdb78e5227ac",
+      "source_path": "references/test_mesh_protocol.md",
+      "surface_id": "template:references/test_mesh_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-test-mesh:template:references/test_mesh_release_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "test_mesh_maintenance"
+      ],
+      "function_id": "template:references/test_mesh_release_protocol.md",
+      "intent_id": "intent:flowguard-test-mesh:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-test-mesh:evidence-closure",
+        "obligation:flowguard-test-mesh:plane-boundary"
+      ],
+      "name": "references/test_mesh_release_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-test-mesh:surface-contract"
+      ],
+      "owner_id": "test_mesh_maintenance",
+      "required_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:5e7a2092693c9f70c7fcecf5",
+      "route_id": "template:references/test_mesh_release_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:61b3852b5840b87f25c3dfa3162c4e0a62490a9f01db8e121e43237302b48121",
+      "source_path": "references/test_mesh_release_protocol.md",
+      "surface_id": "template:references/test_mesh_release_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-test-mesh:template:references/test_mesh_reuse_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "test_mesh_maintenance"
+      ],
+      "function_id": "template:references/test_mesh_reuse_protocol.md",
+      "intent_id": "intent:flowguard-test-mesh:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-test-mesh:evidence-closure",
+        "obligation:flowguard-test-mesh:plane-boundary"
+      ],
+      "name": "references/test_mesh_reuse_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-test-mesh:surface-contract"
+      ],
+      "owner_id": "test_mesh_maintenance",
+      "required_check_ids": [
+        "check:flowguard-test-mesh:plane-boundary",
+        "check:flowguard-test-mesh:native-authority",
+        "check:flowguard-test-mesh:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:25afc8fafdaeb09ace5b0000",
+      "route_id": "template:references/test_mesh_reuse_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:381b720f4e9b1d438960dd1e32e5af09ce80cd9f55c8e8969aba43b394a0a043",
+      "source_path": "references/test_mesh_reuse_protocol.md",
+      "surface_id": "template:references/test_mesh_reuse_protocol.md",
+      "write_authority": "target-skill-author"
+    }
+  ],
+  "target_skill_id": "flowguard-test-mesh"
+}

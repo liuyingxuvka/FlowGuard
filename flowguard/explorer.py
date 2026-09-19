@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import product
 from typing import Any, Callable, Iterable, Sequence
 
@@ -44,6 +44,17 @@ class ReachabilityCondition:
 
     def matches(self, state: Any, trace: Trace) -> bool:
         return bool(self.predicate(state, trace))
+
+
+@dataclass
+class _ReachabilityState:
+    """Truth state accumulated independently from retained witness paths."""
+
+    required_label_matches: list[bool]
+    success_matched: bool = False
+    success_error: str = ""
+    required_matches: list[bool] = field(default_factory=list)
+    required_errors: list[str] = field(default_factory=list)
 
 
 def enumerate_input_sequences(
@@ -133,6 +144,8 @@ class Explorer:
         object.__setattr__(self, "progress_steps", int(progress_steps))
 
     def explore(self) -> CheckReport:
+        if self.max_sequence_length < 1:
+            raise ValueError("max_sequence_length must be at least 1")
         compact_trace_storage = os.environ.get("FLOWGUARD_COMPACT_TRACE_STORAGE") == "1"
         if compact_trace_storage:
             # Keep exhaustive sequence generation lazy.  The normal explorer
@@ -163,6 +176,11 @@ class Explorer:
         exception_branches: list[ExceptionBranch] = []
         observed_paths: list[WorkflowPath] = []
         observed_trace_count = 0
+        reachability_state = _ReachabilityState(
+            required_label_matches=[False] * len(self.required_labels),
+            required_matches=[False] * len(self.required_reachable),
+            required_errors=[""] * len(self.required_reachable),
+        )
         total_work = len(self.initial_states) * sequence_count
         progress_enabled = self.progress_steps > 0 and not _progress_disabled_by_environment()
         progress_thresholds = _progress_thresholds(total_work, self.progress_steps)
@@ -211,6 +229,7 @@ class Explorer:
                             exception_branches.extend(run.exception_branches)
                         for completed_path in run.completed_paths:
                             observed_trace_count += 1
+                            self._observe_reachability(completed_path, reachability_state)
                             if not compact_trace_storage or len(observed_paths) < 256:
                                 observed_paths.append(completed_path)
                             elif self.required_labels:
@@ -245,7 +264,22 @@ class Explorer:
                         next_threshold_index += 1
 
         traces = tuple(path.trace for path in observed_paths)
-        reachability_failures = self._check_reachability(observed_paths)
+        reachability_failures = self._reachability_failures(reachability_state)
+        if not self.initial_states or not self.external_inputs:
+            reachability_failures.insert(
+                0,
+                ReachabilityFailure(
+                    name="exploration:empty_input_domain",
+                    description=(
+                        "at least one initial state and one external input are required "
+                        "for an exhaustive exploration"
+                    ),
+                    message=(
+                        "no input/state work was executed; empty validation cannot be "
+                        "reported as a successful model check"
+                    ),
+                ),
+            )
         ok = not violations and not dead_branches and not exception_branches and not reachability_failures
         summary = (
             f"sequences={sequence_count} initial_states={len(self.initial_states)} "
@@ -281,11 +315,45 @@ class Explorer:
             )
         return violations
 
-    def _check_reachability(self, paths: Sequence[WorkflowPath]) -> list[ReachabilityFailure]:
+    def _observe_reachability(
+        self,
+        path: WorkflowPath,
+        state: _ReachabilityState,
+    ) -> None:
+        """Update obligation truth for every completed path.
+
+        Compact storage only bounds retained counterexample/witness paths.  It
+        must never bound the set of paths consulted by reachability
+        obligations, otherwise a late match can be lost merely because the
+        witness cap was reached.
+        """
+
+        for index, label in enumerate(self.required_labels):
+            if not state.required_label_matches[index] and path.trace.has_label(label):
+                state.required_label_matches[index] = True
+
+        if self.success_predicate is not None and not state.success_matched and not state.success_error:
+            try:
+                state.success_matched = bool(self.success_predicate(path.state, path.trace))
+            except Exception as exc:
+                state.success_error = f"{type(exc).__name__}: {exc}"
+
+        for index, condition in enumerate(self.required_reachable):
+            if state.required_matches[index] or state.required_errors[index]:
+                continue
+            try:
+                state.required_matches[index] = condition.matches(path.state, path.trace)
+            except Exception as exc:
+                state.required_errors[index] = f"{type(exc).__name__}: {exc}"
+
+    def _reachability_failures(
+        self,
+        state: _ReachabilityState,
+    ) -> list[ReachabilityFailure]:
         failures: list[ReachabilityFailure] = []
 
-        for label in self.required_labels:
-            if not any(path.trace.has_label(label) for path in paths):
+        for index, label in enumerate(self.required_labels):
+            if not state.required_label_matches[index]:
                 failures.append(
                     ReachabilityFailure(
                         name=f"label:{label}",
@@ -295,23 +363,15 @@ class Explorer:
                 )
 
         if self.success_predicate is not None:
-            matched = False
-            for path in paths:
-                try:
-                    matched = bool(self.success_predicate(path.state, path.trace))
-                except Exception as exc:
-                    failures.append(
-                        ReachabilityFailure(
-                            name="success_predicate",
-                            description="success predicate raised",
-                            message=f"{type(exc).__name__}: {exc}",
-                        )
+            if state.success_error:
+                failures.append(
+                    ReachabilityFailure(
+                        name="success_predicate",
+                        description="success predicate raised",
+                        message=state.success_error,
                     )
-                    matched = True
-                    break
-                if matched:
-                    break
-            if not matched:
+                )
+            elif not state.success_matched:
                 failures.append(
                     ReachabilityFailure(
                         name="success_predicate",
@@ -320,24 +380,19 @@ class Explorer:
                     )
                 )
 
-        for condition in self.required_reachable:
-            matched = False
-            for path in paths:
-                try:
-                    matched = condition.matches(path.state, path.trace)
-                except Exception as exc:
-                    failures.append(
-                        ReachabilityFailure(
-                            name=condition.name,
-                            description=condition.description,
-                            message=f"reachability predicate raised {type(exc).__name__}: {exc}",
-                        )
+        for index, condition in enumerate(self.required_reachable):
+            if state.required_errors[index]:
+                failures.append(
+                    ReachabilityFailure(
+                        name=condition.name,
+                        description=condition.description,
+                        message=(
+                            "reachability predicate raised "
+                            + state.required_errors[index]
+                        ),
                     )
-                    matched = True
-                    break
-                if matched:
-                    break
-            if not matched:
+                )
+            elif not state.required_matches[index]:
                 failures.append(
                     ReachabilityFailure(
                         name=condition.name,

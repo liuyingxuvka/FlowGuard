@@ -1,0 +1,220 @@
+{
+  "claim_boundary": "Author-side semantic map for one FlowGuard skill. It proves exact current joins only; it does not replace native check execution or release evidence.",
+  "current_obligation_ids": [
+    "obligation:flowguard-model-miss-review:plane-boundary",
+    "obligation:flowguard-model-miss-review:native-authority",
+    "obligation:flowguard-model-miss-review:evidence-closure"
+  ],
+  "decision_rules": [
+    {
+      "proof_ref": ".skillguard/contract-source.json#obligations",
+      "reason": "The target author directly assigns each source observation to the current skill contract; no name, history, test, or fallback inference is used.",
+      "rule_id": "decision:flowguard-skill-current-source-boundary"
+    }
+  ],
+  "map_hash": "sha256:42e4804c666348bc64909d620eb0a92623015617f0c0654ab181cc18ce435655",
+  "map_id": "map:flowguard-model-miss-review:surface-semantics-direct-current-r2",
+  "obligation_bindings": [
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-model-miss-review:plane-boundary",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-model-miss-review:plane-boundary",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "artifact:agents/openai.yaml",
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md",
+        "template:references/model_miss_protocol.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-model-miss-review:native-authority",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-model-miss-review:native-authority",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-model-miss-review:evidence-closure",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-model-miss-review:evidence-closure",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md",
+        "template:references/model_miss_protocol.md"
+      ]
+    }
+  ],
+  "schema_version": "flowguard.skill_surface_semantic_map.v1",
+  "source_discovery_fingerprint": "sha256:0f67a06df325c49a251f85b8b31cab0700658996a5538ca3cf79b7204db0df06",
+  "surface_bindings": [
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-model-miss-review:plane-boundary",
+        "check:flowguard-model-miss-review:native-authority",
+        "check:flowguard-model-miss-review:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-model-miss-review:artifact:agents/openai.yaml"
+      ],
+      "execution_owner_ids": [
+        "model_miss_review"
+      ],
+      "function_id": "artifact:agents/openai.yaml",
+      "intent_id": "intent:flowguard-model-miss-review:current-skill-contract",
+      "kind": "artifact",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-model-miss-review:plane-boundary"
+      ],
+      "name": "agents/openai.yaml",
+      "obligation_ids": [
+        "obligation:flowguard-model-miss-review:surface-contract"
+      ],
+      "owner_id": "model_miss_review",
+      "required_check_ids": [
+        "check:flowguard-model-miss-review:plane-boundary",
+        "check:flowguard-model-miss-review:native-authority",
+        "check:flowguard-model-miss-review:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:d9efd0b752469e1fc3464d11",
+      "route_id": "artifact:agents/openai.yaml",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:fe80de3a4d34f61faa01729e34c7ad77da38240679af02c1637899de22eafd8b",
+      "source_path": "agents/openai.yaml",
+      "surface_id": "artifact:agents/openai.yaml",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-model-miss-review:plane-boundary",
+        "check:flowguard-model-miss-review:native-authority",
+        "check:flowguard-model-miss-review:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-model-miss-review:config:.skillguard/contract-source.json"
+      ],
+      "execution_owner_ids": [
+        "model_miss_review"
+      ],
+      "function_id": "config:.skillguard/contract-source.json",
+      "intent_id": "intent:flowguard-model-miss-review:current-skill-contract",
+      "kind": "config",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-model-miss-review:native-authority",
+        "obligation:flowguard-model-miss-review:plane-boundary"
+      ],
+      "name": ".skillguard/contract-source.json",
+      "obligation_ids": [
+        "obligation:flowguard-model-miss-review:surface-contract"
+      ],
+      "owner_id": "model_miss_review",
+      "required_check_ids": [
+        "check:flowguard-model-miss-review:plane-boundary",
+        "check:flowguard-model-miss-review:native-authority",
+        "check:flowguard-model-miss-review:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:10513a60240614296b758ebb",
+      "route_id": "config:.skillguard/contract-source.json",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:3a4b0e16a136d787f8066a4e95c97e4f8c5b462b2a7d0b005c884b800078d955",
+      "source_path": ".skillguard/contract-source.json",
+      "surface_id": "config:.skillguard/contract-source.json",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-model-miss-review:plane-boundary",
+        "check:flowguard-model-miss-review:native-authority",
+        "check:flowguard-model-miss-review:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-model-miss-review:template:SKILL.md"
+      ],
+      "execution_owner_ids": [
+        "model_miss_review"
+      ],
+      "function_id": "template:SKILL.md",
+      "intent_id": "intent:flowguard-model-miss-review:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-model-miss-review:evidence-closure",
+        "obligation:flowguard-model-miss-review:native-authority",
+        "obligation:flowguard-model-miss-review:plane-boundary"
+      ],
+      "name": "SKILL.md",
+      "obligation_ids": [
+        "obligation:flowguard-model-miss-review:surface-contract"
+      ],
+      "owner_id": "model_miss_review",
+      "required_check_ids": [
+        "check:flowguard-model-miss-review:plane-boundary",
+        "check:flowguard-model-miss-review:native-authority",
+        "check:flowguard-model-miss-review:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:45d8dca86b7e8a7dd698b75b",
+      "route_id": "template:SKILL.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:3969dc147695391962410ed80d68f5d5b8504ee21f73aed8093ba07eab995d60",
+      "source_path": "SKILL.md",
+      "surface_id": "template:SKILL.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-model-miss-review:plane-boundary",
+        "check:flowguard-model-miss-review:native-authority",
+        "check:flowguard-model-miss-review:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-model-miss-review:template:references/model_miss_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "model_miss_review"
+      ],
+      "function_id": "template:references/model_miss_protocol.md",
+      "intent_id": "intent:flowguard-model-miss-review:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-model-miss-review:evidence-closure",
+        "obligation:flowguard-model-miss-review:plane-boundary"
+      ],
+      "name": "references/model_miss_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-model-miss-review:surface-contract"
+      ],
+      "owner_id": "model_miss_review",
+      "required_check_ids": [
+        "check:flowguard-model-miss-review:plane-boundary",
+        "check:flowguard-model-miss-review:native-authority",
+        "check:flowguard-model-miss-review:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:9c7d5d9a8227217830c8819f",
+      "route_id": "template:references/model_miss_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:0b90d998da9edb0727c5b106b076b5f9795eda37f741912d62391464897eed68",
+      "source_path": "references/model_miss_protocol.md",
+      "surface_id": "template:references/model_miss_protocol.md",
+      "write_authority": "target-skill-author"
+    }
+  ],
+  "target_skill_id": "flowguard-model-miss-review"
+}

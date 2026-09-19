@@ -27,7 +27,7 @@ class RouteExecutionContractDocsTests(unittest.TestCase):
                 self.assertIn(f"| `{route_id}` |", text)
                 self.assertIn(f"`{route_id}`", ROUTE_INDEX.read_text(encoding="utf-8"))
 
-    def test_shared_contract_contains_finite_execution_and_open_spec_gates(self) -> None:
+    def test_shared_contract_contains_finite_execution_and_governed_gates(self) -> None:
         text = CONTRACT.read_text(encoding="utf-8")
         required_fragments = (
             "RouteContext",
@@ -35,9 +35,8 @@ class RouteExecutionContractDocsTests(unittest.TestCase):
             "producer count remains zero",
             "--reuse-only",
             "WinError 1314",
-            "allow-explicit-completion-objective/tasks.md:3.3",
-            "close-runtime-evidence-and-task-map/tasks.md:9.2",
-            "close-runtime-evidence-and-task-map/tasks.md:9.3",
+            "historical change IDs",
+            "same-parent",
             "typed `blocked`/`not_run`",
         )
         for fragment in required_fragments:

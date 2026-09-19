@@ -42,7 +42,7 @@ class CurrentSkillContractParityTests(unittest.TestCase):
             validate_contract_source(missing_model_owner, SKILL),
         )
 
-    def test_repository_member_has_current_trio_parity(self) -> None:
+    def test_repository_member_has_current_five_file_parity(self) -> None:
         compiled, manifest, findings, written = compile_skill_contract(SKILL)
         self.assertFalse(findings)
         self.assertFalse(written)
@@ -101,7 +101,7 @@ class CurrentSkillContractParityTests(unittest.TestCase):
         self.assertEqual(15, len(report.member_ids))
         self.assertEqual(15, len(report.contract_hashes))
 
-    def test_current_authority_root_contains_only_the_trio(self) -> None:
+    def test_current_authority_root_contains_only_current_files(self) -> None:
         for skill_root in sorted((ROOT / ".agents" / "skills").iterdir()):
             authority = skill_root / ".skillguard"
             if not authority.is_dir():

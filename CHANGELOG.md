@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.69.1 - 2026-09-19
+
+- Preserve exhaustive reachability truth while bounding compact exploration
+  witnesses, and reject empty or invalid exploration domains.
+- Bind native-check inputs to tracked source, selector membership, component
+  identity, and supervised process-tree cleanup evidence.
+- Add a lazy public package facade, parameterize template CLI checks in-process,
+  and repair CI's self-maintenance entry point and pytest denominator.
+
 ## v0.69.0 - 2026-09-04
 
 - Added recursive multi-level model and TestMesh closure with exact parent,

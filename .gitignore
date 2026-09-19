@@ -46,8 +46,6 @@ env/
 .flowguard/verification/owners/**/*.py[cod]
 .flowguard/verification/owners/**/result.json
 .flowguard/verification/skill-suite-static/
-.agents/skills/**/.skillguard/surface-inventory.json
-.agents/skills/**/.skillguard/surface-semantic-map.json
 .skillguard/global-router/
 kb/
 docs/flowguard_adoption_log.md

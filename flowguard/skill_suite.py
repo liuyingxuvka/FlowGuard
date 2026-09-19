@@ -52,6 +52,8 @@ FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES = (
     ".skillguard/contract-source.json",
     ".skillguard/compiled-contract.json",
     ".skillguard/check-manifest.json",
+    ".skillguard/surface-inventory.json",
+    ".skillguard/surface-semantic-map.json",
 )
 FLOWGUARD_CONSUMER_REQUIRED_MEMBER_FILES = (
     "SKILL.md",

@@ -1,0 +1,419 @@
+{
+  "adequacy_check_ids": [
+    "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+    "check:flowguard-contract-exhaustion-mesh:native-authority",
+    "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+  ],
+  "claim_boundary": "Current target-owned FlowGuard skill semantic inventory. Structural discovery is observation only; every binding is an explicit current author decision and must be rewritten when the compiled contract or source discovery identity changes.",
+  "current_obligation_ids": [
+    "obligation:flowguard-contract-exhaustion-mesh:plane-boundary",
+    "obligation:flowguard-contract-exhaustion-mesh:native-authority",
+    "obligation:flowguard-contract-exhaustion-mesh:evidence-closure"
+  ],
+  "full_discovery_fingerprint": "sha256:d115ff90748930ac5b5662abaf06dfb805b759a0ae3e0ec815fff68d9d3db216",
+  "full_surface_ids": [
+    "artifact:agents/openai.yaml",
+    "config:.skillguard/contract-source.json",
+    "template:SKILL.md",
+    "template:references/contract_exhaustion_mesh_protocol.md"
+  ],
+  "full_surfaces": [
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-contract-exhaustion-mesh:artifact:agents/openai.yaml"
+      ],
+      "execution_owner_ids": [
+        "contract_exhaustion_mesh"
+      ],
+      "function_id": "artifact:agents/openai.yaml",
+      "intent_id": "intent:flowguard-contract-exhaustion-mesh:current-skill-contract",
+      "kind": "artifact",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-contract-exhaustion-mesh:plane-boundary"
+      ],
+      "name": "agents/openai.yaml",
+      "obligation_ids": [
+        "obligation:flowguard-contract-exhaustion-mesh:surface-contract"
+      ],
+      "owner_id": "contract_exhaustion_mesh",
+      "required_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:d9efd0b752469e1fc3464d11",
+      "route_id": "artifact:agents/openai.yaml",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:b81cdb974c649d7dd7ae7488c1bfb63575618dc166ff1d9efedc92868611e967",
+      "source_path": "agents/openai.yaml",
+      "surface_id": "artifact:agents/openai.yaml",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-contract-exhaustion-mesh:config:.skillguard/contract-source.json"
+      ],
+      "execution_owner_ids": [
+        "contract_exhaustion_mesh"
+      ],
+      "function_id": "config:.skillguard/contract-source.json",
+      "intent_id": "intent:flowguard-contract-exhaustion-mesh:current-skill-contract",
+      "kind": "config",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-contract-exhaustion-mesh:native-authority",
+        "obligation:flowguard-contract-exhaustion-mesh:plane-boundary"
+      ],
+      "name": ".skillguard/contract-source.json",
+      "obligation_ids": [
+        "obligation:flowguard-contract-exhaustion-mesh:surface-contract"
+      ],
+      "owner_id": "contract_exhaustion_mesh",
+      "required_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:10513a60240614296b758ebb",
+      "route_id": "config:.skillguard/contract-source.json",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:6df34281fb4514955f4783500f19b2ad7f93f226e2216e46fbebdfe110127aff",
+      "source_path": ".skillguard/contract-source.json",
+      "surface_id": "config:.skillguard/contract-source.json",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-contract-exhaustion-mesh:template:SKILL.md"
+      ],
+      "execution_owner_ids": [
+        "contract_exhaustion_mesh"
+      ],
+      "function_id": "template:SKILL.md",
+      "intent_id": "intent:flowguard-contract-exhaustion-mesh:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-contract-exhaustion-mesh:evidence-closure",
+        "obligation:flowguard-contract-exhaustion-mesh:native-authority",
+        "obligation:flowguard-contract-exhaustion-mesh:plane-boundary"
+      ],
+      "name": "SKILL.md",
+      "obligation_ids": [
+        "obligation:flowguard-contract-exhaustion-mesh:surface-contract"
+      ],
+      "owner_id": "contract_exhaustion_mesh",
+      "required_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:45d8dca86b7e8a7dd698b75b",
+      "route_id": "template:SKILL.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:ded4fda6e886e70e3d120f2462cc4da959627026ce3f308769923b4811e09d8a",
+      "source_path": "SKILL.md",
+      "surface_id": "template:SKILL.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-contract-exhaustion-mesh:template:references/contract_exhaustion_mesh_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "contract_exhaustion_mesh"
+      ],
+      "function_id": "template:references/contract_exhaustion_mesh_protocol.md",
+      "intent_id": "intent:flowguard-contract-exhaustion-mesh:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-contract-exhaustion-mesh:evidence-closure",
+        "obligation:flowguard-contract-exhaustion-mesh:plane-boundary"
+      ],
+      "name": "references/contract_exhaustion_mesh_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-contract-exhaustion-mesh:surface-contract"
+      ],
+      "owner_id": "contract_exhaustion_mesh",
+      "required_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:73b5161ff9635ee1e94f5244",
+      "route_id": "template:references/contract_exhaustion_mesh_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:33e32d4ba7dd3188a097c875f40f82f43c2777f2db301a7a1cb199fcc5ac8098",
+      "source_path": "references/contract_exhaustion_mesh_protocol.md",
+      "surface_id": "template:references/contract_exhaustion_mesh_protocol.md",
+      "write_authority": "target-skill-author"
+    }
+  ],
+  "inventory_hash": "sha256:aabc269a1a680a2e26c4efe38c44e5c21164bce29a5c5fdedb498abc3708bedb",
+  "inventory_id": "inventory:flowguard-contract-exhaustion-mesh:implementation-surface-current-r2",
+  "model_deepening_check_id": "check:flowguard-contract-exhaustion-mesh:native-authority",
+  "model_obligations": [
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-contract-exhaustion-mesh:plane-boundary",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-contract-exhaustion-mesh:plane-boundary",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "artifact:agents/openai.yaml",
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md",
+        "template:references/contract_exhaustion_mesh_protocol.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-contract-exhaustion-mesh:native-authority",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-contract-exhaustion-mesh:native-authority",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-contract-exhaustion-mesh:evidence-closure",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-contract-exhaustion-mesh:evidence-closure",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md",
+        "template:references/contract_exhaustion_mesh_protocol.md"
+      ]
+    }
+  ],
+  "observed_surface_ids": [
+    "artifact:agents/openai.yaml",
+    "config:.skillguard/contract-source.json",
+    "template:SKILL.md",
+    "template:references/contract_exhaustion_mesh_protocol.md"
+  ],
+  "owner_ids": [
+    "contract_exhaustion_mesh"
+  ],
+  "rows": [
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-contract-exhaustion-mesh:artifact:agents/openai.yaml"
+      ],
+      "function_id": "artifact:agents/openai.yaml",
+      "intent_id": "intent:flowguard-contract-exhaustion-mesh:current-skill-contract",
+      "kind": "artifact",
+      "name": "agents/openai.yaml",
+      "owner_id": "contract_exhaustion_mesh",
+      "required_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "route_id": "artifact:agents/openai.yaml",
+      "source_fingerprint": "sha256:b81cdb974c649d7dd7ae7488c1bfb63575618dc166ff1d9efedc92868611e967",
+      "source_path": "agents/openai.yaml",
+      "surface_id": "artifact:agents/openai.yaml",
+      "symbol": "agents/openai.yaml"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-contract-exhaustion-mesh:config:.skillguard/contract-source.json"
+      ],
+      "function_id": "config:.skillguard/contract-source.json",
+      "intent_id": "intent:flowguard-contract-exhaustion-mesh:current-skill-contract",
+      "kind": "config",
+      "name": ".skillguard/contract-source.json",
+      "owner_id": "contract_exhaustion_mesh",
+      "required_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "route_id": "config:.skillguard/contract-source.json",
+      "source_fingerprint": "sha256:6df34281fb4514955f4783500f19b2ad7f93f226e2216e46fbebdfe110127aff",
+      "source_path": ".skillguard/contract-source.json",
+      "surface_id": "config:.skillguard/contract-source.json",
+      "symbol": ".skillguard/contract-source.json"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-contract-exhaustion-mesh:template:SKILL.md"
+      ],
+      "function_id": "template:SKILL.md",
+      "intent_id": "intent:flowguard-contract-exhaustion-mesh:current-skill-contract",
+      "kind": "template",
+      "name": "SKILL.md",
+      "owner_id": "contract_exhaustion_mesh",
+      "required_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "route_id": "template:SKILL.md",
+      "source_fingerprint": "sha256:ded4fda6e886e70e3d120f2462cc4da959627026ce3f308769923b4811e09d8a",
+      "source_path": "SKILL.md",
+      "surface_id": "template:SKILL.md",
+      "symbol": "SKILL.md"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-contract-exhaustion-mesh:template:references/contract_exhaustion_mesh_protocol.md"
+      ],
+      "function_id": "template:references/contract_exhaustion_mesh_protocol.md",
+      "intent_id": "intent:flowguard-contract-exhaustion-mesh:current-skill-contract",
+      "kind": "template",
+      "name": "references/contract_exhaustion_mesh_protocol.md",
+      "owner_id": "contract_exhaustion_mesh",
+      "required_check_ids": [
+        "check:flowguard-contract-exhaustion-mesh:plane-boundary",
+        "check:flowguard-contract-exhaustion-mesh:native-authority",
+        "check:flowguard-contract-exhaustion-mesh:evidence-closure"
+      ],
+      "route_id": "template:references/contract_exhaustion_mesh_protocol.md",
+      "source_fingerprint": "sha256:33e32d4ba7dd3188a097c875f40f82f43c2777f2db301a7a1cb199fcc5ac8098",
+      "source_path": "references/contract_exhaustion_mesh_protocol.md",
+      "surface_id": "template:references/contract_exhaustion_mesh_protocol.md",
+      "symbol": "references/contract_exhaustion_mesh_protocol.md"
+    }
+  ],
+  "schema_version": "skillguard.surface_inventory.v1",
+  "source_kind": "target-native-independent-implementation-surface-discovery",
+  "source_paths": [
+    ".skillguard/contract-source.json",
+    "SKILL.md",
+    "agents/openai.yaml",
+    "references/contract_exhaustion_mesh_protocol.md"
+  ],
+  "surface_category_dispositions": {
+    "api": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-api",
+      "reason": "Current source discovery observed no api surface for this skill; the absence is typed as current N/A."
+    },
+    "artifact": {
+      "disposition": "governed",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-artifact",
+      "reason": "Current source discovery observed artifact surfaces; every observed row is explicitly bound."
+    },
+    "command": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-command",
+      "reason": "Current source discovery observed no command surface for this skill; the absence is typed as current N/A."
+    },
+    "component": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-component",
+      "reason": "Current source discovery observed no component surface for this skill; the absence is typed as current N/A."
+    },
+    "config": {
+      "disposition": "governed",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-config",
+      "reason": "Current source discovery observed config surfaces; every observed row is explicitly bound."
+    },
+    "effect": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-effect",
+      "reason": "Current source discovery observed no effect surface for this skill; the absence is typed as current N/A."
+    },
+    "fault": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-fault",
+      "reason": "Current source discovery observed no fault surface for this skill; the absence is typed as current N/A."
+    },
+    "installer": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-installer",
+      "reason": "Current source discovery observed no installer surface for this skill; the absence is typed as current N/A."
+    },
+    "provider": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-provider",
+      "reason": "Current source discovery observed no provider surface for this skill; the absence is typed as current N/A."
+    },
+    "recovery": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-recovery",
+      "reason": "Current source discovery observed no recovery surface for this skill; the absence is typed as current N/A."
+    },
+    "route": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-route",
+      "reason": "Current source discovery observed no route surface for this skill; the absence is typed as current N/A."
+    },
+    "script": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-script",
+      "reason": "Current source discovery observed no script surface for this skill; the absence is typed as current N/A."
+    },
+    "template": {
+      "disposition": "governed",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-template",
+      "reason": "Current source discovery observed template surfaces; every observed row is explicitly bound."
+    },
+    "ui": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-ui",
+      "reason": "Current source discovery observed no ui surface for this skill; the absence is typed as current N/A."
+    }
+  },
+  "target_skill_id": "flowguard-contract-exhaustion-mesh"
+}

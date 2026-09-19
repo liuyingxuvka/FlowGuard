@@ -2038,12 +2038,11 @@ def _proof_contracts(
         ),
         proof_payload=proof_payload,
     )
-    direct_python = Path(sys.base_prefix) / (
-        "python.exe" if sys.platform == "win32" else "bin/python"
-    )
-    python_executable = str(
-        direct_python if direct_python.is_file() else Path(sys.executable)
-    )
+    # The proof must execute in the exact interpreter that constructed this
+    # contract.  Falling back to sys.base_prefix silently escapes the active
+    # environment and can run a different pytest/plugin set than the one
+    # whose inputs were frozen.
+    python_executable = str(Path(sys.executable).resolve())
     test_command = (
         python_executable,
         "-c",

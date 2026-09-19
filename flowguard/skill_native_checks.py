@@ -8,7 +8,6 @@ import os
 import platform
 import re
 import shlex
-import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -30,10 +29,12 @@ from .evidence_receipts import (
     fingerprint_value,
     list_evidence_receipts,
     save_evidence_receipt,
+    snapshot_bytes,
     snapshot_file,
     tokenize_command,
     tokenize_path,
 )
+from .process_supervision import run_supervised
 from .skill_suite import validate_skill_suite
 from .skill_contracts import (
     CHECK_MANIFEST_FILE,
@@ -81,6 +82,10 @@ def _native_checks(
         for item in manifest.get("checks", ())
         if isinstance(item, Mapping)
     }
+    impact_plan = manifest.get("content_impact_plan")
+    if isinstance(impact_plan, Mapping):
+        for check in checks_by_id.values():
+            check.setdefault("content_impact_plan", impact_plan)
     return tuple(checks_by_id[item] for item in binding_ids if item in checks_by_id)
 
 
@@ -129,7 +134,12 @@ def _command_input_paths(root: Path, command_parts: Sequence[str]) -> tuple[Path
     for part in command_parts[1:]:
         if part.startswith("-"):
             continue
-        candidate = (root / part).resolve()
+        # Pytest node ids are executable file inputs with an optional
+        # ``::test_name`` suffix.  Receipt identity must bind the file, not
+        # silently ignore the whole argument because the node id is not a
+        # filesystem path.
+        path_part = part.split("::", 1)[0]
+        candidate = (root / path_part).resolve()
         try:
             candidate.relative_to(root)
         except ValueError:
@@ -154,21 +164,8 @@ def _declared_native_input_paths(
     paths: set[Path] = set()
     for check in native_checks:
         paths.update(_command_input_paths(root, _check_command(check)))
-        for selector in check.get("input_selectors", ()):
-            if not isinstance(selector, Mapping) or selector.get("kind") != "path":
-                continue
-            raw_path = str(selector.get("path", "")).strip()
-            if not raw_path or "*" in raw_path:
-                continue
-            candidate = (root / raw_path).resolve()
-            try:
-                candidate.relative_to(root)
-            except ValueError:
-                continue
-            if candidate.is_file():
-                paths.add(candidate)
-            elif candidate.is_dir():
-                paths.update(path for path in candidate.rglob("*") if path.is_file())
+        for candidate in _selector_input_paths(root, check, native_checks):
+            paths.add(candidate)
     producer_paths = (
         Path(__file__).resolve(),
         root / "scripts" / "run_flowguard_skill_native_checks.py",
@@ -182,6 +179,219 @@ def _declared_native_input_paths(
             continue
         paths.add(path.resolve())
     return tuple(sorted(paths))
+
+
+def _impact_components(
+    native_checks: Sequence[Mapping[str, Any]],
+) -> tuple[Mapping[str, Any], ...]:
+    """Return the current content-impact components declared by the checks."""
+
+    for check in native_checks:
+        plan = check.get("content_impact_plan")
+        if isinstance(plan, Mapping):
+            components = plan.get("components", ())
+            if isinstance(components, Sequence) and not isinstance(components, (str, bytes)):
+                return tuple(item for item in components if isinstance(item, Mapping))
+    return ()
+
+
+def _safe_selector_path(root: Path, raw_path: str) -> Path | None:
+    raw = str(raw_path).strip().replace("\\", "/")
+    if not raw or raw.startswith(("/", "\\")) or re.match(r"(?i)^[A-Z]:", raw):
+        return None
+    candidate = (root / raw).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    return candidate
+
+
+def _selector_input_paths(
+    root: Path,
+    check: Mapping[str, Any],
+    all_checks: Sequence[Mapping[str, Any]],
+) -> tuple[Path, ...]:
+    """Resolve path, role, and component selectors without a broad fallback."""
+
+    components = _impact_components(all_checks)
+    by_id = {
+        str(item.get("component_id", "")): item
+        for item in components
+        if str(item.get("component_id", ""))
+    }
+    by_role: dict[str, list[Mapping[str, Any]]] = {}
+    for component in components:
+        role = str(component.get("role", "")).strip()
+        if role:
+            by_role.setdefault(role, []).append(component)
+
+    raw_selectors: list[Mapping[str, Any]] = [
+        item
+        for item in check.get("input_selectors", ())
+        if isinstance(item, Mapping)
+    ]
+    for component_id in check.get("input_component_ids", ()):
+        raw_selectors.append({"kind": "component", "component_id": str(component_id)})
+
+    paths: set[Path] = set()
+
+    def add_member_paths(component: Mapping[str, Any]) -> None:
+        members = component.get("member_paths", ())
+        if not isinstance(members, Sequence) or isinstance(members, (str, bytes)):
+            return
+        for member in members:
+            raw = str(member).strip()
+            if any(token in raw for token in ("*", "?", "[")):
+                for match in root.glob(raw.replace("\\", "/")):
+                    resolved = match.resolve()
+                    try:
+                        resolved.relative_to(root)
+                    except ValueError:
+                        continue
+                    if resolved.is_file():
+                        paths.add(resolved)
+                continue
+            candidate = _safe_selector_path(root, raw)
+            if candidate is None:
+                continue
+            if candidate.is_dir():
+                paths.update(path.resolve() for path in candidate.rglob("*") if path.is_file())
+            else:
+                # Retain an absent member as an explicit missing input so a
+                # later creation changes the receipt instead of going
+                # unnoticed.
+                paths.add(candidate)
+
+    for selector in raw_selectors:
+        kind = str(selector.get("kind", "")).strip()
+        if kind == "path":
+            raw = str(selector.get("path", "")).strip()
+            candidate = _safe_selector_path(root, raw)
+            if candidate is None:
+                continue
+            if any(token in raw for token in ("*", "?", "[")):
+                for match in root.glob(raw.replace("\\", "/")):
+                    resolved = match.resolve()
+                    try:
+                        resolved.relative_to(root)
+                    except ValueError:
+                        continue
+                    if resolved.is_file():
+                        paths.add(resolved)
+            elif candidate.is_dir():
+                paths.update(path.resolve() for path in candidate.rglob("*") if path.is_file())
+            else:
+                paths.add(candidate)
+        elif kind == "role":
+            for component in by_role.get(str(selector.get("role", "")).strip(), ()):
+                add_member_paths(component)
+        elif kind in {"component", "input_component"}:
+            component = by_id.get(str(selector.get("component_id", selector.get("id", ""))))
+            if component is not None:
+                add_member_paths(component)
+    return tuple(sorted(paths))
+
+
+def _selector_snapshots(
+    root: Path,
+    native_checks: Sequence[Mapping[str, Any]],
+    obligation_ids: Sequence[str],
+) -> tuple[Any, ...]:
+    """Bind selector expansion (including empty/new/deleted cases) to a receipt."""
+
+    components = _impact_components(native_checks)
+    by_id = {
+        str(item.get("component_id", "")): item
+        for item in components
+        if str(item.get("component_id", ""))
+    }
+    by_role: dict[str, list[Mapping[str, Any]]] = {}
+    for component in components:
+        role = str(component.get("role", "")).strip()
+        if role:
+            by_role.setdefault(role, []).append(component)
+
+    snapshots: list[Any] = []
+    for check in native_checks:
+        selectors = [
+            item
+            for item in check.get("input_selectors", ())
+            if isinstance(item, Mapping)
+        ]
+        selectors.extend(
+            {"kind": "component", "component_id": str(value)}
+            for value in check.get("input_component_ids", ())
+        )
+        for selector in selectors:
+            kind = str(selector.get("kind", "")).strip()
+            components_for_selector: tuple[Mapping[str, Any], ...] = ()
+            if kind == "role":
+                components_for_selector = tuple(
+                    by_role.get(str(selector.get("role", "")).strip(), ())
+                )
+            elif kind in {"component", "input_component"}:
+                component = by_id.get(
+                    str(selector.get("component_id", selector.get("id", "")))
+                )
+                components_for_selector = (component,) if component is not None else ()
+
+            resolved: set[str] = set()
+            if kind == "path":
+                raw = str(selector.get("path", "")).strip().replace("\\", "/")
+                if raw and not re.match(r"(?i)^[A-Z]:", raw) and not raw.startswith(("/", "\\")):
+                    for match in root.glob(raw) if any(token in raw for token in ("*", "?", "[")) else ():
+                        if match.is_file():
+                            resolved.add(match.resolve().relative_to(root).as_posix())
+                    if not any(token in raw for token in ("*", "?", "[")):
+                        candidate = _safe_selector_path(root, raw)
+                        if candidate is not None:
+                            if candidate.is_dir():
+                                resolved.update(
+                                    path.resolve().relative_to(root).as_posix()
+                                    for path in candidate.rglob("*")
+                                    if path.is_file()
+                                )
+                            else:
+                                resolved.add(candidate.relative_to(root).as_posix())
+            for component in components_for_selector:
+                members = component.get("member_paths", ())
+                if isinstance(members, Sequence) and not isinstance(members, (str, bytes)):
+                    for member in members:
+                        raw = str(member).replace("\\", "/")
+                        for match in root.glob(raw) if any(token in raw for token in ("*", "?", "[")) else ():
+                            if match.is_file():
+                                resolved.add(match.resolve().relative_to(root).as_posix())
+                        if not any(token in raw for token in ("*", "?", "[")):
+                            candidate = _safe_selector_path(root, raw)
+                            if candidate is not None:
+                                if candidate.is_dir():
+                                    resolved.update(
+                                        path.resolve().relative_to(root).as_posix()
+                                        for path in candidate.rglob("*")
+                                        if path.is_file()
+                                    )
+                                else:
+                                    resolved.add(candidate.relative_to(root).as_posix())
+            selector_bytes = json.dumps(
+                {"selector": dict(selector), "resolved_paths": sorted(resolved)},
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            selector_digest = hashlib.sha256(
+                json.dumps(dict(selector), sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()[:24]
+            snapshots.append(
+                snapshot_bytes(
+                    f"selector:{selector_digest}",
+                    selector_bytes,
+                    path_token=f"selector/{selector_digest}.json",
+                    hash_policy=INPUT_HASH_BOTH,
+                    obligation_ids=obligation_ids,
+                )
+            )
+    return tuple(snapshots)
 
 
 def _input_snapshots(
@@ -199,18 +409,29 @@ def _input_snapshots(
         skill_dir / CHECK_MANIFEST_FILE,
     ]
     paths.extend(_declared_native_input_paths(root, native_checks))
-    unique_paths = tuple(dict.fromkeys(path for path in paths if path.is_file()))
+    unique_paths = tuple(dict.fromkeys(paths))
     snapshots = [
-        snapshot_file(
-            f"file:{path.relative_to(root).as_posix()}",
-            path,
-            workspace_root=root,
-            hash_policy=INPUT_HASH_BOTH,
-            obligation_ids=obligation_ids,
+        (
+            snapshot_file(
+                f"file:{path.relative_to(root).as_posix()}",
+                path,
+                workspace_root=root,
+                hash_policy=INPUT_HASH_BOTH,
+                obligation_ids=obligation_ids,
+            )
+            if path.is_file()
+            else snapshot_bytes(
+                f"file:{path.relative_to(root).as_posix()}",
+                b"<missing>",
+                path_token=tokenize_path(path, workspace_root=root),
+                hash_policy=INPUT_HASH_BOTH,
+                obligation_ids=obligation_ids,
+            )
         )
         for path in unique_paths
     ]
-    return tuple(snapshots)
+    snapshots.extend(_selector_snapshots(root, native_checks, obligation_ids))
+    return tuple(dict((item.artifact_id, item) for item in snapshots).values())
 
 
 def _native_execution_workspace(evidence_root: Path, skill_id: str) -> Path:
@@ -291,6 +512,24 @@ def _validate_binding(
         for item in manifest.get("checks", ())
         if isinstance(item, Mapping)
     }
+    impact_plan = manifest.get("content_impact_plan")
+    components = (
+        tuple(item for item in impact_plan.get("components", ()) if isinstance(item, Mapping))
+        if isinstance(impact_plan, Mapping)
+        and isinstance(impact_plan.get("components", ()), Sequence)
+        and not isinstance(impact_plan.get("components", ()), (str, bytes))
+        else ()
+    )
+    component_ids = {
+        str(item.get("component_id", ""))
+        for item in components
+        if str(item.get("component_id", ""))
+    }
+    component_roles = {
+        str(item.get("role", ""))
+        for item in components
+        if str(item.get("role", ""))
+    }
     for check_id in binding_ids:
         declared = source_checks.get(check_id)
         projected = manifest_checks.get(check_id)
@@ -306,6 +545,33 @@ def _validate_binding(
             or projected.get("args", ()) != declared.get("args", ())
         ):
             blockers.append(f"native_binding_manifest_mismatch:{check_id}")
+        for field_name in ("input_selectors", "input_component_ids"):
+            if (
+                field_name in declared
+                or field_name in projected
+            ) and declared.get(field_name, ()) != projected.get(field_name, ()):
+                blockers.append(f"native_binding_input_identity_mismatch:{check_id}:{field_name}")
+        if projected is not None:
+            for component_id in projected.get("input_component_ids", ()):
+                if str(component_id) not in component_ids:
+                    blockers.append(
+                        f"native_input_component_unknown:{check_id}:{component_id}"
+                    )
+            for selector in projected.get("input_selectors", ()):
+                if not isinstance(selector, Mapping):
+                    blockers.append(f"native_input_selector_invalid:{check_id}")
+                    continue
+                kind = str(selector.get("kind", ""))
+                if kind == "role" and str(selector.get("role", "")) not in component_roles:
+                    blockers.append(
+                        f"native_input_role_unknown:{check_id}:{selector.get('role', '')}"
+                    )
+                if kind in {"component", "input_component"}:
+                    component_id = str(selector.get("component_id", selector.get("id", "")))
+                    if component_id not in component_ids:
+                        blockers.append(
+                            f"native_input_component_unknown:{check_id}:{component_id}"
+                        )
     required_obligations = tuple(
         str(item.get("obligation_id", ""))
         for item in contract.get("obligations", ())
@@ -336,6 +602,11 @@ class NativeCheckRun:
     stdout_sha256: str
     stderr_sha256: str
     timed_out: bool = False
+    cancelled: bool = False
+    interrupted: bool = False
+    cleanup_confirmed: bool = True
+    terminal_reason: str = "process_exit"
+    descendant_process_ids: tuple[int, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -348,6 +619,11 @@ class NativeCheckRun:
             "stdout_sha256": self.stdout_sha256,
             "stderr_sha256": self.stderr_sha256,
             "timed_out": self.timed_out,
+            "cancelled": self.cancelled,
+            "interrupted": self.interrupted,
+            "cleanup_confirmed": self.cleanup_confirmed,
+            "terminal_reason": self.terminal_reason,
+            "descendant_process_ids": list(self.descendant_process_ids),
         }
 
 
@@ -428,7 +704,6 @@ def run_native_skill_check(
         started_at = _now()
         stdout = ""
         stderr = ""
-        timed_out = False
         child_environment = dict(os.environ)
         # Native checks may create temporary Git repositories.  An outer
         # completion/readiness invocation can set a private index for its
@@ -447,27 +722,36 @@ def run_native_skill_check(
                 "PYTHONIOENCODING": "utf-8",
             }
         )
-        try:
-            completed = subprocess.run(
-                _execution_command(declared),
-                cwd=root,
-                text=True,
-                capture_output=True,
-                check=False,
-                timeout=timeout_seconds,
-                env=child_environment,
+        completed = run_supervised(
+            _execution_command(declared),
+            cwd=root,
+            timeout_seconds=timeout_seconds,
+            grace_seconds=3.0,
+            environment=child_environment,
+        )
+        exit_code = (
+            int(completed.exit_code)
+            if completed.exit_code is not None
+            else 124
+            if completed.timed_out
+            else 125
+        )
+        stdout = completed.stdout if isinstance(completed.stdout, str) else completed.stdout.decode("utf-8", errors="replace")
+        stderr = completed.stderr if isinstance(completed.stderr, str) else completed.stderr.decode("utf-8", errors="replace")
+        if completed.timed_out:
+            blockers.append(f"native_check_timeout:{check.get('check_id', '')}")
+        if completed.cancelled:
+            blockers.append(f"native_check_cancelled:{check.get('check_id', '')}")
+        if completed.interrupted:
+            blockers.append(f"native_check_interrupted:{check.get('check_id', '')}")
+        if not completed.cleanup_confirmed:
+            blockers.append(f"native_check_cleanup_unconfirmed:{check.get('check_id', '')}")
+        if completed.terminal_reason != "process_exit":
+            blockers.append(
+                f"native_check_terminal:{check.get('check_id', '')}:{completed.terminal_reason}"
             )
-            exit_code = completed.returncode
-            stdout = completed.stdout
-            stderr = completed.stderr
-        except subprocess.TimeoutExpired as exc:
-            exit_code = 124
-            timed_out = True
-            stdout = exc.stdout.decode(errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-            stderr = exc.stderr.decode(errors="replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
-            blockers.append(f"native_check_timeout:{check.get('binding_id', '')}")
         finished_at = _now()
-        status = RECEIPT_STATUS_PASS if exit_code == 0 and not timed_out else RECEIPT_STATUS_FAIL
+        status = RECEIPT_STATUS_PASS if completed.ok else RECEIPT_STATUS_FAIL
         run = NativeCheckRun(
             binding_id=str(check.get("check_id", "")),
             command=tokenize_command(declared, workspace_root=root),
@@ -477,7 +761,12 @@ def run_native_skill_check(
             finished_at=finished_at,
             stdout_sha256=_sha256_bytes(stdout.encode("utf-8", errors="replace")),
             stderr_sha256=_sha256_bytes(stderr.encode("utf-8", errors="replace")),
-            timed_out=timed_out,
+            timed_out=completed.timed_out,
+            cancelled=completed.cancelled,
+            interrupted=completed.interrupted,
+            cleanup_confirmed=completed.cleanup_confirmed,
+            terminal_reason=completed.terminal_reason,
+            descendant_process_ids=tuple(completed.descendant_process_ids),
         )
         runs.append(run)
         log_sections.extend(
@@ -486,7 +775,7 @@ def run_native_skill_check(
                 f"=== {run.binding_id} stderr ===\n{_sanitize_log(stderr, root)}",
             )
         )
-        if exit_code != 0:
+        if not completed.ok:
             blockers.append(f"native_check_failed:{run.binding_id}:exit={exit_code}")
 
     if not runs:

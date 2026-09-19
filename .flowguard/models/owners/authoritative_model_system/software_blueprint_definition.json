@@ -1626,6 +1626,7 @@
     ".flowguard/verification/owners/validation_evidence_gates/run_checks.py": "validation_evidence_gates",
     ".flowguard/verification/owners/work_context/run_checks.py": "work_context",
     "flowguard/__init__.py": "codex_skill_satellites",
+    "flowguard/_eager_exports.py": "codex_skill_satellites",
     "flowguard/__main__.py": "codex_skill_satellites",
     "flowguard/_development_process_strategy_review.py": "development_process_strategy",
     "flowguard/_hashing.py": "validation_evidence_gates",

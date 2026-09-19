@@ -116,19 +116,17 @@ epoch, loading a fallback route, or starting full:
   that requires a real reparse-point probe;
 - active OpenSpec scope drift or an unavailable required external owner.
 
-## 4. OpenSpec local acceptance alignment
+## 4. Governed acceptance alignment
 
-These rules mirror the current local acceptance contracts; the task files remain
-the source of truth and must be read directly before a governed completion:
-
-| Local task | Contract mirrored here |
-| --- | --- |
-| `openspec/changes/allow-explicit-completion-objective/tasks.md:3.3` | On a symlink-capable runner only, reserve at most one full producer and then exactly one same-parent `--reuse-only`; external CI/provider/UI/install/release work stays typed `blocked`/`not_run`. If the capability probe returns `WinError 1314`, stop before both runs. |
-| `openspec/changes/close-runtime-evidence-and-task-map/tasks.md:9.2` | Freeze all inputs, perform one authorized formal qualification and one same-parent reuse-only check, and do not rerun after success. |
-| `openspec/changes/close-runtime-evidence-and-task-map/tasks.md:9.3` | Keep external CI/provider/release/remote operations explicitly `not_run`; perform KB postflight; close only when every local core acceptance condition has current evidence. |
-
-The three task rows are not made complete by this document. A current receipt
-and the task's own completion evidence are still required.
+When a task has OpenSpec scope, read its active task artifacts directly; this
+shared contract deliberately does not embed historical change IDs or become a
+second task authority. On a symlink-capable runner, a governed final gate may
+reserve at most one producer and then one same-parent `--reuse-only` check.
+If the capability probe returns `WinError 1314`, stop before either run.
+External CI, provider, UI, install, release, and remote operations stay typed `blocked`/`not_run`
+unless separately admitted. A current receipt and the
+task's own completion evidence are still required; this document never closes
+an OpenSpec task by itself.
 
 ## 5. Fifteen public route rows
 

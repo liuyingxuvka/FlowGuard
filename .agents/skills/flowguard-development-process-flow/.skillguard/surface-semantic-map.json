@@ -1,0 +1,756 @@
+{
+  "claim_boundary": "Author-side semantic map for one FlowGuard skill. It proves exact current joins only; it does not replace native check execution or release evidence.",
+  "current_obligation_ids": [
+    "obligation:flowguard-development-process-flow:plane-boundary",
+    "obligation:flowguard-development-process-flow:native-authority",
+    "obligation:flowguard-development-process-flow:evidence-closure",
+    "obligation:flowguard-development-process-flow:process-strategy-equivalence",
+    "obligation:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+    "obligation:flowguard-development-process-flow:validation-observation-bounded-currentness",
+    "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+    "obligation:flowguard-development-process-flow:plan-detailing:native-authority",
+    "obligation:flowguard-development-process-flow:plan-detailing:evidence-closure",
+    "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+    "obligation:flowguard-development-process-flow:agent-workflow:native-authority",
+    "obligation:flowguard-development-process-flow:agent-workflow:evidence-closure"
+  ],
+  "decision_rules": [
+    {
+      "proof_ref": ".skillguard/contract-source.json#obligations",
+      "reason": "The target author directly assigns each source observation to the current skill contract; no name, history, test, or fallback inference is used.",
+      "rule_id": "decision:flowguard-skill-current-source-boundary"
+    }
+  ],
+  "map_hash": "sha256:23f5dc88fa2ae079dccc0ae67937e2f4ccd2cc3defe30e435b0c17b7d90b8cc4",
+  "map_id": "map:flowguard-development-process-flow:surface-semantics-direct-current-r2",
+  "obligation_bindings": [
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-development-process-flow:plane-boundary",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-development-process-flow:plane-boundary",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "artifact:agents/openai.yaml",
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md",
+        "template:references/agent_workflow_protocol.md",
+        "template:references/development_process_flow_protocol.md",
+        "template:references/distribution_release_protocol.md",
+        "template:references/failure_triage_protocol.md",
+        "template:references/plan_detailing_protocol.md",
+        "template:references/process_optimization_protocol.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-development-process-flow:native-authority",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-development-process-flow:native-authority",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-development-process-flow:evidence-closure",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-development-process-flow:evidence-closure",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md",
+        "template:references/agent_workflow_protocol.md",
+        "template:references/development_process_flow_protocol.md",
+        "template:references/distribution_release_protocol.md",
+        "template:references/failure_triage_protocol.md",
+        "template:references/plan_detailing_protocol.md",
+        "template:references/process_optimization_protocol.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-development-process-flow:process-strategy-equivalence",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-development-process-flow:process-strategy-equivalence",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-development-process-flow:validation-observation-bounded-currentness",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-development-process-flow:validation-observation-bounded-currentness",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "artifact:agents/openai.yaml",
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md",
+        "template:references/agent_workflow_protocol.md",
+        "template:references/development_process_flow_protocol.md",
+        "template:references/distribution_release_protocol.md",
+        "template:references/failure_triage_protocol.md",
+        "template:references/plan_detailing_protocol.md",
+        "template:references/process_optimization_protocol.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-development-process-flow:plan-detailing:native-authority",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-development-process-flow:plan-detailing:native-authority",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-development-process-flow:plan-detailing:evidence-closure",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-development-process-flow:plan-detailing:evidence-closure",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md",
+        "template:references/agent_workflow_protocol.md",
+        "template:references/development_process_flow_protocol.md",
+        "template:references/distribution_release_protocol.md",
+        "template:references/failure_triage_protocol.md",
+        "template:references/plan_detailing_protocol.md",
+        "template:references/process_optimization_protocol.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "artifact:agents/openai.yaml",
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md",
+        "template:references/agent_workflow_protocol.md",
+        "template:references/development_process_flow_protocol.md",
+        "template:references/distribution_release_protocol.md",
+        "template:references/failure_triage_protocol.md",
+        "template:references/plan_detailing_protocol.md",
+        "template:references/process_optimization_protocol.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-development-process-flow:agent-workflow:native-authority",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-development-process-flow:agent-workflow:native-authority",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-development-process-flow:agent-workflow:evidence-closure",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-development-process-flow:agent-workflow:evidence-closure",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md",
+        "template:references/agent_workflow_protocol.md",
+        "template:references/development_process_flow_protocol.md",
+        "template:references/distribution_release_protocol.md",
+        "template:references/failure_triage_protocol.md",
+        "template:references/plan_detailing_protocol.md",
+        "template:references/process_optimization_protocol.md"
+      ]
+    }
+  ],
+  "schema_version": "flowguard.skill_surface_semantic_map.v1",
+  "source_discovery_fingerprint": "sha256:4808196960b2f6ad30fd4c891e7d6fd5c572687e9f27e551632b5e14045bb891",
+  "surface_bindings": [
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-development-process-flow:artifact:agents/openai.yaml"
+      ],
+      "execution_owner_ids": [
+        "development_process_flow"
+      ],
+      "function_id": "artifact:agents/openai.yaml",
+      "intent_id": "intent:flowguard-development-process-flow:current-skill-contract",
+      "kind": "artifact",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "obligation:flowguard-development-process-flow:plane-boundary"
+      ],
+      "name": "agents/openai.yaml",
+      "obligation_ids": [
+        "obligation:flowguard-development-process-flow:surface-contract"
+      ],
+      "owner_id": "development_process_flow",
+      "required_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:d9efd0b752469e1fc3464d11",
+      "route_id": "artifact:agents/openai.yaml",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:9e393a6d4a3bc15d69e06a6e9e9cdb0e381242c8d8a7ac6b07adb41971d8050d",
+      "source_path": "agents/openai.yaml",
+      "surface_id": "artifact:agents/openai.yaml",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-development-process-flow:config:.skillguard/contract-source.json"
+      ],
+      "execution_owner_ids": [
+        "development_process_flow"
+      ],
+      "function_id": "config:.skillguard/contract-source.json",
+      "intent_id": "intent:flowguard-development-process-flow:current-skill-contract",
+      "kind": "config",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-development-process-flow:agent-workflow:native-authority",
+        "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "obligation:flowguard-development-process-flow:native-authority",
+        "obligation:flowguard-development-process-flow:plan-detailing:native-authority",
+        "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "obligation:flowguard-development-process-flow:plane-boundary"
+      ],
+      "name": ".skillguard/contract-source.json",
+      "obligation_ids": [
+        "obligation:flowguard-development-process-flow:surface-contract"
+      ],
+      "owner_id": "development_process_flow",
+      "required_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:10513a60240614296b758ebb",
+      "route_id": "config:.skillguard/contract-source.json",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:d6ef1b9eae09b369f72fe1b446b10deccb89ad117fa16a680c54285e4c86364d",
+      "source_path": ".skillguard/contract-source.json",
+      "surface_id": "config:.skillguard/contract-source.json",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-development-process-flow:template:SKILL.md"
+      ],
+      "execution_owner_ids": [
+        "development_process_flow"
+      ],
+      "function_id": "template:SKILL.md",
+      "intent_id": "intent:flowguard-development-process-flow:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-development-process-flow:agent-workflow:evidence-closure",
+        "obligation:flowguard-development-process-flow:agent-workflow:native-authority",
+        "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "obligation:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "obligation:flowguard-development-process-flow:evidence-closure",
+        "obligation:flowguard-development-process-flow:native-authority",
+        "obligation:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:native-authority",
+        "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "obligation:flowguard-development-process-flow:plane-boundary",
+        "obligation:flowguard-development-process-flow:process-strategy-equivalence",
+        "obligation:flowguard-development-process-flow:validation-observation-bounded-currentness"
+      ],
+      "name": "SKILL.md",
+      "obligation_ids": [
+        "obligation:flowguard-development-process-flow:surface-contract"
+      ],
+      "owner_id": "development_process_flow",
+      "required_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:45d8dca86b7e8a7dd698b75b",
+      "route_id": "template:SKILL.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:01900d10c8096bc5aa2dc07ff4de9c73d5349df1d5ae96ab6499212de8b264e8",
+      "source_path": "SKILL.md",
+      "surface_id": "template:SKILL.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-development-process-flow:template:references/agent_workflow_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "development_process_flow"
+      ],
+      "function_id": "template:references/agent_workflow_protocol.md",
+      "intent_id": "intent:flowguard-development-process-flow:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-development-process-flow:agent-workflow:evidence-closure",
+        "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "obligation:flowguard-development-process-flow:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "obligation:flowguard-development-process-flow:plane-boundary"
+      ],
+      "name": "references/agent_workflow_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-development-process-flow:surface-contract"
+      ],
+      "owner_id": "development_process_flow",
+      "required_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:beb03a77f4fde4d40a44678d",
+      "route_id": "template:references/agent_workflow_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:b5e9787c45ce4a53746772d6734b1e1258ae4d9a7146a866e8a7d6fa02bfda4e",
+      "source_path": "references/agent_workflow_protocol.md",
+      "surface_id": "template:references/agent_workflow_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-development-process-flow:template:references/development_process_flow_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "development_process_flow"
+      ],
+      "function_id": "template:references/development_process_flow_protocol.md",
+      "intent_id": "intent:flowguard-development-process-flow:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-development-process-flow:agent-workflow:evidence-closure",
+        "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "obligation:flowguard-development-process-flow:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "obligation:flowguard-development-process-flow:plane-boundary"
+      ],
+      "name": "references/development_process_flow_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-development-process-flow:surface-contract"
+      ],
+      "owner_id": "development_process_flow",
+      "required_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:bb0af87cc74455794d56422f",
+      "route_id": "template:references/development_process_flow_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:6139a72911dc3c3aca43c00e99a39016606f271ad5e3b0bbd1e00b0ac3adba39",
+      "source_path": "references/development_process_flow_protocol.md",
+      "surface_id": "template:references/development_process_flow_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-development-process-flow:template:references/distribution_release_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "development_process_flow"
+      ],
+      "function_id": "template:references/distribution_release_protocol.md",
+      "intent_id": "intent:flowguard-development-process-flow:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-development-process-flow:agent-workflow:evidence-closure",
+        "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "obligation:flowguard-development-process-flow:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "obligation:flowguard-development-process-flow:plane-boundary"
+      ],
+      "name": "references/distribution_release_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-development-process-flow:surface-contract"
+      ],
+      "owner_id": "development_process_flow",
+      "required_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:f92a7febb708a9299d6bba5f",
+      "route_id": "template:references/distribution_release_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:dab64df179ae3886a3bbcc2d9d8e8c7f27e6e3da746682ba854c20d36ecbad8d",
+      "source_path": "references/distribution_release_protocol.md",
+      "surface_id": "template:references/distribution_release_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-development-process-flow:template:references/failure_triage_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "development_process_flow"
+      ],
+      "function_id": "template:references/failure_triage_protocol.md",
+      "intent_id": "intent:flowguard-development-process-flow:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-development-process-flow:agent-workflow:evidence-closure",
+        "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "obligation:flowguard-development-process-flow:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "obligation:flowguard-development-process-flow:plane-boundary"
+      ],
+      "name": "references/failure_triage_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-development-process-flow:surface-contract"
+      ],
+      "owner_id": "development_process_flow",
+      "required_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:820def9419025bc01dc93281",
+      "route_id": "template:references/failure_triage_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:aac27833bfadfb95d0c687faaf2155e625f0b58256a036b20fbbbc4ed75b89fe",
+      "source_path": "references/failure_triage_protocol.md",
+      "surface_id": "template:references/failure_triage_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-development-process-flow:template:references/plan_detailing_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "development_process_flow"
+      ],
+      "function_id": "template:references/plan_detailing_protocol.md",
+      "intent_id": "intent:flowguard-development-process-flow:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-development-process-flow:agent-workflow:evidence-closure",
+        "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "obligation:flowguard-development-process-flow:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "obligation:flowguard-development-process-flow:plane-boundary"
+      ],
+      "name": "references/plan_detailing_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-development-process-flow:surface-contract"
+      ],
+      "owner_id": "development_process_flow",
+      "required_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:a024cf650579917a715e489c",
+      "route_id": "template:references/plan_detailing_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:6c6002a2db509d8f02938ebfba367a150546e204febe8f11c6d606993983b1d9",
+      "source_path": "references/plan_detailing_protocol.md",
+      "surface_id": "template:references/plan_detailing_protocol.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-development-process-flow:template:references/process_optimization_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "development_process_flow"
+      ],
+      "function_id": "template:references/process_optimization_protocol.md",
+      "intent_id": "intent:flowguard-development-process-flow:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-development-process-flow:agent-workflow:evidence-closure",
+        "obligation:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "obligation:flowguard-development-process-flow:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "obligation:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "obligation:flowguard-development-process-flow:plane-boundary"
+      ],
+      "name": "references/process_optimization_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-development-process-flow:surface-contract"
+      ],
+      "owner_id": "development_process_flow",
+      "required_check_ids": [
+        "check:flowguard-development-process-flow:plane-boundary",
+        "check:flowguard-development-process-flow:native-authority",
+        "check:flowguard-development-process-flow:process-strategy-equivalence",
+        "check:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
+        "check:flowguard-development-process-flow:validation-observation-bounded-currentness",
+        "check:flowguard-development-process-flow:evidence-closure",
+        "check:flowguard-development-process-flow:plan-detailing:plane-boundary",
+        "check:flowguard-development-process-flow:plan-detailing:native-authority",
+        "check:flowguard-development-process-flow:plan-detailing:evidence-closure",
+        "check:flowguard-development-process-flow:agent-workflow:plane-boundary",
+        "check:flowguard-development-process-flow:agent-workflow:native-authority",
+        "check:flowguard-development-process-flow:agent-workflow:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:416e558fb427a494b2d4bf38",
+      "route_id": "template:references/process_optimization_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:3afdf0dfd5ec4d8c12963732bda4cbca76b4bedd008a8d5ff71bceb4fc466fd4",
+      "source_path": "references/process_optimization_protocol.md",
+      "surface_id": "template:references/process_optimization_protocol.md",
+      "write_authority": "target-skill-author"
+    }
+  ],
+  "target_skill_id": "flowguard-development-process-flow"
+}

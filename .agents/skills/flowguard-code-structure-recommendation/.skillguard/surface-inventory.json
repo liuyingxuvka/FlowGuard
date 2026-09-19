@@ -1,0 +1,419 @@
+{
+  "adequacy_check_ids": [
+    "check:flowguard-code-structure-recommendation:plane-boundary",
+    "check:flowguard-code-structure-recommendation:native-authority",
+    "check:flowguard-code-structure-recommendation:evidence-closure"
+  ],
+  "claim_boundary": "Current target-owned FlowGuard skill semantic inventory. Structural discovery is observation only; every binding is an explicit current author decision and must be rewritten when the compiled contract or source discovery identity changes.",
+  "current_obligation_ids": [
+    "obligation:flowguard-code-structure-recommendation:plane-boundary",
+    "obligation:flowguard-code-structure-recommendation:native-authority",
+    "obligation:flowguard-code-structure-recommendation:evidence-closure"
+  ],
+  "full_discovery_fingerprint": "sha256:810d88574179b88e45fb7f824fb92a8e0f00924bda6c66c7ce1e9c800e446c4f",
+  "full_surface_ids": [
+    "artifact:agents/openai.yaml",
+    "config:.skillguard/contract-source.json",
+    "template:SKILL.md",
+    "template:references/code_structure_recommendation_protocol.md"
+  ],
+  "full_surfaces": [
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-code-structure-recommendation:artifact:agents/openai.yaml"
+      ],
+      "execution_owner_ids": [
+        "code_structure_recommendation"
+      ],
+      "function_id": "artifact:agents/openai.yaml",
+      "intent_id": "intent:flowguard-code-structure-recommendation:current-skill-contract",
+      "kind": "artifact",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-code-structure-recommendation:plane-boundary"
+      ],
+      "name": "agents/openai.yaml",
+      "obligation_ids": [
+        "obligation:flowguard-code-structure-recommendation:surface-contract"
+      ],
+      "owner_id": "code_structure_recommendation",
+      "required_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:d9efd0b752469e1fc3464d11",
+      "route_id": "artifact:agents/openai.yaml",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:0172f7d9539526bddc433d28fcc64cece6dc3f6ad4c6a4aeffa385a9024e13a7",
+      "source_path": "agents/openai.yaml",
+      "surface_id": "artifact:agents/openai.yaml",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-code-structure-recommendation:config:.skillguard/contract-source.json"
+      ],
+      "execution_owner_ids": [
+        "code_structure_recommendation"
+      ],
+      "function_id": "config:.skillguard/contract-source.json",
+      "intent_id": "intent:flowguard-code-structure-recommendation:current-skill-contract",
+      "kind": "config",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-code-structure-recommendation:native-authority",
+        "obligation:flowguard-code-structure-recommendation:plane-boundary"
+      ],
+      "name": ".skillguard/contract-source.json",
+      "obligation_ids": [
+        "obligation:flowguard-code-structure-recommendation:surface-contract"
+      ],
+      "owner_id": "code_structure_recommendation",
+      "required_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:10513a60240614296b758ebb",
+      "route_id": "config:.skillguard/contract-source.json",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:7d6ab0df4ae3303f834f0af29d008c6f1377b7409128e17d9a76f583e8d1349f",
+      "source_path": ".skillguard/contract-source.json",
+      "surface_id": "config:.skillguard/contract-source.json",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-code-structure-recommendation:template:SKILL.md"
+      ],
+      "execution_owner_ids": [
+        "code_structure_recommendation"
+      ],
+      "function_id": "template:SKILL.md",
+      "intent_id": "intent:flowguard-code-structure-recommendation:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-code-structure-recommendation:evidence-closure",
+        "obligation:flowguard-code-structure-recommendation:native-authority",
+        "obligation:flowguard-code-structure-recommendation:plane-boundary"
+      ],
+      "name": "SKILL.md",
+      "obligation_ids": [
+        "obligation:flowguard-code-structure-recommendation:surface-contract"
+      ],
+      "owner_id": "code_structure_recommendation",
+      "required_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:45d8dca86b7e8a7dd698b75b",
+      "route_id": "template:SKILL.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:b006694452d97637b5d386d7fd924bac5c1c90d3160a60037861a1918909a965",
+      "source_path": "SKILL.md",
+      "surface_id": "template:SKILL.md",
+      "write_authority": "target-skill-author"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "consumer_exposure": "skill-consumer-projection",
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-code-structure-recommendation:template:references/code_structure_recommendation_protocol.md"
+      ],
+      "execution_owner_ids": [
+        "code_structure_recommendation"
+      ],
+      "function_id": "template:references/code_structure_recommendation_protocol.md",
+      "intent_id": "intent:flowguard-code-structure-recommendation:current-skill-contract",
+      "kind": "template",
+      "lifecycle_phase": "current-skill-source",
+      "model_obligation_ids": [
+        "obligation:flowguard-code-structure-recommendation:evidence-closure",
+        "obligation:flowguard-code-structure-recommendation:plane-boundary"
+      ],
+      "name": "references/code_structure_recommendation_protocol.md",
+      "obligation_ids": [
+        "obligation:flowguard-code-structure-recommendation:surface-contract"
+      ],
+      "owner_id": "code_structure_recommendation",
+      "required_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "review_granularity": "surface",
+      "review_group_id": "group:surface:8c57c3aa50e94f345eef6ed6",
+      "route_id": "template:references/code_structure_recommendation_protocol.md",
+      "rule_id": "decision:flowguard-skill-current-source-boundary",
+      "source_fingerprint": "sha256:f5992007867798a0679cfeba4ab96412178ea2309e69d8698ed814502257104d",
+      "source_path": "references/code_structure_recommendation_protocol.md",
+      "surface_id": "template:references/code_structure_recommendation_protocol.md",
+      "write_authority": "target-skill-author"
+    }
+  ],
+  "inventory_hash": "sha256:6a30978800ac72d78606afdebaf907a3c0b72a1333e89f374e67cc3c11f36090",
+  "inventory_id": "inventory:flowguard-code-structure-recommendation:implementation-surface-current-r2",
+  "model_deepening_check_id": "check:flowguard-code-structure-recommendation:native-authority",
+  "model_obligations": [
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-code-structure-recommendation:plane-boundary",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-code-structure-recommendation:plane-boundary",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "artifact:agents/openai.yaml",
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md",
+        "template:references/code_structure_recommendation_protocol.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-code-structure-recommendation:native-authority",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-code-structure-recommendation:native-authority",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "config:.skillguard/contract-source.json",
+        "template:SKILL.md"
+      ]
+    },
+    {
+      "disposition": "governed",
+      "obligation_id": "obligation:flowguard-code-structure-recommendation:evidence-closure",
+      "proof_ref": ".skillguard/surface-semantic-map.json#obligation:obligation:flowguard-code-structure-recommendation:evidence-closure",
+      "reason": "The current FlowGuard skill author explicitly assigns this compiled obligation to the listed live source boundary; no historical row is inherited.",
+      "surface_ids": [
+        "template:SKILL.md",
+        "template:references/code_structure_recommendation_protocol.md"
+      ]
+    }
+  ],
+  "observed_surface_ids": [
+    "artifact:agents/openai.yaml",
+    "config:.skillguard/contract-source.json",
+    "template:SKILL.md",
+    "template:references/code_structure_recommendation_protocol.md"
+  ],
+  "owner_ids": [
+    "code_structure_recommendation"
+  ],
+  "rows": [
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-code-structure-recommendation:artifact:agents/openai.yaml"
+      ],
+      "function_id": "artifact:agents/openai.yaml",
+      "intent_id": "intent:flowguard-code-structure-recommendation:current-skill-contract",
+      "kind": "artifact",
+      "name": "agents/openai.yaml",
+      "owner_id": "code_structure_recommendation",
+      "required_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "route_id": "artifact:agents/openai.yaml",
+      "source_fingerprint": "sha256:0172f7d9539526bddc433d28fcc64cece6dc3f6ad4c6a4aeffa385a9024e13a7",
+      "source_path": "agents/openai.yaml",
+      "surface_id": "artifact:agents/openai.yaml",
+      "symbol": "agents/openai.yaml"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-code-structure-recommendation:config:.skillguard/contract-source.json"
+      ],
+      "function_id": "config:.skillguard/contract-source.json",
+      "intent_id": "intent:flowguard-code-structure-recommendation:current-skill-contract",
+      "kind": "config",
+      "name": ".skillguard/contract-source.json",
+      "owner_id": "code_structure_recommendation",
+      "required_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "route_id": "config:.skillguard/contract-source.json",
+      "source_fingerprint": "sha256:7d6ab0df4ae3303f834f0af29d008c6f1377b7409128e17d9a76f583e8d1349f",
+      "source_path": ".skillguard/contract-source.json",
+      "surface_id": "config:.skillguard/contract-source.json",
+      "symbol": ".skillguard/contract-source.json"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-code-structure-recommendation:template:SKILL.md"
+      ],
+      "function_id": "template:SKILL.md",
+      "intent_id": "intent:flowguard-code-structure-recommendation:current-skill-contract",
+      "kind": "template",
+      "name": "SKILL.md",
+      "owner_id": "code_structure_recommendation",
+      "required_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "route_id": "template:SKILL.md",
+      "source_fingerprint": "sha256:b006694452d97637b5d386d7fd924bac5c1c90d3160a60037861a1918909a965",
+      "source_path": "SKILL.md",
+      "surface_id": "template:SKILL.md",
+      "symbol": "SKILL.md"
+    },
+    {
+      "adequacy_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "disposition": "governed",
+      "evidence_subject_ids": [
+        "subject:flowguard-code-structure-recommendation:template:references/code_structure_recommendation_protocol.md"
+      ],
+      "function_id": "template:references/code_structure_recommendation_protocol.md",
+      "intent_id": "intent:flowguard-code-structure-recommendation:current-skill-contract",
+      "kind": "template",
+      "name": "references/code_structure_recommendation_protocol.md",
+      "owner_id": "code_structure_recommendation",
+      "required_check_ids": [
+        "check:flowguard-code-structure-recommendation:plane-boundary",
+        "check:flowguard-code-structure-recommendation:native-authority",
+        "check:flowguard-code-structure-recommendation:evidence-closure"
+      ],
+      "route_id": "template:references/code_structure_recommendation_protocol.md",
+      "source_fingerprint": "sha256:f5992007867798a0679cfeba4ab96412178ea2309e69d8698ed814502257104d",
+      "source_path": "references/code_structure_recommendation_protocol.md",
+      "surface_id": "template:references/code_structure_recommendation_protocol.md",
+      "symbol": "references/code_structure_recommendation_protocol.md"
+    }
+  ],
+  "schema_version": "skillguard.surface_inventory.v1",
+  "source_kind": "target-native-independent-implementation-surface-discovery",
+  "source_paths": [
+    ".skillguard/contract-source.json",
+    "SKILL.md",
+    "agents/openai.yaml",
+    "references/code_structure_recommendation_protocol.md"
+  ],
+  "surface_category_dispositions": {
+    "api": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-api",
+      "reason": "Current source discovery observed no api surface for this skill; the absence is typed as current N/A."
+    },
+    "artifact": {
+      "disposition": "governed",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-artifact",
+      "reason": "Current source discovery observed artifact surfaces; every observed row is explicitly bound."
+    },
+    "command": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-command",
+      "reason": "Current source discovery observed no command surface for this skill; the absence is typed as current N/A."
+    },
+    "component": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-component",
+      "reason": "Current source discovery observed no component surface for this skill; the absence is typed as current N/A."
+    },
+    "config": {
+      "disposition": "governed",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-config",
+      "reason": "Current source discovery observed config surfaces; every observed row is explicitly bound."
+    },
+    "effect": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-effect",
+      "reason": "Current source discovery observed no effect surface for this skill; the absence is typed as current N/A."
+    },
+    "fault": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-fault",
+      "reason": "Current source discovery observed no fault surface for this skill; the absence is typed as current N/A."
+    },
+    "installer": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-installer",
+      "reason": "Current source discovery observed no installer surface for this skill; the absence is typed as current N/A."
+    },
+    "provider": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-provider",
+      "reason": "Current source discovery observed no provider surface for this skill; the absence is typed as current N/A."
+    },
+    "recovery": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-recovery",
+      "reason": "Current source discovery observed no recovery surface for this skill; the absence is typed as current N/A."
+    },
+    "route": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-route",
+      "reason": "Current source discovery observed no route surface for this skill; the absence is typed as current N/A."
+    },
+    "script": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-script",
+      "reason": "Current source discovery observed no script surface for this skill; the absence is typed as current N/A."
+    },
+    "template": {
+      "disposition": "governed",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-template",
+      "reason": "Current source discovery observed template surfaces; every observed row is explicitly bound."
+    },
+    "ui": {
+      "disposition": "not_applicable_proven",
+      "proof_ref": ".skillguard/surface-semantic-map.json#category-ui",
+      "reason": "Current source discovery observed no ui surface for this skill; the absence is typed as current N/A."
+    }
+  },
+  "target_skill_id": "flowguard-code-structure-recommendation"
+}

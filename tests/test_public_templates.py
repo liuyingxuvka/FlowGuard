@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import os
 import subprocess
@@ -10,6 +12,7 @@ from flowguard import (
     behavior_commitment_ledger_from_mapping,
     behavior_commitment_ledger_to_mapping,
 )
+from flowguard.__main__ import main as flowguard_cli_main
 from flowguard.templates import (
     behavior_commitment_ledger_template_files,
     closure_contract_template_files,
@@ -138,6 +141,16 @@ class PublicTemplateTests(unittest.TestCase):
             )
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         return result.stdout
+
+    def run_cli(self, argv):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                return_code = flowguard_cli_main(list(argv))
+        except SystemExit as exc:
+            return_code = int(exc.code or 0)
+        return return_code, stdout.getvalue(), stderr.getvalue()
 
     def test_project_template_executes(self):
         output = self.run_written_template(project_template_files(), ())
@@ -791,39 +804,23 @@ class PublicTemplateTests(unittest.TestCase):
 
     def test_template_cli_prints_and_writes_new_templates(self):
         for command, template_name in TEMPLATE_CLI_COMMANDS.items():
-            help_result = subprocess.run(
-                [sys.executable, "-m", "flowguard", command, "--help"],
-                cwd=ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            self.assertEqual(0, help_result.returncode, help_result.stderr)
-            self.assertIn("--output", help_result.stdout)
-            self.assertIn("--force", help_result.stdout)
+            help_code, help_stdout, help_stderr = self.run_cli([command, "--help"])
+            self.assertEqual(0, help_code, help_stderr)
+            self.assertIn("--output", help_stdout)
+            self.assertIn("--force", help_stdout)
 
-            printed = subprocess.run(
-                [sys.executable, "-m", "flowguard", command],
-                cwd=ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            self.assertEqual(0, printed.returncode, printed.stderr)
-            data = json.loads(printed.stdout)
+            printed_code, printed_stdout, printed_stderr = self.run_cli([command])
+            self.assertEqual(0, printed_code, printed_stderr)
+            data = json.loads(printed_stdout)
             self.assertEqual(template_name, data["template"])
             self.assertTrue(data["files"])
 
             with tempfile.TemporaryDirectory() as directory:
-                written = subprocess.run(
-                    [sys.executable, "-m", "flowguard", command, "--output", directory],
-                    cwd=ROOT,
-                    text=True,
-                    capture_output=True,
-                    check=False,
+                written_code, written_stdout, written_stderr = self.run_cli(
+                    [command, "--output", directory]
                 )
-                self.assertEqual(0, written.returncode, written.stderr)
-                report = json.loads(written.stdout)
+                self.assertEqual(0, written_code, written_stderr)
+                report = json.loads(written_stdout)
                 self.assertEqual("flowguard_template_write", report["artifact_type"])
                 self.assertEqual(template_name, report["template"])
 
