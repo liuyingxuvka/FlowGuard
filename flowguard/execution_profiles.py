@@ -1,9 +1,11 @@
-"""Explicit execution-depth and modeling-mode selection for FlowGuard entries.
+"""Explicit lifecycle and modeling-mode selection for FlowGuard entries.
 
 ``execution_profile`` controls how much of the current project is executed;
 ``modeling_mode`` describes the semantic modeling boundary.  They are separate
-identities on purpose: choosing a specialist model route never silently turns
-an affected check into a release/full run.
+identities on purpose.  The user-facing lifecycle is deliberately smaller than
+the internal execution-depth implementation: callers choose only ``read``,
+``change``, or ``release``.  Specialist/domain analyzer routes never silently
+turn one lifecycle into another.
 """
 
 from __future__ import annotations
@@ -22,6 +24,19 @@ EXECUTION_PROFILES = (
     EXECUTION_PROFILE_LIGHT,
     EXECUTION_PROFILE_AFFECTED,
     EXECUTION_PROFILE_FULL,
+)
+
+# Lifecycle is the only public selector.  Execution profiles remain internal
+# implementation identities so existing owner code can still distinguish the
+# amount of work behind each lifecycle without exposing those names as a
+# caller-facing choice.
+LIFECYCLE_READ = "read"
+LIFECYCLE_CHANGE = "change"
+LIFECYCLE_RELEASE = "release"
+LIFECYCLES = (
+    LIFECYCLE_READ,
+    LIFECYCLE_CHANGE,
+    LIFECYCLE_RELEASE,
 )
 
 MODELING_MODE_READ_ONLY_AUDIT = "read_only_audit"
@@ -54,6 +69,20 @@ _PROFILE_FOR_OPERATION_KIND = {
     OPERATION_KIND_READ_ONLY: EXECUTION_PROFILE_LIGHT,
     OPERATION_KIND_CHANGE: EXECUTION_PROFILE_AFFECTED,
     OPERATION_KIND_QUALIFICATION: EXECUTION_PROFILE_FULL,
+}
+
+_PROFILE_FOR_LIFECYCLE = {
+    LIFECYCLE_READ: EXECUTION_PROFILE_LIGHT,
+    LIFECYCLE_CHANGE: EXECUTION_PROFILE_AFFECTED,
+    LIFECYCLE_RELEASE: EXECUTION_PROFILE_FULL,
+}
+_LIFECYCLE_FOR_PROFILE = {
+    profile: lifecycle for lifecycle, profile in _PROFILE_FOR_LIFECYCLE.items()
+}
+_LIFECYCLE_FOR_OPERATION_KIND = {
+    OPERATION_KIND_READ_ONLY: LIFECYCLE_READ,
+    OPERATION_KIND_CHANGE: LIFECYCLE_CHANGE,
+    OPERATION_KIND_QUALIFICATION: LIFECYCLE_RELEASE,
 }
 
 _DEFAULT_MODELING_MODE = {
@@ -332,8 +361,15 @@ class ExecutionProfileDecision:
     def ok(self) -> bool:
         return self.status == "pass" and self.admitted and not self.escalation_triggers
 
+    @property
+    def lifecycle(self) -> str:
+        """Return the stable public lifecycle for this internal profile."""
+
+        return _LIFECYCLE_FOR_PROFILE[self.execution_profile]
+
     def to_dict(self) -> dict[str, Any]:
         return {
+            "lifecycle": self.lifecycle,
             "execution_profile": self.execution_profile,
             "modeling_mode": self.modeling_mode,
             "claim_boundary": self.claim_boundary,
@@ -348,7 +384,7 @@ class ExecutionProfileDecision:
 
 
 def select_execution_profile(
-    requested_profile: str | None = None,
+    lifecycle: str | None = None,
     *,
     operation_kind: str | None = None,
     route_kind: str = "",
@@ -362,15 +398,14 @@ def select_execution_profile(
     closed_obligations: Sequence[str] = (),
     not_run_obligations: Sequence[str] = (),
 ) -> ExecutionProfileDecision:
-    """Select one profile without conflating it with the modeling mode.
+    """Select one internal profile from the explicit public lifecycle.
 
-    An omitted profile is inferred from a typed operation fact when one is
-    supplied.  There is no prose/legacy operation adapter: callers must provide
-    a current ``operation_kind`` when the route has an operation fact.
-    Explicit ``full`` is retained as the requested profile but is blocked until
-    every governed-write, projection, OpenSpec, owner-DAG, and reverse-input
-    gate is frozen.  Specialist routes are never an implicit escalation
-    trigger.
+    ``lifecycle`` accepts exactly ``read``, ``change``, or ``release``.
+    Internal ``light``, ``affected``, and ``full`` profile names are rejected
+    at this boundary, and omitting both lifecycle and the typed operation fact
+    is rejected rather than falling back to a read/light profile.  The typed
+    ``operation_kind`` is retained for domain-owned callers that already carry
+    that fact; it is not a second public lifecycle vocabulary.
     """
 
     changed = tuple(sorted({str(item).strip().replace("\\", "/") for item in changed_paths if str(item).strip()}))
@@ -386,33 +421,38 @@ def select_execution_profile(
         inferred_kind = None
         operation_reason = None
 
-    explicit_profile = str(requested_profile).strip() if requested_profile is not None else ""
-    if explicit_profile and explicit_profile not in EXECUTION_PROFILES:
+    explicit_lifecycle = str(lifecycle).strip().lower() if lifecycle is not None else ""
+    if explicit_lifecycle in EXECUTION_PROFILES:
         raise ExecutionProfileError(
-            f"execution_profile must be one of {EXECUTION_PROFILES}"
+            "execution profile names are internal; lifecycle must be one of "
+            f"{LIFECYCLES}"
         )
+    if explicit_lifecycle and explicit_lifecycle not in LIFECYCLES:
+        raise ExecutionProfileError(f"lifecycle must be one of {LIFECYCLES}")
 
-    # Changed paths alone do not prove that the caller intends a write.  They
-    # are useful context for a read-only audit, and must not silently grant an
-    # affected execution profile.
-    if not explicit_profile:
-        if inferred_kind == OPERATION_KIND_READ_ONLY:
-            profile = EXECUTION_PROFILE_LIGHT
-        elif inferred_kind == OPERATION_KIND_CHANGE:
-            profile = EXECUTION_PROFILE_AFFECTED
-        elif inferred_kind == OPERATION_KIND_QUALIFICATION:
-            profile = EXECUTION_PROFILE_FULL
-        elif inferred_kind is None:
-            profile = EXECUTION_PROFILE_LIGHT
-            operation_reason = (
-                "no typed operation_kind supplied; changed paths, if any, are read-only context"
-            )
-        selection_reason = f"{operation_reason or 'inferred'}; selected profile={profile}"
-    else:
-        profile = explicit_profile
-        selection_reason = f"explicit execution profile={profile}"
+    if explicit_lifecycle:
+        selected_lifecycle = explicit_lifecycle
+        if inferred_kind is not None:
+            expected_lifecycle = _LIFECYCLE_FOR_OPERATION_KIND[inferred_kind]
+            if selected_lifecycle != expected_lifecycle:
+                raise ExecutionProfileError(
+                    "lifecycle conflicts with operation_kind: "
+                    f"{selected_lifecycle!r} vs {expected_lifecycle!r}"
+                )
+        selection_reason = f"explicit lifecycle={selected_lifecycle}"
         if operation_reason:
             selection_reason += f"; {operation_reason}"
+    elif inferred_kind is not None:
+        selected_lifecycle = _LIFECYCLE_FOR_OPERATION_KIND[inferred_kind]
+        selection_reason = (
+            f"typed operation_kind={inferred_kind}; selected lifecycle={selected_lifecycle}"
+        )
+    else:
+        raise ExecutionProfileError(
+            "lifecycle is required; no light/affected/full default fallback is available"
+        )
+
+    profile = _PROFILE_FOR_LIFECYCLE[selected_lifecycle]
     mode = str(modeling_mode).strip() if modeling_mode else _DEFAULT_MODELING_MODE[profile]
     if mode not in MODELING_MODES:
         raise ExecutionProfileError(f"modeling_mode must be one of {MODELING_MODES}")
@@ -476,6 +516,7 @@ def validate_execution_profile_decision(value: Mapping[str, Any]) -> ExecutionPr
     if not isinstance(value, Mapping):
         raise ExecutionProfileError("execution profile decision must be an object")
     required = {
+        "lifecycle",
         "execution_profile",
         "modeling_mode",
         "claim_boundary",
@@ -503,6 +544,8 @@ def validate_execution_profile_decision(value: Mapping[str, Any]) -> ExecutionPr
         admitted=bool(value["admitted"]),
         status=str(value["status"]),
     )
+    if str(value["lifecycle"]) != decision.lifecycle:
+        raise ExecutionProfileError("lifecycle is derived from the internal execution profile")
     if bool(value["ok"]) != decision.ok:
         raise ExecutionProfileError("profile ok is derived and cannot be caller-authored")
     return decision
@@ -513,6 +556,10 @@ __all__ = [
     "EXECUTION_PROFILE_FULL",
     "EXECUTION_PROFILE_LIGHT",
     "EXECUTION_PROFILES",
+    "LIFECYCLE_CHANGE",
+    "LIFECYCLE_READ",
+    "LIFECYCLE_RELEASE",
+    "LIFECYCLES",
     "OPERATION_KIND_CHANGE",
     "OPERATION_KIND_QUALIFICATION",
     "OPERATION_KIND_READ_ONLY",

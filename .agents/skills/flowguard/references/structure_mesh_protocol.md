@@ -1,12 +1,12 @@
 # StructureMesh Handoff
 
 This kernel-side file is a compact handoff stub. The detailed protocol is
-owned by the direct satellite skill `flowguard-structure-mesh`.
+owned by the on-demand `structure-mesh` domain reference.
 
 Load:
-`.agents/skills/flowguard-structure-mesh/references/structure_mesh_protocol.md`
+`.agents/skills/flowguard/references/domains/structure-mesh/references/structure_mesh_protocol.md`
 
-Use this route when a large script, module, package, command, public API,
+Use this domain when a large script, module, package, command, public API,
 facade, config surface, or compatibility boundary is being split across child
 modules.
 

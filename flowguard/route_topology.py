@@ -110,6 +110,11 @@ PUBLIC_OWNER_DESCRIPTORS_BY_ROUTE: Mapping[str, PublicOwnerDescriptor] = {
 }
 PUBLIC_ROUTE_IDS = tuple(descriptor.route_id for descriptor in PUBLIC_OWNER_DESCRIPTORS)
 
+# Lifecycle is an execution boundary, not a route/analyzer identity.  Keep
+# these values out of the route registry so a caller cannot turn a lifecycle
+# label into a domain analyzer or ownership node.
+PUBLIC_LIFECYCLE_IDS = frozenset({"read", "change", "release"})
+
 # Direct-current replacement: these historical coverage ids are rejected and
 # are deliberately not translated to their current public owners.
 RETIRED_PUBLIC_ROUTE_IDS = frozenset({"model_mesh", "structure_mesh", "test_mesh"})
@@ -117,6 +122,8 @@ RETIRED_PUBLIC_ROUTE_IDS = frozenset({"model_mesh", "structure_mesh", "test_mesh
 
 def public_owner_descriptor(route_id: str) -> PublicOwnerDescriptor:
     route_id = str(route_id)
+    if route_id in PUBLIC_LIFECYCLE_IDS:
+        raise ValueError(f"lifecycle is not a public route identity: {route_id}")
     if route_id in RETIRED_PUBLIC_ROUTE_IDS:
         raise ValueError(f"retired public route identity: {route_id}")
     try:
@@ -1016,6 +1023,7 @@ __all__ = [
     "LegacyRouteHandoffError",
     "PUBLIC_OWNER_DESCRIPTORS",
     "PUBLIC_OWNER_DESCRIPTORS_BY_ROUTE",
+    "PUBLIC_LIFECYCLE_IDS",
     "PUBLIC_ROUTE_SKILL_OWNERS",
     "PUBLIC_ROUTE_IDS",
     "PublicOwnerDescriptor",

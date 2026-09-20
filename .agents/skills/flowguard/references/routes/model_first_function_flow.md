@@ -4,7 +4,7 @@
 
 Use the kernel when the task needs provider-neutral behavior/state modeling,
 an unclear or cross-route workflow, or a model/evidence gate that no clear
-public satellite owns. Clear satellite work stays with that satellite.
+selected domain reference owns. Clear domain work stays with that selected reference.
 
 ## Required input
 

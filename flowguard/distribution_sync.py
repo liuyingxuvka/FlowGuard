@@ -1580,7 +1580,7 @@ def _read_author_manifest_snapshot(
             raise ValueError("author ownership manifest member ids must be unique")
         if len(normalized_members) != FLOWGUARD_EXPECTED_MEMBER_COUNT:
             raise ValueError(
-                "author ownership manifest must name the complete fifteen-member suite"
+                "author ownership manifest must name the single current FlowGuard skill"
             )
         for field_name in ("source_raw_tree_hash", "source_semantic_tree_hash"):
             value = payload.get(field_name)
@@ -2037,7 +2037,7 @@ def _author_source_inventory(
         findings.append(
             DistributionFinding(
                 "invalid_author_suite_cardinality",
-                "author synchronization requires the complete fifteen-member FlowGuard suite",
+                "author synchronization requires exactly the current FlowGuard skill",
                 metadata={
                     "actual": len(member_ids),
                     "expected": FLOWGUARD_EXPECTED_MEMBER_COUNT,
@@ -2120,7 +2120,7 @@ def _owned_projection_findings(
         findings.append(
             DistributionFinding(
                 "author_sync_member_ownership_mismatch",
-                "target ownership does not name the exact current fifteen-member suite",
+                "target ownership does not name the exact current single-skill FlowGuard distribution",
                 OWNERSHIP_MANIFEST_NAME,
                 metadata={
                     "ownership_member_ids": manifest_members,
@@ -2785,7 +2785,7 @@ def _install_skill_tree(
         findings.append(
             DistributionFinding(
                 "invalid_suite_cardinality",
-                "a complete FlowGuard distribution must contain exactly fifteen skills",
+                "the FlowGuard distribution must contain exactly one public skill",
                 metadata={"actual": len(ids), "expected": FLOWGUARD_EXPECTED_MEMBER_COUNT},
             )
         )
@@ -2932,6 +2932,19 @@ def _install_skill_tree(
             destination = _contained_path(target_root, relative)
             if destination.is_file() and not destination.is_symlink():
                 destination.unlink()
+        previous_member_ids = tuple(
+            str(item)
+            for item in (old_manifest or {}).get("member_ids", ())
+            if isinstance(item, str)
+        )
+        obsolete_member_ids = tuple(
+            member_id for member_id in previous_member_ids if member_id not in ids
+        )
+        # A contraction may retire a whole installer-owned member directory.
+        # Remove only directories that are empty after the manifest-owned files
+        # above have been removed; modified or third-party files remain visible
+        # as residuals and are never deleted by this path.
+        _remove_empty_member_directories(target_root, obsolete_member_ids)
         payload = _ownership_payload(source_root, target_root, source_inventory, owned.values(), exclusion_rules)
         _write_manifest(_manifest_path(target_root), payload)
 
@@ -3020,7 +3033,7 @@ def _check_skill_tree(
         findings.append(
             DistributionFinding(
                 "invalid_suite_cardinality",
-                "a complete FlowGuard distribution must contain exactly fifteen skills",
+                "the FlowGuard distribution must contain exactly one public skill",
                 metadata={"actual": len(ids), "expected": FLOWGUARD_EXPECTED_MEMBER_COUNT},
             )
         )

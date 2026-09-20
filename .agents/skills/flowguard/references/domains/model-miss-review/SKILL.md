@@ -1,8 +1,3 @@
----
-name: flowguard-model-miss-review
-description: standalone FlowGuard satellite skill; Use when post-FlowGuard evidence exposes a missed behavior class or a repair needs generalized closure.
----
-
 # FlowGuard Model Miss Review
 
 ## Purpose
@@ -15,7 +10,7 @@ Owner grounded `model_miss_review` classification/closure; not feature invention
 After admission, read `references/model_miss_protocol.md` for the full protocol.
 
 ## Entrypoint Acceptance Map
-Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden. Concrete failure evidence is required; point-green is not class closure.
+Use this route's row in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden. Concrete failure evidence is required; point-green is not class closure.
 
 ### Shared execution contract
 

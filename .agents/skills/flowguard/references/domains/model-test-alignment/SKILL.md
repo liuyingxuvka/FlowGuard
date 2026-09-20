@@ -1,8 +1,3 @@
----
-name: flowguard-model-test-alignment
-description: standalone FlowGuard satellite skill; Align model obligations, CodeContracts, bindings, and tests.
----
-
 # FlowGuard Model-Test Alignment
 
 ## Purpose
@@ -15,7 +10,7 @@ Owner model-test alignment rows; hands large evidence to TestMesh.
 After admission read `references/model_test_alignment_protocol.md`; load transition, field, or payload details from `references/model_test_transition_protocol.md`, `references/model_test_field_protocol.md`, or `references/model_test_payload_protocol.md` only when triggered.
 
 ## Entrypoint Acceptance Map
-Use row `model_test_alignment` in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
+Use row `model_test_alignment` in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
 
 ### Shared execution contract
 

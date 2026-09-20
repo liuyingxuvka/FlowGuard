@@ -1,44 +1,43 @@
-# FlowGuard Route Index
+# FlowGuard subject index
 
-This is the only pre-selection route material. It projects the current `RouteProfile` registry; it selects an owner but does not execute a route or prove evidence.
-
-For a machine-readable capsule after a route id or skill name is known, run
-`python -m flowguard route-reference <route-or-skill-name> --json`. That query
-returns one current route and its lazy reference edges; it never returns the
-complete route registry or loads the selected fragment.
+This is the only pre-selection material for the public skill. It identifies a
+subject and lifecycle operation; it does not execute a check or create
+evidence. The public operations are exactly `read`, `change`, and `release`.
 
 ## Decision rule
 
-Extract task facts with request spans. Match those facts to positive and forbidden condition ids in the current route profiles. Select only an exact single public owner. Zero candidates means `no_match`; multiple candidates mean `conflict`; neither may be resolved by keyword score, declaration order, or a caller saying a route applies.
+Extract structured task facts from the explicit request. Select one subject
+from the rows below and one lifecycle operation. Zero matches are
+`no_match`; contradictory or multiple subject matches are `conflict`. Keyword
+similarity, declaration order, caller assertion, and an implicit “run
+everything” request cannot resolve the decision.
 
-## Public owners
+## Domain subjects
 
-| Route | Use when | Exclude when |
+| Subject | Reference directory | Use when |
 | --- | --- | --- |
-| `model_first_function_flow` / `flowguard` | ordinary behavior/state modeling, unclear owner, or cross-route work | trivial work or a clear satellite |
-| `existing_model_preflight` / `flowguard-existing-model-preflight` | an existing model needs current ownership lookup | greenfield work without model context |
-| `behavior_commitment_ledger` / `flowguard-behavior-commitment-ledger` | external promises or commitment coverage need inventory | helper-only inventories |
-| `architecture_reduction` / `flowguard-architecture-reduction` | modeled implementation may shrink without behavior change | greenfield structure or intended behavior change |
-| `code_structure_recommendation` / `flowguard-code-structure-recommendation` | module/function ownership is needed before code | existing large refactor needing StructureMesh |
-| `contract_exhaustion_mesh` / `flowguard-contract-exhaustion-mesh` | a declared finite universe needs bad cases or Cartesian coverage | open-ended discovery |
-| `development_process_flow` / `flowguard-development-process-flow` | staged order, freshness, sync, or release claims matter | one specialist semantic check |
-| `field_lifecycle_mesh` / `flowguard-field-lifecycle-mesh` | fields/schemas are added, removed, renamed, migrated, or replaced | no field lifecycle change |
-| `model_mesh_maintenance` / `flowguard-model-mesh` | topology crosses models, parent/child boundaries change, child evidence is stale, or mesh closure is requested | unrelated non-interacting models |
-| `model_miss_review` / `flowguard-model-miss-review` | runtime/test/replay evidence fails after a model was green | no observed failure |
-| `model_test_alignment` / `flowguard-model-test-alignment` | model obligations, code contracts, and tests need comparison | test hierarchy only |
-| `model_topology_hazard_review` / `flowguard-model-topology-hazard-review` | green topology needs anchored future-use hazard review | observed runtime failure (Model Miss) |
-| `structure_mesh_maintenance` / `flowguard-structure-mesh` | an existing large module/package/API must split with facade parity | pre-code structure planning |
-| `test_mesh_maintenance` / `flowguard-test-mesh` | validation is large, slow, stale, layered, background, or release-only | semantic alignment only |
-| `ui_flow_structure` / `flowguard-ui-flow-structure` | UI states, journeys, controls, hierarchy, or operability are in scope | non-UI work |
+| existing-model | `references/domains/existing-model-preflight/` | an existing model needs current ownership lookup |
+| behavior-commitment | `references/domains/behavior-commitment-ledger/` | external promises need source coverage and one owner |
+| architecture-reduction | `references/domains/architecture-reduction/` | modeled implementation may shrink without behavior change |
+| code-structure | `references/domains/code-structure-recommendation/` | a model must drive pre-code ownership |
+| contract-exhaustion | `references/domains/contract-exhaustion-mesh/` | a finite universe needs canonical bad cases or combinations |
+| development-process | `references/domains/development-process-flow/` | staged work, freshness, sync, or release matters |
+| field-lifecycle | `references/domains/field-lifecycle-mesh/` | fields, schemas, defaults, aliases, or replacements change |
+| model-mesh | `references/domains/model-mesh/` | topology crosses model boundaries or evidence is stale |
+| model-miss | `references/domains/model-miss-review/` | runtime or test evidence fails after a green model |
+| model-test | `references/domains/model-test-alignment/` | obligations, code contracts, and tests need comparison |
+| topology-hazard | `references/domains/model-topology-hazard-review/` | green topology needs anchored future-use hazard review |
+| structure-mesh | `references/domains/structure-mesh/` | an existing public surface needs parity-aware partitioning |
+| test-mesh | `references/domains/test-mesh/` | validation is large, stale, layered, or release-only |
+| ui-flow | `references/domains/ui-flow-structure/` | UI states, journeys, controls, or operability are in scope |
 
-## After selection
+If no domain subject is clear, keep the subject as `model-first` and use the
+core references for ordinary behavior/state modeling or cross-subject work.
 
-Load only the selected skill and its first routed protocol. Load further references only for a named trigger. Helpers/modes remain behind their canonical public owner; the selected route profile remains the sole trigger/owner source.
+## Loading boundary
 
-The internal `agent_workflow_rehearsal` mode is a conditional exception, not a
-second selection result: `flowguard-development-process-flow` may admit it
-only for explicit rehearsal, cross-owner/shared-write,
-post-validation-invalidating-write, agent/route-workflow-change, or
-multiple-independent-owner-irreversible-side-effect facts. A normal task,
-even one that mentions several skills/tools, must leave this mode
-`not_triggered` and must not load its protocol.
+Read only this index first. After one subject is selected, read its domain
+`SKILL.md` and the one protocol named there. Load deeper references only when
+that protocol names a concrete trigger. Domain files are reference material
+inside the single public skill; they are not discoverable skills, aliases, or
+forwarding entrypoints.

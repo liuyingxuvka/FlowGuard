@@ -107,7 +107,7 @@ the affected parity and responsibility-transfer tests after any contraction or
 retirement and rebuild the self blueprint before the unique final full
 validation.
 
-Freeze and compile the complete 15-member author unit once. The FlowGuard
+Freeze and compile the single public FlowGuard author unit once. The FlowGuard
 native runner is the semantic execution owner; do not launch a second generic
 SkillGuard supervisor over the same native commands:
 
@@ -148,7 +148,7 @@ python scripts/install_flowguard_skills.py parity --source . --formal .agents/sk
 After all source, model authority, OpenSpec archive paths, external projections,
 toolchain identities, and the reviewed Git index are frozen, run exactly one
 foreground full release parent. It owns pytest, examples, model regressions,
-OpenSpec strict validation, the 15-member skill checks, self-maintenance, and
+OpenSpec strict validation, the single-skill checks, self-maintenance, and
 distribution parity; do not repeat those child commands manually:
 
 ```powershell

@@ -69,15 +69,12 @@ def _requirement_names(capability: str) -> set[str]:
 
 
 class CurrentSpecAuthorityTests(unittest.TestCase):
-    def test_package_authority_owns_exact_fifteen_public_members(self) -> None:
+    def test_package_authority_owns_exact_single_public_member(self) -> None:
         authority = json.loads(AUTHORITY.read_text(encoding="utf-8"))
         members = authority["member_ids"]
 
-        self.assertEqual(15, len(members))
-        self.assertEqual(15, len(set(members)))
-        self.assertEqual("flowguard", members[0])
-        self.assertEqual(1, sum(member == "flowguard" for member in members))
-        self.assertTrue(all(member == "flowguard" or member.startswith("flowguard-") for member in members))
+        self.assertEqual(["flowguard"], members)
+        self.assertEqual(1, len(set(members)))
         self.assertTrue(RETIRED_PACKAGE_MEMBERS.isdisjoint(members))
         self.assertEqual(
             "projection:consumer-distribution",

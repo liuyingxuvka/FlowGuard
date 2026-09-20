@@ -1,8 +1,3 @@
----
-name: flowguard-contract-exhaustion-mesh
-description: standalone FlowGuard satellite skill; Use to generate canonical bad cases, Cartesian combinations, oracles, coverage shards, and receipts from a declared finite boundary, family seed, payload, transition, model mesh, coverage universe, or observed-problem backfeed.
----
-
 # FlowGuard Contract Exhaustion Mesh
 
 ## Purpose
@@ -15,7 +10,7 @@ Route `contract_exhaustion_mesh` (`public_owner`); owns canonical finite-case ge
 After positive admission, read `references/contract_exhaustion_mesh_protocol.md` for feeders, finite universes, oracles, receipts, and consumers.
 
 ## Entrypoint Acceptance Map
-Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
+Use this route's row in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
 
 ### Shared execution contract
 

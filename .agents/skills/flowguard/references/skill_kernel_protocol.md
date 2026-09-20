@@ -2,8 +2,8 @@
 
 The `flowguard` Skill is the kernel entry, not a monolith. The kernel
 owns trigger selection, hard gates, route selection, and resource discovery.
-Detailed procedures live in sub-protocol references or in route-specific
-standalone satellite skills.
+Detailed procedures live in sub-protocol references or in the selected domain
+reference below the core skill.
 
 ## Kernel Owns
 
@@ -14,8 +14,8 @@ standalone satellite skills.
   or hard-to-follow models, tests, scripts, modules, and commands;
 - hard gates: real FlowGuard check-engine import, no fake mini-framework, executable evidence
   over prose, skipped is not pass, and adoption evidence for real use;
-- route map to specialized protocols, public owner satellites, and internal
-  DevelopmentProcessFlow routes;
+- route map to specialized protocols, selected domain references, and internal
+  DevelopmentProcessFlow modes;
 - distinction between agent sub-protocols and package helper APIs.
 - selection of bounded declared-system composition when current portable models share an executable event/identity/retry/order/resource/cache/confirmation/atomicity/compensation/property boundary; the kernel routes discovery/evidence/process work but keeps one canonical checker owner.
 - lightweight non-trivial lookup of the shared BCL/model inventory before
@@ -148,7 +148,7 @@ sub-skills.
   required by a claim are missing, stale, skipped, progress-only, or scoped,
   report partial/scoped FlowGuard evidence instead of complete FlowGuard use.
 - Add detailed procedures to references, not the kernel.
-- Keep satellite skills concise and self-contained enough for direct Codex use.
+- Keep on-demand domain references concise and self-contained enough for selected use.
 - Keep ModelMesh, TestMesh, and StructureMesh aligned as sibling
   parent/child partition routes for models, tests, and code structure.
 - When a model miss repair changes a child model under a parent ModelMesh, keep
@@ -207,7 +207,7 @@ sub-skills.
   or forced split rule.
 - Avoid duplicate ownership of the same rule across multiple references.
 - Preserve standalone FlowGuard use; external planner handoffs remain optional.
-- Before broad release, verify the installed kernel and satellite skills match
+- Before broad release, verify the installed public skill and its selected domain references match
   the source skill directories.
 - Keep a whole-software blueprint as a derived qualification of the sole current
   observed model-system snapshot. Ordinary work may consume only its compact

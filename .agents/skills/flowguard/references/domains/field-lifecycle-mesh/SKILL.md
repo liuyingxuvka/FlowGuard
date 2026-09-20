@@ -1,8 +1,3 @@
----
-name: flowguard-field-lifecycle-mesh
-description: standalone FlowGuard satellite skill; Use when a change adds, removes, renames, migrates, replaces, externalizes, preserves, or audits fields, schema keys, config flags, prompt fields, payload columns, persisted attributes, defaults, aliases, or fallbacks.
----
-
 # FlowGuard Field Lifecycle Mesh
 
 ## Purpose
@@ -15,7 +10,7 @@ Route `field_lifecycle_mesh` (`public_owner`); owns field boundaries/projections
 After admission, read `references/field_lifecycle_mesh_protocol.md` for `FieldLifecyclePlan`, grouped leaf rows, projections, replacement policy, and handoffs.
 
 ## Entrypoint Acceptance Map
-Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
+Use this route's row in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
 
 ### Shared execution contract
 

@@ -21,7 +21,7 @@
 
 | 公开版本 | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.3` | `1.0` | 仅使用 Python 标准库 | MIT |
+| `v0.69.4` | `1.0` | 仅使用 Python 标准库 | MIT |
 
 [English](./README.md) · [快速开始](#快速开始) · [概念介绍](./docs/concept.md) · [文档地图](#文档地图)
 
@@ -603,30 +603,16 @@ class ProcessJob:
 
 如果你只是想运行第一个例子，可以先跳过这一节。
 
-FlowGuard 有一个 model-first kernel 和十四个公开 satellite skill。
-下表仍然是公开的 15 项 canonical inventory。
+FlowGuard 现在以一个公开的 model-first skill 发布。领域协议按需放在核心
+skill 的 references/domains 下，不再作为独立可安装 skill。
 
 <details>
-<summary><strong>显示全部 15 个 FlowGuard 技能</strong></summary>
+<summary><strong>显示 FlowGuard 的领域资料边界</strong></summary>
 
 <!-- FLOWGUARD SKILL TABLE ZH START -->
-| Skill | 什么时候使用 |
+| 公开 skill | 按需领域资料 |
 | --- | --- |
-| `flowguard` | 普通行为/状态建模就够了、ownership 不清楚，或需要协调多条 FlowGuard 路线 |
-| `flowguard-existing-model-preflight` | 已建模系统应先查询现有边界，再决定是否新增 |
-| `flowguard-development-process-flow` | staged work、multi-skill order、freshness、安装、archive、publish 或 release 需要 lifecycle governance |
-| `flowguard-behavior-commitment-ledger` | 广泛行为承诺需要 source coverage、一个 primary owner 和 Primary Path Authority handoff |
-| `flowguard-field-lifecycle-mesh` | field、schema key、flag、default、alias、migration、replacement 或 fallback 需要 lifecycle ownership |
-| `flowguard-contract-exhaustion-mesh` | 已声明的有限边界需要 canonical bad case、组合或 coverage receipt |
-| `flowguard-ui-flow-structure` | UI content、control、journey、recovery、operability、transition 和 implementation evidence 需要建模 |
-| `flowguard-code-structure-recommendation` | 模型应在写代码前推导 module、owner、facade、adapter 或 validation boundary |
-| `flowguard-structure-mesh` | 已有的大型 module、package、command、facade 或 public API 拆分需要 parity 和 compatibility evidence |
-| `flowguard-test-mesh` | validation 很大、很慢、已过期、被 skip、分层、release-only，或分散在 child suite |
-| `flowguard-model-test-alignment` | model obligation、code contract、binding 或 test evidence 需要直接比较 |
-| `flowguard-model-mesh` | affected topology 跨越模型边界、child evidence 过期，或 sibling/parent reattachment 很重要 |
-| `flowguard-model-topology-hazard-review` | 局部 green 模型仍需要 topology-grounded future-use hazard review |
-| `flowguard-architecture-reduction` | Current DNA 可能支持保留、等价收缩、已证明退休或 unresolved 结果 |
-| `flowguard-model-miss-review` | FlowGuard 模型 green 后，runtime、test、replay、log 或人工检查仍然失败 |
+| `flowguard` | 只有选定请求 subject 后才读取 `references/domains/<subject>/`；公开生命周期只有 `read`、`change`、`release` |
 <!-- FLOWGUARD SKILL TABLE ZH END -->
 
 </details>
@@ -701,7 +687,7 @@ Purge 前可以 Restore，且只有在 Current 和 pinned runs 仍然通过后�
 计划应放在保留 evidence root 之外；对于明确绑定的旧 root 要重复 `--preserve`，并且清理前必须
 没有未分类字节。普通验证不会自动调用持久化清理。
 
-技能安装器把完整的 15-member author projection 与 consumer projection 分开维护，并记录自己拥有的文件。
+技能安装器把单一的 author projection 与 consumer projection 分开维护，并记录自己拥有的文件。
 把 `FLOWGUARD_AUTHOR_SHADOW_SKILLS` 指向维护者工作区明确的 `.agents/skills` 目录；`author-sync` 不会指向
 `CODEX_HOME`，也不会复制周围仓库：
 
@@ -744,15 +730,15 @@ python -m flowguard risk-template-search "completion evidence"
 
 运行 `python -m flowguard --help` 查看完整的当前命令列表。
 
-FlowGuard v0.69.3 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
+FlowGuard v0.69.4 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
 或 GitHub Release asset。
 
 验证冻结的 source candidate、不可变 tag 和已发布 release 这三个独立身份：
 
 ```powershell
 python scripts/verify_flowguard_release.py --root . --target release-target.json --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output candidate-receipt.json --json
-python scripts/verify_flowguard_release.py --root . --target release-target.json --phase tag --candidate-receipt candidate-receipt.json --tag v0.69.3 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output tag-receipt.json --json
-python scripts/verify_flowguard_release.py --root . --target release-target.json --phase published --candidate-receipt candidate-receipt.json --tag v0.69.3 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase tag --candidate-receipt candidate-receipt.json --tag v0.69.4 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output tag-receipt.json --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase published --candidate-receipt candidate-receipt.json --tag v0.69.4 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
 ```
 
 同一个描述文件驱动任意软件目标的收敛；详见

@@ -1,8 +1,3 @@
----
-name: flowguard-ui-flow-structure
-description: standalone FlowGuard satellite skill; Use for UI admission, surfaces, behavior, structure, operability, evidence, or transitions.
----
-
 # FlowGuard UI Flow Structure
 
 ## Purpose
@@ -16,7 +11,7 @@ Read `references/ui_flow_structure_protocol.md` for surface, journey,
 structure, text hierarchy, operability, evidence, and geometry.
 
 ## Entrypoint Acceptance Map
-Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden. Design or observation alone never becomes runnable evidence.
+Use this route's row in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden. Design or observation alone never becomes runnable evidence.
 
 ### Shared execution contract
 

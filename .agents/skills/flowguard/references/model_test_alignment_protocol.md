@@ -1,10 +1,10 @@
 # Model-Test Alignment Handoff
 
 This kernel-side file is a compact handoff stub. The detailed protocol is
-owned by the direct satellite skill `flowguard-model-test-alignment`.
+owned by the on-demand `model-test-alignment` domain reference.
 
 Load:
-`.agents/skills/flowguard-model-test-alignment/references/model_test_alignment_protocol.md`
+`.agents/skills/flowguard/references/domains/model-test-alignment/references/model_test_alignment_protocol.md`
 
 Use this route when model obligations, owner external code contracts, and ordinary test evidence need current parity before a done, release, publish, or full-confidence claim, or when file/artifact/AI work-package payload cases need external evidence.
 

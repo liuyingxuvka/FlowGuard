@@ -1,10 +1,10 @@
 # Model-Miss Review Handoff
 
-This compact handoff stub gives detailed protocol ownership to the direct
-`flowguard-model-miss-review` satellite.
+This compact handoff stub gives detailed protocol ownership to the on-demand
+`model-miss-review` domain reference.
 
 Load:
-`.agents/skills/flowguard-model-miss-review/references/model_miss_protocol.md`
+`.agents/skills/flowguard/references/domains/model-miss-review/references/model_miss_protocol.md`
 
 Use it when post-green runtime, test, replay, log, manual, or production
 evidence fails, or a repaired bug needs same-class representation.

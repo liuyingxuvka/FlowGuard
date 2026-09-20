@@ -1,6 +1,8 @@
 # Modeling Protocol Index
 
-This index owns ordinary `core_modeling` routing. It no longer duplicates public satellite protocols, development-process simulator rules, framework benchmarks, adoption setup, or long-check mechanics.
+This index owns ordinary `core_modeling` routing. It no longer duplicates
+selected domain protocols, development-process simulator rules, framework
+benchmarks, adoption setup, or long-check mechanics.
 
 ## Select the boundary
 
@@ -23,8 +25,9 @@ decision, never an implicit fallback to another profile.
 
 - Read `modeling_core_protocol.md` for Risk Intent, finite state/functions, `Input x State -> Set(Output x State)`, invariants, formal checks, counterexamples, scenarios, per-model path quality, implementation, and replay.
 - Read `modeling_evidence_protocol.md` for lightest-mode selection, compact path-quality/currentness evidence, claim boundaries, model-miss/maturation/maintenance handoffs, and completion reporting.
-- Read `route_index.md` and the matching direct satellite skill whenever ownership is clear; the kernel coordinates only ordinary, unclear, or cross-route work.
-- Enter `flowguard-development-process-flow` first for non-trivial rough plans, multi-skill setup, lifecycle freshness, install/sync, release/archive/publish, or final process claims. It is the development-process simulator and may delegate internal PlanDetailing only for rough/underspecified plans and internal AgentWorkflowRehearsal only after its explicit risk gate. Ordinary non-trivial work, multi-skill labels, or external-effect labels alone remain `not_triggered`; neither internal mode is a standalone public skill.
+- Read `route_index.md` and the matching domain reference whenever the subject
+  is clear; the core coordinates only ordinary, unclear, or cross-subject work.
+- Load the `development-process-flow` domain reference for non-trivial rough plans, lifecycle freshness, install/sync, release/archive/publish, or final process claims. It may delegate internal PlanDetailing only for rough/underspecified plans and internal AgentWorkflowRehearsal only after its explicit risk gate. Ordinary non-trivial work, multi-skill labels, or external-effect labels alone remain `not_triggered`; neither internal mode is a standalone public skill.
 - Read `adoption_protocol.md` and `conformance_adoption_protocol.md` for target-project setup, records, replay, install, and distribution sync.
 - Read `long_check_protocol.md` for background artifacts and liveness/completion separation.
 - Read `framework_upgrade_protocol.md` only for FlowGuard's own benchmark/corpus/capability upgrades.

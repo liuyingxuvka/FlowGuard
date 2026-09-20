@@ -1,8 +1,3 @@
----
-name: flowguard-model-topology-hazard-review
-description: standalone FlowGuard satellite skill; Use when a locally green FlowGuard model needs topology-grounded future-use hazard review for broad claims, business paths, old/new disposition, side effects, terminals, loops, external boundaries, or parent/child compression.
----
-
 # FlowGuard Model Topology Hazard Review
 
 ## Purpose
@@ -15,7 +10,7 @@ Route `model_topology_hazard_review` (`public_owner`); owns topology-anchored ri
 After admission, read `references/topology_hazard_protocol.md` for `TopologyDigest`, `UsageIntent`, business-path identity, anchors, dispositions, and completion rules.
 
 ## Entrypoint Acceptance Map
-Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden. Unanchored concerns remain observations and do not start a producer.
+Use this route's row in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden. Unanchored concerns remain observations and do not start a producer.
 
 ### Shared execution contract
 

@@ -1,8 +1,3 @@
----
-name: flowguard-code-structure-recommendation
-description: standalone FlowGuard satellite skill; Use when a FlowGuard model should drive pre-code modules, FunctionBlock/state/field/effect owners, facades, adapters, or validation boundaries.
----
-
 # FlowGuard Code Structure Recommendation
 
 ## Purpose
@@ -15,7 +10,7 @@ Owner `code_structure_recommendation` (`public_owner`); recommendation only, not
 After admission, read `references/code_structure_recommendation_protocol.md` for the complete schema and handoffs.
 
 ## Entrypoint Acceptance Map
-Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
+Use this route's row in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
 
 ### Shared execution contract
 

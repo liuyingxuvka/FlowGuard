@@ -1,14 +1,14 @@
 # FlowGuard Validation And Skill Distribution
 
-FlowGuard is an AI-agent skill suite powered by an executable check engine. This guide explains how to validate the current repository without confusing progress with proof, and how to install or compare the complete 15-member skill tree without overwriting user-owned files.
+FlowGuard is an AI-agent skill powered by an executable check engine. This guide explains how to validate the current repository without confusing progress with proof, and how to install or compare the single `flowguard` skill tree without overwriting user-owned files.
 
 ## Evidence Has Three Layers
 
 | Layer | Question answered | Required evidence | Claim boundary |
 | --- | --- | --- | --- |
-| Prompt and contract structure | Is each skill internally well-formed and route-specific? | canonical 15-member inventory, generated contracts, resolvable references, SkillGuard static/contract/depth results | no route-native behavior has necessarily executed |
+| Prompt and contract structure | Is the public skill internally well-formed and its selected domain references resolvable? | canonical one-member inventory, generated contracts, resolvable references, SkillGuard static/contract results | no route-native behavior has necessarily executed |
 | Native evidence receipt | Did one route's real check run against the declared current inputs? | immutable terminal receipt, command and input fingerprints, exact status, covered obligations, independently derived freshness result | covers that route and receipt scope only |
-| Self-governance parent closure | Are all required member receipts current and consumed by the parent? | 15 required child identities/fingerprints, exact-pass verification results, inventory and route hashes, parent closure receipt, distribution boundary | covers the declared suite obligations only; it does not predict future agent behavior or prove production correctness |
+| Self-governance parent closure | Is the required public-skill receipt current and consumed by the parent? | one required child identity/fingerprint, exact-pass verification results, inventory and route hashes, parent closure receipt, distribution boundary | covers the declared skill obligation only; it does not predict future agent behavior or prove production correctness |
 
 `pass`, `partial`, `running`, `pass_with_gaps`, and “the command started” are not interchangeable. A parent closure cannot manufacture missing native evidence. When a prompt, contract, checker, model, test, command, dependency, or covered input changes, the affected receipt must be verified again and may require a rerun.
 

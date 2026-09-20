@@ -2067,12 +2067,11 @@ def _load_projection_lookup_cache(
                     raise AffectedBlueprintReadError(
                         f"projection_identity_mismatch: {kind} shard metadata disagrees with manifest"
                     )
-            if locator.raw_field_fingerprint("payload") != str(
-                manifest_row["content_fingerprint"]
-            ):
-                raise AffectedBlueprintReadError(
-                    f"projection_identity_mismatch: {kind} shard content fingerprint mismatch"
-                )
+            # The index is intentionally a warm lookup surface.  Do not hash the
+            # complete payload while opening it; the selected row's canonical
+            # content fingerprint is verified at the point where that row is
+            # materialized below.  This keeps a warm read proportional to the
+            # requested member instead of falling back to a full-shard scan.
             if locator.row_keys() != tuple(sorted(expected_ids)):
                 raise AffectedBlueprintReadError(
                     f"projection_identity_mismatch: {kind} lookup cache is not deterministic"

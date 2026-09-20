@@ -17,11 +17,8 @@ This is the surface of the current public source release:
 - modeling protocol;
 - invariant cookbook;
 - scenario, loop, progress, contract, and conformance examples;
-- `flowguard` Skill Kernel;
-- `flowguard-*` satellite skills for mature public owner routes, including UI
-  flow structure, code structure, model-test alignment, process flow, model
-  misses, ModelMesh, TestMesh, and StructureMesh, plus delegated
-  DevelopmentProcessFlow mode skills;
+- the single `flowguard` Skill Kernel with on-demand domain references under
+  `references/domains/`;
 - UI Text Hierarchy Blueprint helpers for the public UI text route;
 - `AGENTS.md` snippet;
 - lightweight adoption log support;
@@ -157,7 +154,7 @@ missing expected violations: 0
 Broken variants caught:
 
 - internal KB/private pilot evidence exposed publicly;
-- public release omits the Codex Skill Kernel or satellite triggers;
+- public release omits author-only controls or hidden secondary skill triggers;
 - public adoption log becomes manual user burden.
 
 ## UI Text Hierarchy Blueprint

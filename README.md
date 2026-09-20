@@ -21,7 +21,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.3` | `1.0` | Python standard library only | MIT |
+| `v0.69.4` | `1.0` | Python standard library only | MIT |
 
 [中文说明](./README.zh-CN.md) · [Quick Start](#quick-start) · [Concept](./docs/concept.md) · [Documentation](#documentation-map)
 
@@ -51,7 +51,7 @@ That map is the software's **FlowGuard DNA**.
 The DNA says what the maintained model contains. **Current** says which exact
 version of that DNA is accepted now.
 
-The v0.69.3 candidate self-model contains an exact inventory of 51 current
+The v0.69.4 candidate self-model contains an exact inventory of 51 current
 owners. Fourteen historical, task-local, or completed construction routes were removed from current
 authority after their still-useful protections were reattached: Model Angle
 Deliberation, Maintenance Scan Router, standalone Model Similarity
@@ -661,30 +661,17 @@ Bad fits:
 
 You can skip this section if you are only trying the first example.
 
-FlowGuard has one model-first kernel and fourteen public satellite skills.
-The table remains the canonical 15-member public inventory.
+FlowGuard is distributed as one public model-first skill. Its domain protocols
+are on-demand references under the core skill and are not separate installable
+skills.
 
 <details>
-<summary><strong>Show all 15 FlowGuard skills</strong></summary>
+<summary><strong>Show the FlowGuard domain reference boundary</strong></summary>
 
 <!-- FLOWGUARD SKILL TABLE EN START -->
-| Skill | Use it when |
+| Public skill | On-demand domain material |
 | --- | --- |
-| `flowguard` | ordinary behavior/state modeling is enough, ownership is unclear, or several FlowGuard routes need coordination |
-| `flowguard-existing-model-preflight` | an existing modeled system should be queried before adding another boundary |
-| `flowguard-development-process-flow` | staged work, multi-skill order, freshness, installation, archive, publish, or release needs lifecycle governance |
-| `flowguard-behavior-commitment-ledger` | broad behavior promises need source coverage, one primary owner, and Primary Path Authority handoff |
-| `flowguard-field-lifecycle-mesh` | fields, schema keys, flags, defaults, aliases, migrations, replacements, or fallbacks need lifecycle ownership |
-| `flowguard-contract-exhaustion-mesh` | a declared finite boundary needs canonical bad cases, combinations, or coverage receipts |
-| `flowguard-ui-flow-structure` | UI content, controls, journeys, recovery, operability, transitions, and implementation evidence need modeling |
-| `flowguard-code-structure-recommendation` | a model should drive pre-code modules, owners, facades, adapters, or validation boundaries |
-| `flowguard-structure-mesh` | an existing large module, package, command, facade, or public API split needs parity and compatibility evidence |
-| `flowguard-test-mesh` | validation is large, slow, stale, skipped, layered, release-only, or distributed across child suites |
-| `flowguard-model-test-alignment` | model obligations, code contracts, bindings, or test evidence need direct comparison |
-| `flowguard-model-mesh` | affected topology crosses model boundaries, child evidence is stale, or sibling/parent reattachment matters |
-| `flowguard-model-topology-hazard-review` | a locally green model still needs topology-grounded future-use hazard review |
-| `flowguard-architecture-reduction` | current DNA may support retention, equivalent contraction, proven retirement, or an unresolved result |
-| `flowguard-model-miss-review` | runtime, tests, replay, logs, or manual checks fail after a FlowGuard model was green |
+| `flowguard` | `references/domains/<subject>/` is loaded only after the request subject is selected; `read`, `change`, and `release` are the only public lifecycle operations |
 <!-- FLOWGUARD SKILL TABLE EN END -->
 
 </details>
@@ -763,8 +750,8 @@ still validate. Store plans outside the retained evidence root, repeat
 unclassified bytes before cleanup. Ordinary validation never invokes
 persistent cleanup.
 
-The skill installer keeps the complete 15-member author and consumer
-projections separate and records exactly which files it owns. Point
+The skill installer keeps the single author and consumer projections separate
+and records exactly which files it owns. Point
 `FLOWGUARD_AUTHOR_SHADOW_SKILLS` at an explicit maintainer workspace's
 `.agents/skills` directory; `author-sync` never targets `CODEX_HOME` and never
 copies the surrounding repository:
@@ -810,7 +797,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.69.3 is source-only: the immutable Git tag is the release
+FlowGuard v0.69.4 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -819,8 +806,8 @@ three separate identities:
 
 ```powershell
 python scripts/verify_flowguard_release.py --root . --target release-target.json --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output candidate-receipt.json --json
-python scripts/verify_flowguard_release.py --root . --target release-target.json --phase tag --candidate-receipt candidate-receipt.json --tag v0.69.3 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output tag-receipt.json --json
-python scripts/verify_flowguard_release.py --root . --target release-target.json --phase published --candidate-receipt candidate-receipt.json --tag v0.69.3 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase tag --candidate-receipt candidate-receipt.json --tag v0.69.4 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output tag-receipt.json --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase published --candidate-receipt candidate-receipt.json --tag v0.69.4 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
 ```
 
 The descriptor-driven route is reusable for any software target; see

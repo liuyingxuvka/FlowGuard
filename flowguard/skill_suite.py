@@ -37,14 +37,14 @@ MODEL_PURPOSE_SKILL_MARKERS = (
     "Model-purpose gate",
     "task-specific failure(s)",
     "native good/bad-per-failure/oracle/current evidence",
-    "Reusable types are not fixed-purpose",
-    "no mode/fallback",
-    "only FlowGuard-declared checks may support completion claims",
+    "Reusable model types are not permanently single-purpose",
+    "No mode/fallback",
+    "Only FlowGuard-declared checks may support completion claims",
 )
 MODEL_PURPOSE_PROMPT_MARKERS = (
     "one-or-many protected failures",
-    "reusable model types are not permanently single-purpose",
-    "only declared checks may support completion claims",
+    "Reusable model types are not permanently single-purpose",
+    "Only declared checks may support completion claims",
 )
 FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES = (
     "SKILL.md",
@@ -423,13 +423,13 @@ def validate_skill_suite(
         member_rows.append(raw)
 
     if len(declared_ids) != FLOWGUARD_EXPECTED_MEMBER_COUNT:
-        findings.append(SkillSuiteFinding("invalid_suite_cardinality", "current FlowGuard suite must declare fifteen members", metadata={"actual": len(declared_ids), "expected": FLOWGUARD_EXPECTED_MEMBER_COUNT}))
+        findings.append(SkillSuiteFinding("invalid_suite_cardinality", "current FlowGuard distribution must declare exactly one public skill", metadata={"actual": len(declared_ids), "expected": FLOWGUARD_EXPECTED_MEMBER_COUNT}))
     kernel_ids = [str(raw.get("name", "")) for raw in member_rows if raw.get("role") == FLOWGUARD_KERNEL_ROLE]
     satellite_ids = [str(raw.get("name", "")) for raw in member_rows if raw.get("role") == FLOWGUARD_SATELLITE_ROLE]
     if len(kernel_ids) != 1:
         findings.append(SkillSuiteFinding("invalid_kernel_cardinality", "suite must declare exactly one kernel", metadata={"kernel_ids": kernel_ids}))
     if len(satellite_ids) != FLOWGUARD_EXPECTED_SATELLITE_COUNT:
-        findings.append(SkillSuiteFinding("invalid_satellite_cardinality", "suite must declare fourteen satellites", metadata={"satellite_ids": satellite_ids}))
+        findings.append(SkillSuiteFinding("invalid_satellite_cardinality", "current FlowGuard distribution must not declare public satellite skills", metadata={"satellite_ids": satellite_ids}))
 
     all_discovered_ids = discover_skill_ids(skills_path)
     declared_set = set(declared_ids)

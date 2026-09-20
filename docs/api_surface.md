@@ -40,8 +40,8 @@ It keeps the normal path short:
   `FlowGuardCheckPlan`, `MinimumModelContract`, `KnownBadProof`, and
   `run_model_first_checks`;
 - core modeling primitives: `Workflow`, `Invariant`, and `FunctionResult`;
-- route selection: `FLOWGUARD_ROUTE_API`,
-  `default_flowguard_route_profiles()`;
+- lifecycle routing: `read`, `change`, and `release`, with domain references
+  selected only after the request subject is explicit;
 - FlowGuard self-maintenance:
   `default_flowguard_self_maintenance_plan()`,
   `review_flowguard_self_maintenance()`;

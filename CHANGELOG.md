@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.69.4 - 2026-09-20
+
+- Contracted the public FlowGuard distribution to one installable `flowguard`
+  skill; former route copies now live as on-demand domain references under the
+  core skill and are no longer discoverable satellites.
+- Replaced the public execution-profile surface with the fixed `read`,
+  `change`, and `release` lifecycle and kept selected-only domain loading and
+  bounded summaries visible in the documentation and manifests.
+- Preserved the existing model/evidence boundary while separating source,
+  installed consumer projection, GitHub branch state, and release/tag claims.
+
 ## v0.69.3 - 2026-09-20
 
 - Bound affected blueprint projections to one closure read, selected-only

@@ -24,17 +24,32 @@ from .skill_suite import (
 )
 
 
-CONTRACT_SOURCE_SCHEMA = "skillguard.contract_source.v2"
-COMPILED_CONTRACT_SCHEMA = "skillguard.compiled_contract.v2"
-CHECK_MANIFEST_SCHEMA = "skillguard.check_manifest.v2"
+CONTRACT_SOURCE_SCHEMA = "skillguard.skill_contract.v3"
+COMPILED_CONTRACT_SCHEMA = "skillguard.compiled_contract.v3"
+CHECK_MANIFEST_SCHEMA = "skillguard.check_manifest.v3"
 CONTRACT_SOURCE_FILE = ".skillguard/contract-source.json"
 COMPILED_CONTRACT_FILE = ".skillguard/compiled-contract.json"
 CHECK_MANIFEST_FILE = ".skillguard/check-manifest.json"
 SURFACE_INVENTORY_FILE = ".skillguard/surface-inventory.json"
 SURFACE_SEMANTIC_MAP_FILE = ".skillguard/surface-semantic-map.json"
-COMPILER_VERSION = "flowguard.current_skillguard_parity_reader.v1"
+COMPILER_VERSION = "flowguard.current_skillguard_parity_reader.v3"
 
-_SHA256_RE = re.compile(r"^[A-F0-9]{64}$")
+_SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+_V3_SOURCE_FIELDS = frozenset(
+    {
+        "schema_version",
+        "skill_id",
+        "maintenance_unit_id",
+        "member_skill_ids",
+        "inputs",
+        "routes",
+        "steps",
+        "obligations",
+        "checks",
+        "consumer_projection",
+        "migration",
+    }
+)
 _CURRENT_SOURCE_FIELDS = frozenset(
     {
         "artifacts",
@@ -106,6 +121,8 @@ _FULL_ADMISSION_REASONS = frozenset(
     }
 )
 _CLOSURE_PROFILE_ORDER = ("enforced",)
+_PUBLIC_LIFECYCLES = frozenset({"read", "change", "release"})
+_INTERNAL_EXECUTION_PROFILES = frozenset({"light", "affected", "full"})
 _CONSUMER_PROJECTION = {
     "projection_id": "projection:consumer-distribution",
     "prohibited_path_prefixes": [".skillguard/"],
@@ -167,10 +184,186 @@ def load_contract_source(skill_dir: str | Path) -> dict[str, Any]:
     return value
 
 
+def _validate_compact_v3_source(
+    source: Mapping[str, Any], skill_dir: Path | None = None
+) -> tuple[str, ...]:
+    """Validate the direct compact contract used by the current compiler."""
+
+    failures: list[str] = []
+    unknown = sorted(set(source) - _V3_SOURCE_FIELDS)
+    failures.extend(f"unknown_compact_contract_field:{name}" for name in unknown)
+    if source.get("schema_version") != CONTRACT_SOURCE_SCHEMA:
+        failures.append("contract_source_schema_mismatch")
+    for field_name in ("skill_id", "maintenance_unit_id"):
+        if not isinstance(source.get(field_name), str) or not str(source[field_name]).strip():
+            failures.append(f"missing_{field_name}")
+
+    skill_id = str(source.get("skill_id", ""))
+    maintenance_unit_id = str(source.get("maintenance_unit_id", ""))
+    member_skill_ids = source.get("member_skill_ids")
+    if (
+        not isinstance(member_skill_ids, list)
+        or not member_skill_ids
+        or not all(isinstance(item, str) and item for item in member_skill_ids)
+        or len(member_skill_ids) != len(set(member_skill_ids))
+        or skill_id not in member_skill_ids
+    ):
+        failures.append("member_skill_inventory_mismatch")
+
+    def rows(name: str) -> list[Mapping[str, Any]]:
+        value = source.get(name)
+        if not isinstance(value, list):
+            failures.append(f"invalid_{name}")
+            return []
+        result: list[Mapping[str, Any]] = []
+        for index, row in enumerate(value):
+            if not isinstance(row, Mapping):
+                failures.append(f"invalid_{name}:{index}")
+            else:
+                result.append(row)
+        return result
+
+    inputs = rows("inputs")
+    routes = rows("routes")
+    steps = rows("steps")
+    obligations = rows("obligations")
+    checks = rows("checks")
+
+    def unique_ids(name: str, values: list[Mapping[str, Any]]) -> set[str]:
+        ids: list[str] = []
+        for index, row in enumerate(values):
+            value = row.get(f"{name[:-1]}_id")
+            if not isinstance(value, str) or not value:
+                failures.append(f"{name}_missing_id:{index}")
+            else:
+                ids.append(value)
+        if len(ids) != len(set(ids)):
+            failures.append(f"{name}_duplicate_id")
+        return set(ids)
+
+    input_ids: set[str] = set()
+    for index, row in enumerate(inputs):
+        value = row.get("id")
+        if not isinstance(value, str) or not value:
+            failures.append(f"inputs_missing_id:{index}")
+        elif value in input_ids:
+            failures.append(f"inputs_duplicate_id:{value}")
+        else:
+            input_ids.add(value)
+        path_value = row.get("path")
+        if not isinstance(path_value, str) or not path_value:
+            failures.append(f"input_path_missing:{index}")
+            continue
+        path = Path(path_value)
+        if path.is_absolute() or ".." in path.parts:
+            failures.append(f"input_path_outside_root:{path_value}")
+        if not isinstance(row.get("required"), bool):
+            failures.append(f"input_required_invalid:{index}")
+        if skill_dir is not None and not (skill_dir / path).is_file():
+            failures.append(f"input_missing:{path_value}")
+
+    check_ids = unique_ids("checks", checks)
+    for index, row in enumerate(checks):
+        if not isinstance(row.get("kind"), str) or not row.get("kind"):
+            failures.append(f"check_kind_missing:{index}")
+        if not isinstance(row.get("command"), str) or not row.get("command"):
+            failures.append(f"check_command_missing:{index}")
+        if not isinstance(row.get("args", []), list) or not all(
+            isinstance(item, str) for item in row.get("args", [])
+        ):
+            failures.append(f"check_args_invalid:{index}")
+        if not isinstance(row.get("expected"), Mapping):
+            failures.append(f"check_oracle_missing:{index}")
+        refs = row.get("input_ids", [])
+        if not isinstance(refs, list) or any(ref not in input_ids for ref in refs):
+            failures.append(f"check_input_reference_invalid:{index}")
+
+    step_ids = unique_ids("steps", steps)
+    for index, row in enumerate(steps):
+        for field_name in ("requires", "check_ids"):
+            refs = row.get(field_name, [])
+            if not isinstance(refs, list) or any(
+                ref not in (step_ids if field_name == "requires" else check_ids)
+                for ref in refs
+            ):
+                failures.append(f"step_{field_name}_invalid:{index}")
+
+    obligation_ids = unique_ids("obligations", obligations)
+    for index, row in enumerate(obligations):
+        refs = row.get("check_ids", [])
+        if not isinstance(refs, list) or not refs or any(ref not in check_ids for ref in refs):
+            failures.append(f"obligation_check_ids_invalid:{index}")
+
+    route_ids = unique_ids("routes", routes)
+    for index, row in enumerate(routes):
+        if not isinstance(row.get("choice_group"), str) or not row.get("choice_group"):
+            failures.append(f"route_choice_group_missing:{index}")
+        predicates = row.get("when")
+        if not isinstance(predicates, list) or not predicates:
+            failures.append(f"route_predicates_missing:{index}")
+        else:
+            for predicate in predicates:
+                if not isinstance(predicate, Mapping) or not isinstance(predicate.get("fact"), str) or "equals" not in predicate:
+                    failures.append(f"route_predicate_invalid:{index}")
+        for field_name, known in (("step_ids", step_ids), ("obligation_ids", obligation_ids)):
+            refs = row.get(field_name, [])
+            if not isinstance(refs, list) or not refs or any(ref not in known for ref in refs):
+                failures.append(f"route_{field_name}_invalid:{index}")
+    if route_ids != {"route:read", "route:change", "route:release"}:
+        failures.append("public_lifecycle_route_inventory_mismatch")
+
+    projection = source.get("consumer_projection")
+    if not isinstance(projection, Mapping):
+        failures.append("missing_consumer_projection")
+    else:
+        if projection.get("projection_id") != "projection:consumer-distribution":
+            failures.append("consumer_projection_id_mismatch")
+        if projection.get("release_manifest_path") != "consumer-release.json":
+            failures.append("consumer_projection_manifest_mismatch")
+        file_paths = projection.get("file_paths")
+        if not isinstance(file_paths, list) or not file_paths or not all(
+            isinstance(item, str) and item for item in file_paths
+        ):
+            failures.append("consumer_projection_files_invalid")
+        else:
+            if len(file_paths) != len(set(file_paths)):
+                failures.append("consumer_projection_files_duplicate")
+            for file_path in file_paths:
+                path = Path(file_path)
+                if path.is_absolute() or ".." in path.parts or ".skillguard" in path.parts:
+                    failures.append(f"consumer_projection_path_invalid:{file_path}")
+                if skill_dir is not None and not (skill_dir / path).is_file():
+                    failures.append(f"consumer_projection_file_missing:{file_path}")
+
+    migration = source.get("migration")
+    if migration is not None:
+        if not isinstance(migration, Mapping) or migration.get("old_schema") != "skillguard.contract_source.v2":
+            failures.append("migration_snapshot_identity_invalid")
+        elif migration.get("manual_review_required") is not True:
+            failures.append("migration_manual_review_required")
+
+    if skill_dir is not None:
+        if skill_id != skill_dir.name:
+            failures.append("skill_id_directory_mismatch")
+        repository_root = skill_dir.resolve().parents[2]
+        expected_member_ids = validate_skill_suite(
+            repository_root,
+            check_private_inventories=False,
+        ).declared_member_ids
+        if tuple(member_skill_ids or ()) != expected_member_ids:
+            failures.append("member_skill_inventory_mismatch")
+        if not (skill_dir / "SKILL.md").is_file():
+            failures.append("skill_entrypoint_missing")
+    return tuple(dict.fromkeys(failures))
+
+
 def validate_contract_source(
     source: Mapping[str, Any], skill_dir: Path | None = None
 ) -> tuple[str, ...]:
     """Validate the current binding shape without accepting a legacy dialect."""
+
+    if source.get("schema_version") == CONTRACT_SOURCE_SCHEMA:
+        return _validate_compact_v3_source(source, skill_dir)
 
     failures: list[str] = []
     unknown = sorted(set(source) - _CURRENT_SOURCE_FIELDS)
@@ -255,6 +448,10 @@ def validate_contract_source(
     )
     if profile_ids != _CLOSURE_PROFILE_ORDER:
         failures.append("closure_profiles_incomplete_or_out_of_order")
+    if set(profile_ids) & _INTERNAL_EXECUTION_PROFILES:
+        failures.append("closure_profile_exposes_internal_execution_profile")
+    if set(profile_ids) & _PUBLIC_LIFECYCLES:
+        failures.append("closure_profile_cannot_select_public_lifecycle")
 
     depth = source.get("depth_profile")
     if not isinstance(depth, Mapping):
@@ -370,6 +567,20 @@ def validate_contract_source(
 
 
 def contract_source_semantic_fingerprint(source: Mapping[str, Any]) -> str:
+    if source.get("schema_version") == CONTRACT_SOURCE_SCHEMA:
+        return _hash(
+            {
+                "schema_version": source.get("schema_version"),
+                "skill_id": source.get("skill_id"),
+                "maintenance_unit_id": source.get("maintenance_unit_id"),
+                "member_skill_ids": source.get("member_skill_ids"),
+                "routes": source.get("routes"),
+                "steps": source.get("steps"),
+                "obligations": source.get("obligations"),
+                "checks": source.get("checks"),
+                "consumer_projection": source.get("consumer_projection"),
+            }
+        )
     return _hash(
         {
             "default_route_id": source.get("default_route_id"),
@@ -388,10 +599,23 @@ def contract_source_semantic_fingerprint(source: Mapping[str, Any]) -> str:
 def validate_contract_source_route(
     skill_id: str, source: Mapping[str, Any]
 ) -> tuple[str, ...]:
+    if source.get("schema_version") == CONTRACT_SOURCE_SCHEMA:
+        if str(source.get("skill_id", "")) != skill_id:
+            return (f"contract_source_skill_owner_mismatch:{source.get('skill_id', '')}:{skill_id}",)
+        route_ids = {
+            str(row.get("route_id", ""))
+            for row in source.get("routes", ())
+            if isinstance(row, Mapping)
+        }
+        if route_ids != {"route:read", "route:change", "route:release"}:
+            return ("contract_source_public_lifecycle_routes_mismatch",)
+        return ()
     from .self_maintenance import default_flowguard_route_profiles
 
     profiles = {profile.route_id: profile for profile in default_flowguard_route_profiles()}
     route_id = str(source.get("default_route_id", "")).removeprefix("route:")
+    if route_id in _PUBLIC_LIFECYCLES:
+        return (f"contract_source_route_cannot_be_lifecycle:{route_id}",)
     profile = profiles.get(route_id)
     if profile is None:
         return (f"contract_source_route_missing:{route_id}",)
@@ -474,6 +698,123 @@ def _sorted_string_list(value: Any) -> tuple[str, ...] | None:
     return tuple(sorted(value))
 
 
+def _wire_file_hash(path: Path) -> str:
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _compile_compact_v3_parity(
+    skill_path: Path,
+    source: Mapping[str, Any],
+    compiled: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+    surface_inventory: Mapping[str, Any],
+    surface_map: Mapping[str, Any],
+    compiled_path: Path,
+    manifest_path: Path,
+    surface_inventory_path: Path,
+    surface_map_path: Path,
+) -> tuple[dict[str, Any], dict[str, Any], tuple[ContractCompileFinding, ...], tuple[str, ...]]:
+    findings: list[ContractCompileFinding] = []
+    skill_id = str(source.get("skill_id", ""))
+
+    if compiled.get("schema_version") != COMPILED_CONTRACT_SCHEMA:
+        findings.append(ContractCompileFinding("compiled_contract_schema_mismatch", COMPILED_CONTRACT_SCHEMA, skill_id, str(compiled_path)))
+    if manifest.get("schema_version") != CHECK_MANIFEST_SCHEMA:
+        findings.append(ContractCompileFinding("check_manifest_schema_mismatch", CHECK_MANIFEST_SCHEMA, skill_id, str(manifest_path)))
+
+    for field_name in (
+        "skill_id",
+        "maintenance_unit_id",
+        "member_skill_ids",
+        "inputs",
+        "routes",
+        "steps",
+        "obligations",
+        "checks",
+        "consumer_projection",
+    ):
+        if compiled.get(field_name) != source.get(field_name):
+            findings.append(ContractCompileFinding("source_projection_mismatch", field_name, skill_id, str(compiled_path)))
+    for field_name in ("skill_id", "checks"):
+        if manifest.get(field_name) != source.get(field_name):
+            findings.append(ContractCompileFinding("manifest_identity_mismatch", field_name, skill_id, str(manifest_path)))
+    if manifest.get("contract_hash") != compiled.get("contract_hash"):
+        findings.append(ContractCompileFinding("manifest_contract_hash_mismatch", "contract_hash", skill_id, str(manifest_path)))
+    if manifest.get("check_declarations_hash") != compiled.get("check_declarations_hash"):
+        findings.append(ContractCompileFinding("manifest_check_declarations_hash_mismatch", "check_declarations_hash", skill_id, str(manifest_path)))
+
+    contract_hash = str(compiled.get("contract_hash", ""))
+    manifest_hash = str(manifest.get("manifest_hash", ""))
+    if _SHA256_RE.fullmatch(contract_hash) is None:
+        findings.append(ContractCompileFinding("compiled_contract_hash_invalid", contract_hash, skill_id, str(compiled_path)))
+    if _SHA256_RE.fullmatch(manifest_hash) is None:
+        findings.append(ContractCompileFinding("check_manifest_hash_invalid", manifest_hash, skill_id, str(manifest_path)))
+    source_identity = compiled.get("source_identity")
+    if not isinstance(source_identity, Mapping):
+        findings.append(ContractCompileFinding("source_identity_missing", "source_identity", skill_id, str(compiled_path)))
+    else:
+        expected_binding_hash = _wire_file_hash(skill_path / CONTRACT_SOURCE_FILE)
+        if source_identity.get("path") != ".skillguard/contract-source.json":
+            findings.append(ContractCompileFinding("source_identity_path_invalid", ".skillguard/contract-source.json", skill_id, str(compiled_path)))
+        if source_identity.get("content_hash") != expected_binding_hash:
+            findings.append(ContractCompileFinding("binding_fingerprint_stale", expected_binding_hash, skill_id, str(compiled_path)))
+        fingerprints = source_identity.get("input_fingerprints")
+        expected_inputs = {
+            str(row["id"]): _wire_file_hash(skill_path / str(row["path"]))
+            for row in source.get("inputs", ())
+            if isinstance(row, Mapping) and row.get("id") and row.get("path")
+        }
+        if fingerprints != expected_inputs:
+            findings.append(ContractCompileFinding("input_fingerprint_projection_mismatch", "input_fingerprints", skill_id, str(compiled_path)))
+
+    projection = source.get("consumer_projection")
+    plan = compiled.get("content_impact_plan")
+    if isinstance(projection, Mapping) and isinstance(plan, Mapping):
+        inventory = plan.get("inventory")
+        expected_paths = sorted(str(item) for item in projection.get("file_paths", ()))
+        actual_paths = sorted(
+            str(row.get("path"))
+            for row in inventory
+            if isinstance(row, Mapping) and row.get("path")
+        ) if isinstance(inventory, list) else []
+        if expected_paths != actual_paths:
+            findings.append(ContractCompileFinding("content_impact_projection_mismatch", "file_paths", skill_id, str(compiled_path)))
+    else:
+        findings.append(ContractCompileFinding("content_impact_projection_missing", "content_impact_plan", skill_id, str(compiled_path)))
+
+    for surface_name, surface_path, surface_data in (
+        ("surface_inventory", surface_inventory_path, surface_inventory),
+        ("surface_semantic_map", surface_map_path, surface_map),
+    ):
+        if surface_data.get("target_skill_id") != skill_id:
+            findings.append(ContractCompileFinding("surface_projection_identity_mismatch", f"{surface_name}.target_skill_id={surface_data.get('target_skill_id', '')!r}; expected {skill_id!r}", skill_id, str(surface_path)))
+        if _sorted_string_list(surface_data.get("current_obligation_ids")) is None:
+            findings.append(ContractCompileFinding("surface_projection_obligations_invalid", "current_obligation_ids must be a string list", skill_id, str(surface_path)))
+    inventory_fingerprint = str(surface_inventory.get("full_discovery_fingerprint", ""))
+    map_fingerprint = str(surface_map.get("source_discovery_fingerprint", ""))
+    if not inventory_fingerprint or inventory_fingerprint != map_fingerprint:
+        findings.append(ContractCompileFinding("surface_discovery_identity_mismatch", f"inventory={inventory_fingerprint}; map={map_fingerprint}", skill_id, str(surface_map_path)))
+    inventory_surface_ids = _sorted_string_list(surface_inventory.get("full_surface_ids"))
+    map_surface_ids = _sorted_string_list(surface_map.get("full_surface_ids"))
+    if inventory_surface_ids is not None and map_surface_ids is not None and inventory_surface_ids != map_surface_ids:
+        findings.append(ContractCompileFinding("surface_id_projection_mismatch", "surface inventory and semantic map must expose the same full_surface_ids", skill_id, str(surface_map_path)))
+    inventory_obligations = _sorted_string_list(surface_inventory.get("current_obligation_ids"))
+    map_obligations = _sorted_string_list(surface_map.get("current_obligation_ids"))
+    if inventory_obligations is None or map_obligations is None or inventory_obligations != map_obligations:
+        findings.append(ContractCompileFinding("surface_obligation_projection_mismatch", "surface inventory and semantic map must expose the same current_obligation_ids", skill_id, str(surface_map_path)))
+
+    authority_root = skill_path / ".skillguard"
+    residuals = sorted(name for name in _FORMER_AUTHORITY_NAMES if (authority_root / name).exists())
+    unexpected_root_files = sorted(
+        child.name
+        for child in authority_root.iterdir()
+        if child.is_file() and child.name not in _CURRENT_AUTHORITY_FILES
+    )
+    for residual in sorted(set(residuals + unexpected_root_files)):
+        findings.append(ContractCompileFinding("former_runtime_authority_residual", residual, skill_id, str(authority_root / residual)))
+    return dict(compiled), dict(manifest), tuple(findings), ()
+
+
 def compile_skill_contract(
     skill_dir: str | Path, *, write: bool = False
 ) -> tuple[
@@ -516,6 +857,20 @@ def compile_skill_contract(
             )
         )
         return {}, {}, tuple(findings), ()
+
+    if source.get("schema_version") == CONTRACT_SOURCE_SCHEMA:
+        return _compile_compact_v3_parity(
+            skill_path,
+            source,
+            compiled,
+            manifest,
+            surface_inventory,
+            surface_map,
+            compiled_path,
+            manifest_path,
+            surface_inventory_path,
+            surface_map_path,
+        )
 
     if compiled.get("schema_version") != COMPILED_CONTRACT_SCHEMA:
         findings.append(ContractCompileFinding("compiled_contract_schema_mismatch", COMPILED_CONTRACT_SCHEMA, skill_path.name, str(compiled_path)))

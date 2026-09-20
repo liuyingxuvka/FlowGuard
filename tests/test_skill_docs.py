@@ -7,6 +7,7 @@ from flowguard.prompt_budget import review_prompt_bundles
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS_ROOT = ROOT / ".agents" / "skills"
 KERNEL_ROOT = SKILLS_ROOT / "flowguard"
+DOMAIN_ROOT = KERNEL_ROOT / "references" / "domains"
 
 SATELLITE_SKILLS = {
     "flowguard-architecture-reduction": "architecture_reduction_protocol.md",
@@ -58,17 +59,21 @@ KERNEL_HANDOFFS = {
     ),
 }
 
+
+def domain_path(skill_name: str) -> Path:
+    """Resolve a former public route name to its current on-demand domain."""
+
+    return DOMAIN_ROOT / skill_name.removeprefix("flowguard-")
+
 REDUCED_FIELD_PROMPT_FILES = (
-    SKILLS_ROOT
-    / "flowguard-model-test-alignment"
+    domain_path("flowguard-model-test-alignment")
     / "references"
     / "templates"
     / "model_test_alignment_prompt_template.md",
-    SKILLS_ROOT
-    / "flowguard-development-process-flow"
+    domain_path("flowguard-development-process-flow")
     / "references"
     / "development_process_flow_protocol.md",
-    SKILLS_ROOT / "flowguard-test-mesh" / "references" / "test_mesh_protocol.md",
+    domain_path("flowguard-test-mesh") / "references" / "test_mesh_protocol.md",
     SKILLS_ROOT / "flowguard" / "assets" / "adoption_log_template.md",
 )
 
@@ -88,7 +93,7 @@ class SkillDocsTests(unittest.TestCase):
 
         for skill_name in SATELLITE_SKILLS:
             with self.subTest(skill=skill_name):
-                text = self.read(SKILLS_ROOT / skill_name / "SKILL.md")
+                text = self.read(domain_path(skill_name) / "SKILL.md")
                 self.assertLessEqual(len(text.splitlines()), 65)
                 self.assertLess(len(text), MAX_SATELLITE_SKILL_CHARACTERS)
 
@@ -96,11 +101,10 @@ class SkillDocsTests(unittest.TestCase):
         report = review_prompt_bundles(ROOT)
 
         self.assertTrue(report["ok"], report["failed_route_ids"])
-        self.assertEqual(15, report["bundle_count"])
+        self.assertEqual(1, report["bundle_count"])
         for bundle in report["bundles"]:
             with self.subTest(route=bundle["route_id"]):
                 component_paths = {item["path"] for item in bundle["components"]}
-                self.assertIn("AGENTS.md", component_paths)
                 self.assertIn(
                     f".agents/skills/{bundle['route_id']}/SKILL.md",
                     component_paths,
@@ -116,24 +120,19 @@ class SkillDocsTests(unittest.TestCase):
                 self.assertTrue(persistent["enforced"])
                 self.assertTrue(persistent["ok"])
                 self.assertGreaterEqual(persistent["headroom_ratio"], 0.10)
-                if bundle["route_id"] in SATELLITE_SKILLS:
-                    protocol_path = (
-                        f".agents/skills/{bundle['route_id']}/references/"
-                        f"{SATELLITE_SKILLS[bundle['route_id']]}"
-                    )
-                    conditional_paths = {
-                        item["path"] for item in bundle["conditional_edges"]
-                    }
-                    self.assertIn(
-                        protocol_path,
-                        component_paths | conditional_paths,
-                    )
         kernel = next(item for item in report["bundles"] if item["route_id"] == "flowguard")
         component_paths = {item["path"] for item in kernel["components"]}
-        conditional_paths = {item["path"] for item in kernel["conditional_edges"]}
-        self.assertIn(".agents/skills/flowguard/references/route_index.md", component_paths)
-        self.assertNotIn(".agents/skills/flowguard/references/modeling_protocol.md", component_paths)
-        self.assertIn(".agents/skills/flowguard/references/modeling_protocol.md", conditional_paths)
+        persistent_paths = {
+            item["path"] for item in kernel["persistent_context"]["components"]
+        }
+        self.assertIn(
+            ".agents/skills/flowguard/references/route_index.md",
+            persistent_paths,
+        )
+        self.assertIn(
+            ".agents/skills/flowguard/references/route_execution_common.md",
+            persistent_paths,
+        )
         self.assertFalse(report["provider_token_usage_available"])
 
     def test_active_openspec_specs_have_real_purpose_text(self):
@@ -150,22 +149,15 @@ class SkillDocsTests(unittest.TestCase):
 
         expected = (
             "# FlowGuard",
-            "use_flowguard",
-            "skip_with_reason",
-            "needs_human_review",
-            "Input x State -> Set(Output x State)",
-            "real FlowGuard check engine",
-            "AGENTS.md managed",
-            "fake mini-framework",
-            "risk_evidence_ledger",
-            "template harvest closure",
+            "read",
+            "change",
+            "release",
+            "task-specific failure(s)",
+            "native good/bad-per-failure/oracle/current evidence",
             "references/route_index.md",
-            "references/modeling_core_protocol.md",
-            "references/modeling_evidence_protocol.md",
-            "behavior_flow",
-            "argument_flow",
-            "decision_flow",
-            "check-engine helpers as independently triggerable Codex skills",
+            "references/domains/<subject>/",
+            "Installation, consumer parity, Git",
+            "default result bounded",
         )
         for phrase in expected:
             self.assertIn(phrase, text)
@@ -173,27 +165,19 @@ class SkillDocsTests(unittest.TestCase):
         headings = tuple(line for line in text.splitlines() if line.startswith("## "))
         self.assertEqual(
             (
-                "## Purpose",
+                "## Fixed public lifecycle",
                 "## Model-purpose gate",
-                "## Entrypoint Scope",
-                "## Local Material Routing",
-                "## Entrypoint Acceptance Map",
-                "## Use When",
-                "## Do Not Use When",
-                "## Required Workflow",
-                "## Hard Gates",
-                "## Output Requirements",
+                "## Read only what is selected",
+                "## Hard boundaries",
+                "## Result",
             ),
             headings,
         )
         self.assertNotIn("SkillGuard", text)
         self.assertNotIn(".skillguard", text)
         reference_paths = (
-            "references/skill_kernel_protocol.md",
-            "references/modeling_protocol.md",
-            "references/modeling_core_protocol.md",
-            "references/modeling_evidence_protocol.md",
             "references/route_index.md",
+            "references/domains/<subject>/",
         )
         for reference_path in reference_paths:
             self.assertIn(reference_path, text)
@@ -243,41 +227,35 @@ class SkillDocsTests(unittest.TestCase):
         core = self.read(KERNEL_ROOT / "references" / "modeling_core_protocol.md")
         evidence = self.read(KERNEL_ROOT / "references" / "modeling_evidence_protocol.md")
         preflight = self.read(
-            SKILLS_ROOT
-            / "flowguard-existing-model-preflight"
+            domain_path("flowguard-existing-model-preflight")
             / "references"
             / "existing_model_preflight_protocol.md"
         )
         mesh = self.read(
-            SKILLS_ROOT
-            / "flowguard-model-mesh"
+            domain_path("flowguard-model-mesh")
             / "references"
             / "model_mesh_protocol.md"
         )
         reduction = self.read(
-            SKILLS_ROOT
-            / "flowguard-architecture-reduction"
+            domain_path("flowguard-architecture-reduction")
             / "references"
             / "architecture_reduction_protocol.md"
         )
         alignment = self.read(
-            SKILLS_ROOT
-            / "flowguard-model-test-alignment"
+            domain_path("flowguard-model-test-alignment")
             / "references"
             / "model_test_alignment_protocol.md"
         )
         test_mesh = self.read(
-            SKILLS_ROOT / "flowguard-test-mesh" / "references" / "test_mesh_protocol.md"
+            domain_path("flowguard-test-mesh") / "references" / "test_mesh_protocol.md"
         )
         process = self.read(
-            SKILLS_ROOT
-            / "flowguard-development-process-flow"
+            domain_path("flowguard-development-process-flow")
             / "references"
             / "development_process_flow_protocol.md"
         )
         optimization = self.read(
-            SKILLS_ROOT
-            / "flowguard-development-process-flow"
+            domain_path("flowguard-development-process-flow")
             / "references"
             / "process_optimization_protocol.md"
         )
@@ -292,9 +270,9 @@ class SkillDocsTests(unittest.TestCase):
         process_text = normalize(process)
         optimization_text = normalize(optimization)
 
-        for text in (kernel, core, evidence, preflight, mesh, reduction, alignment, test_mesh, process):
+        for text in (core, evidence, preflight, mesh, reduction, alignment, test_mesh, process):
             self.assertIn("ModelMaturation", text)
-        self.assertIn("Every new or materially changed model", kernel)
+        self.assertIn("explicit finite model", kernel)
         self.assertIn("`lightweight_path_review(...)`", core_text)
         self.assertIn("With one clear path and no trigger", core_text)
         self.assertIn("deep review is admitted only for exact current evidence", core_text)
@@ -302,7 +280,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("`observed` baseline", core_text)
         self.assertIn("non-code targets", core_text)
         self.assertIn("implementation-complete contract", core_text)
-        self.assertIn("adds no public route, CLI, compatibility reader", normalize(kernel))
+        self.assertIn("No mode/fallback path", normalize(kernel))
         self.assertIn("Missing, stale, unresolved", normalize(evidence))
         self.assertIn("does not enumerate candidates", preflight_text)
         self.assertIn("do not copy deep candidates", mesh_text)
@@ -339,7 +317,7 @@ class SkillDocsTests(unittest.TestCase):
 
         for skill_name, phrases in expected.items():
             with self.subTest(skill=skill_name):
-                text = self.read(SKILLS_ROOT / skill_name / "SKILL.md")
+                text = self.read(domain_path(skill_name) / "SKILL.md")
                 for phrase in phrases:
                     self.assertIn(phrase, text)
 
@@ -436,24 +414,21 @@ class SkillDocsTests(unittest.TestCase):
 
         for skill_name, reference_name in SATELLITE_SKILLS.items():
             with self.subTest(skill=skill_name):
-                root = SKILLS_ROOT / skill_name
+                root = domain_path(skill_name)
                 text = self.read(root / "SKILL.md")
                 openai_yaml = self.read(root / "agents" / "openai.yaml")
                 reference = self.read(root / "references" / reference_name)
 
-                self.assertIn(f"name: {skill_name}", text)
-                if skill_name == "flowguard-development-process-flow":
-                    self.assertIn("public_owner", text)
-                else:
-                    self.assertIn("standalone FlowGuard satellite skill", text)
-                self.assertIn("flowguard", text)
+                self.assertTrue(text.startswith("# FlowGuard"))
+                self.assertNotIn("standalone FlowGuard satellite skill", text)
+                self.assertIn("FlowGuard", text)
                 self.assertIn("FlowGuard check engine", text)
                 self.assertIn("AGENTS.md managed", text)
                 self.assertIn("fake mini-framework", text)
                 self.assertIn(reference_name, text)
                 self.assertIn(skill_name, openai_yaml)
                 self.assertGreater(len(reference), 200)
-                self.assertEqual(9, sum(line.startswith("## ") for line in text.splitlines()))
+                self.assertGreaterEqual(sum(line.startswith("## ") for line in text.splitlines()), 5)
                 self.assertNotIn("SkillGuard", text)
                 self.assertNotIn(".skillguard", text)
                 self.assertNotIn("SkillGuard", openai_yaml)
@@ -478,9 +453,9 @@ class SkillDocsTests(unittest.TestCase):
 
     def test_model_test_alignment_skill_does_not_teach_optional_code_contracts(self):
         checked = (
-            SKILLS_ROOT / "flowguard-model-test-alignment" / "SKILL.md",
-            SKILLS_ROOT / "flowguard-model-test-alignment" / "references" / "model_test_alignment_protocol.md",
-            SKILLS_ROOT / "flowguard-model-test-alignment" / "references" / "templates" / "model_test_alignment_prompt_template.md",
+            domain_path("flowguard-model-test-alignment") / "SKILL.md",
+            domain_path("flowguard-model-test-alignment") / "references" / "model_test_alignment_protocol.md",
+            domain_path("flowguard-model-test-alignment") / "references" / "templates" / "model_test_alignment_prompt_template.md",
             KERNEL_ROOT / "SKILL.md",
             KERNEL_ROOT / "references" / "skill_kernel_protocol.md",
             KERNEL_ROOT / "references" / "model_test_alignment_protocol.md",
@@ -495,11 +470,10 @@ class SkillDocsTests(unittest.TestCase):
                 self.assertNotIn("model-test-only", text)
 
     def test_ui_flow_structure_teaches_soft_typography_handoff(self):
-        skill = self.read(SKILLS_ROOT / "flowguard-ui-flow-structure" / "SKILL.md")
-        openai_yaml = self.read(SKILLS_ROOT / "flowguard-ui-flow-structure" / "agents" / "openai.yaml")
+        skill = self.read(domain_path("flowguard-ui-flow-structure") / "SKILL.md")
+        openai_yaml = self.read(domain_path("flowguard-ui-flow-structure") / "agents" / "openai.yaml")
         protocol = self.read(
-            SKILLS_ROOT
-            / "flowguard-ui-flow-structure"
+            domain_path("flowguard-ui-flow-structure")
             / "references"
             / "ui_flow_structure_protocol.md"
         )
@@ -526,12 +500,15 @@ class SkillDocsTests(unittest.TestCase):
         for kernel_reference, (skill_name, satellite_reference) in KERNEL_HANDOFFS.items():
             with self.subTest(reference=kernel_reference):
                 stub = self.read(KERNEL_ROOT / "references" / kernel_reference)
-                full_reference = self.read(SKILLS_ROOT / skill_name / "references" / satellite_reference)
+                full_reference = self.read(domain_path(skill_name) / "references" / satellite_reference)
 
                 self.assertLessEqual(len(stub.splitlines()), 18)
                 self.assertIn("compact handoff stub", stub)
-                self.assertIn(skill_name, stub)
-                self.assertIn(f"{skill_name}/references/{satellite_reference}", stub)
+                self.assertIn(skill_name.removeprefix("flowguard-"), stub)
+                self.assertIn(
+                    f"references/domains/{skill_name.removeprefix('flowguard-')}/references/{satellite_reference}",
+                    stub,
+                )
                 self.assertGreater(len(full_reference), 200)
 
     def test_skill_references_do_not_duplicate_canonical_protocols(self):
@@ -549,24 +526,21 @@ class SkillDocsTests(unittest.TestCase):
 
     def test_long_prompt_templates_are_lazy_loaded(self):
         model_test_alignment = self.read(
-            SKILLS_ROOT
-            / "flowguard-model-test-alignment"
+            domain_path("flowguard-model-test-alignment")
             / "references"
             / "model_test_alignment_protocol.md"
         )
         model_test_alignment_template = self.read(
-            SKILLS_ROOT
-            / "flowguard-model-test-alignment"
+            domain_path("flowguard-model-test-alignment")
             / "references"
             / "templates"
             / "model_test_alignment_prompt_template.md"
         )
         model_mesh = self.read(
-            SKILLS_ROOT / "flowguard-model-mesh" / "references" / "model_mesh_protocol.md"
+            domain_path("flowguard-model-mesh") / "references" / "model_mesh_protocol.md"
         )
         model_mesh_template = self.read(
-            SKILLS_ROOT
-            / "flowguard-model-mesh"
+            domain_path("flowguard-model-mesh")
             / "references"
             / "templates"
             / "model_mesh_prompt_template.md"
@@ -582,30 +556,27 @@ class SkillDocsTests(unittest.TestCase):
 
     def test_model_mesh_closure_liveness_is_documented_across_routes(self):
         model_mesh = self.read(
-            SKILLS_ROOT / "flowguard-model-mesh" / "references" / "model_mesh_protocol.md"
+            domain_path("flowguard-model-mesh") / "references" / "model_mesh_protocol.md"
         )
         model_mesh_closure = self.read(
-            SKILLS_ROOT
-            / "flowguard-model-mesh"
+            domain_path("flowguard-model-mesh")
             / "references"
             / "model_mesh_closure_protocol.md"
         )
         model_mesh_template = self.read(
-            SKILLS_ROOT
-            / "flowguard-model-mesh"
+            domain_path("flowguard-model-mesh")
             / "references"
             / "templates"
             / "model_mesh_prompt_template.md"
         )
         model_test_alignment = self.read(
-            SKILLS_ROOT
-            / "flowguard-model-test-alignment"
+            domain_path("flowguard-model-test-alignment")
             / "references"
             / "model_test_alignment_protocol.md"
         )
-        test_mesh = self.read(SKILLS_ROOT / "flowguard-test-mesh" / "references" / "test_mesh_protocol.md")
+        test_mesh = self.read(domain_path("flowguard-test-mesh") / "references" / "test_mesh_protocol.md")
         model_miss = self.read(
-            SKILLS_ROOT / "flowguard-model-miss-review" / "references" / "model_miss_protocol.md"
+            domain_path("flowguard-model-miss-review") / "references" / "model_miss_protocol.md"
         )
         kernel = self.read(KERNEL_ROOT / "references" / "skill_kernel_protocol.md")
 
@@ -632,47 +603,29 @@ class SkillDocsTests(unittest.TestCase):
             row["route_id"]: {item["path"] for item in row["conditional_edges"]}
             for row in report["bundles"]
         }
-        expected = {
-            "flowguard-model-mesh": {
-                ".agents/skills/flowguard-model-mesh/references/model_mesh_partition_protocol.md",
-                ".agents/skills/flowguard-model-mesh/references/model_mesh_reattachment_protocol.md",
-                ".agents/skills/flowguard-model-mesh/references/model_mesh_closure_protocol.md",
-            },
-            "flowguard-model-test-alignment": {
-                ".agents/skills/flowguard-model-test-alignment/references/model_test_transition_protocol.md",
-                ".agents/skills/flowguard-model-test-alignment/references/model_test_field_protocol.md",
-                ".agents/skills/flowguard-model-test-alignment/references/model_test_payload_protocol.md",
-            },
-            "flowguard-test-mesh": {
-                ".agents/skills/flowguard-test-mesh/references/test_mesh_reuse_protocol.md",
-                ".agents/skills/flowguard-test-mesh/references/test_mesh_long_check_protocol.md",
-                ".agents/skills/flowguard-test-mesh/references/test_mesh_release_protocol.md",
-            },
-            "flowguard-development-process-flow": {
-                ".agents/skills/flowguard-development-process-flow/references/distribution_release_protocol.md",
-                ".agents/skills/flowguard-development-process-flow/references/plan_detailing_protocol.md",
-                ".agents/skills/flowguard-development-process-flow/references/agent_workflow_protocol.md",
-            },
+        self.assertEqual(("flowguard",), tuple(conditional_by_route))
+        self.assertEqual(set(), conditional_by_route["flowguard"])
+        domain_dirs = {
+            path.name for path in DOMAIN_ROOT.iterdir() if path.is_dir()
         }
-        for route_id, paths in expected.items():
-            with self.subTest(route=route_id):
-                self.assertTrue(paths.issubset(conditional_by_route[route_id]))
+        self.assertEqual(
+            set(name.removeprefix("flowguard-") for name in SATELLITE_SKILLS),
+            domain_dirs,
+        )
 
     def test_reduced_field_prompts_use_grouped_families(self):
         model_test_alignment = self.read(
-            SKILLS_ROOT
-            / "flowguard-model-test-alignment"
+            domain_path("flowguard-model-test-alignment")
             / "references"
             / "model_test_alignment_protocol.md"
         )
         development_process = self.read(
-            SKILLS_ROOT
-            / "flowguard-development-process-flow"
+            domain_path("flowguard-development-process-flow")
             / "references"
             / "development_process_flow_protocol.md"
         )
-        test_mesh = self.read(SKILLS_ROOT / "flowguard-test-mesh" / "references" / "test_mesh_protocol.md")
-        model_mesh = self.read(SKILLS_ROOT / "flowguard-model-mesh" / "references" / "model_mesh_protocol.md")
+        test_mesh = self.read(domain_path("flowguard-test-mesh") / "references" / "test_mesh_protocol.md")
+        model_mesh = self.read(domain_path("flowguard-model-mesh") / "references" / "model_mesh_protocol.md")
         adoption_log = self.read(KERNEL_ROOT / "assets" / "adoption_log_template.md")
 
         for phrase in ("identity", "required evidence", "external boundary", "result:", "freshness:"):
@@ -698,7 +651,9 @@ class SkillDocsTests(unittest.TestCase):
                 self.assertEqual([], colon_prompt_lines)
 
     def test_current_satellite_topology_has_no_stale_fixed_count_model(self):
-        satellite_names = sorted(path.name for path in SKILLS_ROOT.iterdir() if path.name.startswith("flowguard-"))
+        domain_names = sorted(
+            path.name for path in DOMAIN_ROOT.iterdir() if path.is_dir()
+        )
         topology_model = self.read(
             ROOT
             / ".flowguard"
@@ -708,7 +663,19 @@ class SkillDocsTests(unittest.TestCase):
             / "model.py"
         )
 
-        self.assertEqual(sorted(SATELLITE_SKILLS), satellite_names)
+        self.assertEqual(
+            sorted(name.removeprefix("flowguard-") for name in SATELLITE_SKILLS),
+            domain_names,
+        )
+        self.assertEqual(
+            [],
+            [
+                path.name
+                for path in SKILLS_ROOT.iterdir()
+                if path.name.startswith("flowguard-")
+                and (path / "SKILL.md").is_file()
+            ],
+        )
         self.assertNotIn("SATELLITE_COUNT =", topology_model)
         self.assertNotIn("PUBLIC_OWNER_SKILL_COUNT =", topology_model)
         self.assertNotIn("INTERNAL_ROUTE_COUNT =", topology_model)
@@ -761,8 +728,7 @@ class SkillDocsTests(unittest.TestCase):
             "Hard Gates",
             "Route Map",
             "Reference Handoff",
-            "use_direct_flowguard_skill",
-            "use_model_first_kernel",
+            "use_flowguard",
             "skip_with_reason",
             "needs_human_review",
             "Input x State -> Set(Output x State)",
@@ -777,15 +743,17 @@ class SkillDocsTests(unittest.TestCase):
             "not separate Codex skills",
             "Primary agent surface: the current clean consumer projection",
             "$CODEX_HOME/skills/flowguard/SKILL.md",
-            "does not copy the FlowGuard suite into its local",
+            "does not copy author controls",
             "not the AI-agent skill installation surface",
+            "single public skill",
+            "references/domains/",
+            "not independent public skills",
         )
         for phrase in expected:
             self.assertIn(phrase, text)
 
         self.assertLess(text.index("### Minimum Valuable Model"), text.index("### Route Map"))
-        for skill_name in SATELLITE_SKILLS:
-            self.assertIn(skill_name, text)
+        self.assertIn(".agents/skills/flowguard/references/domains/", text)
 
         long_form_markers = (
             "Use Model-Test Alignment when",

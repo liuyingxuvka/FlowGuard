@@ -1,8 +1,3 @@
----
-name: flowguard-structure-mesh
-description: standalone FlowGuard satellite skill; Use when an existing large script, module, package, command, public API, facade, config surface, or plugin entrypoint split needs model-derived ownership, dependency, compatibility, parity, and release gates.
----
-
 # FlowGuard Structure Mesh
 
 ## Purpose
@@ -15,7 +10,7 @@ Owner `structure_mesh_maintenance` (`public_owner`) evidence; not behavior inven
 After admission, read `references/structure_mesh_protocol.md` for target derivation, partitions, evidence scopes, and handoffs.
 
 ## Entrypoint Acceptance Map
-Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
+Use this route's row in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
 
 ### Shared execution contract
 

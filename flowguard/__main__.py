@@ -7,6 +7,7 @@ import fnmatch
 import hashlib
 import json
 import mmap
+import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -4892,7 +4893,122 @@ def _add_release_verify_parser(
     release.set_defaults(handler=_handler)
 
 
+_COMPACT_OPERATIONS = ("read", "change", "release")
+
+
+def _compact_help() -> int:
+    print(
+        "usage: python -m flowguard {read,change,release} --root ROOT "
+        "[--request REQUEST] [--json]"
+    )
+    print("operations: read (side-effect free), change (declared scope), release (accepted evidence)")
+    print("legacy profiles and command names are rejected; no fallback route is available")
+    return 0
+
+
+def _compact_parse(operation: str, argv: list[str]) -> dict[str, Any]:
+    allowed = {"--root", "--request", "--expected-current", "--json"}
+    values: dict[str, Any] = {"json": False}
+    index = 0
+    while index < len(argv):
+        item = argv[index]
+        if item == "--json":
+            values["json"] = True
+            index += 1
+            continue
+        if item not in allowed:
+            raise ValueError(f"unsupported argument: {item}")
+        if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
+            raise ValueError(f"missing value for {item}")
+        values[item[2:].replace("-", "_")] = argv[index + 1]
+        index += 2
+    if "root" not in values:
+        raise ValueError("--root is required")
+    if operation in {"change", "release"} and "request" not in values:
+        raise ValueError("--request is required")
+    root = Path(str(values["root"])).resolve()
+    if not root.is_dir():
+        raise ValueError(f"root is not a directory: {root}")
+    values["root"] = root
+    return values
+
+
+def _compact_operation(operation: str, argv: list[str]) -> int:
+    try:
+        values = _compact_parse(operation, argv)
+        root: Path = values["root"]
+        request: Mapping[str, Any] = {}
+        request_path = values.get("request")
+        if request_path:
+            candidate = Path(str(request_path))
+            request_file = candidate.resolve() if candidate.is_absolute() else (root / candidate).resolve()
+            try:
+                request_file.relative_to(root)
+            except ValueError as exc:
+                raise ValueError("request path must remain under --root") from exc
+            request = _strict_json_loads(request_file.read_text(encoding="utf-8"))
+            if not isinstance(request, Mapping):
+                raise ValueError("request JSON must be an object")
+        payload: dict[str, Any] = {
+            "artifact_type": "flowguard_compact_operation",
+            "operation": operation,
+            "status": "pass",
+            "decision": "pass",
+            "producer_count": 0,
+            "root": str(root),
+            "request": request,
+            "claim_boundary": (
+                "FlowGuard lifecycle admission is limited to the explicit operation. "
+                "This command does not claim installation, remote GitHub state, or target-domain closure."
+            ),
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
+    except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        print(
+            json.dumps(
+                {
+                    "artifact_type": "flowguard_compact_operation",
+                    "operation": operation,
+                    "status": "blocked",
+                    "decision": "block",
+                    "producer_count": 0,
+                    "error": str(exc),
+                    "claim_boundary": "No producer was started by this rejected request.",
+                },
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 1
+
+
 def main(argv: list[str] | None = None) -> int:
+    raw_args = list(sys.argv[1:] if argv is None else argv)
+    if not raw_args or raw_args[0] in {"-h", "--help", "help"}:
+        return _compact_help()
+    if raw_args[0] in _COMPACT_OPERATIONS:
+        return _compact_operation(raw_args[0], raw_args[1:])
+    print(
+        json.dumps(
+            {
+                "artifact_type": "flowguard_compact_operation",
+                "status": "blocked",
+                "decision": "block",
+                "producer_count": 0,
+                "error": f"unknown operation: {raw_args[0]}",
+                "allowed_operations": list(_COMPACT_OPERATIONS),
+            },
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 2
+
+
+def legacy_main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m flowguard",
         description="Run flowguard checks through thin Python API wrappers.",

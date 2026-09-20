@@ -1,15 +1,10 @@
----
-name: flowguard-architecture-reduction
-description: standalone FlowGuard satellite skill; Decide retain, equivalent contraction, proven retirement, or unresolved from current FlowGuard DNA.
----
-
 # FlowGuard Architecture Reduction
 
 ## Purpose
 Classify surfaces/steps: retain, contraction, proven retirement, or unresolved.
 
 ## Entrypoint Scope
-This is a standalone FlowGuard satellite skill. Owner
+This is an on-demand FlowGuard domain reference. Owner
 `architecture_reduction` (`public_owner`); proves reductions, not implementation.
 
 ## Local Material Routing
@@ -19,7 +14,7 @@ owner contract. Conditional proof and hazard details are named by the main
 protocol only when their triggers are present.
 
 ## Entrypoint Acceptance Map
-Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
+Use this route's row in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
 
 ### Shared execution contract
 

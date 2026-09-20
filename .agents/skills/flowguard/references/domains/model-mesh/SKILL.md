@@ -1,8 +1,3 @@
----
-name: flowguard-model-mesh
-description: standalone FlowGuard satellite skill; Use for affected topology, partitions, stale child evidence, reattachment, siblings, or mesh closure; count alone is not a trigger.
----
-
 # FlowGuard Model Mesh
 
 ## Purpose
@@ -15,7 +10,7 @@ Owner of hierarchy; not test/code splits.
 After admission read `references/model_mesh_protocol.md`; load `references/model_mesh_partition_protocol.md`, `references/model_mesh_reattachment_protocol.md`, or `references/model_mesh_closure_protocol.md` only when triggered.
 
 ## Entrypoint Acceptance Map
-Use row `model_mesh_maintenance` in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden. Parent composition never relabels a child as independently executed.
+Use row `model_mesh_maintenance` in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden. Parent composition never relabels a child as independently executed.
 
 ### Shared execution contract
 

@@ -1,0 +1,825 @@
+{
+  "artifacts": [],
+  "checks": [
+    {
+      "check_id": "check:flowguard:plane-boundary",
+      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard:plane-boundary"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard:plane-boundary",
+      "evidence_subject_id": "subject:flowguard:plane-boundary",
+      "execution_owner_id": "owner:check:flowguard:plane-boundary",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/models/owners/minimum_valuable_model_entry/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard",
+      "semantic_check_id": "semantic:check:flowguard:plane-boundary",
+      "timeout_seconds": 30
+    },
+    {
+      "args": [
+        ".flowguard/verification/owners/minimum_valuable_model_entry/run_checks.py"
+      ],
+      "check_id": "check:flowguard:native-authority",
+      "command": "python",
+      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard:native-authority"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard:native-authority",
+      "evidence_subject_id": "subject:flowguard:native-authority",
+      "execution_owner_id": "owner:check:flowguard:native-authority",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/models/owners/minimum_valuable_model_entry/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/verification/owners/minimum_valuable_model_entry/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/portable_model.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/portable_checker.py"
+        },
+        {
+          "kind": "role",
+          "role": "runtime_source"
+        },
+        {
+          "kind": "role",
+          "role": "documentation_model"
+        },
+        {
+          "kind": "role",
+          "role": "test_dev"
+        }
+      ],
+      "kind": "command",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard",
+      "semantic_check_id": "semantic:check:flowguard:native-authority",
+      "timeout_seconds": 180
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_model_maturation.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard:model-maturation-closure",
+      "command": "python",
+      "coverage_rationale": "The target-owned regression executes the current task, coverage, probe, prediction, exact-receipt, gap-continuity, session, and terminal semantics.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard:model-maturation-closure"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard:model-maturation-closure",
+      "evidence_subject_id": "subject:flowguard:model-maturation-closure",
+      "execution_owner_id": "owner:check:flowguard:model-maturation-closure",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "flowguard/model_maturation.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_maturation_receipt.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/task_coverage_demand.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/route_topology.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/understanding_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/development_process_flow.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/risk_evidence_ledger.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/closure_contract.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/api_registry.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/__main__.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_maturation.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/models/owners/authoritative_model_system/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".agents/skills/flowguard/references/modeling_evidence_protocol.md"
+        }
+      ],
+      "kind": "command",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard",
+      "semantic_check_id": "semantic:check:flowguard:model-maturation-closure",
+      "timeout_seconds": 180
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_task_coverage_demand.py",
+        "tests/test_proof_artifact.py",
+        "tests/test_model_maturation.py",
+        "tests/test_model_maturation_receipt.py",
+        "tests/test_understanding_readiness.py",
+        "tests/test_target_system_blueprint.py",
+        "tests/test_target_neutral_blueprint_acceptance.py",
+        "tests/test_implementation_inventory.py",
+        "tests/test_implementation_blueprint.py",
+        "tests/test_implementation_blueprint_cli.py",
+        "tests/test_implementation_blueprint_docs.py",
+        "tests/test_blueprint_topology.py",
+        "tests/test_software_blueprint_readiness.py",
+        "tests/test_project_blueprint.py",
+        "tests/test_self_blueprint.py",
+        "tests/test_affected_blueprint_reader.py",
+        "tests/test_blueprint_compact_projection.py",
+        "tests/test_blueprint_aggregate_integrity.py",
+        "tests/test_blueprint_cli_routes.py",
+        "tests/test_api_surface.py",
+        "tests/test_flowguard_skill_trigger.py",
+        "tests/test_flowguard_skill_collaboration.py",
+        "tests/test_evidence_lifecycle.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard:understanding-readiness",
+      "command": "python",
+      "coverage_rationale": "The one target-owned command executes the declared task-coverage, target-neutral blueprint, project/self/affected reader, canonical projection, public API, documentation, and skill-route regressions; input declaration and executed coverage therefore stay identical.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard:understanding-readiness"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard:understanding-readiness",
+      "evidence_subject_id": "subject:flowguard:understanding-readiness",
+      "execution_owner_id": "owner:check:flowguard:understanding-readiness",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "flowguard/task_coverage_demand.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/proof_artifact.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_maturation.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_maturation_receipt.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/understanding_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/target_system_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/target_native_qualification.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/implementation_inventory.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/implementation_inventory_python.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/implementation_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/canonical_blueprint_projection.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/blueprint_topology.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/software_blueprint_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/project_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/self_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/affected_blueprint_reader.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/blueprint_compact_projection.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/development_process_flow.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/evidence_lifecycle.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/__main__.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/__init__.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/models/owners/implementation_blueprint/model.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/verification/owners/implementation_blueprint/run_checks.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_task_coverage_demand.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_proof_artifact.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_maturation.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_maturation_receipt.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_understanding_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_target_system_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_target_neutral_blueprint_acceptance.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_implementation_inventory.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_implementation_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_implementation_blueprint_cli.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_implementation_blueprint_docs.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_blueprint_topology.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_software_blueprint_readiness.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_project_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_self_blueprint.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_affected_blueprint_reader.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_blueprint_compact_projection.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_blueprint_aggregate_integrity.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_blueprint_cli_routes.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_api_surface.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_flowguard_skill_trigger.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_flowguard_skill_collaboration.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_evidence_lifecycle.py"
+        }
+      ],
+      "kind": "command",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard",
+      "semantic_check_id": "semantic:check:flowguard:understanding-readiness",
+      "timeout_seconds": 900
+    },
+    {
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_model_revision_builder.py",
+        "tests/test_model_authority_cli.py",
+        "tests/test_model_authority.py",
+        "tests/test_model_authority_store.py",
+        "tests/test_model_revision_owner_evidence.py",
+        "tests/test_validation_execution_ownership.py",
+        "tests/test_model_regression_manifest.py",
+        "tests/test_model_regression_orchestrator.py",
+        "-q"
+      ],
+      "check_id": "check:flowguard:model-revision-build",
+      "command": "python",
+      "coverage_rationale": "The one target-owned command executes revision construction, accepted-authority storage/audit, distinct child-bound owner evidence, validation ownership, and exact model-regression manifest/orchestrator regressions; a parent receipt never substitutes for its current owner leaves.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard:model-revision-build"
+      ],
+      "cwd_token": "repository_root",
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard:model-revision-build",
+      "evidence_subject_id": "subject:flowguard:model-revision-build",
+      "execution_owner_id": "owner:check:flowguard:model-revision-build",
+      "expected": {
+        "exit_code": 0
+      },
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": "flowguard/model_revision_builder.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_revision_set.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_revision_owner_evidence.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/validation_ownership.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_authority_store.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/model_regressions.py"
+        },
+        {
+          "kind": "path",
+          "path": "scripts/run_flowguard_model_regressions.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/models/regression-manifest.json"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/__init__.py"
+        },
+        {
+          "kind": "path",
+          "path": "flowguard/__main__.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_revision_builder.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_authority_cli.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_authority.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_revision_owner_evidence.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_validation_execution_ownership.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_authority_store.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_regression_manifest.py"
+        },
+        {
+          "kind": "path",
+          "path": "tests/test_model_regression_orchestrator.py"
+        },
+        {
+          "kind": "path",
+          "path": ".flowguard/models/owners/authoritative_model_system/model.py"
+        }
+      ],
+      "kind": "command",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard",
+      "semantic_check_id": "semantic:check:flowguard:model-revision-build",
+      "timeout_seconds": 900
+    },
+    {
+      "check_id": "check:flowguard:evidence-closure",
+      "coverage_rationale": "The check is the single declared owner for its mapped obligation set.",
+      "coverage_scope": "declared_obligations",
+      "covers_obligation_ids": [
+        "obligation:flowguard:evidence-closure"
+      ],
+      "depends_on_check_ids": [],
+      "evidence_class": "hard",
+      "evidence_domain_id": "evidence-domain:check:flowguard:evidence-closure",
+      "evidence_subject_id": "subject:flowguard:evidence-closure",
+      "execution_owner_id": "owner:check:flowguard:evidence-closure",
+      "input_selectors": [
+        {
+          "kind": "path",
+          "path": ".flowguard/models/owners/minimum_valuable_model_entry/model.py"
+        }
+      ],
+      "kind": "model_assertion",
+      "maintenance_unit_id": "unit:flowguard-suite",
+      "member_skill_id": "flowguard",
+      "semantic_check_id": "semantic:check:flowguard:evidence-closure",
+      "timeout_seconds": 30
+    }
+  ],
+  "claim_boundary": "Only the current route decision, independently derived exact expected-source boundary, executable model boundary, and consumed current evidence are claimed; provider planning context, future behavior, and unrun routes are not certified.",
+  "closure_profiles": [
+    {
+      "profile_id": "enforced",
+      "required_obligation_ids": [
+        "obligation:flowguard:plane-boundary",
+        "obligation:flowguard:native-authority",
+        "obligation:flowguard:model-maturation-closure",
+        "obligation:flowguard:understanding-readiness",
+        "obligation:flowguard:model-revision-build",
+        "obligation:flowguard:evidence-closure"
+      ]
+    }
+  ],
+  "confirmed": true,
+  "consumer_projection": {
+    "prohibited_path_prefixes": [
+      ".skillguard/"
+    ],
+    "prohibited_prompt_tokens": [
+      "SkillGuard",
+      ".skillguard",
+      "skillguard.py"
+    ],
+    "projection_id": "projection:consumer-distribution",
+    "release_manifest_path": "consumer-release.json"
+  },
+  "content_impact_policy": {
+    "full_admission_reason_codes": [
+      "explicit_final_gate",
+      "explicit_release_gate",
+      "impact_policy_or_compiler_changed",
+      "shared_validation_runtime_changed",
+      "all_owner_component_changed"
+    ],
+    "owner_receipt_root_ref": {
+      "path_token": "owner_evidence_root",
+      "relative_path": "check-executions"
+    },
+    "policy_id": "skillguard.content_impact_policy.current",
+    "unknown_mapping_disposition": "block"
+  },
+  "default_route_id": "route:model_first_function_flow",
+  "depth_profile": {
+    "claim_boundary": "flowguard owns every check's domain meaning; SkillGuard only reconciles the exact current declared-check inventory and terminal receipts in one fixed enforced closure.",
+    "enforcement_level": "enforced",
+    "integration_mode": "native-integrated",
+    "model_deepening_check_id": "check:flowguard:model-maturation-closure",
+    "native_check_ids": [
+      "check:flowguard:plane-boundary",
+      "check:flowguard:native-authority",
+      "check:flowguard:model-maturation-closure",
+      "check:flowguard:understanding-readiness",
+      "check:flowguard:model-revision-build",
+      "check:flowguard:evidence-closure"
+    ],
+    "native_owner_id": "model_first_function_flow",
+    "native_route_ids": [
+      "route:model_first_function_flow"
+    ],
+    "profile_id": "profile:flowguard:fixed-enforced-declared-check-supervision",
+    "provider_runtime": {
+      "provider_id": "skillguard-local-provider",
+      "readiness_check_ids": [
+        "check:flowguard:native-authority",
+        "check:flowguard:understanding-readiness"
+      ],
+      "required_capability_ids": [
+        "declared-check-inventory.v1",
+        "declared-check-receipt-reconciliation.v1",
+        "installation-receipt-binding.v1",
+        "installation-currentness-replay.v1",
+        "provider-runtime-enrollment.v1",
+        "single-flight-check-execution.v1"
+      ],
+      "required_enrollment_status": "enrolled",
+      "required_runtime_contract_id": "skillguard-declared-check-supervision-current"
+    },
+    "required_closure_profiles": [
+      "enforced"
+    ],
+    "schema_version": "skillguard.depth_profile.v2",
+    "skillguard_adds_domain_route": false,
+    "surface_inventory": {
+      "adequacy_check_ids": [
+        "check:flowguard:plane-boundary",
+        "check:flowguard:native-authority",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build",
+        "check:flowguard:evidence-closure"
+      ],
+      "model_deepening_check_id": "check:flowguard:model-maturation-closure",
+      "path": ".skillguard/surface-inventory.json"
+    },
+    "target_skill_id": "flowguard"
+  },
+  "implementation_paths": [
+    ".agents/skills/flowguard",
+    ".flowguard/models/owners/minimum_valuable_model_entry",
+    ".flowguard/verification/owners/minimum_valuable_model_entry",
+    ".flowguard/models/owners/authoritative_model_system",
+    ".flowguard/verification/owners/authoritative_model_system",
+    ".flowguard/models/owners/model_mesh_closure_model",
+    ".flowguard/verification/owners/model_mesh_closure_model",
+    ".flowguard/models/owners/task_coverage_demand",
+    ".flowguard/verification/owners/task_coverage_demand",
+    ".flowguard/models/owners/model_maturation_loop",
+    ".flowguard/verification/owners/model_maturation_loop",
+    ".flowguard/models/owners/implementation_blueprint",
+    ".flowguard/verification/owners/implementation_blueprint",
+    ".flowguard/models/regression-manifest.json",
+    ".flowguard/behavior/inventory/ledger.json",
+    "flowguard/skill_contract_model.py",
+    "flowguard/behavior_commitment_lookup.py",
+    "flowguard/portable_model.py",
+    "flowguard/portable_checker.py",
+    "flowguard/model_maturation.py",
+    "flowguard/model_maturation_receipt.py",
+    "flowguard/task_coverage_demand.py",
+    "flowguard/proof_artifact.py",
+    "flowguard/route_topology.py",
+    "flowguard/understanding_readiness.py",
+    "flowguard/target_system_blueprint.py",
+    "flowguard/target_native_qualification.py",
+    "flowguard/implementation_inventory.py",
+    "flowguard/implementation_inventory_python.py",
+    "flowguard/implementation_blueprint.py",
+    "flowguard/canonical_blueprint_projection.py",
+    "flowguard/blueprint_topology.py",
+    "flowguard/software_blueprint_readiness.py",
+    "flowguard/project_blueprint.py",
+    "flowguard/self_blueprint.py",
+    "flowguard/affected_blueprint_reader.py",
+    "flowguard/blueprint_compact_projection.py",
+    "flowguard/development_process_flow.py",
+    "flowguard/evidence_lifecycle.py",
+    "flowguard/risk_evidence_ledger.py",
+    "flowguard/closure_contract.py",
+    "flowguard/api_registry.py",
+    "flowguard/model_revision_builder.py",
+    "flowguard/model_revision_set.py",
+    "flowguard/model_revision_owner_evidence.py",
+    "flowguard/validation_ownership.py",
+    "flowguard/model_authority_store.py",
+    "flowguard/model_regressions.py",
+    "scripts/run_flowguard_model_regressions.py",
+    "flowguard/__init__.py",
+    "flowguard/__main__.py",
+    ".flowguard/models/owners/compositional_verification_kernel",
+    ".flowguard/verification/owners/compositional_verification_kernel",
+    "tests/test_flowguard_skill_trigger.py",
+    "tests/test_flowguard_skill_collaboration.py",
+    "tests/test_model_maturation.py",
+    "tests/test_model_maturation_receipt.py",
+    "tests/test_task_coverage_demand.py",
+    "tests/test_proof_artifact.py",
+    "tests/test_understanding_readiness.py",
+    "tests/test_target_system_blueprint.py",
+    "tests/test_target_neutral_blueprint_acceptance.py",
+    "tests/test_implementation_inventory.py",
+    "tests/test_implementation_blueprint.py",
+    "tests/test_implementation_blueprint_cli.py",
+    "tests/test_implementation_blueprint_docs.py",
+    "tests/test_blueprint_topology.py",
+    "tests/test_software_blueprint_readiness.py",
+    "tests/test_project_blueprint.py",
+    "tests/test_self_blueprint.py",
+    "tests/test_affected_blueprint_reader.py",
+    "tests/test_blueprint_compact_projection.py",
+    "tests/test_blueprint_aggregate_integrity.py",
+    "tests/test_blueprint_cli_routes.py",
+    "tests/test_api_surface.py",
+    "tests/test_evidence_lifecycle.py",
+    "tests/test_risk_evidence_ledger.py",
+    "tests/test_closure_contract.py",
+    "tests/test_api_registry.py",
+    "tests/test_model_revision_builder.py",
+    "tests/test_model_authority_cli.py",
+    "tests/test_model_authority.py",
+    "tests/test_model_authority_store.py",
+    "tests/test_model_revision_owner_evidence.py",
+    "tests/test_validation_execution_ownership.py",
+    "tests/test_model_regression_manifest.py",
+    "tests/test_model_regression_orchestrator.py"
+  ],
+  "integration_mode": "native-integrated",
+  "judgment_rubrics": [],
+  "maintenance_unit_id": "unit:flowguard-suite",
+  "may_define_parallel_execution_route": false,
+  "may_define_skillguard_runtime_route": false,
+  "member_skill_ids": [
+    "flowguard",
+    "flowguard-architecture-reduction",
+    "flowguard-behavior-commitment-ledger",
+    "flowguard-code-structure-recommendation",
+    "flowguard-contract-exhaustion-mesh",
+    "flowguard-development-process-flow",
+    "flowguard-existing-model-preflight",
+    "flowguard-field-lifecycle-mesh",
+    "flowguard-model-mesh",
+    "flowguard-model-miss-review",
+    "flowguard-model-test-alignment",
+    "flowguard-model-topology-hazard-review",
+    "flowguard-structure-mesh",
+    "flowguard-test-mesh",
+    "flowguard-ui-flow-structure"
+  ],
+  "model_id": "flowguard.model_first_function_flow.skill_contract.v2",
+  "model_path": ".flowguard/models/owners/minimum_valuable_model_entry/model.py",
+  "native_check_bindings": [
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard:native-authority",
+      "owner_id": "model_first_function_flow"
+    },
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard:model-maturation-closure",
+      "owner_id": "model_first_function_flow"
+    },
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard:understanding-readiness",
+      "owner_id": "model_first_function_flow"
+    },
+    {
+      "authority": "target-native",
+      "check_id": "check:flowguard:model-revision-build",
+      "owner_id": "model_first_function_flow"
+    }
+  ],
+  "native_route_bindings": [
+    {
+      "authority": "target-native",
+      "owner_id": "model_first_function_flow",
+      "route_id": "route:model_first_function_flow"
+    }
+  ],
+  "native_route_owner": "model_first_function_flow",
+  "release_eligible": false,
+  "repository_role": "skill_maintainer_source",
+  "schema_version": "skillguard.contract_source.v2",
+  "skill_id": "flowguard",
+  "step_bindings": [
+    {
+      "action": {
+        "kind": "inventory",
+        "summary": "Classify the primary behavior plane, read declared provider-neutral WorkContexts, and derive the independent expected-source inventory before creating a model."
+      },
+      "check_ids": [
+        "check:flowguard:plane-boundary"
+      ],
+      "output_artifact_ids": [],
+      "step_id": "step:flowguard:intake"
+    },
+    {
+      "action": {
+        "kind": "native",
+        "summary": "Select the existing owner or build the minimum useful executable model; when interchange is required, project the explicit finite relation to the current portable schema and consume the canonical checker without creating a duplicate route."
+      },
+      "check_ids": [
+        "check:flowguard:native-authority"
+      ],
+      "output_artifact_ids": [],
+      "step_id": "step:flowguard:execute"
+    },
+    {
+      "action": {
+        "kind": "verifier",
+        "summary": "Require current scenarios, bad cases, invariants, and scoped evidence; do not force a model for trivial actions."
+      },
+      "check_ids": [
+        "check:flowguard:evidence-closure",
+        "check:flowguard:model-maturation-closure",
+        "check:flowguard:understanding-readiness",
+        "check:flowguard:model-revision-build"
+      ],
+      "output_artifact_ids": [],
+      "step_id": "step:flowguard:verify"
+    }
+  ]
+}

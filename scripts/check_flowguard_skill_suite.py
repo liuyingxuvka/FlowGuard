@@ -1124,13 +1124,13 @@ def run_author_skill_assurance(
     skillguard: str = "all",
     members: Sequence[str] = (),
 ) -> dict[str, Any]:
-    """Run the existing 15-member author qualification checks.
+    """Run the current compact SkillGuard lifecycle qualification.
 
     This is intentionally not a fourth public execution profile.  It is the
     target-owned author-assurance producer consumed by the existing full child
-    owner.  Keeping it separate lets routine ``light`` reads remain zero
-    producer while preserving the exact SkillGuard check/depth semantics for
-    qualification.
+    owner. Keeping it separate lets routine ``light`` reads remain zero
+    producer while making the three public SkillGuard lifecycle operations the
+    only cross-skill qualification surface.
     """
 
     inventory = validate_skill_suite(root)
@@ -1145,74 +1145,50 @@ def run_author_skill_assurance(
     else:
         for skill_id in selected:
             target = root / FLOWGUARD_SKILL_ROOT / skill_id
-            source_path = target / ".skillguard" / "contract-source.json"
-            try:
-                source_payload = json.loads(source_path.read_text(encoding="utf-8"))
-            except (OSError, ValueError, json.JSONDecodeError):
-                source_payload = {}
-            is_v2 = source_payload.get("schema_version") == "skillguard.contract_source.v2"
-            commands = {
-                "light": [
-                    sys.executable,
-                    str(cli),
-                    "check-skill",
-                    "--target",
-                    str(target),
-                    "--repository-root",
-                    str(root),
-                    "--output",
-                    "-",
-                ],
-                "depth": [
-                    sys.executable,
-                    str(cli),
-                    "check-depth",
-                    "--target",
-                    str(target),
-                    "--target-root",
-                    str(root),
-                    "--output",
-                    "-",
-                ],
-            }
-            if not is_v2:
-                commands["contract"] = [
-                    sys.executable,
-                    str(cli),
-                    "check-contract",
-                    "--target",
-                    str(target),
-                    "--target-root",
-                    str(root),
-                    "--output",
-                    "-",
-                ]
-            author_subprocess_count += len(commands)
-            results = {name: _run_json_command(command, root) for name, command in commands.items()}
-            light_ok = results["light"]["exit_code"] == 0 and (results["light"]["payload"] or {}).get("decision") == "pass"
-            depth_payload = results["depth"]["payload"] or {}
-            if is_v2:
-                results["contract"] = _v2_contract_projection(skill_id, compiler, results["depth"])
-            contract_ok = results["contract"]["exit_code"] == 0 and (results["contract"]["payload"] or {}).get("decision") == "pass"
-            expected_depth_classes = (
-                {"declared-contract-current"}
-                if source_payload.get("schema_version") == "skillguard.contract_source.v2"
-                else {"deep-pass"}
-            )
-            depth_ok = (
-                results["depth"]["exit_code"] == 0
-                and depth_payload.get("depth_classification") in expected_depth_classes
-            )
+            with tempfile.TemporaryDirectory(prefix="flowguard-skillguard-state-") as state_directory:
+                state_root = Path(state_directory)
+                with tempfile.TemporaryDirectory(prefix=".skillguard-author-", dir=str(target)) as request_directory:
+                    request_root = Path(request_directory)
+                    commands: dict[str, list[str]] = {}
+                    for operation in ("read", "change", "release"):
+                        request_path = request_root / f"{operation}.json"
+                        write_json_atomic(
+                            request_path,
+                            {
+                                "contract_path": ".skillguard/contract-source.json",
+                                "author_state_root": str(state_root),
+                                "claim_scope": "enforced",
+                                "target_id": skill_id,
+                                "facts": {"operation": operation},
+                            },
+                        )
+                        commands[operation] = [
+                            sys.executable,
+                            str(cli),
+                            operation,
+                            "--root",
+                            str(target),
+                            "--request",
+                            str(request_path.relative_to(target)),
+                            "--json",
+                        ]
+                    author_subprocess_count += len(commands)
+                    results = {
+                        name: _run_json_command(command, target)
+                        for name, command in commands.items()
+                    }
+            read_ok = results["read"]["exit_code"] == 0 and (results["read"]["payload"] or {}).get("decision") == "pass"
+            change_ok = results["change"]["exit_code"] == 0 and (results["change"]["payload"] or {}).get("decision") == "pass"
+            release_ok = results["release"]["exit_code"] == 0 and (results["release"]["payload"] or {}).get("decision") == "pass"
+            current_ok = read_ok and change_ok and release_ok
             member_rows.append(
                 {
                     "skill_id": skill_id,
-                    "ok": light_ok and contract_ok and depth_ok,
-                    "light_ok": light_ok,
-                    "contract_ok": contract_ok,
-                    "depth_ok": depth_ok,
-                    "depth_classification": depth_payload.get("depth_classification", "unavailable"),
-                    "expected_depth_classifications": sorted(expected_depth_classes),
-                    "author_assurance_status": "pass" if light_ok and contract_ok and depth_ok else "blocked",
+                    "ok": current_ok,
+                    "read_ok": read_ok,
+                    "change_ok": change_ok,
+                    "release_ok": release_ok,
+                    "author_assurance_status": "pass" if current_ok else "blocked",
                     "results": results,
                 }
             )
@@ -1236,7 +1212,7 @@ def run_author_skill_assurance(
         "compiler": compiler.to_dict(),
         "members": member_rows,
         "blockers": blockers,
-        "checks_run": ["author_check_skill", "author_check_depth", "author_check_contract"],
+        "checks_run": ["author_read", "author_change", "author_release"],
         "checks_not_run": ["native_owner", "model_regression", "pytest", "release_parity"],
         "skipped_checks": [] if cli.is_file() else ["SkillGuard author checks"],
         "author_subprocess_count": author_subprocess_count,
@@ -1244,10 +1220,10 @@ def run_author_skill_assurance(
         "input_manifest_lookup_count": len(selected),
         "receipt_lookup_count": 0,
         "residual_risk": [
-            "Author assurance certifies the current 15-member SkillGuard checks only; native receipts, parent self-governance, model, test, and release gates remain separate."
+            "Author assurance certifies the selected compact SkillGuard lifecycle routes only; native receipts, parent self-governance, model, test, and publication gates remain separate."
         ],
         "claim_boundary": (
-            "Pass certifies the current author-side SkillGuard check/depth/contract surface for the selected members; "
+            "Pass certifies the current author-side SkillGuard read/change/release surface for the selected members; "
             "it is not a light currentness result or whole-system release proof."
         ),
     }
@@ -6329,7 +6305,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             else (getattr(args, "changed_path", ()) or ())
         )
         profile_decision = select_execution_profile(
-            args.scope,
+            "read" if args.scope == "light" else "change",
             operation_kind=operation_kind,
             modeling_mode=("read_only_audit" if args.scope == "light" else "model_first_change"),
             changed_paths=changed_paths,

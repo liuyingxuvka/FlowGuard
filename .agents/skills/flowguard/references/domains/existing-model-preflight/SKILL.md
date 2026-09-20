@@ -1,18 +1,13 @@
----
-name: flowguard-existing-model-preflight
-description: standalone FlowGuard satellite skill; Use before non-trivial existing-system work to identify current ownership and duplicate-boundary risk.
----
-
 # FlowGuard Existing Model Preflight
 
-This is a standalone FlowGuard satellite skill for existing-model lookup; it
+This is an on-demand FlowGuard domain reference for existing-model lookup; it
 does not replace the downstream owner or the FlowGuard check engine.
 
 ## Purpose
 FlowGuard satellite for existing-model boundaries, ownership, evidence, and duplicate risk.
 
 ## Entrypoint Scope
-This is a standalone FlowGuard satellite skill. It owns lookup, not the
+This domain reference owns lookup, not the
 downstream route.
 
 ## Local Material Routing
@@ -23,7 +18,7 @@ composition/path-quality triggers.
 
 ## Entrypoint Acceptance Map
 Use row `existing_model_preflight` in
-`../flowguard/references/route_execution_contract.md`; AGENTS.md managed;
+`../../route_execution_contract.md`; AGENTS.md managed;
 fake mini-frameworks forbidden.
 
 ### Entrypoint Acceptance Map

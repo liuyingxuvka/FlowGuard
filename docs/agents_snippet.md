@@ -1,13 +1,12 @@
 # FlowGuard Agent Snippet
 
-Use this generated source when adopting FlowGuard into a project. Primary agent surface: the current clean consumer projection at `$CODEX_HOME/skills/flowguard/SKILL.md`; this snippet does not copy the FlowGuard suite into its local tree, and the Python package/CLI is not the AI-agent skill installation surface.
+Use this generated source when adopting FlowGuard into a project. Primary agent surface: the current clean consumer projection at `$CODEX_HOME/skills/flowguard/SKILL.md`; this snippet does not copy author controls into a project, and the Python package/CLI is not the AI-agent skill installation surface.
 
 ## Entry Decision
 
 Choose one outcome before modeling:
 
-- `use_direct_flowguard_skill`: one public satellite clearly owns the task;
-- `use_model_first_kernel`: ordinary behavior/state modeling, unclear ownership, or cross-route coordination needs `flowguard`;
+- `use_flowguard`: behavior/state modeling, unclear ownership, or cross-route coordination needs the single `flowguard` skill;
 - `skip_with_reason`: trivial copy/format/direct-command work has no behavior, state, process, or evidence impact;
 - `needs_human_review`: zero or multiple plausible owners remain after structured task-fact review.
 
@@ -27,24 +26,10 @@ If a broad claim, prediction, Model Miss, ambiguity, high-impact gap, or address
 
 ### Route Map
 
-Clear ownership routes directly to the matching peer:
-
-| Trigger | Public skill |
-| --- | --- |
-| existing model/commitment ownership | `flowguard-existing-model-preflight` |
-| broad external promise inventory | `flowguard-behavior-commitment-ledger` |
-| current-DNA necessity, equivalent contraction, or evidence-bound behavior retirement | `flowguard-architecture-reduction` |
-| pre-code module/function ownership | `flowguard-code-structure-recommendation` |
-| finite bad-case/Cartesian coverage | `flowguard-contract-exhaustion-mesh` |
-| staged work, freshness, sync, release | `flowguard-development-process-flow` |
-| field/schema lifecycle | `flowguard-field-lifecycle-mesh` |
-| affected model topology, parent/child change, stale child, partition, or whole-flow claim | `flowguard-model-mesh` |
-| observed post-green miss | `flowguard-model-miss-review` |
-| model/code/test alignment | `flowguard-model-test-alignment` |
-| anchored future-use topology hazard | `flowguard-model-topology-hazard-review` |
-| existing package/API split | `flowguard-structure-mesh` |
-| large/slow/stale validation hierarchy | `flowguard-test-mesh` |
-| UI flow, structure, and operability | `flowguard-ui-flow-structure` |
+The single public skill selects one lifecycle operation and then loads only the
+matching domain reference under `.agents/skills/flowguard/references/domains/`.
+Domain references are not independent public skills and are never recursively
+installed or discovered.
 
 `plan_detailing` and `agent_workflow` remain internal modes of DevelopmentProcessFlow. Check-engine helpers are not separate Codex skills.
 

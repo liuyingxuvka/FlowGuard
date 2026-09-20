@@ -1,8 +1,3 @@
----
-name: flowguard-behavior-commitment-ledger
-description: standalone FlowGuard satellite skill; Use for external behavior registration, source coverage, one primary owner, change accounting, Primary Path Authority handoff, or broad confidence.
----
-
 # FlowGuard Behavior Commitment Ledger
 
 ## Purpose
@@ -15,7 +10,7 @@ Owner `behavior_commitment_ledger` (`public_owner`) and its PPA handoff.
 After admission, read `references/behavior_commitment_ledger_protocol.md` for all fields, modes, lookup, and projections.
 
 ## Entrypoint Acceptance Map
-Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
+Use this route's row in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
 
 ### Shared execution contract
 

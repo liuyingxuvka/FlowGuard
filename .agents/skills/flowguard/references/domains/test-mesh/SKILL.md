@@ -1,8 +1,3 @@
----
-name: flowguard-test-mesh
-description: standalone FlowGuard satellite skill; Use when tests/evidence are large, stale, skipped, release-only, or need parent/child ownership.
----
-
 # FlowGuard Test Mesh
 
 ## Purpose
@@ -15,7 +10,7 @@ Owner `test_mesh_maintenance`; structures evidence, not semantics/execution.
 After admission, read `references/test_mesh_protocol.md`; load `references/test_mesh_reuse_protocol.md`, `references/test_mesh_long_check_protocol.md`, `references/test_mesh_release_protocol.md` only when triggered.
 
 ## Entrypoint Acceptance Map
-Use this route's row in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden. Progress and parent composition never replace child execution.
+Use this route's row in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden. Progress and parent composition never replace child execution.
 
 ### Shared execution contract
 

@@ -62,7 +62,11 @@ class SkillSuiteInventoryTests(unittest.TestCase):
         member_ids: list[str] | None = None,
         schema_version: str = OWNERSHIP_SCHEMA,
     ) -> None:
-        ids = member_ids or [member["name"] for member in self.map_data["included_skills"]]
+        ids = (
+            [member["name"] for member in self.map_data["included_skills"]]
+            if member_ids is None
+            else member_ids
+        )
         # An installer ownership manifest changes this fixture from author
         # source into a consumer distribution. Mirror the real projection:
         # retain only consumer files, remove author-side control state, and
@@ -107,7 +111,7 @@ class SkillSuiteInventoryTests(unittest.TestCase):
     def _codes(self) -> set[str]:
         return {finding.code for finding in validate_skill_suite(self.root).findings}
 
-    def test_complete_inventory_has_one_kernel_and_fourteen_satellites(self) -> None:
+    def test_complete_inventory_has_one_kernel_and_no_public_satellites(self) -> None:
         report = validate_skill_suite(self.root)
         self.assertTrue(report.ok, report.to_json_text())
         self.assertEqual(FLOWGUARD_EXPECTED_MEMBER_COUNT, len(report.declared_member_ids))
@@ -120,16 +124,16 @@ class SkillSuiteInventoryTests(unittest.TestCase):
         self.assertEqual(64, len(report.inventory_hash))
         self.assertEqual(64, len(report.semantic_hash))
 
-    def test_omitted_behavior_ledger_stays_visible_as_extra_discovered_member(self) -> None:
+    def test_omitted_kernel_stays_visible_as_extra_discovered_member(self) -> None:
         self.map_data["included_skills"] = [
             member
             for member in self.map_data["included_skills"]
-            if member["name"] != "flowguard-behavior-commitment-ledger"
+            if member["name"] != "flowguard"
         ]
         self._write_map()
         report = validate_skill_suite(self.root)
         rows = {(finding.code, finding.member_id) for finding in report.findings}
-        self.assertIn(("extra_discovered_member", "flowguard-behavior-commitment-ledger"), rows)
+        self.assertIn(("extra_discovered_member", "flowguard"), rows)
         self.assertIn("invalid_suite_cardinality", self._codes())
 
     def test_undeclared_skill_directory_fails_reverse_discovery(self) -> None:
@@ -193,7 +197,7 @@ class SkillSuiteInventoryTests(unittest.TestCase):
     def test_owned_mixed_root_does_not_hide_missing_canonical_member(self) -> None:
         self._write_ownership_manifest()
         self._write_extra_skill("skillguard")
-        missing = self.map_data["included_skills"][1]["name"]
+        missing = self.map_data["included_skills"][0]["name"]
         shutil.rmtree(self.root / ".agents" / "skills" / missing)
 
         report = validate_skill_suite(self.root)
@@ -206,7 +210,7 @@ class SkillSuiteInventoryTests(unittest.TestCase):
         )
 
     def test_missing_declared_directory_fails_forward_discovery(self) -> None:
-        missing = self.map_data["included_skills"][1]["name"]
+        missing = self.map_data["included_skills"][0]["name"]
         shutil.rmtree(self.root / ".agents" / "skills" / missing)
         report = validate_skill_suite(self.root)
         self.assertIn(
@@ -220,7 +224,7 @@ class SkillSuiteInventoryTests(unittest.TestCase):
         self.assertIn("duplicate_member", self._codes())
 
     def test_missing_control_root_does_not_remove_member(self) -> None:
-        skill_id = "flowguard-behavior-commitment-ledger"
+        skill_id = "flowguard"
         shutil.rmtree(self.root / ".agents" / "skills" / skill_id / ".skillguard")
         report = validate_skill_suite(self.root)
         member = next(row for row in report.members if row.skill_id == skill_id)
@@ -231,19 +235,19 @@ class SkillSuiteInventoryTests(unittest.TestCase):
             {(finding.code, finding.member_id) for finding in report.findings},
         )
 
-    def test_second_private_literal_inventory_is_rejected(self) -> None:
+    def test_single_member_does_not_create_a_false_private_inventory_finding(self) -> None:
         private = self.root / "scripts" / "private_inventory.py"
         private.parent.mkdir(parents=True)
         names = [member["name"] for member in self.map_data["included_skills"][:4]]
         private.write_text(f"MEMBERS = {names!r}\n", encoding="utf-8")
         report = validate_skill_suite(self.root)
-        self.assertIn("private_suite_inventory_detected", {finding.code for finding in report.findings})
+        self.assertNotIn("private_suite_inventory_detected", {finding.code for finding in report.findings})
 
     def test_current_repository_declares_all_skill_directories(self) -> None:
         report = validate_skill_suite(REPOSITORY_ROOT, check_private_inventories=False)
         self.assertEqual(FLOWGUARD_EXPECTED_MEMBER_COUNT, len(report.declared_member_ids))
         self.assertEqual(set(report.declared_member_ids), set(report.discovered_member_ids))
-        self.assertIn("flowguard-behavior-commitment-ledger", report.declared_member_ids)
+        self.assertEqual(("flowguard",), report.declared_member_ids)
 
     def test_inventory_scripts_project_the_same_inventory(self) -> None:
         suite = subprocess.run(

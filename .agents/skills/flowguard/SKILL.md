@@ -1,126 +1,65 @@
 ---
 name: flowguard
-description: Unified FlowGuard entry for behavior/state models, unclear routes, cross-route work, and kernel gates; use a clear public satellite directly.
+description: FlowGuard's single public entry for behavior and state modeling, lifecycle checks, and evidence-aware release boundaries.
 ---
 
 # FlowGuard
 
-## Purpose
+FlowGuard is one public skill. Use it when behavior, state, ownership, or a
+cross-route boundary needs an explicit finite model. Domain protocols remain
+available as on-demand material in the references domain tree; they are not
+independent skills and must not be loaded wholesale.
 
-Use the kernel for provider-neutral behavior/state modeling, unclear ownership,
-or cross-route coordination; a clear satellite is a direct owner. Decisions are
-`use_flowguard`, `skip_with_reason`, or `needs_human_review`. Keep
-`behavior_flow`, `argument_flow`, and `decision_flow` separate from
-`light|affected|full` execution profile and modeling mode.
+## Fixed public lifecycle
+
+The only public operations are `read`, `change`, and `release`.
+
+- `read` reads the accepted current model and the selected subject's domain
+  references. It does not create, mutate, execute, accept, install, or publish.
+- `change` observes the explicit root and request, freezes the affected
+  obligations, runs only the required native owners, and accepts through the
+  current compare-and-swap boundary.
+- `release` checks the declared release scope, reuses exact valid evidence,
+  fills only missing artifact obligations, and verifies the actual release
+  projection. It does not mean that every business proof is regenerated.
+
+Use the real repository root and one request file. A missing, ambiguous,
+foreign, stale, or contradictory input is a typed blocker; never guess a root,
+select a heavier route, or fall back to an old command/profile.
 
 ## Model-purpose gate
 
-For every concrete instance, freeze the task-specific failure(s), candidate,
+For every concrete instance, freeze task-specific failure(s), the candidate,
 and native good/bad-per-failure/oracle/current evidence before claiming model
-sufficiency. Reusable types are not fixed-purpose: no mode/fallback may bypass
-the instance purpose, and only FlowGuard-declared checks may support completion claims.
+sufficiency. Reusable model types are not permanently single-purpose: the
+instance declares its finite boundary and protected failures. Only FlowGuard-declared checks may support completion claims. No mode/fallback path is
+available.
 
-## Entrypoint Scope
+## Read only what is selected
 
-Own ordinary behavior/state modeling, unclear or cross-route work, and
-provider-neutral behavior. The rule is: check-engine helpers as independently triggerable Codex skills are forbidden; a clear satellite stays the sole owner.
+Start with `references/route_index.md` and the accepted model/index required by
+the request. After a subject is selected, load only the matching domain file
+and its explicitly named dependencies. The selected domain path is
+`references/domains/<subject>/`. The domain folders under the references
+directory preserve protocol detail; they are reference documents, not
+additional public entrypoints.
 
-## Local Material Routing
+## Hard boundaries
 
-- Before selection read only `references/route_index.md`.
-- Query one capsule with `python -m flowguard route-reference <route-or-skill-name> --json`.
-- After selection read `references/route_execution_common.md`, its route_execution_contract.md row, and the route fragment; load deeper protocols only for named triggers.
-- If modeling is admitted, read `references/modeling_protocol.md` only for that depth.
-- Do not preload peer routes, all model shards, logs, or receipt trees.
-  `agent_workflow` is a conditional mode owned by `flowguard-development-process-flow`.
+- Preserve `unknown`, `blocked`, `not-run`, `skipped`, stale, and failed states.
+- Bind each required owner to its real implementation, oracle, input bytes,
+  environment, and evidence identity.
+- Reuse only an exact functional identity. A parent summary is not leaf proof,
+  and an installation receipt is not business evidence.
+- Read never refreshes current state. Change and release stop on source drift,
+  CAS conflict, missing owners, failed cleanup, or incomplete evidence.
+- Installation, consumer parity, Git, tags, and GitHub publication are
+  separate claims; none is implied by a green model check.
 
-## Entrypoint Acceptance Map
+## Result
 
-Select exactly one public owner from positive and forbidden conditions. Zero
-is `no_match`; multiple is `conflict`; keyword score, order, caller assertion,
-and fallback do not decide.
-
-Return `claim_boundary`, `selection_reason`, closed/not-run obligations,
-escalation triggers, route/reference, profile, mode, and typed next actions.
-Preserve unknown, contradictory, unmapped, out-of-scope, skipped, blocked, and
-not-run states.
-
-## Use When
-
-Use when a provider-neutral blueprint needs `Input x State -> Set(Output x State)`
-and no direct satellite owns the task.
-
-## Do Not Use When
-
-Do not use it for a clear satellite route, grammar-only edits, or direct commands.
-
-## Required Workflow
-
-### Read/diagnose
-
-Read the accepted current model, owner denominator, bindings, layout, and
-receipts. This branch creates no authority, lease, run directory, owner,
-pointer, installation, Portfolio/router state, or release state; report typed
-gaps and stop at the evidence boundary.
-
-The `## Shared execution contract` is `references/route_execution_common.md`;
-route_execution_contract.md holds public rows. For
-`model_first_function_flow`, they define one immutable RouteContext, exact owner
-dispositions, no parent-as-leaf evidence, and typed stop conditions.
-
-### Source-change
-
-1. Freeze evidenced `TaskFacts`, `TaskCoverageDemand`, accepted intent/revision,
-   owner denominator, affected ids, claim boundary, toolchain, environment, and
-   private evidence root.
-2. Run the read-only layout audit first; missing or stale roles block the claim.
-3. Use only the accepted revision's complete current intent and exact bindings;
-   history, targets, experiments, normative text, and green candidates are not
-   current authority.
-4. Build the smallest faithful model with owner, finite boundary, protected
-   failures, effects, resources, oracles, completion evidence, and known-bad
-   paths. Every new or materially changed model states owner, evidence, and
-   current path-quality disposition.
-5. Resolve owners as `satisfied|not_triggered|unresolved|blocked`; deep review
-   needs an exact current trigger. Read `references/modeling_core_protocol.md`
-   and `references/modeling_evidence_protocol.md` only for that depth.
-6. For code work require DevelopmentProcessFlow and the real FlowGuard check engine; an AGENTS.md managed record is mandatory. Never create a fake mini-framework.
-7. Resolve in-closure call edges to exact current targets; ambiguous edges block
-   and out-of-bound edges stay typed gaps.
-8. Close forward obligations and reverse behavior within the boundary;
-   `light`/`affected` preserve gaps, while `full` or release requires global
-   reverse closure and projections.
-
-Source-change runs only selected source/model/test checks and aggregation.
-`source_release` names profile and coverage; `light`/`affected` is not full evidence.
-
-### Explicit install/release
-
-Installation, global-router currentness, and publication are separate explicit
-typed claims with complete binding before any producer or transactional write.
-Their identities stay distinct from model/source evidence; a full source check
-never implies installation, router refresh, Git, tag, GitHub release, or
-consumer currentness. Read `references/skill_kernel_protocol.md` and named
-adoption/release protocols only for that boundary.
-
-## Hard Gates
-
-- No fake framework, second model authority, or alternate success path.
-  `risk_evidence_ledger` and template harvest closure stay reference-owned.
-- Bind protected failures to native good/bad-per-failure, oracle, current
-  implementation, owner, test, and receipt evidence. ModelMaturation is the
-  compact path-quality owner and adds no public route, CLI, compatibility reader,
-  or second authority.
-- Reuse receipts only when unit, owner, subject, request, inputs, dependencies,
-  producer, toolchain, environment, policy, obligations, and child receipts
-  match. Parent summaries cannot become leaf proof.
-- Stop on drift, stale/foreign/malformed/duplicate evidence, unknown owner,
-  scope overflow, blocked/skipped member, failed cleanup, or missing authority;
-  never retry through fallback or silently start `full`.
-
-## Output Requirements
-
-Return evidence, failures, blockers, skipped/not-run checks, residual risk,
-claim boundary, typed next actions, model/counterexamples, path quality,
-sufficiency, admission, user choice, and validation. Load maintenance/adoption,
-framework-upgrade, and long-check details only from their named protocol.
+Report the operation, status, required/run/reuse counts, blockers, evidence
+locations, claim boundary, residual risk, and typed next actions. Keep the
+default result bounded; write full details to the explicit evidence location.
+The default JSON is a transport summary, not a truncated substitute for the
+underlying checks.

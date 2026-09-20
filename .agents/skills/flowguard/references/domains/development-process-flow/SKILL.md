@@ -1,8 +1,3 @@
----
-name: flowguard-development-process-flow
-description: standalone FlowGuard satellite skill; Order staged work, freshness, sync, release, and process claims.
----
-
 # FlowGuard Development Process Flow
 
 ## Purpose
@@ -18,7 +13,7 @@ After admission, read `references/development_process_flow_protocol.md`; load
 `references/distribution_release_protocol.md` only for named triggers.
 
 ## Entrypoint Acceptance Map
-Use row `development_process_flow` in `../flowguard/references/route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
+Use row `development_process_flow` in `../../route_execution_contract.md`; AGENTS.md managed; fake mini-frameworks forbidden.
 
 ### Shared execution contract
 
