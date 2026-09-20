@@ -954,9 +954,36 @@ class ModelRegressionManifest:
             for pattern in group.globs
         )
 
+    def owner_patterns_for(self, model_id: str) -> tuple[str, ...]:
+        """Return shared source files that are common to one model owner.
+
+        The native-owner registry contains two different kinds of input: the
+        executable protocol (a real common input) and large JSON semantic
+        registries whose rows are projected by owner.  Treating both as one
+        shared glob makes a change to owner A invalidate every unrelated
+        owner.  Keep the historical ``shared_patterns_for`` API for callers
+        that explicitly need the raw group, while model-owner currentness
+        consumes this narrower semantic projection.
+        """
+
+        patterns: list[str] = []
+        for group in self.shared_input_groups:
+            if model_id not in group.consumers:
+                continue
+            for pattern in group.globs:
+                if group.component_id == "flowguard-native-owner-bindings" and pattern in {
+                    ".flowguard/structure/owner-bindings.json",
+                    ".flowguard/models/native-case-mapping.json",
+                }:
+                    continue
+                patterns.append(pattern)
+        return tuple(dict.fromkeys(patterns))
+
     def owner_projection_fingerprint(
         self,
         entry: ModelRegressionEntry,
+        *,
+        root: str | Path | None = None,
     ) -> str:
         """Project only the manifest semantics consumed by one model owner."""
 
@@ -993,6 +1020,67 @@ class ModelRegressionManifest:
             )
             if entry.model_id in group.consumers
         )
+        native_owner_projection: dict[str, Any] | None = None
+        if root is not None:
+            root_path = Path(root).resolve()
+
+            def load_owner_rows(relative_path: str, key: str, owner_keys: set[str]) -> tuple[Mapping[str, Any], ...]:
+                path = root_path / relative_path
+                try:
+                    payload = json.loads(path.read_text(encoding="utf-8"))
+                except FileNotFoundError:
+                    # Small portable fixtures may not declare the optional
+                    # native-owner projection files.  The empty projection is
+                    # part of that fixture's explicit identity; it is not a
+                    # reason to reach into the canonical checkout.
+                    return ()
+                except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                    raise ModelRegressionManifestError(
+                        f"cannot read owner projection input {relative_path}: {type(exc).__name__}"
+                    ) from exc
+                if not isinstance(payload, Mapping):
+                    raise ModelRegressionManifestError(
+                        f"owner projection input {relative_path} must be an object"
+                    )
+                rows = payload.get(key, ())
+                if not isinstance(rows, list):
+                    raise ModelRegressionManifestError(
+                        f"owner projection input {relative_path}.{key} must be an array"
+                    )
+                selected: list[Mapping[str, Any]] = []
+                for row in rows:
+                    if not isinstance(row, Mapping):
+                        raise ModelRegressionManifestError(
+                            f"owner projection input {relative_path}.{key} contains a non-object row"
+                        )
+                    row_owner_ids = row.get("model_ids", ())
+                    row_owner_id = str(row.get("owner_id", ""))
+                    if (
+                        isinstance(row_owner_ids, list)
+                        and entry.model_id in {str(value) for value in row_owner_ids}
+                    ) or row_owner_id in owner_keys:
+                        selected.append(dict(row))
+                return tuple(
+                    sorted(
+                        selected,
+                        key=lambda item: json.dumps(
+                            item, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+                        ),
+                    )
+                )
+
+            native_owner_projection = {
+                "owner_bindings": load_owner_rows(
+                    ".flowguard/structure/owner-bindings.json",
+                    "bindings",
+                    {entry.model_id, f"model:{entry.model_id}"},
+                ),
+                "native_case_bindings": load_owner_rows(
+                    ".flowguard/models/native-case-mapping.json",
+                    "bindings",
+                    {entry.model_id, f"model:{entry.model_id}"},
+                ),
+            }
         return fingerprint_value(
             {
                 "schema_version": MANIFEST_SCHEMA,
@@ -1002,6 +1090,7 @@ class ModelRegressionManifest:
                     self.snapshot_only_input_globs
                 ),
                 "shared_input_groups": shared_groups,
+                "native_owner_projection": native_owner_projection,
             }
         )
 
@@ -1161,6 +1250,53 @@ def _glob_covers_relative_path(relative_path: str, pattern: str) -> bool:
     return any(fnmatch.fnmatchcase(normalized_path, item) for item in variants)
 
 
+def _native_owner_consumers_for_path(
+    root: Path,
+    group: SharedInputGroup,
+    relative_path: str,
+) -> tuple[str, ...]:
+    """Resolve the owner rows for the two semantic native registries.
+
+    The registry files are shared containers on disk, but their rows are
+    owner-local inputs.  Unknown or malformed rows are rejected by the caller
+    instead of silently broadening the impact set to every consumer.
+    """
+
+    if group.component_id != "flowguard-native-owner-bindings" or relative_path not in {
+        ".flowguard/structure/owner-bindings.json",
+        ".flowguard/models/native-case-mapping.json",
+    }:
+        return tuple(group.consumers)
+    try:
+        payload = json.loads((root / relative_path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ModelRegressionManifestError(
+            f"cannot read native owner projection input {relative_path}: {type(exc).__name__}"
+        ) from exc
+    if not isinstance(payload, Mapping) or not isinstance(payload.get("bindings"), list):
+        raise ModelRegressionManifestError(
+            f"native owner projection input {relative_path}.bindings must be an array"
+        )
+    selected: set[str] = set()
+    for row in payload["bindings"]:
+        if not isinstance(row, Mapping):
+            raise ModelRegressionManifestError(
+                f"native owner projection input {relative_path} contains a non-object row"
+            )
+        raw_ids = row.get("model_ids", ())
+        if isinstance(raw_ids, list):
+            selected.update(
+                str(value)
+                for value in raw_ids
+                if str(value) in group.consumers
+            )
+        owner_id = str(row.get("owner_id", ""))
+        owner_id = owner_id.removeprefix("model:")
+        if owner_id in group.consumers:
+            selected.add(owner_id)
+    return tuple(sorted(selected))
+
+
 def compile_model_impact_map(
     root: str | Path,
     manifest: ModelRegressionManifest,
@@ -1215,7 +1351,12 @@ def compile_model_impact_map(
             owners.setdefault(path, set()).add(entry.model_id)
     for group in manifest.shared_input_groups:
         for path in _resolve_relative_files(root_path, group.globs):
-            owners.setdefault(path, set()).update(group.consumers)
+            try:
+                consumers = _native_owner_consumers_for_path(root_path, group, path)
+            except ModelRegressionManifestError as exc:
+                errors.append(str(exc))
+                consumers = ()
+            owners.setdefault(path, set()).update(consumers)
     for path in sorted(set(governed) - set(owners)):
         errors.append(f"governed model input has no declared owner: {path}")
     return ModelImpactMap(
@@ -3341,7 +3482,7 @@ def _model_owner_contract(
                     *entry.effective_input_patterns,
                     *(
                         pattern
-                        for pattern in manifest.shared_patterns_for(
+                        for pattern in manifest.owner_patterns_for(
                             entry.model_id
                         )
                         if pattern
@@ -3354,7 +3495,7 @@ def _model_owner_contract(
         projected_inputs=(
             (
                 f"model-regression-manifest:{entry.model_id}",
-                manifest.owner_projection_fingerprint(entry),
+                manifest.owner_projection_fingerprint(entry, root=root),
             ),
         ),
     )
@@ -3671,7 +3812,7 @@ def _demote_model_identity_mismatches(
                     inventory = _entry_input_inventory_from_observation(
                         entry,
                         planning_observation,
-                        additional_patterns=manifest.shared_patterns_for(
+                        additional_patterns=manifest.owner_patterns_for(
                             entry.model_id
                         ),
                     )
@@ -4923,7 +5064,7 @@ def resolve_current_full_model_regression_parent(
         inventory = _entry_input_inventory_from_observation(
             entry,
             planning_observation,
-            additional_patterns=manifest.shared_patterns_for(model_id),
+            additional_patterns=manifest.owner_patterns_for(model_id),
         )
         expected_model_instance = build_regression_model_instance(
             root_path,
@@ -5473,7 +5614,7 @@ def run_manifest_regressions(
         entry.model_id: _entry_input_inventory_from_observation(
             entry,
             planning_observation,
-            additional_patterns=manifest.shared_patterns_for(entry.model_id),
+            additional_patterns=manifest.owner_patterns_for(entry.model_id),
         )
         for entry in pending
     }
@@ -5523,7 +5664,7 @@ def run_manifest_regressions(
                 progress=progress,
                 input_inventories=input_inventories,
                 shared_patterns_by_model={
-                    entry.model_id: manifest.shared_patterns_for(entry.model_id)
+                    entry.model_id: manifest.owner_patterns_for(entry.model_id)
                     for entry in pending
                 },
                 require_executed_case_ids=require_executed_case_ids,

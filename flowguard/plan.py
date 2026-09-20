@@ -70,6 +70,9 @@ class FlowGuardCheckPlan:
     external_inputs: tuple[Any, ...]
     invariants: tuple[Any, ...] = ()
     max_sequence_length: int = 1
+    max_failures: int | None = None
+    max_transitions: int | None = None
+    deadline: float | None = None
     terminal_predicate: Any = None
     required_labels: tuple[str, ...] = ()
     risk_profile: RiskProfile | None = None
@@ -98,6 +101,9 @@ class FlowGuardCheckPlan:
         external_inputs: Sequence[Any],
         invariants: Sequence[Any] = (),
         max_sequence_length: int = 1,
+        max_failures: int | None = None,
+        max_transitions: int | None = None,
+        deadline: float | None = None,
         terminal_predicate: Any = None,
         required_labels: Sequence[str] = (),
         risk_profile: RiskProfile | Mapping[str, Any] | None = None,
@@ -123,6 +129,13 @@ class FlowGuardCheckPlan:
         object.__setattr__(self, "external_inputs", tuple(external_inputs))
         object.__setattr__(self, "invariants", tuple(invariants))
         object.__setattr__(self, "max_sequence_length", int(max_sequence_length))
+        if max_failures is not None and int(max_failures) < 1:
+            raise ValueError("max_failures must be at least 1 when provided")
+        if max_transitions is not None and int(max_transitions) < 1:
+            raise ValueError("max_transitions must be at least 1 when provided")
+        object.__setattr__(self, "max_failures", None if max_failures is None else int(max_failures))
+        object.__setattr__(self, "max_transitions", None if max_transitions is None else int(max_transitions))
+        object.__setattr__(self, "deadline", deadline)
         object.__setattr__(self, "terminal_predicate", terminal_predicate)
         object.__setattr__(self, "required_labels", tuple(str(label) for label in required_labels))
         object.__setattr__(self, "risk_profile", _coerce_risk_profile(risk_profile))
@@ -163,6 +176,8 @@ class FlowGuardCheckPlan:
             f"external_inputs: {len(self.external_inputs)}",
             f"invariants: {len(self.invariants)}",
             f"max_sequence_length: {self.max_sequence_length}",
+            f"max_failures: {self.max_failures if self.max_failures is not None else 'unbounded'}",
+            f"max_transitions: {self.max_transitions if self.max_transitions is not None else 'unbounded'}",
             f"terminal_predicate: {'provided' if self.terminal_predicate is not None else 'not_provided'}",
             f"required_labels: {len(self.required_labels)}",
             f"scenarios: {len(self.scenarios)}",
@@ -204,6 +219,8 @@ class FlowGuardCheckPlan:
                 for invariant in self.invariants
             ],
             "max_sequence_length": self.max_sequence_length,
+            "max_failures": self.max_failures,
+            "max_transitions": self.max_transitions,
             "terminal_predicate": "provided" if self.terminal_predicate is not None else None,
             "required_labels": list(self.required_labels),
             "risk_profile": self.risk_profile.to_dict() if self.risk_profile else None,

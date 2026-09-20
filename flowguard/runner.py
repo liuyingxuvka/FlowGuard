@@ -127,6 +127,9 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
             terminal_predicate=plan.terminal_predicate,
             required_labels=plan.required_labels,
             assumption_card=plan.assumption_card,
+            max_failures=plan.max_failures,
+            max_transitions=plan.max_transitions,
+            deadline=plan.deadline,
         ).explore()
         sections.append(section_from_check_report(model_report))
         artifacts["model_check_report"] = model_report

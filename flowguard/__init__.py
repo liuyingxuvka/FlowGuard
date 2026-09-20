@@ -41,6 +41,56 @@ __all__ = list(_API_METADATA["names"])
 _LAZY_OWNERS = dict(_API_METADATA["owners"])
 _EAGER_OWNER = "flowguard._eager_exports"
 _EAGER_PRIVATE_NAMES = frozenset({"_PUBLIC_API_SUPPLEMENT", "PLAN_INTAKE_CLAIM_API"})
+# These are the only package-level names that may resolve to a submodule.
+# Keep this list explicit: probing an arbitrary missing attribute must never
+# import the eager compatibility facade or turn a typo into a repository-wide
+# import cascade.
+_LEGAL_SUBMODULES = frozenset(
+    """
+    _completion_readiness_impl _development_process_strategy_review _eager_exports
+    _hashing _normalization _package_identity _runtime_progress _wire
+    adoption_audit adoption affected_blueprint_reader agent_workflow_rehearsal
+    api_registry architecture_reduction artifact_slices artifact_upgrade assumptions
+    audit auto_split baseline behavior_commitment_ledger behavior_commitment_lookup
+    behavior_commitment behavior_plane behavior_surface_audit benchmark
+    blueprint_compact_projection blueprint_topology budgeted cache canonical_blueprint_projection
+    canonical_relation checks closure_contract code_structure_recommendation code_structure
+    completion_epoch completion_objective completion_readiness completion_run_manifest
+    conformance consumer_wire contract_exhaustion contract_runtime_evidence contract
+    core corpus coverage_inventory coverage declared_files deduplication
+    development_process_flow development_process_simulator development_process_strategy
+    distribution_sync dna_completion_gate evidence_fields evidence_lifecycle evidence_receipts
+    executable execution_profiles existing_model_preflight explorer export
+    fault_matrix_evidence field_lifecycle flowguard_closure_contract formal_runner hierarchy
+    implementation_blueprint implementation_inventory_python implementation_inventory
+    layered_boundary_proof layered_proof legacy_path_disposition loop maintenance_obligation
+    maintenance_workflow mermaid minimize model_authority_store model_authority model_freshness
+    model_intent_authority model_intent model_maturation_receipt model_maturation model_mesh
+    model_miss_diagnostics model_miss_review model_path_quality model_purpose model_regressions
+    model_revision_builder model_revision_owner_evidence model_revision_plan model_revision_set
+    model_system_inventory model_test_alignment_source model_test_alignment native_case_mapping
+    native_case_protocol native_case_runner obligation_family observation_metrics openspec
+    plan_detailing plan_intake plan portable_checker portable_model portable_path_quality
+    portable_system primary_path_authority process_supervision progress project_adoption
+    project_blueprint project_layout project_manifest prompt_budget proof_artifact pytest_adapter
+    pytest_nodeid_recorder pytest_shard_plugin pytest_shards pytest_shards recurring_model_miss
+    recursive_hierarchy release_verification replay report retry reverse_surface_authoring
+    reverse_surface_closure reverse_surface_owner_authority reverse_surface_semantic review
+    risk_evidence_ledger risk_intent_check_plan risk_template_library risk_templates risk
+    route_topology runner runtime_artifacts runtime_gateway runtime_path_evidence runtime_path
+    runtime_test_evidence scenario_matrix scenario schema self_architecture_reduction
+    self_blueprint self_maintenance self_path_quality self_reduction_inventory shard_safety
+    side_effect skill_contract_model skill_contracts skill_native_checks skill_self_governance
+    skill_suite skillguard_template_adapter software_blueprint_readiness source_identity
+    state_closure step_contracts storage_audit structure_mesh structuremesh suite_contract
+    summary_report symlink_capability system_composition target_native_qualification
+    target_system_blueprint task_coverage_demand task_local_model template_packs templates
+    test_inventory_python test_inventory test_mesh test_reuse testmesh topology_hazard trace
+    transition_coverage ui_flow_structure ui_implementation_evidence ui_structure
+    understanding_readiness validation_owner_execution validation_ownership validation_results
+    work_context workflow_step_contracts workflow __main__
+    """.split()
+)
 
 
 def _load_eager_facade() -> Any:
@@ -74,19 +124,11 @@ def __getattr__(name: str) -> Any:
         value = getattr(facade, name)
         globals()[name] = value
         return value
-    # Preserve the historical package-level compatibility surface for names
-    # that were available from the eager facade without being part of its
-    # documented __all__ (for example a legacy direct import used by an
-    # internal test).  Unknown names still raise the same AttributeError after
-    # this exact current facade lookup; only an actual compatibility lookup
-    # pays the eager import cost.
-    facade = _load_eager_facade()
-    try:
-        value = getattr(facade, name)
-    except AttributeError:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
-    globals()[name] = value
-    return value
+    if name in _LEGAL_SUBMODULES:
+        module = importlib.import_module(f"{__name__}.{name}")
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
 
 
 def __dir__() -> list[str]:

@@ -441,6 +441,93 @@ class ProjectAdoptionReport:
     def to_json_text(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), indent=indent, sort_keys=True)
 
+    def to_bounded_json_text(self, *, max_bytes: int = 8192) -> str:
+        """Render the ordinary audit view within the public output budget.
+
+        The complete report remains available through ``--full-output``.  The
+        ordinary command is intentionally a summary so a stale or unusually
+        large project cannot turn a read-only health check into an unbounded
+        output stream.
+        """
+
+        def clip(value: Any, limit: int) -> str:
+            text = str(value or "")
+            if len(text) <= limit:
+                return text
+            return text[: max(0, limit - 1)] + "…"
+
+        all_blockers = self.blockers
+        bounded_blockers = [
+            {
+                "code": clip(finding.code, 120),
+                "message": clip(finding.message, 360),
+                "path": clip(finding.file_path, 220),
+            }
+            for finding in all_blockers[:5]
+        ]
+        payload: dict[str, Any] = {
+            "artifact_type": "flowguard_project_adoption_report_summary",
+            "status": self.status,
+            "ok": self.ok,
+            "action": self.action,
+            "root": clip(self.root, 260),
+            "versions": {
+                "installed_package_version": clip(self.installed_package_version, 64),
+                "installed_schema_version": clip(self.schema_version, 64),
+                "manifest_package_version": clip(self.manifest_package_version, 64),
+                "manifest_schema_version": clip(self.manifest_schema_version, 64),
+                "rendered_package_version": clip(self.rendered_package_version, 64),
+                "rendered_schema_version": clip(self.rendered_schema_version, 64),
+            },
+            "installed_package_version": clip(self.installed_package_version, 64),
+            "schema_version": clip(self.schema_version, 64),
+            "manifest_package_version": clip(self.manifest_package_version, 64),
+            "rendered_package_version": clip(self.rendered_package_version, 64),
+            "suite_status": self.suite_status,
+            "blocker_count": len(all_blockers),
+            "finding_count": len(self.findings),
+            "suite_finding_count": len(self.suite_findings),
+            "execution_count": len(self.checks),
+            "skipped_count": len(self.skipped_steps),
+            "blockers": bounded_blockers,
+            "claim_boundary": clip(self.claim_boundary, 560),
+            "detail_command": "python -m flowguard project-audit --root <ROOT> --json --full-output",
+            "truncation": {
+                "applied": len(all_blockers) > 5,
+                "omitted_blockers": max(0, len(all_blockers) - 5),
+                "omitted_findings": max(0, len(self.findings) - len(bounded_blockers)),
+                "max_bytes": max_bytes,
+            },
+        }
+
+        def encode(value: Mapping[str, Any]) -> str:
+            return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+        text = encode(payload)
+        if len(text.encode("utf-8")) <= max_bytes:
+            return text
+
+        # The fields above are already bounded.  This final deterministic
+        # fallback keeps the fixed schema even for hostile/non-UTF-8-sized
+        # project metadata or a caller-supplied tiny budget.
+        payload["root"] = "<ROOT>"
+        payload["claim_boundary"] = clip(self.claim_boundary, 160)
+        payload["blockers"] = [
+            {"code": clip(item["code"], 48), "message": clip(item["message"], 96), "path": clip(item["path"], 64)}
+            for item in bounded_blockers[:2]
+        ]
+        payload["truncation"]["applied"] = True
+        text = encode(payload)
+        if len(text.encode("utf-8")) <= max_bytes:
+            return text
+
+        payload["blockers"] = []
+        payload["claim_boundary"] = "Project adoption summary; use --full-output for detail."
+        text = encode(payload)
+        if len(text.encode("utf-8")) > max_bytes:
+            raise ValueError("bounded project adoption report exceeds its output budget")
+        return text
+
     def format_text(self) -> str:
         lines = [
             "=== flowguard project adoption ===",
@@ -1364,12 +1451,26 @@ def _audit_findings(
         elif comparison > 0:
             findings.append(
                 ProjectAdoptionFinding(
-                    "blocked",
+                    "warning" if manifest_schema == SCHEMA_VERSION else "blocked",
                     "project_flowguard_upgrade_available",
-                    "Installed FlowGuard is newer than the project-recorded version.",
-                    "Preview and run project-upgrade, then rerun the minimum revalidation.",
+                    (
+                        "Installed FlowGuard is newer than the project-recorded version; "
+                        "the schema is compatible, so this is an explicit update opportunity."
+                        if manifest_schema == SCHEMA_VERSION
+                        else "Installed FlowGuard is newer than the project-recorded version, but the project schema is not current."
+                    ),
+                    (
+                        "Continue the ordinary task without an automatic upgrade; run project-upgrade only for an explicit author/project-maintenance request."
+                        if manifest_schema == SCHEMA_VERSION
+                        else "Preview and run project-upgrade, then rerun the minimum revalidation."
+                    ),
                     str(manifest_path),
-                    {"installed_package_version": package_version, "manifest_package_version": manifest_package},
+                    {
+                        "installed_package_version": package_version,
+                        "manifest_package_version": manifest_package,
+                        "schema_compatible": manifest_schema == SCHEMA_VERSION,
+                        "update_available": True,
+                    },
                 )
             )
 
@@ -1388,17 +1489,34 @@ def _audit_findings(
         elif rendered_package != package_version or (
             manifest_package and rendered_package != manifest_package
         ):
+            rendered_comparison = compare_versions(package_version, rendered_package)
+            rendered_schema_compatible = rendered_schema == SCHEMA_VERSION
+            newer_compatible = (
+                rendered_schema_compatible
+                and rendered_comparison is not None
+                and rendered_comparison > 0
+            )
             findings.append(
                 ProjectAdoptionFinding(
-                    "blocked",
+                    "warning" if newer_compatible else "blocked",
                     "rendered_version_mismatch",
-                    "Managed AGENTS version does not agree with installed and manifest versions.",
-                    "Preview project-upgrade and inspect the semantic diff before writing.",
+                    (
+                        "Managed AGENTS records an older patch release under the same schema; the installed engine is newer."
+                        if newer_compatible
+                        else "Managed AGENTS version does not agree with installed and manifest versions."
+                    ),
+                    (
+                        "Keep ordinary consumer work on its current project boundary; refresh the managed record only through an explicit project-upgrade."
+                        if newer_compatible
+                        else "Preview project-upgrade and inspect the semantic diff before writing."
+                    ),
                     str(agents_path),
                     {
                         "rendered_package_version": rendered_package,
                         "installed_package_version": package_version,
                         "manifest_package_version": manifest_package,
+                        "schema_compatible": rendered_schema_compatible,
+                        "update_available": newer_compatible,
                     },
                 )
             )

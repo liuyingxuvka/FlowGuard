@@ -74,6 +74,11 @@ class CheckReport:
     reachability_failures: tuple[ReachabilityFailure, ...] = ()
     explored_sequences: tuple[tuple[Any, ...], ...] = ()
     assumption_card: Any = None
+    exploration_complete: bool = True
+    termination_reason: str = "completed"
+    explored_sequence_count: int = 0
+    transition_count: int = 0
+    remaining_scope: str = ""
 
     def format_text(self, max_examples: int = 3) -> str:
         lines = [
@@ -89,6 +94,17 @@ class CheckReport:
             formatter = getattr(self.assumption_card, "format_text", None)
             rendered = formatter() if callable(formatter) else str(self.assumption_card)
             lines.extend(["", rendered])
+
+        if not self.exploration_complete:
+            lines.append(
+                ""
+                f"exploration_complete: false"
+                f" termination_reason: {self.termination_reason}"
+                f" explored_sequence_count: {self.explored_sequence_count}"
+                f" transition_count: {self.transition_count}"
+            )
+            if self.remaining_scope:
+                lines.append(f"remaining_scope: {self.remaining_scope}")
 
         for failure in self.reachability_failures[:max_examples]:
             lines.extend(

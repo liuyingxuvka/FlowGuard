@@ -10,6 +10,7 @@ import re
 import shlex
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -199,12 +200,70 @@ def _safe_selector_path(root: Path, raw_path: str) -> Path | None:
     raw = str(raw_path).strip().replace("\\", "/")
     if not raw or raw.startswith(("/", "\\")) or re.match(r"(?i)^[A-Z]:", raw):
         return None
+    if any(part == ".." for part in raw.split("/")):
+        return None
     candidate = (root / raw).resolve()
     try:
         candidate.relative_to(root)
     except ValueError:
         return None
     return candidate
+
+
+_VALID_SELECTOR_KINDS = frozenset({"path", "role", "component", "input_component"})
+
+
+def _selector_validation_blockers(
+    root: Path,
+    check: Mapping[str, Any],
+    *,
+    component_ids: set[str],
+    component_roles: set[str],
+) -> list[str]:
+    """Validate selector shape and confinement before any expensive work."""
+
+    blockers: list[str] = []
+    check_id = str(check.get("check_id", "native-check"))
+    selectors = check.get("input_selectors", ())
+    if selectors is None:
+        selectors = ()
+    if not isinstance(selectors, Sequence) or isinstance(selectors, (str, bytes)):
+        blockers.append(f"native_input_selector_invalid:{check_id}:input_selectors")
+        selectors = ()
+    component_values = check.get("input_component_ids", ())
+    if component_values is None:
+        component_values = ()
+    if not isinstance(component_values, Sequence) or isinstance(component_values, (str, bytes)):
+        blockers.append(f"native_input_component_invalid:{check_id}")
+        component_values = ()
+
+    for component_id in component_values:
+        value = str(component_id).strip()
+        if not value or value not in component_ids:
+            blockers.append(f"native_input_component_unknown:{check_id}:{value}")
+
+    for selector in selectors:
+        if not isinstance(selector, Mapping):
+            blockers.append(f"native_input_selector_invalid:{check_id}")
+            continue
+        kind = selector.get("kind")
+        if not isinstance(kind, str) or not kind.strip() or kind.strip() not in _VALID_SELECTOR_KINDS:
+            blockers.append(f"native_input_selector_kind_invalid:{check_id}:{kind!s}")
+            continue
+        kind = kind.strip()
+        if kind == "path":
+            raw_path = selector.get("path")
+            if not isinstance(raw_path, str) or _safe_selector_path(root, raw_path) is None:
+                blockers.append(f"native_input_path_invalid:{check_id}:{raw_path!s}")
+        elif kind == "role":
+            role = selector.get("role")
+            if not isinstance(role, str) or not role.strip() or role.strip() not in component_roles:
+                blockers.append(f"native_input_role_unknown:{check_id}:{role!s}")
+        else:
+            component_id = selector.get("component_id", selector.get("id", ""))
+            if not isinstance(component_id, str) or not component_id.strip() or component_id.strip() not in component_ids:
+                blockers.append(f"native_input_component_unknown:{check_id}:{component_id!s}")
+    return blockers
 
 
 def _selector_input_paths(
@@ -399,6 +458,8 @@ def _input_snapshots(
     skill_id: str,
     native_checks: Sequence[Mapping[str, Any]],
     obligation_ids: Sequence[str],
+    *,
+    include_selector_inputs: bool = True,
 ) -> tuple[Any, ...]:
     skill_dir = root / SKILL_ROOT / skill_id
     paths = [
@@ -408,7 +469,8 @@ def _input_snapshots(
         skill_dir / COMPILED_CONTRACT_FILE,
         skill_dir / CHECK_MANIFEST_FILE,
     ]
-    paths.extend(_declared_native_input_paths(root, native_checks))
+    if include_selector_inputs:
+        paths.extend(_declared_native_input_paths(root, native_checks))
     unique_paths = tuple(dict.fromkeys(paths))
     snapshots = [
         (
@@ -430,7 +492,8 @@ def _input_snapshots(
         )
         for path in unique_paths
     ]
-    snapshots.extend(_selector_snapshots(root, native_checks, obligation_ids))
+    if include_selector_inputs:
+        snapshots.extend(_selector_snapshots(root, native_checks, obligation_ids))
     return tuple(dict((item.artifact_id, item) for item in snapshots).values())
 
 
@@ -478,6 +541,7 @@ def _native_check_prefix(execution_root: Path, check_id: str) -> str:
 
 
 def _validate_binding(
+    root: Path,
     source: Mapping[str, Any],
     contract: Mapping[str, Any],
     manifest: Mapping[str, Any],
@@ -548,30 +612,28 @@ def _validate_binding(
         for field_name in ("input_selectors", "input_component_ids"):
             if (
                 field_name in declared
-                or field_name in projected
-            ) and declared.get(field_name, ()) != projected.get(field_name, ()):
+                or (projected is not None and field_name in projected)
+            ) and declared.get(field_name, ()) != (
+                projected.get(field_name, ()) if projected is not None else ()
+            ):
                 blockers.append(f"native_binding_input_identity_mismatch:{check_id}:{field_name}")
+        blockers.extend(
+            _selector_validation_blockers(
+                root,
+                declared,
+                component_ids=component_ids,
+                component_roles=component_roles,
+            )
+        )
         if projected is not None:
-            for component_id in projected.get("input_component_ids", ()):
-                if str(component_id) not in component_ids:
-                    blockers.append(
-                        f"native_input_component_unknown:{check_id}:{component_id}"
-                    )
-            for selector in projected.get("input_selectors", ()):
-                if not isinstance(selector, Mapping):
-                    blockers.append(f"native_input_selector_invalid:{check_id}")
-                    continue
-                kind = str(selector.get("kind", ""))
-                if kind == "role" and str(selector.get("role", "")) not in component_roles:
-                    blockers.append(
-                        f"native_input_role_unknown:{check_id}:{selector.get('role', '')}"
-                    )
-                if kind in {"component", "input_component"}:
-                    component_id = str(selector.get("component_id", selector.get("id", "")))
-                    if component_id not in component_ids:
-                        blockers.append(
-                            f"native_input_component_unknown:{check_id}:{component_id}"
-                        )
+            blockers.extend(
+                _selector_validation_blockers(
+                    root,
+                    projected,
+                    component_ids=component_ids,
+                    component_roles=component_roles,
+                )
+            )
     required_obligations = tuple(
         str(item.get("obligation_id", ""))
         for item in contract.get("obligations", ())
@@ -653,16 +715,59 @@ class NativeSkillReceiptResult:
         }
 
 
+@dataclass(frozen=True)
+class NativeSuiteContext:
+    """One invocation-local suite observation shared by native owners."""
+
+    repository_root: str
+    selected_members: tuple[str, ...]
+    inventory_hash: str
+    semantic_hash: str
+    private_inventory_checked: bool
+
+
+def prepare_native_suite_context(
+    repository_root: str | Path,
+    selected_members: Sequence[str],
+    *,
+    check_private_inventories: bool = False,
+) -> NativeSuiteContext:
+    """Observe the current suite once for a coordinator invocation."""
+
+    root = Path(repository_root).resolve()
+    members = tuple(dict.fromkeys(str(item) for item in selected_members if str(item)))
+    report = validate_skill_suite(
+        root,
+        check_private_inventories=check_private_inventories,
+    )
+    return NativeSuiteContext(
+        repository_root=str(root),
+        selected_members=members,
+        inventory_hash=str(report.inventory_hash),
+        semantic_hash=str(report.semantic_hash),
+        private_inventory_checked=bool(check_private_inventories),
+    )
+
+
 def run_native_skill_check(
     repository_root: str | Path,
     skill_id: str,
     *,
     output_directory: str | Path | None = None,
     timeout_seconds: float = 900.0,
+    deadline: float | None = None,
+    keep_going: bool = False,
+    suite_context: NativeSuiteContext | None = None,
 ) -> NativeSkillReceiptResult:
     """Execute declared native bindings and emit one immutable child receipt."""
 
     root = Path(repository_root).resolve()
+    invocation_started = time.monotonic()
+    invocation_deadline = (
+        float(deadline)
+        if deadline is not None
+        else invocation_started + max(0.0, float(timeout_seconds))
+    )
     skill_dir = root / SKILL_ROOT / skill_id
     source_path = skill_dir / CONTRACT_SOURCE_FILE
     contract_path = skill_dir / COMPILED_CONTRACT_FILE
@@ -670,9 +775,9 @@ def run_native_skill_check(
     source = _read_json(source_path)
     contract = _read_json(contract_path)
     manifest = _read_json(manifest_path)
-    _read_json(root / SUITE_MAP_PATH)
-    suite_inventory_hash = validate_skill_suite(root).inventory_hash
-    native_checks, contract_obligations, binding_blockers = _validate_binding(source, contract, manifest)
+    native_checks, contract_obligations, binding_blockers = _validate_binding(
+        root, source, contract, manifest
+    )
     umbrella = f"flowguard.skill_contract.{skill_id}.deep"
     covered_obligations = tuple(dict.fromkeys((umbrella,) + contract_obligations))
     command_parts = (
@@ -681,7 +786,6 @@ def run_native_skill_check(
         "--member",
         skill_id,
     )
-    snapshots = _input_snapshots(root, skill_id, native_checks, covered_obligations)
     evidence_root = evidence_storage_root(root, output_directory=output_directory)
     proof_path = evidence_root / "proofs" / f"{skill_id}.json"
     log_path = evidence_root / "logs" / f"{skill_id}.log"
@@ -692,7 +796,56 @@ def run_native_skill_check(
     runs: list[NativeCheckRun] = []
     log_sections: list[str] = []
     blockers = list(binding_blockers)
-    for check in native_checks:
+    suite_inventory_hash = ""
+    snapshots: tuple[Any, ...] = ()
+    if blockers:
+        blockers.append("native_checks_preflight_blocked")
+        snapshots = _input_snapshots(
+            root,
+            skill_id,
+            (),
+            covered_obligations,
+            include_selector_inputs=False,
+        )
+    elif invocation_deadline <= time.monotonic():
+        blockers.append("native_checks_not_run_due_to_budget")
+    else:
+        try:
+            if suite_context is not None:
+                if suite_context.repository_root != str(root):
+                    raise ValueError("native suite context belongs to another repository")
+                if skill_id not in suite_context.selected_members:
+                    raise ValueError("native suite context does not include this member")
+                suite_inventory_hash = suite_context.inventory_hash
+            else:
+                _read_json(root / SUITE_MAP_PATH)
+                suite_inventory_hash = validate_skill_suite(root).inventory_hash
+            snapshots = _input_snapshots(root, skill_id, native_checks, covered_obligations)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            blockers.append(f"native_preflight_error:{type(exc).__name__}")
+
+    if not suite_inventory_hash:
+        # Evidence receipts require an identity for every declared input even
+        # when strict preflight prevents observing the suite.  This is a
+        # diagnostic identity, never a current suite hash and never eligible
+        # for pass-receipt reuse.
+        suite_inventory_hash = _sha256_bytes(
+            f"native-suite-not-scanned:{skill_id}:{'|'.join(blockers)}".encode("utf-8")
+        )
+    if not snapshots:
+        snapshots = _input_snapshots(
+            root,
+            skill_id,
+            (),
+            covered_obligations,
+            include_selector_inputs=False,
+        )
+
+    for check in native_checks if not blockers else ():
+        remaining = invocation_deadline - time.monotonic()
+        if remaining <= 0.0:
+            blockers.append("native_checks_not_run_due_to_budget")
+            break
         declared = _check_command(check)
         check_id = str(check.get("check_id", "native-check")).strip() or "native-check"
         check_workspace = Path(
@@ -725,7 +878,7 @@ def run_native_skill_check(
         completed = run_supervised(
             _execution_command(declared),
             cwd=root,
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=min(max(0.0, float(timeout_seconds)), remaining),
             grace_seconds=3.0,
             environment=child_environment,
         )
@@ -777,6 +930,21 @@ def run_native_skill_check(
         )
         if not completed.ok:
             blockers.append(f"native_check_failed:{run.binding_id}:exit={exit_code}")
+            hard_stop = (
+                completed.cancelled
+                or completed.interrupted
+                or not completed.cleanup_confirmed
+                or completed.terminal_reason in {"cancelled", "interrupted", "cleanup_unconfirmed"}
+            )
+            if hard_stop or not keep_going:
+                remaining_checks = native_checks[len(runs) :]
+                reason = "terminal" if hard_stop else "failure"
+                blockers.append(f"native_checks_stopped_after_{reason}:{run.binding_id}")
+                blockers.extend(
+                    f"native_check_not_run_after_{reason}:{item.get('check_id', '')}"
+                    for item in remaining_checks
+                )
+                break
 
     if not runs:
         blockers.append("native_checks_not_run")
@@ -926,7 +1094,9 @@ def build_current_native_receipt_context(
     except (OSError, ValueError, json.JSONDecodeError):
         return None
 
-    checks, contract_obligations, blockers = _validate_binding(source, contract, manifest)
+    checks, contract_obligations, blockers = _validate_binding(
+        root, source, contract, manifest
+    )
     if not checks or blockers:
         return None
     umbrella = f"flowguard.skill_contract.{receipt.subject_id}.deep"
@@ -979,8 +1149,10 @@ def build_current_native_receipt_context(
 
 __all__ = [
     "NativeCheckRun",
+    "NativeSuiteContext",
     "NativeSkillReceiptResult",
     "PRODUCER_ID",
     "build_current_native_receipt_context",
+    "prepare_native_suite_context",
     "run_native_skill_check",
 ]

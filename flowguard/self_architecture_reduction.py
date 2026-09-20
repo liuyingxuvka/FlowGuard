@@ -2042,7 +2042,10 @@ def _proof_contracts(
     # contract.  Falling back to sys.base_prefix silently escapes the active
     # environment and can run a different pytest/plugin set than the one
     # whose inputs were frozen.
-    python_executable = str(Path(sys.executable).resolve())
+    # Keep the interpreter launcher that constructed this contract.  A venv
+    # executable is commonly a symlink (or a launcher shim); resolving it can
+    # escape the active environment and select a different pytest/plugin set.
+    python_executable = os.path.abspath(sys.executable)
     test_command = (
         python_executable,
         "-c",
@@ -5454,9 +5457,14 @@ def _execute_semantic_proof_owner(
         ),
     )
     if not supervised.ok:
+        stderr = str(supervised.stderr or "")
+        stderr_tail = stderr[-1024:]
         raise ValueError(
             "self reduction semantic proof owner did not reach a clean terminal pass: "
-            + supervised.terminal_reason
+            f"terminal_reason={supervised.terminal_reason}; "
+            f"exit_code={supervised.exit_code!r}; "
+            f"python_executable={current.contract.command[0]!r}; "
+            f"stderr_tail={stderr_tail!r}"
         )
     if supervised.stderr:
         raise ValueError(

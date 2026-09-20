@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.69.2 - 2026-09-20
+
+- Make native skill checks fail closed before execution, share one bounded
+  suite/input observation per invocation, and preserve interpreter/cleanup
+  evidence in terminal failures.
+- Add bounded project-audit JSON, immediate unknown-submodule failures, and
+  explicit same-schema patch-update warnings without automatic upgrades.
+- Add lazy canonical projection lookup caches for affected reads, owner-local
+  native registry projections, bounded exploration metadata, and compact
+  kernel route prompt materials.
+
 ## v0.69.1 - 2026-09-19
 
 - Preserve exhaustive reachability truth while bounding compact exploration

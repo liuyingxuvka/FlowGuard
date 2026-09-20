@@ -2089,7 +2089,14 @@ def _run_project_adoption_command(args: argparse.Namespace) -> int:
         )
     else:  # pragma: no cover
         raise ValueError(f"unknown project adoption action: {args.project_action}")
-    print(report.to_json_text() if args.json else report.format_text())
+    if args.json:
+        print(
+            report.to_json_text()
+            if args.full_output or args.project_action != "audit"
+            else report.to_bounded_json_text()
+        )
+    else:
+        print(report.format_text())
     return 0 if report.ok else 1
 
 

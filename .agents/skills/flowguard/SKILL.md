@@ -13,14 +13,16 @@ Own ordinary behavior/state modeling, unclear or cross-route work, and
 provider-neutral behavior; clear satellites remain direct owners.
 ## Local Material Routing
 - Before selection, read only `references/route_index.md`.
-- After kernel selection, read `references/modeling_protocol.md`; it routes the smallest required core/evidence protocol parts.
+- After kernel selection, read `references/route_execution_common.md` and the
+  `references/routes/model_first_function_flow.md` fragment, then load
+  `references/modeling_protocol.md` only for the admitted modeling depth.
 - Use a clear peer satellite directly; use this kernel when no satellite owns behavior, state, order, retry, effects, progress, portable, risk, or closure. Do not expose check-engine helpers as independently triggerable Codex skills.
 ### Shared execution contract
-After kernel selection, load row `model_first_function_flow` from `references/route_execution_contract.md`. It is the single AI-facing source for `RouteContext`, lazy references, `execute|reuse_current|blocked|not_run`, zero-producer read-only behavior, exact reuse, finite producer budget, and stop conditions. The executable `RouteProfile` and the `Use When`/`Do Not Use When` boundary remain authoritative; this section does not widen a kernel request to a specialist or `full` execution.
-The DevelopmentProcessFlow internal `agent_workflow` mode is admitted only for
-explicit rehearsal, cross-owner/shared-write work, a post-validation-invalidating
-write, a route/workflow change, or multiple irreversible owners. Simple
-read-only, single-owner targeted work remains `not_triggered`.
+Load the short common contract and the selected route fragment after
+selection; they define the consumer execution boundary. `agent_workflow` is
+reserved for explicit rehearsal, cross-owner/shared-write work, a
+post-validation-invalidating write, a route change, or multiple irreversible
+owners; simple targeted work remains `not_triggered`.
 
 ## Entrypoint Acceptance Map
 `use_flowguard` means an owned ordinary model; `skip_with_reason` is trivial non-model work; `needs_human_review` means scope or evidence is unresolved.
@@ -37,6 +39,8 @@ The decision must include `claim_boundary`, `selection_reason`, `closed_obligati
 analysis, `affected` for ordinary code/model/test changes, and `full` only for
 release, integration, or an explicit whole-system claim. A satellite never
 auto-upgrades; a `full` claim names every missing trigger instead of guessing.
+
+Author ledger: `references/route_execution_contract.md` (not consumer read)
 
 ## Use When
 Use when a provider-neutral blueprint needs `Input x State -> Set(Output x State)`

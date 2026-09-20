@@ -278,6 +278,11 @@ def _model_review_map(
         # must reject later when it sees the same changed path through
         # ``shared_input_groups``.  That mismatch used to make a legitimate
         # shared-registry refresh look like an unexplained closure failure.
+        shared_pattern_owner = getattr(
+            model_manifest,
+            "owner_patterns_for",
+            model_manifest.shared_patterns_for,
+        )
         patterns = tuple(
             dict.fromkeys(
                 (
@@ -287,7 +292,7 @@ def _model_review_map(
                     ),
                     *(
                         str(item).replace("\\", "/")
-                        for item in model_manifest.shared_patterns_for(entry.model_id)
+                            for item in shared_pattern_owner(entry.model_id)
                     ),
                 )
             )

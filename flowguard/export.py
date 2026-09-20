@@ -148,6 +148,11 @@ def check_report_to_dict(report: Any) -> JsonDict:
             for failure in report.reachability_failures
         ],
         "explored_sequences": to_jsonable(report.explored_sequences),
+        "exploration_complete": bool(getattr(report, "exploration_complete", True)),
+        "termination_reason": str(getattr(report, "termination_reason", "completed")),
+        "explored_sequence_count": int(getattr(report, "explored_sequence_count", 0)),
+        "transition_count": int(getattr(report, "transition_count", 0)),
+        "remaining_scope": str(getattr(report, "remaining_scope", "")),
     }
     assumption_card = getattr(report, "assumption_card", None)
     if assumption_card is not None:

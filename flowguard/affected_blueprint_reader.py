@@ -6,6 +6,7 @@ from collections import deque
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import cached_property
+import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -78,6 +79,459 @@ _TOPOLOGY_RELATION_INVALIDATION_DIRECTIONS = {
 
 class AffectedBlueprintReadError(ValueError):
     """Raised when an affected read cannot preserve normalized authority."""
+
+
+class _JsonArrayRowLocator:
+    """Index one canonical shard without materializing its row values.
+
+    Canonical projection shards are envelope objects whose ``payload`` is an
+    array of rows.  The generic projection loader intentionally materializes
+    that array for its exhaustive integrity claim, but an affected read must
+    not do so merely to discover the one row in its closure.  This locator
+    memory-maps the shard, validates the JSON delimiters and row identities,
+    and keeps byte offsets for the selected row value (or whole row).  JSON is
+    decoded only when a caller asks for a selected field/row.
+    """
+
+    def __init__(
+        self,
+        path: Path,
+        context: str,
+        *,
+        row_key: str,
+        value_key: str | None,
+        exact_row_fields: bool = True,
+        preindexed_offsets: Mapping[str, tuple[int, int]] | None = None,
+    ) -> None:
+        self.path = path
+        self.context = context
+        self.row_key = row_key
+        self.value_key = value_key
+        self.exact_row_fields = exact_row_fields
+        self.preindexed_offsets = (
+            dict(preindexed_offsets) if preindexed_offsets is not None else None
+        )
+        self._handle = None
+        self._mapping = None
+        self._started = False
+        self._field_offsets: dict[str, tuple[int, int]] | None = None
+        self._row_offsets: dict[str, tuple[int, int]] | None = None
+        self._cache: dict[str, Any] = {}
+
+    @staticmethod
+    def _is_whitespace(byte: int) -> bool:
+        return byte in (9, 10, 13, 32)
+
+    def _open(self) -> None:
+        if self._started:
+            return
+        self._started = True
+        try:
+            if self.path.is_symlink():
+                raise ValueError(f"{self.context} must not be a symlink")
+            self._handle = self.path.open("rb")
+            import mmap
+
+            self._mapping = mmap.mmap(
+                self._handle.fileno(), 0, access=mmap.ACCESS_READ
+            )
+        except (OSError, ValueError) as exc:
+            mapping = self._mapping
+            handle = self._handle
+            self._mapping = None
+            self._handle = None
+            self._started = False
+            self._field_offsets = None
+            self._row_offsets = None
+            self._cache.clear()
+            if mapping is not None:
+                mapping.close()
+            if handle is not None:
+                handle.close()
+            raise AffectedBlueprintReadError(
+                f"projection_read_error: cannot open {self.context}: {exc}"
+            ) from exc
+
+    def _skip_whitespace(self, position: int, limit: int) -> int:
+        assert self._mapping is not None
+        while position < limit and self._is_whitespace(self._mapping[position]):
+            position += 1
+        return position
+
+    def _scan_string_end(self, start: int, limit: int) -> int:
+        assert self._mapping is not None
+        if start >= limit or self._mapping[start] != ord('"'):
+            raise AffectedBlueprintReadError(
+                f"projection_schema_invalid: {self.context} contains a non-string key"
+            )
+        position = start + 1
+        escaped = False
+        while position < limit:
+            byte = self._mapping[position]
+            if escaped:
+                escaped = False
+            elif byte == ord('\\'):
+                escaped = True
+            elif byte == ord('"'):
+                return position + 1
+            elif byte < 0x20:
+                raise AffectedBlueprintReadError(
+                    f"projection_schema_invalid: {self.context} contains a control byte"
+                )
+            position += 1
+        raise AffectedBlueprintReadError(
+            f"projection_schema_invalid: {self.context} contains an unterminated string"
+        )
+
+    def _scan_value_end(self, start: int, limit: int) -> int:
+        assert self._mapping is not None
+        start = self._skip_whitespace(start, limit)
+        if start >= limit:
+            raise AffectedBlueprintReadError(
+                f"projection_schema_invalid: {self.context} ends before a value"
+            )
+        first = self._mapping[start]
+        if first == ord('"'):
+            return self._scan_string_end(start, limit)
+        if first in (ord('{'), ord('[')):
+            stack = [first]
+            position = start + 1
+            escaped = False
+            in_string = False
+            while position < limit:
+                byte = self._mapping[position]
+                if in_string:
+                    if escaped:
+                        escaped = False
+                    elif byte == ord('\\'):
+                        escaped = True
+                    elif byte == ord('"'):
+                        in_string = False
+                    elif byte < 0x20:
+                        raise AffectedBlueprintReadError(
+                            f"projection_schema_invalid: {self.context} contains a control byte"
+                        )
+                else:
+                    if byte == ord('"'):
+                        in_string = True
+                    elif byte in (ord('{'), ord('[')):
+                        stack.append(byte)
+                    elif byte in (ord('}'), ord(']')):
+                        expected = ord('}') if stack[-1] == ord('{') else ord(']')
+                        if byte != expected:
+                            raise AffectedBlueprintReadError(
+                                f"projection_schema_invalid: {self.context} has mismatched JSON delimiters"
+                            )
+                        stack.pop()
+                        if not stack:
+                            return position + 1
+                position += 1
+            raise AffectedBlueprintReadError(
+                f"projection_schema_invalid: {self.context} contains an unterminated value"
+            )
+
+        position = start
+        while position < limit and self._mapping[position] not in (
+            ord(','),
+            ord('}'),
+            ord(']'),
+        ) and not self._is_whitespace(self._mapping[position]):
+            position += 1
+        if position == start:
+            raise AffectedBlueprintReadError(
+                f"projection_schema_invalid: {self.context} contains an empty value"
+            )
+        return position
+
+    def _decode(self, start: int, end: int) -> Any:
+        try:
+            if self._mapping is not None:
+                raw = bytes(self._mapping[start:end])
+            else:
+                if self.path.is_symlink():
+                    raise ValueError(f"{self.context} must not be a symlink")
+                with self.path.open("rb") as handle:
+                    handle.seek(start)
+                    raw = handle.read(end - start)
+            value = raw.decode("utf-8")
+
+            def reject_duplicate_keys(
+                pairs: list[tuple[str, object]],
+            ) -> dict[str, object]:
+                result: dict[str, object] = {}
+                for key, item in pairs:
+                    if key in result:
+                        raise ValueError(f"duplicate JSON key: {key}")
+                    result[key] = item
+                return result
+
+            return json.loads(value, object_pairs_hook=reject_duplicate_keys)
+        except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
+            raise AffectedBlueprintReadError(
+                f"projection_schema_invalid: invalid JSON in {self.context}: {exc}"
+            ) from exc
+
+    def _release_mapping(self) -> None:
+        """Keep offsets but release Windows file handles after indexing."""
+
+        mapping = self._mapping
+        handle = self._handle
+        self._mapping = None
+        self._handle = None
+        self._started = False
+        if mapping is not None:
+            mapping.close()
+        if handle is not None:
+            handle.close()
+
+    def _scan_object_members(
+        self, start: int, end: int
+    ) -> dict[str, tuple[int, int]]:
+        assert self._mapping is not None
+        position = self._skip_whitespace(start, end)
+        if position >= end or self._mapping[position] != ord('{'):
+            raise AffectedBlueprintReadError(
+                f"projection_schema_invalid: {self.context} row must be an object"
+            )
+        position += 1
+        members: dict[str, tuple[int, int]] = {}
+        while True:
+            position = self._skip_whitespace(position, end)
+            if position >= end:
+                raise AffectedBlueprintReadError(
+                    f"projection_schema_invalid: {self.context} object is unterminated"
+                )
+            if self._mapping[position] == ord('}'):
+                if self._skip_whitespace(position + 1, end) != end:
+                    raise AffectedBlueprintReadError(
+                        f"projection_schema_invalid: {self.context} object has trailing data"
+                    )
+                return members
+            key_end = self._scan_string_end(position, end)
+            key = self._decode(position, key_end)
+            if not isinstance(key, str) or key in members:
+                raise AffectedBlueprintReadError(
+                    f"projection_identity_mismatch: {self.context} has a duplicate or invalid key"
+                )
+            position = self._skip_whitespace(key_end, end)
+            if position >= end or self._mapping[position] != ord(':'):
+                raise AffectedBlueprintReadError(
+                    f"projection_schema_invalid: {self.context} is missing ':'"
+                )
+            value_start = self._skip_whitespace(position + 1, end)
+            value_end = self._scan_value_end(value_start, end)
+            members[key] = (value_start, value_end)
+            position = self._skip_whitespace(value_end, end)
+            if position >= end or self._mapping[position] not in (
+                ord(','),
+                ord('}'),
+            ):
+                raise AffectedBlueprintReadError(
+                    f"projection_schema_invalid: {self.context} has an invalid separator"
+                )
+            if self._mapping[position] == ord('}'):
+                if self._skip_whitespace(position + 1, end) != end:
+                    raise AffectedBlueprintReadError(
+                        f"projection_schema_invalid: {self.context} object has trailing data"
+                    )
+                return members
+            position += 1
+
+    def _build_index(self) -> None:
+        if self._row_offsets is not None:
+            return
+        self._open()
+        assert self._mapping is not None
+        root_end = len(self._mapping)
+        fields = self._scan_object_members(0, root_end)
+        expected_fields = {
+            "schema_version",
+            "shard_id",
+            "kind",
+            "relative_path",
+            "member_ids",
+            "payload",
+            "content_fingerprint",
+        }
+        if set(fields) != expected_fields:
+            raise AffectedBlueprintReadError(
+                f"projection_schema_invalid: {self.context} envelope fields are not exact-current"
+            )
+        payload_start, payload_end = fields["payload"]
+        payload_start = self._skip_whitespace(payload_start, payload_end)
+        if (
+            payload_start >= payload_end
+            or self._mapping[payload_start] != ord('[')
+        ):
+            raise AffectedBlueprintReadError(
+                f"projection_schema_invalid: {self.context} payload is not an array"
+            )
+        self._field_offsets = fields
+        if self.preindexed_offsets is not None:
+            payload_start = self._skip_whitespace(payload_start, payload_end)
+            payload_end = self._skip_whitespace(payload_end - 1, payload_end) + 1
+            for key, (row_start, row_end) in self.preindexed_offsets.items():
+                if not isinstance(key, str) or not key:
+                    raise AffectedBlueprintReadError(
+                        f"projection_identity_mismatch: {self.context} lookup id is invalid"
+                    )
+                if (
+                    not isinstance(row_start, int)
+                    or not isinstance(row_end, int)
+                    or row_start < payload_start
+                    or row_end <= row_start
+                    or row_end > payload_end
+                ):
+                    raise AffectedBlueprintReadError(
+                        f"projection_identity_mismatch: {self.context} lookup offset is out of range"
+                    )
+            self._row_offsets = dict(self.preindexed_offsets)
+            self._release_mapping()
+            return
+        position = payload_start + 1
+        offsets: dict[str, tuple[int, int]] = {}
+        while True:
+            position = self._skip_whitespace(position, payload_end)
+            if position >= payload_end:
+                raise AffectedBlueprintReadError(
+                    f"projection_schema_invalid: {self.context} payload is unterminated"
+                )
+            if self._mapping[position] == ord(']'):
+                if self._skip_whitespace(position + 1, payload_end) != payload_end:
+                    raise AffectedBlueprintReadError(
+                        f"projection_schema_invalid: {self.context} payload has trailing data"
+                    )
+                self._row_offsets = offsets
+                self._release_mapping()
+                return
+            row_start = position
+            row_end = self._scan_value_end(row_start, payload_end)
+            row_fields = self._scan_object_members(row_start, row_end)
+            expected_row_fields = {self.row_key}
+            if self.value_key is not None:
+                expected_row_fields.add(self.value_key)
+            row_fields_valid = (
+                set(row_fields) == expected_row_fields
+                if self.exact_row_fields
+                else expected_row_fields.issubset(row_fields)
+            )
+            if not row_fields_valid:
+                raise AffectedBlueprintReadError(
+                    f"projection_schema_invalid: {self.context} row fields are not exact-current"
+                )
+            key = self._decode(*row_fields[self.row_key])
+            if not isinstance(key, str) or not key:
+                raise AffectedBlueprintReadError(
+                    f"projection_identity_mismatch: {self.context} row key is invalid"
+                )
+            if key in offsets:
+                raise AffectedBlueprintReadError(
+                    f"projection_identity_mismatch: duplicate {self.row_key}: {key}"
+                )
+            offsets[key] = (row_start, row_end)
+            position = self._skip_whitespace(row_end, payload_end)
+            if position >= payload_end or self._mapping[position] not in (
+                ord(','),
+                ord(']'),
+            ):
+                raise AffectedBlueprintReadError(
+                    f"projection_schema_invalid: {self.context} payload has an invalid separator"
+                )
+            if self._mapping[position] == ord(']'):
+                if self._skip_whitespace(position + 1, payload_end) != payload_end:
+                    raise AffectedBlueprintReadError(
+                        f"projection_schema_invalid: {self.context} payload has trailing data"
+                    )
+                self._row_offsets = offsets
+                self._release_mapping()
+                return
+            position += 1
+
+    def field_names(self) -> tuple[str, ...]:
+        self._build_index()
+        assert self._field_offsets is not None
+        return tuple(sorted(self._field_offsets))
+
+    def load_field(self, name: str) -> Any:
+        self._build_index()
+        assert self._field_offsets is not None
+        offsets = self._field_offsets.get(str(name))
+        if offsets is None:
+            raise KeyError(str(name))
+        return self._decode(*offsets)
+
+    def raw_field_fingerprint(self, name: str) -> str:
+        """Fingerprint one envelope field without decoding its JSON value."""
+
+        self._build_index()
+        assert self._field_offsets is not None
+        offsets = self._field_offsets.get(str(name))
+        if offsets is None:
+            raise KeyError(str(name))
+        start, end = offsets
+        if self.path.is_symlink():
+            raise AffectedBlueprintReadError(
+                f"projection_path_traversal: {self.context} must not be a symlink"
+            )
+        with self.path.open("rb") as handle:
+            handle.seek(start)
+            payload = handle.read(end - start)
+        return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+    def row_keys(self) -> tuple[str, ...]:
+        self._build_index()
+        assert self._row_offsets is not None
+        return tuple(sorted(self._row_offsets))
+
+    def row_offsets(self) -> dict[str, tuple[int, int]]:
+        self._build_index()
+        assert self._row_offsets is not None
+        return dict(self._row_offsets)
+
+    def load(self, key: str) -> Any:
+        key = str(key)
+        if key in self._cache:
+            return self._cache[key]
+        self._build_index()
+        assert self._row_offsets is not None
+        offsets = self._row_offsets.get(key)
+        if offsets is None:
+            raise KeyError(key)
+        row = self._decode(*offsets)
+        if not isinstance(row, Mapping) or str(row.get(self.row_key, "")) != key:
+            raise AffectedBlueprintReadError(
+                f"projection_identity_mismatch: {self.context} lookup points to another row: {key}"
+            )
+        if self.value_key is None:
+            value = row
+        else:
+            if self.value_key not in row:
+                raise AffectedBlueprintReadError(
+                    f"projection_schema_invalid: {self.context} selected row has no {self.value_key}"
+                )
+            value = row[self.value_key]
+        self._cache[key] = value
+        return value
+
+    def close(self) -> None:
+        mapping = self._mapping
+        handle = self._handle
+        self._mapping = None
+        self._handle = None
+        self._started = False
+        self._field_offsets = None
+        self._row_offsets = None
+        self._cache.clear()
+        if mapping is not None:
+            mapping.close()
+        if handle is not None:
+            handle.close()
+
+    def __del__(self) -> None:  # pragma: no cover - best-effort cleanup
+        try:
+            self.close()
+        except Exception:
+            pass
 
 
 def _impact_sha256(value: Any, *, context: str) -> str:
@@ -1182,24 +1636,67 @@ class AffectedBlueprintProjectionBundle:
     authority_snapshot_fingerprint: str
     authority_head_fingerprint: str
     unknown_entries: tuple[str, ...] = ()
+    object_ids: tuple[str, ...] = ()
+    # Canonical disk projections use offset locators.  In-memory fixtures and
+    # older callers continue to use the tuple payload fallback above.
+    object_locator: _JsonArrayRowLocator | None = None
+    shard_locator: _JsonArrayRowLocator | None = None
     # The native loader result is invocation-local and is never serialized.
     # Passing it through the projection bundle prevents the task-context
     # projection from resolving the same authority identity a second time.
     authority_state: Any | None = None
 
     def load_shard(self, shard_id: str) -> Any:
+        key = str(shard_id)
+        if self.shard_locator is not None:
+            try:
+                payload = self.shard_locator.load(key)
+            except KeyError as exc:
+                raise KeyError(key) from exc
+            expected = dict(self.index.shard_fingerprints).get(key)
+            if expected is None or fingerprint_value(payload) != expected:
+                raise AffectedBlueprintReadError(
+                    f"projection_identity_mismatch: behavior shard fingerprint mismatch: {key}"
+                )
+            return payload
         values = dict(self.shard_payloads)
         try:
-            return values[str(shard_id)]
+            return values[key]
         except KeyError as exc:
-            raise KeyError(str(shard_id)) from exc
+            raise KeyError(key) from exc
 
     def load_object(self, object_id: str) -> Any:
+        key = str(object_id)
+        if self.object_locator is not None:
+            try:
+                value = self.object_locator.load(key)
+            except KeyError as exc:
+                raise KeyError(key) from exc
+            expected = dict(self.index.object_fingerprints).get(key)
+            if expected is None:
+                raise AffectedBlueprintReadError(
+                    f"projection_lookup_missing: object fingerprint is not indexed: {key}"
+                )
+            if fingerprint_value(value) != expected:
+                raise AffectedBlueprintReadError(
+                    f"projection_identity_mismatch: shared object fingerprint mismatch: {key}"
+                )
+            return value
         values = dict(self.object_payloads)
         try:
-            return values[str(object_id)]
+            value = values[key]
         except KeyError as exc:
             raise KeyError(str(object_id)) from exc
+        expected = dict(self.index.object_fingerprints).get(key)
+        if expected is None:
+            raise AffectedBlueprintReadError(
+                f"projection_lookup_missing: object fingerprint is not indexed: {key}"
+            )
+        if fingerprint_value(value) != expected:
+            raise AffectedBlueprintReadError(
+                f"projection_identity_mismatch: shared object fingerprint mismatch: {key}"
+            )
+        return value
 
     def changed_path_candidates(self, changed_paths: Iterable[str]) -> tuple[tuple[str, ...], tuple[str, ...]]:
         """Resolve changed paths to exact registered seeds without guessing.
@@ -1386,6 +1883,195 @@ def _projection_identity_value(identity: Mapping[str, Any], *names: str) -> str:
     return ""
 
 
+def _projection_lookup_cache_path(
+    projection_root: Path,
+    authority_root: str | Path,
+    projection_fingerprint: str,
+) -> Path:
+    """Return the bounded cache lane used by canonical projection writers."""
+
+    anchors = [projection_root.parent.resolve(), Path(authority_root).resolve()]
+    candidates: list[Path] = []
+    for anchor in anchors:
+        for candidate in (anchor, *anchor.parents):
+            if candidate == Path(candidate.anchor):
+                continue
+            cache = (
+                candidate
+                / "work"
+                / "flowguard"
+                / "canonical-blueprint"
+                / "lookup-cache"
+                / f"{projection_fingerprint.removeprefix('sha256:')}.json"
+            )
+            if cache not in candidates:
+                candidates.append(cache)
+    for candidate in candidates:
+        if candidate.is_file() and not candidate.is_symlink():
+            return candidate
+    # Prefer the projection's nearest project-owned lane for the typed
+    # missing-cache diagnostic.  No fallback to another generation is allowed.
+    return candidates[0]
+
+
+def _load_projection_lookup_cache(
+    projection_root: Path,
+    authority_root: str | Path,
+    *,
+    projection_fingerprint: str,
+    rows_by_kind: Mapping[str, Mapping[str, Any]],
+    index: AffectedBlueprintIndex,
+) -> tuple[_JsonArrayRowLocator, _JsonArrayRowLocator, Path]:
+    """Load and bind the writer-produced offset cache without trusting it."""
+
+    path = _projection_lookup_cache_path(
+        projection_root, authority_root, projection_fingerprint
+    )
+    if not path.is_file() or path.is_symlink():
+        raise AffectedBlueprintReadError(
+            "projection_lookup_missing: canonical projection lookup cache is "
+            f"missing: {path}"
+        )
+    payload = _projection_json_load(path, context="projection lookup cache")
+    required = {"schema_version", "projection_fingerprint", "containers"}
+    if set(payload) != required or payload.get("schema_version") != "flowguard.projection_lookup_cache.v1":
+        raise AffectedBlueprintReadError(
+            "projection_schema_invalid: projection lookup cache is not current"
+        )
+    if payload.get("projection_fingerprint") != projection_fingerprint:
+        raise AffectedBlueprintReadError(
+            "projection_identity_mismatch: projection lookup cache belongs to another projection"
+        )
+    containers = payload.get("containers")
+    if not isinstance(containers, Mapping) or set(containers) != {
+        "behavior_shards",
+        "shared_objects",
+    }:
+        raise AffectedBlueprintReadError(
+            "projection_schema_invalid: projection lookup cache containers are not exact-current"
+        )
+
+    locators: list[_JsonArrayRowLocator] = []
+    metadata_keys = (
+        "shard_id",
+        "kind",
+        "relative_path",
+        "member_ids",
+        "content_fingerprint",
+    )
+    try:
+        for kind, row_key, value_key, exact_fields, expected_ids in (
+            (
+                "behavior_shards",
+                "shard_id",
+                None,
+                False,
+                set(dict(index.shard_fingerprints)),
+            ),
+            (
+                "shared_objects",
+                "object_id",
+                "value",
+                True,
+                set(dict(index.object_fingerprints)),
+            ),
+        ):
+            item = containers.get(kind)
+            if not isinstance(item, Mapping) or set(item) != {
+                "relative_path",
+                "content_fingerprint",
+                "rows",
+            }:
+                raise AffectedBlueprintReadError(
+                    f"projection_schema_invalid: {kind} lookup cache row is not exact-current"
+                )
+            manifest_row = rows_by_kind[kind]
+            if (
+                item["relative_path"] != manifest_row["relative_path"]
+                or item["content_fingerprint"] != manifest_row["content_fingerprint"]
+            ):
+                raise AffectedBlueprintReadError(
+                    f"projection_identity_mismatch: {kind} lookup cache is bound to another shard"
+                )
+            raw_rows = item["rows"]
+            if not isinstance(raw_rows, Mapping) or set(raw_rows) != expected_ids:
+                raise AffectedBlueprintReadError(
+                    f"projection_identity_mismatch: {kind} lookup cache row set disagrees with accepted index"
+                )
+            relative = _projection_relative_path(
+                item["relative_path"], context=f"{kind} lookup shard"
+            )
+            shard_path = _projection_file(
+                projection_root, relative, context=f"{kind} lookup shard"
+            )
+            offsets: dict[str, tuple[int, int]] = {}
+            for row_id, raw_offset in raw_rows.items():
+                if not isinstance(row_id, str) or not isinstance(raw_offset, list) or len(raw_offset) != 2:
+                    raise AffectedBlueprintReadError(
+                        f"projection_schema_invalid: {kind} lookup offset is not a pair"
+                    )
+                start, length = raw_offset
+                if not isinstance(start, int) or not isinstance(length, int):
+                    raise AffectedBlueprintReadError(
+                        f"projection_schema_invalid: {kind} lookup offset is not integral"
+                    )
+                try:
+                    size = shard_path.stat().st_size
+                except OSError as exc:
+                    raise AffectedBlueprintReadError(
+                        f"projection_read_error: cannot stat {kind} lookup shard: {exc}"
+                    ) from exc
+                if start < 0 or length <= 0 or start + length > size:
+                    raise AffectedBlueprintReadError(
+                        f"projection_identity_mismatch: {kind} lookup offset is outside its shard"
+                    )
+                offsets[row_id] = (start, start + length)
+            locator = _JsonArrayRowLocator(
+                _projection_file(projection_root, relative, context=f"{kind} shard"),
+                f"{kind} shard",
+                row_key=row_key,
+                value_key=value_key,
+                exact_row_fields=exact_fields,
+                preindexed_offsets=offsets,
+            )
+            # Bind envelope metadata, accepted content identity, and offset
+            # bounds before returning a locator to the affected reader.
+            shard_keys = {
+                "schema_version",
+                "shard_id",
+                "kind",
+                "relative_path",
+                "member_ids",
+                "payload",
+                "content_fingerprint",
+            }
+            if set(locator.field_names()) != shard_keys:
+                raise AffectedBlueprintReadError(
+                    f"projection_schema_invalid: {kind} shard is not exact-current"
+                )
+            for metadata_key in metadata_keys:
+                if locator.load_field(metadata_key) != manifest_row[metadata_key]:
+                    raise AffectedBlueprintReadError(
+                        f"projection_identity_mismatch: {kind} shard metadata disagrees with manifest"
+                    )
+            if locator.raw_field_fingerprint("payload") != str(
+                manifest_row["content_fingerprint"]
+            ):
+                raise AffectedBlueprintReadError(
+                    f"projection_identity_mismatch: {kind} shard content fingerprint mismatch"
+                )
+            if locator.row_keys() != tuple(sorted(expected_ids)):
+                raise AffectedBlueprintReadError(
+                    f"projection_identity_mismatch: {kind} lookup cache is not deterministic"
+                )
+            locators.append(locator)
+        return locators[0], locators[1], path
+    except Exception:
+        for locator in locators:
+            locator.close()
+        raise
+
+
 def load_affected_blueprint_projection(
     projection_root: str | Path,
     *,
@@ -1497,9 +2183,6 @@ def load_affected_blueprint_projection(
 
     identity_rows = read_kind("identity")
     index_rows = read_kind("affected_index")
-    behavior_rows = read_kind("behavior_shards")
-    shared_rows = read_kind("shared_objects")
-    inventory_rows = read_kind("implementation_inventory") if "implementation_inventory" in rows_by_kind else []
     if len(identity_rows) != 1 or not isinstance(identity_rows[0], Mapping):
         raise AffectedBlueprintReadError("projection_schema_invalid: identity shard must contain one object")
     identity = dict(identity_rows[0])
@@ -1516,37 +2199,40 @@ def load_affected_blueprint_projection(
     if isinstance(child_fingerprints, Mapping) and child_fingerprints.get("affected_index") not in (None, index.fingerprint):
         raise AffectedBlueprintReadError("projection_identity_mismatch: affected index child fingerprint is stale")
 
-    shard_payloads: dict[str, Any] = {}
-    for payload in behavior_rows:
-        if not isinstance(payload, Mapping):
-            raise AffectedBlueprintReadError("projection_schema_invalid: behavior shard reference is not an object")
-        shard_id = str(payload.get("shard_id", ""))
-        if not shard_id or shard_id in shard_payloads:
-            raise AffectedBlueprintReadError("projection_identity_mismatch: duplicate behavior shard id")
-        expected = dict(index.shard_fingerprints).get(shard_id)
-        if expected is None or fingerprint_value(payload) != expected:
-            raise AffectedBlueprintReadError(f"projection_identity_mismatch: behavior shard fingerprint mismatch: {shard_id}")
-        shard_payloads[shard_id] = dict(payload)
-    if set(shard_payloads) != set(dict(index.shard_fingerprints)):
+    behavior_locator, shared_locator, _lookup_cache = _load_projection_lookup_cache(
+        root,
+        authority_root,
+        projection_fingerprint=str(manifest["projection_fingerprint"]),
+        rows_by_kind=rows_by_kind,
+        index=index,
+    )
+    inventory_rows = read_kind("implementation_inventory") if "implementation_inventory" in rows_by_kind else []
+
+    if set(behavior_locator.row_keys()) != set(dict(index.shard_fingerprints)):
+        behavior_locator.close()
+        shared_locator.close()
         raise AffectedBlueprintReadError("projection_identity_mismatch: behavior shard set disagrees with affected index")
 
-    object_payloads: dict[str, Any] = {}
-    for row in shared_rows:
-        if not isinstance(row, Mapping) or set(row) != {"object_id", "value"}:
-            raise AffectedBlueprintReadError("projection_schema_invalid: shared object row is not exact-current")
-        object_id = str(row["object_id"])
-        if not object_id or object_id in object_payloads:
-            raise AffectedBlueprintReadError("projection_identity_mismatch: duplicate shared object id")
-        object_payloads[object_id] = row["value"]
     expected_objects = dict(index.object_fingerprints)
-    missing_objects = sorted(set(expected_objects) - set(object_payloads))
-    if missing_objects:
+    observed_object_ids = set(shared_locator.row_keys())
+    missing_objects = sorted(set(expected_objects) - observed_object_ids)
+    extra_objects = sorted(observed_object_ids - set(expected_objects))
+    if missing_objects or extra_objects:
+        shared_locator.close()
+        behavior_locator.close()
+        detail = []
+        if missing_objects:
+            detail.append("omits: " + ", ".join(missing_objects))
+        if extra_objects:
+            detail.append("contains unindexed: " + ", ".join(extra_objects))
         raise AffectedBlueprintReadError(
-            "projection_identity_mismatch: shared object set omits: " + ", ".join(missing_objects)
+            "projection_identity_mismatch: shared object set " + "; ".join(detail)
         )
-    for object_id, expected in expected_objects.items():
-        if fingerprint_value(object_payloads[object_id]) != expected:
-            raise AffectedBlueprintReadError(f"projection_identity_mismatch: shared object fingerprint mismatch: {object_id}")
+    # Do not materialize or hash every shared object/behavior row during
+    # ordinary projection admission.  The affected reader asks the bundle for
+    # a bounded closure; load_shard/load_object verify the accepted
+    # content-addressed fingerprint at that point.  The full canonical
+    # projection loader remains the exhaustive integrity gate.
 
     state, derived_snapshot = _projection_authority_snapshot(Path(authority_root))
     current_snapshot = str(state.snapshot.fingerprint)
@@ -1658,14 +2344,17 @@ def load_affected_blueprint_projection(
         projection_fingerprint=str(manifest["projection_fingerprint"]),
         blueprint_fingerprint=manifest_blueprint,
         index=index,
-        shard_payloads=tuple(sorted(shard_payloads.items())),
-        object_payloads=tuple(sorted(object_payloads.items())),
+        shard_payloads=(),
+        object_payloads=(),
         identity=identity,
         surface_catalog=surface_catalog,
         accepted_snapshot=derived_snapshot,
         authority_snapshot_fingerprint=current_snapshot,
         authority_head_fingerprint=str(state.head.fingerprint),
         unknown_entries=tuple(sorted(unknown_entries)),
+        object_ids=tuple(sorted(observed_object_ids)),
+        object_locator=shared_locator,
+        shard_locator=behavior_locator,
         authority_state=state,
     )
 

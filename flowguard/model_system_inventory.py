@@ -709,7 +709,7 @@ def build_manifest_model_system_snapshot(
         entry.model_id: resolve_entry_input_inventory(
             root_path,
             entry,
-            additional_patterns=manifest.shared_patterns_for(entry.model_id),
+            additional_patterns=manifest.owner_patterns_for(entry.model_id),
             _pattern_cache=pattern_cache,
             _fingerprint_cache=fingerprint_cache,
         )

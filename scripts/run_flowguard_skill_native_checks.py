@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 import sys
 
@@ -18,10 +19,10 @@ from flowguard.evidence_receipts import (  # noqa: E402
 )
 from flowguard.skill_native_checks import (  # noqa: E402
     build_current_native_receipt_context,
+    prepare_native_suite_context,
     run_native_skill_check,
 )
 from flowguard.skill_self_governance import load_governance_requirements  # noqa: E402
-from flowguard.skill_suite import validate_skill_suite  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -33,7 +34,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--timeout",
         type=float,
         default=900.0,
-        help="Per-native-command timeout in seconds (contract-declared long checks may run up to 900s)",
+        help="One total invocation budget in seconds; each child receives only its remaining time",
+    )
+    parser.add_argument(
+        "--keep-going",
+        action="store_true",
+        help="Continue ordinary failed owners for diagnostics; cancellation, interruption, and unconfirmed cleanup still stop",
+    )
+    parser.add_argument(
+        "--check-private-inventories",
+        action="store_true",
+        help="Include the author-only private inventory scan once in the shared suite observation",
     )
     parser.add_argument(
         "--resume",
@@ -108,6 +119,7 @@ def _current_receipt_row(
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = Path(args.root).resolve()
+    invocation_deadline = time.monotonic() + max(0.0, float(args.timeout))
     canonical = tuple(item.subject_id for item in load_governance_requirements(root))
     selected = tuple(args.member) if args.member else canonical
     unknown = tuple(item for item in selected if item not in canonical)
@@ -134,19 +146,32 @@ def main(argv: list[str] | None = None) -> int:
         if args.resume
         else None
     )
-    # The suite inventory is a shared current input.  Validate it once for the
-    # resume pass, then reuse only its immutable hash while each receipt still
-    # reloads and verifies its own contract, manifest, snapshots, and proof.
-    suite_inventory_hash = (
-        # Private-inventory scanning is an independent governance check.  It
-        # rereads every Python source file and must not be repeated while a
-        # resume pass is only recomputing the immutable suite hash for child
-        # receipt reuse.  The full scan remains owned by the governance gate.
-        validate_skill_suite(root, check_private_inventories=False).inventory_hash
-        if args.resume
+    # The suite inventory is a shared current input.  Observe it once and pass
+    # the invocation-bound context to each owner; a member never receives a
+    # caller-supplied bare hash as authority.
+    suite_context = (
+        prepare_native_suite_context(
+            root,
+            selected,
+            check_private_inventories=args.check_private_inventories,
+        )
+        if time.monotonic() < invocation_deadline
         else None
     )
+    suite_inventory_hash = suite_context.inventory_hash if suite_context is not None else None
     for index, skill_id in enumerate(selected, start=1):
+        if time.monotonic() >= invocation_deadline:
+            results.extend(
+                {
+                    "skill_id": pending,
+                    "ok": False,
+                    "status": "blocked",
+                    "disposition": "not_run",
+                    "blockers": ["native_checks_not_run_due_to_budget"],
+                }
+                for pending in selected[index - 1 :]
+            )
+            break
         reused = (
             _current_receipt_row(
                 root,
@@ -170,11 +195,46 @@ def main(argv: list[str] | None = None) -> int:
                     skill_id,
                     output_directory=args.output_dir,
                     timeout_seconds=args.timeout,
+                    deadline=invocation_deadline,
+                    keep_going=args.keep_going,
+                    suite_context=suite_context,
                 )
             )
         except Exception as exc:  # terminal report must survive one producer failure
             results.append(exc)
             print(f"[{index}/{len(selected)}] producer error: {skill_id}: {exc}", file=sys.stderr, flush=True)
+
+        latest = results[-1]
+        if isinstance(latest, Exception):
+            latest_ok = False
+            hard_stop = True
+        elif isinstance(latest, dict):
+            latest_ok = bool(latest.get("ok"))
+            hard_stop = not latest_ok
+        else:
+            latest_ok = latest.ok
+            hard_stop = (
+                not latest.runs
+                or any(
+                    item.cancelled
+                    or item.interrupted
+                    or not item.cleanup_confirmed
+                    for item in latest.runs
+                )
+            )
+        if not latest_ok and (hard_stop or not args.keep_going):
+            reason = "terminal" if hard_stop else "failure"
+            results.extend(
+                {
+                    "skill_id": pending,
+                    "ok": False,
+                    "status": "blocked",
+                    "disposition": "not_run",
+                    "blockers": [f"native_checks_not_run_after_previous_{reason}"],
+                }
+                for pending in selected[index:]
+            )
+            break
 
     rows = []
     for skill_id, result in zip(selected, results):

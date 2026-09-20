@@ -2728,6 +2728,82 @@ def _restore_previous_projection(
             )
 
 
+def _write_canonical_projection_lookup_cache(
+    projection: CanonicalBlueprintProjection,
+    staging_root: Path,
+    project_root: Path,
+) -> Path | None:
+    """Write the removable affected-read offset cache for one projection.
+
+    The cache is deliberately outside the canonical projection tree and is
+    keyed by the accepted projection fingerprint.  It is an I/O accelerator,
+    not a blueprint/model/receipt authority: the affected reader still binds
+    every container to the manifest and every selected object to the accepted
+    index fingerprint.
+    """
+
+    from .affected_blueprint_reader import _JsonArrayRowLocator
+
+    containers: dict[str, Any] = {}
+    for kind, row_key, value_key, exact_fields in (
+        ("behavior_shards", "shard_id", None, False),
+        ("shared_objects", "object_id", "value", True),
+    ):
+        shard = next((item for item in projection.shards if item.kind == kind), None)
+        if shard is None:
+            # The generic projection writer also supports small unit-test and
+            # target-specific projections that do not expose affected-reader
+            # containers. They remain valid projections; only the full
+            # canonical software shape receives this optional cache.
+            return None
+        path = staging_root / PurePosixPath(shard.relative_path)
+        locator = _JsonArrayRowLocator(
+            path,
+            f"{kind} shard lookup build",
+            row_key=row_key,
+            value_key=value_key,
+            exact_row_fields=exact_fields,
+        )
+        try:
+            rows = {
+                row_id: [start, end - start]
+                for row_id, (start, end) in sorted(locator.row_offsets().items())
+            }
+        finally:
+            locator.close()
+        containers[kind] = {
+            "relative_path": shard.relative_path,
+            "content_fingerprint": shard.content_fingerprint,
+            "rows": rows,
+        }
+
+    cache_payload = {
+        "schema_version": "flowguard.projection_lookup_cache.v1",
+        "projection_fingerprint": projection.fingerprint,
+        "containers": containers,
+    }
+    cache_root = (
+        project_root
+        / "work"
+        / "flowguard"
+        / "canonical-blueprint"
+        / "lookup-cache"
+    )
+    cache_root.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_root / f"{projection.fingerprint.removeprefix('sha256:')}.json"
+    temporary = cache_root / f".{cache_path.name}.tmp-{uuid.uuid4().hex}"
+    try:
+        temporary.write_bytes(canonical_json_bytes(cache_payload) + b"\n")
+        os.replace(temporary, cache_path)
+    finally:
+        if temporary.exists():
+            try:
+                temporary.unlink()
+            except OSError:
+                pass
+    return cache_path
+
+
 def write_canonical_blueprint_projection(
     projection: CanonicalBlueprintProjection,
     output_root: str | Path,
@@ -2767,10 +2843,16 @@ def write_canonical_blueprint_projection(
     # any file found there to source authority.  ``work_root`` is the explicit
     # escape hatch for callers whose projection is intentionally outside a
     # project checkout.
+    project_root: Path | None = None
     if work_root is not None:
         staging_parent = Path(work_root).expanduser().resolve()
+        for candidate in (root, *root.parents):
+            if (candidate / ".flowguard").is_dir() or (candidate / ".git").exists():
+                project_root = candidate
+                break
+        if project_root is None:
+            project_root = root.parent
     else:
-        project_root: Path | None = None
         for candidate in (root, *root.parents):
             if (candidate / ".flowguard").is_dir() or (candidate / ".git").exists():
                 project_root = candidate
@@ -2818,6 +2900,13 @@ def write_canonical_blueprint_projection(
             raise BlueprintValidationError(
                 "staged canonical projection does not match its exact serialized input"
             )
+
+        assert project_root is not None
+        _write_canonical_projection_lookup_cache(
+            projection,
+            staging,
+            project_root,
+        )
 
         current_root_snapshot = _validated_existing_projection_snapshot(root)
         if current_root_snapshot != initial_root_snapshot:

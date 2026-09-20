@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import os
+import time
 from dataclasses import dataclass, field
 from itertools import product
 from typing import Any, Callable, Iterable, Sequence
@@ -66,11 +67,20 @@ def enumerate_input_sequences(
     if max_sequence_length < 1:
         raise ValueError("max_sequence_length must be at least 1")
     inputs = tuple(external_inputs)
-    return tuple(
-        sequence
-        for length in range(1, max_sequence_length + 1)
-        for sequence in product(inputs, repeat=length)
-    )
+    return tuple(_iter_input_sequences(inputs, max_sequence_length))
+
+
+def _iter_input_sequences(
+    external_inputs: Sequence[Any],
+    max_sequence_length: int,
+) -> Iterable[tuple[Any, ...]]:
+    """Yield finite sequences without materializing the whole domain."""
+
+    if max_sequence_length < 1:
+        raise ValueError("max_sequence_length must be at least 1")
+    inputs = tuple(external_inputs)
+    for length in range(1, max_sequence_length + 1):
+        yield from product(inputs, repeat=length)
 
 
 def _invariant_name(invariant: Any) -> str:
@@ -116,6 +126,9 @@ class Explorer:
     required_reachable: tuple[ReachabilityCondition, ...] = ()
     assumption_card: Any = None
     progress_steps: int = 10
+    max_failures: int | None = None
+    max_transitions: int | None = None
+    deadline: float | None = None
 
     def __init__(
         self,
@@ -130,6 +143,9 @@ class Explorer:
         required_reachable: Sequence[ReachabilityCondition] = (),
         assumption_card: Any = None,
         progress_steps: int = 10,
+        max_failures: int | None = None,
+        max_transitions: int | None = None,
+        deadline: float | None = None,
     ) -> None:
         object.__setattr__(self, "workflow", workflow)
         object.__setattr__(self, "initial_states", tuple(initial_states))
@@ -142,40 +158,42 @@ class Explorer:
         object.__setattr__(self, "required_reachable", tuple(required_reachable))
         object.__setattr__(self, "assumption_card", assumption_card)
         object.__setattr__(self, "progress_steps", int(progress_steps))
+        if max_failures is not None and int(max_failures) < 1:
+            raise ValueError("max_failures must be at least 1 when provided")
+        if max_transitions is not None and int(max_transitions) < 1:
+            raise ValueError("max_transitions must be at least 1 when provided")
+        object.__setattr__(self, "max_failures", None if max_failures is None else int(max_failures))
+        object.__setattr__(self, "max_transitions", None if max_transitions is None else int(max_transitions))
+        object.__setattr__(self, "deadline", deadline)
 
     def explore(self) -> CheckReport:
         if self.max_sequence_length < 1:
             raise ValueError("max_sequence_length must be at least 1")
         compact_trace_storage = os.environ.get("FLOWGUARD_COMPACT_TRACE_STORAGE") == "1"
-        if compact_trace_storage:
-            # Keep exhaustive sequence generation lazy.  The normal explorer
-            # retains every sequence/path for interactive inspection; a
-            # terminal regression runner only needs exact counts, violations,
-            # and a bounded witness sample for reachability.
-            input_count = len(self.external_inputs)
-            sequence_count = sum(input_count**length for length in range(1, self.max_sequence_length + 1))
-            materialized_sequences: tuple[tuple[Any, ...], ...] = ()
-        else:
-            materialized_sequences = enumerate_input_sequences(
-                self.external_inputs, self.max_sequence_length
-            )
-            sequence_count = len(materialized_sequences)
+        # Keep both public enumeration semantics and ordinary exploration
+        # finite, but do not materialize the Cartesian domain before the first
+        # transition.  A bounded caller can therefore stop on its first
+        # counterexample or deadline without paying for the unexplored suffix.
+        input_count = len(self.external_inputs)
+        sequence_count = sum(
+            input_count**length for length in range(1, self.max_sequence_length + 1)
+        )
 
         def sequence_factory() -> Iterable[tuple[Any, ...]]:
             """Return a fresh finite sequence iterator for one initial state."""
 
-            if compact_trace_storage:
-                return (
-                    sequence
-                    for length in range(1, self.max_sequence_length + 1)
-                    for sequence in product(self.external_inputs, repeat=length)
-                )
-            return iter(materialized_sequences)
+            return _iter_input_sequences(self.external_inputs, self.max_sequence_length)
         violations: list[InvariantViolation] = []
         dead_branches: list[DeadBranch] = []
         exception_branches: list[ExceptionBranch] = []
         observed_paths: list[WorkflowPath] = []
+        observed_sequences: list[tuple[Any, ...]] = []
         observed_trace_count = 0
+        observed_failure_count = 0
+        sequence_started_count = 0
+        transition_count = 0
+        exploration_complete = True
+        termination_reason = "completed"
         reachability_state = _ReachabilityState(
             required_label_matches=[False] * len(self.required_labels),
             required_matches=[False] * len(self.required_reachable),
@@ -196,10 +214,23 @@ class Explorer:
             )
 
         for initial_state in self.initial_states:
+            if not exploration_complete:
+                break
             # A compact run must not share one exhausted generator across
             # initial states: every finite initial-state/sequence pair is an
             # independent exploration obligation.
             for sequence in sequence_factory():
+                if self.deadline is not None and time.monotonic() >= self.deadline:
+                    exploration_complete = False
+                    termination_reason = "deadline_exhausted"
+                    break
+                if self.max_transitions is not None and transition_count >= self.max_transitions:
+                    exploration_complete = False
+                    termination_reason = "max_transitions_exhausted"
+                    break
+                sequence_started_count += 1
+                if not compact_trace_storage:
+                    observed_sequences.append(sequence)
                 active = (
                     WorkflowPath(
                         current_input=None,
@@ -209,8 +240,25 @@ class Explorer:
                 )
 
                 for external_input in sequence:
+                    if self.deadline is not None and time.monotonic() >= self.deadline:
+                        exploration_complete = False
+                        termination_reason = "deadline_exhausted"
+                        break
+                    if self.max_transitions is not None and transition_count >= self.max_transitions:
+                        exploration_complete = False
+                        termination_reason = "max_transitions_exhausted"
+                        break
                     next_active: list[WorkflowPath] = []
                     for path in active:
+                        if self.deadline is not None and time.monotonic() >= self.deadline:
+                            exploration_complete = False
+                            termination_reason = "deadline_exhausted"
+                            break
+                        if self.max_transitions is not None and transition_count >= self.max_transitions:
+                            exploration_complete = False
+                            termination_reason = "max_transitions_exhausted"
+                            break
+                        transition_count += 1
                         run = self.workflow.execute(
                             initial_state=path.state,
                             external_input=external_input,
@@ -227,6 +275,7 @@ class Explorer:
                         else:
                             dead_branches.extend(run.dead_branches)
                             exception_branches.extend(run.exception_branches)
+                        observed_failure_count += len(run.dead_branches) + len(run.exception_branches)
                         for completed_path in run.completed_paths:
                             observed_trace_count += 1
                             self._observe_reachability(completed_path, reachability_state)
@@ -238,6 +287,7 @@ class Explorer:
                                 if any(label in labels and label not in seen for label in self.required_labels):
                                     observed_paths.append(completed_path)
                             path_violations = self._check_path_invariants(completed_path)
+                            observed_failure_count += len(path_violations)
                             if compact_trace_storage:
                                 violation_room = _COMPACT_FINDING_LIMIT - len(violations)
                                 if violation_room > 0:
@@ -245,6 +295,15 @@ class Explorer:
                             else:
                                 violations.extend(path_violations)
                         next_active.extend(run.completed_paths)
+                        if (
+                            self.max_failures is not None
+                            and observed_failure_count >= self.max_failures
+                        ):
+                            exploration_complete = False
+                            termination_reason = "max_failures_reached"
+                            break
+                    if not exploration_complete:
+                        break
                     active = tuple(next_active)
                     if not active:
                         break
@@ -262,6 +321,8 @@ class Explorer:
                             flush=True,
                         )
                         next_threshold_index += 1
+                if not exploration_complete:
+                    break
 
         traces = tuple(path.trace for path in observed_paths)
         reachability_failures = self._reachability_failures(reachability_state)
@@ -280,11 +341,29 @@ class Explorer:
                     ),
                 ),
             )
-        ok = not violations and not dead_branches and not exception_branches and not reachability_failures
+        ok = (
+            exploration_complete
+            and not violations
+            and not dead_branches
+            and not exception_branches
+            and not reachability_failures
+        )
         summary = (
             f"sequences={sequence_count} initial_states={len(self.initial_states)} "
             f"traces={observed_trace_count}"
         )
+        if not exploration_complete:
+            summary += (
+                f" termination={termination_reason}"
+                f" executed_sequences={sequence_started_count}"
+                f" transitions={transition_count}"
+            )
+        remaining_scope = ""
+        if not exploration_complete:
+            remaining_scope = (
+                "unexplored finite input/state scope remains; this result is diagnostic "
+                "and cannot be reused as a passing exhaustive check"
+            )
         return CheckReport(
             ok=ok,
             violations=tuple(violations),
@@ -293,8 +372,13 @@ class Explorer:
             dead_branches=tuple(dead_branches),
             exception_branches=tuple(exception_branches),
             reachability_failures=tuple(reachability_failures),
-            explored_sequences=() if compact_trace_storage else materialized_sequences,
+            explored_sequences=() if compact_trace_storage else tuple(observed_sequences),
             assumption_card=self.assumption_card,
+            exploration_complete=exploration_complete,
+            termination_reason=termination_reason,
+            explored_sequence_count=sequence_started_count,
+            transition_count=transition_count,
+            remaining_scope=remaining_scope,
         )
 
     def _check_path_invariants(self, path: WorkflowPath) -> list[InvariantViolation]:
