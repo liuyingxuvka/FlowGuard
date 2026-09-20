@@ -58,6 +58,27 @@ class ModelAuthorityCliTests(unittest.TestCase):
         self.assertEqual("blocked", payload["status"])
         self.assertIn("missing-parent.json", payload["error"])
 
+    def test_model_revision_activate_rejects_unresolved_build_placeholders(self):
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = main(
+                [
+                    "model-revision-activate",
+                    "--candidate-snapshot",
+                    "<candidate_snapshot_path>",
+                    "--revision-set",
+                    "<revision_set_path>",
+                    "--receipt-id",
+                    "activation:flowguard:joint-20260920:work-1",
+                    "--json",
+                ]
+            )
+
+        payload = json.loads(output.getvalue())
+        self.assertEqual(1, exit_code)
+        self.assertEqual("blocked", payload["status"])
+        self.assertIn("unresolved angle-bracket path placeholders", payload["error"])
+
     def test_model_system_audit_fails_closed_without_authority(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

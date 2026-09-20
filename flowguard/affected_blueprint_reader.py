@@ -1646,6 +1646,19 @@ class AffectedBlueprintProjectionBundle:
     # projection from resolving the same authority identity a second time.
     authority_state: Any | None = None
 
+    def close(self) -> None:
+        """Release invocation-local selective lookup resources.
+
+        Affected reads may consume both locators while traversing one closure.
+        Keep their lifetime at the bundle/request boundary so callers do not
+        reopen a store for each seed id, and make cleanup explicit on both
+        success and failure paths.
+        """
+
+        for locator in (self.shard_locator, self.object_locator):
+            if locator is not None:
+                locator.close()
+
     def load_shard(self, shard_id: str) -> Any:
         key = str(shard_id)
         if self.shard_locator is not None:

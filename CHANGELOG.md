@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.69.3 - 2026-09-20
+
+- Bound affected blueprint projections to one closure read, selected-only
+  materialization, and an explicit request-boundary close; unknown changed
+  paths and unresolved activation placeholders now fail closed.
+- Preserved all 54 authorized model-obligation identities, runners, tiers,
+  inputs, and protected failures while tightening current pytest leaf
+  ownership, duplicate execution, and compact route-reference loading.
+- Prepared the joint-audit author and CI boundary without changing consumer
+  installation state or introducing a compatibility route.
+
 ## v0.69.2 - 2026-09-20
 
 - Make native skill checks fail closed before execution, share one bounded

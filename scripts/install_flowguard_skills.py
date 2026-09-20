@@ -29,10 +29,20 @@ def _format_report(payload: dict[str, Any]) -> str:
         "=== FlowGuard skill distribution ===",
         f"action: {payload.get('action', 'parity')}",
         f"status: {payload.get('status', 'pass' if payload.get('ok') else 'blocked')}",
+        f"target: {payload.get('target') or payload.get('source') or 'configured-trees'}",
     ]
     if "copied_files" in payload:
+        changed = {
+            *payload.get("copied_files", ()),
+            *payload.get("removed_files", ()),
+            *payload.get("adopted_files", ()),
+            *payload.get("conflict_files", ()),
+            *payload.get("extra_files", ()),
+        }
         lines.extend(
             [
+                f"members: {len(payload.get('authority_member_ids', ())) }",
+                f"changed_files: {len(changed)}",
                 f"copied: {len(payload.get('copied_files', ())) }",
                 f"removed: {len(payload.get('removed_files', ())) }",
                 f"adopted: {len(payload.get('adopted_files', ())) }",
@@ -59,6 +69,80 @@ def _format_report(payload: dict[str, Any]) -> str:
         lines.append(f"- {finding.get('code')}: {finding.get('relative_path') or finding.get('message')}")
     lines.append(f"claim_boundary: {payload.get('claim_boundary', '')}")
     return "\n".join(lines)
+
+
+def _summary_payload(payload: dict[str, Any], *, full_report_path: str = "") -> dict[str, Any]:
+    findings = list(payload.get("findings", ()))
+    conflicts = list(payload.get("conflict_files", ()))
+    extras = list(payload.get("extra_files", ()))
+    issues = [
+        {
+            "source": "findings",
+            "index": index,
+            "code": str(item.get("code", "")),
+            "message": str(item.get("message", "")),
+            "relative_path": str(item.get("relative_path", "")),
+        }
+        for index, item in enumerate(findings)
+        if isinstance(item, dict)
+    ]
+    issues.extend(
+        {"source": "conflict_files", "index": index, "relative_path": str(item)}
+        for index, item in enumerate(conflicts)
+    )
+    issues.extend(
+        {"source": "extra_files", "index": index, "relative_path": str(item)}
+        for index, item in enumerate(extras)
+    )
+    changed = {
+        *payload.get("copied_files", ()),
+        *payload.get("removed_files", ()),
+        *payload.get("adopted_files", ()),
+        *payload.get("conflict_files", ()),
+        *payload.get("extra_files", ()),
+    }
+    return {
+        "schema_version": "flowguard.skill_distribution_summary.v1",
+        "source_schema_version": str(payload.get("schema_version", "")),
+        "artifact_type": "flowguard_skill_distribution_summary",
+        "action": payload.get("action", "parity"),
+        "status": payload.get("status", "blocked"),
+        "ok": bool(payload.get("ok", False)),
+        "target": payload.get("target") or payload.get("source") or "configured-trees",
+        "member_count": len(payload.get("authority_member_ids", ())),
+        "changed_files_count": len(changed),
+        "counts": {
+            "copied": len(payload.get("copied_files", ())),
+            "removed": len(payload.get("removed_files", ())),
+            "adopted": len(payload.get("adopted_files", ())),
+            "conflicts": len(conflicts),
+            "extras": len(extras),
+            "excluded": len(payload.get("excluded_files", ())),
+            "configured_trees": len(payload.get("inventories", {})),
+        },
+        "dry_run": bool(payload.get("dry_run", False)),
+        "projection_role": payload.get("projection_role", ""),
+        "transaction_status": payload.get("transaction_status", ""),
+        "copied_files": list(payload.get("copied_files", ()))[:10],
+        "removed_files": list(payload.get("removed_files", ()))[:10],
+        "adopted_files": list(payload.get("adopted_files", ()))[:10],
+        "conflict_files": list(payload.get("conflict_files", ()))[:10],
+        "extra_files": list(payload.get("extra_files", ()))[:10],
+        "inventories": {
+            str(name): {
+                "member_count": int(value.get("member_count", 0)) if isinstance(value, dict) else 0,
+                "file_count": len(value.get("files", ())) if isinstance(value, dict) and isinstance(value.get("files"), list) else 0,
+            }
+            for name, value in (payload.get("inventories", {}) or {}).items()
+        }
+        if isinstance(payload.get("inventories"), dict)
+        else {},
+        "issues": issues[:10],
+        "truncated_count": max(0, len(issues) - min(10, len(issues))),
+        "claim_boundary": payload.get("claim_boundary", ""),
+        "full_report_path": full_report_path,
+        "full_report_hint": "Use --full-output --output <path> to save the complete machine report." if not full_report_path else "",
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -88,11 +172,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Explicitly replace existing canonical source-owned paths and establish installer ownership",
     )
     parser.add_argument("--json", action="store_true", help="Emit stable machine-readable JSON")
+    parser.add_argument("--output", help="Write the complete machine report to this file.")
+    parser.add_argument(
+        "--full-output",
+        action="store_true",
+        help="Require --output for the complete machine report; stdout remains a bounded summary.",
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.full_output and not args.output:
+        raise SystemExit("--full-output requires --output PATH")
     if args.adopt_existing and args.action != "install":
         raise SystemExit("--adopt-existing is valid only for the install action")
     if args.action == "install":
@@ -151,8 +243,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload = parity.to_dict()
         payload["action"] = "parity"
 
+    full_report_path = ""
+    if args.output:
+        output_path = Path(args.output).expanduser().resolve()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        full_report_path = str(output_path)
     if args.json:
-        print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+        print(
+            json.dumps(
+                _summary_payload(payload, full_report_path=full_report_path),
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        )
     else:
         print(_format_report(payload))
     return 0 if payload.get("ok") else 1

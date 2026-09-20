@@ -3166,13 +3166,13 @@
       "surface_id": "surface:project-rules:behavior-ledger-current",
       "surface_kind": "process",
       "label": "FlowGuard project rules",
-      "source_ref": "AGENTS.md#FlowGuard Project Rules",
+      "source_ref": "AGENTS.md#FlowGuard author-repository rules",
       "source_system_id": "project-rules",
-      "native_artifact_id": "AGENTS.md#FlowGuard Project Rules",
-      "content_fingerprint": "sha256:2c53a33ad897cdb45a1614045bfae4943036a1d3aeee2fae304ee907b3ba09f6",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "native_artifact_id": "AGENTS.md#FlowGuard author-repository rules",
+      "content_fingerprint": "sha256:d13c55b6187f72657ccb600920c5d09cac670263041286992f11e2bdeb394522",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3216,9 +3216,9 @@
       "source_system_id": "flowguard-skill-contract",
       "native_artifact_id": ".agents/skills/flowguard-behavior-commitment-ledger/SKILL.md",
       "content_fingerprint": "sha256:2489334753162f5ca027a3e1727707185ded3132b516d795d5eaac2d6e3e8f29",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3262,9 +3262,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md#Requirement: Ledger records all in-scope behavior commitments",
       "content_fingerprint": "sha256:056ec69763cbe223bae2b75ac8dcb730ed6d5c3fd373c9fc85dd1c9c354c2d19",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3308,9 +3308,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/flowguard-ui-flow-structure/spec.md#Requirement: Ordinary UI admits only user-facing content",
       "content_fingerprint": "sha256:f23a9eb9df65c7dfc71566f28d557a7332a9f89dcff137d81dc743667f612616",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3354,9 +3354,9 @@
       "source_system_id": "flowguard-skill-contract",
       "native_artifact_id": ".agents/skills/flowguard-ui-flow-structure/SKILL.md",
       "content_fingerprint": "sha256:1a62a73338ca90a3a997214349848cae3c2adc74f304a777f6730f563daf0129",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3400,9 +3400,9 @@
       "source_system_id": "flowguard-skill-contract",
       "native_artifact_id": ".agents/skills/flowguard-contract-exhaustion-mesh/SKILL.md",
       "content_fingerprint": "sha256:ded4fda6e886e70e3d120f2462cc4da959627026ce3f308769923b4811e09d8a",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3446,9 +3446,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md#Requirement: Ledger supports finite Cartesian coverage planning",
       "content_fingerprint": "sha256:056ec69763cbe223bae2b75ac8dcb730ed6d5c3fd373c9fc85dd1c9c354c2d19",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3492,9 +3492,9 @@
       "source_system_id": "flowguard-skill-contract",
       "native_artifact_id": ".agents/skills/flowguard-test-mesh/SKILL.md",
       "content_fingerprint": "sha256:4d8d181ce33d761779538be1d99151a2b710c8929829b5ac5aca98891f4a8175",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3538,9 +3538,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md#Requirement: Ledger exposes downstream evidence ids",
       "content_fingerprint": "sha256:056ec69763cbe223bae2b75ac8dcb730ed6d5c3fd373c9fc85dd1c9c354c2d19",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3584,9 +3584,9 @@
       "source_system_id": "flowguard-skill-contract",
       "native_artifact_id": ".agents/skills/flowguard-model-miss-review/SKILL.md",
       "content_fingerprint": "sha256:3969dc147695391962410ed80d68f5d5b8504ee21f73aed8093ba07eab995d60",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3630,9 +3630,9 @@
       "source_system_id": "flowguard-skill-contract",
       "native_artifact_id": ".agents/skills/flowguard-existing-model-preflight/SKILL.md",
       "content_fingerprint": "sha256:6e731c01f2904b0b445aaae748cd582b01450680d6c19cd8812f994ccf9f5dfe",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3676,9 +3676,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/behavior-commitment-ledger/spec.md#Requirement: Model miss backfeed checks existing commitments first",
       "content_fingerprint": "sha256:056ec69763cbe223bae2b75ac8dcb730ed6d5c3fd373c9fc85dd1c9c354c2d19",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3722,9 +3722,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/flowguard-self-maintenance-mesh/spec.md#Requirement: FlowGuard self maintenance exercises the full understanding path",
       "content_fingerprint": "sha256:c9d8538c35c503447880fb263d1bed0867d4d82d8808dc2d470dba08ef5e0da8",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3768,9 +3768,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/work-context/spec.md#Requirement: WorkContext has zero provider execution authority",
       "content_fingerprint": "sha256:e92e89fc754f96e8f44a5059509059f4818cc29f064ebe67362bc17edea816be",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3814,9 +3814,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/development-process-strategy-selection/spec.md#Requirement: Hard outcome equivalence precedes process optimization",
       "content_fingerprint": "sha256:e1c81ec0e6bfccac17adbf5ea247097be1bd6c641c79da418499b377a05e8b0b",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3856,13 +3856,13 @@
       "surface_id": "surface:project-rules:single-path-replacement-disposition",
       "surface_kind": "process",
       "label": "single-path project rule",
-      "source_ref": "AGENTS.md#FlowGuard Project Rules",
+      "source_ref": "AGENTS.md#FlowGuard author-repository rules",
       "source_system_id": "project-rules",
-      "native_artifact_id": "AGENTS.md#FlowGuard Project Rules",
-      "content_fingerprint": "sha256:2c53a33ad897cdb45a1614045bfae4943036a1d3aeee2fae304ee907b3ba09f6",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "native_artifact_id": "AGENTS.md#FlowGuard author-repository rules",
+      "content_fingerprint": "sha256:d13c55b6187f72657ccb600920c5d09cac670263041286992f11e2bdeb394522",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3906,9 +3906,9 @@
       "source_system_id": "public-agent-contract",
       "native_artifact_id": "docs/agents_snippet.md#Hard Gates",
       "content_fingerprint": "sha256:5ebd3c56985f072d53b374aa3e0073c1a31bea13e1b683541dcb518797f81bee",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -3951,10 +3951,10 @@
       "source_ref": ".agents/skills/flowguard/SKILL.md; .agents/skills/flowguard-*/SKILL.md; docs/agents_snippet.md",
       "source_system_id": "flowguard-skill-contract",
       "native_artifact_id": ".agents/skills/flowguard/SKILL.md; .agents/skills/flowguard-*/SKILL.md; docs/agents_snippet.md",
-      "content_fingerprint": "sha256:be0d73c31923847ef0ba2b003f9ab8900abea8c02441829100e9371ba1965b7e",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "content_fingerprint": "sha256:dbffb35637a4b84de9646fb5987e21862c262a19758776a44903c6fba1f3b363",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4013,9 +4013,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/flowguard-compositional-verification/spec.md",
       "content_fingerprint": "sha256:a24245f4d3cf4ab4d5698cefaa34925801e006788781fd41784b674f153355b5",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4059,9 +4059,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/flowguard-api-registry/spec.md#Requirement: Route-scoped API groups",
       "content_fingerprint": "sha256:6823ba7a94a1cdc3470d492c88527215a57d06a52ca051798ebde75347df577c",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4105,9 +4105,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/flowguard-api-registry/spec.md#Requirement: Evidence API exposes template files and CLI surfaces",
       "content_fingerprint": "sha256:6823ba7a94a1cdc3470d492c88527215a57d06a52ca051798ebde75347df577c",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4151,9 +4151,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/authoritative-model-system/spec.md#Requirement: A project has one observed model-system head",
       "content_fingerprint": "sha256:d126a4a96cf11a1c2f5199049291b925d70f072c1599e4c9fe69209cae13ccb3",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4197,9 +4197,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/task-coverage-demand/spec.md#Requirement: Task facts determine the coverage denominator",
       "content_fingerprint": "sha256:87048e9223a873ea896d871fb49d329e9d9a90a88c667c4a5124b875ed815232",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4243,9 +4243,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/model-maturation-receipt/spec.md#Requirement: Terminal maturation is published as a canonical receipt",
       "content_fingerprint": "sha256:18525a2fc8f68bc3413eb56b7935265f128b67ae29779682d779d971b1d92b37",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4289,9 +4289,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/development-process-flow/spec.md#Requirement: Implementation admission requires verified sufficiency and separate permission",
       "content_fingerprint": "sha256:758ef0931be67d0216c5fabbd0deae5143812cc363262a27fdb2c77d81e48664",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4335,9 +4335,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/risk-evidence-ledger/spec.md#Requirement: RiskEvidenceLedger owns final broad confidence",
       "content_fingerprint": "sha256:eaedcecba7b924ef00eb4d2822255db2cdaca0ba255c27ebeb2ad8ab9f4adaa4",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4381,9 +4381,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/flowguard-closure-contract/spec.md#Requirement: Closure validates identity and terminal integrity without recomputing confidence",
       "content_fingerprint": "sha256:e53272e879d4d8311b7ce2e24168aa2181e962130b51b67cd3aa00590832d892",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4427,9 +4427,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/model-maturation-receipt/spec.md#Requirement: Understanding status is a read-only receipt projection",
       "content_fingerprint": "sha256:18525a2fc8f68bc3413eb56b7935265f128b67ae29779682d779d971b1d92b37",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4473,9 +4473,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/validation-evidence-gates/spec.md#Requirement: Cross-route validation evidence gate",
       "content_fingerprint": "sha256:d1d890b3def2816340f77ad1071dfe8252dc40e9f930348f5b9dc8988197647d",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4519,9 +4519,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/user-facing-model-diagrams/spec.md#Requirement: No Runtime Semantics Change",
       "content_fingerprint": "sha256:1660b5759b8d22e19f734eb025f945d4102f1ff4db0443f9487fe692be0a63a5",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4565,9 +4565,9 @@
       "source_system_id": "openspec-main",
       "native_artifact_id": "openspec/specs/flowguard-codex-skill-satellites/spec.md#Requirement: Satellite topology is derived from one canonical suite map",
       "content_fingerprint": "sha256:b2d17a52aaf06bc2dc5d3f4688c33d4383d2aade3ea6d0e9ade645f8377f15b3",
-      "inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+      "inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
       "discovery_evidence_ids": [
-        "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+        "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
       ],
       "source_authority_role": "normative",
       "source_classification": "external_normative_contract",
@@ -4638,10 +4638,10 @@
     "surface:user-facing-model-diagrams-spec",
     "surface:codex-skill-satellites-spec"
   ],
-  "source_inventory_revision": "source-inventory:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
-  "source_inventory_fingerprint": "sha256:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e",
+  "source_inventory_revision": "source-inventory:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
+  "source_inventory_fingerprint": "sha256:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b",
   "source_inventory_evidence_ids": [
-    "source-inventory-discovery:5312ae84dfb6ce68bbd80741f973dca9c434211507f07c761259a23ff9d1506e"
+    "source-inventory-discovery:c4830e844b9494169f1e1ba8674b3fdae0724206fe0487ec373d03581ee6171b"
   ],
   "require_complete_source_inventory": true,
   "independent_behavior_inventory": null,

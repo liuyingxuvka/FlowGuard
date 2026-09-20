@@ -174,6 +174,7 @@ class SkillDocsTests(unittest.TestCase):
         self.assertEqual(
             (
                 "## Purpose",
+                "## Model-purpose gate",
                 "## Entrypoint Scope",
                 "## Local Material Routing",
                 "## Entrypoint Acceptance Map",

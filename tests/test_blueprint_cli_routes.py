@@ -1,4 +1,5 @@
 import json
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -1111,6 +1112,131 @@ class BlueprintCliRouteTests(unittest.TestCase):
         self.assertEqual(0, payload["gap_count"])
         self.assertTrue(payload["implementation_admitted"])
         projection.to_dict.assert_not_called()
+
+    def test_affected_understanding_cli_batches_seed_ids_and_reuses_store_indexes(self):
+        _projection, index, shards, objects = self._affected_understanding_artifacts()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            index_path = self._write_json(root, "index.json", index.to_dict())
+            shard_path = self._write_json(root, "shards.json", shards)
+            object_path = self._write_json(root, "objects.json", objects)
+            build_contexts = []
+            original_build_index = _JsonObjectStoreLocator._build_index
+
+            def counted_build_index(locator):
+                if locator._offsets is None:
+                    build_contexts.append(locator.context)
+                return original_build_index(locator)
+
+            output = StringIO()
+            with patch.object(
+                _JsonObjectStoreLocator,
+                "_build_index",
+                new=counted_build_index,
+            ), redirect_stdout(output):
+                exit_code = main(
+                    [
+                        "affected-blueprint-understanding",
+                        "--index",
+                        str(index_path),
+                        "--shard-store",
+                        str(shard_path),
+                        "--object-store",
+                        str(object_path),
+                        "--affected-id",
+                        "surface:a",
+                        "--affected-id",
+                        "behavior:a",
+                        "--json",
+                    ]
+                )
+        payload = json.loads(output.getvalue())
+        self.assertEqual(0, exit_code)
+        self.assertEqual(
+            ["behavior:a", "surface:a"],
+            payload["task_context"]["requested_seed_ids"],
+        )
+        self.assertEqual(
+            sorted(
+                [
+                    "affected blueprint shard store",
+                    "affected blueprint object store",
+                ]
+            ),
+            sorted(build_contexts),
+        )
+
+    def test_projection_affected_ids_and_changed_paths_are_merged_before_read(self):
+        fixture_authority = SimpleNamespace(
+            snapshot=SimpleNamespace(
+                fingerprint="sha256:fixture-snapshot",
+                subject_revision="revision:fixture",
+            ),
+            head=SimpleNamespace(
+                fingerprint="sha256:fixture-head",
+                subject_revision="revision:fixture",
+                accepted_revision_set_fingerprint="sha256:fixture-revisions",
+            ),
+            accepted_revision=None,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(
+                sys.modules[__name__],
+                "load_current_model_authority_state",
+                return_value=fixture_authority,
+            ), patch(
+                "flowguard.model_authority_store.load_current_model_authority_state",
+                return_value=fixture_authority,
+            ):
+                projection_root = self._write_selective_projection_fixture(Path(directory))
+            output = StringIO()
+            with patch(
+                "flowguard.model_authority_store.load_current_model_authority_state",
+                return_value=fixture_authority,
+            ), redirect_stdout(output):
+                exit_code = main(
+                    [
+                        "affected-blueprint-understanding",
+                        "--root",
+                        str(Path.cwd()),
+                        "--projection-root",
+                        str(projection_root),
+                        "--affected-id",
+                        "surface:a",
+                        "--changed-path",
+                        "src/a.py",
+                        "--json",
+                    ]
+                )
+            payload = json.loads(output.getvalue())
+            self.assertEqual(0, exit_code)
+            self.assertEqual(
+                ["surface:a"],
+                payload["task_context"]["requested_seed_ids"],
+            )
+
+            output = StringIO()
+            with patch(
+                "flowguard.model_authority_store.load_current_model_authority_state",
+                return_value=fixture_authority,
+            ), redirect_stdout(output):
+                exit_code = main(
+                    [
+                        "affected-blueprint-understanding",
+                        "--root",
+                        str(Path.cwd()),
+                        "--projection-root",
+                        str(projection_root),
+                        "--affected-id",
+                        "surface:a",
+                        "--changed-path",
+                        "src/not-registered.py",
+                        "--json",
+                    ]
+                )
+            payload = json.loads(output.getvalue())
+        self.assertEqual(2, exit_code)
+        self.assertIn("unknown_change_point", payload["findings"][0]["message"])
 
     def test_affected_understanding_cli_rejects_unknown_index_fields(self):
         _projection, index, shards, objects = self._affected_understanding_artifacts()

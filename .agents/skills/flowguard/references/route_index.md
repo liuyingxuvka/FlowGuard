@@ -2,6 +2,11 @@
 
 This is the only pre-selection route material. It projects the current `RouteProfile` registry; it selects an owner but does not execute a route or prove evidence.
 
+For a machine-readable capsule after a route id or skill name is known, run
+`python -m flowguard route-reference <route-or-skill-name> --json`. That query
+returns one current route and its lazy reference edges; it never returns the
+complete route registry or loads the selected fragment.
+
 ## Decision rule
 
 Extract task facts with request spans. Match those facts to positive and forbidden condition ids in the current route profiles. Select only an exact single public owner. Zero candidates means `no_match`; multiple candidates mean `conflict`; neither may be resolved by keyword score, declaration order, or a caller saying a route applies.

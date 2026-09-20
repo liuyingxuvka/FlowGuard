@@ -6,6 +6,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
 import os
+import platform
 from pathlib import Path
 import subprocess
 import sys
@@ -21,8 +22,10 @@ if str(SCRIPT_ROOT) not in sys.path:
 from flowguard.pytest_shards import (  # noqa: E402
     PARTITION_ALGORITHM,
     aggregate_pytest_projections,
+    freeze_pytest_leaf_plan,
     nodeid_fingerprint,
     normalize_nodeids,
+    observe_pytest_leaf_plan,
     partition_nodeids,
     validate_partition,
 )
@@ -134,6 +137,88 @@ def _read_object(path: Path) -> Mapping[str, Any] | None:
     except (OSError, UnicodeError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, Mapping) else None
+
+
+def _full_pytest_leaf_identity(
+    *,
+    root: Path,
+    environment: Mapping[str, str],
+    collection: Mapping[str, Any],
+    nodeids: Sequence[str],
+    capability_scope: str,
+    shard_timeout: float,
+) -> dict[str, Any]:
+    """Build the one runtime identity shared by this frozen pytest owner.
+
+    Output locations and run timestamps are intentionally absent.  The
+    identity contains the interpreter, relevant environment, pytest config
+    observation, actual arguments/instrumentation, source inventory, and
+    timeout semantics so an external/native parent can consume this table
+    only when it really describes the same leaf execution.
+    """
+
+    environment_identity = {
+        key: str(environment.get(key, ""))
+        for key in sorted(environment)
+        if key in {
+            "PYTHONHASHSEED",
+            "PYTHONPATH",
+            "PYTHONUTF8",
+            "PYTEST_ADDOPTS",
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD",
+            "PYTEST_PLUGINS",
+        }
+    }
+    configuration = collection.get("configuration", collection.get("config", {}))
+    if isinstance(configuration, Mapping):
+        configuration_identity: Any = dict(configuration)
+    elif isinstance(configuration, Sequence) and not isinstance(
+        configuration, (str, bytes, bytearray)
+    ):
+        configuration_identity = list(configuration)
+    else:
+        configuration_identity = str(configuration or "")
+    return {
+        "interpreter": {
+            "implementation": platform.python_implementation(),
+            "version": platform.python_version(),
+            "executable": str(Path(sys.executable).resolve()),
+            "prefix": str(Path(sys.prefix).resolve()),
+        },
+        "environment": environment_identity,
+        "config": configuration_identity,
+        "args_semantics": {
+            "command": [
+                sys.executable,
+                "-B",
+                "-m",
+                "pytest",
+                "-p",
+                "flowguard.pytest_shard_plugin",
+                "-p",
+                "flowguard.pytest_nodeid_recorder",
+                "--junit-xml=<LEAF_OUTPUT>",
+            ],
+            "capability_scope": capability_scope,
+            "shard_algorithm": PARTITION_ALGORITHM,
+        },
+        "input_identity": {
+            "collected_nodeids": nodeid_fingerprint(tuple(nodeids)),
+            "collection_schema": collection.get("schema_version", ""),
+        },
+        "timeout_seconds": float(shard_timeout),
+        "timeout_result": "not_observed",
+        "plugins": [
+            "flowguard.pytest_shard_plugin",
+            "flowguard.pytest_nodeid_recorder",
+        ],
+        "instrumentation": {
+            "junit": True,
+            "nodeid_recorder": True,
+            "trace": False,
+        },
+        "working_root": str(root),
+    }
 
 
 def _run_process(
@@ -792,6 +877,27 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
 
     runnable_nodeids = tuple(capability_partition["runnable_nodeids"])
     blocked_nodeids = tuple(capability_partition["blocked_nodeids"])
+    leaf_identity = _full_pytest_leaf_identity(
+        root=root,
+        environment=environment,
+        collection=collection,
+        nodeids=collected_nodeids,
+        capability_scope=capability_scope,
+        shard_timeout=float(args.shard_timeout),
+    )
+    frozen_leaf_plan = freeze_pytest_leaf_plan(
+        [
+            {
+                "owner_id": "owner:flowguard:pytest",
+                "obligation_ids": ["flowguard.pytest.full"],
+                "node_ids": list(collected_nodeids),
+                "identity": leaf_identity,
+            }
+        ],
+        required_obligation_ids=("flowguard.pytest.full",),
+    )
+    frozen_leaf_plan_path = output_root / "leaf-plan.json"
+    _write_json(frozen_leaf_plan_path, frozen_leaf_plan)
     if not runnable_nodeids:
         payload = _blocked_payload(
             output_root=output_root,
@@ -807,6 +913,8 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         payload["planned_count"] = len(nodeids)
         payload["executed_count"] = 0
         payload["not_run_count"] = len(blocked_nodeids)
+        payload["pytest_leaf_plan"] = frozen_leaf_plan
+        payload["pytest_leaf_plan_path"] = str(frozen_leaf_plan_path)
         _write_json(output_root / "aggregate.json", payload)
         return 70, payload
 
@@ -819,6 +927,8 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             collection=collection,
         )
         payload["partition"] = partition_audit
+        payload["pytest_leaf_plan"] = frozen_leaf_plan
+        payload["pytest_leaf_plan_path"] = str(frozen_leaf_plan_path)
         _write_json(output_root / "aggregate.json", payload)
         return 70, payload
 
@@ -955,6 +1065,60 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         status = "blocked"
     if deadline_expired:
         status = "blocked"
+    projection_by_nodeid: dict[str, tuple[str, str]] = {}
+    for index, row in enumerate(shard_rows):
+        projection = shard_results[index][1]
+        if not isinstance(projection, Mapping):
+            continue
+        shard_status = (
+            "pass"
+            if row.get("status") == "pass"
+            else "fail"
+            if row.get("status") == "fail"
+            else "blocked"
+        )
+        evidence_ref = str(row.get("junit_path", ""))
+        node_statuses = projection.get("node_statuses", {})
+        for raw_nodeid in projection.get("node_ids", ()):
+            nodeid = str(raw_nodeid).strip()
+            if nodeid:
+                raw_status = (
+                    node_statuses.get(nodeid)
+                    if isinstance(node_statuses, Mapping)
+                    else None
+                )
+                leaf_status = {
+                    "passed": "pass",
+                    "xfailed": "pass",
+                    "failed": "fail",
+                    "xpassed": "fail",
+                    "error": "fail",
+                    "skipped": "blocked",
+                }.get(str(raw_status), shard_status)
+                projection_by_nodeid[nodeid] = (leaf_status, evidence_ref)
+    leaf_observations: list[dict[str, Any]] = []
+    for leaf in frozen_leaf_plan.get("leaves", ()):
+        nodeid = str(leaf.get("nodeid", "")) if isinstance(leaf, Mapping) else ""
+        if nodeid in blocked_nodeids:
+            leaf_status, evidence_ref = "blocked", ""
+        else:
+            leaf_status, evidence_ref = projection_by_nodeid.get(
+                nodeid, ("blocked", "")
+            )
+        leaf_observations.append(
+            {
+                "leaf_id": str(leaf.get("leaf_id", "")),
+                "status": leaf_status,
+                "scope": "current",
+                "evidence_refs": [evidence_ref] if evidence_ref else [],
+            }
+        )
+    observed_leaf_plan = observe_pytest_leaf_plan(
+        frozen_leaf_plan,
+        leaf_observations,
+    )
+    observed_leaf_plan_path = output_root / "leaf-plan-observation.json"
+    _write_json(observed_leaf_plan_path, observed_leaf_plan)
     payload = {
         "schema_version": "flowguard.pytest_shard_run.v1",
         "status": status,
@@ -966,6 +1130,9 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             "that collection or external release/install parity."
         ),
         "output_root": str(output_root),
+        "pytest_leaf_plan": observed_leaf_plan,
+        "pytest_leaf_plan_path": str(frozen_leaf_plan_path),
+        "pytest_leaf_observation_path": str(observed_leaf_plan_path),
         "collection": dict(collection),
         "collection_run": collect_run,
         "deadline": {

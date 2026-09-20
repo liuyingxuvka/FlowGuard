@@ -10,6 +10,11 @@ from .export import check_report_to_dict, check_report_to_json_text
 from .trace import Trace
 
 
+EXPLORATION_STATUS_COMPLETE = "complete"
+EXPLORATION_STATUS_STOPPED_ON_COUNTEREXAMPLE = "stopped_on_counterexample"
+EXPLORATION_STATUS_BUDGET_EXHAUSTED = "budget_exhausted"
+
+
 @dataclass(frozen=True)
 class DeadBranch:
     """A workflow branch that could not make progress."""
@@ -79,11 +84,13 @@ class CheckReport:
     explored_sequence_count: int = 0
     transition_count: int = 0
     remaining_scope: str = ""
+    exploration_status: str = EXPLORATION_STATUS_COMPLETE
 
     def format_text(self, max_examples: int = 3) -> str:
         lines = [
             f"status: {'OK' if self.ok else 'VIOLATION'}",
             self.summary or f"traces={len(self.traces)} sequences={len(self.explored_sequences)}",
+            f"exploration_status: {self.exploration_status}",
             f"invariant_violations: {len(self.violations)}",
             f"dead_branches: {len(self.dead_branches)}",
             f"exceptions: {len(self.exception_branches)}",

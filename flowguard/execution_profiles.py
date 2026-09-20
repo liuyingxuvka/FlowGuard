@@ -86,6 +86,11 @@ DEFAULT_VALIDATION_EXECUTION_POLICY = {
     "observation_timeout_seconds": 120.0,
     "collection_timeout_seconds": 240.0,
     "pytest_shard_timeout_seconds": 2400.0,
+    "profile_timeout_seconds": {
+        "fast": 30.0,
+        "focused": 120.0,
+        "full": 900.0,
+    },
 }
 DEFAULT_OWNER_TIMEOUT_SECONDS = {
     "skill_native_checks": 3600.0,
@@ -123,6 +128,7 @@ class ValidationExecutionPolicy:
     pytest_shard_timeout_seconds: float = DEFAULT_VALIDATION_EXECUTION_POLICY[
         "pytest_shard_timeout_seconds"
     ]
+    profile_timeout_seconds: Mapping[str, float] = ()
 
     def __post_init__(self) -> None:
         if self.schema != "flowguard.resource_policy.v1":
@@ -164,6 +170,33 @@ class ValidationExecutionPolicy:
                 )
             normalized[key] = value
         object.__setattr__(self, "owner_timeout_seconds", dict(sorted(normalized.items())))
+        raw_profiles = self.profile_timeout_seconds
+        if not isinstance(raw_profiles, Mapping):
+            if raw_profiles in ((), None):
+                raw_profiles = DEFAULT_VALIDATION_EXECUTION_POLICY[
+                    "profile_timeout_seconds"
+                ]
+            else:
+                raise ValidationExecutionPolicyError(
+                    "profile_timeout_seconds must be a mapping"
+                )
+        normalized_profiles: dict[str, float] = {}
+        for profile_id in ("fast", "focused", "full"):
+            value = float(raw_profiles.get(profile_id, DEFAULT_VALIDATION_EXECUTION_POLICY[
+                "profile_timeout_seconds"
+            ][profile_id]))
+            if not math.isfinite(value) or value <= 0:
+                raise ValidationExecutionPolicyError(
+                    f"profile_timeout_seconds[{profile_id!r}] must be finite and positive"
+                )
+            normalized_profiles[profile_id] = value
+        unknown_profiles = sorted(set(raw_profiles) - set(normalized_profiles))
+        if unknown_profiles:
+            raise ValidationExecutionPolicyError(
+                "profile_timeout_seconds keys are unsupported: "
+                + ", ".join(unknown_profiles)
+            )
+        object.__setattr__(self, "profile_timeout_seconds", normalized_profiles)
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any] | None) -> "ValidationExecutionPolicy":
@@ -180,6 +213,7 @@ class ValidationExecutionPolicy:
             "collection_timeout_seconds",
             "owner_timeout_seconds",
             "pytest_shard_timeout_seconds",
+            "profile_timeout_seconds",
         }
         unknown = sorted(set(value) - allowed)
         if unknown:
@@ -201,6 +235,9 @@ class ValidationExecutionPolicy:
             owner_timeout_seconds=value.get("owner_timeout_seconds", {}),
             pytest_shard_timeout_seconds=float(
                 value.get("pytest_shard_timeout_seconds", defaults["pytest_shard_timeout_seconds"])
+            ),
+            profile_timeout_seconds=value.get(
+                "profile_timeout_seconds", defaults["profile_timeout_seconds"]
             ),
         )
 
@@ -230,6 +267,16 @@ class ValidationExecutionPolicy:
             )
         )
 
+    def profile_timeout(self, profile_id: str) -> float:
+        """Return the finite operational budget for one execution profile."""
+
+        key = str(profile_id).strip()
+        if key not in self.profile_timeout_seconds:
+            raise ValidationExecutionPolicyError(
+                f"unknown execution profile: {profile_id}"
+            )
+        return float(self.profile_timeout_seconds[key])
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema": self.schema,
@@ -238,6 +285,7 @@ class ValidationExecutionPolicy:
             "collection_timeout_seconds": self.collection_timeout_seconds,
             "owner_timeout_seconds": dict(self.owner_timeout_seconds),
             "pytest_shard_timeout_seconds": self.pytest_shard_timeout_seconds,
+            "profile_timeout_seconds": dict(self.profile_timeout_seconds),
         }
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
 import os
 import platform
@@ -11,7 +12,7 @@ import shlex
 import sys
 import tempfile
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -26,11 +27,13 @@ from .evidence_receipts import (
     RECEIPT_STATUS_PASS,
     ReceiptVerificationContext,
     build_environment_fingerprint,
+    compare_input_snapshots,
     evidence_storage_root,
     fingerprint_value,
     list_evidence_receipts,
     save_evidence_receipt,
     snapshot_bytes,
+    snapshot_missing,
     snapshot_file,
     tokenize_command,
     tokenize_path,
@@ -42,9 +45,15 @@ from .skill_contracts import (
     COMPILED_CONTRACT_FILE,
     CONTRACT_SOURCE_FILE,
 )
+from .pytest_shards import (
+    pytest_leaf_key,
+    pytest_leaf_plan_fingerprint,
+    validate_pytest_leaf_plan,
+)
 
 
 PRODUCER_ID = "flowguard.skill_native_checks"
+NATIVE_IDENTITY_VERSION = "2"
 PROOF_SCHEMA = "flowguard.skill_native_check_proof.v1"
 SUITE_MAP_PATH = Path(".skillguard/flowguard-suite/suite-map.json")
 SKILL_ROOT = Path(".agents/skills")
@@ -115,6 +124,328 @@ def _execution_command(parts: Sequence[str]) -> tuple[str, ...]:
     return values
 
 
+def _command_uses_pytest(command_parts: Sequence[str]) -> bool:
+    return any(str(part).casefold().split("::", 1)[0] == "pytest" for part in command_parts)
+
+
+def _pytest_configuration_paths(
+    root: Path,
+    command_parts: Sequence[str],
+) -> tuple[Path, ...]:
+    """Return pytest's selected config and ancestor conftest boundary."""
+
+    paths: set[Path] = {root / name for name in ("pytest.ini", "pyproject.toml", "setup.cfg", "tox.ini")}
+    values = tuple(str(item) for item in command_parts)
+    for index, value in enumerate(values):
+        raw_config = ""
+        if value in {"-c", "--config-file"} and index + 1 < len(values):
+            raw_config = values[index + 1]
+        elif value.startswith("--config-file="):
+            raw_config = value.split("=", 1)[1]
+        if raw_config:
+            config_path = (root / raw_config).resolve()
+            try:
+                config_path.relative_to(root)
+            except ValueError:
+                continue
+            paths.add(config_path)
+
+    selected_paths = _command_input_paths(root, command_parts)
+    if not selected_paths:
+        selected_paths = (root,)
+    for selected in selected_paths:
+        anchor = selected if selected.is_dir() else selected.parent
+        try:
+            relatives = anchor.relative_to(root).parts
+        except ValueError:
+            continue
+        ancestors = [root.joinpath(*relatives[:index]) for index in range(len(relatives) + 1)]
+        for ancestor in ancestors:
+            paths.add(ancestor / "conftest.py")
+    return tuple(sorted(paths))
+
+
+def _native_environment_snapshots(
+    native_checks: Sequence[Mapping[str, Any]],
+    obligation_ids: Sequence[str],
+) -> tuple[Any, ...]:
+    snapshots: list[Any] = []
+    for check in native_checks:
+        try:
+            command = _check_command(check)
+        except ValueError:
+            continue
+        if not _command_uses_pytest(command):
+            continue
+        for name in (
+            "PYTEST_ADDOPTS",
+            "PYTEST_PLUGINS",
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD",
+            "PYTHONPATH",
+            "PYTHONHASHSEED",
+        ):
+            artifact_id = f"environment:{name}"
+            path_token = f"environment/{name}"
+            if name in os.environ:
+                snapshots.append(
+                    snapshot_bytes(
+                        artifact_id,
+                        os.environ[name].encode("utf-8"),
+                        path_token=path_token,
+                        hash_policy=INPUT_HASH_BOTH,
+                        obligation_ids=obligation_ids,
+                    )
+                )
+            else:
+                snapshots.append(
+                    snapshot_missing(
+                        artifact_id,
+                        path_token=path_token,
+                        hash_policy=INPUT_HASH_BOTH,
+                        obligation_ids=obligation_ids,
+                    )
+                )
+    return tuple(dict((item.artifact_id, item) for item in snapshots).values())
+
+
+def _pytest_distribution_version() -> str:
+    try:
+        return importlib.metadata.version("pytest")
+    except importlib.metadata.PackageNotFoundError:
+        try:
+            import pytest  # type: ignore[import-not-found]
+
+            return str(pytest.__version__)
+        except (ImportError, AttributeError) as exc:
+            raise ValueError("pytest_version_unavailable") from exc
+
+
+def _pytest_plugin_version(module_name: str, pytest_version: str) -> str:
+    if module_name == "pytest" or module_name.startswith("_pytest"):
+        return pytest_version
+    package_name = module_name.split(".", 1)[0]
+    distributions = importlib.metadata.packages_distributions().get(package_name, ())
+    for distribution_name in distributions:
+        try:
+            return importlib.metadata.version(distribution_name)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+    return "local"
+
+
+def _pytest_identity_plan(
+    root: Path,
+    command_parts: Sequence[str],
+    *,
+    timeout_seconds: float,
+) -> Mapping[str, Any]:
+    """Collect one pytest plan and bind the selected runtime identity."""
+
+    executable_command = list(_execution_command(command_parts))
+    if "--collect-only" not in executable_command:
+        executable_command.append("--collect-only")
+    if "-q" not in executable_command and "--quiet" not in executable_command:
+        executable_command.append("-q")
+    if "--trace-config" not in executable_command:
+        executable_command.append("--trace-config")
+    completed = run_supervised(
+        tuple(executable_command),
+        cwd=root,
+        timeout_seconds=max(1.0, min(120.0, float(timeout_seconds))),
+        grace_seconds=3.0,
+        environment=dict(os.environ),
+    )
+    if not completed.ok:
+        raise ValueError(
+            f"pytest_identity_collection_failed:{completed.terminal_reason}:{completed.exit_code}"
+        )
+    output = "\n".join(
+        value
+        for value in (completed.stdout, completed.stderr)
+        if isinstance(value, str)
+    )
+    nodeids = tuple(
+        sorted(
+            {
+                line.strip()
+                for line in output.splitlines()
+                if "::" in line
+                and not line.lstrip().startswith(("PLUGIN", "<", "="))
+                and " " not in line.strip()
+            }
+        )
+    )
+    plugin_names = {
+        match.group(1)
+        for match in re.finditer(
+            r"PLUGIN registered: <(?:module )?'([^']+)'", output
+        )
+    }
+    for raw in os.environ.get("PYTEST_PLUGINS", "").replace(";", ",").split(","):
+        if raw.strip():
+            plugin_names.add(raw.strip())
+    pytest_version = _pytest_distribution_version()
+    plugins = tuple(
+        {
+            "name": name,
+            "version": _pytest_plugin_version(name, pytest_version),
+        }
+        for name in sorted(plugin_names)
+    )
+    configuration_paths = tuple(
+        tokenize_path(path, workspace_root=root)
+        for path in _pytest_configuration_paths(root, command_parts)
+    )
+    normalized_argv = tokenize_command(
+        tuple(executable_command), workspace_root=root
+    )
+    return {
+        "identity_version": NATIVE_IDENTITY_VERSION,
+        "argv": list(normalized_argv),
+        "pytest_version": pytest_version,
+        "python_environment": {
+            "implementation": platform.python_implementation(),
+            "version": platform.python_version(),
+            "executable": tokenize_path(Path(sys.executable), workspace_root=root),
+            "prefix": tokenize_path(Path(sys.prefix), workspace_root=root),
+            "base_prefix": tokenize_path(Path(sys.base_prefix), workspace_root=root),
+        },
+        "working_root": "<WORKSPACE>",
+        "configuration_paths": list(configuration_paths),
+        "nodeids": list(nodeids),
+        "plugins": [dict(item) for item in plugins],
+    }
+
+
+def _pytest_identity_plans(
+    root: Path,
+    native_checks: Sequence[Mapping[str, Any]],
+    *,
+    timeout_seconds: float,
+) -> dict[str, Mapping[str, Any]]:
+    """Collect each distinct declared pytest identity once."""
+
+    plans: dict[str, Mapping[str, Any]] = {}
+    for check in native_checks:
+        command = _check_command(check)
+        if not _command_uses_pytest(command):
+            continue
+        key = fingerprint_value(tokenize_command(command, workspace_root=root))
+        if key not in plans:
+            plans[key] = _pytest_identity_plan(
+                root,
+                command,
+                timeout_seconds=timeout_seconds,
+            )
+    return plans
+
+
+def _pytest_identity_snapshots(
+    root: Path,
+    native_checks: Sequence[Mapping[str, Any]],
+    obligation_ids: Sequence[str],
+    *,
+    timeout_seconds: float,
+    plans: Mapping[str, Mapping[str, Any]] | None = None,
+) -> tuple[Any, ...]:
+    selected_plans = dict(
+        plans
+        if plans is not None
+        else _pytest_identity_plans(
+            root,
+            native_checks,
+            timeout_seconds=timeout_seconds,
+        )
+    )
+    snapshots: list[Any] = []
+    for key, plan in sorted(selected_plans.items()):
+        payload = json.dumps(
+            plan, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        snapshots.append(
+            snapshot_bytes(
+                f"pytest:plan:{key[:24]}",
+                payload,
+                path_token=f"pytest-plan/{key[:24]}.json",
+                hash_policy=INPUT_HASH_BOTH,
+                obligation_ids=obligation_ids,
+            )
+        )
+    return tuple(snapshots)
+
+
+def _shared_pytest_leaf_rows(
+    *,
+    repository_root: Path,
+    native_checks: Sequence[Mapping[str, Any]],
+    pytest_plans: Mapping[str, Mapping[str, Any]],
+    pytest_leaf_plan: Mapping[str, Any] | None,
+) -> dict[str, tuple[Mapping[str, Any], ...]]:
+    """Resolve exact current passing leaves for each native binding.
+
+    A parent may consume a leaf only when the supplied frozen table has the
+    same node id and complete runtime identity.  A failed, not-run, old-scope,
+    or differently instrumented leaf simply returns no reusable rows and the
+    ordinary native child remains responsible for execution.
+    """
+
+    if not isinstance(pytest_leaf_plan, Mapping):
+        return {}
+    if pytest_leaf_plan.get("schema_version") != "flowguard.pytest_leaf_plan.v1":
+        return {}
+    if pytest_leaf_plan.get("plan_hash") != pytest_leaf_plan_fingerprint(
+        pytest_leaf_plan
+    ):
+        return {}
+    if not validate_pytest_leaf_plan(pytest_leaf_plan).get("ok"):
+        return {}
+    leaves = [
+        row
+        for row in pytest_leaf_plan.get("leaves", ())
+        if isinstance(row, Mapping)
+    ]
+    by_key = {
+        str(row.get("leaf_key", "")): row
+        for row in leaves
+        if str(row.get("leaf_key", ""))
+    }
+    matches: dict[str, tuple[Mapping[str, Any], ...]] = {}
+    for check in native_checks:
+        command = _check_command(check)
+        if not _command_uses_pytest(command):
+            continue
+        key = fingerprint_value(
+            tokenize_command(command, workspace_root=repository_root)
+        )
+        plan = pytest_plans.get(key)
+        if plan is None:
+            continue
+        nodeids = tuple(str(value) for value in plan.get("nodeids", ()))
+        # The plan identity is an exact caller contract.  Native checks can
+        # reuse it only when the frozen leaf row was built from this same
+        # interpreter/config/args/input/timeout/plugin/instrumentation tuple.
+        identity = dict(plan)
+        identity.setdefault(
+            "timeout_seconds", float(check.get("timeout_seconds", 0) or 0)
+        )
+        identity.setdefault("timeout_result", "not_observed")
+        rows: list[Mapping[str, Any]] = []
+        for nodeid in nodeids:
+            leaf = by_key.get(pytest_leaf_key(nodeid, identity))
+            if (
+                leaf is None
+                or leaf.get("status") != "pass"
+                or leaf.get("scope", "current") != "current"
+                or not leaf.get("evidence_refs")
+            ):
+                rows = []
+                break
+            rows.append(leaf)
+        if rows and nodeids:
+            matches[str(check.get("check_id", ""))] = tuple(rows)
+    return matches
+
+
 def _sanitize_log(text: str, repository_root: Path, *, limit: int = 40000) -> str:
     value = text[-limit:]
     for raw, token in (
@@ -164,7 +495,10 @@ def _declared_native_input_paths(
 
     paths: set[Path] = set()
     for check in native_checks:
-        paths.update(_command_input_paths(root, _check_command(check)))
+        command = _check_command(check)
+        paths.update(_command_input_paths(root, command))
+        if _command_uses_pytest(command):
+            paths.update(_pytest_configuration_paths(root, command))
         for candidate in _selector_input_paths(root, check, native_checks):
             paths.add(candidate)
     producer_paths = (
@@ -213,12 +547,57 @@ def _safe_selector_path(root: Path, raw_path: str) -> Path | None:
 _VALID_SELECTOR_KINDS = frozenset({"path", "role", "component", "input_component"})
 
 
+def _explicitly_optional(value: Mapping[str, Any]) -> bool:
+    return value.get("optional") is True or value.get("required") is False
+
+
+def _selector_path_blockers(
+    root: Path,
+    raw_path: str,
+    *,
+    check_id: str,
+    label: str,
+    optional: bool,
+    expected_type: str = "",
+) -> list[str]:
+    blockers: list[str] = []
+    raw = str(raw_path).strip().replace("\\", "/")
+    candidate = _safe_selector_path(root, raw)
+    if candidate is None:
+        return [f"native_input_path_invalid:{check_id}:{raw_path!s}"]
+    wildcard = any(token in raw for token in ("*", "?", "["))
+    if wildcard:
+        try:
+            matches = tuple(root.glob(raw))
+        except (OSError, ValueError):
+            matches = ()
+        matches = tuple(match for match in matches if match.resolve().is_file() or match.resolve().is_dir())
+        if not matches and not optional:
+            blockers.append(f"native_input_path_missing:{check_id}:{label}")
+        candidates = matches
+    else:
+        if not candidate.exists():
+            if not optional:
+                blockers.append(f"native_input_path_missing:{check_id}:{label}")
+            return blockers
+        candidates = (candidate,)
+    expected = expected_type.strip().casefold()
+    if expected in {"dir", "directory"}:
+        if any(not item.is_dir() for item in candidates):
+            blockers.append(f"native_input_path_type_mismatch:{check_id}:{label}:directory")
+    elif expected == "file":
+        if any(not item.is_file() for item in candidates):
+            blockers.append(f"native_input_path_type_mismatch:{check_id}:{label}:file")
+    return blockers
+
+
 def _selector_validation_blockers(
     root: Path,
     check: Mapping[str, Any],
     *,
     component_ids: set[str],
     component_roles: set[str],
+    components: Sequence[Mapping[str, Any]] = (),
 ) -> list[str]:
     """Validate selector shape and confinement before any expensive work."""
 
@@ -255,6 +634,19 @@ def _selector_validation_blockers(
             raw_path = selector.get("path")
             if not isinstance(raw_path, str) or _safe_selector_path(root, raw_path) is None:
                 blockers.append(f"native_input_path_invalid:{check_id}:{raw_path!s}")
+            else:
+                blockers.extend(
+                    _selector_path_blockers(
+                        root,
+                        raw_path,
+                        check_id=check_id,
+                        label=raw_path,
+                        optional=_explicitly_optional(selector),
+                        expected_type=str(
+                            selector.get("path_type", selector.get("expected_type", ""))
+                        ),
+                    )
+                )
         elif kind == "role":
             role = selector.get("role")
             if not isinstance(role, str) or not role.strip() or role.strip() not in component_roles:
@@ -263,6 +655,57 @@ def _selector_validation_blockers(
             component_id = selector.get("component_id", selector.get("id", ""))
             if not isinstance(component_id, str) or not component_id.strip() or component_id.strip() not in component_ids:
                 blockers.append(f"native_input_component_unknown:{check_id}:{component_id!s}")
+    by_id = {
+        str(item.get("component_id", "")): item
+        for item in components
+        if str(item.get("component_id", ""))
+    }
+    by_role: dict[str, list[Mapping[str, Any]]] = {}
+    for component in components:
+        role = str(component.get("role", "")).strip()
+        if role:
+            by_role.setdefault(role, []).append(component)
+
+    selected_components: list[Mapping[str, Any]] = []
+    for selector in selectors:
+        kind = str(selector.get("kind", "")).strip()
+        if kind == "role":
+            selected_components.extend(
+                by_role.get(str(selector.get("role", "")).strip(), ())
+            )
+        elif kind in {"component", "input_component"}:
+            component = by_id.get(
+                str(selector.get("component_id", selector.get("id", ""))).strip()
+            )
+            if component is not None:
+                selected_components.append(component)
+    for component in selected_components:
+        members = component.get("member_paths", ())
+        if not isinstance(members, Sequence) or isinstance(members, (str, bytes)):
+            continue
+        for member in members:
+            member_spec = member if isinstance(member, Mapping) else {"path": member}
+            raw_member = member_spec.get("path", member_spec.get("member_path", ""))
+            if not isinstance(raw_member, str) or not raw_member.strip():
+                blockers.append(f"native_input_member_invalid:{check_id}:{raw_member!s}")
+                continue
+            blockers.extend(
+                _selector_path_blockers(
+                    root,
+                    raw_member,
+                    check_id=check_id,
+                    label=raw_member,
+                    optional=(
+                        _explicitly_optional(component)
+                        or _explicitly_optional(member_spec)
+                    ),
+                    expected_type=str(
+                        member_spec.get(
+                            "path_type", member_spec.get("expected_type", "")
+                        )
+                    ),
+                )
+            )
     return blockers
 
 
@@ -300,7 +743,10 @@ def _selector_input_paths(
         if not isinstance(members, Sequence) or isinstance(members, (str, bytes)):
             return
         for member in members:
-            raw = str(member).strip()
+            member_spec = member if isinstance(member, Mapping) else {"path": member}
+            raw = str(
+                member_spec.get("path", member_spec.get("member_path", ""))
+            ).strip()
             if any(token in raw for token in ("*", "?", "[")):
                 for match in root.glob(raw.replace("\\", "/")):
                     resolved = match.resolve()
@@ -417,7 +863,12 @@ def _selector_snapshots(
                 members = component.get("member_paths", ())
                 if isinstance(members, Sequence) and not isinstance(members, (str, bytes)):
                     for member in members:
-                        raw = str(member).replace("\\", "/")
+                        member_spec = member if isinstance(member, Mapping) else {"path": member}
+                        raw = str(
+                            member_spec.get(
+                                "path", member_spec.get("member_path", "")
+                            )
+                        ).replace("\\", "/")
                         for match in root.glob(raw) if any(token in raw for token in ("*", "?", "[")) else ():
                             if match.is_file():
                                 resolved.add(match.resolve().relative_to(root).as_posix())
@@ -460,6 +911,7 @@ def _input_snapshots(
     obligation_ids: Sequence[str],
     *,
     include_selector_inputs: bool = True,
+    extra_snapshots: Sequence[Any] = (),
 ) -> tuple[Any, ...]:
     skill_dir = root / SKILL_ROOT / skill_id
     paths = [
@@ -482,9 +934,8 @@ def _input_snapshots(
                 obligation_ids=obligation_ids,
             )
             if path.is_file()
-            else snapshot_bytes(
+            else snapshot_missing(
                 f"file:{path.relative_to(root).as_posix()}",
-                b"<missing>",
                 path_token=tokenize_path(path, workspace_root=root),
                 hash_policy=INPUT_HASH_BOTH,
                 obligation_ids=obligation_ids,
@@ -494,6 +945,8 @@ def _input_snapshots(
     ]
     if include_selector_inputs:
         snapshots.extend(_selector_snapshots(root, native_checks, obligation_ids))
+        snapshots.extend(_native_environment_snapshots(native_checks, obligation_ids))
+    snapshots.extend(extra_snapshots)
     return tuple(dict((item.artifact_id, item) for item in snapshots).values())
 
 
@@ -623,6 +1076,7 @@ def _validate_binding(
                 declared,
                 component_ids=component_ids,
                 component_roles=component_roles,
+                components=components,
             )
         )
         if projected is not None:
@@ -632,6 +1086,7 @@ def _validate_binding(
                     projected,
                     component_ids=component_ids,
                     component_roles=component_roles,
+                    components=components,
                 )
             )
     required_obligations = tuple(
@@ -669,6 +1124,8 @@ class NativeCheckRun:
     cleanup_confirmed: bool = True
     terminal_reason: str = "process_exit"
     descendant_process_ids: tuple[int, ...] = ()
+    reused_shared_leaf: bool = False
+    shared_leaf_ids: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -686,6 +1143,8 @@ class NativeCheckRun:
             "cleanup_confirmed": self.cleanup_confirmed,
             "terminal_reason": self.terminal_reason,
             "descendant_process_ids": list(self.descendant_process_ids),
+            "reused_shared_leaf": self.reused_shared_leaf,
+            "shared_leaf_ids": list(self.shared_leaf_ids),
         }
 
 
@@ -724,6 +1183,102 @@ class NativeSuiteContext:
     inventory_hash: str
     semantic_hash: str
     private_inventory_checked: bool
+    member_semantic_hashes: Mapping[str, str] = field(default_factory=dict)
+    member_inventory_hashes: Mapping[str, str] = field(default_factory=dict)
+    member_input_paths: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+
+    def member_semantic_hash(self, skill_id: str) -> str:
+        try:
+            return str(self.member_semantic_hashes[str(skill_id)])
+        except KeyError as exc:
+            raise ValueError(
+                f"native suite context missing member projection: {skill_id}"
+            ) from exc
+
+    def member_inventory_hash(self, skill_id: str) -> str:
+        try:
+            return str(self.member_inventory_hashes[str(skill_id)])
+        except KeyError as exc:
+            raise ValueError(
+                f"native suite context missing member raw projection: {skill_id}"
+            ) from exc
+
+
+def _semantic_file_bytes(value: bytes) -> bytes:
+    return value.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
+def _member_suite_projections(
+    root: Path,
+    report: Any,
+    selected_members: Sequence[str],
+) -> tuple[dict[str, str], dict[str, str], dict[str, tuple[str, ...]]]:
+    """Build member-local raw and newline-normalized suite projections once."""
+
+    report_members = {
+        str(member.skill_id): member
+        for member in getattr(report, "members", ())
+        if str(getattr(member, "skill_id", ""))
+    }
+    semantic_hashes: dict[str, str] = {}
+    inventory_hashes: dict[str, str] = {}
+    input_paths: dict[str, tuple[str, ...]] = {}
+    suite_policy = {
+        "schema_version": str(getattr(report, "schema_version", "")),
+        "suite_name": str(getattr(report, "suite_name", "")),
+    }
+    for raw_skill_id in selected_members:
+        skill_id = str(raw_skill_id)
+        member = report_members.get(skill_id)
+        if member is None:
+            raise ValueError(f"native suite context member is not declared: {skill_id}")
+        declared_path = str(member.declared_path).replace("\\", "/")
+        required_files = tuple(sorted(str(path) for path in member.required_files))
+        file_rows: list[dict[str, Any]] = []
+        raw_file_rows: list[dict[str, Any]] = []
+        paths: list[str] = []
+        for relative in required_files:
+            candidate = (root / Path(declared_path) / relative).resolve()
+            try:
+                token = candidate.relative_to(root).as_posix()
+            except ValueError as exc:
+                raise ValueError(
+                    f"native suite member path escapes repository: {skill_id}:{relative}"
+                ) from exc
+            paths.append(token)
+            if candidate.is_file():
+                raw = candidate.read_bytes()
+                raw_hash = fingerprint_value({"bytes": raw.hex()})
+                semantic_hash = fingerprint_value(
+                    {"bytes": _semantic_file_bytes(raw).hex()}
+                )
+                exists = True
+            else:
+                raw_hash = ""
+                semantic_hash = ""
+                exists = False
+            file_rows.append(
+                {"path": token, "exists": exists, "semantic_hash": semantic_hash}
+            )
+            raw_file_rows.append(
+                {"path": token, "exists": exists, "raw_hash": raw_hash}
+            )
+        member_identity = {
+            "skill_id": skill_id,
+            "role": str(member.role),
+            "owner": str(member.owner),
+            "declared_path": declared_path,
+            "repository_role": str(member.repository_role),
+            "required_files": required_files,
+        }
+        semantic_hashes[skill_id] = fingerprint_value(
+            {"suite_policy": suite_policy, "member": member_identity, "files": file_rows}
+        )
+        inventory_hashes[skill_id] = fingerprint_value(
+            {"suite_policy": suite_policy, "member": member_identity, "files": raw_file_rows}
+        )
+        input_paths[skill_id] = tuple(paths)
+    return semantic_hashes, inventory_hashes, input_paths
 
 
 def prepare_native_suite_context(
@@ -740,12 +1295,18 @@ def prepare_native_suite_context(
         root,
         check_private_inventories=check_private_inventories,
     )
+    member_semantic_hashes, member_inventory_hashes, member_input_paths = (
+        _member_suite_projections(root, report, members)
+    )
     return NativeSuiteContext(
         repository_root=str(root),
         selected_members=members,
         inventory_hash=str(report.inventory_hash),
         semantic_hash=str(report.semantic_hash),
         private_inventory_checked=bool(check_private_inventories),
+        member_semantic_hashes=member_semantic_hashes,
+        member_inventory_hashes=member_inventory_hashes,
+        member_input_paths=member_input_paths,
     )
 
 
@@ -758,6 +1319,8 @@ def run_native_skill_check(
     deadline: float | None = None,
     keep_going: bool = False,
     suite_context: NativeSuiteContext | None = None,
+    pytest_leaf_plan: Mapping[str, Any] | None = None,
+    pytest_leaf_plan_path: str | Path | None = None,
 ) -> NativeSkillReceiptResult:
     """Execute declared native bindings and emit one immutable child receipt."""
 
@@ -796,8 +1359,34 @@ def run_native_skill_check(
     runs: list[NativeCheckRun] = []
     log_sections: list[str] = []
     blockers = list(binding_blockers)
+    input_revalidation: list[str] = []
     suite_inventory_hash = ""
+    suite_semantic_hash = ""
+    suite_member_inventory_hash = ""
+    suite_member_semantic_hash = ""
     snapshots: tuple[Any, ...] = ()
+    pytest_identity_snapshots: tuple[Any, ...] = ()
+    pytest_identity_plans: dict[str, Mapping[str, Any]] = {}
+    shared_pytest_leaf_rows: dict[str, tuple[Mapping[str, Any], ...]] = {}
+    shared_pytest_leaf_refs: list[dict[str, Any]] = []
+    pytest_leaf_plan_snapshots: tuple[Any, ...] = ()
+    if pytest_leaf_plan_path is not None:
+        try:
+            plan_path = Path(pytest_leaf_plan_path).expanduser().resolve()
+            plan_path.relative_to(root)
+            if plan_path.is_symlink() or not plan_path.is_file():
+                raise OSError("pytest leaf plan path is missing or unsafe")
+            pytest_leaf_plan_snapshots = (
+                snapshot_file(
+                    "pytest-leaf-plan",
+                    plan_path,
+                    workspace_root=root,
+                    hash_policy=INPUT_HASH_BOTH,
+                    obligation_ids=covered_obligations,
+                ),
+            )
+        except (OSError, ValueError):
+            blockers.append("pytest_leaf_plan_input_invalid")
     if blockers:
         blockers.append("native_checks_preflight_blocked")
         snapshots = _input_snapshots(
@@ -817,10 +1406,57 @@ def run_native_skill_check(
                 if skill_id not in suite_context.selected_members:
                     raise ValueError("native suite context does not include this member")
                 suite_inventory_hash = suite_context.inventory_hash
+                suite_semantic_hash = suite_context.semantic_hash
+                suite_member_inventory_hash = suite_context.member_inventory_hash(skill_id)
+                suite_member_semantic_hash = suite_context.member_semantic_hash(skill_id)
             else:
-                _read_json(root / SUITE_MAP_PATH)
-                suite_inventory_hash = validate_skill_suite(root).inventory_hash
-            snapshots = _input_snapshots(root, skill_id, native_checks, covered_obligations)
+                suite_context = prepare_native_suite_context(
+                    root,
+                    (skill_id,),
+                    check_private_inventories=True,
+                )
+                suite_inventory_hash = suite_context.inventory_hash
+                suite_semantic_hash = suite_context.semantic_hash
+                suite_member_inventory_hash = suite_context.member_inventory_hash(skill_id)
+                suite_member_semantic_hash = suite_context.member_semantic_hash(skill_id)
+            pytest_identity_plans = _pytest_identity_plans(
+                root,
+                native_checks,
+                timeout_seconds=max(1.0, min(float(timeout_seconds), 120.0)),
+            )
+            pytest_identity_snapshots = _pytest_identity_snapshots(
+                root,
+                native_checks,
+                covered_obligations,
+                timeout_seconds=max(1.0, min(float(timeout_seconds), 120.0)),
+                plans=pytest_identity_plans,
+            )
+            shared_pytest_leaf_rows = _shared_pytest_leaf_rows(
+                repository_root=root,
+                native_checks=native_checks,
+                pytest_plans=pytest_identity_plans,
+                pytest_leaf_plan=pytest_leaf_plan,
+            )
+            for rows in shared_pytest_leaf_rows.values():
+                for row in rows:
+                    shared_pytest_leaf_refs.append(
+                        {
+                            "leaf_id": str(row.get("leaf_id", "")),
+                            "leaf_key": str(row.get("leaf_key", "")),
+                            "nodeid": str(row.get("nodeid", "")),
+                            "evidence_refs": list(row.get("evidence_refs", ())),
+                        }
+                    )
+            snapshots = _input_snapshots(
+                root,
+                skill_id,
+                native_checks,
+                covered_obligations,
+                extra_snapshots=(
+                    *pytest_identity_snapshots,
+                    *pytest_leaf_plan_snapshots,
+                ),
+            )
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             blockers.append(f"native_preflight_error:{type(exc).__name__}")
 
@@ -832,6 +1468,15 @@ def run_native_skill_check(
         suite_inventory_hash = _sha256_bytes(
             f"native-suite-not-scanned:{skill_id}:{'|'.join(blockers)}".encode("utf-8")
         )
+    if not suite_member_semantic_hash:
+        suite_member_semantic_hash = fingerprint_value(
+            {
+                "native_suite_member_not_scanned": skill_id,
+                "blockers": tuple(dict.fromkeys(blockers)),
+            }
+        )
+    if not suite_member_inventory_hash:
+        suite_member_inventory_hash = suite_member_semantic_hash
     if not snapshots:
         snapshots = _input_snapshots(
             root,
@@ -845,9 +1490,47 @@ def run_native_skill_check(
         remaining = invocation_deadline - time.monotonic()
         if remaining <= 0.0:
             blockers.append("native_checks_not_run_due_to_budget")
+            blockers.extend(
+                f"native_check_not_run_after_budget:{item.get('check_id', '')}"
+                for item in native_checks[len(runs) :]
+            )
             break
         declared = _check_command(check)
         check_id = str(check.get("check_id", "native-check")).strip() or "native-check"
+        shared_rows = shared_pytest_leaf_rows.get(check_id, ())
+        if shared_rows:
+            now = _now()
+            reused_run = NativeCheckRun(
+                binding_id=check_id,
+                command=tokenize_command(declared, workspace_root=root),
+                exit_code=0,
+                status=RECEIPT_STATUS_PASS,
+                started_at=now,
+                finished_at=now,
+                stdout_sha256=_sha256_bytes(b""),
+                stderr_sha256=_sha256_bytes(b""),
+                cleanup_confirmed=True,
+                terminal_reason="reused_shared_leaf",
+                reused_shared_leaf=True,
+                shared_leaf_ids=tuple(
+                    str(row.get("leaf_id", "")) for row in shared_rows
+                ),
+            )
+            runs.append(reused_run)
+            log_sections.append(
+                f"=== {check_id} shared pytest leaf reuse ===\n"
+                + json.dumps(
+                    {
+                        "leaf_ids": list(reused_run.shared_leaf_ids),
+                        "nodeids": [
+                            str(row.get("nodeid", "")) for row in shared_rows
+                        ],
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            continue
         check_workspace = Path(
             tempfile.mkdtemp(
                 prefix=_native_check_prefix(execution_root, check_id),
@@ -875,10 +1558,19 @@ def run_native_skill_check(
                 "PYTHONIOENCODING": "utf-8",
             }
         )
+        effective_timeout = max(0.0, float(timeout_seconds))
+        declared_timeout = check.get("timeout_seconds")
+        if declared_timeout is not None:
+            try:
+                declared_timeout_value = float(declared_timeout)
+            except (TypeError, ValueError):
+                declared_timeout_value = 0.0
+            if declared_timeout_value > 0.0:
+                effective_timeout = min(effective_timeout, declared_timeout_value)
         completed = run_supervised(
             _execution_command(declared),
             cwd=root,
-            timeout_seconds=min(max(0.0, float(timeout_seconds)), remaining),
+            timeout_seconds=min(effective_timeout, remaining),
             grace_seconds=3.0,
             environment=child_environment,
         )
@@ -946,6 +1638,75 @@ def run_native_skill_check(
                 )
                 break
 
+    if runs:
+        try:
+            final_snapshots = _input_snapshots(
+                root,
+                skill_id,
+                native_checks,
+                covered_obligations,
+                extra_snapshots=(
+                    *pytest_identity_snapshots,
+                    *pytest_leaf_plan_snapshots,
+                ),
+            )
+            initial_by_id = {item.artifact_id: item for item in snapshots}
+            final_by_id = {item.artifact_id: item for item in final_snapshots}
+            if set(initial_by_id) != set(final_by_id):
+                input_revalidation.append("selection_boundary")
+            for artifact_id in sorted(set(initial_by_id) & set(final_by_id)):
+                findings = compare_input_snapshots(
+                    initial_by_id[artifact_id], final_by_id[artifact_id]
+                )
+                if findings:
+                    input_revalidation.extend(
+                        f"{artifact_id}:{finding.code}" for finding in findings
+                    )
+            if input_revalidation:
+                blockers.append(
+                    "input_changed_during_execution:"
+                    + ",".join(dict.fromkeys(input_revalidation))
+                )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            input_revalidation.append(f"observation:{type(exc).__name__}")
+            blockers.append(
+                "input_changed_during_execution:postflight_observation_unavailable"
+            )
+
+    if runs and suite_context is not None and suite_member_semantic_hash:
+        # Re-observe the selected member after execution.  This is deliberately
+        # a new context: the admission cache must not mask a mid-run change.
+        try:
+            postflight_context = prepare_native_suite_context(
+                root,
+                (skill_id,),
+                check_private_inventories=suite_context.private_inventory_checked,
+            )
+            if postflight_context.inventory_hash != suite_inventory_hash:
+                input_revalidation.append("suite_map_raw_hash_mismatch")
+            if (
+                postflight_context.member_inventory_hash(skill_id)
+                != suite_member_inventory_hash
+            ):
+                input_revalidation.append("suite_member_raw_hash_mismatch")
+            if (
+                postflight_context.member_semantic_hash(skill_id)
+                != suite_member_semantic_hash
+            ):
+                input_revalidation.append("suite_member_semantic_hash_mismatch")
+            if any(
+                item.endswith("hash_mismatch") for item in input_revalidation
+            ):
+                blockers.append(
+                    "input_changed_during_execution:"
+                    + ",".join(dict.fromkeys(input_revalidation))
+                )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            input_revalidation.append(f"suite_observation:{type(exc).__name__}")
+            blockers.append(
+                "input_changed_during_execution:postflight_suite_observation_unavailable"
+            )
+
     if not runs:
         blockers.append("native_checks_not_run")
     result_status = RECEIPT_STATUS_PASS if runs and not blockers and all(item.exit_code == 0 for item in runs) else (
@@ -965,9 +1726,26 @@ def run_native_skill_check(
         "execution_workspace_path_token": tokenize_path(execution_root, workspace_root=root),
         "contract_hash": str(contract.get("contract_hash", "")),
         "check_manifest_hash": fingerprint_value(manifest),
-        "suite_map_hash": suite_inventory_hash,
+        # The legacy field remains the owner-local semantic projection so a
+        # sibling member change does not invalidate this member's receipt.
+        "suite_map_hash": suite_member_semantic_hash,
+        "suite_inventory_hash": suite_inventory_hash,
+        "suite_semantic_hash": suite_semantic_hash,
+        "suite_member_inventory_hash": suite_member_inventory_hash,
+        "suite_member_semantic_hash": suite_member_semantic_hash,
         "covered_obligations": list(covered_obligations),
         "runs": [item.to_dict() for item in runs],
+        "pytest_leaf_plan_hash": (
+            str(pytest_leaf_plan.get("plan_hash", ""))
+            if isinstance(pytest_leaf_plan, Mapping)
+            else ""
+        ),
+        "pytest_leaf_plan_path_token": (
+            tokenize_path(Path(pytest_leaf_plan_path).resolve(), workspace_root=root)
+            if pytest_leaf_plan_path is not None
+            else ""
+        ),
+        "pytest_leaf_references": shared_pytest_leaf_refs,
         "result_status": result_status,
         "exit_code": aggregate_exit,
         "blockers": list(dict.fromkeys(blockers)),
@@ -1019,7 +1797,7 @@ def run_native_skill_check(
         environment_metadata=environment.metadata,
         contract_hash=str(contract.get("contract_hash", "")),
         check_manifest_hash=fingerprint_value(manifest),
-        suite_map_hash=suite_inventory_hash,
+        suite_map_hash=suite_member_semantic_hash,
         input_snapshots=snapshots,
         proof_artifact_id=f"proof:native-skill:{skill_id}",
         proof_artifact_fingerprint=proof_fingerprint,
@@ -1033,6 +1811,7 @@ def run_native_skill_check(
             "FlowGuard skill; parent, distribution, installation, release, and future-agent claims remain separate."
         ),
         metadata={
+            "native_identity_version": NATIVE_IDENTITY_VERSION,
             "proof_artifact_path_token": tokenize_path(proof_path, workspace_root=root),
             "log_path_token": tokenize_path(log_path, workspace_root=root),
             "native_execution_workspace_path_token": tokenize_path(
@@ -1041,6 +1820,16 @@ def run_native_skill_check(
             ),
             "output_isolation": "FLOWGUARD_OUTPUT_DIR",
             "native_binding_ids": [item.binding_id for item in runs],
+            "input_revalidation": list(dict.fromkeys(input_revalidation)),
+            "suite_inventory_hash": suite_inventory_hash,
+            "suite_semantic_hash": suite_semantic_hash,
+            "suite_member_inventory_hash": suite_member_inventory_hash,
+            "suite_member_semantic_hash": suite_member_semantic_hash,
+            "suite_member_input_paths": list(
+                suite_context.member_input_paths.get(skill_id, ())
+                if suite_context is not None
+                else ()
+            ),
         },
     )
     save_evidence_receipt(receipt, root, output_directory=output_directory)
@@ -1067,12 +1856,10 @@ def build_current_native_receipt_context(
 ) -> ReceiptVerificationContext | None:
     """Recompute a child context from current files and proof artifacts.
 
-    ``validate_skill_suite`` is an intentionally complete source walk.  A
-    resume run may verify many historical receipts, but the suite hash is a
-    single current input shared by every member.  Accepting the caller's
-    already-validated hash keeps that finite observation from repeating the
-    same repository walk once per receipt; omitting it preserves the direct
-    API's original self-contained behavior.
+    The suite map's raw hash remains available as provenance, while the
+    receipt comparison uses the selected member's normalized projection.  A
+    fresh context is built for every post-run verification so sibling changes
+    are scoped correctly and no admission cache can hide a current change.
     """
 
     if receipt.producer_id != PRODUCER_ID:
@@ -1083,14 +1870,28 @@ def build_current_native_receipt_context(
         source = _read_json(skill_dir / CONTRACT_SOURCE_FILE)
         contract = _read_json(skill_dir / COMPILED_CONTRACT_FILE)
         manifest = _read_json(skill_dir / CHECK_MANIFEST_FILE)
-        _read_json(root / SUITE_MAP_PATH)
-        if suite_inventory_hash is None:
-            suite_inventory_hash = validate_skill_suite(root).inventory_hash
+        suite_context = prepare_native_suite_context(
+            root,
+            (receipt.subject_id,),
+            check_private_inventories=True,
+        )
+        if suite_inventory_hash is not None and suite_inventory_hash != suite_context.inventory_hash:
+            return None
+        suite_inventory_hash = suite_context.inventory_hash
+        suite_member_semantic_hash = suite_context.member_semantic_hash(
+            receipt.subject_id
+        )
         proof_token = str(receipt.metadata.get("proof_artifact_path_token", ""))
         proof_path = _resolve_workspace_token(root, proof_token)
         if proof_path is None:
             return None
         proof = _read_json(proof_path)
+        leaf_plan_path: Path | None = None
+        leaf_plan_token = str(proof.get("pytest_leaf_plan_path_token", ""))
+        if leaf_plan_token:
+            leaf_plan_path = _resolve_workspace_token(root, leaf_plan_token)
+            if leaf_plan_path is None or leaf_plan_path.is_symlink() or not leaf_plan_path.is_file():
+                return None
     except (OSError, ValueError, json.JSONDecodeError):
         return None
 
@@ -1100,12 +1901,38 @@ def build_current_native_receipt_context(
     if not checks or blockers:
         return None
     umbrella = f"flowguard.skill_contract.{receipt.subject_id}.deep"
-    current_required = _input_snapshots(
-        root,
-        receipt.subject_id,
-        checks,
-        tuple(dict.fromkeys((umbrella,) + contract_obligations)),
+    required_obligations = tuple(dict.fromkeys((umbrella,) + contract_obligations))
+    leaf_plan_snapshots = (
+        (
+            snapshot_file(
+                "pytest-leaf-plan",
+                leaf_plan_path,
+                workspace_root=root,
+                hash_policy=INPUT_HASH_BOTH,
+                obligation_ids=required_obligations,
+            ),
+        )
+        if leaf_plan_path is not None
+        else ()
     )
+    try:
+        current_required = _input_snapshots(
+            root,
+            receipt.subject_id,
+            checks,
+            required_obligations,
+            extra_snapshots=(
+                *_pytest_identity_snapshots(
+                    root,
+                    checks,
+                    required_obligations,
+                    timeout_seconds=30.0,
+                ),
+                *leaf_plan_snapshots,
+            ),
+        )
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
     if {item.artifact_id for item in current_required} != {
         item.artifact_id for item in receipt.input_snapshots
     }:
@@ -1133,7 +1960,7 @@ def build_current_native_receipt_context(
         input_snapshots=current_snapshots,
         contract_hash=str(contract.get("contract_hash", "")),
         check_manifest_hash=fingerprint_value(manifest),
-        suite_map_hash=suite_inventory_hash,
+        suite_map_hash=suite_member_semantic_hash,
         producer_id=PRODUCER_ID,
         producer_version=_package_version(),
         environment_fingerprint=environment.fingerprint,
@@ -1144,6 +1971,7 @@ def build_current_native_receipt_context(
         proof_artifact_id=f"proof:native-skill:{receipt.subject_id}",
         required_obligation_ids=(umbrella,),
         eligible_claim_scopes=("full",),
+        receipt_identity_version=NATIVE_IDENTITY_VERSION,
     )
 
 

@@ -1,0 +1,1610 @@
+{
+  "axis_payloads": [
+    {
+      "axis_fingerprint": "sha256:268d0c3ea5ba9a4f3165fde0517c1ac993ec3383b6528952e462bf7cc307f3ac",
+      "axis_id": "actor_kind",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "end_user",
+        "external_system",
+        "application",
+        "ai_agent",
+        "developer",
+        "automation"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:8962dcd36ad00c65f75c58825698b0fb5ad838f6c21e817fcb4687e9feb75d2e",
+      "axis_id": "behavior_plane",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "product_runtime",
+        "agent_operation",
+        "development_process"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:9f55d97c04b1465468427c5bfa3323e760c495c28c49c7b50be63f2c98288e3e",
+      "axis_id": "change_mode",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "bootstrap_ledger",
+        "add_behavior",
+        "change_behavior",
+        "remove_or_replace_behavior",
+        "coverage_gap_backfill",
+        "model_miss_check"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:223ee31b39c9ca085f278d2ec05ecba1c8678166264d67aa05450d474379253e",
+      "axis_id": "commitment_kind",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "public_api",
+        "cli",
+        "ui",
+        "skill",
+        "workflow",
+        "doc",
+        "release",
+        "process"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:4854b3a76a63ed51257ecab73988bc9ca8f6b7c7342536f8fea9f20c78355af1",
+      "axis_id": "evidence_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "current_pass",
+        "missing",
+        "stale",
+        "progress_only",
+        "skipped",
+        "blocked"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:b1274fa75c6abfbead079c1b2a1f808b54732692f8e0e69025cc33219eb1201d",
+      "axis_id": "exact_intent_identity_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "stable_unique",
+        "missing",
+        "duplicate",
+        "mismatch"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:2502d556cc6bb696b7ba909e03d24e5bcdb53d0cddf79ebc0159960369d862e4",
+      "axis_id": "external_semantics_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "unique",
+        "duplicate",
+        "typed_variant",
+        "variant_difference_incomplete"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:1854a359d8bf4c6f13a685015550aa3e5f33a5719cf5b203027cbd069a1ccc2b",
+      "axis_id": "lookup_binding_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "binding_empty",
+        "binding_structured",
+        "binding_error_signature",
+        "binding_stale"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:f16422cc2065efaae95f0de1e08818b80302539f3788e4d9ed650f3f2151901c",
+      "axis_id": "migration_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "current_shape",
+        "legacy_same_plane",
+        "legacy_ambiguous",
+        "custom_python_blocked",
+        "dual_authority_blocked"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:285a5dfe1b5846f5aeab40e497dec95a0b5daaef2297a36441584c419ac3b3b8",
+      "axis_id": "miss_origin_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "model_miss_review",
+      "values": [
+        "no_miss",
+        "observed_model_miss",
+        "same_class_seed",
+        "recurring_family"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:97d49770d9366e1dbbb34f1fd71ae3bbcb28368aabd1f5710bf8664fbb679983",
+      "axis_id": "model_sync_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "owner_model_current",
+        "owner_model_missing",
+        "owner_model_stale",
+        "sibling_unchecked",
+        "child_model_needed"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:f5b82f0a4a3861d3dc8f71df82bd320376af2eaf0f320b42023bcf5f9e69ec3c",
+      "axis_id": "owner_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "primary_owner_present",
+        "commitment_missing_primary_owner",
+        "primary_owner_also_supporting"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:46aac144a970e0fb8ab42d1a01964d45c656b1821ac1356a1ac17b4f9f6ca0fc",
+      "axis_id": "path_sensitivity",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "not_path_sensitive",
+        "path_sensitive"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:7b0568c533635b6fa921b897fa0fed2af685654cc0275a7b110c8a31e94f4340",
+      "axis_id": "ppa_result",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "primary_path_authority",
+      "values": [
+        "not_required",
+        "ppa_missing",
+        "ppa_passed",
+        "ppa_blocked"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:8c8616b95511ff28edb6d4c7547d8513893f068f46358abd50ec15bb29d19985",
+      "axis_id": "primary_path_binding_shape",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "primary_path_authority",
+      "values": [
+        "singular",
+        "legacy_plural_one",
+        "legacy_plural_many",
+        "singular_plural_conflict"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:3168a771165eedb30ea2e7da7f4ca38981d786bbda294fe5b21f33bae900b216",
+      "axis_id": "relation_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "relations_closed",
+        "relation_target_unknown",
+        "relation_plane_mismatch",
+        "cross_plane_rationale_missing"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:dc37e3fd426ea2cf0046c7b6587261b7548d3de2159357bbb8915a5a2b2e2a28",
+      "axis_id": "relation_target_plane",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "product_runtime",
+        "agent_operation",
+        "development_process"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:5ef35d2cec008b84695ab975004b725a4b8f983903b2abf94dcf70ce15c555d8",
+      "axis_id": "relation_type",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "depends_on",
+        "invokes",
+        "validates",
+        "governs",
+        "requires_evidence_from"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:6d5b173f8dcc58885660a0eb16f14dd0fbbff0e79997a653df3c82038d51e936",
+      "axis_id": "release_gate_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "routine",
+        "done",
+        "release",
+        "publish",
+        "archive",
+        "full"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:603fd80485ba15eac6cdab528e45e9fe9d520a813f7a0c042f19e8ab63a79e91",
+      "axis_id": "replacement_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "active",
+        "deprecated",
+        "replaced",
+        "removed_scoped_out"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:3b6250209354403d496cc244d1fd04d15385795fea551df96515481be841ec8c",
+      "axis_id": "source_authority_participation",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "normative",
+        "observed",
+        "supporting",
+        "historical"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:9ffed63b11dfc979b4dd28dfd5862adcf0606325fc915d9e776ce81cb1ca93d8",
+      "axis_id": "source_classification",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "external_normative_contract",
+        "observed_external_behavior",
+        "implementation",
+        "test",
+        "generated_evidence"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:7315ee37d5d93928e6e457f75463e4584638a337aad8515bc4c3d5ab21ce00b7",
+      "axis_id": "source_freshness_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "current",
+        "changed_since_ledger",
+        "missing_source",
+        "unchecked_source"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:a672d2bd4a92999cce33f5ab2f92375d634787bb89909a7d67fc5954651563c5",
+      "axis_id": "source_kind",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "code",
+        "api",
+        "cli",
+        "ui",
+        "field",
+        "doc",
+        "skill",
+        "test",
+        "work_context",
+        "release",
+        "process"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:54717683dc7aa66af6ad350a71955f0e4315cf3d5bd7192538fe927cb9ce0be4",
+      "axis_id": "source_mapping_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "mapped",
+        "source_surface_missing_commitment",
+        "commitment_missing_source_ref",
+        "not_bidirectional"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:bad3fed0b6fe747e57d5a520e035938c81bd15c72d57f7db1b4dccf8d5533932",
+      "axis_id": "surface_authority_role",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "behavior_commitment_ledger",
+      "values": [
+        "commitment_owner",
+        "delegate_to_primary",
+        "delegate_as_commitment",
+        "surface_omitted"
+      ]
+    },
+    {
+      "axis_fingerprint": "sha256:278ccca872b4069916a8e126fecf551ea334c64d7e3ca8544bc2768742b6db6b",
+      "axis_id": "test_mesh_state",
+      "description": "",
+      "dimension_ids": [],
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "mutation_types": [],
+      "required": true,
+      "source_route": "test_mesh_maintenance",
+      "values": [
+        "shard_current",
+        "shard_missing",
+        "progress_only",
+        "stale",
+        "release_only"
+      ]
+    }
+  ],
+  "boundary_source_fingerprint": "sha256:20bcd49d9284b231e898e0cbb819c6a6af5965c93f154f0ff5e2349cf5d75312",
+  "boundary_source_id": "flowguard:manifest-ledger-owner-boundary",
+  "contract_id": "boundary-contract:behavior-commitment-ledger:partition-v1",
+  "fingerprint": "sha256:33f28a2f7d1f66cc1353f9e7870944f397bcad27371352ce832123597e9a3f32",
+  "group_relation_ids": {
+    "change_mode_source_freshness": [
+      "relation:model-realizes-side_effect_inventory:model_instance:model:behavior_commitment_ledger--side_effect_inventory:field-or-effect:generate_behavior_contract_cases"
+    ],
+    "cross_plane_relation": [
+      "relation:model-realizes-field_inventory:model_instance:model:behavior_commitment_ledger--field_inventory:field-or-effect:contract_coverage_universe"
+    ],
+    "delegate_surface_not_commitment": [
+      "relation:semantic-model-affects-consumer:behavior_commitment_ledger:self_maintenance_mesh"
+    ],
+    "exact_intent_semantic_uniqueness": [
+      "relation:model-validates-test_evidence:model_instance:model:behavior_commitment_ledger--test_evidence:test:tests.test_behavior_commitment_primary_path"
+    ],
+    "full_inventory_mapping": [
+      "relation:model-realizes-code_contract:model_instance:model:behavior_commitment_ledger--code_contract:contract:contract:behavior-ledger-current"
+    ],
+    "lookup_migration_state": [
+      "relation:model-realizes-native-owner:behavior_commitment_ledger:behavior_commitment_ledger"
+    ],
+    "model_miss_backfeed": [
+      "relation:model-validates-test_evidence:model_instance:model:behavior_commitment_ledger--test_evidence:test:test:behavior-dcar-full-axis"
+    ],
+    "model_miss_plane_backfeed": [
+      "relation:model-validates-test_evidence:model_instance:model:behavior_commitment_ledger--test_evidence:test:tests.test_behavior_commitment_ledger"
+    ],
+    "path_sensitive_ppa_handoff": [
+      "relation:model-realizes-purpose:behavior_commitment_ledger"
+    ],
+    "plane_kind_actor": [
+      "relation:model-realizes-code_contract:model_instance:model:behavior_commitment_ledger--code_contract:contract:contract:behavior-dcar-full-axis"
+    ],
+    "relation_and_release_gate": [
+      "relation:model-realizes-commitment:commitment:behavior-ledger-current"
+    ],
+    "replacement_model_sync": [
+      "relation:model-validates-test_evidence:model_instance:model:behavior_commitment_ledger--test_evidence:test:.flowguard/verification/owners/behavior_commitment_ledger/run_checks.py"
+    ],
+    "single_owner_evidence": [
+      "relation:model-realizes-commitment:commitment:behavior-dcar-full-axis"
+    ],
+    "singular_primary_path_migration": [
+      "relation:semantic-model-affects-consumer:behavior_commitment_ledger:authoritative_model_system"
+    ],
+    "source_classification_authority": [
+      "relation:model-realizes-code_contract:model_instance:model:behavior_commitment_ledger--code_contract:contract:owner-contract:.flowguard/models/owners/behavior_commitment_ledger/model.py"
+    ]
+  },
+  "interaction_group_payloads": [
+    {
+      "axis_ids": [
+        "change_mode",
+        "source_kind",
+        "source_freshness_state"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "change_mode_source_freshness",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "change_mode": "sha256:9f55d97c04b1465468427c5bfa3323e760c495c28c49c7b50be63f2c98288e3e",
+          "source_freshness_state": "sha256:7315ee37d5d93928e6e457f75463e4584638a337aad8515bc4c3d5ab21ce00b7",
+          "source_kind": "sha256:a672d2bd4a92999cce33f5ab2f92375d634787bb89909a7d67fc5954651563c5"
+        },
+        "axis_ids": [
+          "source_kind",
+          "change_mode",
+          "source_freshness_state"
+        ],
+        "axis_value_ids": {
+          "change_mode": [
+            "change_mode:bootstrap_ledger",
+            "change_mode:add_behavior",
+            "change_mode:change_behavior",
+            "change_mode:remove_or_replace_behavior",
+            "change_mode:coverage_gap_backfill",
+            "change_mode:model_miss_check"
+          ],
+          "source_freshness_state": [
+            "source_freshness_state:current",
+            "source_freshness_state:changed_since_ledger",
+            "source_freshness_state:missing_source",
+            "source_freshness_state:unchecked_source"
+          ],
+          "source_kind": [
+            "source_kind:code",
+            "source_kind:api",
+            "source_kind:cli",
+            "source_kind:ui",
+            "source_kind:field",
+            "source_kind:doc",
+            "source_kind:skill",
+            "source_kind:test",
+            "source_kind:work_context",
+            "source_kind:release",
+            "source_kind:process"
+          ]
+        },
+        "expected_cardinality": 264,
+        "fingerprint": "sha256:b752c57fe387173e0538379ad8a59afca177c6dc96a284f74b2b37965a9e4fe5",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "change_mode_source_freshness",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:change_mode_source_freshness"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger"
+      ]
+    },
+    {
+      "axis_ids": [
+        "behavior_plane",
+        "relation_type",
+        "relation_target_plane"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "cross_plane_relation",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "behavior_plane": "sha256:8962dcd36ad00c65f75c58825698b0fb5ad838f6c21e817fcb4687e9feb75d2e",
+          "relation_target_plane": "sha256:dc37e3fd426ea2cf0046c7b6587261b7548d3de2159357bbb8915a5a2b2e2a28",
+          "relation_type": "sha256:5ef35d2cec008b84695ab975004b725a4b8f983903b2abf94dcf70ce15c555d8"
+        },
+        "axis_ids": [
+          "behavior_plane",
+          "relation_type",
+          "relation_target_plane"
+        ],
+        "axis_value_ids": {
+          "behavior_plane": [
+            "behavior_plane:product_runtime",
+            "behavior_plane:agent_operation",
+            "behavior_plane:development_process"
+          ],
+          "relation_target_plane": [
+            "relation_target_plane:product_runtime",
+            "relation_target_plane:agent_operation",
+            "relation_target_plane:development_process"
+          ],
+          "relation_type": [
+            "relation_type:depends_on",
+            "relation_type:invokes",
+            "relation_type:validates",
+            "relation_type:governs",
+            "relation_type:requires_evidence_from"
+          ]
+        },
+        "expected_cardinality": 45,
+        "fingerprint": "sha256:c73d71e9f83ded1c03733d7ba455aaeca37102e720eff82ee9726e9b7dc49520",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "cross_plane_relation",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:cross_plane_relation"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger",
+        "existing_model_preflight"
+      ]
+    },
+    {
+      "axis_ids": [
+        "surface_authority_role",
+        "source_mapping_state",
+        "primary_path_binding_shape"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "delegate_surface_not_commitment",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "primary_path_binding_shape": "sha256:8c8616b95511ff28edb6d4c7547d8513893f068f46358abd50ec15bb29d19985",
+          "source_mapping_state": "sha256:54717683dc7aa66af6ad350a71955f0e4315cf3d5bd7192538fe927cb9ce0be4",
+          "surface_authority_role": "sha256:bad3fed0b6fe747e57d5a520e035938c81bd15c72d57f7db1b4dccf8d5533932"
+        },
+        "axis_ids": [
+          "source_mapping_state",
+          "primary_path_binding_shape",
+          "surface_authority_role"
+        ],
+        "axis_value_ids": {
+          "primary_path_binding_shape": [
+            "primary_path_binding_shape:singular",
+            "primary_path_binding_shape:legacy_plural_one",
+            "primary_path_binding_shape:legacy_plural_many",
+            "primary_path_binding_shape:singular_plural_conflict"
+          ],
+          "source_mapping_state": [
+            "source_mapping_state:mapped",
+            "source_mapping_state:source_surface_missing_commitment",
+            "source_mapping_state:commitment_missing_source_ref",
+            "source_mapping_state:not_bidirectional"
+          ],
+          "surface_authority_role": [
+            "surface_authority_role:commitment_owner",
+            "surface_authority_role:delegate_to_primary",
+            "surface_authority_role:delegate_as_commitment",
+            "surface_authority_role:surface_omitted"
+          ]
+        },
+        "expected_cardinality": 64,
+        "fingerprint": "sha256:a4134e13e2e535f68ef263a0ce655cbae9c22d521656516a19f02a8e01181eda",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "delegate_surface_not_commitment",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:delegate_surface_not_commitment"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger",
+        "primary_path_authority"
+      ]
+    },
+    {
+      "axis_ids": [
+        "exact_intent_identity_state",
+        "external_semantics_state",
+        "surface_authority_role"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "exact_intent_semantic_uniqueness",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "exact_intent_identity_state": "sha256:b1274fa75c6abfbead079c1b2a1f808b54732692f8e0e69025cc33219eb1201d",
+          "external_semantics_state": "sha256:2502d556cc6bb696b7ba909e03d24e5bcdb53d0cddf79ebc0159960369d862e4",
+          "surface_authority_role": "sha256:bad3fed0b6fe747e57d5a520e035938c81bd15c72d57f7db1b4dccf8d5533932"
+        },
+        "axis_ids": [
+          "exact_intent_identity_state",
+          "external_semantics_state",
+          "surface_authority_role"
+        ],
+        "axis_value_ids": {
+          "exact_intent_identity_state": [
+            "exact_intent_identity_state:stable_unique",
+            "exact_intent_identity_state:missing",
+            "exact_intent_identity_state:duplicate",
+            "exact_intent_identity_state:mismatch"
+          ],
+          "external_semantics_state": [
+            "external_semantics_state:unique",
+            "external_semantics_state:duplicate",
+            "external_semantics_state:typed_variant",
+            "external_semantics_state:variant_difference_incomplete"
+          ],
+          "surface_authority_role": [
+            "surface_authority_role:commitment_owner",
+            "surface_authority_role:delegate_to_primary",
+            "surface_authority_role:delegate_as_commitment",
+            "surface_authority_role:surface_omitted"
+          ]
+        },
+        "expected_cardinality": 64,
+        "fingerprint": "sha256:e37733eb0337bbd730d2c433c559da91d8e1c3d63b145827035965ecf280209a",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "exact_intent_semantic_uniqueness",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:exact_intent_semantic_uniqueness"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger",
+        "existing_model_preflight"
+      ]
+    },
+    {
+      "axis_ids": [
+        "commitment_kind",
+        "source_kind",
+        "source_mapping_state"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "full_inventory_mapping",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "commitment_kind": "sha256:223ee31b39c9ca085f278d2ec05ecba1c8678166264d67aa05450d474379253e",
+          "source_kind": "sha256:a672d2bd4a92999cce33f5ab2f92375d634787bb89909a7d67fc5954651563c5",
+          "source_mapping_state": "sha256:54717683dc7aa66af6ad350a71955f0e4315cf3d5bd7192538fe927cb9ce0be4"
+        },
+        "axis_ids": [
+          "commitment_kind",
+          "source_kind",
+          "source_mapping_state"
+        ],
+        "axis_value_ids": {
+          "commitment_kind": [
+            "commitment_kind:public_api",
+            "commitment_kind:cli",
+            "commitment_kind:ui",
+            "commitment_kind:skill",
+            "commitment_kind:workflow",
+            "commitment_kind:doc",
+            "commitment_kind:release",
+            "commitment_kind:process"
+          ],
+          "source_kind": [
+            "source_kind:code",
+            "source_kind:api",
+            "source_kind:cli",
+            "source_kind:ui",
+            "source_kind:field",
+            "source_kind:doc",
+            "source_kind:skill",
+            "source_kind:test",
+            "source_kind:work_context",
+            "source_kind:release",
+            "source_kind:process"
+          ],
+          "source_mapping_state": [
+            "source_mapping_state:mapped",
+            "source_mapping_state:source_surface_missing_commitment",
+            "source_mapping_state:commitment_missing_source_ref",
+            "source_mapping_state:not_bidirectional"
+          ]
+        },
+        "expected_cardinality": 352,
+        "fingerprint": "sha256:97d130e88243f1c29de4c8c64b8bc494e364a8a741eb7cde561afb63934ed7a3",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "full_inventory_mapping",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:full_inventory_mapping"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger"
+      ]
+    },
+    {
+      "axis_ids": [
+        "behavior_plane",
+        "lookup_binding_state",
+        "migration_state"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "lookup_migration_state",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "behavior_plane": "sha256:8962dcd36ad00c65f75c58825698b0fb5ad838f6c21e817fcb4687e9feb75d2e",
+          "lookup_binding_state": "sha256:1854a359d8bf4c6f13a685015550aa3e5f33a5719cf5b203027cbd069a1ccc2b",
+          "migration_state": "sha256:f16422cc2065efaae95f0de1e08818b80302539f3788e4d9ed650f3f2151901c"
+        },
+        "axis_ids": [
+          "behavior_plane",
+          "lookup_binding_state",
+          "migration_state"
+        ],
+        "axis_value_ids": {
+          "behavior_plane": [
+            "behavior_plane:product_runtime",
+            "behavior_plane:agent_operation",
+            "behavior_plane:development_process"
+          ],
+          "lookup_binding_state": [
+            "lookup_binding_state:binding_empty",
+            "lookup_binding_state:binding_structured",
+            "lookup_binding_state:binding_error_signature",
+            "lookup_binding_state:binding_stale"
+          ],
+          "migration_state": [
+            "migration_state:current_shape",
+            "migration_state:legacy_same_plane",
+            "migration_state:legacy_ambiguous",
+            "migration_state:custom_python_blocked",
+            "migration_state:dual_authority_blocked"
+          ]
+        },
+        "expected_cardinality": 60,
+        "fingerprint": "sha256:6421803fb6a3edae7e25e32c44d74d354a24aa9740957ad21cddd3e3621e6909",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "lookup_migration_state",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:lookup_migration_state"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger",
+        "existing_model_preflight",
+        "development_process_flow"
+      ]
+    },
+    {
+      "axis_ids": [
+        "miss_origin_state",
+        "model_sync_state",
+        "test_mesh_state"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "model_miss_backfeed",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "miss_origin_state": "sha256:285a5dfe1b5846f5aeab40e497dec95a0b5daaef2297a36441584c419ac3b3b8",
+          "model_sync_state": "sha256:97d49770d9366e1dbbb34f1fd71ae3bbcb28368aabd1f5710bf8664fbb679983",
+          "test_mesh_state": "sha256:278ccca872b4069916a8e126fecf551ea334c64d7e3ca8544bc2768742b6db6b"
+        },
+        "axis_ids": [
+          "model_sync_state",
+          "test_mesh_state",
+          "miss_origin_state"
+        ],
+        "axis_value_ids": {
+          "miss_origin_state": [
+            "miss_origin_state:no_miss",
+            "miss_origin_state:observed_model_miss",
+            "miss_origin_state:same_class_seed",
+            "miss_origin_state:recurring_family"
+          ],
+          "model_sync_state": [
+            "model_sync_state:owner_model_current",
+            "model_sync_state:owner_model_missing",
+            "model_sync_state:owner_model_stale",
+            "model_sync_state:sibling_unchecked",
+            "model_sync_state:child_model_needed"
+          ],
+          "test_mesh_state": [
+            "test_mesh_state:shard_current",
+            "test_mesh_state:shard_missing",
+            "test_mesh_state:progress_only",
+            "test_mesh_state:stale",
+            "test_mesh_state:release_only"
+          ]
+        },
+        "expected_cardinality": 100,
+        "fingerprint": "sha256:155c9211e164d749d254d35fc0cf65bfade0cf85c20d0ac264948175c8a8815d",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "model_miss_backfeed",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:model_miss_backfeed"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger",
+        "model_miss_review",
+        "contract_exhaustion_mesh"
+      ]
+    },
+    {
+      "axis_ids": [
+        "behavior_plane",
+        "miss_origin_state",
+        "relation_state"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "model_miss_plane_backfeed",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "behavior_plane": "sha256:8962dcd36ad00c65f75c58825698b0fb5ad838f6c21e817fcb4687e9feb75d2e",
+          "miss_origin_state": "sha256:285a5dfe1b5846f5aeab40e497dec95a0b5daaef2297a36441584c419ac3b3b8",
+          "relation_state": "sha256:3168a771165eedb30ea2e7da7f4ca38981d786bbda294fe5b21f33bae900b216"
+        },
+        "axis_ids": [
+          "behavior_plane",
+          "relation_state",
+          "miss_origin_state"
+        ],
+        "axis_value_ids": {
+          "behavior_plane": [
+            "behavior_plane:product_runtime",
+            "behavior_plane:agent_operation",
+            "behavior_plane:development_process"
+          ],
+          "miss_origin_state": [
+            "miss_origin_state:no_miss",
+            "miss_origin_state:observed_model_miss",
+            "miss_origin_state:same_class_seed",
+            "miss_origin_state:recurring_family"
+          ],
+          "relation_state": [
+            "relation_state:relations_closed",
+            "relation_state:relation_target_unknown",
+            "relation_state:relation_plane_mismatch",
+            "relation_state:cross_plane_rationale_missing"
+          ]
+        },
+        "expected_cardinality": 48,
+        "fingerprint": "sha256:608e1d183a1d8640b1a08694663fa45b71a7181e219bb546aa4fd970ea590647",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "model_miss_plane_backfeed",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:model_miss_plane_backfeed"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger",
+        "model_miss_review",
+        "contract_exhaustion_mesh"
+      ]
+    },
+    {
+      "axis_ids": [
+        "path_sensitivity",
+        "ppa_result",
+        "release_gate_state"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "path_sensitive_ppa_handoff",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "path_sensitivity": "sha256:46aac144a970e0fb8ab42d1a01964d45c656b1821ac1356a1ac17b4f9f6ca0fc",
+          "ppa_result": "sha256:7b0568c533635b6fa921b897fa0fed2af685654cc0275a7b110c8a31e94f4340",
+          "release_gate_state": "sha256:6d5b173f8dcc58885660a0eb16f14dd0fbbff0e79997a653df3c82038d51e936"
+        },
+        "axis_ids": [
+          "path_sensitivity",
+          "ppa_result",
+          "release_gate_state"
+        ],
+        "axis_value_ids": {
+          "path_sensitivity": [
+            "path_sensitivity:not_path_sensitive",
+            "path_sensitivity:path_sensitive"
+          ],
+          "ppa_result": [
+            "ppa_result:not_required",
+            "ppa_result:ppa_missing",
+            "ppa_result:ppa_passed",
+            "ppa_result:ppa_blocked"
+          ],
+          "release_gate_state": [
+            "release_gate_state:routine",
+            "release_gate_state:done",
+            "release_gate_state:release",
+            "release_gate_state:publish",
+            "release_gate_state:archive",
+            "release_gate_state:full"
+          ]
+        },
+        "expected_cardinality": 48,
+        "fingerprint": "sha256:6ed97ffe8ff92c8b6c9334e3487c58ae0bd298d7a9549ecf566faf219a45bd28",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "path_sensitive_ppa_handoff",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:path_sensitive_ppa_handoff"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger",
+        "primary_path_authority"
+      ]
+    },
+    {
+      "axis_ids": [
+        "behavior_plane",
+        "commitment_kind",
+        "actor_kind"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "plane_kind_actor",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "actor_kind": "sha256:268d0c3ea5ba9a4f3165fde0517c1ac993ec3383b6528952e462bf7cc307f3ac",
+          "behavior_plane": "sha256:8962dcd36ad00c65f75c58825698b0fb5ad838f6c21e817fcb4687e9feb75d2e",
+          "commitment_kind": "sha256:223ee31b39c9ca085f278d2ec05ecba1c8678166264d67aa05450d474379253e"
+        },
+        "axis_ids": [
+          "behavior_plane",
+          "commitment_kind",
+          "actor_kind"
+        ],
+        "axis_value_ids": {
+          "actor_kind": [
+            "actor_kind:end_user",
+            "actor_kind:external_system",
+            "actor_kind:application",
+            "actor_kind:ai_agent",
+            "actor_kind:developer",
+            "actor_kind:automation"
+          ],
+          "behavior_plane": [
+            "behavior_plane:product_runtime",
+            "behavior_plane:agent_operation",
+            "behavior_plane:development_process"
+          ],
+          "commitment_kind": [
+            "commitment_kind:public_api",
+            "commitment_kind:cli",
+            "commitment_kind:ui",
+            "commitment_kind:skill",
+            "commitment_kind:workflow",
+            "commitment_kind:doc",
+            "commitment_kind:release",
+            "commitment_kind:process"
+          ]
+        },
+        "expected_cardinality": 144,
+        "fingerprint": "sha256:4118e6d2eea4af488e2aae2e1e070b1849aa9b6354aca8f4788c36c1ff163b6a",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "plane_kind_actor",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:plane_kind_actor"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger"
+      ]
+    },
+    {
+      "axis_ids": [
+        "relation_state",
+        "evidence_state",
+        "release_gate_state"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "relation_and_release_gate",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "evidence_state": "sha256:4854b3a76a63ed51257ecab73988bc9ca8f6b7c7342536f8fea9f20c78355af1",
+          "relation_state": "sha256:3168a771165eedb30ea2e7da7f4ca38981d786bbda294fe5b21f33bae900b216",
+          "release_gate_state": "sha256:6d5b173f8dcc58885660a0eb16f14dd0fbbff0e79997a653df3c82038d51e936"
+        },
+        "axis_ids": [
+          "evidence_state",
+          "relation_state",
+          "release_gate_state"
+        ],
+        "axis_value_ids": {
+          "evidence_state": [
+            "evidence_state:current_pass",
+            "evidence_state:missing",
+            "evidence_state:stale",
+            "evidence_state:progress_only",
+            "evidence_state:skipped",
+            "evidence_state:blocked"
+          ],
+          "relation_state": [
+            "relation_state:relations_closed",
+            "relation_state:relation_target_unknown",
+            "relation_state:relation_plane_mismatch",
+            "relation_state:cross_plane_rationale_missing"
+          ],
+          "release_gate_state": [
+            "release_gate_state:routine",
+            "release_gate_state:done",
+            "release_gate_state:release",
+            "release_gate_state:publish",
+            "release_gate_state:archive",
+            "release_gate_state:full"
+          ]
+        },
+        "expected_cardinality": 144,
+        "fingerprint": "sha256:5c9496040152792636765f0d85a0357136659ccde45a193b96117d7dfd0242e3",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "relation_and_release_gate",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:relation_and_release_gate"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger"
+      ]
+    },
+    {
+      "axis_ids": [
+        "change_mode",
+        "replacement_state",
+        "model_sync_state"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "replacement_model_sync",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "change_mode": "sha256:9f55d97c04b1465468427c5bfa3323e760c495c28c49c7b50be63f2c98288e3e",
+          "model_sync_state": "sha256:97d49770d9366e1dbbb34f1fd71ae3bbcb28368aabd1f5710bf8664fbb679983",
+          "replacement_state": "sha256:603fd80485ba15eac6cdab528e45e9fe9d520a813f7a0c042f19e8ab63a79e91"
+        },
+        "axis_ids": [
+          "change_mode",
+          "replacement_state",
+          "model_sync_state"
+        ],
+        "axis_value_ids": {
+          "change_mode": [
+            "change_mode:bootstrap_ledger",
+            "change_mode:add_behavior",
+            "change_mode:change_behavior",
+            "change_mode:remove_or_replace_behavior",
+            "change_mode:coverage_gap_backfill",
+            "change_mode:model_miss_check"
+          ],
+          "model_sync_state": [
+            "model_sync_state:owner_model_current",
+            "model_sync_state:owner_model_missing",
+            "model_sync_state:owner_model_stale",
+            "model_sync_state:sibling_unchecked",
+            "model_sync_state:child_model_needed"
+          ],
+          "replacement_state": [
+            "replacement_state:active",
+            "replacement_state:deprecated",
+            "replacement_state:replaced",
+            "replacement_state:removed_scoped_out"
+          ]
+        },
+        "expected_cardinality": 120,
+        "fingerprint": "sha256:2c4b3301dc845ed8d92db97c37a9393c04e5cce39d29626786cddff2d27b2ac9",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "replacement_model_sync",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:replacement_model_sync"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger",
+        "existing_model_preflight"
+      ]
+    },
+    {
+      "axis_ids": [
+        "commitment_kind",
+        "owner_state",
+        "evidence_state"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "single_owner_evidence",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "commitment_kind": "sha256:223ee31b39c9ca085f278d2ec05ecba1c8678166264d67aa05450d474379253e",
+          "evidence_state": "sha256:4854b3a76a63ed51257ecab73988bc9ca8f6b7c7342536f8fea9f20c78355af1",
+          "owner_state": "sha256:f5b82f0a4a3861d3dc8f71df82bd320376af2eaf0f320b42023bcf5f9e69ec3c"
+        },
+        "axis_ids": [
+          "commitment_kind",
+          "owner_state",
+          "evidence_state"
+        ],
+        "axis_value_ids": {
+          "commitment_kind": [
+            "commitment_kind:public_api",
+            "commitment_kind:cli",
+            "commitment_kind:ui",
+            "commitment_kind:skill",
+            "commitment_kind:workflow",
+            "commitment_kind:doc",
+            "commitment_kind:release",
+            "commitment_kind:process"
+          ],
+          "evidence_state": [
+            "evidence_state:current_pass",
+            "evidence_state:missing",
+            "evidence_state:stale",
+            "evidence_state:progress_only",
+            "evidence_state:skipped",
+            "evidence_state:blocked"
+          ],
+          "owner_state": [
+            "owner_state:primary_owner_present",
+            "owner_state:commitment_missing_primary_owner",
+            "owner_state:primary_owner_also_supporting"
+          ]
+        },
+        "expected_cardinality": 144,
+        "fingerprint": "sha256:dfafb8925ec3192d56b3031094848dfcf7af15050d694446e616d334834b8d9b",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "single_owner_evidence",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:single_owner_evidence"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger"
+      ]
+    },
+    {
+      "axis_ids": [
+        "exact_intent_identity_state",
+        "primary_path_binding_shape",
+        "ppa_result"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "singular_primary_path_migration",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "exact_intent_identity_state": "sha256:b1274fa75c6abfbead079c1b2a1f808b54732692f8e0e69025cc33219eb1201d",
+          "ppa_result": "sha256:7b0568c533635b6fa921b897fa0fed2af685654cc0275a7b110c8a31e94f4340",
+          "primary_path_binding_shape": "sha256:8c8616b95511ff28edb6d4c7547d8513893f068f46358abd50ec15bb29d19985"
+        },
+        "axis_ids": [
+          "ppa_result",
+          "exact_intent_identity_state",
+          "primary_path_binding_shape"
+        ],
+        "axis_value_ids": {
+          "exact_intent_identity_state": [
+            "exact_intent_identity_state:stable_unique",
+            "exact_intent_identity_state:missing",
+            "exact_intent_identity_state:duplicate",
+            "exact_intent_identity_state:mismatch"
+          ],
+          "ppa_result": [
+            "ppa_result:not_required",
+            "ppa_result:ppa_missing",
+            "ppa_result:ppa_passed",
+            "ppa_result:ppa_blocked"
+          ],
+          "primary_path_binding_shape": [
+            "primary_path_binding_shape:singular",
+            "primary_path_binding_shape:legacy_plural_one",
+            "primary_path_binding_shape:legacy_plural_many",
+            "primary_path_binding_shape:singular_plural_conflict"
+          ]
+        },
+        "expected_cardinality": 64,
+        "fingerprint": "sha256:d3776e6413eeaa143f5925f4b27be5cb824f994bcbb245304246820a159b828d",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "singular_primary_path_migration",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:singular_primary_path_migration"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger",
+        "primary_path_authority"
+      ]
+    },
+    {
+      "axis_ids": [
+        "source_classification",
+        "source_authority_participation",
+        "source_mapping_state"
+      ],
+      "description": "",
+      "dimension_ids": [],
+      "generation_kind": "local_cartesian",
+      "group_id": "source_classification_authority",
+      "interface_model_ids": [],
+      "max_combinations": 10000,
+      "metadata": {},
+      "model_id": "behavior_commitment_ledger",
+      "oracle_id": "behavior_commitment_coverage_must_block",
+      "oracle_status": "block_before_downstream",
+      "parent_interface_contract_id": "",
+      "product_signature": {
+        "axis_fingerprints": {
+          "source_authority_participation": "sha256:3b6250209354403d496cc244d1fd04d15385795fea551df96515481be841ec8c",
+          "source_classification": "sha256:9ffed63b11dfc979b4dd28dfd5862adcf0606325fc915d9e776ce81cb1ca93d8",
+          "source_mapping_state": "sha256:54717683dc7aa66af6ad350a71955f0e4315cf3d5bd7192538fe927cb9ce0be4"
+        },
+        "axis_ids": [
+          "source_classification",
+          "source_authority_participation",
+          "source_mapping_state"
+        ],
+        "axis_value_ids": {
+          "source_authority_participation": [
+            "source_authority_participation:normative",
+            "source_authority_participation:observed",
+            "source_authority_participation:supporting",
+            "source_authority_participation:historical"
+          ],
+          "source_classification": [
+            "source_classification:external_normative_contract",
+            "source_classification:observed_external_behavior",
+            "source_classification:implementation",
+            "source_classification:test",
+            "source_classification:generated_evidence"
+          ],
+          "source_mapping_state": [
+            "source_mapping_state:mapped",
+            "source_mapping_state:source_surface_missing_commitment",
+            "source_mapping_state:commitment_missing_source_ref",
+            "source_mapping_state:not_bidirectional"
+          ]
+        },
+        "expected_cardinality": 80,
+        "fingerprint": "sha256:586bfa475f95b62c45d3fae27e4d6ba02ff1202250fd262be76ab789a75cbc32",
+        "generation_kind": "local_cartesian",
+        "interaction_group_id": "source_classification_authority",
+        "interface_model_ids": [],
+        "model_id": "behavior_commitment_ledger",
+        "parent_interface_contract_id": "",
+        "partition_revision": "",
+        "refinement_contract_id": "",
+        "shard_plan_fingerprint": "",
+        "signature_id": "contract_product:behavior_commitment_ledger:source_classification_authority"
+      },
+      "refinement_contract_id": "",
+      "required": true,
+      "required_routes": [
+        "model_test_alignment",
+        "test_mesh_maintenance",
+        "risk_evidence_ledger",
+        "implementation_blueprint",
+        "test_mesh_maintenance"
+      ]
+    }
+  ],
+  "model_id": "behavior_commitment_ledger",
+  "schema": "flowguard.model_boundary_contract.v2",
+  "topology_fingerprint": "sha256:872ef99575effa3559fa6d645348448ad71f3532f9188f65643bb9765a6de181"
+}

@@ -3825,6 +3825,7 @@ def _pytest_junit_projection(
             "xpassed": 0,
             "skip_details": [],
             "node_ids": [],
+            "node_statuses": {},
             "optional_metadata_unverified": False,
         }
 
@@ -3833,6 +3834,7 @@ def _pytest_junit_projection(
     optional_metadata_unverified = False
     node_ids: set[str] = set()
     ordered_node_ids: list[str] = []
+    node_statuses: dict[str, str] = {}
     if recorded_nodeids and len(recorded_nodeids) != len(cases):
         return None
     for index, case in enumerate(cases):
@@ -3875,8 +3877,10 @@ def _pytest_junit_projection(
         if tag == "skipped":
             if "xfail" in marker_text:
                 xfailed += 1
+                node_statuses[node_id] = "xfailed"
             else:
                 skipped += 1
+                node_statuses[node_id] = "skipped"
                 reason = child_message or child_text or "pytest skipped this node"
                 required_value = str(child.attrib.get("required", "")).strip().lower() if child is not None else ""
                 optional_value = str(child.attrib.get("optional", "")).strip().lower() if child is not None else ""
@@ -3903,12 +3907,16 @@ def _pytest_junit_projection(
         elif tag == "failure":
             if "xpass" in marker_text:
                 xpassed += 1
+                node_statuses[node_id] = "xpassed"
             else:
                 failed += 1
+                node_statuses[node_id] = "failed"
         elif tag == "error":
             errors += 1
+            node_statuses[node_id] = "error"
         else:
             passed += 1
+            node_statuses[node_id] = "passed"
 
     # Compare producer-declared aggregate counts with the concrete testcase
     # projection.  JUnit producers differ on whether an expected xfail is
@@ -3946,6 +3954,7 @@ def _pytest_junit_projection(
         "xpassed": xpassed,
         "skip_details": skip_details,
         "node_ids": ordered_node_ids,
+        "node_statuses": node_statuses,
         "optional_metadata_unverified": optional_metadata_unverified,
     }
 

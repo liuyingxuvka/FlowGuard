@@ -206,6 +206,14 @@ python -m flowguard affected-blueprint-understanding `
   --json
 ```
 
+One request may repeat `--affected-id` and may also provide registered
+`--changed-path` values. FlowGuard merges those seeds before one affected
+closure read; it does not start a separate Python process or reopen a shard or
+object store for each seed. The request keeps its selective locators alive
+until the read finishes and closes them in one `finally` path. Only selected
+objects are materialized and fingerprint-checked; unrelated object damage is
+outside this affected-read claim unless a full projection check is requested.
+
 `project-blueprint-audit` remains the language-specific convenience route for
 a declared project definition whose concrete discovery and test adapters are
 already registered. Its definition names the target kind and boundary, stable

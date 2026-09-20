@@ -1542,7 +1542,11 @@ MODEL_SYSTEM_AUTHORITY_API = (
     "validate_current_effective_intent_view",
 )
 FLOWGUARD_GOVERNANCE_API = tuple(
-    dict.fromkeys(FLOWGUARD_GOVERNANCE_API + MODEL_SYSTEM_AUTHORITY_API)
+    dict.fromkeys(
+        FLOWGUARD_GOVERNANCE_API
+        + MODEL_SYSTEM_AUTHORITY_API
+        + ("implementation_coverage_obligation_id",)
+    )
 )
 WORK_CONTEXT_API = tuple(
     dict.fromkeys(
@@ -2908,6 +2912,7 @@ ARCHITECTURE_REDUCTION_ROUTE_API = (
 CODE_STRUCTURE_RECOMMENDATION_ROUTE_API = (
     "CodeStructureRecommendation",
     "TargetModuleRecommendation",
+    "implementation_coverage_obligation_id",
     "review_code_structure_recommendation",
 )
 

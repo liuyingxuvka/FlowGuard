@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flowguard"
-version = "0.69.2"
+version = "0.69.3"
 description = "Model-first workflow checks for AI agents and process preflights."
 requires-python = ">=3.11"
 dependencies = []
@@ -32,3 +32,6 @@ flowguard = ["consumer-suite-authority.json", "prompt_bundle_manifest.json"]
 # the discovery surface or consume the collection watchdog.
 testpaths = ["tests"]
 norecursedirs = ["build", "work", "worktrees"]
+markers = [
+  "flowguard_capability(name): classify a capability-boundary regression test.",
+]

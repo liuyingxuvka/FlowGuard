@@ -47,6 +47,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include the author-only private inventory scan once in the shared suite observation",
     )
     parser.add_argument(
+        "--pytest-leaf-plan",
+        default="",
+        help=(
+            "Optional current frozen pytest leaf-plan JSON. Native checks "
+            "reuse only exact current passing leaves from this plan."
+        ),
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help="Reuse only exact-current terminal-pass member receipts and execute every missing or stale member.",
@@ -120,6 +128,38 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = Path(args.root).resolve()
     invocation_deadline = time.monotonic() + max(0.0, float(args.timeout))
+    pytest_leaf_plan = None
+    pytest_leaf_plan_path: Path | None = None
+    if args.pytest_leaf_plan:
+        pytest_leaf_plan_path = Path(args.pytest_leaf_plan).expanduser().resolve()
+        if pytest_leaf_plan_path.is_symlink() or not pytest_leaf_plan_path.is_file():
+            payload = {
+                "artifact_type": "flowguard_skill_native_check_run",
+                "status": "blocked",
+                "ok": False,
+                "requested_members": [],
+                "results": [],
+                "blockers": ["pytest_leaf_plan_input_invalid"],
+            }
+            print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) if args.json else "status: blocked\nfinding: pytest_leaf_plan_input_invalid")
+            return 70
+        try:
+            pytest_leaf_plan = json.loads(
+                pytest_leaf_plan_path.read_text(encoding="utf-8")
+            )
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            pytest_leaf_plan = None
+        if not isinstance(pytest_leaf_plan, dict):
+            payload = {
+                "artifact_type": "flowguard_skill_native_check_run",
+                "status": "blocked",
+                "ok": False,
+                "requested_members": [],
+                "results": [],
+                "blockers": ["pytest_leaf_plan_input_invalid"],
+            }
+            print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) if args.json else "status: blocked\nfinding: pytest_leaf_plan_input_invalid")
+            return 70
     canonical = tuple(item.subject_id for item in load_governance_requirements(root))
     selected = tuple(args.member) if args.member else canonical
     unknown = tuple(item for item in selected if item not in canonical)
@@ -198,6 +238,8 @@ def main(argv: list[str] | None = None) -> int:
                     deadline=invocation_deadline,
                     keep_going=args.keep_going,
                     suite_context=suite_context,
+                    pytest_leaf_plan=pytest_leaf_plan,
+                    pytest_leaf_plan_path=pytest_leaf_plan_path,
                 )
             )
         except Exception as exc:  # terminal report must survive one producer failure
@@ -254,6 +296,18 @@ def main(argv: list[str] | None = None) -> int:
         "total_members": len(selected),
         "executed_members": sum(item.get("disposition", "execute") == "execute" for item in rows),
         "reused_members": sum(item.get("disposition") == "reuse_current" for item in rows),
+        "pytest_leaf_plan_path": (
+            str(pytest_leaf_plan_path) if pytest_leaf_plan_path is not None else ""
+        ),
+        "shared_pytest_leaf_reuse_count": sum(
+            sum(
+                bool(run.get("reused_shared_leaf"))
+                for run in item.get("runs", ())
+                if isinstance(run, dict)
+            )
+            for item in rows
+            if isinstance(item, dict)
+        ),
         "results": rows,
         "claim_boundary": (
             "Child receipts prove only each declared owner-specific native binding and its current contract inputs; "

@@ -752,6 +752,15 @@ def main() -> int:
         help="Receipt root consumed by the generated owner-evidence/revision commands.",
     )
     parser.add_argument(
+        "--activation-receipt-id",
+        default="",
+        help=(
+            "Explicit activation receipt id for the generated activation command. "
+            "Construct it from the stable work id, for example "
+            "activation:flowguard:joint-20260920:<work_id>."
+        ),
+    )
+    parser.add_argument(
         "--change-manifest",
         type=Path,
         help="Explicit flowguard.patch_change_manifest.v1 used to bind the review map.",
@@ -785,6 +794,15 @@ def main() -> int:
         parser.error("normal rebuild requires at least one --reviewed-model")
     elif args.intent_output is None or args.path_quality_output is None:
         parser.error("normal rebuild requires --intent-output and --path-quality-output")
+    if args.model_parent_receipt is not None and not args.activation_receipt_id:
+        parser.error(
+            "--model-parent-receipt requires --activation-receipt-id so the "
+            "generated activation command cannot reuse a historical receipt"
+        )
+    if args.activation_receipt_id and (
+        "<" in args.activation_receipt_id or ">" in args.activation_receipt_id
+    ):
+        parser.error("--activation-receipt-id must not contain unresolved angle-bracket placeholders")
     relation_assignments: dict[str, list[str]] = {}
     for raw_assignment in args.relation_assignment:
         if "=" not in raw_assignment:
@@ -964,7 +982,7 @@ def main() -> int:
                             "--revision-set",
                             "<revision_set_path>",
                             "--receipt-id",
-                            "activation:flowguard-usability-closure-20260911",
+                            args.activation_receipt_id,
                             "--json",
                         ],
                     }

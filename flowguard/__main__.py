@@ -737,6 +737,7 @@ def _load_native_owner_evidence(
         "artifact_id",
         "path_token",
         "hash_policy",
+        "exists",
         "raw_sha256",
         "semantic_sha256",
         "obligation_ids",
@@ -924,6 +925,132 @@ def _emit_payload(payload: dict[str, object], *, as_json: bool) -> None:
         return
     for key, value in payload.items():
         print(f"{key}: {value}")
+
+
+def _run_route_reference_command(args: argparse.Namespace) -> int:
+    """Return one public FlowGuard route capsule without loading every route."""
+
+    from .self_maintenance import PUBLIC_ROUTE_ADMISSION, default_flowguard_route_profiles
+
+    requested = str(args.route or "").strip()
+    profiles = {
+        profile.route_id: profile
+        for profile in default_flowguard_route_profiles()
+        if profile.route_id in PUBLIC_ROUTE_ADMISSION
+    }
+    aliases = {
+        alias: route_id
+        for route_id, profile in profiles.items()
+        for alias in (profile.route_id, profile.skill_name)
+        if alias
+    }
+    route_id = aliases.get(requested, "")
+    profile = profiles.get(route_id)
+    payload: dict[str, object] = {
+        "schema_version": "flowguard.route_reference.v1",
+        "command": "route-reference",
+        "requested_route": requested,
+        "status": "pass" if profile is not None else "blocked",
+        "ok": profile is not None,
+        "route": profile.to_dict() if profile is not None else {},
+        "claim_boundary": (
+            "This route-reference result returns one current public FlowGuard route capsule and "
+            "its lazy reference edges. It does not execute the route, read the selected fragment, "
+            "load the complete model, or prove native closure, installation, publication, or future AI behavior."
+        ),
+        "checks": [
+            {
+                "check_id": "route-reference:single-capsule",
+                "status": "pass" if profile is not None else "block",
+                "summary": "Returned one current public route capsule without returning the complete route registry.",
+            },
+            {
+                "check_id": "route-reference:no-mutation",
+                "status": "pass",
+                "summary": "Read only the in-process public route registry.",
+            },
+        ],
+        "blockers": []
+        if profile is not None
+        else ["route-reference route is not a current public FlowGuard route"],
+        "skipped": [
+            "The selected route fragment was not read or executed; load only the returned reference_edges after selection."
+        ],
+    }
+    _emit_payload(payload, as_json=args.json)
+    return 0 if profile is not None else 1
+
+
+def _project_layout_summary(payload: Mapping[str, object], *, full_report_path: str = "") -> dict[str, object]:
+    observed_entries = payload.get("observed_entries")
+    findings = payload.get("findings")
+    changed_paths = payload.get("changed_paths")
+    observed = list(observed_entries) if isinstance(observed_entries, list) else []
+    finding_rows = list(findings) if isinstance(findings, list) else []
+    changed = list(changed_paths) if isinstance(changed_paths, list) else []
+    compact_findings = [
+        {
+            "code": row.get("code", ""),
+            "severity": row.get("severity", ""),
+            "path": row.get("path", ""),
+            "message": str(row.get("message", ""))[:240],
+            "recommendation": str(row.get("recommendation", ""))[:240],
+        }
+        for row in finding_rows[:10]
+        if isinstance(row, Mapping)
+    ]
+    return {
+        "schema_version": "flowguard.project_layout_summary.v1",
+        "source_schema_version": str(payload.get("schema") or payload.get("schema_version") or ""),
+        "artifact_type": "flowguard_project_layout_summary",
+        "status": payload.get("status", "blocked"),
+        "ok": bool(payload.get("ok", False)),
+        "profile": payload.get("profile", ""),
+        "layout_version": payload.get("layout_version"),
+        "checks_run": list(payload.get("checks_run", ()))[:10],
+        "checks_not_run": list(payload.get("checks_not_run", ()))[:10],
+        "changed_path_count": len(changed),
+        "observed_entry_count": len(observed),
+        "observed_entries_omitted_count": max(0, len(observed) - 10),
+        "finding_count": len(finding_rows),
+        "findings": compact_findings,
+        "findings_omitted_count": max(0, len(finding_rows) - len(compact_findings)),
+        "claim_boundary": str(payload.get("claim_boundary", "")),
+        "full_report_path": full_report_path,
+        "full_report_hint": "Use --full-output --output <path> to save the complete layout report." if not full_report_path else "",
+    }
+
+
+def _emit_project_layout_result(
+    payload: Mapping[str, object],
+    args: argparse.Namespace,
+    *,
+    text: str,
+) -> None:
+    if getattr(args, "full_output", False) and not getattr(args, "output", None):
+        raise SystemExit("--full-output requires --output PATH")
+    full_report_path = ""
+    if getattr(args, "output", None):
+        output_path = Path(str(args.output)).expanduser().resolve()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps(dict(payload), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        full_report_path = str(output_path)
+    if args.json:
+        print(
+            json.dumps(
+                _project_layout_summary(payload, full_report_path=full_report_path),
+                indent=2,
+                sort_keys=True,
+                ensure_ascii=False,
+            )
+        )
+    else:
+        print(text)
+        if full_report_path:
+            print(f"full_output: {full_report_path}")
 
 
 def _run_model_system_command(args: argparse.Namespace) -> int:
@@ -1220,6 +1347,17 @@ def _run_model_system_command(args: argparse.Namespace) -> int:
             _emit_payload(report.to_dict(), as_json=args.json)
             return 0
         if args.model_system_action == "activate":
+            unresolved_paths = tuple(
+                value
+                for value in (args.candidate_snapshot, args.revision_set)
+                if "<" in str(value) or ">" in str(value)
+            )
+            if unresolved_paths:
+                raise ValueError(
+                    "model-revision-activate requires real build outputs; "
+                    "unresolved angle-bracket path placeholders remain: "
+                    + ", ".join(unresolved_paths)
+                )
             candidate = load_model_system_snapshot(args.candidate_snapshot)
             revision = ModelRevisionSet.from_dict(
                 _read_json_object(args.revision_set)
@@ -2146,7 +2284,11 @@ def _run_project_layout_audit_command(args: argparse.Namespace) -> int:
             ],
         }
         payload.update(profile_decision.to_dict())
-        print(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) if args.json else "FlowGuard currentness: blocked\nreason: affected profile requires --changed-path")
+        _emit_project_layout_result(
+            payload,
+            args,
+            text="FlowGuard currentness: blocked\nreason: affected profile requires --changed-path",
+        )
         return 1
 
     metrics = InvocationMetrics()
@@ -2161,25 +2303,6 @@ def _run_project_layout_audit_command(args: argparse.Namespace) -> int:
         checks_run = ["layout_shape"]
         checks_not_run = ["semantic_model", "validation_receipts", "release_parity"]
     payload = report.to_dict()
-    # A routine layout check is a shape gate, not a request to stream the
-    # entire role inventory through the model context.  Keep the complete
-    # observation on the in-process report/API, but expose a bounded terminal
-    # projection unless the caller explicitly asks for the full payload.
-    if not getattr(args, "full_output", False):
-        entry_limit = 64
-        finding_limit = 32
-        all_entries = list(payload.get("observed_entries", ()))
-        all_findings = list(payload.get("findings", ()))
-        payload["observed_entry_count"] = len(all_entries)
-        payload["observed_entries"] = all_entries[:entry_limit]
-        payload["observed_entries_omitted_count"] = max(
-            0, len(all_entries) - len(payload["observed_entries"])
-        )
-        payload["findings_count"] = len(all_findings)
-        payload["findings"] = all_findings[:finding_limit]
-        payload["findings_omitted_count"] = max(
-            0, len(all_findings) - len(payload["findings"])
-        )
     payload.update(
         {
             "profile": args.profile,
@@ -2211,12 +2334,16 @@ def _run_project_layout_audit_command(args: argparse.Namespace) -> int:
             }
             for trigger in profile_decision.escalation_triggers
         )
-    if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False))
-    else:
-        print(report.format_text())
-        print(f"profile: {args.profile}")
-        print("checks not run: " + ", ".join(checks_not_run))
+    _emit_project_layout_result(
+        payload,
+        args,
+        text=(
+            report.format_text()
+            + f"\nprofile: {args.profile}"
+            + "\nchecks not run: "
+            + ", ".join(checks_not_run)
+        ),
+    )
     return 0 if bool(payload.get("ok")) else 1
 
 
@@ -3367,15 +3494,18 @@ def _run_affected_blueprint_understanding_command(args: argparse.Namespace) -> i
                     + ", ".join(projection_bundle.unknown_entries)
                 )
             index = projection_bundle.index
-            requested_ids = tuple(args.affected_id or ())
-            if not requested_ids:
-                requested_ids, unknown_paths = projection_bundle.changed_path_candidates(
-                    tuple(args.changed_path or ())
+            explicit_ids = tuple(args.affected_id or ())
+            path_ids, unknown_paths = projection_bundle.changed_path_candidates(
+                tuple(args.changed_path or ())
+            )
+            if unknown_paths:
+                raise AffectedBlueprintReadError(
+                    "unknown_change_point: " + ", ".join(unknown_paths)
                 )
-                if unknown_paths:
-                    raise AffectedBlueprintReadError(
-                        "unknown_change_point: " + ", ".join(unknown_paths)
-                    )
+            # Merge all caller-declared seeds before entering the reader.  The
+            # reader then performs one closure walk and keeps the same shard
+            # and object locators for the complete request.
+            requested_ids = tuple(sorted(set(explicit_ids) | set(path_ids)))
             if not requested_ids:
                 raise AffectedBlueprintReadError(
                     "affected_id_required: projection-root reads require "
@@ -3442,6 +3572,8 @@ def _run_affected_blueprint_understanding_command(args: argparse.Namespace) -> i
         for store in (shard_store, object_store):
             if isinstance(store, _JsonObjectStoreLocator):
                 store.close()
+        if projection_bundle is not None:
+            projection_bundle.close()
     payload = BlueprintCompactProjection.understanding(result)
     if projection_bundle is not None:
         payload["projection"] = {
@@ -3807,6 +3939,21 @@ def _add_existing_command_subparsers(subparsers: argparse._SubParsersAction[argp
         command_parser.set_defaults(handler=lambda _args, name=command_name: COMMANDS[name]())
 
 
+def _add_route_reference_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    parser = subparsers.add_parser(
+        "route-reference",
+        help="Return one current public route capsule and its lazy reference edges.",
+    )
+    parser.add_argument(
+        "route",
+        help="Public route id or its registered consumer skill name.",
+    )
+    parser.add_argument("--json", action="store_true", help="Print the capsule as JSON.")
+    parser.set_defaults(handler=_run_route_reference_command)
+
+
 def _add_adoption_entry_args(
     parser: argparse.ArgumentParser,
     *,
@@ -3897,6 +4044,12 @@ def _add_project_layout_parser(
     )
     parser.add_argument("--root", default=".", help="Target project root.")
     parser.add_argument("--json", action="store_true", help="Print the report as JSON.")
+    parser.add_argument("--output", help="Write the complete machine report to this file.")
+    parser.add_argument(
+        "--full-output",
+        action="store_true",
+        help="Require --output for the complete machine report; stdout remains a bounded summary.",
+    )
     parser.add_argument(
         "--profile",
         choices=("light", "affected", "full"),
@@ -4746,6 +4899,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     _add_existing_command_subparsers(subparsers)
+    _add_route_reference_parser(subparsers)
     for command in FILE_TEMPLATE_COMMANDS:
         _add_file_template_parser(subparsers, command)
     _add_artifact_upgrade_parser(subparsers)

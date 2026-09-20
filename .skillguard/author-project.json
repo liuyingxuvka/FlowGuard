@@ -1,7 +1,7 @@
 {
   "claim_boundary": "Author adoption marks only this explicit skill-maintainer repository. It creates no consumer or ordinary-project dependency and proves no target-domain work.",
   "maintenance_default": "skillguard-author-maintenance-only",
-  "managed_block_hash": "1FBBAECA1F1CEFA010595FE204A0D1C57D9A9943D8620FDF9B932B4EE6127DB5",
+  "managed_block_hash": "EF052B7A1A76C9D7096993F85231F1D33B9E9E2B3141A0FED0530587FC3E0567",
   "managed_skills": [
     {
       "integration_mode": "native-integrated",
@@ -139,11 +139,11 @@
       "skill_path": ".agents/skills/flowguard-ui-flow-structure"
     }
   ],
-  "manifest_hash": "D953576B4FD8CC4EF0262567818BD9417E78712C34AE8F9D350E0C5A2A020F29",
+  "manifest_hash": "B3E3A0742374693CBA1301A055F37307DBA43C65EA9829BEB959F82A8686E718",
   "project_id": "FlowGuard_20260427",
   "project_prompt_path": "AGENTS.md",
   "repository_role": "skill_maintainer_source",
   "schema_version": "skillguard.project_adoption.v1",
   "skillguard_repository": "https://github.com/liuyingxuvka/SkillGuard",
-  "skillguard_version": "0.7.0"
+  "skillguard_version": "0.7.4"
 }

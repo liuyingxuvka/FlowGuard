@@ -54,8 +54,18 @@ AUTO_SCENARIO_RISKS = frozenset(
 )
 
 
-def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
-    """Run the formal model-first FlowGuard check workflow."""
+def run_model_first_checks(
+    plan: FlowGuardCheckPlan,
+    *,
+    model_report: Any = None,
+) -> FlowGuardSummaryReport:
+    """Run the formal model-first FlowGuard check workflow.
+
+    ``model_report`` is an optional report from the exact exploration request
+    already executed by a caller such as the formal workflow suite.  When it
+    is supplied, all summary gates consume that real report without starting a
+    second Explorer run.  Ordinary callers still explore exactly once here.
+    """
 
     sections: list[FlowGuardSection] = []
     artifacts: dict[str, Any] = {"plan": plan}
@@ -116,33 +126,36 @@ def run_model_first_checks(plan: FlowGuardCheckPlan) -> FlowGuardSummaryReport:
         )
         artifacts["generated_scenarios"] = generated_scenarios
 
-    model_report = None
-    try:
-        model_report = Explorer(
-            workflow=plan.workflow,
-            initial_states=plan.initial_states,
-            external_inputs=plan.external_inputs,
-            invariants=active_invariants,
-            max_sequence_length=plan.max_sequence_length,
-            terminal_predicate=plan.terminal_predicate,
-            required_labels=plan.required_labels,
-            assumption_card=plan.assumption_card,
-            max_failures=plan.max_failures,
-            max_transitions=plan.max_transitions,
-            deadline=plan.deadline,
-        ).explore()
+    if model_report is not None:
         sections.append(section_from_check_report(model_report))
         artifacts["model_check_report"] = model_report
-    except Exception as exc:
-        sections.append(
-            FlowGuardSection(
-                name="model_check",
-                status="failed",
-                summary="Explorer raised before producing a CheckReport",
-                findings=(f"{type(exc).__name__}: {exc}",),
-                metadata={"exception_type": type(exc).__name__, "exception_message": str(exc)},
+    else:
+        try:
+            model_report = Explorer(
+                workflow=plan.workflow,
+                initial_states=plan.initial_states,
+                external_inputs=plan.external_inputs,
+                invariants=active_invariants,
+                max_sequence_length=plan.max_sequence_length,
+                terminal_predicate=plan.terminal_predicate,
+                required_labels=plan.required_labels,
+                assumption_card=plan.assumption_card,
+                max_failures=plan.max_failures,
+                max_transitions=plan.max_transitions,
+                deadline=plan.deadline,
+            ).explore()
+            sections.append(section_from_check_report(model_report))
+            artifacts["model_check_report"] = model_report
+        except Exception as exc:
+            sections.append(
+                FlowGuardSection(
+                    name="model_check",
+                    status="failed",
+                    summary="Explorer raised before producing a CheckReport",
+                    findings=(f"{type(exc).__name__}: {exc}",),
+                    metadata={"exception_type": type(exc).__name__, "exception_message": str(exc)},
+                )
             )
-        )
 
     model_derived_scenarios = _model_derived_challenge_scenarios(plan, model_report, active_invariants)
     if model_derived_scenarios:

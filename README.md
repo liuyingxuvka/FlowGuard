@@ -21,7 +21,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.2` | `1.0` | Python standard library only | MIT |
+| `v0.69.3` | `1.0` | Python standard library only | MIT |
 
 [中文说明](./README.zh-CN.md) · [Quick Start](#quick-start) · [Concept](./docs/concept.md) · [Documentation](#documentation-map)
 
@@ -51,7 +51,7 @@ That map is the software's **FlowGuard DNA**.
 The DNA says what the maintained model contains. **Current** says which exact
 version of that DNA is accepted now.
 
-The v0.69.2 candidate self-model contains an exact inventory of 51 current
+The v0.69.3 candidate self-model contains an exact inventory of 51 current
 owners. Fourteen historical, task-local, or completed construction routes were removed from current
 authority after their still-useful protections were reattached: Model Angle
 Deliberation, Maintenance Scan Router, standalone Model Similarity
@@ -810,7 +810,7 @@ python -m flowguard risk-template-search "completion evidence"
 
 Run `python -m flowguard --help` for the full current command list.
 
-FlowGuard v0.69.2 is source-only: the immutable Git tag is the release
+FlowGuard v0.69.3 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -819,8 +819,8 @@ three separate identities:
 
 ```powershell
 python scripts/verify_flowguard_release.py --root . --target release-target.json --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output candidate-receipt.json --json
-python scripts/verify_flowguard_release.py --root . --target release-target.json --phase tag --candidate-receipt candidate-receipt.json --tag v0.69.2 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output tag-receipt.json --json
-python scripts/verify_flowguard_release.py --root . --target release-target.json --phase published --candidate-receipt candidate-receipt.json --tag v0.69.2 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase tag --candidate-receipt candidate-receipt.json --tag v0.69.3 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output tag-receipt.json --json
+python scripts/verify_flowguard_release.py --root . --target release-target.json --phase published --candidate-receipt candidate-receipt.json --tag v0.69.3 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
 ```
 
 The descriptor-driven route is reusable for any software target; see

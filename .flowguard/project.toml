@@ -20,6 +20,11 @@ observation_timeout_seconds = 120
 collection_timeout_seconds = 600
 pytest_shard_timeout_seconds = 2400
 
+[flowguard_execution.profile_timeout_seconds]
+fast = 30
+focused = 120
+full = 900
+
 [flowguard_execution.owner_timeout_seconds]
 model_regressions_full = 1800
 pytest = 6000
@@ -28,12 +33,12 @@ skill_native_checks = 3600
 
 [model_authority]
 system_id = "flowguard"
-observed_snapshot_path = ".flowguard/models/authority/snapshots/341e0d06faec9fc7955ba43b0a10045077687a255d39ddd0ef1549839e7f00d4.json"
-observed_snapshot_fingerprint = "sha256:341e0d06faec9fc7955ba43b0a10045077687a255d39ddd0ef1549839e7f00d4"
-subject_revision = "source-inventory:e953e1a3aebe08d0147498b845d13a89ae468f883ed485b0a61cec198ec335be"
+observed_snapshot_path = ".flowguard/models/authority/snapshots/cf8a4a55ef324f3a0a7678c3440aa9dda5a5fbe2b3708359e28c31e96ef772cd.json"
+observed_snapshot_fingerprint = "sha256:cf8a4a55ef324f3a0a7678c3440aa9dda5a5fbe2b3708359e28c31e96ef772cd"
+subject_revision = "source-inventory:987d33357ba0631bd6c73a23ff0315faee0c81780ee3641c4c83348db2d52549"
 coverage_status = "complete_within_declared_boundary"
-generation = 102
-accepted_revision_set_fingerprint = "sha256:5348fc0450cb26907a1ebfb43839fb4cd62dbbf95ea2af512f59a1e466ad759f"
-previous_snapshot_fingerprint = "sha256:4de649807daea4ac1598874ad8a98a56637ec7aa07c3d4cdd8f680cd2b2ec260"
-activation_receipt_fingerprint = "sha256:87d118d6ce4f031c0446fdf5e98e6039a0c3cbdc127369680aa1a4a803b3895b"
-head_fingerprint = "sha256:ac95848ea5a07048fa6e78e8b6eab21f339b6e1bc839cdbe03e2500cac1cdd96"
+generation = 103
+accepted_revision_set_fingerprint = "sha256:21467572bd269e227d242af94aef27d15b55e9511fea7061d31c2d7cc91d69ce"
+previous_snapshot_fingerprint = "sha256:341e0d06faec9fc7955ba43b0a10045077687a255d39ddd0ef1549839e7f00d4"
+activation_receipt_fingerprint = "sha256:4537528dc94cf740ad044aec6a3e9b7bd8a2c7eaadf0a50ace14d167a365e053"
+head_fingerprint = "sha256:b194ec6517ec2eadd00fe22a0bf53032bd13ea1242ee31a69a9a04e21d17ba55"

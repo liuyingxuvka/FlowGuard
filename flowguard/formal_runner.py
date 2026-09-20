@@ -82,6 +82,20 @@ class FormalWorkflowCase:
 
 
 @dataclass(frozen=True)
+class _FormalExplorationRequest:
+    """Frozen, case-local inputs for one real finite exploration."""
+
+    workflow: Any
+    initial_states: tuple[Any, ...]
+    external_inputs: tuple[Any, ...]
+    invariants: tuple[Any, ...]
+    max_sequence_length: int
+    terminal_predicate: Any
+    required_labels: tuple[str, ...]
+    failure_witness_limit: int | None
+
+
+@dataclass(frozen=True)
 class FormalWorkflowCaseResult:
     """Observed formal result for one workflow case."""
 
@@ -179,6 +193,7 @@ def run_formal_workflow_suite(
     external_inputs: Sequence[Any],
     invariants: Sequence[Any] = (),
     max_sequence_length: int = 1,
+    failure_witness_limit: int | None = 1,
     terminal_predicate: Any = None,
     required_labels: Sequence[str] = (),
     protected_error_class: str = "self_model_known_bad_case",
@@ -202,9 +217,23 @@ def run_formal_workflow_suite(
     base_required_labels = tuple(str(label) for label in required_labels)
     boundary = modeled_boundary or suite_name
     default_error = protected_error_class or "self_model_known_bad_case"
+    exploration_requests = tuple(
+        _build_exploration_request(
+            case,
+            initial_states=base_initial_states,
+            external_inputs=base_external_inputs,
+            invariants=base_invariants,
+            max_sequence_length=max_sequence_length,
+            terminal_predicate=terminal_predicate,
+            required_labels=base_required_labels,
+            failure_witness_limit=failure_witness_limit,
+        )
+        for case in normalized_cases
+    )
 
-    proof_rows, proof_findings = _collect_known_bad_proofs(
+    proof_rows, proof_findings, exploration_reports = _collect_known_bad_proofs(
         normalized_cases,
+        exploration_requests=exploration_requests,
         initial_states=base_initial_states,
         external_inputs=base_external_inputs,
         invariants=base_invariants,
@@ -216,7 +245,8 @@ def run_formal_workflow_suite(
     )
 
     results: list[FormalWorkflowCaseResult] = []
-    for case in normalized_cases:
+    for index, case in enumerate(normalized_cases):
+        request = exploration_requests[index]
         plan = _build_plan(
             suite_name=suite_name,
             case=case,
@@ -230,8 +260,13 @@ def run_formal_workflow_suite(
             modeled_boundary=boundary,
             risk_classes=risk_classes,
             known_bad_proofs=proof_rows,
+            exploration_request=request,
         )
-        summary = _run_model_first_checks(plan, progress=progress)
+        summary = _run_model_first_checks(
+            plan,
+            progress=progress,
+            model_report=exploration_reports[index],
+        )
         results.append(
             FormalWorkflowCaseResult(
                 name=case.name,
@@ -254,13 +289,18 @@ def run_formal_workflow_suite(
     return report
 
 
-def _run_model_first_checks(plan: FlowGuardCheckPlan, *, progress: bool) -> FlowGuardSummaryReport:
+def _run_model_first_checks(
+    plan: FlowGuardCheckPlan,
+    *,
+    progress: bool,
+    model_report: Any = None,
+) -> FlowGuardSummaryReport:
     if progress:
-        return run_model_first_checks(plan)
+        return run_model_first_checks(plan, model_report=model_report)
     old_value = os.environ.get("FLOWGUARD_PROGRESS")
     os.environ["FLOWGUARD_PROGRESS"] = "0"
     try:
-        return run_model_first_checks(plan)
+        return run_model_first_checks(plan, model_report=model_report)
     finally:
         if old_value is None:
             os.environ.pop("FLOWGUARD_PROGRESS", None)
@@ -271,33 +311,43 @@ def _run_model_first_checks(plan: FlowGuardCheckPlan, *, progress: bool) -> Flow
 def _collect_known_bad_proofs(
     cases: Sequence[FormalWorkflowCase],
     *,
+    exploration_requests: Sequence[_FormalExplorationRequest] | None = None,
     initial_states: tuple[Any, ...],
     external_inputs: tuple[Any, ...],
     invariants: tuple[Any, ...],
     max_sequence_length: int,
+    failure_witness_limit: int | None = 1,
     terminal_predicate: Any,
     required_labels: tuple[str, ...],
     protected_error_class: str,
     suite_name: str,
-) -> tuple[tuple[KnownBadProof, ...], tuple[str, ...]]:
+) -> tuple[tuple[KnownBadProof, ...], tuple[str, ...], tuple[Any, ...]]:
     proofs: list[KnownBadProof] = []
     findings: list[str] = []
-
-    for case in cases:
-        case_error = case.protected_error_class or protected_error_class
-        case_inputs = _case_external_inputs(case, external_inputs)
-        case_length = _case_max_sequence_length(case, max_sequence_length)
-        case_terminal = _case_terminal_predicate(case, terminal_predicate)
-        case_labels = _case_required_labels(case, required_labels)
-        probe = _run_probe(
-            case.workflow,
-            initial_states=initial_states,
-            external_inputs=case_inputs,
-            invariants=invariants,
-            max_sequence_length=case_length,
-            terminal_predicate=case_terminal,
-            required_labels=case_labels,
+    requests = tuple(exploration_requests or ())
+    if not requests:
+        requests = tuple(
+            _build_exploration_request(
+                case,
+                initial_states=initial_states,
+                external_inputs=external_inputs,
+                invariants=invariants,
+                max_sequence_length=max_sequence_length,
+                terminal_predicate=terminal_predicate,
+                required_labels=required_labels,
+                failure_witness_limit=failure_witness_limit,
+            )
+            for case in cases
         )
+    if len(requests) != len(cases):
+        raise ValueError("exploration_requests must align one-to-one with cases")
+    reports: list[Any] = []
+
+    for case, request in zip(cases, requests):
+        case_error = case.protected_error_class or protected_error_class
+        case_labels = request.required_labels
+        probe = _run_probe(request)
+        reports.append(probe)
         if not case.expect_ok:
             observed_status = "failed" if not probe.ok else "passed"
             if probe.ok:
@@ -336,7 +386,7 @@ def _collect_known_bad_proofs(
         unique.setdefault(proof.case_id, proof)
     if not unique:
         findings.append("missing_known_bad_proof_source")
-    return tuple(unique.values()), tuple(dict.fromkeys(findings))
+    return tuple(unique.values()), tuple(dict.fromkeys(findings)), tuple(reports)
 
 
 def _build_plan(
@@ -353,11 +403,22 @@ def _build_plan(
     modeled_boundary: str,
     risk_classes: Sequence[str],
     known_bad_proofs: tuple[KnownBadProof, ...],
+    exploration_request: _FormalExplorationRequest | None = None,
 ) -> FlowGuardCheckPlan:
-    case_inputs = _case_external_inputs(case, external_inputs)
-    case_labels = _case_required_labels(case, required_labels)
-    case_length = _case_max_sequence_length(case, max_sequence_length)
-    case_terminal = _case_terminal_predicate(case, terminal_predicate)
+    request = exploration_request or _build_exploration_request(
+        case,
+        initial_states=initial_states,
+        external_inputs=external_inputs,
+        invariants=invariants,
+        max_sequence_length=max_sequence_length,
+        terminal_predicate=terminal_predicate,
+        required_labels=required_labels,
+        failure_witness_limit=1,
+    )
+    case_inputs = request.external_inputs
+    case_labels = request.required_labels
+    case_length = request.max_sequence_length
+    case_terminal = request.terminal_predicate
     known_bad_cases = tuple(proof.case_id for proof in known_bad_proofs)
     case_error = case.protected_error_class or protected_error_class
     state_fields = _state_field_names(initial_states)
@@ -401,12 +462,37 @@ def _build_plan(
             known_bad_cases=known_bad_cases,
         ),
         known_bad_proofs=known_bad_proofs,
-        metadata={"suite_name": suite_name, "case_name": case.name},
+        metadata={
+            "suite_name": suite_name,
+            "case_name": case.name,
+            "failure_witness_limit": request.failure_witness_limit,
+            "exploration_stop_policy": (
+                "full_declared_boundary"
+                if request.failure_witness_limit is None
+                else "stop_after_decisive_failure_and_obligations"
+            ),
+        },
     )
 
 
 def _run_probe(
-    workflow: Any,
+    request: _FormalExplorationRequest,
+) -> Any:
+    return Explorer(
+        workflow=request.workflow,
+        initial_states=request.initial_states,
+        external_inputs=request.external_inputs,
+        invariants=request.invariants,
+        max_sequence_length=request.max_sequence_length,
+        terminal_predicate=request.terminal_predicate,
+        required_labels=request.required_labels,
+        failure_witness_limit=request.failure_witness_limit,
+        progress_steps=0,
+    ).explore()
+
+
+def _build_exploration_request(
+    case: FormalWorkflowCase,
     *,
     initial_states: tuple[Any, ...],
     external_inputs: tuple[Any, ...],
@@ -414,17 +500,20 @@ def _run_probe(
     max_sequence_length: int,
     terminal_predicate: Any,
     required_labels: tuple[str, ...],
-) -> Any:
-    return Explorer(
-        workflow=workflow,
+    failure_witness_limit: int | None,
+) -> _FormalExplorationRequest:
+    return _FormalExplorationRequest(
+        workflow=case.workflow,
         initial_states=initial_states,
-        external_inputs=external_inputs,
+        external_inputs=_case_external_inputs(case, external_inputs),
         invariants=invariants,
-        max_sequence_length=max_sequence_length,
-        terminal_predicate=terminal_predicate,
-        required_labels=required_labels,
-        progress_steps=0,
-    ).explore()
+        max_sequence_length=_case_max_sequence_length(case, max_sequence_length),
+        terminal_predicate=_case_terminal_predicate(case, terminal_predicate),
+        required_labels=_case_required_labels(case, required_labels),
+        failure_witness_limit=(
+            None if failure_witness_limit is None else int(failure_witness_limit)
+        ),
+    )
 
 
 def _summary_observed_ok(

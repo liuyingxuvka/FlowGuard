@@ -312,6 +312,7 @@ class InputSnapshot:
     artifact_id: str
     path_token: str
     hash_policy: str
+    exists: bool | None = True
     raw_sha256: str = ""
     semantic_sha256: str = ""
     obligation_ids: tuple[str, ...] = ()
@@ -320,6 +321,9 @@ class InputSnapshot:
         object.__setattr__(self, "artifact_id", str(self.artifact_id))
         object.__setattr__(self, "path_token", str(self.path_token).replace("\\", "/"))
         object.__setattr__(self, "hash_policy", str(self.hash_policy))
+        if self.exists not in {True, False, None}:
+            raise ReceiptValidationError("input snapshot exists must be boolean")
+        object.__setattr__(self, "exists", self.exists)
         object.__setattr__(self, "raw_sha256", str(self.raw_sha256))
         object.__setattr__(self, "semantic_sha256", str(self.semantic_sha256))
         object.__setattr__(self, "obligation_ids", _unique_tuple(self.obligation_ids))
@@ -330,9 +334,11 @@ class InputSnapshot:
             raise ReceiptValidationError("input snapshot path must be tokenized")
         if self.hash_policy not in INPUT_HASH_POLICIES:
             raise ReceiptValidationError(f"unknown input hash policy: {self.hash_policy}")
-        if self.hash_policy in {INPUT_HASH_RAW, INPUT_HASH_BOTH} and not self.raw_sha256:
+        if self.exists is False and (self.raw_sha256 or self.semantic_sha256):
+            raise ReceiptValidationError("missing input snapshots cannot carry content hashes")
+        if self.exists is True and self.hash_policy in {INPUT_HASH_RAW, INPUT_HASH_BOTH} and not self.raw_sha256:
             raise ReceiptValidationError("raw hash is required by input snapshot policy")
-        if self.hash_policy in {INPUT_HASH_SEMANTIC, INPUT_HASH_BOTH} and not self.semantic_sha256:
+        if self.exists is True and self.hash_policy in {INPUT_HASH_SEMANTIC, INPUT_HASH_BOTH} and not self.semantic_sha256:
             raise ReceiptValidationError("semantic hash is required by input snapshot policy")
 
     @classmethod
@@ -341,6 +347,7 @@ class InputSnapshot:
             artifact_id=str(data.get("artifact_id", "")),
             path_token=str(data.get("path_token", "")),
             hash_policy=str(data.get("hash_policy", "")),
+            exists=data.get("exists", None),
             raw_sha256=str(data.get("raw_sha256", "")),
             semantic_sha256=str(data.get("semantic_sha256", "")),
             obligation_ids=_as_tuple(data.get("obligation_ids", ())),
@@ -351,6 +358,7 @@ class InputSnapshot:
             "artifact_id": self.artifact_id,
             "path_token": self.path_token,
             "hash_policy": self.hash_policy,
+            "exists": self.exists,
             "raw_sha256": self.raw_sha256,
             "semantic_sha256": self.semantic_sha256,
             "obligation_ids": list(self.obligation_ids),
@@ -369,8 +377,27 @@ def snapshot_bytes(
         artifact_id=artifact_id,
         path_token=path_token,
         hash_policy=hash_policy,
+        exists=True,
         raw_sha256=_sha256(data),
         semantic_sha256=_sha256(_semantic_bytes(data)),
+        obligation_ids=tuple(obligation_ids),
+    )
+
+
+def snapshot_missing(
+    artifact_id: str,
+    *,
+    path_token: str,
+    hash_policy: str = INPUT_HASH_BOTH,
+    obligation_ids: Sequence[str] = (),
+) -> InputSnapshot:
+    """Record a missing input without inventing content bytes or a hash."""
+
+    return InputSnapshot(
+        artifact_id=artifact_id,
+        path_token=path_token,
+        hash_policy=hash_policy,
+        exists=False,
         obligation_ids=tuple(obligation_ids),
     )
 
@@ -868,6 +895,7 @@ class ReceiptVerificationContext:
     # receipts they have already named.  The normal empty value preserves the
     # broad subject-scoped supersession audit used by ordinary callers.
     receipt_store_receipt_ids: tuple[str, ...] = ()
+    receipt_identity_version: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -891,6 +919,7 @@ class ReceiptVerificationContext:
             "result_fingerprint",
             "working_directory_token",
             "proof_artifact_id",
+            "receipt_identity_version",
         ):
             object.__setattr__(self, name, str(getattr(self, name)))
         command = tokenize_command(self.command) if isinstance(self.command, str) else tuple(str(part) for part in self.command)
@@ -974,6 +1003,7 @@ _FRESHNESS_FINDING_PREFIXES = (
     "unexpected_consumed_child",
     "verification_context_",
     "receipt_store_",
+    "receipt_identity_",
 )
 
 
@@ -1013,6 +1043,26 @@ def _compare_snapshot(expected: InputSnapshot, current: InputSnapshot) -> tuple[
                 actual=current.obligation_ids,
             )
         )
+    if expected.exists is None or current.exists is None:
+        findings.append(
+            _finding(
+                "input_existence_identity_legacy",
+                f"input existence identity is unavailable for {expected.artifact_id}",
+                expected.artifact_id,
+            )
+        )
+    elif expected.exists != current.exists:
+        findings.append(
+            _finding(
+                "input_existence_mismatch",
+                f"input existence changed for {expected.artifact_id}",
+                expected.artifact_id,
+                expected=expected.exists,
+                actual=current.exists,
+            )
+        )
+    if not expected.exists or not current.exists:
+        return tuple(findings)
     if expected.hash_policy in {INPUT_HASH_RAW, INPUT_HASH_BOTH} and expected.raw_sha256 != current.raw_sha256:
         findings.append(
             _finding(
@@ -1032,6 +1082,15 @@ def _compare_snapshot(expected: InputSnapshot, current: InputSnapshot) -> tuple[
             )
         )
     return tuple(findings)
+
+
+def compare_input_snapshots(
+    expected: InputSnapshot,
+    current: InputSnapshot,
+) -> tuple[ReceiptFinding, ...]:
+    """Compare two independently observed input identities."""
+
+    return _compare_snapshot(expected, current)
 
 
 def proof_artifact_binding_findings(
@@ -1083,12 +1142,18 @@ def proof_artifact_binding_findings(
             continue
         artifact_id = str(item.get("artifact_id", "<missing>"))
         policy = str(item.get("hash_policy", ""))
+        exists = item.get("exists", None)
+        if exists not in {True, False}:
+            malformed_snapshots.append(artifact_id)
+            continue
         if policy not in INPUT_HASH_POLICIES:
             malformed_snapshots.append(artifact_id)
             continue
-        if policy in {INPUT_HASH_RAW, INPUT_HASH_BOTH} and not item.get("raw_sha256"):
+        if exists is False and (item.get("raw_sha256") or item.get("semantic_sha256")):
             malformed_snapshots.append(artifact_id)
-        elif policy in {INPUT_HASH_SEMANTIC, INPUT_HASH_BOTH} and not item.get("semantic_sha256"):
+        elif exists is True and policy in {INPUT_HASH_RAW, INPUT_HASH_BOTH} and not item.get("raw_sha256"):
+            malformed_snapshots.append(artifact_id)
+        elif exists is True and policy in {INPUT_HASH_SEMANTIC, INPUT_HASH_BOTH} and not item.get("semantic_sha256"):
             malformed_snapshots.append(artifact_id)
     if malformed_snapshots:
         findings.append(
@@ -1098,6 +1163,16 @@ def proof_artifact_binding_findings(
                 artifact_ids=tuple(malformed_snapshots),
             )
         )
+    if raw.get("producer_id") == "flowguard.skill_native_checks":
+        metadata = raw.get("metadata", {})
+        identity_version = metadata.get("native_identity_version") if isinstance(metadata, Mapping) else None
+        if identity_version != "2":
+            findings.append(
+                _finding(
+                    "native_identity_version_missing",
+                    "native receipt does not declare the current identity version",
+                )
+            )
     covered = set(_as_tuple(raw.get("covered_obligations", ())))
     if not covered:
         findings.append(
@@ -1500,7 +1575,7 @@ def verify_evidence_receipt(
             continue
         findings.extend(_compare_snapshot(expected, current_snapshot))
 
-    comparisons = (
+    comparisons = [
         ("contract_hash", canonical.contract_hash, context.contract_hash),
         ("check_manifest_hash", canonical.check_manifest_hash, context.check_manifest_hash),
         ("suite_map_hash", canonical.suite_map_hash, context.suite_map_hash),
@@ -1511,7 +1586,16 @@ def verify_evidence_receipt(
         ("result_fingerprint", canonical.result_fingerprint, context.result_fingerprint),
         ("working_directory_token", canonical.working_directory_token, context.working_directory_token),
         ("proof_artifact_id", canonical.proof_artifact_id, context.proof_artifact_id),
-    )
+    ]
+    native_identity_version = str(canonical.metadata.get("native_identity_version", ""))
+    if native_identity_version or context.receipt_identity_version:
+        comparisons.append(
+            (
+                "receipt_identity_version",
+                native_identity_version,
+                context.receipt_identity_version,
+            )
+        )
     for field_name, expected, actual in comparisons:
         if not actual:
             findings.append(_finding(f"{field_name}_missing", f"current {field_name} is unavailable"))
@@ -2356,6 +2440,7 @@ __all__ = [
     "canonical_receipt_json",
     "capture_environment_fingerprint",
     "create_input_snapshot",
+    "compare_input_snapshots",
     "evidence_storage_root",
     "fingerprint_value",
     "import_legacy_report",
@@ -2370,6 +2455,7 @@ __all__ = [
     "save_evidence_receipt",
     "save_receipt",
     "snapshot_bytes",
+    "snapshot_missing",
     "snapshot_file",
     "tokenize_command",
     "tokenize_path",

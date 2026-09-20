@@ -18,6 +18,9 @@ from .report import (
     CheckReport,
     DeadBranch,
     ExceptionBranch,
+    EXPLORATION_STATUS_BUDGET_EXHAUSTED,
+    EXPLORATION_STATUS_COMPLETE,
+    EXPLORATION_STATUS_STOPPED_ON_COUNTEREXAMPLE,
     InvariantViolation,
     ReachabilityFailure,
 )
@@ -127,6 +130,7 @@ class Explorer:
     assumption_card: Any = None
     progress_steps: int = 10
     max_failures: int | None = None
+    failure_witness_limit: int | None = None
     max_transitions: int | None = None
     deadline: float | None = None
 
@@ -144,6 +148,7 @@ class Explorer:
         assumption_card: Any = None,
         progress_steps: int = 10,
         max_failures: int | None = None,
+        failure_witness_limit: int | None = None,
         max_transitions: int | None = None,
         deadline: float | None = None,
     ) -> None:
@@ -160,9 +165,16 @@ class Explorer:
         object.__setattr__(self, "progress_steps", int(progress_steps))
         if max_failures is not None and int(max_failures) < 1:
             raise ValueError("max_failures must be at least 1 when provided")
+        if failure_witness_limit is not None and int(failure_witness_limit) < 1:
+            raise ValueError("failure_witness_limit must be at least 1 when provided")
         if max_transitions is not None and int(max_transitions) < 1:
             raise ValueError("max_transitions must be at least 1 when provided")
         object.__setattr__(self, "max_failures", None if max_failures is None else int(max_failures))
+        object.__setattr__(
+            self,
+            "failure_witness_limit",
+            None if failure_witness_limit is None else int(failure_witness_limit),
+        )
         object.__setattr__(self, "max_transitions", None if max_transitions is None else int(max_transitions))
         object.__setattr__(self, "deadline", deadline)
 
@@ -194,6 +206,7 @@ class Explorer:
         transition_count = 0
         exploration_complete = True
         termination_reason = "completed"
+        exploration_status = EXPLORATION_STATUS_COMPLETE
         reachability_state = _ReachabilityState(
             required_label_matches=[False] * len(self.required_labels),
             required_matches=[False] * len(self.required_reachable),
@@ -223,10 +236,12 @@ class Explorer:
                 if self.deadline is not None and time.monotonic() >= self.deadline:
                     exploration_complete = False
                     termination_reason = "deadline_exhausted"
+                    exploration_status = EXPLORATION_STATUS_BUDGET_EXHAUSTED
                     break
                 if self.max_transitions is not None and transition_count >= self.max_transitions:
                     exploration_complete = False
                     termination_reason = "max_transitions_exhausted"
+                    exploration_status = EXPLORATION_STATUS_BUDGET_EXHAUSTED
                     break
                 sequence_started_count += 1
                 if not compact_trace_storage:
@@ -243,20 +258,24 @@ class Explorer:
                     if self.deadline is not None and time.monotonic() >= self.deadline:
                         exploration_complete = False
                         termination_reason = "deadline_exhausted"
+                        exploration_status = EXPLORATION_STATUS_BUDGET_EXHAUSTED
                         break
                     if self.max_transitions is not None and transition_count >= self.max_transitions:
                         exploration_complete = False
                         termination_reason = "max_transitions_exhausted"
+                        exploration_status = EXPLORATION_STATUS_BUDGET_EXHAUSTED
                         break
                     next_active: list[WorkflowPath] = []
                     for path in active:
                         if self.deadline is not None and time.monotonic() >= self.deadline:
                             exploration_complete = False
                             termination_reason = "deadline_exhausted"
+                            exploration_status = EXPLORATION_STATUS_BUDGET_EXHAUSTED
                             break
                         if self.max_transitions is not None and transition_count >= self.max_transitions:
                             exploration_complete = False
                             termination_reason = "max_transitions_exhausted"
+                            exploration_status = EXPLORATION_STATUS_BUDGET_EXHAUSTED
                             break
                         transition_count += 1
                         run = self.workflow.execute(
@@ -301,6 +320,16 @@ class Explorer:
                         ):
                             exploration_complete = False
                             termination_reason = "max_failures_reached"
+                            exploration_status = EXPLORATION_STATUS_BUDGET_EXHAUSTED
+                            break
+                        if (
+                            self.failure_witness_limit is not None
+                            and observed_failure_count >= self.failure_witness_limit
+                            and self._required_obligations_satisfied(reachability_state)
+                        ):
+                            exploration_complete = False
+                            termination_reason = "failure_witness_limit_reached"
+                            exploration_status = EXPLORATION_STATUS_STOPPED_ON_COUNTEREXAMPLE
                             break
                     if not exploration_complete:
                         break
@@ -379,6 +408,7 @@ class Explorer:
             explored_sequence_count=sequence_started_count,
             transition_count=transition_count,
             remaining_scope=remaining_scope,
+            exploration_status=exploration_status,
         )
 
     def _check_path_invariants(self, path: WorkflowPath) -> list[InvariantViolation]:
@@ -486,6 +516,17 @@ class Explorer:
                 )
 
         return failures
+
+    def _required_obligations_satisfied(self, state: _ReachabilityState) -> bool:
+        """Allow witness short-circuiting only after declared obligations are observed."""
+
+        if not all(state.required_label_matches):
+            return False
+        if self.success_predicate is not None and not state.success_matched:
+            return False
+        if any(state.required_errors) or not all(state.required_matches):
+            return False
+        return True
 
 
 __all__ = ["Explorer", "ReachabilityCondition", "enumerate_input_sequences"]
