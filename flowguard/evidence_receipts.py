@@ -20,7 +20,7 @@ import platform
 import re
 import shlex
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import datetime
 from pathlib import Path
 from threading import RLock
@@ -312,7 +312,7 @@ class InputSnapshot:
     artifact_id: str
     path_token: str
     hash_policy: str
-    exists: bool | None = True
+    exists: bool
     raw_sha256: str = ""
     semantic_sha256: str = ""
     obligation_ids: tuple[str, ...] = ()
@@ -321,7 +321,7 @@ class InputSnapshot:
         object.__setattr__(self, "artifact_id", str(self.artifact_id))
         object.__setattr__(self, "path_token", str(self.path_token).replace("\\", "/"))
         object.__setattr__(self, "hash_policy", str(self.hash_policy))
-        if self.exists not in {True, False, None}:
+        if type(self.exists) is not bool:
             raise ReceiptValidationError("input snapshot exists must be boolean")
         object.__setattr__(self, "exists", self.exists)
         object.__setattr__(self, "raw_sha256", str(self.raw_sha256))
@@ -343,14 +343,23 @@ class InputSnapshot:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "InputSnapshot":
+        if not isinstance(data, Mapping):
+            raise ReceiptValidationError("input snapshot must be an object")
+        observed_fields = set(data)
+        if observed_fields != INPUT_SNAPSHOT_FIELDS:
+            raise ReceiptValidationError(
+                "input snapshot fields are not exact-current: "
+                f"missing={sorted(INPUT_SNAPSHOT_FIELDS - observed_fields)}, "
+                f"unexpected={sorted(observed_fields - INPUT_SNAPSHOT_FIELDS)}"
+            )
         return cls(
-            artifact_id=str(data.get("artifact_id", "")),
-            path_token=str(data.get("path_token", "")),
-            hash_policy=str(data.get("hash_policy", "")),
-            exists=data.get("exists", None),
-            raw_sha256=str(data.get("raw_sha256", "")),
-            semantic_sha256=str(data.get("semantic_sha256", "")),
-            obligation_ids=_as_tuple(data.get("obligation_ids", ())),
+            artifact_id=str(data["artifact_id"]),
+            path_token=str(data["path_token"]),
+            hash_policy=str(data["hash_policy"]),
+            exists=data["exists"],
+            raw_sha256=str(data["raw_sha256"]),
+            semantic_sha256=str(data["semantic_sha256"]),
+            obligation_ids=_as_tuple(data["obligation_ids"]),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -363,6 +372,9 @@ class InputSnapshot:
             "semantic_sha256": self.semantic_sha256,
             "obligation_ids": list(self.obligation_ids),
         }
+
+
+INPUT_SNAPSHOT_FIELDS = frozenset(field.name for field in fields(InputSnapshot))
 
 
 def snapshot_bytes(
@@ -2266,44 +2278,45 @@ def list_latest_evidence_receipts(
     requested = tuple(
         sorted({str(item).strip() for item in subject_ids if str(item).strip()})
     )
-    selected_paths: list[Path] = []
+    candidates_by_subject: dict[str, tuple[tuple[Path, int], ...]] = {}
+    candidate_paths: set[Path] = set()
     for subject_id in requested:
         candidates = _indexed_receipt_path_mtimes(
             root,
             filename_prefix=_receipt_filename_prefix_for_subject(subject_id),
         )
-        if not candidates:
-            continue
-        newest = max(candidates, key=lambda item: (item[1], item[0].name))[0]
-        selected_paths.append(newest)
+        candidates_by_subject[subject_id] = candidates
+        candidate_paths.update(path for path, _mtime in candidates)
 
     def load_candidate(path: Path) -> EvidenceReceipt:
         receipt = load_evidence_receipt(path)
-        if receipt.subject_id not in requested:
-            raise ReceiptValidationError(
-                f"latest evidence receipt subject mismatch: {path.name}"
-            )
         if path.name != _receipt_filename(receipt.receipt_id):
             raise ReceiptValidationError(
                 f"evidence receipt filename does not match receipt_id: {path.name}"
             )
         return receipt
 
-    if len(selected_paths) < 16:
-        loaded = tuple(load_candidate(path) for path in selected_paths)
+    ordered_candidate_paths = tuple(sorted(candidate_paths))
+    if len(ordered_candidate_paths) < 16:
+        loaded = tuple(load_candidate(path) for path in ordered_candidate_paths)
     else:
         with ThreadPoolExecutor(
-            max_workers=min(8, len(selected_paths)),
+            max_workers=min(8, len(ordered_candidate_paths)),
             thread_name_prefix="flowguard-latest-receipt-load",
         ) as executor:
-            loaded = tuple(executor.map(load_candidate, selected_paths))
+            loaded = tuple(executor.map(load_candidate, ordered_candidate_paths))
+    receipts_by_path = dict(zip(ordered_candidate_paths, loaded, strict=True))
     by_subject: dict[str, EvidenceReceipt] = {}
-    for receipt in loaded:
-        if receipt.subject_id in by_subject:
-            raise ReceiptValidationError(
-                f"duplicate latest evidence receipt subject: {receipt.subject_id}"
-            )
-        by_subject[receipt.subject_id] = receipt
+    for subject_id in requested:
+        exact_candidates = tuple(
+            (path, mtime)
+            for path, mtime in candidates_by_subject[subject_id]
+            if receipts_by_path[path].subject_id == subject_id
+        )
+        if not exact_candidates:
+            continue
+        newest = max(exact_candidates, key=lambda item: (item[1], item[0].name))[0]
+        by_subject[subject_id] = receipts_by_path[newest]
     return tuple(by_subject[subject_id] for subject_id in sorted(by_subject))
 
 

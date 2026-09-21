@@ -1,13 +1,11 @@
 import json
 import tempfile
 import unittest
-from contextlib import redirect_stdout
 from dataclasses import replace
-from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
-from flowguard.__main__ import _load_native_owner_evidence, main
+from flowguard.__main__ import _load_native_owner_evidence
 from flowguard.behavior_commitment import (
     BCL_SOURCE_DOC,
     BehaviorCommitmentLedger,
@@ -1068,29 +1066,17 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
 
         self.assertFalse(output.exists())
 
-    def test_cli_writes_strict_bundle_and_reports_frozen_identities(self) -> None:
+    def test_direct_owner_evidence_writes_strict_bundle_and_reports_frozen_identities(self) -> None:
         parent = self._current_parent()
         output = self.root / "cli-owner-evidence.json"
-        stdout = StringIO()
 
-        with redirect_stdout(stdout):
-            exit_code = main(
-                [
-                    "model-revision-owner-evidence",
-                    "--root",
-                    str(self.root),
-                    "--model-parent-receipt",
-                    parent.parent_receipt_path,
-                    "--snapshot-id",
-                    "candidate:cli-owner-evidence",
-                    "--output",
-                    str(output),
-                    "--json",
-                ]
-            )
+        report = produce_model_revision_owner_evidence(
+            self.root,
+            model_parent_receipt=parent.parent_receipt_path,
+            snapshot_id="candidate:direct-owner-evidence",
+            output_path=output,
+        ).to_dict()
 
-        report = json.loads(stdout.getvalue())
-        self.assertEqual(0, exit_code)
         self.assertEqual("pass", report["status"])
         self.assertEqual(str(output.resolve()), report["output_path"])
         for name in (

@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.69.5 - 2026-09-21
+
+- Published the compact current lifecycle: `read`, `change`, and `release`.
+  `read` returns a bounded selected map, `change` executes the declared
+  affected owners with explicit bootstrap/CAS evidence, and `release` performs
+  local qualification without installing or publishing.
+- Kept the accepted FlowGuard map as the evolving information map, with
+  independent connection-owner evidence and strict input snapshots.
+- Removed the former public command aliases and fallback routes. This source
+  release is cumulative from the last public GitHub release `v0.69.0`; the
+  intermediate `0.69.1`–`0.69.4` entries describe source milestones only.
+
 ## v0.69.4 - 2026-09-20
 
 - Contracted the public FlowGuard distribution to one installable `flowguard`

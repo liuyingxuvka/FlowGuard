@@ -28,7 +28,7 @@ fragment. Use the read-only route query when the owner is not already known:
 
 ```powershell
 python -m flowguard route-reference <route-or-skill-name> --json
-python -m flowguard project-audit --root .
+python -m flowguard read --root . --request <request.json> --json
 ```
 
 `use_flowguard`, `skip_with_reason`, and `needs_human_review` remain separate
@@ -67,10 +67,9 @@ router/Portfolio state, or author-only fixtures into the consumer projection.
 ## Short command index
 
 ```powershell
-python -m flowguard project-audit --root .
-python -m flowguard route-reference <route-or-skill-name> --json
-python .agents/skills/skillguard/scripts/skillguard.py route-reference --route-id <route>
-python .agents/skills/skillguard/scripts/skillguard.py maintainer-audit --root .
+python -m flowguard read --root . --request <request.json> --json
+python -m flowguard change --root . --request <request.json> --json
+python -m flowguard release --root . --request <request.json> --json
 ```
 
 The commands above are entrypoints, not proof of completion. Report the exact
@@ -94,7 +93,7 @@ Use one frozen maintenance unit, exact owner/check identities, private evidence 
 Validation policy: `skillguard.validation_execution_ownership.current`. It is direct-current only: no fallback, migration, alias, dual authority, or cross-unit receipt reuse.
 Consumer projections contain no author contracts, receipts, router, Portfolio, or author-only runtime. Installation, global-router currentness, and release are separate explicit claims; read `references/skillguard-target-installation.md` and `references/skillguard-self-host.md` only for those routes.
 
-Author audit command: `python <installed-skillguard>/scripts/skillguard.py maintainer-audit --root .`
+Author currentness command: `python <installed-skillguard>/scripts/skillguard.py read --root . --request skillguard-read.json --json`
 
 This managed block is a routing and maintenance contract. It is not runtime, test, release, or future-behavior proof.
 <!-- END MANAGED SKILLGUARD AUTHOR RULES -->

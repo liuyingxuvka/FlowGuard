@@ -10,6 +10,7 @@ from flowguard.evidence_receipts import (
     ChildReceiptRequirement,
     ConsumedChildReceipt,
     EvidenceReceipt,
+    INPUT_SNAPSHOT_FIELDS,
     INPUT_HASH_BOTH,
     INPUT_HASH_RAW,
     INPUT_HASH_SEMANTIC,
@@ -25,6 +26,7 @@ from flowguard.evidence_receipts import (
     receipt_fingerprint,
     save_evidence_receipt,
     snapshot_bytes,
+    snapshot_missing,
     tokenize_command,
     tokenize_path,
     verify_evidence_receipt,
@@ -122,6 +124,49 @@ def current_context(value, **updates):
 
 
 class EvidenceReceiptSchemaTests(unittest.TestCase):
+    def test_input_snapshot_exists_and_wire_fields_are_exact_current(self):
+        present = snapshot_bytes(
+            "source",
+            b"",
+            path_token="<WORKSPACE>/source.txt",
+            hash_policy=INPUT_HASH_RAW,
+        )
+        missing = snapshot_missing(
+            "source",
+            path_token="<WORKSPACE>/source.txt",
+            hash_policy=INPUT_HASH_RAW,
+        )
+
+        self.assertEqual(set(present.to_dict()), INPUT_SNAPSHOT_FIELDS)
+        self.assertTrue(present.exists)
+        self.assertTrue(present.raw_sha256)
+        self.assertFalse(missing.exists)
+        self.assertEqual("", missing.raw_sha256)
+        self.assertNotEqual(present.to_dict(), missing.to_dict())
+
+        for invalid_exists in (None, 0, 1, "true"):
+            data = present.to_dict()
+            data["exists"] = invalid_exists
+            with self.subTest(exists=invalid_exists):
+                with self.assertRaisesRegex(
+                    ReceiptValidationError,
+                    "exists must be boolean",
+                ):
+                    evidence_receipts_module.InputSnapshot.from_dict(data)
+
+        for mutation in ("missing", "unexpected"):
+            data = present.to_dict()
+            if mutation == "missing":
+                data.pop("exists")
+            else:
+                data["legacy_exists"] = True
+            with self.subTest(mutation=mutation):
+                with self.assertRaisesRegex(
+                    ReceiptValidationError,
+                    "fields are not exact-current",
+                ):
+                    evidence_receipts_module.InputSnapshot.from_dict(data)
+
     def test_canonical_serialization_round_trip_and_fingerprint_are_deterministic(self):
         value = receipt(metadata={"z": [2, 1], "a": {"x": True}})
 

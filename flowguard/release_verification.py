@@ -6,9 +6,11 @@ from dataclasses import dataclass, field, replace
 import importlib.metadata
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import tomllib
 from typing import Any, Callable, Mapping, Sequence
@@ -841,6 +843,170 @@ def _target_candidate_checks(
     )
 
 
+def _is_reparse_path(path: Path) -> bool:
+    if path.is_symlink():
+        return True
+    try:
+        attributes = getattr(path.stat(follow_symlinks=False), "st_file_attributes", 0)
+    except OSError:
+        return False
+    return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))
+
+
+def verify_declared_artifact(
+    root: str | Path,
+    artifact: Mapping[str, Any],
+    artifact_members: Sequence[Mapping[str, Any]] = (),
+) -> tuple[ReleaseCheck, ...]:
+    """Verify one explicitly declared file or directory artifact.
+
+    This is target-neutral byte validation. It reads no FlowGuard package
+    metadata, installation, Git state, or validation-parent receipt.
+    """
+
+    root_path = Path(root).resolve()
+    details: dict[str, Any] = {"artifact": {}, "members": []}
+    try:
+        if set(artifact) != {"path", "sha256"}:
+            raise ValueError("artifact fields must be exactly path and sha256")
+        artifact_path_value = artifact["path"]
+        expected_digest = artifact["sha256"]
+        if not isinstance(artifact_path_value, str) or not artifact_path_value.strip():
+            raise ValueError("artifact path must be a non-empty string")
+        if not isinstance(expected_digest, str) or not re.fullmatch(
+            r"[0-9a-f]{64}", expected_digest
+        ):
+            raise ValueError("artifact sha256 must be 64 lowercase hex characters")
+        candidate = Path(artifact_path_value)
+        candidate = (
+            candidate.resolve()
+            if candidate.is_absolute()
+            else (root_path / candidate).resolve()
+        )
+        candidate.relative_to(root_path)
+        if _is_reparse_path(candidate):
+            raise ValueError("artifact must not be a symlink or reparse point")
+        if not candidate.exists():
+            raise ValueError("artifact does not exist")
+
+        if not isinstance(artifact_members, Sequence) or isinstance(
+            artifact_members, (str, bytes)
+        ):
+            raise ValueError("artifact_members must be an array")
+        declared: dict[str, str] = {}
+        for index, row in enumerate(artifact_members):
+            if not isinstance(row, Mapping) or set(row) != {"path", "sha256"}:
+                raise ValueError(
+                    f"artifact_members[{index}] fields must be exactly path and sha256"
+                )
+            relative = row["path"]
+            digest = row["sha256"]
+            if not isinstance(relative, str) or not relative.strip():
+                raise ValueError(f"artifact_members[{index}].path is required")
+            normalized = relative.replace("\\", "/")
+            relative_path = Path(normalized)
+            if relative_path.is_absolute() or ".." in relative_path.parts:
+                raise ValueError(
+                    f"artifact_members[{index}].path must remain relative"
+                )
+            if normalized in declared:
+                raise ValueError("artifact member paths must be unique")
+            if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                raise ValueError(
+                    f"artifact_members[{index}].sha256 must be 64 lowercase hex characters"
+                )
+            declared[normalized] = digest
+
+        if candidate.is_file():
+            if declared:
+                raise ValueError("file artifacts cannot declare artifact_members")
+            actual_digest = hashlib.sha256(candidate.read_bytes()).hexdigest()
+            details["artifact"] = {
+                "path": candidate.relative_to(root_path).as_posix(),
+                "kind": "file",
+                "expected_sha256": expected_digest,
+                "actual_sha256": actual_digest,
+            }
+            if actual_digest != expected_digest:
+                raise ValueError("artifact digest does not match declaration")
+        elif candidate.is_dir():
+            actual: dict[str, str] = {}
+            for current_root, directory_names, file_names in os.walk(
+                candidate,
+                topdown=True,
+                followlinks=False,
+            ):
+                current_path = Path(current_root)
+                for name in tuple(directory_names):
+                    directory = current_path / name
+                    if _is_reparse_path(directory):
+                        raise ValueError(
+                            "artifact directory contains a symlink or reparse point"
+                        )
+                for name in file_names:
+                    member = current_path / name
+                    if _is_reparse_path(member):
+                        raise ValueError(
+                            "artifact directory contains a symlink or reparse point"
+                        )
+                    relative = member.relative_to(candidate).as_posix()
+                    actual[relative] = hashlib.sha256(member.read_bytes()).hexdigest()
+            missing = sorted(set(declared) - set(actual))
+            unexpected = sorted(set(actual) - set(declared))
+            mismatched = sorted(
+                path
+                for path in set(actual) & set(declared)
+                if actual[path] != declared[path]
+            )
+            rows = [
+                {"path": path, "sha256": actual[path]}
+                for path in sorted(actual)
+            ]
+            actual_digest = hashlib.sha256(
+                json.dumps(
+                    rows,
+                    ensure_ascii=False,
+                    allow_nan=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            details["artifact"] = {
+                "path": candidate.relative_to(root_path).as_posix(),
+                "kind": "directory",
+                "expected_sha256": expected_digest,
+                "actual_sha256": actual_digest,
+            }
+            details["members"] = rows
+            details["missing_members"] = missing
+            details["unexpected_members"] = unexpected
+            details["mismatched_members"] = mismatched
+            if missing or unexpected or mismatched:
+                raise ValueError("artifact directory members do not match declaration")
+            if actual_digest != expected_digest:
+                raise ValueError("artifact directory digest does not match declaration")
+        else:
+            raise ValueError("artifact must be a regular file or directory")
+    except (OSError, TypeError, ValueError) as exc:
+        details["error"] = str(exc)
+        return (
+            _check(
+                "release.declared_artifact",
+                False,
+                "the declared artifact and exact member set match their byte digests",
+                **details,
+            ),
+        )
+    return (
+        _check(
+            "release.declared_artifact",
+            True,
+            "the declared artifact and exact member set match their byte digests",
+            **details,
+        ),
+    )
+
+
 def _model_authority_git_reachability_check(root: Path) -> ReleaseCheck:
     try:
         required_paths = model_authority_release_paths(root)
@@ -1320,6 +1486,7 @@ __all__ = [
     "RELEASE_VERIFICATION_SCHEMA",
     "ReleaseCheck",
     "ReleaseTarget",
+    "verify_declared_artifact",
     "ReleaseVerificationReceipt",
     "load_release_verification_receipt",
     "release_target_fingerprint",

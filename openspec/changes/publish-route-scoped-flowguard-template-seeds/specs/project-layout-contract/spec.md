@@ -31,3 +31,9 @@ ambiguous role ownership SHALL block.
   second current authority
 - **THEN** audit SHALL reject that shape and require the compact current
   layout rules
+
+#### Scenario: Inventory is not conserved
+
+- **WHEN** the manifest inventory and current disk entries differ by path or
+  fingerprint
+- **THEN** audit SHALL block and SHALL NOT read an alternate path

@@ -19,6 +19,6 @@ authorized.
 Author-side checks:
 
 ```powershell
-python -m flowguard project-audit --root .
-python .agents/skills/skillguard/scripts/skillguard.py maintainer-audit --root .
+python -m flowguard read --root . --request read.json --json
+python .agents/skills/skillguard/scripts/skillguard.py read --root . --request skillguard-read.json --json
 ```

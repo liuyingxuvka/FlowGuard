@@ -21,7 +21,7 @@
 
 | 公开版本 | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.4` | `1.0` | 仅使用 Python 标准库 | MIT |
+| `v0.69.5` | `1.0` | 仅使用 Python 标准库 | MIT |
 
 [English](./README.md) · [快速开始](#快速开始) · [概念介绍](./docs/concept.md) · [文档地图](#文档地图)
 
@@ -495,13 +495,18 @@ python examples/job_matching/run_checks.py
 `$CODEX_HOME/skills/` 下唯一的干净 consumer projection；它不会把 FlowGuard 技能套件
 复制到本地项目，再建立第二套 suite authority。
 
-当可执行项目记录有用时，运行：
+目标已经有被接受的 FlowGuard 模型时，只使用三个精简生命周期操作。每个请求都是目标根目录下明确的
+JSON 文件；它们不会搜索其他项目、安装 fallback 或猜测缺失证据：
 
 ```powershell
-python -m flowguard project-adopt --root <target-project>
-python -m flowguard project-audit --root <target-project>
-python -m flowguard project-upgrade --root <target-project>
+python -m flowguard read --root <target-project> --request read.json --json
+python -m flowguard change --root <target-project> --request change.json --json
+python -m flowguard release --root <target-project> --request release.json --json
 ```
+
+`read` 只读返回选中的已接受地图；`change` 只执行冻结范围内受影响的负责人，在证据和 CAS 检查通过后
+接受新的 current，并报告真实执行/复用数量；`release` 只核验已经接受的 current 和明确声明的制品，
+不安装、不打 tag、不 push，也不发布。
 
 然后从一个风险边界开始：
 
@@ -647,24 +652,16 @@ FlowGuard 会刻意分开三种不同的 green 结果：
 档位、轻量存储审计、紧凑布局和可复用分支模板见
 [FlowGuard 执行档位与分支种子](./docs/flowguard_execution_profiles.md)。
 
-普通使用时，simulator 会审计 manifest，并把每个选中的模型交给它自己的 native runner：
+公共 dispatcher 只有三个生命周期操作；native runner 由明确的 `change` 请求选择，
+不会再暴露第二套公共命令目录：
 
 ```powershell
-python -m flowguard simulator --root . --list
-python -m flowguard simulator --root . --model architecture_reduction
-python -m flowguard simulator --root . --model "ui_*" --tier focused --json
-python -m flowguard simulator --root . --all --tier full --jobs 1 --timeout 900
+python -m flowguard read --root . --request read.json --json
+python -m flowguard change --root . --request change.json --json
+python -m flowguard release --root . --request release.json --json
 ```
 
-关于 regression command、后台 progress、evidence location、cleanup、installation、parity
-和 release verification，见[验证与分发](./docs/validation_and_distribution.md)。
-
-```powershell
-python scripts/run_flowguard_model_regressions.py --audit-only --json
-python scripts/run_flowguard_model_regressions.py --tier fast --output-dir .flowguard/evidence/model-regressions/fast-local
-python scripts/run_flowguard_model_regressions.py --tier focused --model "ui_*" --shard 1/2 --jobs 1 --output-dir .flowguard/evidence/model-regressions/focused-1 --json
-python scripts/run_flowguard_model_regressions.py --tier full --jobs 1 --timeout 900 --output-dir .flowguard/evidence/model-regressions/full-local --full
-```
+仓库里的 runner 和 evidence-owner 脚本仍是内部维护工具，不增加 alias、兼容读取器或 fallback。
 
 默认的人类可读输出保持简洁。`--json` 输出规范的机器结果，`--full` 展开人类可读的
 子项细节；两者都不会扩大证据范围。完整 stdout/stderr 只会以确定性的 gzip 对象保存一次，
@@ -672,15 +669,7 @@ python scripts/run_flowguard_model_regressions.py --tier full --jobs 1 --timeout
 选定输出目录中的最终 `report.json`、`evidence-run.json`、Current head binding 和终态子收据
 齐全时，运行才算完成。
 
-持久化证据清理始终必须显式执行：
-
-```powershell
-python -m flowguard evidence-audit --root .flowguard/evidence --json
-python -m flowguard evidence-gc-plan --root .flowguard/evidence --keep 2 --preserve skill-suite --output .flowguard/evidence-gc-plan.json --json
-python -m flowguard evidence-gc-apply --root .flowguard/evidence --plan .flowguard/evidence-gc-plan.json --json
-python -m flowguard evidence-gc-restore --root .flowguard/evidence --quarantine-id <id> --json
-python -m flowguard evidence-gc-purge --root .flowguard/evidence --quarantine-id <id> --json
-```
+持久化证据清理属于内部维护操作，不是公共生命周期命令；公共 `read` 不会创建或清理证据。
 
 Audit 和 planning 不会修改证据。Apply 会重新验证冻结的计划，只把不可达运行移入隔离区；
 Purge 前可以 Restore，且只有在 Current 和 pinned runs 仍然通过后才能对一个精确隔离项执行 Purge。
@@ -711,34 +700,16 @@ distribution；`check` 与 `parity` 是只读的，因此不接受 `--dry-run`�
 见 [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md) 了解命令契约、退出状态、
 后台监控边界、证据位置和安全安装生命周期。
 
-有用的检查和模板命令：
+模板文件由选中的 skill route 按需加载，不是公共 CLI 操作。运行 `python -m flowguard --help`
+查看当前精确的三个操作。
 
-```powershell
-python -m flowguard project-template
-python -m flowguard risk-intent-template
-python -m flowguard risk-template-library-template
-python -m flowguard development-process-flow-template
-python -m flowguard ui-flow-structure-template
-python -m flowguard code-structure-recommendation-template
-python -m flowguard model-test-alignment-template
-python -m flowguard test-mesh-template
-python -m flowguard structure-mesh-template
-python -m flowguard closure-contract-template
-python -m flowguard topology-hazard-template
-python -m flowguard risk-template-search "completion evidence"
-```
-
-运行 `python -m flowguard --help` 查看完整的当前命令列表。
-
-FlowGuard v0.69.4 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
+FlowGuard v0.69.5 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
 或 GitHub Release asset。
 
-验证冻结的 source candidate、不可变 tag 和已发布 release 这三个独立身份：
+公共 `release` 只在本地核验已接受 current；打 tag 和 GitHub 发布是独立维护事务：
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --target release-target.json --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output candidate-receipt.json --json
-python scripts/verify_flowguard_release.py --root . --target release-target.json --phase tag --candidate-receipt candidate-receipt.json --tag v0.69.4 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output tag-receipt.json --json
-python scripts/verify_flowguard_release.py --root . --target release-target.json --phase published --candidate-receipt candidate-receipt.json --tag v0.69.4 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python -m flowguard release --root . --request release.json --json
 ```
 
 同一个描述文件驱动任意软件目标的收敛；详见

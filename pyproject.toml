@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flowguard"
-version = "0.69.4"
+version = "0.69.5"
 description = "Model-first workflow checks for AI agents and process preflights."
 requires-python = ">=3.11"
 dependencies = []
@@ -16,10 +16,9 @@ dev = ["pytest>=8.0"]
 flowguard = "flowguard.__main__:main"
 
 [tool.setuptools.packages.find]
-# The documented ``flowguard`` compatibility commands (including
-# ``scenario-review``) delegate to the maintained executable examples.  Keep
-# those example packages in the wheel so a clean console consumer has the
-# same command surface as a source checkout.
+# The compact public dispatcher lives in ``flowguard.__main__``. Keep the
+# package and its maintained examples available to a source or wheel consumer;
+# examples do not add public lifecycle aliases or fallback routes.
 include = ["flowguard*", "examples*"]
 
 [tool.setuptools.package-data]

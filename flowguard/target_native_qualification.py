@@ -18,6 +18,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from .evidence_receipts import (
     EvidenceReceipt,
+    INPUT_SNAPSHOT_FIELDS,
     ReceiptFinding,
     ReceiptVerificationResult,
     fingerprint_value,
@@ -831,14 +832,6 @@ _EVIDENCE_RECEIPT_FIELDS = (
     "claim_boundary",
     "metadata",
 )
-_INPUT_SNAPSHOT_FIELDS = (
-    "artifact_id",
-    "path_token",
-    "hash_policy",
-    "raw_sha256",
-    "semantic_sha256",
-    "obligation_ids",
-)
 _CHILD_RECEIPT_REQUIREMENT_FIELDS = (
     "receipt_id",
     "subject_id",
@@ -925,7 +918,7 @@ def _evidence_receipt_from_dict(value: Any) -> EvidenceReceipt:
     for index, row in enumerate(data["input_snapshots"]):
         snapshot = _strict(
             row,
-            _INPUT_SNAPSHOT_FIELDS,
+            INPUT_SNAPSHOT_FIELDS,
             f"target native evidence receipt.input_snapshots[{index}]",
         )
         _array(

@@ -16,10 +16,22 @@ unchanged.
   as `not_requested` or `not_run`
 - **AND** it does not build a release tree or run release producers
 
+#### Scenario: Routine scope defers release evidence
+- **WHEN** a routine claim has all routine evidence current and release-required
+  evidence pending
+- **THEN** DevelopmentProcessFlow may allow routine confidence while reporting
+  the release obligation as deferred
+
 #### Scenario: Release scope requires release evidence
 - **WHEN** a `release` claim lacks current release-required evidence
 - **THEN** FlowGuard blocks release confidence
 - **AND** it does not relabel a local parent receipt as a release receipt
+
+#### Scenario: Local release sync evidence is current
+- **WHEN** a release claim includes a refreshed editable install and local
+  shadow workspace sync
+- **THEN** DevelopmentProcessFlow SHALL require final install and shadow import
+  evidence for the released version before release confidence is claimed
 
 #### Scenario: Pointer-only commit preserves local scope
 - **WHEN** an accepted candidate is bound to a new authority pointer after local

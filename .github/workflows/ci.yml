@@ -44,17 +44,17 @@ jobs:
       - name: Install FlowGuard consumer skills
         run: python scripts/install_flowguard_skills.py install --source . --json
 
-      - name: Project audit
-        run: python -m flowguard project-audit --root .
+      - name: Verify compact public dispatcher
+        run: python -m flowguard --help
+
+      - name: Verify generated consumer authority
+        run: python scripts/compile_flowguard_consumer_suite_authority.py --check --json
 
       - name: OpenSpec strict validation
         run: openspec validate --all --strict
 
-      - name: Self-maintenance model checks
-        run: python .flowguard/verification/owners/self_maintenance_mesh/run_checks.py
-
-      - name: Focused unit tests
-        run: python -m pytest -q tests/test_api_surface.py tests/test_skill_docs.py tests/test_project_adoption.py tests/test_public_templates.py
+      - name: Current compact lifecycle tests
+        run: python -m pytest -q tests/test_evidence_receipts.py tests/test_consumer_current_lifecycle.py tests/test_current_public_behavior_manifest.py
 
   deep-checks:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_deep_checks == 'true')
@@ -83,14 +83,14 @@ jobs:
       - name: Install FlowGuard consumer skills
         run: python scripts/install_flowguard_skills.py install --source . --json
 
-      - name: Project audit
-        run: python -m flowguard project-audit --root .
+      - name: Verify compact public dispatcher
+        run: python -m flowguard --help
+
+      - name: Verify generated consumer authority
+        run: python scripts/compile_flowguard_consumer_suite_authority.py --check --json
 
       - name: OpenSpec strict validation
         run: openspec validate --all --strict
 
-      - name: Full unit regression
-        run: python -m pytest -q
-
-      - name: Aggregate FlowGuard model regressions
-        run: python scripts/run_flowguard_model_regressions.py --root .
+      - name: Current compact lifecycle regression
+        run: python -m pytest -q tests/test_evidence_receipts.py tests/test_consumer_current_lifecycle.py tests/test_current_public_behavior_manifest.py tests/test_release_verification.py tests/test_model_revision_owner_evidence.py

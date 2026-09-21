@@ -21,7 +21,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.4` | `1.0` | Python standard library only | MIT |
+| `v0.69.5` | `1.0` | Python standard library only | MIT |
 
 [中文说明](./README.zh-CN.md) · [Quick Start](#quick-start) · [Concept](./docs/concept.md) · [Documentation](#documentation-map)
 
@@ -51,7 +51,7 @@ That map is the software's **FlowGuard DNA**.
 The DNA says what the maintained model contains. **Current** says which exact
 version of that DNA is accepted now.
 
-The v0.69.4 candidate self-model contains an exact inventory of 51 current
+The v0.69.5 candidate self-model contains an exact inventory of 51 current
 owners. Fourteen historical, task-local, or completed construction routes were removed from current
 authority after their still-useful protections were reattached: Model Angle
 Deliberation, Maintenance Scan Router, standalone Model Similarity
@@ -550,13 +550,22 @@ target project. An ordinary target project uses the single clean consumer
 projection under `$CODEX_HOME/skills/`; it does not copy the FlowGuard suite
 into its local project and create a second suite authority.
 
-When executable project records are useful, run:
+When a target has an accepted FlowGuard model, use the three compact lifecycle
+operations. Each request is an explicit JSON file under the target root; the
+operations never search for an alternate project, install a fallback, or infer
+missing evidence:
 
 ```powershell
-python -m flowguard project-adopt --root <target-project>
-python -m flowguard project-audit --root <target-project>
-python -m flowguard project-upgrade --root <target-project>
+python -m flowguard read --root <target-project> --request read.json --json
+python -m flowguard change --root <target-project> --request change.json --json
+python -m flowguard release --root <target-project> --request release.json --json
 ```
+
+`read` is side-effect free and returns the selected accepted map. `change`
+executes the declared affected owners once, accepts a new current only after
+the frozen evidence and CAS checks pass, and reports the actual run/reuse
+counts. `release` qualifies the already accepted current and any explicitly
+declared artifact; it does not install, tag, push, or publish.
 
 Then start with one risky boundary:
 
@@ -709,37 +718,27 @@ scan. See [FlowGuard execution profiles and reusable branch seeds](./docs/flowgu
 for the profile boundary, compact layout, read-light storage audit, and exact
 template-seed policy.
 
-For normal use, the simulator audits the manifest and delegates each selected
-model to its native runner:
+The compact dispatcher is the public lifecycle boundary. Native model runners
+are selected by the explicit `change` request and are not exposed as a second
+public command catalogue:
 
 ```powershell
-python -m flowguard simulator --root . --list
-python -m flowguard simulator --root . --model architecture_reduction
-python -m flowguard simulator --root . --model "ui_*" --tier focused --json
-python -m flowguard simulator --root . --all --tier full --jobs 1 --timeout 900
+python -m flowguard read --root . --request read.json --json
+python -m flowguard change --root . --request change.json --json
+python -m flowguard release --root . --request release.json --json
 ```
 
-See [Validation and Distribution](./docs/validation_and_distribution.md) for
-regression commands, background progress, evidence locations, cleanup,
-installation, parity, and release verification.
-
-```powershell
-python scripts/run_flowguard_model_regressions.py --audit-only --json
-python scripts/run_flowguard_model_regressions.py --tier fast --output-dir .flowguard/evidence/model-regressions/fast-local
-python scripts/run_flowguard_model_regressions.py --tier focused --model "ui_*" --shard 1/2 --jobs 1 --output-dir .flowguard/evidence/model-regressions/focused-1 --json
-python scripts/run_flowguard_model_regressions.py --tier full --jobs 1 --timeout 900 --output-dir .flowguard/evidence/model-regressions/full-local --full
-```
+Repository-owned runner and evidence scripts remain internal maintenance
+helpers. They do not add aliases, compatibility readers, or fallback routes to
+the public dispatcher.
 
 Default human output is concise. `--json` emits the canonical machine result, while `--full` expands human-readable child details; neither option upgrades the evidence scope. Complete stdout/stderr are retained once as deterministic gzip objects with logical and storage hashes. Child and parent JSON keep bounded diagnostics and references rather than nested full payload copies. During a long foreground or background run, progress events show liveness only. Completion requires the final `report.json`, `evidence-run.json`, current-head binding, and terminal child receipts in the selected output directory.
 
-Persistent evidence cleanup is always explicit:
+Persistent evidence cleanup is an internal maintenance operation and is not a
+public lifecycle command. Public `read` never creates or cleans evidence.
 
 ```powershell
-python -m flowguard evidence-audit --root .flowguard/evidence --json
-python -m flowguard evidence-gc-plan --root .flowguard/evidence --keep 2 --preserve skill-suite --output .flowguard/evidence-gc-plan.json --json
-python -m flowguard evidence-gc-apply --root .flowguard/evidence --plan .flowguard/evidence-gc-plan.json --json
-python -m flowguard evidence-gc-restore --root .flowguard/evidence --quarantine-id <id> --json
-python -m flowguard evidence-gc-purge --root .flowguard/evidence --quarantine-id <id> --json
+python -m flowguard read --root . --request read.json --json
 ```
 
 Audit and planning do not modify evidence. Apply revalidates the frozen plan
@@ -780,34 +779,19 @@ See [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.m
 
 Useful check and template commands:
 
-```powershell
-python -m flowguard project-template
-python -m flowguard risk-intent-template
-python -m flowguard risk-template-library-template
-python -m flowguard development-process-flow-template
-python -m flowguard ui-flow-structure-template
-python -m flowguard code-structure-recommendation-template
-python -m flowguard model-test-alignment-template
-python -m flowguard test-mesh-template
-python -m flowguard structure-mesh-template
-python -m flowguard closure-contract-template
-python -m flowguard topology-hazard-template
-python -m flowguard risk-template-search "completion evidence"
-```
+The internal domain references and template files are loaded by the selected
+skill route; they are not public CLI operations. Run `python -m flowguard
+--help` to see the exact three-operation public surface.
 
-Run `python -m flowguard --help` for the full current command list.
-
-FlowGuard v0.69.4 is source-only: the immutable Git tag is the release
+FlowGuard v0.69.5 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
-Verify the frozen source candidate, immutable tag, and published release as
-three separate identities:
+The public release operation qualifies an accepted current locally. Git tag and
+GitHub publication are separate maintainer transactions:
 
 ```powershell
-python scripts/verify_flowguard_release.py --root . --target release-target.json --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output candidate-receipt.json --json
-python scripts/verify_flowguard_release.py --root . --target release-target.json --phase tag --candidate-receipt candidate-receipt.json --tag v0.69.4 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output tag-receipt.json --json
-python scripts/verify_flowguard_release.py --root . --target release-target.json --phase published --candidate-receipt candidate-receipt.json --tag v0.69.4 --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --repository liuyingxuvka/FlowGuard --json
+python -m flowguard release --root . --request release.json --json
 ```
 
 The descriptor-driven route is reusable for any software target; see

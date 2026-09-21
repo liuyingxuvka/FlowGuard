@@ -1,4 +1,5 @@
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -22,6 +23,7 @@ from flowguard.release_verification import (
     _model_authority_git_reachability_check,
     _remote_tag_commit,
     verify_local_candidate,
+    verify_declared_artifact,
     verify_published_release,
     verify_tagged_release,
 )
@@ -247,6 +249,69 @@ class ReleaseVerificationTests(unittest.TestCase):
             check=True,
         ).stdout.strip()
 
+    def test_declared_artifact_verifier_is_target_neutral_and_exact(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            file_artifact = root / "bundle.bin"
+            file_artifact.write_bytes(b"target-owned-bytes")
+            file_digest = hashlib.sha256(file_artifact.read_bytes()).hexdigest()
+
+            file_check = verify_declared_artifact(
+                root,
+                {"path": "bundle.bin", "sha256": file_digest},
+            )[0]
+            self.assertTrue(file_check.ok, file_check.to_dict())
+            self.assertFalse(
+                verify_declared_artifact(
+                    root,
+                    {"path": "bundle.bin", "sha256": "0" * 64},
+                )[0].ok
+            )
+            self.assertFalse(
+                verify_declared_artifact(
+                    root,
+                    {"path": "../outside.bin", "sha256": "0" * 64},
+                )[0].ok
+            )
+
+            directory = root / "dist"
+            directory.mkdir()
+            (directory / "bundle.txt").write_bytes(b"bundle")
+            (directory / "data.json").write_bytes(b'{"value":1}\n')
+            members = [
+                {
+                    "path": path.name,
+                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                }
+                for path in sorted(directory.iterdir())
+            ]
+            directory_digest = hashlib.sha256(
+                json.dumps(
+                    members,
+                    ensure_ascii=False,
+                    allow_nan=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            directory_check = verify_declared_artifact(
+                root,
+                {"path": "dist", "sha256": directory_digest},
+                members,
+            )[0]
+            self.assertTrue(directory_check.ok, directory_check.to_dict())
+
+            (directory / "undeclared.txt").write_bytes(b"extra")
+            extra_check = verify_declared_artifact(
+                root,
+                {"path": "dist", "sha256": directory_digest},
+                members,
+            )[0]
+            self.assertFalse(extra_check.ok)
+            self.assertEqual(
+                ["undeclared.txt"],
+                extra_check.details["unexpected_members"],
+            )
     def _published_runner(
         self,
         commit: str,

@@ -7,6 +7,7 @@ import fnmatch
 import hashlib
 import json
 import mmap
+import re
 import sys
 import threading
 from dataclasses import dataclass
@@ -4924,7 +4925,7 @@ def _compact_parse(operation: str, argv: list[str]) -> dict[str, Any]:
         index += 2
     if "root" not in values:
         raise ValueError("--root is required")
-    if operation in {"change", "release"} and "request" not in values:
+    if "request" not in values:
         raise ValueError("--request is required")
     root = Path(str(values["root"])).resolve()
     if not root.is_dir():
@@ -4933,11 +4934,1138 @@ def _compact_parse(operation: str, argv: list[str]) -> dict[str, Any]:
     return values
 
 
+def _compact_endpoint(value: Any) -> dict[str, str]:
+    data = value if isinstance(value, Mapping) else {}
+    return {
+        "kind": str(data.get("endpoint_kind", "")),
+        "id": str(data.get("endpoint_id", "")),
+        "fingerprint": str(data.get("fingerprint", "")),
+    }
+
+
+def _compact_read_map(closure: Any) -> dict[str, object]:
+    models: list[dict[str, object]] = []
+    for row in closure.selected_models:
+        inputs = row.get("inputs", ()) if isinstance(row, Mapping) else ()
+        input_paths = sorted(
+            {
+                str(item.get("path", "")).replace("\\", "/")
+                for item in inputs
+                if isinstance(item, Mapping) and str(item.get("path", ""))
+            }
+        )
+        models.append(
+            {
+                "model_id": str(row.get("logical_model_id", "")),
+                "model_path": str(row.get("model_path", "")).replace("\\", "/"),
+                "runner_path": str(row.get("runner_path", "")).replace("\\", "/"),
+                "input_paths": input_paths,
+            }
+        )
+
+    intents = [
+        {
+            "source_ref": str(row.get("source_ref", "")),
+            "source_fingerprint": str(row.get("source_fingerprint", "")),
+            "logical_model_id": str(row.get("logical_model_id", "")),
+        }
+        for row in closure.selected_intent_refs
+    ]
+    relations: list[dict[str, object]] = []
+    boundaries: dict[tuple[str, str, str], dict[str, str]] = {}
+    for row in closure.relations:
+        source = _compact_endpoint(row.get("source", {}))
+        target = _compact_endpoint(row.get("target", {}))
+        relations.append(
+            {
+                "source": source,
+                "target": target,
+                "kind": str(row.get("kind", "")),
+                "fingerprint": str(row.get("fingerprint", "")),
+            }
+        )
+        for endpoint in (source, target):
+            if endpoint["kind"] != "model_instance":
+                key = (endpoint["kind"], endpoint["id"], endpoint["fingerprint"])
+                boundaries[key] = endpoint
+    return {
+        "models": models,
+        "intents": intents,
+        "relations": relations,
+        "boundary_nodes": [boundaries[key] for key in sorted(boundaries)],
+    }
+
+
+def _read_operation(root: Path, request: Mapping[str, Any], values: Mapping[str, Any]) -> dict[str, Any]:
+    from .model_authority import ModelAuthorityError
+    from .model_authority_store import (
+        load_current_model_authority_state,
+        load_observed_model_system,
+        read_selected_model_closure,
+    )
+
+    expected_fields = {"operation", "target_id", "scope"}
+    if set(request) != expected_fields:
+        raise ValueError(
+            "read request fields are not exact-current: "
+            f"missing={sorted(expected_fields - set(request))}, "
+            f"unexpected={sorted(set(request) - expected_fields)}"
+        )
+    if request["operation"] != "read":
+        raise ValueError("read request operation must be 'read'")
+    if "expected_current" in values:
+        raise ValueError("read does not accept --expected-current")
+    target_id = request["target_id"]
+    if not isinstance(target_id, str) or not target_id.strip():
+        raise ValueError("read request target_id must be a non-empty string")
+    scope = request["scope"]
+    if not isinstance(scope, list) or not scope:
+        raise ValueError("read request scope must be a non-empty model ID array")
+    if any(not isinstance(item, str) or not item.strip() for item in scope):
+        raise ValueError("read request scope entries must be non-empty strings")
+    if len(scope) != len(set(scope)):
+        raise ValueError("read request scope contains duplicate model IDs")
+
+    try:
+        head, snapshot = load_observed_model_system(root)
+    except ModelAuthorityError as exc:
+        # A project that has not yet established its first observed authority
+        # is a normal bootstrap state.  Keep it distinct from a malformed or
+        # corrupt authority so the caller can prepare a change request without
+        # treating read as a producer or inventing a current head.
+        if str(exc) == "project manifest has no model_authority section":
+            return {
+                "operation": "read",
+                "status": "blocked",
+                "reason": "current_model_missing",
+                "current_authority": "missing",
+                "target_id": target_id,
+                "requested_model_ids": list(scope),
+                "selected_model_ids": [],
+                "as_of": {
+                    "authority_status": "missing",
+                    "reason": "no_observed_model_authority",
+                },
+                "authority_integrity": "missing",
+                "selected_source_currentness": "not_selected",
+                "execution_evidence_status": "not_run",
+                "required_count": 0,
+                "run_count": 0,
+                "reused_count": 0,
+                "producer_count": 0,
+                "write_count": 0,
+                "map": {},
+                "stale_obligations": [],
+                "blockers": ["current_model_missing"],
+                "claim_boundary": (
+                    "No observed model authority exists. Read did not create a "
+                    "head, run an owner, refresh evidence, or select a fallback. "
+                    "Use the published change schema to establish the first "
+                    "current authority."
+                ),
+            }
+        raise
+    state = load_current_model_authority_state(
+        root,
+        head=head,
+        snapshot=snapshot,
+        reverify_current_sources=False,
+    )
+    if target_id != head.system_id:
+        raise ValueError("read request target_id does not match current authority")
+    known_model_ids = {
+        str(item.logical_model_id) for item in snapshot.model_instances
+    }
+    unknown_model_ids = sorted(set(scope) - known_model_ids)
+    if unknown_model_ids:
+        raise ValueError(f"read request scope contains unknown model IDs: {unknown_model_ids}")
+
+    closure = read_selected_model_closure(
+        root,
+        selected_model_ids=tuple(scope),
+        authority_state=state,
+    )
+    if not closure.ok:
+        raise ValueError("current model authority is not readable")
+    payload: dict[str, Any] = {
+        "operation": "read",
+        "status": "pass",
+        "target_id": target_id,
+        "requested_model_ids": list(scope),
+        "selected_model_ids": list(closure.selected_model_ids),
+        "as_of": dict(closure.as_of),
+        "authority_integrity": closure.authority_integrity,
+        "selected_source_currentness": closure.selected_source_currentness,
+        "execution_evidence_status": "not_run",
+        "required_count": 0,
+        "run_count": 0,
+        "reused_count": 0,
+        "producer_count": 0,
+        "write_count": 0,
+        "map": _compact_read_map(closure),
+        "stale_obligations": list(closure.stale_obligations),
+        "blockers": [],
+        "claim_boundary": (
+            "This is an as-of read of the selected accepted model map. It does "
+            "not execute owners, refresh evidence, accept a change, install, or publish."
+        ),
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    # ``print`` adds one LF byte to the transport. Keep the complete emitted
+    # JSON, not merely the in-memory payload, inside the public summary bound.
+    if len(encoded) + 1 > 8192:
+        return {
+            "operation": "read",
+            "status": "blocked",
+            "reason": "scope_too_large",
+            "target_id": target_id,
+            "requested_model_ids": list(scope),
+            "required_slice_ids": list(scope),
+            "as_of": dict(closure.as_of),
+            "authority_integrity": closure.authority_integrity,
+            "selected_source_currentness": closure.selected_source_currentness,
+            "execution_evidence_status": "not_run",
+            "required_count": 0,
+            "run_count": 0,
+            "reused_count": 0,
+            "producer_count": 0,
+            "write_count": 0,
+            "map": {},
+            "stale_obligations": list(closure.stale_obligations),
+            "blockers": ["scope_too_large"],
+            "claim_boundary": (
+                "The selected accepted map exceeds the bounded transport summary. "
+                "Read each required_slice_id explicitly."
+            ),
+        }
+    return payload
+
+
+def _root_file_reference(
+    root: Path,
+    value: Any,
+    *,
+    context: str,
+) -> tuple[Path, bytes]:
+    if not isinstance(value, Mapping) or set(value) != {"path", "sha256"}:
+        raise ValueError(f"{context} must contain exactly path and sha256")
+    relative = value["path"]
+    digest = value["sha256"]
+    if not isinstance(relative, str) or not relative.strip():
+        raise ValueError(f"{context}.path must be a non-empty string")
+    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise ValueError(f"{context}.sha256 must be 64 lowercase hex characters")
+    candidate = Path(relative)
+    path = candidate.resolve() if candidate.is_absolute() else (root / candidate).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"{context}.path must remain under --root") from exc
+    if path.is_symlink() or not path.is_file():
+        raise ValueError(f"{context}.path must be an existing ordinary file")
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != digest:
+        raise ValueError(f"{context}.sha256 does not match file bytes")
+    return path, raw
+
+
+def _native_path_quality_material(
+    parent: Any,
+    candidate: Any,
+    *,
+    required_model_ids: tuple[str, ...],
+    currentness_id: str,
+) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
+    """Project executed native case evidence into exact path-quality material."""
+
+    from .model_path_quality import (
+        NecessityWitness,
+        PathQualitySubject,
+        canonical_fingerprint,
+        derive_retained_elements,
+        lightweight_path_review,
+        normalized_model_facts_fingerprint,
+    )
+
+    instances = {item.logical_model_id: item for item in candidate.model_instances}
+    results = {item.model_id: item for item in parent.results}
+    subjects: list[Any] = []
+    reviews: list[Any] = []
+    for model_id in required_model_ids:
+        instance = instances.get(model_id)
+        run = results.get(model_id)
+        if instance is None or run is None or not run.ok or not run.native_case_results:
+            raise ValueError(
+                f"path-quality owner did not produce native case evidence: {model_id}"
+            )
+        cases = tuple(run.native_case_results)
+        terminal_states = tuple(
+            {
+                "id": f"case-state:{row.source_case_id}",
+                "terminal": True,
+            }
+            for row in cases
+        )
+        transitions = tuple(
+            {
+                "id": f"case-transition:{row.source_case_id}",
+                "source": "start",
+                "target": f"case-state:{row.source_case_id}",
+                "trigger": row.source_case_id,
+                "guard": "native-case-executed",
+                "outputs": (f"outcome:{row.outcome}",),
+                "effects": (f"observe:{row.observed_status}",),
+            }
+            for row in cases
+        )
+        validations = tuple(
+            {
+                "id": f"validation:{row.source_case_id}",
+                "obligation_id": f"obligation:{row.source_case_id}",
+                "oracle_id": f"oracle:{row.oracle_fingerprint}",
+                "subject_fingerprint": row.result_artifact_fingerprint,
+                "evidence_boundary_id": f"boundary:{model_id}",
+            }
+            for row in cases
+        )
+        facts = {
+            "states": ({"id": "start", "initial": True}, *terminal_states),
+            "transitions": transitions,
+            "fields": (),
+            "function_blocks": (),
+            "outputs": tuple(
+                {"id": output_id, "terminal": True}
+                for output_id in sorted({f"outcome:{row.outcome}" for row in cases})
+            ),
+            "validations": validations,
+            "owners": (
+                {
+                    "id": f"owner:{model_id}",
+                    "intent_id": f"intent:{model_id}",
+                    "boundary_id": f"boundary:{model_id}",
+                    "current": True,
+                },
+            ),
+        }
+        retained = tuple(derive_retained_elements(facts))
+        obligations = tuple(
+            sorted(f"obligation:{element_id}" for element_id, _kind in retained)
+        )
+        evidence_fingerprint = run.native_case_result_artifact_fingerprint
+        subject = PathQualitySubject(
+            model_id=model_id,
+            boundary_id=f"boundary:{model_id}",
+            model_fingerprint=instance.fingerprint,
+            normalized_facts_fingerprint=normalized_model_facts_fingerprint(facts),
+            retained_element_inventory_fingerprint=canonical_fingerprint(dict(retained)),
+            purpose_fingerprint=instance.purpose_closure_fingerprint,
+            intent_fingerprint=canonical_fingerprint(
+                {"model_id": model_id, "candidate": candidate.fingerprint}
+            ),
+            obligation_fingerprint=canonical_fingerprint(list(obligations)),
+            provider_fingerprint=canonical_fingerprint(
+                {"owner_id": f"model:{model_id}", "runner": instance.runner_sha256}
+            ),
+            dependency_fingerprint=instance.input_inventory_fingerprint,
+            code_fingerprint=canonical_fingerprint(
+                {row.path: row.sha256 for row in instance.inputs}
+            ),
+            test_fingerprint=instance.runner_sha256,
+            oracle_fingerprint=canonical_fingerprint(
+                [row.oracle_fingerprint for row in cases]
+            ),
+            evidence_fingerprint=evidence_fingerprint,
+            currentness_id=currentness_id,
+        )
+        witnesses = tuple(
+            NecessityWitness(
+                witness_id=f"witness:{model_id}:{element_id}",
+                subject_fingerprint=subject.fingerprint,
+                element_id=element_id,
+                element_kind=element_kind,
+                obligation_id=f"obligation:{element_id}",
+                counterexample_id=f"native-case-set:{model_id}:{element_id}",
+                oracle_id=f"native-oracle-set:{model_id}:{element_id}",
+                evidence_fingerprint=evidence_fingerprint,
+                evidence_currentness_id=currentness_id,
+            )
+            for element_id, element_kind in retained
+        )
+        review = lightweight_path_review(
+            subject,
+            facts,
+            necessity_witnesses=witnesses,
+            active_obligation_ids=obligations,
+        )
+        if not review.current or review.unresolved_ids:
+            raise ValueError(f"path-quality review is not current and closed: {model_id}")
+        subjects.append(subject)
+        reviews.append(review)
+    return tuple(subjects), tuple(reviews)
+
+
+def _change_current_operation(
+    root: Path,
+    request: Mapping[str, Any],
+    *,
+    request_sha256: str,
+) -> dict[str, Any]:
+    from .model_authority import ModelRevisionSet, load_model_system_snapshot
+    from .model_authority_store import (
+        activate_model_revision_set,
+        load_current_model_authority_state,
+        load_observed_model_system,
+    )
+    from .model_intent import ModelIntentContribution, ModelIntentDisposition
+    from .model_intent_authority import EffectiveIntentTransition
+    from .model_regressions import run_manifest_regressions
+    from .model_revision_builder import build_current_model_revision
+    from .model_revision_owner_evidence import produce_model_revision_owner_evidence
+    from .model_revision_plan import preview_current_model_revision
+    from .model_revision_set import RevisionRemovalDisposition
+    from .model_system_inventory import build_manifest_model_system_snapshot
+
+    expected_current = request["expected_current"]
+    if not isinstance(expected_current, str) or not expected_current.strip():
+        raise ValueError("current change expected_current must be a non-empty fingerprint")
+    head, base = load_observed_model_system(root)
+    if head.fingerprint != expected_current:
+        raise ValueError("current change expected_current does not match current head")
+    if request["target_id"] != head.system_id:
+        raise ValueError("current change target_id does not match current authority")
+
+    _preparation_path, preparation_raw = _root_file_reference(
+        root, request["revision_input"], context="revision_input"
+    )
+    preparation = _strict_json_loads(preparation_raw.decode("utf-8"))
+    fields = {
+        "schema", "target_id", "base_head_fingerprint", "snapshot_id",
+        "revision_set_id", "task_id", "activation_receipt_id", "decision_reason",
+        "intent_contributions", "intent_dispositions", "effective_intent_transitions",
+        "removal_dispositions", "current_design_intent_contributions",
+        "accepted_boundary_contract_ref", "path_quality_outputs",
+        "bootstrap_staging_root",
+    }
+    if not isinstance(preparation, Mapping) or set(preparation) != fields:
+        actual = set(preparation) if isinstance(preparation, Mapping) else set()
+        raise ValueError(
+            "revision preparation fields are not exact-current: "
+            f"missing={sorted(fields - actual)}, unexpected={sorted(actual - fields)}"
+        )
+    if preparation["schema"] != "flowguard.revision_preparation.v1":
+        raise ValueError("revision preparation schema is not current")
+    if preparation["target_id"] != head.system_id:
+        raise ValueError("revision preparation target_id does not match current authority")
+    if preparation["base_head_fingerprint"] != head.fingerprint:
+        raise ValueError("revision preparation base_head_fingerprint is stale")
+    if preparation["bootstrap_staging_root"] is not None:
+        raise ValueError("current change bootstrap_staging_root must be null")
+    if preparation["current_design_intent_contributions"]:
+        raise ValueError("current change cannot provide bootstrap design contributions")
+    if preparation["accepted_boundary_contract_ref"] is not None:
+        raise ValueError("current minimal change does not accept a boundary contract reference")
+    for field in ("snapshot_id", "revision_set_id", "task_id", "activation_receipt_id", "decision_reason"):
+        if not isinstance(preparation[field], str) or not preparation[field].strip():
+            raise ValueError(f"revision preparation {field} must be non-empty")
+    for field in (
+        "intent_contributions", "intent_dispositions", "effective_intent_transitions",
+        "removal_dispositions", "current_design_intent_contributions", "path_quality_outputs",
+    ):
+        if not isinstance(preparation[field], list):
+            raise ValueError(f"revision preparation {field} must be an array")
+
+    contributions = tuple(
+        ModelIntentContribution.from_dict(row) for row in preparation["intent_contributions"]
+    )
+    dispositions = tuple(
+        ModelIntentDisposition.from_dict(row) for row in preparation["intent_dispositions"]
+    )
+    transitions = tuple(
+        EffectiveIntentTransition.from_dict(row)
+        for row in preparation["effective_intent_transitions"]
+    )
+    removals = tuple(
+        RevisionRemovalDisposition.from_dict(row)
+        for row in preparation["removal_dispositions"]
+    )
+    slots: dict[str, Mapping[str, Any]] = {}
+    for index, row in enumerate(preparation["path_quality_outputs"]):
+        expected_slot_fields = {"model_id", "producer_owner_id", "case_id", "artifact_id"}
+        if not isinstance(row, Mapping) or set(row) != expected_slot_fields:
+            raise ValueError(f"path_quality_outputs[{index}] fields are not exact-current")
+        if any(not isinstance(row[name], str) or not row[name].strip() for name in expected_slot_fields):
+            raise ValueError(f"path_quality_outputs[{index}] values must be non-empty strings")
+        model_id = str(row["model_id"])
+        if model_id in slots:
+            raise ValueError("path_quality_outputs contains duplicate model_id")
+        if row["producer_owner_id"] != f"model:{model_id}":
+            raise ValueError("path-quality producer owner does not match model_id")
+        slots[model_id] = row
+
+    plan = preview_current_model_revision(
+        root, snapshot_id=str(preparation["snapshot_id"])
+    )
+    if not plan.ok or not plan.change_present or plan.snapshot_diff is None:
+        raise ValueError("current change preview is blocked or contains no change")
+    if plan.observed_head_fingerprint != head.fingerprint:
+        raise ValueError("current change preview does not match expected current head")
+    preview_candidate = build_manifest_model_system_snapshot(
+        root,
+        snapshot_id=str(preparation["snapshot_id"]),
+        system_id=base.system_id,
+        subject_lane=base.subject_lane,
+        lifecycle=base.lifecycle,
+    )
+    current_state = load_current_model_authority_state(
+        root,
+        head=head,
+        snapshot=base,
+        reverify_current_sources=False,
+    )
+    known_scope_ids = {
+        *(item.logical_model_id for item in preview_candidate.model_instances),
+        *(relation.relation_id for relation in preview_candidate.relations),
+        *(
+            endpoint.endpoint_id
+            for relation in preview_candidate.relations
+            for endpoint in (relation.source, relation.target)
+        ),
+    }
+    if current_state.accepted_revision is not None:
+        known_scope_ids.update(
+            item.contribution_id
+            for item in current_state.accepted_revision.current_effective_intent_view.active_contributions
+        )
+    unknown_scope = sorted(set(request["scope"]) - known_scope_ids)
+    if unknown_scope:
+        raise ValueError(f"current change scope contains unknown IDs: {unknown_scope}")
+    required_quality_ids = tuple(
+        sorted(
+            member.member_id
+            for member in plan.snapshot_diff.members
+            if member.operation in {"add", "replace"}
+        )
+    )
+    if set(slots) != set(required_quality_ids):
+        raise ValueError(
+            "path_quality_outputs must exactly cover changed add/replace models: "
+            f"required={list(required_quality_ids)}, supplied={sorted(slots)}"
+        )
+
+    receipt_root = root / ".flowguard" / "evidence" / "model-owner-receipts"
+    output_root = root / "work" / f"change-{request_sha256[:12]}"
+    receipt_root.mkdir(parents=True, exist_ok=True)
+    try:
+        parent = run_manifest_regressions(
+            root,
+            tier="full",
+            jobs=1,
+            output_dir=output_root / "model-parent",
+            receipt_dir=receipt_root,
+            require_executed_case_ids=True,
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        completed_leaf_artifacts = tuple(
+            (output_root / "model-parent").glob("*/native-case-results.json")
+        )
+        run_count = len(completed_leaf_artifacts)
+        return {
+            "operation": "change",
+            "status": "blocked",
+            "reason": "owner_execution_failed_or_source_drifted",
+            "target_id": head.system_id,
+            "bootstrap": False,
+            "required_count": len(plan.candidate_model_ids),
+            "producer_count": run_count,
+            "run_count": run_count,
+            "reused_count": max(0, len(plan.candidate_model_ids) - run_count),
+            "write_count": 0,
+            "affected_model_ids": list(required_quality_ids),
+            "head": head.to_dict(),
+            "blockers": ["owner_execution_failed_or_source_drifted"],
+            "error": str(exc),
+            "claim_boundary": (
+                "Owner execution or final source freshness failed; no model authority head was moved."
+            ),
+        }
+    if parent.status != "pass" or not parent.parent_receipt_path:
+        run_count = sum(
+            item.execution_disposition == "execute" for item in parent.results
+        )
+        reused_count = sum(
+            item.execution_disposition == "reuse_current" for item in parent.results
+        )
+        return {
+            "operation": "change",
+            "status": "blocked",
+            "reason": "owner_execution_failed_or_source_drifted",
+            "target_id": head.system_id,
+            "bootstrap": False,
+            "required_count": len(parent.selected_model_ids),
+            "producer_count": run_count,
+            "run_count": run_count,
+            "reused_count": reused_count,
+            "write_count": 0,
+            "affected_model_ids": list(required_quality_ids),
+            "head": head.to_dict(),
+            "blockers": ["owner_execution_failed_or_source_drifted"],
+            "claim_boundary": (
+                "Owner execution or final source freshness failed; no model authority head was moved."
+            ),
+        }
+    owner_report = produce_model_revision_owner_evidence(
+        root,
+        model_parent_receipt=parent.parent_receipt_path,
+        snapshot_id=str(preparation["snapshot_id"]),
+        receipt_root=receipt_root,
+        output_path=output_root / "native-owner-evidence.json",
+    )
+    candidate = build_manifest_model_system_snapshot(
+        root,
+        snapshot_id=str(preparation["snapshot_id"]),
+        system_id=base.system_id,
+        subject_lane=base.subject_lane,
+        lifecycle=base.lifecycle,
+    )
+    subjects, quality_results = _native_path_quality_material(
+        parent,
+        candidate,
+        required_model_ids=required_quality_ids,
+        currentness_id=candidate.fingerprint,
+    )
+    built = build_current_model_revision(
+        root,
+        model_parent_receipt=parent.parent_receipt_path,
+        receipt_root=receipt_root,
+        output_root=output_root / "authority",
+        revision_set_id=str(preparation["revision_set_id"]),
+        task_id=str(preparation["task_id"]),
+        snapshot_id=str(preparation["snapshot_id"]),
+        removal_dispositions=removals,
+        intent_contributions=contributions,
+        intent_dispositions=dispositions,
+        effective_intent_transitions=transitions,
+        native_owner_contracts=owner_report.bundle.contracts,
+        native_owner_receipts=owner_report.bundle.receipts,
+        native_owner_verification_results=owner_report.bundle.verification_results,
+        path_quality_subjects=subjects,
+        path_quality_results=quality_results,
+        decision_reason=str(preparation["decision_reason"]),
+    )
+    if built.status != "pass":
+        raise ValueError("current change revision build did not pass")
+    final_candidate = load_model_system_snapshot(built.candidate_snapshot_path)
+    revision = ModelRevisionSet.from_dict(
+        _strict_json_loads(Path(built.revision_set_path).read_text(encoding="utf-8"))
+    )
+    next_head, _activation = activate_model_revision_set(
+        root,
+        final_candidate,
+        revision,
+        receipt_id=str(preparation["activation_receipt_id"]),
+    )
+    run_count = sum(item.execution_disposition == "execute" for item in parent.results)
+    reused_count = sum(item.execution_disposition == "reuse_current" for item in parent.results)
+    return {
+        "operation": "change", "status": "pass", "target_id": head.system_id,
+        "bootstrap": False, "required_count": len(parent.selected_model_ids),
+        "run_count": run_count, "reused_count": reused_count, "write_count": 1,
+        "affected_model_ids": list(required_quality_ids), "head": next_head.to_dict(),
+        "current_revision_fingerprint": revision.fingerprint, "blockers": [],
+        "claim_boundary": "One exact accepted current revision was built and activated by CAS.",
+    }
+
+
+def _change_operation(
+    root: Path,
+    request: Mapping[str, Any],
+    values: Mapping[str, Any],
+    *,
+    request_sha256: str,
+) -> dict[str, Any]:
+    """Execute one strict bootstrap or existing-current change transaction."""
+
+    from .evidence_receipts import fingerprint_value
+    from .model_authority_store import bootstrap_initial_current_model_authority
+    from .model_intent import ModelIntentContribution
+    from .model_regressions import run_manifest_regressions
+    from .model_system_inventory import build_manifest_model_system_snapshot
+    from .project_manifest import manifest_text_fingerprint
+
+    request_fields = {
+        "operation",
+        "target_id",
+        "scope",
+        "expected_current",
+        "bootstrap",
+        "revision_input",
+    }
+    if set(request) != request_fields:
+        raise ValueError(
+            "change request fields are not exact-current: "
+            f"missing={sorted(request_fields - set(request))}, "
+            f"unexpected={sorted(set(request) - request_fields)}"
+        )
+    if request["operation"] != "change":
+        raise ValueError("change request operation must be 'change'")
+    if "expected_current" in values:
+        raise ValueError("change expected current belongs in the request JSON")
+    target_id = request["target_id"]
+    scope = request["scope"]
+    if not isinstance(target_id, str) or not target_id.strip():
+        raise ValueError("change target_id must be a non-empty string")
+    if (
+        not isinstance(scope, list)
+        or not scope
+        or any(not isinstance(item, str) or not item.strip() for item in scope)
+        or len(scope) != len(set(scope))
+    ):
+        raise ValueError("change scope must be a non-empty unique model ID array")
+    if type(request["bootstrap"]) is not bool:
+        raise ValueError("change bootstrap must be a boolean")
+    if request["bootstrap"] is False:
+        return _change_current_operation(
+            root,
+            request,
+            request_sha256=request_sha256,
+        )
+    if request["expected_current"] is not None:
+        raise ValueError("bootstrap change expected_current must be null")
+
+    _preparation_path, preparation_raw = _root_file_reference(
+        root,
+        request["revision_input"],
+        context="revision_input",
+    )
+    preparation = _strict_json_loads(preparation_raw.decode("utf-8"))
+    preparation_fields = {
+        "schema",
+        "target_id",
+        "base_head_fingerprint",
+        "snapshot_id",
+        "revision_set_id",
+        "task_id",
+        "activation_receipt_id",
+        "decision_reason",
+        "intent_contributions",
+        "intent_dispositions",
+        "effective_intent_transitions",
+        "removal_dispositions",
+        "current_design_intent_contributions",
+        "accepted_boundary_contract_ref",
+        "path_quality_outputs",
+        "bootstrap_staging_root",
+    }
+    if not isinstance(preparation, Mapping) or set(preparation) != preparation_fields:
+        actual = set(preparation) if isinstance(preparation, Mapping) else set()
+        raise ValueError(
+            "revision preparation fields are not exact-current: "
+            f"missing={sorted(preparation_fields - actual)}, "
+            f"unexpected={sorted(actual - preparation_fields)}"
+        )
+    if preparation["schema"] != "flowguard.revision_preparation.v1":
+        raise ValueError("revision preparation schema is not current")
+    if preparation["target_id"] != target_id:
+        raise ValueError("revision preparation target_id does not match request")
+    if preparation["base_head_fingerprint"] is not None:
+        raise ValueError("bootstrap preparation base_head_fingerprint must be null")
+    for field in (
+        "snapshot_id",
+        "revision_set_id",
+        "task_id",
+        "activation_receipt_id",
+        "decision_reason",
+    ):
+        if not isinstance(preparation[field], str) or not preparation[field].strip():
+            raise ValueError(f"revision preparation {field} must be non-empty")
+    for field in (
+        "intent_contributions",
+        "intent_dispositions",
+        "effective_intent_transitions",
+        "removal_dispositions",
+        "current_design_intent_contributions",
+        "path_quality_outputs",
+    ):
+        if not isinstance(preparation[field], list):
+            raise ValueError(f"revision preparation {field} must be an array")
+    if any(
+        preparation[field]
+        for field in (
+            "intent_contributions",
+            "intent_dispositions",
+            "effective_intent_transitions",
+            "removal_dispositions",
+        )
+    ):
+        raise ValueError("bootstrap preparation cannot contain current-revision transitions")
+    if preparation["path_quality_outputs"]:
+        raise ValueError(
+            "bootstrap path_quality_outputs require a declared native producer artifact contract"
+        )
+    if preparation["accepted_boundary_contract_ref"] is not None:
+        raise ValueError("minimal bootstrap does not accept a boundary contract reference")
+    design = tuple(
+        ModelIntentContribution.from_dict(item)
+        for item in preparation["current_design_intent_contributions"]
+    )
+    if not design:
+        raise ValueError("bootstrap requires current design intent contributions")
+
+    staging_value = preparation["bootstrap_staging_root"]
+    if not isinstance(staging_value, str) or not staging_value.strip():
+        raise ValueError("bootstrap_staging_root must be a non-empty ROOT-relative path")
+    staging_path = (root / staging_value).resolve()
+    bootstrap_root = (root / ".flowguard" / "work" / "bootstrap").resolve()
+    try:
+        relative_staging = staging_path.relative_to(bootstrap_root)
+    except ValueError as exc:
+        raise ValueError("bootstrap_staging_root must remain under .flowguard/work/bootstrap") from exc
+    if len(relative_staging.parts) != 1:
+        raise ValueError("bootstrap_staging_root must name one isolated request directory")
+    if staging_path.is_symlink() or not staging_path.is_dir():
+        raise ValueError("bootstrap_staging_root must be an existing non-symlink directory")
+
+    manifest_path = root / ".flowguard" / "project.toml"
+    manifest_text = manifest_path.read_text(encoding="utf-8")
+    if "[model_authority]" in manifest_text:
+        raise ValueError("bootstrap target already has current model authority")
+    candidate = build_manifest_model_system_snapshot(
+        staging_path,
+        snapshot_id=str(preparation["snapshot_id"]),
+    )
+    if candidate.system_id != target_id:
+        raise ValueError("change target_id does not match candidate system_id")
+    known_model_ids = {item.logical_model_id for item in candidate.model_instances}
+    unknown_scope = sorted(set(scope) - known_model_ids)
+    if unknown_scope:
+        raise ValueError(f"change scope contains unknown model IDs: {unknown_scope}")
+
+    receipt_root = root / ".flowguard" / "evidence" / "model-owner-receipts"
+    # Keep the private request directory below the Windows MAX_PATH budget;
+    # the full request identity remains bound into every receipt/plan.
+    output_root = root / "work" / f"change-{request_sha256[:12]}"
+    receipt_root.mkdir(parents=True, exist_ok=True)
+    try:
+        parent = run_manifest_regressions(
+            staging_path,
+            tier="full",
+            jobs=1,
+            output_dir=output_root / "model-parent",
+            receipt_dir=receipt_root,
+            require_executed_case_ids=True,
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        return {
+            "operation": "change",
+            "status": "blocked",
+            "reason": "owner_execution_failed_or_source_drifted",
+            "target_id": target_id,
+            "bootstrap": True,
+            "required_count": len(candidate.model_instances),
+            "producer_count": 0,
+            "run_count": 0,
+            "reused_count": 0,
+            "write_count": 0,
+            "head": None,
+            "blockers": ["owner_execution_failed_or_source_drifted"],
+            "error": str(exc),
+            "claim_boundary": (
+                "Bootstrap owner execution or source freshness failed; no "
+                "observed model authority head was created."
+            ),
+        }
+    if parent.status != "pass" or not parent.parent_receipt_path:
+        run_count = sum(
+            item.execution_disposition == "execute" for item in parent.results
+        )
+        reused_count = sum(
+            item.execution_disposition == "reuse_current" for item in parent.results
+        )
+        return {
+            "operation": "change",
+            "status": "blocked",
+            "reason": "owner_execution_failed_or_source_drifted",
+            "target_id": target_id,
+            "bootstrap": True,
+            "required_count": len(parent.selected_model_ids),
+            "producer_count": run_count,
+            "run_count": run_count,
+            "reused_count": reused_count,
+            "write_count": 0,
+            "head": None,
+            "blockers": ["owner_execution_failed_or_source_drifted"],
+            "claim_boundary": (
+                "Bootstrap owner execution or source freshness failed; no "
+                "observed model authority head was created."
+            ),
+        }
+    result = bootstrap_initial_current_model_authority(
+        root,
+        staging_root=staging_path,
+        expected_absent_manifest_fingerprint=manifest_text_fingerprint(manifest_text),
+        snapshot_id=str(preparation["snapshot_id"]),
+        bootstrap_evidence_fingerprint=fingerprint_value(
+            {
+                "parent": parent.parent_receipt_fingerprint,
+                "candidate": candidate.fingerprint,
+                "preparation": f"sha256:{hashlib.sha256(preparation_raw).hexdigest()}",
+            }
+        ),
+        model_parent_receipt=parent.parent_receipt_path,
+        receipt_root=receipt_root,
+        revision_set_id=str(preparation["revision_set_id"]),
+        task_id=str(preparation["task_id"]),
+        activation_receipt_id=str(preparation["activation_receipt_id"]),
+        current_design_intent_contributions=design,
+        intent_receipt_id=f"intent:{preparation['revision_set_id']}",
+        intent_rationale=str(preparation["decision_reason"]),
+        intent_claim_boundary=str(preparation["decision_reason"]),
+        decision_reason=str(preparation["decision_reason"]),
+    )
+    run_count = sum(item.execution_disposition == "execute" for item in parent.results)
+    reused_count = sum(item.execution_disposition == "reuse_current" for item in parent.results)
+    return {
+        "operation": "change",
+        "status": "pass",
+        "target_id": target_id,
+        "bootstrap": True,
+        "required_count": len(parent.selected_model_ids),
+        "run_count": run_count,
+        "reused_count": reused_count,
+        "write_count": 1,
+        "head": result["head"],
+        "current_revision_fingerprint": result["current_revision_fingerprint"],
+        "blockers": [],
+        "claim_boundary": result["claim_boundary"],
+    }
+
+
+def _release_operation(
+    root: Path,
+    request: Mapping[str, Any],
+    values: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Qualify one exact accepted current source and optional local artifact."""
+
+    from .model_authority import ModelAuthorityError
+    from .model_authority_store import (
+        load_current_model_authority_state,
+        load_observed_model_system,
+        read_selected_model_closure,
+    )
+    from .release_verification import verify_declared_artifact
+
+    request_fields = {
+        "operation",
+        "target_id",
+        "scope",
+        "expected_current",
+        "release_contract",
+        "artifact",
+    }
+    if set(request) != request_fields:
+        raise ValueError(
+            "release request fields are not exact-current: "
+            f"missing={sorted(request_fields - set(request))}, "
+            f"unexpected={sorted(set(request) - request_fields)}"
+        )
+    if request["operation"] != "release":
+        raise ValueError("release request operation must be 'release'")
+    if "expected_current" in values:
+        raise ValueError("release expected current belongs in the request JSON")
+    target_id = request["target_id"]
+    expected_current = request["expected_current"]
+    scope = request["scope"]
+    if not isinstance(target_id, str) or not target_id.strip():
+        raise ValueError("release target_id must be a non-empty string")
+    if not isinstance(expected_current, str) or not expected_current.strip():
+        raise ValueError("release expected_current must be a non-empty head fingerprint")
+    if (
+        not isinstance(scope, list)
+        or not scope
+        or any(not isinstance(item, str) or not item.strip() for item in scope)
+        or len(scope) != len(set(scope))
+    ):
+        raise ValueError("release scope must be a non-empty unique model ID array")
+
+    _contract_path, contract_raw = _root_file_reference(
+        root,
+        request["release_contract"],
+        context="release_contract",
+    )
+    contract = _strict_json_loads(contract_raw.decode("utf-8"))
+    contract_fields = {
+        "schema",
+        "target_id",
+        "required_model_ids",
+        "required_check_ids",
+        "required_source_paths",
+        "artifact_members",
+    }
+    if not isinstance(contract, Mapping) or set(contract) != contract_fields:
+        actual = set(contract) if isinstance(contract, Mapping) else set()
+        raise ValueError(
+            "release contract fields are not exact-current: "
+            f"missing={sorted(contract_fields - actual)}, "
+            f"unexpected={sorted(actual - contract_fields)}"
+        )
+    if contract["schema"] != "flowguard.release_contract.v1":
+        raise ValueError("release contract schema is not current")
+    if contract["target_id"] != target_id:
+        raise ValueError("release contract target_id does not match request")
+    for field in ("required_model_ids", "required_check_ids", "required_source_paths"):
+        rows = contract[field]
+        if (
+            not isinstance(rows, list)
+            or not rows
+            or any(not isinstance(item, str) or not item.strip() for item in rows)
+            or len(rows) != len(set(rows))
+        ):
+            raise ValueError(f"release contract {field} must be a non-empty unique string array")
+    artifact_members = contract["artifact_members"]
+    if not isinstance(artifact_members, list):
+        raise ValueError("release contract artifact_members must be an array")
+    if not set(contract["required_model_ids"]).issubset(scope):
+        raise ValueError("release scope does not cover every required model")
+
+    # Artifact byte admission happens before any source/evidence producer can
+    # be considered.  The public release operation never publishes or tags.
+    artifact = request["artifact"]
+    artifact_checks = ()
+    if artifact is not None:
+        if not isinstance(artifact, Mapping):
+            raise ValueError("release artifact must be null or an object")
+        artifact_checks = verify_declared_artifact(root, artifact, artifact_members)
+        if not artifact_checks or not all(item.ok for item in artifact_checks):
+            return {
+                "operation": "release",
+                "status": "blocked",
+                "reason": "artifact_invalid",
+                "target_id": target_id,
+                "producer_count": 0,
+                "run_count": 0,
+                "reused_count": 0,
+                "write_count": 0,
+                "artifact_status": "blocked",
+                "checks": [item.to_dict() for item in artifact_checks],
+                "blockers": [item.check_id for item in artifact_checks if not item.ok],
+                "claim_scope": "local_qualification",
+            }
+    elif artifact_members:
+        raise ValueError("source-only release contract cannot declare artifact_members")
+
+    try:
+        head, snapshot = load_observed_model_system(root)
+        if head.fingerprint != expected_current:
+            raise ValueError("release expected_current does not match current head")
+        if head.system_id != target_id:
+            raise ValueError("release target_id does not match current authority")
+        state = load_current_model_authority_state(
+            root,
+            head=head,
+            snapshot=snapshot,
+            reverify_current_sources=True,
+        )
+        selected = read_selected_model_closure(
+            root,
+            selected_model_ids=tuple(contract["required_model_ids"]),
+            authority_state=state,
+        )
+        if selected.selected_source_currentness != "current":
+            raise ModelAuthorityError(
+                "required release model source differs from accepted current authority"
+            )
+    except ModelAuthorityError as exc:
+        return {
+            "operation": "release",
+            "status": "blocked",
+            "reason": "source_requires_change",
+            "target_id": target_id,
+            "producer_count": 0,
+            "run_count": 0,
+            "reused_count": 0,
+            "write_count": 0,
+            "artifact_status": "pass" if artifact is not None else "not_run",
+            "blockers": ["source_requires_change"],
+            "error": str(exc),
+            "claim_scope": "local_qualification",
+        }
+    revision = state.accepted_revision
+    if revision is None or revision.status != "accepted":
+        raise ValueError("release requires one accepted current revision")
+    current_model_ids = {item.logical_model_id for item in snapshot.model_instances}
+    missing_models = sorted(set(contract["required_model_ids"]) - current_model_ids)
+    if missing_models:
+        raise ValueError(f"release contract references non-current models: {missing_models}")
+    accepted_check_ids = {
+        obligation
+        for evidence in revision.required_evidence_refs
+        for obligation in evidence.obligation_ids
+    }
+    missing_checks = sorted(set(contract["required_check_ids"]) - accepted_check_ids)
+    if missing_checks:
+        raise ValueError(f"release contract checks are not accepted obligations: {missing_checks}")
+    source_rows: list[dict[str, str]] = []
+    for relative in contract["required_source_paths"]:
+        candidate = Path(relative)
+        path = candidate.resolve() if candidate.is_absolute() else (root / candidate).resolve()
+        try:
+            path.relative_to(root)
+        except ValueError as exc:
+            raise ValueError("release required source path escapes ROOT") from exc
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f"release required source path is not an ordinary file: {relative}")
+        source_rows.append(
+            {
+                "path": path.relative_to(root).as_posix(),
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+        )
+    # Repeat artifact bytes and head CAS after all source reads.
+    if artifact is not None:
+        final_artifact_checks = verify_declared_artifact(root, artifact, artifact_members)
+        if not all(item.ok for item in final_artifact_checks):
+            raise ValueError("release artifact changed during qualification")
+    final_head, _final_snapshot = load_observed_model_system(root)
+    if final_head.fingerprint != head.fingerprint:
+        raise ValueError("release current head changed during qualification")
+    return {
+        "operation": "release",
+        "status": "pass",
+        "target_id": target_id,
+        "source_head_fingerprint": head.fingerprint,
+        "release_contract_hash": hashlib.sha256(contract_raw).hexdigest(),
+        "required_model_ids": list(contract["required_model_ids"]),
+        "required_check_ids": list(contract["required_check_ids"]),
+        "required_source_paths": source_rows,
+        "producer_count": 0,
+        "run_count": 0,
+        "reused_count": len(contract["required_model_ids"]),
+        "write_count": 0,
+        "artifact_status": "pass" if artifact is not None else "not_run",
+        "qualification": "artifact_and_source" if artifact is not None else "source_qualification_only",
+        "checks": [item.to_dict() for item in artifact_checks],
+        "blockers": [],
+        "claim_scope": "local_qualification",
+        "claim_boundary": (
+            "This qualifies exact accepted local source and an optional declared artifact. "
+            "It performs no install, tag, push, or publication."
+        ),
+    }
+
+
 def _compact_operation(operation: str, argv: list[str]) -> int:
     try:
         values = _compact_parse(operation, argv)
         root: Path = values["root"]
         request: Mapping[str, Any] = {}
+        request_raw = b""
         request_path = values.get("request")
         if request_path:
             candidate = Path(str(request_path))
@@ -4946,10 +6074,52 @@ def _compact_operation(operation: str, argv: list[str]) -> int:
                 request_file.relative_to(root)
             except ValueError as exc:
                 raise ValueError("request path must remain under --root") from exc
-            request = _strict_json_loads(request_file.read_text(encoding="utf-8"))
+            request_raw = request_file.read_bytes()
+            request = _strict_json_loads(request_raw.decode("utf-8"))
             if not isinstance(request, Mapping):
                 raise ValueError("request JSON must be an object")
-        payload: dict[str, Any] = {
+        if operation == "read":
+            payload = _read_operation(root, request, values)
+            print(
+                json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    allow_nan=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
+            return 0 if payload["status"] == "pass" else 1
+        if operation == "change":
+            payload = _change_operation(
+                root,
+                request,
+                values,
+                request_sha256=hashlib.sha256(request_raw).hexdigest(),
+            )
+            print(
+                json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    allow_nan=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
+            return 0 if payload["status"] == "pass" else 1
+        if operation == "release":
+            payload = _release_operation(root, request, values)
+            print(
+                json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    allow_nan=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
+            return 0 if payload["status"] == "pass" else 1
+        payload = {
             "artifact_type": "flowguard_compact_operation",
             "operation": operation,
             "status": "pass",
